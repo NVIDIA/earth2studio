@@ -67,6 +67,7 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
             "lon": [250.0, 251.0],
             "station": ["72469", "72469"],
             "station_elev": [1000.0, 1000.0],
+            "quality": [2, 2],
             "observation": [273.15, 280.0],
             "variable": ["t", "t"],
         }
@@ -214,6 +215,7 @@ def test_nnja_obs_conv_mock_fetch():
             "lon": [250.0, 251.0],
             "station": ["72469", "72469"],
             "station_elev": [1000.0, 1000.0],
+            "quality": [2, 2],
             "observation": [273.15, 280.0],
             "variable": ["t", "t"],
         }
@@ -264,7 +266,7 @@ def test_nnja_obs_conv_available():
 
 def test_nnja_safe_int():
     """Test _safe_int helper function with various input types."""
-    from earth2studio.data.nnja import _safe_int
+    from earth2studio.data.utils_bufr import safe_int as _safe_int
 
     # int/float inputs
     assert _safe_int(42) == 42
@@ -289,7 +291,7 @@ def test_nnja_safe_int():
 
 def test_nnja_extract_dx_tables_empty():
     """Test _extract_dx_tables with empty/minimal inputs."""
-    from earth2studio.data.nnja import _extract_dx_tables
+    from earth2studio.data.utils_bufr import extract_dx_tables as _extract_dx_tables
 
     table_b: dict = {}
     table_d: dict = {}
@@ -317,7 +319,7 @@ def test_nnja_extract_dx_tables_empty():
 
 def test_nnja_extract_dx_tables_truncated():
     """Test _extract_dx_tables with truncated/partial data."""
-    from earth2studio.data.nnja import _extract_dx_tables
+    from earth2studio.data.utils_bufr import extract_dx_tables as _extract_dx_tables
 
     table_b: dict = {}
     table_d: dict = {}
@@ -344,7 +346,7 @@ def test_nnja_extract_dx_tables_truncated():
 
 def test_nnja_extract_dx_tables_valid_entries():
     """Test _extract_dx_tables with valid Table B and D entries."""
-    from earth2studio.data.nnja import _extract_dx_tables
+    from earth2studio.data.utils_bufr import extract_dx_tables as _extract_dx_tables
 
     table_b: dict = {}
     table_d: dict = {}
@@ -423,7 +425,7 @@ def test_nnja_extract_dx_tables_valid_entries():
 
 def test_nnja_extract_dx_tables_table_d():
     """Test _extract_dx_tables Table D sequence entries."""
-    from earth2studio.data.nnja import _extract_dx_tables
+    from earth2studio.data.utils_bufr import extract_dx_tables as _extract_dx_tables
 
     table_b: dict = {}
     table_d: dict = {}

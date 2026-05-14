@@ -21,7 +21,6 @@ import hashlib
 import os
 import pathlib
 import shutil
-import struct
 import uuid
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
@@ -41,6 +40,33 @@ from earth2studio.data.utils import (
     gather_with_concurrency,
     prep_data_inputs,
 )
+from earth2studio.data.utils_bufr import (
+    HDR_DHR,
+    HDR_ELV,
+    HDR_SID,
+    HDR_T29,
+    HDR_TYP,
+    HDR_XOB,
+    HDR_YOB,
+    MNEMONIC_TO_DESCR,
+    OBS_CAT,
+    OBS_POB,
+    OBS_QUALITY_MAP,
+    OBS_UOB,
+    OBS_VOB,
+    OBS_WQM,
+    OBSERVATION_DESCR_IDS,
+    PREPBUFR_OBS_TYPES,
+)
+from earth2studio.data.utils_bufr import (
+    create_decoder as _bufr_create_decoder,
+)
+from earth2studio.data.utils_bufr import (
+    parse_prepbufr_messages as _bufr_parse_prepbufr_messages,
+)
+from earth2studio.data.utils_bufr import (
+    register_dx_tables as _bufr_register_dx_tables,
+)
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.lexicon.gdas import GDASObsConvLexicon
 from earth2studio.utils.imports import (
@@ -52,89 +78,14 @@ from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
 try:
     from pybufrkit.decoder import Decoder as BufrDecoder
-    from pybufrkit.tables import TableGroupCacheManager
 except ImportError:
     OptionalDependencyFailure("data")
     BufrDecoder = None  # type: ignore[assignment,misc]
-    TableGroupCacheManager = None  # type: ignore[assignment,misc]
 
 NOMADS_BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod"
 
-# Mapping from BUFR section-1 dataCategory (internal NCEP encoding) to
-# the human-readable PrepBUFR message-type class string.
-# Ref: NCEP PrepBUFR documentation and embedded DX Table A.
-PREPBUFR_OBS_TYPES: dict[int, str] = {
-    102: "ADPUPA",  # Upper air: radiosondes, pilot balloons, dropsondes
-    104: "AIRCFT",  # Aircraft: AIREP, PIREP, AMDAR, TAMDAR
-    105: "SATWND",  # Satellite-derived winds
-    107: "VADWND",  # VAD (NEXRAD) winds
-    109: "ADPSFC",  # Surface land: METAR, synoptic
-    110: "SFCSHP",  # Surface marine: ships, buoys, C-MAN
-    112: "GPSIPW",  # GPS precipitable water
-    113: "SYNDAT",  # Synthetic bogus data
-    119: "RASSDA",  # RASS virtual temperature
-    121: "ASCATW",  # ASCAT scatterometer winds
-}
-
 # Maximum age of data on NOMADS (approximate – production dir retains ~2 days)
 _MAX_AGE_DAYS = 2
-
-# PrepBUFR descriptor IDs for header fields
-_HDR_SID = 1194  # Station ID (CCITT IA5, 64 bits)
-_HDR_XOB = 6240  # Longitude (degrees east)
-_HDR_YOB = 5002  # Latitude (degrees north)
-_HDR_DHR = 4215  # Obs time minus cycle time (hours)
-_HDR_ELV = 10199  # Station elevation (m)
-_HDR_TYP = 55007  # Report type code
-_HDR_T29 = 55008  # Data dump report type code
-
-# PrepBUFR descriptor IDs for observation categories and levels
-_OBS_CAT = 8193  # Observation category code
-_OBS_POB = 7245  # Pressure observation (MB)
-_OBS_PQM = 7246  # Pressure quality mark
-_OBS_ZOB = 10007  # Height observation (m)
-_OBS_TOB = 12245  # Temperature observation (DEG C)
-_OBS_TQM = 12246  # Temperature quality mark
-_OBS_QOB = 13245  # Specific humidity (MG/KG)
-_OBS_QQM = 13246  # Moisture quality mark
-_OBS_UOB = 11003  # U-wind component (M/S)
-_OBS_VOB = 11004  # V-wind component (M/S)
-_OBS_WQM = 11240  # Wind quality mark
-_OBS_DDO = 11001  # Wind direction (DEGREES TRUE)
-_OBS_FFO = 11252  # Wind speed (KNOTS)
-_OBS_PWO = 13193  # Precipitable water (KG/M**2)
-_OBS_PMO = 10243  # Mean sea level pressure (MB)
-_OBS_TDO = 12244  # Dewpoint temperature (DEG C)
-
-# Set of all observation-level descriptor IDs we care about
-_OBSERVATION_DESCR_IDS: set[int] = {
-    _OBS_POB,
-    _OBS_PQM,
-    _OBS_ZOB,
-    _OBS_TOB,
-    _OBS_TQM,
-    _OBS_QOB,
-    _OBS_QQM,
-    _OBS_UOB,
-    _OBS_VOB,
-    _OBS_WQM,
-    _OBS_DDO,
-    _OBS_FFO,
-    _OBS_PWO,
-    _OBS_PMO,
-    _OBS_TDO,
-}
-
-# Header descriptor IDs
-_HEADER_DESCR_IDS: set[int] = {
-    _HDR_SID,
-    _HDR_XOB,
-    _HDR_YOB,
-    _HDR_DHR,
-    _HDR_ELV,
-    _HDR_TYP,
-    _HDR_T29,
-}
 
 
 @dataclass
@@ -760,60 +711,7 @@ class NomadsGDASObsConv:
             data_messages is a list of (message_bytes, data_category) tuples
             for all non-DX messages.
         """
-        table_b: dict[int, tuple[Any, ...]] = {}
-        table_d: dict[int, tuple[Any, ...]] = {}
-        data_messages: list[tuple[bytes, int]] = []
-        dx_messages: list[bytes] = []
-
-        # Split into individual BUFR messages
-        pos = 0
-        while pos < len(file_data):
-            idx = file_data.find(b"BUFR", pos)
-            if idx == -1:
-                break
-            # BUFR edition 3/4: message length in bytes 5-7 (3 bytes, big-endian)
-            msg_len = struct.unpack(">I", b"\x00" + file_data[idx + 4 : idx + 7])[0]
-            if msg_len < 8:
-                # Malformed/truncated: skip past this BUFR marker
-                pos = idx + 4
-                continue
-            msg_bytes = file_data[idx : idx + msg_len]
-
-            # Quick check of dataCategory in section 1.
-            # BUFR edition 3: section 0 is 8 bytes, section 1 octet 9
-            # (0-indexed byte 8) holds the data category.
-            # Absolute offset from message start = 8 + 8 = 16.
-            data_cat = file_data[idx + 16] if idx + 16 < len(file_data) else 0
-            if data_cat == 11:
-                dx_messages.append(msg_bytes)
-            else:
-                data_messages.append((msg_bytes, data_cat))
-
-            pos = idx + msg_len
-
-        # Decode DX table messages using pybufrkit (they use standard descriptors)
-        if dx_messages:
-            try:
-                dx_decoder = BufrDecoder()
-                for dx_bytes in dx_messages:
-                    try:
-                        dx_msg = dx_decoder.process(dx_bytes)
-                    except Exception:  # noqa: S112
-                        logger.debug("Skipping unparseable DX table message")
-                        continue
-
-                    td = dx_msg.template_data.value
-                    dvas = td.decoded_values_all_subsets
-                    if not dvas:
-                        continue
-
-                    flat = dvas[0]
-                    _extract_dx_tables(flat, table_b, table_d)
-
-            except Exception as e:
-                logger.warning(f"Failed to extract DX tables: {e}")
-
-        return table_b, table_d, data_messages
+        return _bufr_parse_prepbufr_messages(file_data, silence_noise=False)
 
     @staticmethod
     def _create_decoder(
@@ -834,11 +732,7 @@ class NomadsGDASObsConv:
         pybufrkit.decoder.Decoder
             Configured decoder instance.
         """
-        TableGroupCacheManager.clear_extra_entries()
-        TableGroupCacheManager._TABLE_GROUP_CACHE.invalidate()
-        if table_b or table_d:
-            TableGroupCacheManager.add_extra_entries(table_b, table_d)
-        return BufrDecoder()
+        return _bufr_create_decoder(table_b, table_d)
 
     @staticmethod
     def _extract_subset(
@@ -892,27 +786,27 @@ class NomadsGDASObsConv:
         header_done = False
         for i, (d, v) in enumerate(zip(descs, vals)):
             did = d.id
-            if did == _HDR_SID:
+            if did == HDR_SID:
                 header["sid"] = (
                     v.decode("ascii", errors="replace").strip()
                     if isinstance(v, bytes)
                     else str(v).strip()
                 )
-            elif did == _HDR_XOB:
+            elif did == HDR_XOB:
                 header["xob"] = v
-            elif did == _HDR_YOB:
+            elif did == HDR_YOB:
                 header["yob"] = v
-            elif did == _HDR_DHR:
+            elif did == HDR_DHR:
                 header["dhr"] = v if v is not None else 0.0
-            elif did == _HDR_ELV:
+            elif did == HDR_ELV:
                 header["elv"] = v
-            elif did == _HDR_TYP:
+            elif did == HDR_TYP:
                 header["typ"] = v
-            elif did == _HDR_T29:
+            elif did == HDR_T29:
                 header["t29"] = v
                 header_done = True
             # Once we hit the first CAT, header is done
-            if did == _OBS_CAT:
+            if did == OBS_CAT:
                 header_done = True
                 break
             if header_done:
@@ -942,7 +836,7 @@ class NomadsGDASObsConv:
         # Build requested mnemonic IDs set
         needed_ids: dict[str, int] = {}
         for var_name, (bufr_key, _) in var_plan.items():
-            desc_id = _MNEMONIC_TO_DESCR.get(bufr_key)
+            desc_id = MNEMONIC_TO_DESCR.get(bufr_key)
             if desc_id is not None:
                 needed_ids[var_name] = desc_id
 
@@ -962,7 +856,7 @@ class NomadsGDASObsConv:
             val = vals[i]
 
             # Start of a new observation level: POB
-            if did == _OBS_POB:
+            if did == OBS_POB:
                 # Flush previous level
                 if in_obs and current_level:
                     _emit_rows(
@@ -977,9 +871,9 @@ class NomadsGDASObsConv:
                         needed_ids,
                         need_wind,
                     )
-                current_level = {_OBS_POB: val}
+                current_level = {OBS_POB: val}
                 in_obs = True
-            elif in_obs and did in _OBSERVATION_DESCR_IDS:
+            elif in_obs and did in OBSERVATION_DESCR_IDS:
                 # Only store first occurrence per descriptor per level
                 if did not in current_level:
                     current_level[did] = val
@@ -1178,22 +1072,6 @@ class NomadsGDASObsConv:
 # ── Module-level helper functions for PrepBUFR decoding ──────────────
 
 
-# Mapping from lexicon mnemonic strings to PrepBUFR descriptor IDs
-_MNEMONIC_TO_DESCR: dict[str, int] = {
-    "TOB": _OBS_TOB,  # Temperature (DEG C)
-    "QOB": _OBS_QOB,  # Specific humidity (MG/KG)
-    "POB": _OBS_POB,  # Pressure (MB)
-    "PWO": _OBS_PWO,  # Precipitable water (KG/M**2)
-    "ZOB": _OBS_ZOB,  # Height (m)
-    "PMO": _OBS_PMO,  # Mean sea level pressure (MB)
-    "TDO": _OBS_TDO,  # Dewpoint temperature (DEG C)
-    "DDO": _OBS_DDO,  # Wind direction (DEGREES TRUE)
-    "FFO": _OBS_FFO,  # Wind speed (KNOTS)
-    "UOB": _OBS_UOB,  # U-wind (M/S)
-    "VOB": _OBS_VOB,  # V-wind (M/S)
-}
-
-
 # ── Process-pool worker functions for parallel decode ────────────────
 
 # Module-level decoder for worker processes, set by _init_decode_worker.
@@ -1211,10 +1089,7 @@ def _init_decode_worker(
     as a module-level global.
     """
     global _worker_decoder  # noqa: PLW0603
-    TableGroupCacheManager.clear_extra_entries()
-    TableGroupCacheManager._TABLE_GROUP_CACHE.invalidate()
-    if table_b or table_d:
-        TableGroupCacheManager.add_extra_entries(table_b, table_d)
+    _bufr_register_dx_tables(table_b, table_d)
     _worker_decoder = BufrDecoder()
 
 
@@ -1371,17 +1246,8 @@ def _emit_rows(
         Whether any wind variables are requested.
     """
     # Pressure for this level (MB -> Pa: multiply by 100)
-    pob_val = level.get(_OBS_POB)
+    pob_val = level.get(OBS_POB)
     pres_pa = np.float32(pob_val * 100.0) if pob_val is not None else None
-
-    # Per-variable quality mark mapping: observation descriptor -> QM descriptor
-    _desc_to_qm: dict[int, int] = {
-        _OBS_POB: _OBS_PQM,
-        _OBS_TOB: _OBS_TQM,
-        _OBS_QOB: _OBS_QQM,
-        _OBS_UOB: _OBS_WQM,
-        _OBS_VOB: _OBS_WQM,
-    }
 
     # Common row template (quality set per-variable below)
     base_row: dict[str, Any] = {
@@ -1409,17 +1275,17 @@ def _emit_rows(
         row["variable"] = var_name
         row["observation"] = np.float32(val)
         # Use the correct quality mark for this variable
-        qm_id = _desc_to_qm.get(desc_id)
+        qm_id = OBS_QUALITY_MAP.get(desc_id)
         qv = level.get(qm_id) if qm_id is not None else None
         row["quality"] = np.uint16(int(qv)) if qv is not None else None
         rows.append(row)
 
     # Wind variables (u/v from UOB/VOB)
     if need_wind:
-        uob = level.get(_OBS_UOB)
-        vob = level.get(_OBS_VOB)
+        uob = level.get(OBS_UOB)
+        vob = level.get(OBS_VOB)
         # Wind quality mark applies to both u and v
-        wqm = level.get(_OBS_WQM)
+        wqm = level.get(OBS_WQM)
         wind_quality = np.uint16(int(wqm)) if wqm is not None else None
 
         if uob is not None and vob is not None:
@@ -1436,158 +1302,3 @@ def _emit_rows(
                     row["observation"] = np.float32(vob)
                     row["quality"] = wind_quality
                     rows.append(row)
-
-
-def _extract_dx_tables(
-    flat: list[Any],
-    table_b: dict[int, tuple[Any, ...]],
-    table_d: dict[int, tuple[Any, ...]],
-) -> None:
-    """Extract NCEP Table B and D entries from a DX message value list.
-
-    DX table messages (dataCategory=11) contain embedded NCEP-local BUFR
-    descriptor definitions.  The flat decoded values follow the layout
-    produced by the NCEP BUFRLIB DX table encoding:
-
-    - n_table_a, [table_a entries (3 fields each)…]
-    - n_table_b, [table_b entries (11 fields each)…]
-    - n_table_d, [table_d entries (variable-length)…]
-
-    Each Table B entry has 11 fields:
-        F, X, Y, mnemonic(32), desc_cont(32), unit(24),
-        sign_scale(1), scale(3), sign_ref(1), reference(10), width(3)
-
-    Each Table D entry has:
-        F, X, Y, mnemonic(64), n_members,
-        [member F, X, Y, …]
-
-    Parameters
-    ----------
-    flat : list
-        Decoded values from a single DX message subset.
-    table_b : dict
-        Accumulator dict to update with Table B entries.
-    table_d : dict
-        Accumulator dict to update with Table D entries.
-    """
-    idx = 0
-    n = len(flat)
-
-    # Helper: safely read string
-    def _str(v: Any) -> str:
-        if isinstance(v, bytes):
-            return v.decode("ascii", errors="replace").strip()
-        if v is None:
-            return ""
-        return str(v).strip()
-
-    def _safe_int(v: Any) -> int:
-        """Convert value to int, handling bytes and string types."""
-        if isinstance(v, (int, float)):
-            return int(v)
-        s = _str(v)
-        if not s:
-            return 0
-        try:
-            return int(s)
-        except ValueError:
-            return 0
-
-    def _fxy_to_id(f: Any, x: Any, y: Any) -> int:
-        """Convert F, X, Y fields to an integer descriptor ID."""
-        return _safe_int(f) * 100000 + _safe_int(x) * 1000 + _safe_int(y)
-
-    # ── Table A section ──
-    if idx >= n:
-        return
-    n_a = _safe_int(flat[idx])
-    idx += 1
-    # Table A entries: 3 fields each (type_number, desc_part1, desc_part2)
-    idx += n_a * 3
-    if idx >= n:
-        return
-
-    # ── Table B section ──
-    n_b = _safe_int(flat[idx])
-    idx += 1
-
-    for _ in range(n_b):
-        if idx + 10 >= n:
-            return
-        f_val = flat[idx]
-        x_val = flat[idx + 1]
-        y_val = flat[idx + 2]
-        mnemonic = _str(flat[idx + 3])
-        # flat[idx + 4] is description continuation
-        unit = _str(flat[idx + 5])
-        sign_scale = _str(flat[idx + 6])
-        scale_s = _str(flat[idx + 7])
-        sign_ref = _str(flat[idx + 8])
-        ref_s = _str(flat[idx + 9])
-        width_s = _str(flat[idx + 10])
-        idx += 11
-
-        desc_id = _fxy_to_id(f_val, x_val, y_val)
-        if desc_id == 0:
-            continue
-
-        scale = _safe_int(scale_s)
-        if sign_scale == "-":
-            scale = -scale
-        reference = _safe_int(ref_s)
-        if sign_ref == "-":
-            reference = -reference
-        width = _safe_int(width_s)
-
-        # Build pybufrkit Table B entry tuple:
-        # (name, unit, scale, refval, nbits, crex_unit, crex_scale, crex_nchars)
-        entry = (
-            mnemonic,
-            unit,
-            scale,
-            reference,
-            width,
-            unit,  # crex_unit = same as unit
-            scale,  # crex_scale = same as scale
-            max(1, (width + 3) // 4),  # crex_nchars approximation
-        )
-        table_b[desc_id] = entry
-
-    # ── Table D section ──
-    if idx >= n:
-        return
-    n_d = _safe_int(flat[idx])
-    idx += 1
-
-    for _ in range(n_d):
-        if idx + 3 >= n:
-            return
-        # Table D header: F, X, Y, mnemonic(64)
-        # Note: unlike Table B, NCEP DX Table D entries encode the
-        # mnemonic as a single 64-bit field (no separate desc_cont).
-        f_val = flat[idx]
-        x_val = flat[idx + 1]
-        y_val = flat[idx + 2]
-        seq_mnemonic = _str(flat[idx + 3])
-        idx += 4
-
-        seq_id = _fxy_to_id(f_val, x_val, y_val)
-        if seq_id == 0:
-            continue
-
-        # Number of member descriptors
-        if idx >= n:
-            return
-        n_members = _safe_int(flat[idx])
-        idx += 1
-
-        members: list[str] = []
-        for _ in range(n_members):
-            if idx >= n:
-                break
-            member_fxy = _str(flat[idx])
-            idx += 1
-            members.append(member_fxy)
-
-        if members:
-            table_d[seq_id] = (seq_mnemonic, members)
