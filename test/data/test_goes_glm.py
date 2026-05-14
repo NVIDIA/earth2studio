@@ -315,7 +315,7 @@ def test_goes_glm_invalid_variable():
 # Tests for the internal S3 plumbing (mocked filesystem)
 # ----------------------------------------------------------------------
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def test_discover_files_filters_window_and_dedups():
@@ -412,6 +412,12 @@ def test_empty_dataframe_path():
         )
     assert list(df.columns) == ["time", "lat", "lon", "observation", "variable"]
     assert df.empty
+    # Empty result still carries schema-typed columns, not all-object.
+    assert df["time"].dtype.kind == "M"
+    assert df["lat"].dtype == np.float32
+    assert df["lon"].dtype == np.float32
+    assert df["observation"].dtype == np.float32
+    assert df["variable"].dtype == object
 
 
 def test_resolve_event_times_fallback(tmp_path):

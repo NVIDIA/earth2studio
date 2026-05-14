@@ -83,6 +83,11 @@ _SLOT_HISTORY: dict[str, tuple[tuple[str, datetime, datetime], ...]] = {
 
 _GLM_MIN_DATE = datetime(2018, 2, 13)
 
+# Each LCFA file covers a ~20 s scan; widen the lower file-start bound by
+# this much so events at the leading edge of a tight tolerance window are
+# not silently dropped.
+_GLM_FILE_DURATION = timedelta(seconds=20)
+
 
 @dataclass(frozen=True)
 class _GOESGLMFile:
@@ -412,10 +417,11 @@ class GOESGLM:
                 for tmin, tmax, win_sat in windows:
                     if win_sat != sat:
                         continue
-                    # GLM files cover ~20 s; treat ``file_start`` as the
-                    # representative time and keep any file whose start
-                    # lies in the requested window.
-                    if tmin <= file_start <= tmax:
+                    # GLM files cover ~20 s; accept any file whose scan
+                    # starts within one file duration before ``tmin`` so
+                    # events at the leading edge of the window are not
+                    # silently dropped for tight tolerances.
+                    if tmin - _GLM_FILE_DURATION <= file_start <= tmax:
                         uri = (
                             f"s3://{key}"
                             if key.startswith(_BUCKETS[sat])
@@ -508,7 +514,10 @@ class GOESGLM:
 
     def _empty_result(self, schema: pa.Schema) -> pd.DataFrame:
         empty = pd.DataFrame(
-            {name: pd.Series(dtype=object) for name in self.SCHEMA.names}
+            {
+                f.name: pd.Series(dtype=_arrow_to_pandas_dtype(f.type))
+                for f in self.SCHEMA
+            }
         )
         empty.attrs["source"] = self.SOURCE_ID
         return empty[[name for name in schema.names if name in empty.columns]]
@@ -622,6 +631,20 @@ class GOESGLM:
                 )
             selected.append(cls.SCHEMA.field(name))
         return pa.schema(selected)
+
+
+def _arrow_to_pandas_dtype(arrow_type: pa.DataType) -> Any:
+    """Map a PyArrow type to a pandas/numpy dtype for empty-DataFrame stubs."""
+    if pa.types.is_timestamp(arrow_type):
+        unit = arrow_type.unit
+        return f"datetime64[{unit}]"
+    if pa.types.is_floating(arrow_type):
+        return np.dtype(arrow_type.to_pandas_dtype())
+    if pa.types.is_integer(arrow_type):
+        return np.dtype(arrow_type.to_pandas_dtype())
+    if pa.types.is_string(arrow_type):
+        return object
+    return object
 
 
 def _parse_filename_start(key: str) -> datetime | None:
