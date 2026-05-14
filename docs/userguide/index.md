@@ -48,7 +48,7 @@ run(["2024-01-01"], 10, model, ds, io)
 
 - [Prognostic Models](components/prognostic)
 - [Diagnostic Models](components/diagnostic)
-- [Datasources](components/datasources)
+- [Data Sources](components/datasources)
 - [Perturbations](components/perturbation)
 - [Statistics](components/statistics)
 - [IO Backends](components/io)

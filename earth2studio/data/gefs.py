@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import asyncio
-import concurrent.futures
 import functools
 import hashlib
 import os
@@ -25,7 +24,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-import nest_asyncio
 import numpy as np
 import pygrib
 import s3fs
@@ -34,6 +32,7 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    _sync_async,
     datasource_cache_root,
     prep_forecast_inputs,
 )
@@ -132,15 +131,7 @@ class GEFS_FX:
         self.async_timeout = async_timeout
         self.lexicon = GEFSLexicon
 
-        # Check to see if there is a running loop (initialized in async)
-        try:
-            nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            # Else we assume that async calls will be used which in that case
-            # we will init the group in the call function when we have the loop
-            self.fs = None
+        self.fs: s3fs.S3FileSystem | None = None
 
     async def _async_init(self) -> None:
         """Async initialization of zarr group
@@ -177,29 +168,13 @@ class GEFS_FX:
             GEFS forecast data array
         """
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        # Modify the worker amount
-        loop.set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
-        )
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(
-                self.fetch(time, lead_time, variable), timeout=self.async_timeout
+            xr_array = _sync_async(
+                self.fetch, time, lead_time, variable, timeout=self.async_timeout
             )
-        )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
+        finally:
+            # Delete cache if needed
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
 
@@ -227,11 +202,7 @@ class GEFS_FX:
             GEFS forecast data array
         """
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If you are calling this \
-            function directly make sure the data source is initialized inside the async \
-            loop!"
-            )
+            await self._async_init()
 
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
         # Create cache dir if doesnt exist

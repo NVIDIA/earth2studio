@@ -17,6 +17,7 @@
 from .ace2 import ACE2ERA5Data
 from .arco import ARCO
 from .base import DataSource, ForecastSource
+from .cams import CAMS_FX
 from .cbottle import CBottle3D
 from .cds import CDS
 from .cmip6 import CMIP6, CMIP6MultiRealm
@@ -24,12 +25,23 @@ from .const import Constant, Constant_FX
 from .ecmwf import AIFS_ENS_FX, AIFS_FX, IFS, IFS_ENS, IFS_ENS_FX, IFS_FX
 from .gefs import GEFS_FX, GEFS_FX_721x1440
 from .gfs import GFS, GFS_FX
+from .ghcn import GHCNDaily
 from .goes import GOES
+from .himawari_ahi import HimawariAHI
 from .hrrr import HRRR, HRRR_FX
 from .isd import ISD
 from .jpss import JPSS
+from .jpss_atms import JPSS_ATMS
+from .jpss_cris import JPSS_CRIS
+from .meteosat_fci import MeteosatFCI
+from .metop_amsua import MetOpAMSUA
+from .metop_avhrr import MetOpAVHRR
+from .metop_iasi import MetOpIASI
+from .metop_mhs import MetOpMHS
 from .mrms import MRMS
 from .ncar import NCAR_ERA5
+from .nclimgrid import NClimGridDaily
+from .nnja import NNJAObsConv
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFS,
     PlanetaryComputerGOES,

@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
-import concurrent.futures
 import gzip
 import hashlib
 import os
@@ -25,7 +23,6 @@ import shutil
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
-import nest_asyncio
 import numpy as np
 import pygrib
 import s3fs
@@ -33,7 +30,7 @@ import xarray as xr
 from loguru import logger
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import _sync_async, datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import MRMSLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -119,13 +116,8 @@ class MRMS:
         self._verbose = verbose
         self._max_workers = max_workers
         self.async_timeout = async_timeout
-        # Set up S3 filesystem
-        try:
-            nest_asyncio.apply()
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            self.fs = None
+        # Set up S3 filesystem (deferred to first call)
+        self.fs: s3fs.S3FileSystem | None = None
 
     async def _async_init(self) -> None:
         """Async initialization of S3 filesystem"""
@@ -156,25 +148,13 @@ class MRMS:
             source file.
         """
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        loop.set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
-        )
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
-        )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
+            xr_array = _sync_async(
+                self.fetch, time, variable, timeout=self.async_timeout
+            )
+        finally:
+            # Delete cache if needed
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
 
@@ -199,11 +179,7 @@ class MRMS:
             MRMS weather data array
         """
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If you are calling this \
-            function directly make sure the data source is initialized inside the async \
-            loop!"
-            )
+            await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
         # Validate requested times are within MRMS availability window
@@ -213,7 +189,7 @@ class MRMS:
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        session = await self.fs.set_session(refresh=True)
+        session = await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         # Group variables by MRMS product and keep (var_index, modifier)
         product_to_vars: dict[str, list[tuple[int, Callable]]] = {}
@@ -305,7 +281,7 @@ class MRMS:
         # Some MRMS objects can be malformed/truncated upstream; try the next-nearest candidate
         # rather than failing the entire time slice.
         candidates = await self._resolve_s3_time_candidates(
-            self.fs, time, product, self.max_offset_minutes
+            self.fs, time, product, self.max_offset_minutes  # type: ignore[arg-type]
         )
         if not candidates:
             logger.warning(
@@ -377,7 +353,7 @@ class MRMS:
         # Download gz and decompress if not present
         if not pathlib.Path(grib_path).is_file():
             # Read gzipped payload into memory and decompress to GRIB
-            data = await self.fs._cat_file(s3_uri)  # type: ignore[attr-defined]
+            data = await self.fs._cat_file(s3_uri)  # type: ignore[union-attr]
             decompressed = gzip.decompress(data)
             with open(grib_path, "wb") as fout:
                 fout.write(decompressed)
@@ -536,12 +512,6 @@ class MRMS:
             )
         product = next(iter(products))
 
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
         async def _resolve_helper() -> bool:
             fs = s3fs.S3FileSystem(
                 anon=True,
@@ -554,4 +524,4 @@ class MRMS:
             )
             return len(resolved) > 0
 
-        return loop.run_until_complete(_resolve_helper())
+        return _sync_async(_resolve_helper)

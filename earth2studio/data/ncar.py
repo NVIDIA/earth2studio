@@ -16,7 +16,6 @@
 
 import asyncio
 import calendar
-import concurrent.futures
 import hashlib
 import os
 import shutil
@@ -26,7 +25,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import nest_asyncio
 import numpy as np
 import pandas as pd
 import s3fs
@@ -35,6 +33,7 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    _sync_async,
     datasource_cache_root,
     prep_data_inputs,
 )
@@ -129,26 +128,14 @@ class NCAR_ERA5:
             ERA5 weather data array from NCAR ERA5
         """
 
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        # Modify the worker amount
-        loop.set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
-        )
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
-        )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
+            xr_array = _sync_async(
+                self.fetch, time, variable, timeout=self.async_timeout
+            )
+        finally:
+            # Delete cache if needed
+            if not self._cache:
+                shutil.rmtree(self.cache)
 
         return xr_array
 
@@ -424,66 +411,79 @@ class NCAR_ERA5:
                 xr.open_dataarray, cache_path, engine="h5netcdf", cache=False
             )
         else:
-            # New fs every call so we dont block, netcdf reads seems to not support
-            # open_async -> S3AsyncStreamedFile (big sad)
-            fs = s3fs.S3FileSystem(
-                anon=True, asynchronous=False, skip_instance_cache=True
+            ds = await asyncio.to_thread(
+                self._read_s3_dataset,
+                nc_file_uri,
+                data_variable,
+                time_idx,
+                level_idx,
+                ncar_meta,
             )
-            with fs.open(nc_file_uri, "rb", block_size=4 * 1400 * 720) as f:
-                ds = await asyncio.to_thread(
-                    xr.open_dataset, f, engine="h5netcdf", cache=False
-                )
-                # Sometimes data field have VAR_ prepended
-                if f"VAR_{data_variable}" in ds:
-                    data_variable = f"VAR_{data_variable}"
-
-                if data_variable not in ds:
-                    raise ValueError(
-                        f"Variable '{data_variable}' or 'VAR_{data_variable}' from task not found in dataset. "
-                        + f"Available variables: {list(ds.keys())}."
-                    )
-
-                # Pressure level variable
-                if "level" in ds.dims:
-                    ds = ds.isel(time=list(time_idx), level=list(level_idx))[
-                        data_variable
-                    ]
-                # Other product indexing
-                else:
-                    if "e5.oper.an.sfc" in nc_file_uri:
-                        ds = ds.isel(time=list(time_idx))[data_variable]
-                    elif "e5.oper.fc.sfc.accumu" in nc_file_uri:
-                        # This is annoying here because we are dealing with mapping
-                        # two dimensions to a single time coord
-                        outputs = []
-                        ds = ds[data_variable]
-                        for i in time_idx:
-                            out = ds.sel(forecast_hour=ncar_meta[i]["forecast_hour"])
-                            out = out.sel(
-                                forecast_initial_time=ncar_meta[i][
-                                    "forecast_initial_time"
-                                ]
-                            )
-                            out = out.expand_dims(
-                                {"time": [ncar_meta[i]["time"]]}, axis=0
-                            )
-                            out = out.drop_vars(
-                                ["forecast_hour", "forecast_initial_time"],
-                                errors="ignore",
-                            )
-                            outputs.append(out)
-                        ds = xr.concat(outputs, dim="time", coords="minimal")
-                    else:
-                        raise ValueError("Unknown product")
-
-                    ds = ds.expand_dims({"level": [0]}, axis=1)
-                # Load the data, this is the actual download
-                ds = await asyncio.to_thread(ds.load)
-                # Cache nc file if present
-                if self._cache:
-                    await asyncio.to_thread(ds.to_netcdf, cache_path, engine="h5netcdf")
+            # Cache nc file if present
+            if self._cache:
+                await asyncio.to_thread(ds.to_netcdf, cache_path, engine="h5netcdf")
 
         return ds
+
+    @staticmethod
+    def _read_s3_dataset(
+        nc_file_uri: str,
+        data_variable: str,
+        time_idx: list[int],
+        level_idx: list[int],
+        ncar_meta: dict[int, dict[str, Any]],
+    ) -> xr.DataArray:
+        """Read and subset an S3-hosted NetCDF file synchronously.
+
+        This must run in a worker thread (via ``asyncio.to_thread``) because it
+        uses a synchronous S3FileSystem which internally calls
+        ``fsspec.asyn.sync()`` — that would cause a re-entrance error if called
+        from fsspec's IO loop directly.
+        """
+        fs = s3fs.S3FileSystem(anon=True, asynchronous=False, skip_instance_cache=True)
+        with fs.open(nc_file_uri, "rb", block_size=4 * 1400 * 720) as f:
+            ds = xr.open_dataset(f, engine="h5netcdf", cache=False)
+            # Sometimes data field have VAR_ prepended
+            if f"VAR_{data_variable}" in ds:
+                data_variable = f"VAR_{data_variable}"
+
+            if data_variable not in ds:
+                raise ValueError(
+                    f"Variable '{data_variable}' or 'VAR_{data_variable}' from task not found in dataset. "
+                    + f"Available variables: {list(ds.keys())}."
+                )
+
+            # Pressure level variable
+            if "level" in ds.dims:
+                da = ds.isel(time=list(time_idx), level=list(level_idx))[data_variable]
+            # Other product indexing
+            else:
+                if "e5.oper.an.sfc" in nc_file_uri:
+                    da = ds.isel(time=list(time_idx))[data_variable]
+                elif "e5.oper.fc.sfc.accumu" in nc_file_uri:
+                    # This is annoying here because we are dealing with mapping
+                    # two dimensions to a single time coord
+                    outputs = []
+                    ds_var = ds[data_variable]
+                    for i in time_idx:
+                        out = ds_var.sel(forecast_hour=ncar_meta[i]["forecast_hour"])
+                        out = out.sel(
+                            forecast_initial_time=ncar_meta[i]["forecast_initial_time"]
+                        )
+                        out = out.expand_dims({"time": [ncar_meta[i]["time"]]}, axis=0)
+                        out = out.drop_vars(
+                            ["forecast_hour", "forecast_initial_time"],
+                            errors="ignore",
+                        )
+                        outputs.append(out)
+                    da = xr.concat(outputs, dim="time", coords="minimal")
+                else:
+                    raise ValueError("Unknown product")
+
+                da = da.expand_dims({"level": [0]}, axis=1)
+            # Load the data — this is the actual download
+            da = da.load()
+        return da
 
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:

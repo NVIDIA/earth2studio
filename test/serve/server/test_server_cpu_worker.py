@@ -26,6 +26,8 @@ from unittest.mock import Mock, patch
 import pytest
 import redis
 
+from earth2studio.serve.server.workflow import WorkflowRegistry
+
 
 # Create mock config classes before importing cpu_worker
 @dataclass
@@ -49,6 +51,7 @@ class MockQueueConfig:
     name: str = "inference"
     result_zip_queue_name: str = "result_zip"
     object_storage_queue_name: str = "object_storage"
+    geocatalog_ingestion_queue_name: str = "geocatalog_ingestion"
     finalize_metadata_queue_name: str = "finalize_metadata"
     max_size: int = 10
     default_timeout: str = "1h"
@@ -116,6 +119,15 @@ class MockObjectStorageConfig:
     cloudfront_key_pair_id: str | None = None
     cloudfront_private_key_path: str | None = None
     signed_url_expires_in: int = 3600
+    azure_geocatalog_url: str | None = None
+
+
+@dataclass
+class MockWorkflowExposureConfig:
+    """Mock workflow exposure configuration"""
+
+    exposed_workflows: list = field(default_factory=list)
+    warmup_workflows: list = field(default_factory=lambda: ["example_user_workflow"])
 
 
 @dataclass
@@ -130,6 +142,9 @@ class MockAppConfig:
     cors: MockCORSConfig = field(default_factory=MockCORSConfig)
     object_storage: MockObjectStorageConfig = field(
         default_factory=MockObjectStorageConfig
+    )
+    workflow_exposure: MockWorkflowExposureConfig = field(
+        default_factory=MockWorkflowExposureConfig
     )
 
 
@@ -155,6 +170,9 @@ from earth2studio.serve.server.cpu_worker import (  # noqa: E402  # noqa: E402
     process_object_storage_upload,
     process_result_zip,
 )
+from earth2studio.serve.server.utils import (  # noqa: E402
+    get_inference_request_metadata_key,
+)
 from earth2studio.serve.server.workflow import WorkflowResult  # noqa: E402
 
 
@@ -168,25 +186,26 @@ class TestCreateResultsZip:
 
     @pytest.fixture
     def inference_request(self):
-        """Sample inference request data"""
-        return {
-            "id": "test_req_123",
-            "type": "deterministic",
-            "status": "completed",
-            "completion_time": "2024-01-01T12:00:00Z",
-            "execution_time_seconds": 45.5,
-            "created_at": "2024-01-01T11:00:00Z",
-            "peak_memory_usage": "2.5GB",
-            "device": "cuda:0",
-            "request": {
-                "workflow_type": "deterministic",
-                "time": "2024-01-01T00:00:00Z",
-                "nsteps": 10,
-                "prognostic": {"model_type": "fcn"},
-                "data": {"source_type": "gfs"},
-                "io": {"backend_type": "zarr"},
+        return WorkflowResult(
+            workflow_name="deterministic",
+            execution_id="test_req_123",
+            status="completed",
+            start_time="2024-01-01T11:00:00Z",
+            end_time="2024-01-01T12:00:00Z",
+            execution_time_seconds=45.5,
+            metadata={
+                "peak_memory_usage": "2.5GB",
+                "device": "cuda:0",
+                "parameters": {
+                    "workflow_type": "deterministic",
+                    "time": "2024-01-01T00:00:00Z",
+                    "nsteps": 10,
+                    "prognostic": {"model_type": "fcn"},
+                    "data": {"source_type": "gfs"},
+                    "io": {"backend_type": "zarr"},
+                },
             },
-        }
+        )
 
     def test_create_results_zip_with_single_file(
         self, mock_redis, inference_request, tmp_path
@@ -251,14 +270,14 @@ class TestCreateResultsZip:
         # Verify metadata structure
         assert metadata["request_id"] == "test_req_123"
         assert metadata["status"] == "completed"
-        assert metadata["workflow_type"] == "deterministic"
+        assert metadata["workflow_name"] == "deterministic"
         assert metadata["execution_time_seconds"] == 45.5
         assert metadata["device"] == "cuda:0"
         assert "zip_created_at" in metadata
 
         # Verify parameters field
         assert "parameters" in metadata
-        assert metadata["parameters"] == inference_request["request"]
+        assert metadata["parameters"] == inference_request.metadata["parameters"]
         assert metadata["parameters"]["workflow_type"] == "deterministic"
         assert metadata["parameters"]["nsteps"] == 10
 
@@ -400,47 +419,48 @@ class TestCreateResultsZip:
         assert len(metadata["output_files"]) == 1  # Only zip entry
         assert metadata["output_files"][0]["path"] == "test_req_789"
 
-    def test_create_results_zip_parameters_validation(
-        self, mock_redis, inference_request, tmp_path
-    ):
-        """Test that parameters are correctly stored in metadata"""
-        # Create a temporary output file
+    def test_create_results_zip_parameters_validation(self, mock_redis, tmp_path):
         output_file = tmp_path / "output.nc"
         output_file.write_text("test")
 
-        # Create results directory
         results_zip_dir = tmp_path / "results"
         results_zip_dir.mkdir()
 
-        # Modify inference request to have specific parameters
-        inference_request["request"] = {
-            "workflow_type": "ensemble",
-            "time": "2024-01-15T00:00:00Z",
-            "nsteps": 20,
-            "nensemble": 10,
-            "prognostic": {"model_type": "graphcast"},
-            "data": {"source_type": "era5"},
-            "io": {"backend_type": "netcdf"},
-            "perturbation": {"method": "spherical_gaussian"},
-        }
+        workflow_result = WorkflowResult(
+            workflow_name="ensemble",
+            execution_id="test_req_params",
+            status="completed",
+            start_time="2024-01-15T00:00:00Z",
+            end_time="2024-01-15T01:00:00Z",
+            execution_time_seconds=60.0,
+            metadata={
+                "parameters": {
+                    "workflow_type": "ensemble",
+                    "time": "2024-01-15T00:00:00Z",
+                    "nsteps": 20,
+                    "nensemble": 10,
+                    "prognostic": {"model_type": "graphcast"},
+                    "data": {"source_type": "era5"},
+                    "io": {"backend_type": "netcdf"},
+                    "perturbation": {"method": "spherical_gaussian"},
+                },
+            },
+        )
 
-        # Call create_results_zip
         result = create_results_zip(
             request_id="test_req_params",
             output_path=output_file,
-            inference_request=inference_request,
+            inference_request=workflow_result,
             results_zip_dir=results_zip_dir,
             redis_client=mock_redis,
         )
         assert result is not None
 
-        # Verify metadata is stored in Redis (not as file)
         assert mock_redis.setex.call_count == 4
         calls = mock_redis.setex.call_args_list
         metadata_json = calls[0][0][2]
         metadata = json.loads(metadata_json)
 
-        # Verify parameters field exists and matches
         assert "parameters" in metadata
         params = metadata["parameters"]
 
@@ -521,41 +541,37 @@ class TestCreateResultsZip:
                 assert entry["size"] == actual_size
 
     def test_create_results_zip_missing_request_parameters(self, mock_redis, tmp_path):
-        """Test handling when request doesn't have parameters field"""
-        # Create inference request without 'request' field
-        inference_request = {
-            "id": "test_req_no_params",
-            "type": "deterministic",
-            "status": "completed",
-        }
+        workflow_result = WorkflowResult(
+            workflow_name="deterministic",
+            execution_id="test_req_no_params",
+            status="completed",
+            start_time="2024-01-01T10:00:00Z",
+            end_time="2024-01-01T11:00:00Z",
+            execution_time_seconds=60.0,
+            metadata=None,
+        )
 
-        # Create output file
         output_file = tmp_path / "output.nc"
         output_file.write_text("test")
 
-        # Create results directory
         results_zip_dir = tmp_path / "results"
         results_zip_dir.mkdir()
 
-        # Call create_results_zip
         zip_filename = create_results_zip(
             request_id="test_req_no_params",
             output_path=output_file,
-            inference_request=inference_request,
+            inference_request=workflow_result,
             results_zip_dir=results_zip_dir,
             redis_client=mock_redis,
         )
 
-        # Verify zip was created
         assert zip_filename is not None
 
-        # Verify metadata stored in Redis - parameters should be None
         assert mock_redis.setex.call_count == 4
         calls = mock_redis.setex.call_args_list
         metadata_json = calls[0][0][2]
         metadata = json.loads(metadata_json)
 
-        # Parameters should be None or not present
         assert metadata.get("parameters") is None
 
     def test_create_results_zip_redis_failure(
@@ -645,7 +661,7 @@ class TestCreateResultsZip:
             "status",
             "completion_time",
             "execution_time_seconds",
-            "workflow_type",
+            "workflow_name",
             "created_at",
             "peak_memory_usage",
             "device",
@@ -820,7 +836,7 @@ class TestCreateResultsZip:
         result = create_results_zip(
             request_id="req_invalid",
             output_path=output_file,
-            inference_request=[],  # list is not dict or WorkflowResult
+            inference_request=[],  # invalid type, not WorkflowResult
             results_zip_dir=results_zip_dir,
             redis_client=mock_redis,
         )
@@ -842,11 +858,9 @@ class TestFailWorkflow:
         mock_workflow_class = Mock()
         mock_workflow_class._update_execution_data = Mock()
 
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             mock_registry.get_workflow_class.return_value = mock_workflow_class
-            with patch("earth2studio.serve.server.cpu_worker.redis_client"):
+            with patch("earth2studio.serve.server.cpu_worker.get_worker_redis_client"):
                 out = fail_workflow("my_wf", "exec_1", "Failed")
 
         assert out["success"] is False
@@ -862,9 +876,7 @@ class TestFailWorkflow:
         mock_workflow_class = Mock()
         mock_workflow_class._update_execution_data.side_effect = Exception("Redis down")
 
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             mock_registry.get_workflow_class.return_value = mock_workflow_class
             out = fail_workflow("w", "e1", "Err")
 
@@ -936,24 +948,6 @@ class TestResultMetadata:
         assert meta.parameters == {"n": 1}
         assert meta.output_files == manifest
 
-    def test_from_legacy_dict(self):
-        """ResultMetadata.from_legacy_dict sets workflow_type from dict."""
-        req = {
-            "status": "completed",
-            "completion_time": "2024-01-01T11:00:00Z",
-            "execution_time_seconds": 10.0,
-            "type": "deterministic",
-            "created_at": "2024-01-01T10:00:00Z",
-            "request": {"nsteps": 5},
-        }
-        manifest = [FileManifestEntry(path="out.zarr", size=200)]
-        meta = ResultMetadata.from_legacy_dict(
-            req, "req_123", manifest, "2024-01-01T12:00:00Z"
-        )
-        assert meta.request_id == "req_123"
-        assert meta.workflow_type == "deterministic"
-        assert meta.parameters == {"nsteps": 5}
-
     def test_to_dict_includes_workflow_name_and_type(self):
         """to_dict includes workflow_name or workflow_type when set."""
         meta = ResultMetadata(
@@ -1008,19 +1002,21 @@ class TestProcessResultZip:
         results_zip_dir.mkdir()
 
         mock_workflow_class = Mock()
-        mock_workflow_class._get_execution_data.return_value = {
-            "id": "wf:exec_1",
-            "type": "deterministic",
-            "status": "completed",
-        }
+        mock_workflow_class._get_execution_data.return_value = WorkflowResult(
+            workflow_name="test_wf",
+            execution_id="exec_1",
+            status="completed",
+            start_time="2024-01-01T10:00:00Z",
+            end_time="2024-01-01T11:00:00Z",
+            execution_time_seconds=60.0,
+        )
         mock_workflow_class._update_execution_data = Mock()
 
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             with patch(
-                "earth2studio.serve.server.cpu_worker.redis_client"
-            ) as mock_redis:
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
+            ) as mock_get_redis:
+                mock_redis = mock_get_redis.return_value
                 with patch(
                     "earth2studio.serve.server.cpu_worker.queue_next_stage"
                 ) as mock_queue_next:
@@ -1049,9 +1045,7 @@ class TestProcessResultZip:
 
     def test_process_result_zip_workflow_not_found_raises(self, tmp_path):
         """process_result_zip when workflow not in registry raises after fail_workflow."""
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             with patch(
                 "earth2studio.serve.server.cpu_worker.fail_workflow"
             ) as mock_fail:
@@ -1074,17 +1068,20 @@ class TestProcessResultZip:
         results_zip_dir.mkdir()
 
         mock_workflow_class = Mock()
-        mock_workflow_class._get_execution_data.return_value = {
-            "type": "deterministic",
-            "status": "completed",
-        }
+        mock_workflow_class._get_execution_data.return_value = WorkflowResult(
+            workflow_name="test_wf",
+            execution_id="exec_1",
+            status="completed",
+            start_time="2024-01-01T10:00:00Z",
+            end_time="2024-01-01T11:00:00Z",
+            execution_time_seconds=60.0,
+        )
 
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             with patch(
-                "earth2studio.serve.server.cpu_worker.redis_client"
-            ) as mock_redis:
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
+            ) as mock_get_redis:
+                mock_redis = mock_get_redis.return_value
                 with patch(
                     "earth2studio.serve.server.cpu_worker.queue_next_stage"
                 ) as mock_queue_next:
@@ -1117,17 +1114,20 @@ class TestProcessResultZip:
         results_zip_dir.mkdir()
 
         mock_workflow_class = Mock()
-        mock_workflow_class._get_execution_data.return_value = {
-            "type": "deterministic",
-            "status": "completed",
-        }
+        mock_workflow_class._get_execution_data.return_value = WorkflowResult(
+            workflow_name="test_wf",
+            execution_id="exec_1",
+            status="completed",
+            start_time="2024-01-01T10:00:00Z",
+            end_time="2024-01-01T11:00:00Z",
+            execution_time_seconds=60.0,
+        )
 
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             with patch(
-                "earth2studio.serve.server.cpu_worker.redis_client"
-            ) as mock_redis:
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
+            ) as mock_get_redis:
+                mock_redis = mock_get_redis.return_value
                 with patch(
                     "earth2studio.serve.server.cpu_worker.queue_next_stage"
                 ) as mock_queue_next:
@@ -1149,21 +1149,23 @@ class TestProcessResultZip:
         """When create_results_zip returns None (create_zip=True), fail_workflow and return None."""
         results_zip_dir = tmp_path / "results"
         results_zip_dir.mkdir()
-        # Nonexistent output path so create_results_zip may still build manifest but we can mock return
         output_path_str = str(tmp_path / "nonexistent")
 
         mock_workflow_class = Mock()
-        mock_workflow_class._get_execution_data.return_value = {
-            "type": "deterministic",
-            "status": "completed",
-        }
+        mock_workflow_class._get_execution_data.return_value = WorkflowResult(
+            workflow_name="test_wf",
+            execution_id="exec_1",
+            status="completed",
+            start_time="2024-01-01T10:00:00Z",
+            end_time="2024-01-01T11:00:00Z",
+            execution_time_seconds=60.0,
+        )
 
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             with patch(
-                "earth2studio.serve.server.cpu_worker.redis_client"
-            ) as mock_redis:
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
+            ) as mock_get_redis:
+                mock_redis = mock_get_redis.return_value
                 with patch("earth2studio.serve.server.cpu_worker.queue_next_stage"):
                     with patch(
                         "earth2studio.serve.server.cpu_worker.create_results_zip"
@@ -1212,10 +1214,11 @@ class TestProcessFinalizeMetadata:
         mock_workflow_class = Mock()
         mock_workflow_class._update_execution_data = Mock()
 
-        with patch("earth2studio.serve.server.cpu_worker.redis_client") as mock_redis:
-            with patch(
-                "earth2studio.serve.server.cpu_worker.workflow_registry"
-            ) as mock_registry:
+        with patch(
+            "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
+        ) as mock_get_redis:
+            mock_redis = mock_get_redis.return_value
+            with patch.object(WorkflowRegistry, "_instance") as mock_registry:
                 mock_redis.get.side_effect = lambda k: {
                     metadata_key: json.dumps(pending_metadata),
                     results_zip_dir_key: str(results_zip_dir),
@@ -1239,7 +1242,10 @@ class TestProcessFinalizeMetadata:
 
     def test_process_finalize_metadata_missing_pending_metadata_returns_failure(self):
         """When pending metadata or results_zip_dir is missing in Redis, returns fail_workflow dict."""
-        with patch("earth2studio.serve.server.cpu_worker.redis_client") as mock_redis:
+        with patch(
+            "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
+        ) as mock_get_redis:
+            mock_redis = mock_get_redis.return_value
             with patch(
                 "earth2studio.serve.server.cpu_worker.fail_workflow"
             ) as mock_fail:
@@ -1268,10 +1274,11 @@ class TestProcessFinalizeMetadata:
         metadata_key = f"inference_request:{request_id}:pending_metadata"
         results_zip_dir_key = f"inference_request:{request_id}:results_zip_dir"
 
-        with patch("earth2studio.serve.server.cpu_worker.redis_client") as mock_redis:
-            with patch(
-                "earth2studio.serve.server.cpu_worker.workflow_registry"
-            ) as mock_registry:
+        with patch(
+            "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
+        ) as mock_get_redis:
+            mock_redis = mock_get_redis.return_value
+            with patch.object(WorkflowRegistry, "_instance") as mock_registry:
                 with patch(
                     "earth2studio.serve.server.cpu_worker.fail_workflow"
                 ) as mock_fail:
@@ -1310,10 +1317,11 @@ class TestProcessFinalizeMetadata:
         mock_workflow_class = Mock()
         mock_workflow_class._update_execution_data = Mock()
 
-        with patch("earth2studio.serve.server.cpu_worker.redis_client") as mock_redis:
-            with patch(
-                "earth2studio.serve.server.cpu_worker.workflow_registry"
-            ) as mock_registry:
+        with patch(
+            "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
+        ) as mock_get_redis:
+            mock_redis = mock_get_redis.return_value
+            with patch.object(WorkflowRegistry, "_instance") as mock_registry:
                 mock_redis.get.side_effect = lambda k: {
                     f"inference_request:{request_id}:pending_metadata": json.dumps(
                         pending_metadata
@@ -1348,13 +1356,17 @@ class TestProcessObjectStorageUpload:
         output_dir.mkdir()
         (output_dir / "f.nc").write_text("data")
 
-        with patch("earth2studio.serve.server.cpu_worker.redis_client") as mock_redis:
+        with patch(
+            "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
+        ) as mock_get_redis:
+            mock_redis = mock_get_redis.return_value
             with patch("earth2studio.serve.server.cpu_worker.config") as mock_config:
                 with patch(
                     "earth2studio.serve.server.cpu_worker.queue_next_stage"
                 ) as mock_queue_next:
                     mock_config.object_storage.enabled = False
                     mock_config.object_storage.bucket = None
+                    mock_redis.get.return_value = None
                     mock_redis.setex = Mock()
                     mock_queue_next.return_value = "job_1"
 
@@ -1397,6 +1409,739 @@ class TestProcessObjectStorageUpload:
         assert result is not None and result.get("success") is False
         mock_fail.assert_called_once()
         assert "does not exist" in mock_fail.call_args[0][2]
+
+
+class TestProcessObjectStorageUploadEnabled:
+    """Tests for process_object_storage_upload when storage is enabled."""
+
+    def _make_mock_config(self, storage_type="s3", **kwargs):
+        """Return a Mock config with object_storage defaults for enabled storage."""
+        mock_config = Mock()
+        os_cfg = mock_config.object_storage
+        os_cfg.enabled = True
+        os_cfg.storage_type = storage_type
+        os_cfg.bucket = "my-bucket"
+        os_cfg.prefix = "outputs"
+        os_cfg.region = "us-east-1"
+        os_cfg.max_concurrency = 10
+        os_cfg.multipart_chunksize = 8388608
+        os_cfg.use_rust_client = False
+        os_cfg.use_transfer_acceleration = False
+        os_cfg.access_key_id = None
+        os_cfg.secret_access_key = None
+        os_cfg.session_token = None
+        os_cfg.endpoint_url = None
+        os_cfg.cloudfront_domain = None
+        os_cfg.cloudfront_key_pair_id = None
+        os_cfg.cloudfront_private_key = None
+        os_cfg.azure_container_name = None
+        os_cfg.azure_account_name = None
+        os_cfg.azure_geocatalog_url = None
+        os_cfg.signed_url_expires_in = 3600
+        mock_config.redis.retention_ttl = 604800
+        for k, v in kwargs.items():
+            setattr(os_cfg, k, v)
+        return mock_config
+
+    @staticmethod
+    def _redis_no_pending_metadata() -> Mock:
+        """Pending-metadata GET returns None so ``json.loads`` is never given a Mock."""
+        mock_redis = Mock()
+        mock_redis.get.return_value = None
+        return mock_redis
+
+    @staticmethod
+    def _redis_azure_pending(
+        container_url: str,
+        geo_catalog_url: str | None = None,
+        *,
+        workflow_name: str = "wf",
+        execution_id: str = "exec_1",
+    ) -> Mock:
+        """Pending metadata JSON with ``container_url`` (and optional ``geo_catalog_url``)."""
+        mock_redis = Mock()
+        meta_key = get_inference_request_metadata_key(f"{workflow_name}:{execution_id}")
+        params: dict[str, str] = {"container_url": container_url}
+        if geo_catalog_url is not None:
+            params["geo_catalog_url"] = geo_catalog_url
+        body = json.dumps({"parameters": params})
+        mock_redis.get.side_effect = lambda k: body if k == meta_key else None
+        return mock_redis
+
+    def _patch_all(
+        self, mock_config, mock_redis, mock_queue, mock_storage_cls, tmp_path
+    ):
+        """Context manager helper that patches everything for upload tests."""
+        return (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        )
+
+    def test_s3_upload_success_returns_result_with_files(self, tmp_path):
+        """S3 upload success path returns dict with files_uploaded, destination, remote_prefix."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+        (output_dir / "result.nc").write_text("data")
+
+        mock_config = self._make_mock_config(storage_type="s3")
+        mock_redis = self._redis_no_pending_metadata()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_storage = mock_storage_cls.return_value
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 1
+        mock_upload.total_bytes = 4
+        mock_upload.destination = "s3://my-bucket/outputs/wf/exec_1"
+        mock_storage.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None
+        assert result["success"] is True
+        assert result["storage_type"] == "s3"
+        assert result["files_uploaded"] == 1
+        assert result["total_bytes"] == 4
+        assert result["remote_prefix"] == "outputs/wf/exec_1"
+        mock_queue.assert_called_once()
+
+    def test_azure_missing_container_url_skips_upload_with_success(self, tmp_path):
+        """Azure enabled without container_url in request: no upload, pipeline succeeds."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(
+            storage_type="azure", bucket=None, azure_container_name=None
+        )
+        mock_redis = self._redis_no_pending_metadata()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None and result.get("success") is True
+        assert result.get("storage_type") == "server"
+        mock_storage_cls.assert_not_called()
+        mock_queue.assert_called_once()
+
+    def test_msc_storage_creation_fails_returns_failure(self, tmp_path):
+        """When MSCObjectStorage constructor raises, returns fail_workflow dict."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(storage_type="s3")
+        mock_redis = self._redis_no_pending_metadata()
+        mock_storage_cls = Mock(side_effect=RuntimeError("cannot connect"))
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            mock_fail.return_value = {"success": False, "error": "msc failed"}
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None and result.get("success") is False
+        mock_fail.assert_called_once()
+        assert "msc storage client" in mock_fail.call_args[0][2].lower()
+
+    def test_upload_directory_exception_returns_failure(self, tmp_path):
+        """When upload_directory raises, returns fail_workflow dict."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(storage_type="s3")
+        mock_redis = self._redis_no_pending_metadata()
+        mock_storage_cls = Mock()
+        mock_storage_cls.return_value.upload_directory.side_effect = IOError(
+            "network error"
+        )
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            mock_fail.return_value = {"success": False, "error": "upload failed"}
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None and result.get("success") is False
+        mock_fail.assert_called_once()
+        assert "upload failed" in mock_fail.call_args[0][2].lower()
+
+    def test_upload_result_not_success_returns_failure(self, tmp_path):
+        """When upload_result.success is False, returns fail_workflow dict."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(storage_type="s3")
+        mock_redis = self._redis_no_pending_metadata()
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = False
+        mock_upload.errors = ["checksum mismatch"]
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            mock_fail.return_value = {"success": False, "error": "upload result false"}
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None and result.get("success") is False
+        mock_fail.assert_called_once()
+        assert "object storage" in mock_fail.call_args[0][2].lower()
+
+    def test_s3_with_cloudfront_generates_and_stores_signed_url(self, tmp_path):
+        """When CloudFront is configured, signed URL is generated and stored in storage_info."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(
+            storage_type="s3",
+            cloudfront_domain="d123.cloudfront.net",
+            cloudfront_key_pair_id="KP123",
+            cloudfront_private_key="-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----",
+        )
+        mock_redis = self._redis_no_pending_metadata()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_storage = mock_storage_cls.return_value
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 1
+        mock_upload.total_bytes = 10
+        mock_upload.destination = "s3://my-bucket/outputs/wf/exec_1"
+        mock_storage.upload_directory.return_value = mock_upload
+        mock_storage.generate_signed_url.return_value = (
+            "https://d123.cloudfront.net/signed"
+        )
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None
+        assert result["success"] is True
+        assert result["signed_url"] == "https://d123.cloudfront.net/signed"
+        mock_storage.generate_signed_url.assert_called_once()
+        # Verify signed URL is stored in Redis (setex called with signed_url_key)
+        setex_keys = [call[0][0] for call in mock_redis.setex.call_args_list]
+        assert any("signed_url" in k for k in setex_keys)
+
+    def test_s3_signed_url_objectstorageerror_returns_failure(self, tmp_path):
+        """When generate_signed_url raises ObjectStorageError, returns fail_workflow."""
+        from earth2studio.serve.server.object_storage import ObjectStorageError
+
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(
+            storage_type="s3",
+            cloudfront_domain="d123.cloudfront.net",
+            cloudfront_key_pair_id="KP123",
+            cloudfront_private_key="fake",
+        )
+        mock_redis = self._redis_no_pending_metadata()
+        mock_storage_cls = Mock()
+        mock_storage = mock_storage_cls.return_value
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 1
+        mock_upload.total_bytes = 10
+        mock_upload.destination = "s3://my-bucket/prefix"
+        mock_storage.upload_directory.return_value = mock_upload
+        mock_storage.generate_signed_url.side_effect = ObjectStorageError(
+            "signing failed"
+        )
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            mock_fail.return_value = {"success": False, "error": "signed url failed"}
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None and result.get("success") is False
+        mock_fail.assert_called_once()
+        assert "signed url" in mock_fail.call_args[0][2].lower()
+
+    def test_azure_upload_success_sets_remote_path_and_blob_url(self, tmp_path):
+        """Azure upload success: storage_info has azure remote_path and blob_url for .nc file."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+        (output_dir / "result.nc").write_bytes(b"netcdf")
+
+        mock_config = self._make_mock_config(
+            storage_type="azure",
+            bucket=None,
+            azure_container_name="my-container",
+            azure_account_name="myaccount",
+            azure_geocatalog_url="https://geocatalog.example/",
+        )
+        mock_redis = self._redis_azure_pending(
+            "https://myaccount.blob.core.windows.net/my-container",
+            "https://geocatalog.example/",
+        )
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_storage = mock_storage_cls.return_value
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 1
+        mock_upload.total_bytes = 6
+        mock_upload.destination = "azure://my-container/outputs/wf/exec_1"
+        mock_storage.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None
+        assert result["success"] is True
+        assert result["storage_type"] == "azure"
+        # Verify storage_info was written to Redis with azure remote_path and blob_url
+        storage_info_calls = [
+            c for c in mock_redis.setex.call_args_list if "storage_info" in c[0][0]
+        ]
+        assert len(storage_info_calls) == 1
+        stored_info = json.loads(storage_info_calls[0][0][2])
+        assert stored_info["remote_path"].startswith("azure://my-container/")
+        assert "blob_url" in stored_info
+        assert "result.nc" in stored_info["blob_url"]
+
+    def test_azure_upload_blob_url_from_nc_file_in_directory(self, tmp_path):
+        """Azure upload: blob_url is built from the first .nc file found in a directory."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+        (output_dir / "forecast.nc").write_bytes(b"data")
+        (output_dir / "other.txt").write_text("text")
+
+        mock_config = self._make_mock_config(
+            storage_type="azure",
+            bucket=None,
+            azure_container_name="container",
+            azure_account_name="myaccount",
+            azure_geocatalog_url="https://geocatalog.example/",
+        )
+        mock_redis = self._redis_azure_pending(
+            "https://myaccount.blob.core.windows.net/container",
+            "https://geocatalog.example/",
+        )
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 2
+        mock_upload.total_bytes = 100
+        mock_upload.destination = "azure://container/outputs/wf/exec_1"
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result["success"] is True
+        storage_info_calls = [
+            c for c in mock_redis.setex.call_args_list if "storage_info" in c[0][0]
+        ]
+        stored_info = json.loads(storage_info_calls[0][0][2])
+        assert "forecast.nc" in stored_info.get("blob_url", "")
+
+    def test_azure_upload_blob_url_from_zarr_store_in_directory(self, tmp_path):
+        """Azure upload: blob_url points at first *.zarr store when no .nc files exist."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+        zarr_store = output_dir / "results.zarr"
+        zarr_store.mkdir()
+        (zarr_store / ".zarray").write_text("{}")
+
+        mock_config = self._make_mock_config(
+            storage_type="azure",
+            bucket=None,
+            azure_container_name="container",
+            azure_account_name="myaccount",
+            azure_geocatalog_url="https://geocatalog.example/",
+        )
+        mock_redis = self._redis_azure_pending(
+            "https://myaccount.blob.core.windows.net/container",
+            "https://geocatalog.example/",
+        )
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 1
+        mock_upload.total_bytes = 10
+        mock_upload.destination = "azure://container/outputs/wf/exec_1"
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result["success"] is True
+        storage_info_calls = [
+            c for c in mock_redis.setex.call_args_list if "storage_info" in c[0][0]
+        ]
+        stored_info = json.loads(storage_info_calls[0][0][2])
+        assert "results.zarr" in stored_info.get("blob_url", "")
+
+    def test_queue_next_returns_none_after_upload_returns_failure(self, tmp_path):
+        """When queue_next_stage returns None after a successful upload, returns fail_workflow."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(storage_type="s3")
+        mock_redis = self._redis_no_pending_metadata()
+        mock_queue = Mock(return_value=None)
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 0
+        mock_upload.total_bytes = 0
+        mock_upload.destination = "s3://my-bucket/prefix"
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            mock_fail.return_value = {"success": False, "error": "no job"}
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None and result.get("success") is False
+        mock_fail.assert_called_once()
+        assert "pipeline stage" in mock_fail.call_args[0][2].lower()
+
+    def test_unexpected_exception_returns_fail_workflow(self, tmp_path):
+        """An unexpected exception in the try block returns fail_workflow dict (lines 825-827)."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(storage_type="s3")
+        # Make redis_client.setex raise to trigger the outer except after upload
+        mock_redis = self._redis_no_pending_metadata()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 1
+        mock_upload.total_bytes = 1
+        mock_upload.destination = "s3://my-bucket/prefix"
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+        mock_redis.setex.side_effect = RuntimeError("redis crashed")
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None
+        assert result.get("success") is False
+
+    def test_azure_credentials_added_to_storage_kwargs(self, tmp_path):
+        """Azure MSCObjectStorage receives account and container from parsed request container_url."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(
+            storage_type="azure",
+            bucket=None,
+            azure_container_name="my-container",
+            azure_account_name="myaccount",
+        )
+        mock_redis = Mock()
+        metadata_key = "inference_request:wf:exec_1:pending_metadata"
+        mock_redis.get.side_effect = lambda k: (
+            json.dumps(
+                {
+                    "parameters": {
+                        "container_url": (
+                            "https://myaccount.blob.core.windows.net/my-container"
+                        ),
+                    },
+                }
+            )
+            if k == metadata_key
+            else None
+        )
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 0
+        mock_upload.total_bytes = 0
+        mock_upload.destination = "azure://my-container/prefix"
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        call_kwargs = mock_storage_cls.call_args[1]
+        assert call_kwargs.get("endpoint_url") is None
+        assert call_kwargs.get("azure_account_name") == "myaccount"
+        assert call_kwargs.get("azure_container_name") == "my-container"
+
+    def test_s3_optional_credentials_added_when_set(self, tmp_path):
+        """S3 optional kwargs (access_key_id, session_token, endpoint_url) are passed when set."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(  # noqa: S106
+            storage_type="s3",
+            access_key_id="AK123",
+            secret_access_key="SK456",  # noqa: S106
+            session_token="ST789",  # noqa: S106
+            endpoint_url="https://s3.custom.example.com",
+        )
+        mock_redis = self._redis_no_pending_metadata()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 0
+        mock_upload.total_bytes = 0
+        mock_upload.destination = "s3://my-bucket/prefix"
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch(
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        call_kwargs = mock_storage_cls.call_args[1]
+        assert call_kwargs.get("access_key_id") == "AK123"
+        assert call_kwargs.get("secret_access_key") == "SK456"
+        assert call_kwargs.get("session_token") == "ST789"
+        assert call_kwargs.get("endpoint_url") == "https://s3.custom.example.com"
+
+
+class TestProcessFinalizeMetadataEdgeCases:
+    """Tests for the exception handler in process_finalize_metadata (lines 1114-1116)."""
+
+    def test_exception_in_try_block_returns_fail_workflow(self, tmp_path):
+        """When json.loads raises (corrupt metadata), the except block returns fail_workflow."""
+        results_zip_dir = tmp_path / "results"
+        results_zip_dir.mkdir()
+        request_id = "my_wf:exec_1"
+        metadata_key = f"inference_request:{request_id}:pending_metadata"
+        results_zip_dir_key = f"inference_request:{request_id}:results_zip_dir"
+
+        with patch(
+            "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
+        ) as mock_get_redis:
+            mock_redis = mock_get_redis.return_value
+            # Return non-JSON for metadata to trigger json.loads to raise
+            mock_redis.get.side_effect = lambda k: {
+                metadata_key: "NOT_VALID_JSON{{{",
+                results_zip_dir_key: str(results_zip_dir),
+            }.get(k)
+
+            result = process_finalize_metadata(
+                workflow_name="my_wf", execution_id="exec_1"
+            )
+
+        assert result is not None
+        assert result.get("success") is False
+        assert "metadata finalization" in result.get("error", "").lower()
 
 
 if __name__ == "__main__":

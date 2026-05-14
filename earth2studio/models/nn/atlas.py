@@ -24,6 +24,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from loguru import logger
 from torch.nn.attention import SDPBackend, sdpa_kernel
 
 from earth2studio.utils.imports import (
@@ -32,15 +33,18 @@ from earth2studio.utils.imports import (
 )
 
 try:
+    from physicsnemo import Module as PhysicsNeMoModule
+except ImportError:
+    PhysicsNeMoModule = object
+
+try:
     import einops
     from natten import NeighborhoodAttention2D
-    from physicsnemo import Module as PhysicsNeMoModule
     from timm.models.vision_transformer import Mlp, PatchEmbed
     from torch_harmonics import InverseRealSHT
 except ImportError:
     OptionalDependencyFailure("atlas")
     einops = None
-    PhysicsNeMoModule = object
 
 
 @cache
@@ -729,7 +733,9 @@ class StochasticInterpolant(torch.nn.Module):
                     kept_samples += 1
 
             if verbose:
-                print(f"Sampling step: {j+1}. Time: {default_timer() - physical_time}")
+                logger.debug(
+                    f"Sampling step: {j+1}. Time: {default_timer() - physical_time}"
+                )
 
         if keep_every is not None:
             return out

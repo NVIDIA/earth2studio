@@ -14,13 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import json
-import logging
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from loguru import logger
 
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -35,18 +38,20 @@ except ImportError:
 
 # Import configuration
 from earth2studio.serve.server.config import get_config, get_config_manager
+from earth2studio.serve.server.redis_factory import get_worker_redis_client
 from earth2studio.serve.server.utils import (
     get_inference_request_metadata_key,
     get_inference_request_output_path_key,
     get_inference_request_zip_key,
     get_results_zip_dir_key,
     get_signed_url_key,
+    parse_azure_blob_container_url,
     queue_next_stage,
 )
 from earth2studio.serve.server.workflow import (
+    WorkflowRegistry,
     WorkflowResult,
     WorkflowStatus,
-    workflow_registry,
 )
 
 # Get configuration
@@ -55,24 +60,12 @@ config_manager = get_config_manager()
 
 # Configure logging
 config_manager.setup_logging()
-logger = logging.getLogger(__name__)
-
-# Redis client for CPU worker
-redis_client = redis.Redis(
-    host=config.redis.host,
-    port=config.redis.port,
-    db=config.redis.db,
-    password=config.redis.password,
-    decode_responses=config.redis.decode_responses,
-    socket_connect_timeout=config.redis.socket_connect_timeout,
-    socket_timeout=config.redis.socket_timeout,
-)
 
 # Register custom workflows in the CPU worker process
 try:
     from earth2studio.serve.server.workflow import register_all_workflows
 
-    register_all_workflows(redis_client)
+    register_all_workflows(get_worker_redis_client())
     logger.info("Custom workflows registered successfully in CPU worker process")
 except ImportError:
     logger.warning(
@@ -80,7 +73,6 @@ except ImportError:
     )
 except Exception as e:
     logger.error(f"Failed to register custom workflows in CPU worker: {e}")
-    # Don't raise - worker can still handle other tasks
 
 
 def fail_workflow(
@@ -104,7 +96,7 @@ def fail_workflow(
     """
     logger.error(error_message)
     try:
-        workflow_class = workflow_registry.get_workflow_class(workflow_name)
+        workflow_class = WorkflowRegistry.instance().get_workflow_class(workflow_name)
         if workflow_class:
             updates = {
                 "status": WorkflowStatus.FAILED,
@@ -112,7 +104,7 @@ def fail_workflow(
                 "error_message": error_message,
             }
             workflow_class._update_execution_data(
-                redis_client, workflow_name, execution_id, updates
+                get_worker_redis_client(), workflow_name, execution_id, updates
             )
     except Exception:
         logger.exception("Failed to update workflow status")
@@ -135,8 +127,8 @@ class ResultMetadata:
     status: str
     completion_time: str | None
     execution_time_seconds: float | None
-    workflow_type: str | None = None  # For legacy inference requests
-    workflow_name: str | None = None  # For custom workflows
+    workflow_type: str | None = None
+    workflow_name: str | None = None
     created_at: str | None = None
     peak_memory_usage: str | None = None
     device: str | None = None
@@ -155,18 +147,24 @@ class ResultMetadata:
         request_id: str,
         file_manifest: list[FileManifestEntry],
         zip_created_at: str,
-    ) -> "ResultMetadata":
-        """
-        Create ResultMetadata from a WorkflowResult (custom workflows).
+    ) -> ResultMetadata:
+        """Create ResultMetadata from a WorkflowResult.
 
-        Args:
-            workflow_result: WorkflowResult instance from custom workflow
-            request_id: Request ID (execution_id from workflow)
-            file_manifest: List of files in the zip
-            zip_created_at: Timestamp when zip was created
+        Parameters
+        ----------
+        workflow_result : WorkflowResult
+            WorkflowResult instance from workflow execution.
+        request_id : str
+            Fallback request ID (used if execution_id is not set).
+        file_manifest : list[FileManifestEntry]
+            List of files in the zip.
+        zip_created_at : str
+            ISO timestamp when zip was created.
 
-        Returns:
-            ResultMetadata instance
+        Returns
+        -------
+        ResultMetadata
+            Populated metadata instance.
         """
         workflow_metadata = workflow_result.metadata or {}
         return cls(
@@ -180,40 +178,6 @@ class ResultMetadata:
             device=workflow_metadata.get("device"),
             zip_created_at=zip_created_at,
             parameters=workflow_metadata.get("parameters"),
-            output_files=file_manifest,
-        )
-
-    @classmethod
-    def from_legacy_dict(
-        cls,
-        inference_request: dict[str, Any],
-        request_id: str,
-        file_manifest: list[FileManifestEntry],
-        zip_created_at: str,
-    ) -> "ResultMetadata":
-        """
-        Create ResultMetadata from a legacy inference request dict.
-
-        Args:
-            inference_request: Legacy inference request dictionary
-            request_id: Request ID
-            file_manifest: List of files in the zip
-            zip_created_at: Timestamp when zip was created
-
-        Returns:
-            ResultMetadata instance
-        """
-        return cls(
-            request_id=request_id,
-            status=inference_request.get("status", "completed"),
-            completion_time=inference_request.get("completion_time"),
-            execution_time_seconds=inference_request.get("execution_time_seconds"),
-            workflow_type=inference_request.get("type"),
-            created_at=inference_request.get("created_at"),
-            peak_memory_usage=inference_request.get("peak_memory_usage"),
-            device=inference_request.get("device"),
-            zip_created_at=zip_created_at,
-            parameters=inference_request.get("request"),
             output_files=file_manifest,
         )
 
@@ -295,23 +259,29 @@ def build_file_manifest(
 def create_results_zip(
     request_id: str,
     output_path: Path,
-    inference_request: dict[str, Any] | WorkflowResult,
+    inference_request: WorkflowResult,
     results_zip_dir: Path,
     redis_client: redis.Redis,
     create_zip: bool = True,
 ) -> str | None:
-    """Create zip file containing inference results and store it in the results directory
+    """Create zip file containing inference results and store it in the results directory.
 
-    Args:
-        request_id: Request ID (for legacy) or execution_id (for custom workflows)
-        output_path: Path to output files
-        inference_request: Dict containing request data (legacy) or WorkflowResult (for custom workflows)
-        results_zip_dir: Directory to store result zips
-        redis_client: Redis client instance
-        create_zip: If False, only build file manifest without creating zip file
+    Parameters
+    ----------
+    request_id : str
+        Execution ID for the workflow run.
+    output_path : Path
+        Path to output files.
+    inference_request : WorkflowResult
+        WorkflowResult instance from the completed workflow execution.
+    results_zip_dir : Path
+        Directory to store result zips.
+    redis_client : redis.Redis
+        Redis client instance.
+    create_zip : bool, optional
+        If False, only build file manifest without creating zip file, by default True
     """
-    # Create logger adapter with execution_id for automatic log prefixing
-    log = logging.LoggerAdapter(logger, {"execution_id": request_id})
+    log = logger.bind(execution_id=request_id)
 
     try:
         zip_filename: str | None = f"{request_id}"
@@ -369,29 +339,14 @@ def create_results_zip(
             )
             zip_filename = None  # No zip file created
 
-        # Create metadata using factory methods
         zip_created_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-        if isinstance(inference_request, WorkflowResult):
-            # Custom workflow (WorkflowResult)
-            metadata = ResultMetadata.from_workflow_result(
-                workflow_result=inference_request,
-                request_id=request_id,
-                file_manifest=file_manifest,
-                zip_created_at=zip_created_at,
-            )
-        elif isinstance(inference_request, dict):
-            # Legacy inference request (dict)
-            metadata = ResultMetadata.from_legacy_dict(
-                inference_request=inference_request,
-                request_id=request_id,
-                file_manifest=file_manifest,
-                zip_created_at=zip_created_at,
-            )
-        else:
-            raise TypeError(
-                f"inference_request must be Dict or WorkflowResult, got {type(inference_request)}"
-            )
+        metadata = ResultMetadata.from_workflow_result(
+            workflow_result=inference_request,
+            request_id=request_id,
+            file_manifest=file_manifest,
+            zip_created_at=zip_created_at,
+        )
 
         # Store metadata in Redis for the object storage worker to finalize
         metadata_key = get_inference_request_metadata_key(request_id)
@@ -457,13 +412,14 @@ def process_result_zip(
 
     try:
         # Get workflow class from registry
-        workflow_class = workflow_registry.get_workflow_class(workflow_name)
+        workflow_class = WorkflowRegistry.instance().get_workflow_class(workflow_name)
         if not workflow_class:
             raise ValueError(f"Workflow '{workflow_name}' not found in registry")
 
         # Get execution data from Redis for metadata
+        rc = get_worker_redis_client()
         execution_data = workflow_class._get_execution_data(
-            redis_client, workflow_name, execution_id
+            rc, workflow_name, execution_id
         )
 
         # Create the zip file (or just build manifest if create_zip=False)
@@ -472,7 +428,7 @@ def process_result_zip(
             output_path,
             execution_data,
             results_zip_dir,
-            redis_client,
+            rc,
             create_zip=create_zip,
         )
 
@@ -489,7 +445,7 @@ def process_result_zip(
 
             # Queue next pipeline stage
             job_id = queue_next_stage(
-                redis_client=redis_client,
+                redis_client=rc,
                 current_stage="result_zip",
                 workflow_name=workflow_name,
                 execution_id=execution_id,
@@ -515,6 +471,36 @@ def process_result_zip(
         raise
 
 
+def _primary_azure_asset_relpath(output_path: Path) -> str | None:
+    """
+    Relative path under ``output_path`` for the primary dataset asset (GeoCatalog STAC href).
+
+    Prefers the first ``*.nc`` file found; otherwise the first ``*.zarr`` directory (Zarr store).
+    If ``output_path`` is itself a ``*.zarr`` directory, returns ``""`` (store contents sync to
+    ``remote_prefix`` without an extra path segment).
+
+    Returns
+    -------
+    str | None
+        Relative POSIX path, empty string for a root-level Zarr directory, or ``None`` if
+        no NetCDF or Zarr asset was found.
+    """
+    if not output_path.is_dir():
+        return None
+    nc_files = sorted(output_path.rglob("*.nc"))
+    if nc_files:
+        return nc_files[0].relative_to(output_path).as_posix()
+    zarr_dirs = sorted(
+        (p for p in output_path.rglob("*.zarr") if p.is_dir()),
+        key=lambda p: p.as_posix(),
+    )
+    if zarr_dirs:
+        return zarr_dirs[0].relative_to(output_path).as_posix()
+    if output_path.name.endswith(".zarr"):
+        return ""
+    return None
+
+
 @check_optional_dependencies()
 def process_object_storage_upload(
     workflow_name: str,
@@ -528,6 +514,12 @@ def process_object_storage_upload(
     It always creates the final metadata file, and optionally uploads to S3 and generates
     a CloudFront signed URL if object storage is enabled.
 
+    For Azure, account and container are parsed from ``container_url`` in the workflow
+    request parameters (pending metadata) when present. If ``container_url`` is absent,
+    the upload step is skipped and the pipeline continues successfully. If
+    ``geo_catalog_url`` is set on the request and an upload ran, it is stored in Redis
+    ``storage_info`` for GeoCatalog ingestion.
+
     Args:
         workflow_name: Name of the workflow
         execution_id: Execution ID of the workflow
@@ -538,6 +530,7 @@ def process_object_storage_upload(
     """
     output_path = Path(output_path_str)
     request_id = f"{workflow_name}:{execution_id}"
+    rc = get_worker_redis_client()
 
     logger.info(f"Processing object storage worker for {request_id}")
 
@@ -547,16 +540,15 @@ def process_object_storage_upload(
         remote_prefix = None
         upload_result = None
         storage_type = "server"  # Default to "server" when object storage is disabled
+        azure_account_name: str | None = None
+        azure_container_name: str | None = None
 
-        # Upload to object storage if enabled
-
-        if config.object_storage.enabled and config.object_storage.bucket:
-            from earth2studio.serve.server.object_storage import (
-                MSCObjectStorage,
-                ObjectStorageError,
-            )
-
-            # Check output path exists
+        # When uploads are configured, validate the path before touching Redis so
+        # missing paths fail with a clear error (not a connection error from get()).
+        if config.object_storage.enabled and (
+            config.object_storage.bucket
+            or config.object_storage.storage_type == "azure"
+        ):
             if not output_path.exists():
                 return fail_workflow(
                     workflow_name,
@@ -564,123 +556,202 @@ def process_object_storage_upload(
                     f"Output path does not exist: {output_path}",
                 )
 
-            # Create S3 storage instance
-            storage_kwargs: dict[str, Any] = {
-                "bucket": config.object_storage.bucket,
-                "region": config.object_storage.region,
-                "use_transfer_acceleration": config.object_storage.use_transfer_acceleration,
-                "max_concurrency": config.object_storage.max_concurrency,
-                "multipart_chunksize": config.object_storage.multipart_chunksize,
-                "use_rust_client": config.object_storage.use_rust_client,
-            }
-
-            # Add optional credentials
-            if (
-                config.object_storage.access_key_id
-                and config.object_storage.secret_access_key
-            ):
-                storage_kwargs["access_key_id"] = config.object_storage.access_key_id
-                storage_kwargs["secret_access_key"] = (
-                    config.object_storage.secret_access_key
-                )
-            if config.object_storage.session_token:
-                storage_kwargs["session_token"] = config.object_storage.session_token
-            if config.object_storage.endpoint_url:
-                storage_kwargs["endpoint_url"] = config.object_storage.endpoint_url
-
-            # Add CloudFront configuration for signed URLs
-            if config.object_storage.cloudfront_domain:
-                storage_kwargs["cloudfront_domain"] = (
-                    config.object_storage.cloudfront_domain
-                )
-            if config.object_storage.cloudfront_key_pair_id:
-                storage_kwargs["cloudfront_key_pair_id"] = (
-                    config.object_storage.cloudfront_key_pair_id
-                )
-            if config.object_storage.cloudfront_private_key:
-                storage_kwargs["cloudfront_private_key"] = (
-                    config.object_storage.cloudfront_private_key
-                )
-
+        # Request parameters from pending metadata (written at result_zip)
+        request_parameters: dict[str, Any] = {}
+        metadata_key = get_inference_request_metadata_key(request_id)
+        pending_metadata_json = rc.get(metadata_key)
+        if pending_metadata_json:
             try:
-                storage = MSCObjectStorage(**storage_kwargs)
-            except Exception as e:
-                return fail_workflow(
-                    workflow_name,
-                    execution_id,
-                    f"Failed to create MSC storage client: {e}",
+                pending = json.loads(pending_metadata_json)
+                rp = pending.get("parameters")
+                if isinstance(rp, dict):
+                    request_parameters = rp
+            except json.JSONDecodeError:
+                logger.warning(
+                    "Ignoring invalid pending metadata JSON for %s", request_id
                 )
+        geo_catalog_url_str: str | None = None
+        _gc = request_parameters.get("geo_catalog_url")
+        if isinstance(_gc, str) and _gc.strip():
+            geo_catalog_url_str = _gc.strip()
 
-            # Construct remote prefix: {base_prefix}/{workflow_name}/{execution_id}
-            remote_prefix = (
-                f"{config.object_storage.prefix}/{workflow_name}/{execution_id}"
+        # Upload to object storage if enabled
+
+        # Check if object storage is enabled and properly configured
+        if config.object_storage.enabled and (
+            config.object_storage.bucket
+            or config.object_storage.storage_type == "azure"
+        ):
+            from earth2studio.serve.server.object_storage import (
+                MSCObjectStorage,
+                ObjectStorageError,
             )
 
-            # Upload the output directory
-            logger.info(
-                f"Uploading {output_path} to s3://{config.object_storage.bucket}/{remote_prefix}"
+            container_url_raw = request_parameters.get("container_url")
+            skip_azure_without_container = (
+                config.object_storage.storage_type == "azure" and not container_url_raw
             )
-
-            try:
-                upload_result = storage.upload_directory(
-                    output_path,
-                    remote_prefix,
-                    recursive=True,
-                    overwrite=True,
+            if skip_azure_without_container:
+                logger.info(
+                    "Azure object storage upload skipped: container_url not in workflow "
+                    "request parameters."
                 )
-            except Exception as e:
-                return fail_workflow(
-                    workflow_name,
-                    execution_id,
-                    f"Object storage upload failed for {request_id}: {e}",
-                )
-
-            if not upload_result.success:
-                return fail_workflow(
-                    workflow_name,
-                    execution_id,
-                    f"Failed to upload to object storage: {upload_result.errors}",
-                )
-
-            storage_type = "s3"
-            logger.info(
-                f"Successfully uploaded {upload_result.files_uploaded} files "
-                f"({upload_result.total_bytes} bytes) to {upload_result.destination}"
-            )
-
-            # Generate signed URL if CloudFront is configured
-            cloudfront_configured = all(
-                [
-                    config.object_storage.cloudfront_domain,
-                    config.object_storage.cloudfront_key_pair_id,
-                    config.object_storage.cloudfront_private_key,
-                ]
-            )
-
-            if not cloudfront_configured:
-                logger.info("CloudFront not configured, skipping signed URL generation")
             else:
-                try:
-                    signed_url_path = f"{remote_prefix}/*"
-                    signed_url = storage.generate_signed_url(
-                        signed_url_path,
-                        expires_in=config.object_storage.signed_url_expires_in,
-                    )
-                    logger.info(f"Generated signed URL for {request_id}")
+                if config.object_storage.storage_type == "azure":
+                    try:
+                        azure_account_name, azure_container_name = (
+                            parse_azure_blob_container_url(str(container_url_raw))
+                        )
+                    except ValueError as e:
+                        return fail_workflow(workflow_name, execution_id, str(e))
 
-                    # Store signed URL in Redis
-                    signed_url_key = get_signed_url_key(request_id)
-                    redis_client.setex(
-                        signed_url_key,
-                        config.object_storage.signed_url_expires_in,
-                        signed_url,
+                # Create storage instance
+                storage_kwargs: dict[str, Any] = {
+                    "bucket": (
+                        config.object_storage.bucket
+                        if config.object_storage.storage_type == "s3"
+                        else (azure_container_name or "")
+                    ),
+                    "storage_type": config.object_storage.storage_type,
+                    "max_concurrency": config.object_storage.max_concurrency,
+                    "multipart_chunksize": config.object_storage.multipart_chunksize,
+                    "use_rust_client": config.object_storage.use_rust_client,
+                }
+
+                # Add storage-type-specific configuration
+                if config.object_storage.storage_type == "s3":
+                    # S3-specific parameters
+                    storage_kwargs["region"] = config.object_storage.region
+                    storage_kwargs["use_transfer_acceleration"] = (
+                        config.object_storage.use_transfer_acceleration
                     )
-                except ObjectStorageError as e:
+
+                    # Add optional S3 credentials
+                    if (
+                        config.object_storage.access_key_id
+                        and config.object_storage.secret_access_key
+                    ):
+                        storage_kwargs["access_key_id"] = (
+                            config.object_storage.access_key_id
+                        )
+                        storage_kwargs["secret_access_key"] = (
+                            config.object_storage.secret_access_key
+                        )
+                    if config.object_storage.session_token:
+                        storage_kwargs["session_token"] = (
+                            config.object_storage.session_token
+                        )
+                    if config.object_storage.endpoint_url:
+                        storage_kwargs["endpoint_url"] = (
+                            config.object_storage.endpoint_url
+                        )
+
+                    # Add CloudFront configuration for signed URLs
+                    if config.object_storage.cloudfront_domain:
+                        storage_kwargs["cloudfront_domain"] = (
+                            config.object_storage.cloudfront_domain
+                        )
+                    if config.object_storage.cloudfront_key_pair_id:
+                        storage_kwargs["cloudfront_key_pair_id"] = (
+                            config.object_storage.cloudfront_key_pair_id
+                        )
+                    if config.object_storage.cloudfront_private_key:
+                        storage_kwargs["cloudfront_private_key"] = (
+                            config.object_storage.cloudfront_private_key
+                        )
+                elif config.object_storage.storage_type == "azure":
+                    # Azure-specific parameters (managed identity via DefaultAzureCredentials)
+                    if azure_account_name:
+                        storage_kwargs["azure_account_name"] = azure_account_name
+                    if azure_container_name:
+                        storage_kwargs["azure_container_name"] = azure_container_name
+
+                try:
+                    storage = MSCObjectStorage(**storage_kwargs)
+                except Exception as e:
                     return fail_workflow(
                         workflow_name,
                         execution_id,
-                        f"Failed to generate signed URL: {e}",
+                        f"Failed to create MSC storage client: {e}",
                     )
+
+                # Construct remote prefix: {base_prefix}/{workflow_name}/{execution_id}
+                remote_prefix = (
+                    f"{config.object_storage.prefix}/{workflow_name}/{execution_id}"
+                )
+
+                # Upload the output directory
+                storage_location = (
+                    f"s3://{config.object_storage.bucket}"
+                    if config.object_storage.storage_type == "s3"
+                    else f"azure://{azure_container_name}"
+                )
+                logger.info(
+                    f"Uploading {output_path} to {storage_location}/{remote_prefix}"
+                )
+
+                try:
+                    upload_result = storage.upload_directory(
+                        output_path,
+                        remote_prefix,
+                        recursive=True,
+                        overwrite=True,
+                    )
+                except Exception as e:
+                    return fail_workflow(
+                        workflow_name,
+                        execution_id,
+                        f"Object storage upload failed for {request_id}: {e}",
+                    )
+
+                if not upload_result.success:
+                    return fail_workflow(
+                        workflow_name,
+                        execution_id,
+                        f"Failed to upload to object storage: {upload_result.errors}",
+                    )
+
+                storage_type = config.object_storage.storage_type
+                logger.info(
+                    f"Successfully uploaded {upload_result.files_uploaded} files "
+                    f"({upload_result.total_bytes} bytes) to {upload_result.destination}"
+                )
+
+                # Generate signed URL for S3 only (CloudFront). Azure: clients obtain tokens to read blobs.
+                can_generate_signed_url = storage_type == "s3" and all(
+                    [
+                        config.object_storage.cloudfront_domain,
+                        config.object_storage.cloudfront_key_pair_id,
+                        config.object_storage.cloudfront_private_key,
+                    ]
+                )
+
+                if not can_generate_signed_url:
+                    logger.info(
+                        f"Signed URL generation not configured for {storage_type}, skipping"
+                    )
+                else:
+                    try:
+                        signed_url_path = f"{remote_prefix}/*"
+                        signed_url = storage.generate_signed_url(
+                            signed_url_path,
+                            expires_in=config.object_storage.signed_url_expires_in,
+                        )
+                        logger.info(f"Generated signed URL for {request_id}")
+
+                        # Store signed URL in Redis
+                        signed_url_key = get_signed_url_key(request_id)
+                        rc.setex(
+                            signed_url_key,
+                            config.object_storage.signed_url_expires_in,
+                            signed_url,
+                        )
+                    except ObjectStorageError as e:
+                        return fail_workflow(
+                            workflow_name,
+                            execution_id,
+                            f"Failed to generate signed URL: {e}",
+                        )
         else:
             logger.info("Object storage not enabled, skipping upload")
 
@@ -688,15 +759,39 @@ def process_object_storage_upload(
         storage_info = {
             "storage_type": storage_type,
         }
-        if storage_type == "s3" and remote_prefix:
-            storage_info["remote_path"] = (
-                f"s3://{config.object_storage.bucket}/{remote_prefix}"
-            )
+        if remote_prefix:
+            if storage_type == "s3":
+                storage_info["remote_path"] = (
+                    f"s3://{config.object_storage.bucket}/{remote_prefix}"
+                )
+            elif storage_type == "azure":
+                container_name = azure_container_name or ""
+                storage_info["remote_path"] = (
+                    f"azure://{container_name}/{remote_prefix}"
+                )
+                azure_account = azure_account_name
+                if azure_account:
+                    storage_info["azure_account_name"] = azure_account
+                if geo_catalog_url_str:
+                    storage_info["geo_catalog_url"] = geo_catalog_url_str
+                # Build HTTPS blob URL for primary netcdf file (for GeoCatalog ingestion)
+                if azure_account_name and geo_catalog_url_str:
+                    primary_rel = _primary_azure_asset_relpath(output_path)
+                    if primary_rel is not None:
+                        base_url = (
+                            f"https://{azure_account_name}"
+                            f".blob.core.windows.net/{container_name}/{remote_prefix}"
+                        )
+                        storage_info["blob_url"] = (
+                            f"{base_url}/{primary_rel}"
+                            if primary_rel
+                            else f"{base_url}/"
+                        )
         if signed_url:
             storage_info["signed_url"] = signed_url
 
         storage_info_key = f"inference_request:{request_id}:storage_info"
-        redis_client.setex(
+        rc.setex(
             storage_info_key,
             config.redis.retention_ttl,
             json.dumps(storage_info),
@@ -704,7 +799,7 @@ def process_object_storage_upload(
 
         # Queue next pipeline stage (finalize metadata)
         job_id = queue_next_stage(
-            redis_client=redis_client,
+            redis_client=rc,
             current_stage="object_storage",
             workflow_name=workflow_name,
             execution_id=execution_id,
@@ -729,7 +824,7 @@ def process_object_storage_upload(
             "signed_url": signed_url,
         }
 
-        if upload_result and storage_type == "s3":
+        if upload_result:
             result["files_uploaded"] = upload_result.files_uploaded
             result["total_bytes"] = upload_result.total_bytes
             result["destination"] = upload_result.destination
@@ -768,6 +863,7 @@ def process_finalize_metadata(
     """
 
     request_id = f"{workflow_name}:{execution_id}"
+    rc = get_worker_redis_client()
     logger.info(f"Processing finalize metadata for {request_id}")
 
     # Retrieve pending metadata and storage info from Redis
@@ -775,11 +871,12 @@ def process_finalize_metadata(
     results_zip_dir_key = get_results_zip_dir_key(request_id)
     storage_info_key = f"inference_request:{request_id}:storage_info"
 
-    pending_metadata_json = redis_client.get(metadata_key)
-    results_zip_dir_str = redis_client.get(results_zip_dir_key)
-    storage_info_json = redis_client.get(storage_info_key)
+    pending_metadata_json = rc.get(metadata_key)
+    results_zip_dir_str = rc.get(results_zip_dir_key)
+    storage_info_json = rc.get(storage_info_key)
 
     if not pending_metadata_json or not results_zip_dir_str:
+        logger.error(f"Pending metadata not found in Redis for {request_id}")
         return fail_workflow(
             workflow_name,
             execution_id,
@@ -799,6 +896,20 @@ def process_finalize_metadata(
                 metadata_dict["remote_path"] = storage_info["remote_path"]
             if storage_info.get("signed_url"):
                 metadata_dict["signed_url"] = storage_info["signed_url"]
+            if storage_info.get("azure_account_name"):
+                metadata_dict["azure_account_name"] = storage_info["azure_account_name"]
+            if storage_info.get("blob_url"):
+                metadata_dict["blob_url"] = storage_info["blob_url"]
+            if storage_info.get("geo_catalog_url"):
+                metadata_dict["geo_catalog_url"] = storage_info["geo_catalog_url"]
+            if storage_info.get("geocatalog_collection_id"):
+                metadata_dict["geocatalog_collection_id"] = storage_info[
+                    "geocatalog_collection_id"
+                ]
+            if storage_info.get("geocatalog_stac_feature_id"):
+                metadata_dict["geocatalog_stac_feature_id"] = storage_info[
+                    "geocatalog_stac_feature_id"
+                ]
         else:
             # No storage info means object storage was skipped or failed
             metadata_dict["storage_type"] = "server"
@@ -812,7 +923,7 @@ def process_finalize_metadata(
         logger.info(f"Created final metadata file: {metadata_path}")
 
         # Update workflow status to COMPLETED
-        workflow_class = workflow_registry.get_workflow_class(workflow_name)
+        workflow_class = WorkflowRegistry.instance().get_workflow_class(workflow_name)
         if not workflow_class:
             return fail_workflow(
                 workflow_name,
@@ -824,18 +935,16 @@ def process_finalize_metadata(
             "status": WorkflowStatus.COMPLETED,
             "end_time": datetime.now(timezone.utc).isoformat(),
         }
-        workflow_class._update_execution_data(
-            redis_client, workflow_name, execution_id, updates
-        )
+        workflow_class._update_execution_data(rc, workflow_name, execution_id, updates)
         logger.info(
             f"Workflow {workflow_name} execution {execution_id} status set to COMPLETED"
         )
 
         # Clean up Redis keys
-        redis_client.delete(metadata_key)
-        redis_client.delete(results_zip_dir_key)
+        rc.delete(metadata_key)
+        rc.delete(results_zip_dir_key)
         if storage_info_json:
-            redis_client.delete(storage_info_key)
+            rc.delete(storage_info_key)
 
         logger.info(f"Finalize metadata completed for {request_id}")
         return {

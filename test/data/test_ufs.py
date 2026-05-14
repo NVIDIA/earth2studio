@@ -191,6 +191,7 @@ def test_ufsobsconv_tolerance_conversion():
     [
         (["atms"], ["npp"], timedelta(hours=1)),
         (["mhs"], ["metop-a", "metop-b"], timedelta(hours=2)),
+        (["airs"], ["aqua"], timedelta(hours=1)),
     ],
 )
 def test_ufsobssat_fetch(time, variable, satellites, tol):

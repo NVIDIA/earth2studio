@@ -17,7 +17,7 @@
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, Mock, patch
@@ -32,9 +32,9 @@ from earth2studio.serve.server.workflow import (
     WorkflowRegistry,
     WorkflowResult,
     WorkflowStatus,
+    json_serial,
     parse_workflow_directories_from_env,
     register_all_workflows,
-    workflow_registry,
 )
 
 _SERVE_AVAILABLE = False
@@ -838,6 +838,17 @@ class Workflow3(Workflow):
         return {"result": "success", "execution_id": execution_id}
 
 
+def test_json_serial_datetime_date_timedelta_and_unsupported_type():
+    """json_serial supports datetime/date/timedelta and raises for other types."""
+    dt = datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+    assert json_serial(dt) == dt.isoformat()
+    d = date(2024, 1, 2)
+    assert json_serial(d) == d.isoformat()
+    assert json_serial(timedelta(seconds=90)) == 90.0
+    with pytest.raises(TypeError, match="is not serializable"):
+        json_serial(object())
+
+
 # Test Workflow base class
 class TestWorkflow:
     """Test Workflow base class"""
@@ -991,6 +1002,28 @@ class TestWorkflow:
             testWorkflowImpl._save_execution_data(
                 mock_redis, "test_workflow", "exec_123", result
             )
+
+    def test_private_update_execution_data_setex_failure(self):
+        """_update_execution_data re-raises when Redis setex fails after a successful get."""
+        mock_redis = Mock(spec=redis.Redis)
+        mock_redis.get.return_value = json.dumps(
+            {
+                "workflow_name": "test_workflow",
+                "execution_id": "exec_123",
+                "status": "running",
+            }
+        ).encode()
+        mock_redis.setex.side_effect = RuntimeError("setex failed")
+
+        with pytest.raises(RuntimeError, match="setex failed"):
+            testWorkflowImpl._update_execution_data(
+                mock_redis, "test_workflow", "exec_123", {"metadata": {"k": "v"}}
+            )
+
+    def test_update_execution_data_without_redis_client(self):
+        """update_execution_data raises if set_redis_client was never called."""
+        with pytest.raises(RuntimeError, match="Redis client not set"):
+            self.workflow.update_execution_data("exec_123", {"metadata": {}})
 
     def test_update_execution_data(self):
         """Test updating execution data"""
@@ -1267,6 +1300,13 @@ class TestWorkflowRegistry:
         assert "my_workflow" in self.registry._workflows
         assert self.registry._workflows["my_workflow"] == MyWorkflow
 
+    def test_register_skips_when_api_inactive(self):
+        """register is a no-op when EARTH2STUDIO_API_ACTIVE is not 1."""
+        with patch.dict(os.environ, {"EARTH2STUDIO_API_ACTIVE": "0"}):
+            reg = WorkflowRegistry()
+            reg.register(MyWorkflow)
+            assert "my_workflow" not in reg._workflows
+
     def test_register_duplicate_workflow(self):
         """Test registering duplicate workflow raises error"""
         self.registry.register(MyWorkflow)
@@ -1378,6 +1418,16 @@ class TestWorkflowRegistry:
         result = self.registry.get("nonexistent")
         assert result is None
 
+    def test_get_raises_value_error_when_workflow_config_invalid(self):
+        """get wraps Config.validate failures as ValueError."""
+        self.registry.register(MyWorkflow)
+        with patch(
+            "earth2studio.serve.server.workflow.get_workflow_config",
+            return_value={"unknown_extra_field": True},
+        ):
+            with pytest.raises(ValueError, match="Invalid parameters for MyWorkflow"):
+                self.registry.get("my_workflow")
+
     def test_get_workflow_with_custom_name_and_description(self):
         """Test that workflow instances get the registered name and description"""
 
@@ -1486,7 +1536,7 @@ class TestWorkflowRegistry:
             workflow_file = Path(tmpdir) / "test_workflow_module.py"
             workflow_file.write_text(
                 """
-from earth2studio.serve.server.workflow import Workflow, WorkflowParameters, workflow_registry
+from earth2studio.serve.server.workflow import Workflow, WorkflowParameters, WorkflowRegistry
 
 class SimpleWorkflow(Workflow):
     # No __init__ needed - name and description set by registry
@@ -1501,18 +1551,17 @@ class SimpleWorkflow(Workflow):
     def run(self, parameters, execution_id):
         return {"result": "success"}
 
-workflow_registry.register(SimpleWorkflow)
+WorkflowRegistry.instance().register(SimpleWorkflow)
 """
             )
 
             successful, failed = self.registry.discover_and_register_from_directories(
                 [tmpdir], include_builtin=False
             )
-            from earth2studio.serve.server.workflow import workflow_registry
 
             assert successful == 1
             assert failed == 0
-            assert "simple" in workflow_registry.list_workflows().keys()
+            assert "simple" in WorkflowRegistry.instance().list_workflows().keys()
 
     def test_discover_and_register_with_invalid_python_file(self):
         """Test discovering workflows from directory with invalid Python file"""
@@ -1542,13 +1591,30 @@ workflow_registry.register(SimpleWorkflow)
             assert successful == 0
             assert failed == 0
 
-    @patch("earth2studio.serve.server.workflow.Path")
-    def test_discover_and_register_with_builtin(self, mock_path):
+    def test_discover_and_register_when_spec_loader_missing(self):
+        """Failed import when spec_from_file_location returns unusable spec."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            py_file = Path(tmpdir) / "noop.py"
+            py_file.write_text("#")
+            bad_spec = MagicMock()
+            bad_spec.loader = None
+            with patch(
+                "earth2studio.serve.server.workflow.importlib.util.spec_from_file_location",
+                return_value=bad_spec,
+            ):
+                successful, failed = (
+                    self.registry.discover_and_register_from_directories(
+                        [tmpdir], include_builtin=False
+                    )
+                )
+            assert successful == 0
+            assert failed == 1
+
+    @patch("earth2studio.serve.server.config.resolve_repo_root")
+    def test_discover_and_register_with_builtin(self, mock_repo_root):
         """Test discovering workflows with built-in workflows"""
-        # Mock the builtin workflows directory to not exist
-        mock_builtin_dir = MagicMock()
-        mock_builtin_dir.exists.return_value = False
-        mock_path.return_value.parent.__truediv__.return_value = mock_builtin_dir
+        # Mock repo root so the builtin workflows directory does not exist
+        mock_repo_root.return_value = Path("/nonexistent/repo")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             successful, failed = self.registry.discover_and_register_from_directories(
@@ -1562,6 +1628,7 @@ workflow_registry.register(SimpleWorkflow)
     def test_auto_register_workflows(self):
         """Test auto-registering workflows"""
         mock_redis = Mock(spec=redis.Redis)
+        self.registry.register(MyWorkflow)
 
         with (
             patch(
@@ -1576,9 +1643,10 @@ workflow_registry.register(SimpleWorkflow)
         ):
             self.registry.auto_register_workflows(mock_redis)
 
-            # Should set Redis client for all workflows
-            for workflow in self.registry._workflows.values():
-                assert workflow.redis_client == mock_redis
+        # Registry still holds the pre-registered class; auto_register logs the summary
+        # (including per-workflow lines) and does not attach redis_client to workflow classes.
+        assert "my_workflow" in self.registry._workflows
+        assert "my_workflow" in self.registry.list_workflows()
 
     def test_auto_register_workflows_with_error(self):
         """Test auto-registering workflows with error"""
@@ -1590,6 +1658,104 @@ workflow_registry.register(SimpleWorkflow)
         ):
             with pytest.raises(Exception, match="Test error"):
                 self.registry.auto_register_workflows(mock_redis)
+
+
+class TestWorkflowRegistryExposure:
+    """Tests for WorkflowRegistry.is_workflow_exposed and list_workflows with exposure filtering."""
+
+    # Patch workflow.get_config (not config.get_config): workflow.py binds the imported name,
+    # so patching config.get_config alone does not affect WorkflowRegistry methods.
+
+    def setup_method(self):
+        self.registry = WorkflowRegistry()
+        self.registry.register(Workflow1)
+        self.registry.register(Workflow2)
+        self.registry.register(Workflow3)
+
+    def _make_config(self, exposed=None, warmup=None):
+        mock_config = MagicMock()
+        mock_config.workflow_exposure.exposed_workflows = (
+            exposed if exposed is not None else []
+        )
+        mock_config.workflow_exposure.warmup_workflows = (
+            warmup if warmup is not None else []
+        )
+        return mock_config
+
+    def _patch_get_config(self, mock_config):
+        return patch(
+            "earth2studio.serve.server.workflow.get_config", return_value=mock_config
+        )
+
+    # --- is_workflow_exposed ---
+
+    def test_is_workflow_exposed_empty_list_exposes_all(self):
+        """Empty exposed_workflows means all workflows are exposed."""
+        mock_config = self._make_config(exposed=[], warmup=[])
+        with self._patch_get_config(mock_config):
+            assert self.registry.is_workflow_exposed("workflow1") is True
+            assert self.registry.is_workflow_exposed("workflow2") is True
+            assert self.registry.is_workflow_exposed("unknown_wf") is True
+
+    def test_is_workflow_exposed_in_exposed_list(self):
+        """Workflow in exposed_workflows is exposed."""
+        mock_config = self._make_config(exposed=["workflow1", "workflow2"], warmup=[])
+        with self._patch_get_config(mock_config):
+            assert self.registry.is_workflow_exposed("workflow1") is True
+            assert self.registry.is_workflow_exposed("workflow2") is True
+
+    def test_is_workflow_exposed_in_warmup_list_only(self):
+        """Workflow in warmup_workflows (but not exposed_workflows) is still exposed."""
+        mock_config = self._make_config(exposed=["workflow1"], warmup=["workflow2"])
+        with self._patch_get_config(mock_config):
+            assert self.registry.is_workflow_exposed("workflow2") is True
+
+    def test_is_workflow_exposed_not_in_any_list(self):
+        """Workflow not in exposed or warmup lists is not exposed."""
+        mock_config = self._make_config(exposed=["workflow1"], warmup=["workflow2"])
+        with self._patch_get_config(mock_config):
+            assert self.registry.is_workflow_exposed("workflow3") is False
+
+    # --- list_workflows ---
+
+    def test_list_workflows_exposed_only_empty_list_returns_all(self):
+        """Empty exposed_workflows with exposed_only=True returns all registered workflows."""
+        mock_config = self._make_config(exposed=[], warmup=[])
+        with self._patch_get_config(mock_config):
+            result = self.registry.list_workflows(exposed_only=True)
+        assert set(result.keys()) == {"workflow1", "workflow2", "workflow3"}
+
+    def test_list_workflows_exposed_only_filters_to_exposed_list(self):
+        """exposed_only=True excludes warmup-only workflows from the listing."""
+        mock_config = self._make_config(
+            exposed=["workflow1", "workflow2"], warmup=["workflow3"]
+        )
+        with self._patch_get_config(mock_config):
+            result = self.registry.list_workflows(exposed_only=True)
+        assert set(result.keys()) == {"workflow1", "workflow2"}
+        assert "workflow3" not in result
+
+    def test_list_workflows_exposed_only_false_returns_all(self):
+        """exposed_only=False returns all registered workflows regardless of config."""
+        mock_config = self._make_config(exposed=["workflow1"], warmup=[])
+        with self._patch_get_config(mock_config):
+            result = self.registry.list_workflows(exposed_only=False)
+        assert set(result.keys()) == {"workflow1", "workflow2", "workflow3"}
+
+    def test_list_workflows_default_is_exposed_only(self):
+        """list_workflows() with no args defaults to exposed_only=True."""
+        mock_config = self._make_config(exposed=["workflow1"], warmup=[])
+        with self._patch_get_config(mock_config):
+            result = self.registry.list_workflows()
+        assert set(result.keys()) == {"workflow1"}
+
+    def test_list_workflows_returns_descriptions(self):
+        """list_workflows includes the description for each returned workflow."""
+        mock_config = self._make_config(exposed=[], warmup=[])
+        with self._patch_get_config(mock_config):
+            result = self.registry.list_workflows()
+        assert result["workflow1"] == "First workflow"
+        assert result["workflow2"] == "Second workflow"
 
 
 # Test helper functions
@@ -1642,7 +1808,9 @@ class TestHelperFunctions:
         """Test register_all_workflows convenience function"""
         mock_redis = Mock(spec=redis.Redis)
 
-        with patch.object(workflow_registry, "auto_register_workflows") as mock_auto:
+        with patch.object(
+            WorkflowRegistry.instance(), "auto_register_workflows"
+        ) as mock_auto:
             register_all_workflows(mock_redis)
             mock_auto.assert_called_once_with(mock_redis)
 
@@ -1697,3 +1865,29 @@ class TestWorkflowIntegration:
         workflows = registry.list_workflows()
         assert len(workflows) == 2
         assert "workflow2" not in workflows
+
+
+class TestWorkflowRegistrySingleton:
+    """Tests for the WorkflowRegistry.instance() singleton pattern."""
+
+    def setup_method(self):
+        self._original_instance = WorkflowRegistry._instance
+        WorkflowRegistry._instance = None
+
+    def teardown_method(self):
+        WorkflowRegistry._instance = self._original_instance
+
+    def test_instance_returns_same_object(self):
+        a = WorkflowRegistry.instance()
+        b = WorkflowRegistry.instance()
+        assert a is b
+
+    def test_reset_instance_creates_new_object(self):
+        a = WorkflowRegistry.instance()
+        WorkflowRegistry._reset_instance()
+        b = WorkflowRegistry.instance()
+        assert a is not b
+
+    def test_instance_returns_workflow_registry(self):
+        inst = WorkflowRegistry.instance()
+        assert isinstance(inst, WorkflowRegistry)

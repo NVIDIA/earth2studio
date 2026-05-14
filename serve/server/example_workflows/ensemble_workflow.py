@@ -23,24 +23,20 @@ as a custom pipeline that can be invoked via the REST API.
 """
 
 import json
-import logging
 from collections import OrderedDict
 from typing import Any, Literal
 
 import numpy as np
 import zarr
+from loguru import logger
 from pydantic import Field
 
 from earth2studio.serve.server.workflow import (
     Workflow,
     WorkflowParameters,
     WorkflowProgress,
-    workflow_registry,
+    WorkflowRegistry,
 )
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class EnsembleWorkflowParameters(WorkflowParameters):
@@ -60,13 +56,13 @@ class EnsembleWorkflowParameters(WorkflowParameters):
     nensemble: int = Field(
         default=8,
         ge=1,
-        le=64,
+        le=512,
         description="Number of ensemble members",
     )
     batch_size: int = Field(
         default=2,
         ge=1,
-        le=32,
+        le=64,
         description="Number of ensemble members per batch",
     )
 
@@ -113,7 +109,7 @@ class EnsembleWorkflowParameters(WorkflowParameters):
     )
 
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class EnsembleWorkflow(Workflow):
     """
     Ensemble workflow that runs Earth2Studio ensemble forecasts.
