@@ -22,7 +22,7 @@ from collections import OrderedDict
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from types import TracebackType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -32,11 +32,13 @@ from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 
 from earth2studio.io import ZarrBackend
-from earth2studio.models.dx import DiagnosticModel
-from earth2studio.models.px import PrognosticModel
+from earth2studio.models.px.base import PrognosticModel
 from earth2studio.utils.coords import CoordSystem, handshake_coords, split_coords
 
 from .distributed import run_on_rank0_first
+
+if TYPE_CHECKING:
+    from earth2studio.models.dx.base import DiagnosticModel
 
 _NON_SPATIAL_DIMS = frozenset({"batch", "time", "lead_time", "variable", "ensemble"})
 

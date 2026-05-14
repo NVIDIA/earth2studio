@@ -1,0 +1,5 @@
+# Atlas prognostic model
+# 6-hour time step, 721x1440 lat/lon grid, ERA5 variables.
+architecture: earth2studio.models.px.atlas.Atlas
+# Omit package_path to use the default HuggingFace checkpoint.
+# package_path: /path/to/custom/checkpoint

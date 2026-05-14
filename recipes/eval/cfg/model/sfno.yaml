@@ -1,0 +1,5 @@
+# SFNO prognostic model
+# 6-hour time step, 721x1440 lat/lon grid, 73 prognostic variables.
+architecture: earth2studio.models.px.sfno.SFNO
+# Omit package_path to use the default NGC checkpoint.
+# package_path: /path/to/custom/checkpoint

@@ -16,16 +16,24 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import hydra
 from loguru import logger
 from omegaconf import DictConfig
 
-from earth2studio.models.dx import DiagnosticModel
-from earth2studio.models.px import PrognosticModel
+from earth2studio.models.px.base import PrognosticModel
 
 from .distributed import run_on_rank0_first
+
+if TYPE_CHECKING:
+    from earth2studio.models.dx.base import DiagnosticModel
+
+
+def _instantiate_load_args(cfg: DictConfig) -> dict[str, Any]:
+    if "load_args" not in cfg:
+        return {}
+    return dict(hydra.utils.instantiate(cfg.load_args))
 
 
 def load_prognostic(cfg: DictConfig) -> PrognosticModel:
@@ -60,7 +68,7 @@ def load_prognostic(cfg: DictConfig) -> PrognosticModel:
     else:
         pkg = run_on_rank0_first(cls.load_default_package)
 
-    load_kwargs: dict[str, Any] = dict(model_cfg.get("load_args", {}))
+    load_kwargs = _instantiate_load_args(model_cfg)
     model: PrognosticModel = cls.load_model(package=pkg, **load_kwargs)
 
     logger.success(f"Loaded prognostic model: {cls.__name__}")
@@ -94,7 +102,7 @@ def load_diagnostics(cfg: DictConfig) -> list[DiagnosticModel]:
         elif "architecture" in dx_cfg:
             cls = hydra.utils.get_class(dx_cfg.architecture)
             pkg = run_on_rank0_first(cls.load_default_package)
-            load_kwargs: dict[str, Any] = dict(dx_cfg.get("load_args", {}))
+            load_kwargs = _instantiate_load_args(dx_cfg)
             dx = cls.load_model(package=pkg, **load_kwargs)
         else:
             raise ValueError(

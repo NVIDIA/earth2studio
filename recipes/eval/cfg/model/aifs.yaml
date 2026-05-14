@@ -1,0 +1,5 @@
+# AIFS single deterministic prognostic model
+# 6-hour time step, native octahedral grid internally with lat/lon I/O wrapper.
+architecture: earth2studio.models.px.aifs.AIFS
+# Omit package_path to use the default HuggingFace checkpoint.
+# package_path: /path/to/custom/checkpoint

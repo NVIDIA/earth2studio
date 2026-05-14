@@ -30,7 +30,7 @@ import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig
 
-from earth2studio.data import DataSource
+from earth2studio.data.base import DataSource
 from earth2studio.utils.type import TimeArray, VariableArray
 
 

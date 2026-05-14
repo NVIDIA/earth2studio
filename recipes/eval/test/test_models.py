@@ -17,21 +17,28 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+from hydra.utils import get_class
 from omegaconf import OmegaConf
 from src.models import load_diagnostics, load_prognostic
 
-from earth2studio.models.dx import Identity
-from earth2studio.models.px import Persistence
+from earth2studio.models.dx.identity import Identity
+from earth2studio.models.px.persistence import Persistence
 
 _RANK0_PATH = "src.models.run_on_rank0_first"
 
 SMALL_LAT = np.linspace(90, -90, 4)
 SMALL_LON = np.linspace(0, 360, 8, endpoint=False)
 VARIABLES = ["t2m", "z500"]
+
+
+class FakeLoadArg:
+    def __init__(self, value: str):
+        self.value = value
 
 
 def _passthrough(fn, *a, **kw):
@@ -105,6 +112,30 @@ class TestLoadPrognostic:
         assert kwargs["pretrained"] is True
         assert kwargs["precision"] == "fp16"
 
+    def test_nested_load_args_instantiated(self):
+        fake_cls, _ = _make_fake_prognostic_cls()
+        cfg = OmegaConf.create(
+            {
+                "model": {
+                    "architecture": "some.module.FakePx",
+                    "load_args": {
+                        "helper": {
+                            "_target_": "test.test_models.FakeLoadArg",
+                            "value": "ready",
+                        }
+                    },
+                }
+            }
+        )
+
+        with patch("src.models.hydra.utils.get_class", return_value=fake_cls):
+            with patch(_RANK0_PATH, side_effect=_passthrough):
+                load_prognostic(cfg)
+
+        _, kwargs = fake_cls.load_model.call_args
+        assert isinstance(kwargs["helper"], FakeLoadArg)
+        assert kwargs["helper"].value == "ready"
+
 
 class TestLoadDiagnostics:
     def test_no_diagnostics_returns_empty(self):
@@ -117,7 +148,7 @@ class TestLoadDiagnostics:
             {
                 "diagnostics": {
                     "identity": {
-                        "_target_": "earth2studio.models.dx.Identity",
+                        "_target_": "earth2studio.models.dx.identity.Identity",
                     }
                 }
             }
@@ -158,11 +189,44 @@ class TestLoadDiagnostics:
         cfg = OmegaConf.create(
             {
                 "diagnostics": {
-                    "dx1": {"_target_": "earth2studio.models.dx.Identity"},
-                    "dx2": {"_target_": "earth2studio.models.dx.Identity"},
+                    "dx1": {"_target_": "earth2studio.models.dx.identity.Identity"},
+                    "dx2": {"_target_": "earth2studio.models.dx.identity.Identity"},
                 }
             }
         )
         result = load_diagnostics(cfg)
         assert len(result) == 2
         assert all(isinstance(d, Identity) for d in result)
+
+
+class TestModelConfigCatalog:
+    @pytest.mark.parametrize(
+        "name, class_name",
+        [
+            ("ace2", "ACE2ERA5"),
+            ("aifs", "AIFS"),
+            ("aifsens", "AIFSENS"),
+            ("atlas", "Atlas"),
+            ("aurora", "Aurora"),
+            ("cbottle_video", "CBottleVideo"),
+            ("dlesym", "DLESyMLatLon"),
+            ("dlwp", "DLWP"),
+            ("fcn", "FCN"),
+            ("fcn3", "FCN3"),
+            ("fengwu", "FengWu"),
+            ("gencast_mini", "GenCastMini"),
+            ("graphcast_operational", "GraphCastOperational"),
+            ("graphcast_small", "GraphCastSmall"),
+            ("pangu3", "Pangu3"),
+            ("pangu6", "Pangu6"),
+            ("pangu24", "Pangu24"),
+            ("sfno", "SFNO"),
+        ],
+    )
+    def test_model_config_resolves_architecture(self, name: str, class_name: str):
+        cfg_path = Path(__file__).parents[1] / "cfg" / "model" / f"{name}.yaml"
+        cfg = OmegaConf.load(cfg_path)
+
+        cls = get_class(cfg.architecture)
+
+        assert cls.__name__ == class_name

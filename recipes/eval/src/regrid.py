@@ -47,7 +47,7 @@ import torch
 import xarray as xr
 from numpy.typing import ArrayLike
 
-from earth2studio.data import DataSource
+from earth2studio.data.base import DataSource
 from earth2studio.utils.coords import CoordSystem
 from earth2studio.utils.interp import NearestNeighborInterpolator
 from earth2studio.utils.type import TimeArray, VariableArray

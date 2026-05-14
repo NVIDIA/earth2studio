@@ -1,0 +1,5 @@
+# FengWu prognostic model
+# 6-hour time step, 721x1440 lat/lon grid, ONNX runtime backend.
+architecture: earth2studio.models.px.fengwu.FengWu
+# Omit package_path to use the default HuggingFace checkpoint.
+# package_path: /path/to/custom/checkpoint

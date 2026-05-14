@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 import hydra
 import numpy as np
@@ -29,9 +30,9 @@ from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
-from earth2studio.data import DataSource, fetch_data
-from earth2studio.models.dx import DiagnosticModel
-from earth2studio.models.px import PrognosticModel
+from earth2studio.data.base import DataSource
+from earth2studio.data.utils import fetch_data
+from earth2studio.models.px.base import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
 
@@ -39,6 +40,9 @@ from ..models import load_diagnostics, load_prognostic
 from ..output import build_diagnostic_coords, build_forecast_coords
 from ..work import WorkItem
 from .base import Pipeline, PredownloadStore
+
+if TYPE_CHECKING:
+    from earth2studio.models.dx.base import DiagnosticModel
 
 
 def _align_to_grid(
@@ -80,7 +84,10 @@ def _align_to_grid(
     new_coords = OrderedDict(coords)
     new_coords["lat"] = np.asarray(tgt_lat)
     new_coords["lon"] = np.asarray(tgt_lon)
-    return torch.from_numpy(np.asarray(da.values)).to(x.device), new_coords
+    return (
+        torch.from_numpy(np.asarray(da.values)).to(device=x.device, dtype=x.dtype),
+        new_coords,
+    )
 
 
 class ForecastPipeline(Pipeline):
