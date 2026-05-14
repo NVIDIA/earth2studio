@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed potential `uint16` underflow in UFS channel index expansion
 - S3 upload bug in server utilities
 - Fixed pres obs from UFS to be Pascal units
+- Fixed chunk downloading race condition in file system cache for Zarr data sources
 
 ### Security
 
