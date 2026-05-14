@@ -16,14 +16,24 @@
 
 """Pre-download script for the eval recipe.
 
-Fetches and caches initial condition (and optionally verification) data for a
-validation campaign before the GPU inference job runs.  Accepts the same Hydra
-config as ``main.py`` so the two scripts stay in sync automatically.
+Fetches data required by the configured pipeline and writes it into zarr
+stores before the GPU inference job runs.  Accepts the same Hydra config
+as ``main.py`` so the two scripts stay in sync automatically.
 
-IC variables, lead times, and model step size are inferred directly from the
-model's ``input_coords()`` / ``output_coords()``, so no manual bookkeeping is
-required when switching models.  Verification variables are taken from
-``cfg.output.variables`` — only what will actually be scored is downloaded.
+Architecture
+------------
+Each :class:`~src.pipelines.Pipeline` subclass declares its predownload
+requirements by returning a list of :class:`~src.pipelines.PredownloadStore`
+entries from :meth:`~src.pipelines.Pipeline.predownload_stores`.  This
+script iterates that list and writes each store; no pipeline-specific
+logic lives here.
+
+Resume
+------
+Progress is tracked per-timestamp via marker files.  If interrupted (e.g.
+by a SLURM time limit), re-running with the same config skips
+already-completed timestamps automatically.  Set
+``predownload.overwrite=true`` to recreate stores from scratch.
 
 Typical usage
 -------------
@@ -35,24 +45,13 @@ Multi-process (CPU workers, e.g. on a login or pre-fetch node)::
 
     torchrun --nproc_per_node=8 --standalone predownload.py
 
-With a shared cache directory (set the same variable when launching main.py)::
-
-    python predownload.py predownload.cache_dir=/lustre/shared/e2s_cache
-
-Also pre-fetch ERA5 verification data for the full forecast window::
+Also pre-fetch verification data (merged into ``data.zarr`` when using the
+same source)::
 
     python predownload.py predownload.verification.enabled=true
-
-Override the IC time range just like the eval recipe (``ic_block_end`` is
-inclusive on the step grid; same ``np.arange`` semantics as ``work.py``)::
-
-    python predownload.py ic_block_start="2024-01-01" ic_block_end="2024-03-31" \\
-        ic_block_step=24
 """
 
 from __future__ import annotations
-
-import os
 
 import hydra
 import numpy as np
@@ -61,152 +60,139 @@ from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from src.distributed import configure_logging
-from src.models import load_prognostic
-from src.output import sentinel_path
-from src.work import build_work_items, distribute_work
+from src.output import OutputManager, build_predownload_coords, sentinel_path
+from src.pipelines import PredownloadStore, build_pipeline
+from src.predownload_utils import (
+    compute_verification_times,
+    infer_step_hours,
+    squeeze_lead_time,
+    union_variables,
+)
+from src.work import (
+    clear_predownload_progress,
+    distribute_work,
+    filter_predownload_completed,
+    write_predownload_marker,
+)
 
 from earth2studio.data import fetch_data
 
+# ---------------------------------------------------------------------------
+# Backward-compatibility re-exports
+# ---------------------------------------------------------------------------
+# Existing tests (test/test_predownload.py) import these under their original
+# private names.  Keep the aliases until those tests are updated.
+_compute_verification_times = compute_verification_times
+_infer_step_hours = infer_step_hours
+_squeeze_lead_time = squeeze_lead_time
+_union_variables = union_variables
 
-def _infer_step_hours(model: object) -> int:
-    """Infer the model's output timestep in hours from its coordinate methods.
 
-    Computed as the difference between the first output lead time and the last
-    input lead time, which equals the model's intrinsic step size.
+# ---------------------------------------------------------------------------
+# Generic store download
+# ---------------------------------------------------------------------------
 
-    Parameters
-    ----------
-    model : PrognosticModel
-        Loaded prognostic model.
 
-    Returns
-    -------
-    int
-        Step size in hours.
+def _download_store(
+    cfg: DictConfig,
+    dist: DistributedManager,
+    store: PredownloadStore,
+    overwrite: bool,
+) -> None:
+    """Open a zarr store and download all of *store*'s data into it.
+
+    The per-rank partitioning, resume filtering, and per-timestamp progress
+    markers are uniform across all pipelines — only the ``(source, times,
+    variables, spatial_ref)`` vary by store.
     """
-    ic_coords = model.input_coords()  # type: ignore[attr-defined]
-    out_coords = model.output_coords(ic_coords)  # type: ignore[attr-defined]
-    delta = out_coords["lead_time"][0] - ic_coords["lead_time"][-1]
-    return int(delta / np.timedelta64(1, "h"))
+    store_coords = build_predownload_coords(
+        store.spatial_ref, np.array(store.times, dtype="datetime64[ns]")
+    )
+
+    with OutputManager(
+        cfg,
+        store_name=f"{store.name}.zarr",
+        overwrite=overwrite,
+        resume=not overwrite,
+    ) as mgr:
+        mgr.validate_output_store(store_coords, store.variables)
+        _download_to_store(store=store, output_mgr=mgr, cfg=cfg, dist=dist)
 
 
-def _compute_verification_times(
-    ic_times: list[np.datetime64],
-    nsteps: int,
-    step_hours: int,
-) -> list[np.datetime64]:
-    """Collect all unique model-output times across every IC window.
+def _download_to_store(
+    store: PredownloadStore,
+    output_mgr: OutputManager,
+    cfg: DictConfig,
+    dist: DistributedManager,
+) -> None:
+    """Fetch each timestamp from *store*'s source and write it to disk.
 
-    Parameters
-    ----------
-    ic_times : list[np.datetime64]
-        All unique initial condition times.
-    nsteps : int
-        Number of model steps per forecast (from ``cfg.nsteps``).
-    step_hours : int
-        Model output timestep in hours.
-
-    Returns
-    -------
-    list[np.datetime64]
-        Sorted, deduplicated list of verification times to fetch.
+    Handles resume filtering, work distribution across ranks, and
+    per-timestamp progress markers.  Every rank must call this for the
+    enclosing :class:`OutputManager` barriers to be satisfied.
     """
-    step = np.timedelta64(step_hours, "h")
-    times: set[np.datetime64] = set()
-    for t in ic_times:
-        for k in range(nsteps + 1):
-            times.add(t + k * step)
-    return sorted(times)
+    zero_lead = np.array([np.timedelta64(0, "ns")])
+
+    remaining = filter_predownload_completed(list(store.times), cfg, store.name)
+    my_times = distribute_work(remaining, dist.rank, dist.world_size)
+
+    logger.info(
+        f"Rank {dist.rank}: {store.name} ({store.role}) — "
+        f"{len(my_times)}/{len(remaining)} remaining times "
+        f"({len(store.times)} total), {len(store.variables)} variables"
+    )
+
+    for t in my_times:
+        logger.info(f"Rank {dist.rank}: fetching {store.name} {t}")
+        x, coords = fetch_data(
+            source=store.source,
+            time=[t],
+            variable=list(store.variables),
+            lead_time=zero_lead,
+            device=torch.device("cpu"),
+        )
+        x, coords = squeeze_lead_time(x, coords)
+        output_mgr.write(x, coords)
+        output_mgr.flush()
+        write_predownload_marker(t, cfg, store.name)
+
+    logger.success(f"Rank {dist.rank}: {store.name} download complete.")
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 
 @hydra.main(version_base=None, config_path="cfg", config_name="predownload")
 def main(cfg: DictConfig) -> None:
-    """Pre-download IC and (optionally) verification data for the eval recipe."""
+    """Pre-download data for the eval recipe into zarr stores."""
 
     DistributedManager.initialize()
     configure_logging()
     dist = DistributedManager()
 
-    # Set cache directory BEFORE instantiating any data source so that
-    # datasource_cache_root() picks up the override.
     pd_cfg = cfg.predownload
-    cache_dir: str | None = pd_cfg.get("cache_dir")
-    if cache_dir:
-        os.environ["EARTH2STUDIO_DATA_CACHE"] = cache_dir
-        logger.info(f"Cache directory overridden to: {cache_dir}")
+    pd_overwrite = pd_cfg.get("overwrite", False)
+
+    if pd_overwrite and dist.rank == 0:
+        clear_predownload_progress(cfg)
+
+    pipeline = build_pipeline(cfg)
+    stores = pipeline.predownload_stores(cfg)
+
+    if not stores:
+        logger.info("Pipeline declared no predownload stores — nothing to fetch.")
+    else:
         logger.info(
-            "Set EARTH2STUDIO_DATA_CACHE to the same path when running main.py "
-            "to load from this location."
+            f"Pipeline '{type(pipeline).__name__}' declared "
+            f"{len(stores)} predownload store(s): "
+            f"{', '.join(f'{s.name} ({s.role})' for s in stores)}"
         )
-
-    # --- Load model to infer IC requirements --------------------------------
-    # Model is loaded to CPU (no .to(device) call here); we only need the
-    # coordinate metadata, not actual inference.
-    model = load_prognostic(cfg)
-    ic_coords = model.input_coords()
-    ic_variables: list[str] = list(ic_coords["variable"])
-    ic_lead_times: np.ndarray = ic_coords["lead_time"]
-
-    # --- Build unique IC times and distribute across ranks ------------------
-    all_items = build_work_items(cfg)
-    # Ensemble members share the same IC data; deduplicate by time only.
-    unique_ic_times: list[np.datetime64] = sorted({item.time for item in all_items})
-    my_ic_times = distribute_work(unique_ic_times, dist.rank, dist.world_size)
-
-    # --- Initial condition data ---------------------------------------------
-    logger.info(
-        f"Rank {dist.rank}: pre-downloading IC data for "
-        f"{len(my_ic_times)}/{len(unique_ic_times)} times — "
-        f"{len(ic_variables)} variables, "
-        f"lead_times={[int(lt / np.timedelta64(1, 'h')) for lt in ic_lead_times]}h"
-    )
-
-    ic_source = hydra.utils.instantiate(cfg.data_source)
-
-    for t in my_ic_times:
-        logger.info(f"Rank {dist.rank}: fetching IC  {t}")
-        fetch_data(
-            source=ic_source,
-            time=[t],
-            variable=ic_variables,
-            lead_time=ic_lead_times,
-            device=torch.device("cpu"),
-        )
-
-    logger.success(f"Rank {dist.rank}: IC pre-download complete.")
-
-    # --- Verification data (optional) ---------------------------------------
-    verif_cfg = pd_cfg.get("verification", {})
-    if verif_cfg.get("enabled", False):
-        # Only fetch variables that will actually be written to the output
-        # store — no point caching data that will never be scored.
-        verif_variables: list[str] = list(cfg.output.variables)
-
-        step_hours = _infer_step_hours(model)
-        all_verif_times = _compute_verification_times(
-            unique_ic_times, cfg.nsteps, step_hours
-        )
-        # Distribute verification times independently of IC distribution to
-        # avoid duplicate downloads across ranks.
-        my_verif_times = distribute_work(all_verif_times, dist.rank, dist.world_size)
-
-        logger.info(
-            f"Rank {dist.rank}: pre-downloading verification data for "
-            f"{len(my_verif_times)}/{len(all_verif_times)} times — "
-            f"{verif_variables} (step={step_hours}h)"
-        )
-
-        verif_source = hydra.utils.instantiate(verif_cfg.source)
-
-        for t in my_verif_times:
-            logger.info(f"Rank {dist.rank}: fetching verif {t}")
-            verif_source(np.array([t], dtype="datetime64[ns]"), verif_variables)
-
-        logger.success(f"Rank {dist.rank}: verification pre-download complete.")
+        for store in stores:
+            _download_store(cfg, dist, store, pd_overwrite)
 
     # --- Sentinel file ------------------------------------------------------
-    # Barrier ensures every rank has finished before rank 0 stamps the file,
-    # so a partial run can never leave a valid sentinel behind.
     if dist.distributed:
         torch.distributed.barrier()
 

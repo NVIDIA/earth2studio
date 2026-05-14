@@ -23,8 +23,6 @@ with Redis and RQ for job queuing and Prometheus metrics.
 
 import asyncio
 import json
-import logging
-import os
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -33,14 +31,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
 from earth2studio.utils.imports import OptionalDependencyError
 
 try:
     import aiofiles  # type: ignore[import-untyped]
     import redis as redis_sync  # type: ignore[import-untyped]  # For RQ (synchronous)
-    import redis.asyncio as redis  # type: ignore[import-untyped]
     import uvicorn
-    from fastapi import FastAPI, HTTPException
+    from fastapi import FastAPI, HTTPException, Request
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import Response, StreamingResponse
     from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -51,15 +50,30 @@ except ImportError as e:
         "serve", "earth2studio.serve.server.main", e, e.__traceback__
     )
 
-from earth2studio.serve.server.config import get_config, get_config_manager
+from earth2studio.serve.server.config import (
+    get_config,
+    get_config_manager,
+)
+from earth2studio.serve.server.dependencies import (
+    AsyncRedis,
+    InferenceQueue,
+    SyncRedis,
+)
+from earth2studio.serve.server.health import check_all_services
+from earth2studio.serve.server.redis_factory import (
+    create_async_redis_client,
+    create_sync_redis_client,
+)
 from earth2studio.serve.server.utils import (
+    create_file_stream,
     get_inference_request_output_path_key,
     get_inference_request_zip_key,
+    parse_range_header,
 )
 from earth2studio.serve.server.workflow import (
+    WorkflowRegistry,
     WorkflowResult,
     WorkflowStatus,
-    workflow_registry,
 )
 
 # Get configuration
@@ -68,14 +82,9 @@ config_manager = get_config_manager()
 
 # Configure logging
 config_manager.setup_logging()
-logger = logging.getLogger(__name__)
-
-redis_client: redis.Redis | None = None
-redis_sync_client: redis_sync.Redis | None = None
-inference_queue: Queue | None = None
 
 
-def check_admission_control() -> None:
+def check_admission_control(sync_redis: redis_sync.Redis) -> None:
     """
     Check if the inference request can be admitted based on queue sizes.
 
@@ -83,28 +92,27 @@ def check_admission_control() -> None:
     and finalize metadata) to ensure none are at capacity before allowing
     a new request to be enqueued.
 
+    Parameters
+    ----------
+    sync_redis : redis.Redis
+        Synchronous Redis client.
+
     Raises
     ------
     HTTPException
         429 if any queue is full (service temporarily unavailable; retry later).
-        503 if Redis is not initialized.
         500 if queue status cannot be determined.
     """
     queue_names = [
         config.queue.name,
         config.queue.result_zip_queue_name,
         config.queue.object_storage_queue_name,
+        config.queue.geocatalog_ingestion_queue_name,
         config.queue.finalize_metadata_queue_name,
     ]
     for queue_name in queue_names:
         try:
-            if redis_sync_client is None:
-                raise HTTPException(
-                    status_code=503, detail="Redis connection not initialized"
-                )
-            current_queue_size = redis_sync_client.llen(f"rq:queue:{queue_name}")
-        except HTTPException:
-            raise
+            current_queue_size = sync_redis.llen(f"rq:queue:{queue_name}")
         except Exception as e:
             logger.error(f"Failed to get queue length for {queue_name}: {e}")
             raise HTTPException(
@@ -121,7 +129,7 @@ def check_admission_control() -> None:
             )
 
 
-def get_queue_position(job_id: str) -> int | None:
+def get_queue_position(queue: Queue | None, job_id: str) -> int | None:
     """
     Get the position of a job in the queue.
 
@@ -130,6 +138,8 @@ def get_queue_position(job_id: str) -> int | None:
 
     Parameters
     ----------
+    queue : Queue | None
+        The RQ inference queue, or None if unavailable.
     job_id : str
         The ID of the job to find.
 
@@ -138,18 +148,13 @@ def get_queue_position(job_id: str) -> int | None:
     int or None
         Position in queue (0-indexed), or None if not found (e.g. picked up by worker).
     """
-    if not inference_queue:
-        logger.warning("Inference queue not available for position lookup")
+    if queue is None:
         return None
-
     try:
-        # Get job IDs from the queue
-        # This uses RQ's Queue.job_ids property which correctly handles custom job IDs
-        job_ids = inference_queue.job_ids
+        job_ids = queue.job_ids
 
         logger.debug(f"Queue has {len(job_ids)} jobs. Looking for job_id: '{job_id}'")
 
-        # Find position (0-indexed)
         if job_id in job_ids:
             position = job_ids.index(job_id)
             logger.debug(f"Job {job_id} found at position {position}")
@@ -179,40 +184,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     queue, and registers custom workflows. On shutdown: closes Redis connections.
     """
     # Startup
-    global redis_client, redis_sync_client, inference_queue
+    async_client = None
+    sync_client = None
     try:
-        # Async Redis client for application state
-        redis_client = redis.Redis(
-            host=config.redis.host,
-            port=config.redis.port,
-            db=config.redis.db,
-            password=config.redis.password,
-            decode_responses=config.redis.decode_responses,
-            socket_connect_timeout=config.redis.socket_connect_timeout,
-            socket_timeout=config.redis.socket_timeout,
-        )
-        # Test async connection
-        await redis_client.ping()
+        async_client = create_async_redis_client()
+        await async_client.ping()
 
-        # Synchronous Redis client for RQ
-        redis_sync_client = redis_sync.Redis(
-            host=config.redis.host,
-            port=config.redis.port,
-            db=config.redis.db,
-            password=config.redis.password,
-            decode_responses=config.redis.decode_responses,
-            socket_connect_timeout=config.redis.socket_connect_timeout,
-            socket_timeout=config.redis.socket_timeout,
-        )
-        # Test sync connection
-        redis_sync_client.ping()
+        sync_client = create_sync_redis_client()
+        sync_client.ping()
 
-        # Initialize RQ queue
-        inference_queue = Queue(
+        queue = Queue(
             config.queue.name,
-            connection=redis_sync_client,
+            connection=sync_client,
             default_timeout=config.queue.default_timeout,
         )
+
+        # Store on app.state for dependency injection
+        app.state.redis_client = async_client
+        app.state.redis_sync_client = sync_client
+        app.state.inference_queue = queue
 
         logger.info(f"Connected to Redis at {config.redis.host}:{config.redis.port}")
         logger.info(
@@ -223,7 +213,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         try:
             from earth2studio.serve.server.workflow import register_all_workflows
 
-            register_all_workflows(redis_sync_client)
+            register_all_workflows(sync_client)
             logger.info("Custom workflows registered successfully")
         except ImportError:
             logger.warning(
@@ -231,21 +221,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             )
         except Exception:
             logger.exception("Failed to register custom workflows")
-            # Don't raise - server can still work without custom workflows
 
     except Exception:
         logger.exception("Failed to connect to Redis or initialize RQ")
+        if async_client:
+            await async_client.close()
+        if sync_client:
+            sync_client.close()
         raise
 
     # Application is running
     yield
 
     # Shutdown
-    if redis_client:
-        await redis_client.close()
+    if hasattr(app.state, "redis_client") and app.state.redis_client:
+        await app.state.redis_client.close()
         logger.info("Async Redis connection closed")
-    if redis_sync_client:
-        redis_sync_client.close()
+    if hasattr(app.state, "redis_sync_client") and app.state.redis_sync_client:
+        app.state.redis_sync_client.close()
         logger.info("Sync Redis connection closed")
 
 
@@ -274,11 +267,11 @@ app.add_middleware(
 
 @app.get("/health")
 @app.get("/readiness")
-async def health_check() -> dict[str, str]:
+async def health_check(sync_redis: SyncRedis) -> dict[str, str]:
     """
     Health and readiness check endpoint.
 
-    Runs the status script and returns overall health based on its exit code.
+    Runs in-process health checks for all services and returns overall health.
 
     Returns
     -------
@@ -291,26 +284,8 @@ async def health_check() -> dict[str, str]:
         503 if status is unhealthy; 500 if the check fails.
     """
     try:
-        # Run the status script and check exit code
-        # Prefer SCRIPT_DIR env var (required when package is installed without repo layout)
-        script_dir_env = os.environ.get("SCRIPT_DIR")
-        if script_dir_env:
-            script_path = Path(script_dir_env) / "status.sh"
-        else:
-            _repo_root = Path(__file__).resolve().parent.parent.parent.parent
-            script_path = _repo_root / "serve" / "server" / "scripts" / "status.sh"
-        process = await asyncio.create_subprocess_exec(
-            str(script_path),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        await process.communicate()
-
-        # Determine overall status based on exit code
-        if process.returncode == 0:
-            overall_status = "healthy"
-        else:
-            overall_status = "unhealthy"
+        result = await asyncio.to_thread(check_all_services, redis_client=sync_redis)
+        overall_status = "healthy" if result.healthy else "unhealthy"
 
         response_data = {
             "status": overall_status,
@@ -373,7 +348,6 @@ async def get_metrics() -> Response:
         )
 
 
-@app.get("/v1/workflows")
 @app.get("/v1/infer/workflows")
 async def list_workflows() -> dict[str, dict[str, str]]:
     """
@@ -384,11 +358,10 @@ async def list_workflows() -> dict[str, dict[str, str]]:
     dict
         Single key ``workflows`` mapping workflow name to description.
     """
-    workflows = workflow_registry.list_workflows()
+    workflows = WorkflowRegistry.instance().list_workflows(exposed_only=True)
     return {"workflows": workflows}
 
 
-@app.get("/v1/workflows/{workflow_name}/schema")
 @app.get("/v1/infer/workflows/{workflow_name}/schema")
 async def get_workflow_schema(workflow_name: str) -> dict[str, Any]:
     """
@@ -413,11 +386,15 @@ async def get_workflow_schema(workflow_name: str) -> dict[str, Any]:
     HTTPException
         404 if workflow not found; 500 if schema generation fails.
     """
-    # Check if workflow exists
-    workflow_class = workflow_registry.get_workflow_class(workflow_name)
+    # Check if workflow exists and is exposed
+    workflow_class = WorkflowRegistry.instance().get_workflow_class(workflow_name)
     if not workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Workflow '{workflow_name}' not found"
+        )
+    if not WorkflowRegistry.instance().is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     try:
@@ -493,9 +470,65 @@ class WorkflowExecutionResponse(BaseModel):
     timestamp: str
 
 
+@app.post("/v1/infer", response_model=WorkflowExecutionResponse)
+async def execute_default_workflow(
+    request: WorkflowExecutionRequest,
+    sync_redis: SyncRedis,
+    queue: InferenceQueue,
+) -> WorkflowExecutionResponse:
+    """
+    Enqueue the single exposed workflow for execution.
+
+    This endpoint is only valid when exactly one workflow is exposed (same notion
+    of *exposed* as ``GET /v1/infer/workflows``). If zero or more than one workflow
+    is exposed, the request fails.
+
+    Parameters
+    ----------
+    request : WorkflowExecutionRequest
+        Request body containing workflow parameters for the selected workflow.
+    sync_redis : SyncRedis
+        Synchronous Redis client (injected).
+    queue : InferenceQueue
+        RQ inference queue (injected).
+
+    Returns
+    -------
+    WorkflowExecutionResponse
+        Execution ID, status (QUEUED), queue position, and message.
+
+    Raises
+    ------
+    HTTPException
+        503 if no exposed workflows are registered; 409 if more than one exposed
+        workflow; otherwise same status codes as ``POST /v1/infer/{workflow_name}``.
+    """
+    exposed = WorkflowRegistry.instance().list_workflows(exposed_only=True)
+    n_exposed = len(exposed)
+    if n_exposed == 0:
+        raise HTTPException(
+            status_code=503,
+            detail="No exposed workflows are available.",
+        )
+    if n_exposed > 1:
+        names = ", ".join(exposed)
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "POST /v1/infer requires exactly one exposed workflow; "
+                f"found {n_exposed}: {names}."
+            ),
+        )
+    workflow_name = next(iter(exposed))
+    return await execute_workflow(workflow_name, request, sync_redis, queue)
+
+
 @app.post("/v1/infer/{workflow_name}", response_model=WorkflowExecutionResponse)
 async def execute_workflow(
-    workflow_name: str, request: WorkflowExecutionRequest
+    workflow_name: str,
+    request: WorkflowExecutionRequest,
+    sync_redis: SyncRedis,
+    queue: InferenceQueue,
 ) -> WorkflowExecutionResponse:
     """
     Enqueue a custom workflow for execution.
@@ -509,6 +542,10 @@ async def execute_workflow(
         Name of the registered workflow.
     request : WorkflowExecutionRequest
         Request body containing workflow parameters.
+    sync_redis : SyncRedis
+        Synchronous Redis client (injected).
+    queue : InferenceQueue
+        RQ inference queue (injected).
 
     Returns
     -------
@@ -521,17 +558,22 @@ async def execute_workflow(
         404 if workflow not found; 422 if parameters invalid; 429 if queues full;
         503 if Redis/queue not initialized; 500 on enqueue failure.
     """
-    # Check if workflow exists and get the workflow class for validation
-    custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
+    # Check if workflow exists and is exposed
+    custom_workflow_class = WorkflowRegistry.instance().get_workflow_class(
+        workflow_name
+    )
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Workflow '{workflow_name}' not found"
+        )
+    if not WorkflowRegistry.instance().is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     # Validate parameters early to provide immediate feedback using classmethod
     try:
         validated_params = custom_workflow_class.validate_parameters(request.parameters)
-        # Convert back to dict for serialization in the queue
         validated_params_dict = validated_params.model_dump()
     except ValueError as e:
         logger.error(f"Parameter validation failed for workflow {workflow_name}: {e}")
@@ -548,7 +590,7 @@ async def execute_workflow(
         )
 
     # Admission control: check all queue sizes before enqueuing
-    check_admission_control()
+    check_admission_control(sync_redis)
 
     # Generate execution ID
     execution_id = f"exec_{int(time.time())}_{uuid.uuid4().hex[:8]}"
@@ -563,14 +605,10 @@ async def execute_workflow(
             metadata={"parameters": validated_params_dict},
         )
         custom_workflow_class._save_execution_data(
-            redis_sync_client, workflow_name, execution_id, execution_data
+            sync_redis, workflow_name, execution_id, execution_data
         )
 
-        if inference_queue is None:
-            raise HTTPException(
-                status_code=503, detail="Inference queue not initialized"
-            )
-        job = inference_queue.enqueue(
+        job = queue.enqueue(
             "earth2studio.serve.server.worker.run_custom_workflow",
             workflow_name,
             execution_id,
@@ -579,19 +617,9 @@ async def execute_workflow(
             job_timeout=config.queue.job_timeout,
         )
 
-        # Query Redis directly for the actual queue length to avoid caching issues
-        # RQ stores the queue as a Redis list at "rq:queue:{queue_name}"
         try:
-            if redis_sync_client is None:
-                raise HTTPException(
-                    status_code=503, detail="Redis connection not initialized"
-                )
-            queue_length = redis_sync_client.llen(f"rq:queue:{config.queue.name}")
-            # RQ's llen seems to return position + 1, so we use it directly as 0-indexed position
-            # If length is 1, position is 0; if length is 2, position is 1; etc.
+            queue_length = sync_redis.llen(f"rq:queue:{config.queue.name}")
             queue_position = queue_length
-        except HTTPException:
-            raise
         except Exception as e:
             logger.error(f"Failed to get queue length from Redis: {e}")
             raise HTTPException(
@@ -625,7 +653,12 @@ async def execute_workflow(
 @app.get(
     "/v1/infer/{workflow_name}/{execution_id}/status", response_model=WorkflowResult
 )
-async def get_workflow_status(workflow_name: str, execution_id: str) -> WorkflowResult:
+async def get_workflow_status(
+    workflow_name: str,
+    execution_id: str,
+    sync_redis: SyncRedis,
+    queue: InferenceQueue,
+) -> WorkflowResult:
     """
     Get the status of a workflow execution.
 
@@ -635,6 +668,10 @@ async def get_workflow_status(workflow_name: str, execution_id: str) -> Workflow
         Name of the workflow.
     execution_id : str
         Unique execution identifier.
+    sync_redis : SyncRedis
+        Synchronous Redis client (injected).
+    queue : InferenceQueue
+        RQ inference queue (injected).
 
     Returns
     -------
@@ -646,29 +683,29 @@ async def get_workflow_status(workflow_name: str, execution_id: str) -> Workflow
     HTTPException
         404 if workflow or execution not found; 500 on server error.
     """
-    # Create logger adapter with execution_id
-    log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
+    log = logger.bind(execution_id=execution_id)
 
-    # Check if workflow exists
-    custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
+    custom_workflow_class = WorkflowRegistry.instance().get_workflow_class(
+        workflow_name
+    )
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Custom workflow '{workflow_name}' not found"
         )
+    if not WorkflowRegistry.instance().is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
+        )
 
     try:
         result = custom_workflow_class._get_execution_data(
-            redis_sync_client, workflow_name, execution_id
+            sync_redis, workflow_name, execution_id
         )
 
-        # If status is QUEUED, add queue position (0-indexed)
         if result.status == WorkflowStatus.QUEUED:
             job_id = f"{workflow_name}_{execution_id}"
-            queue_position = get_queue_position(job_id)
+            queue_position = get_queue_position(queue, job_id)
 
-            # If position is None, the job is not in the queue anymore
-            # This means a worker has picked it up but hasn't updated the status yet
-            # In this case, treat it as RUNNING with no position
             if queue_position is None:
                 log.info(
                     f"Job {job_id} has status QUEUED but not found in queue - worker likely picked it up. "
@@ -691,7 +728,9 @@ async def get_workflow_status(workflow_name: str, execution_id: str) -> Workflow
 
 @app.get("/v1/infer/{workflow_name}/{execution_id}/results", response_model=None)
 async def get_workflow_results(
-    workflow_name: str, execution_id: str
+    workflow_name: str,
+    execution_id: str,
+    sync_redis: SyncRedis,
 ) -> dict[str, Any] | StreamingResponse:
     """
     Get result metadata (e.g. metadata.json) for a completed workflow execution.
@@ -714,20 +753,25 @@ async def get_workflow_results(
         202 if still queued/running/pending; 400 if expired or bad request;
         404 if workflow, execution, or metadata file not found, or if execution failed/cancelled.
     """
-    # Create logger adapter with execution_id
-    log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
+    log = logger.bind(execution_id=execution_id)
 
-    # Check if workflow exists
-    custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
+    # Check if workflow exists and is exposed
+    custom_workflow_class = WorkflowRegistry.instance().get_workflow_class(
+        workflow_name
+    )
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Custom workflow '{workflow_name}' not found"
+        )
+    if not WorkflowRegistry.instance().is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     # Check workflow status first
     try:
         result = custom_workflow_class._get_execution_data(
-            redis_sync_client, workflow_name, execution_id
+            sync_redis, workflow_name, execution_id
         )
         if result.status == WorkflowStatus.EXPIRED:
             raise HTTPException(
@@ -775,7 +819,6 @@ async def get_workflow_results(
 
     # Get metadata file
     try:
-        # Metadata file is named metadata_{request_id}.json
         request_id = f"{workflow_name}:{execution_id}"
         metadata_filename = f"metadata_{request_id}.json"
         metadata_path = RESULTS_ZIP_DIR / metadata_filename
@@ -791,7 +834,6 @@ async def get_workflow_results(
                 },
             )
 
-        # Read and return metadata as JSON
         async with aiofiles.open(metadata_path, "r") as f:
             metadata_content = await f.read()
             metadata_json = json.loads(metadata_content)
@@ -814,7 +856,12 @@ async def get_workflow_results(
 
 @app.get("/v1/infer/{workflow_name}/{execution_id}/results/{filepath:path}")
 async def get_workflow_result_file(
-    workflow_name: str, execution_id: str, filepath: str
+    request: Request,
+    workflow_name: str,
+    execution_id: str,
+    filepath: str,
+    sync_redis: SyncRedis,
+    async_redis: AsyncRedis,
 ) -> StreamingResponse:
     """
     Stream a specific file from the workflow execution results.
@@ -831,6 +878,10 @@ async def get_workflow_result_file(
         Execution identifier.
     filepath : str
         Relative path within the output directory, or the request ID for the zip.
+    sync_redis : SyncRedis
+        Synchronous Redis client (injected).
+    async_redis : AsyncRedis
+        Async Redis client (injected).
 
     Returns
     -------
@@ -841,19 +892,25 @@ async def get_workflow_result_file(
     ------
     HTTPException
         403 on path traversal attempt; 404 if workflow, execution, file, or zip
-        not found or results not completed; 503 if Redis not initialized; 500 on error.
+        not found or results not completed; 500 on error.
     """
-    # Check if workflow exists
-    custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
+    # Check if workflow exists and is exposed
+    custom_workflow_class = WorkflowRegistry.instance().get_workflow_class(
+        workflow_name
+    )
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Custom workflow '{workflow_name}' not found"
+        )
+    if not WorkflowRegistry.instance().is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     # Check workflow status first
     try:
         result = custom_workflow_class._get_execution_data(
-            redis_sync_client, workflow_name, execution_id
+            sync_redis, workflow_name, execution_id
         )
         if result.status != WorkflowStatus.COMPLETED:
             raise HTTPException(
@@ -871,13 +928,8 @@ async def get_workflow_result_file(
         # Special case: if filepath matches the request_id format, return the zip file
         request_id = f"{workflow_name}:{execution_id}"
         if filepath == request_id:
-            # Get the zip file path
-            if redis_client is None:
-                raise HTTPException(
-                    status_code=503, detail="Redis connection not initialized"
-                )
             zip_key = get_inference_request_zip_key(request_id)
-            zip_filename = await redis_client.get(zip_key)
+            zip_filename = await async_redis.get(zip_key)
 
             if not zip_filename:
                 raise HTTPException(
@@ -901,41 +953,36 @@ async def get_workflow_result_file(
                     },
                 )
 
-            # Stream the zip file
-            async def stream_zip_file() -> AsyncGenerator[bytes, None]:
-                """Stream the zip file contents"""
-                try:
-                    chunk_size = 8192
-                    async with aiofiles.open(zip_file_path, "rb") as f:
-                        while True:
-                            chunk = await f.read(chunk_size)
-                            if not chunk:
-                                break
-                            yield chunk
-                            await asyncio.sleep(0)
-                except Exception:
-                    logger.exception(f"Error streaming zip file {zip_file_path}")
-                    raise
+            zip_file_size = zip_file_path.stat().st_size
+            range_header = request.headers.get("Range")
+            start, end, content_length, range_status = parse_range_header(
+                range_header, zip_file_size
+            )
+            stream_generator = create_file_stream(
+                zip_file_path, start, content_length, "zip file"
+            )
 
             headers = {
                 "Content-Disposition": f'attachment; filename="{zip_filename}"',
-                "Content-Length": str(zip_file_path.stat().st_size),
+                "Content-Length": str(content_length),
+                "Accept-Ranges": "bytes",
             }
+            if range_status == 206:
+                headers["Content-Range"] = f"bytes {start}-{end}/{zip_file_size}"
 
             return StreamingResponse(
-                stream_zip_file(), media_type="application/zip", headers=headers
+                stream_generator,
+                media_type="application/zip",
+                headers=headers,
+                status_code=range_status,
             )
 
         # Regular case: get file from output directory
 
         # Get output directory for this execution
         request_id = f"{workflow_name}:{execution_id}"
-        if redis_client is None:
-            raise HTTPException(
-                status_code=503, detail="Redis connection not initialized"
-            )
         output_path_key = get_inference_request_output_path_key(request_id)
-        output_dir_str = await redis_client.get(output_path_key)
+        output_dir_str = await async_redis.get(output_path_key)
 
         if output_dir_str:
             output_dir = Path(output_dir_str)
@@ -1004,29 +1051,29 @@ async def get_workflow_result_file(
         if media_type is None:
             media_type = "application/octet-stream"
 
-        # Stream the file
-        async def stream_file() -> AsyncGenerator[bytes, None]:
-            """Stream the file contents"""
-            try:
-                chunk_size = 8192
-                async with aiofiles.open(requested_path, "rb") as f:
-                    while True:
-                        chunk = await f.read(chunk_size)
-                        if not chunk:
-                            break
-                        yield chunk
-                        await asyncio.sleep(0)
-            except Exception:
-                logger.exception(f"Error streaming file {requested_path}")
-                raise
+        file_size = requested_path.stat().st_size
+        range_header = request.headers.get("Range")
+        start, end, content_length, range_status = parse_range_header(
+            range_header, file_size
+        )
+        stream_generator = create_file_stream(
+            requested_path, start, content_length, "file"
+        )
 
-        # Set appropriate headers
         headers = {
             "Content-Disposition": f'attachment; filename="{requested_path.name}"',
-            "Content-Length": str(requested_path.stat().st_size),
+            "Content-Length": str(content_length),
+            "Accept-Ranges": "bytes",
         }
+        if range_status == 206:
+            headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
 
-        return StreamingResponse(stream_file(), media_type=media_type, headers=headers)
+        return StreamingResponse(
+            stream_generator,
+            media_type=media_type,
+            headers=headers,
+            status_code=range_status,
+        )
 
     except HTTPException:
         raise

@@ -1,0 +1,1218 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import atexit
+import copy
+import os
+import shutil
+import threading
+import time
+from collections import OrderedDict
+from concurrent.futures import Future, ThreadPoolExecutor
+from subprocess import run
+from typing import Any
+
+import numpy as np
+import torch
+from loguru import logger
+from physicsnemo.distributed import DistributedManager
+from rich.console import Console
+from rich.table import Table
+from rich.traceback import Traceback
+
+from earth2studio.io import KVBackend
+from earth2studio.utils.coords import (
+    CoordSystem,
+    cat_coords,
+    map_coords,
+    split_coords,
+    tile_coords,
+)
+
+
+class TempestExtremes:
+    """TempestExtremes cyclone tracking diagnostic class.
+
+    This class provides functionality for detecting and tracking tropical cyclones
+    using the TempestExtremes (TE) software package directly on model outputs.
+    To be compatible with TE, model outputs are buffered as a netcdf file with the
+    coordinates (time, lat, lon). By default, intermediate files are written to
+    /dev/shm (shared memory) when available, falling back to disk. A custom scratch
+    directory can be specified to control where these files are stored.
+    Since TE natively only provides a command-line interface, a subprocess is spawned
+    calling TE. To provide users with as much flexibility as possible, the command to
+    execute TE has to be specified by the user and passed to the class during
+    initialisation. Any arguments regarding input and output files will be ignored
+    and automatically populated with the files holding the model output.
+    Additionally, this approach allows the user to point the class to TE executables
+    at any location of the system.
+    TE is purely CPU-based, but for most applications still faster than producing the
+    atmospheric data on the GPU. AsyncTempestExtremes provides an implementation in
+    which a CPU thread applies TE to the generated data, while the GPU continues
+    producing the next prediction.
+
+    The result will be a TE-generated track file, stored in a user-defined location
+
+    NOTE:
+        - currently works on batch size 1 only (currently worked on)
+        - length of time direction in input coords must be 1 (add test)
+
+    Tip: To iterate on the TE command without having to always run a model, set
+    keep_raw_data to True and work with TE directly on the netcdf file that the
+    class generates.
+
+    Parameters
+    ----------
+    detect_cmd : str
+        TempestExtremes DetectNodes command with arguments.
+        Note that --in_data_list and --out_file_list will be ignored if provided.
+        Example: "/path/to/DetectNodes --mergedist 6 --closedcontourcmd _DIFF(z300,z500),-58.8,6.5,0;msl,200.,5.5,0 --searchbymin msl --outputcmd msl,min,0;_VECMAG(u10m,v10m),max,5;height,min,0"
+    stitch_cmd : str
+        TempestExtremes StitchNodes command with arguments.
+        Note that --in and --out will be ignored if provided.
+        Example: "/path/to/StitchNodes --in_fmt lon,lat,msl,wind_speed,height --range 8.0 --mintime 54h --maxgap 4 --out_file_format csv --threshold wind_speed,>=,10.,10;lat,<=,50.,10;lat,>=,-50.,10;height,<=,150.,10"
+    input_vars : list[str]
+        List of variables which are required for the tracking algorithm
+    batch_size : int
+        Number of ensemble members per batch
+    n_steps : int
+        Number of time steps
+    time_step : np.ndarray | list[np.timedelta64] | np.timedelta64
+        Time step interval
+    lats : np.ndarray | torch.Tensor
+        Latitude coordinates
+    lons : np.ndarray | torch.Tensor
+        Longitude coordinates
+    store_dir : str
+        Path for storing output files.
+    static_vars : torch.Tensor, optional
+        A tensor holding static data like orography, by default None
+    static_coords : dict, optional
+        Coordinates of the static data, by default None
+    keep_raw_data : bool, optional
+        Whether to keep raw data files, by default False
+    print_te_output : bool, optional
+        Whether to print TempestExtremes command line output, by default False
+    scratch_dir : str | None, optional
+        Directory for temporary intermediate files (netCDF snapshots, file lists).
+        If None (default), uses /dev/shm/cyclone_tracking when available, otherwise
+        falls back to <store_dir>/cyclone_tracks_te/raw_data.
+    **kwargs
+        Additional keyword arguments for robustness
+    """
+
+    def __init__(
+        self,
+        detect_cmd: str,
+        stitch_cmd: str,
+        input_vars: list[str],
+        batch_size: int,
+        n_steps: int,
+        time_step: np.ndarray | list[np.timedelta64] | np.timedelta64,
+        lats: np.ndarray | torch.Tensor,
+        lons: np.ndarray | torch.Tensor,
+        store_dir: str,
+        static_vars: torch.Tensor | None = None,
+        static_coords: dict | None = None,
+        keep_raw_data: bool = False,
+        print_te_output: bool = False,
+        scratch_dir: str | None = None,
+        **kwargs: Any,
+    ):  # leave kwargs to make call robust to switching between this and async version
+
+        self.rank = DistributedManager().rank
+        self.print_te_output = print_te_output
+        self.keep_raw = keep_raw_data
+        self.static_vars = static_vars
+        self.static_coords = static_coords
+        self.time_step = time_step
+        self.input_vars = input_vars
+        self.batch_size = batch_size
+        self.n_steps = n_steps
+        self.lats = lats
+        self.lons = lons
+
+        if isinstance(self.time_step, (np.ndarray, list)):
+            if not len(self.time_step) == 1:
+                raise ValueError(
+                    "TempestExtremes connector currently only accepts multiple ensemble members from a single ICs."
+                )
+            self.time_step = self.time_step[0]
+        if (static_vars is None) != (static_coords is None):
+            raise ValueError(
+                "provide both values and coords for static fields or don't."
+                + " currently, only one of them is provided"
+            )
+
+        self._lead_times = np.asarray(
+            [self.time_step * i for i in range(self.n_steps + 1)]
+        ).flatten()
+
+        self.format_tempestextremes_commands(detect_cmd, stitch_cmd)
+
+        self.check_tempest_extremes_availability()
+
+        self.initialise_store_coords()
+
+        self.initialise_te_kvstore()
+
+        self.setup_output_directories(scratch_dir, store_dir)
+
+    def format_tempestextremes_commands(self, detect_cmd: str, stitch_cmd: str) -> None:
+        """Format TempestExtremes commands by removing input/output file arguments.
+        These arguments are populated dynamically by the method.
+
+        Parameters
+        ----------
+        detect_cmd : str
+            TempestExtremes detect command
+        stitch_cmd : str
+            TempestExtremes stitch command
+        """
+        self.detect_cmd = detect_cmd.split(" ")
+        self.stitch_cmd = stitch_cmd.split(" ")
+
+        self.detect_cmd = self.remove_arguments(
+            self.detect_cmd, ["--in_data_list", "--out_file_list"]
+        )
+        self.stitch_cmd = self.remove_arguments(self.stitch_cmd, ["--in", "--out"])
+
+    def check_tempest_extremes_availability(self) -> None:
+        """Check if TempestExtremes executables are available on the system.
+
+        Verifies that both detect and stitch commands can be executed by attempting
+        to run them. If either command fails, raises an OptionalDependencyFailure.
+
+        Raises
+        ------
+        RuntimeError
+            If TempestExtremes executables are not available or cannot be executed
+        """
+        for cmd in (self.detect_cmd[0], self.stitch_cmd[0]):
+            try:
+                run(cmd, capture_output=True)  # noqa: S603
+            except Exception as e:
+                self.dependency_failure(e)
+
+    def dependency_failure(self, error: BaseException) -> None:
+        """Display a formatted error message for TempestExtremes dependency failures.
+
+        This method creates and prints information about TempestExtremes dependency
+        errors and raises a RuntimeError to halt execution.
+
+        Parameters
+        ----------
+        error : BaseException
+            The exception object that was raised
+
+        Raises
+        ------
+        RuntimeError
+            Always raised after displaying the error message to halt execution
+        """
+        doc_url = "https://nvidia.github.io/earth2studio/userguide/about/install.html#optional-dependencies"
+
+        console = Console()
+        table = Table(show_header=False, show_lines=True)
+        table.add_row(
+            "[blue]Earth2Studio Extra Dependency Error\n"
+            + "This error typically indicates an extra dependency group is needed.\n"
+            + "Don't panic, this is usually an easy fix.[/blue]"
+        )
+        table.add_row(
+            "[yellow]The TempestExtremes class is marked needing optional dependencies.\n\n"
+            + "unlike other dependencies, TempestExtremes has to be installed to the system by the user.\n\n"
+            + "For more information, visit the install documentation: \n"
+            + f"{doc_url}[/yellow]"
+        )
+        if error:
+            table.add_row(
+                Traceback(
+                    Traceback.extract(
+                        type(error),
+                        error,
+                        error.__traceback__,
+                        show_locals=False,
+                    )
+                )
+            )
+        console.print(table)
+
+        raise RuntimeError(
+            "TempestExtremes dependency not available. "
+            f"Please install TempestExtremes. See {doc_url}"
+        )
+
+    @staticmethod
+    def remove_arguments(cmd: list[str], args: list[str]) -> list[str]:
+        """Remove specified arguments from command list.
+
+        Parameters
+        ----------
+        cmd : list[str]
+            Command as list of strings
+        args : list[str]
+            Arguments to remove
+
+        Returns
+        -------
+        list[str]
+            Command with specified arguments removed
+        """
+        for arg in args:
+            if arg in cmd:
+                remove = [cmd.index(arg)]
+                if len(cmd) > remove[0] + 1:
+                    if not cmd[remove[0] + 1].startswith("--"):
+                        remove.append(remove[0] + 1)
+                cmd = [_arg for ii, _arg in enumerate(cmd) if ii not in remove]
+
+        return cmd
+
+    def setup_output_directories(self, scratch_dir: str | None, store_dir: str) -> None:
+        """Set up output directories for final data storage and for storing
+        auxiliary files.
+
+        Parameters
+        ----------
+        scratch_dir : str | None
+            Directory for temporary intermediate files. If None, auto-detects
+            /dev/shm and falls back to <store_dir>/cyclone_tracks_te/raw_data.
+        store_dir : str
+            Base storage directory path
+        """
+        self.store_dir = os.path.abspath(os.path.join(store_dir, "cyclone_tracks_te"))
+
+        if self.rank == 0:
+            os.makedirs(self.store_dir, exist_ok=True)
+            if self.keep_raw:
+                os.makedirs(os.path.join(self.store_dir, "raw_data"), exist_ok=True)
+
+        if scratch_dir is None:
+            shm_path = "/dev/shm"  # noqa: S108
+            scratch_dir = (
+                os.path.join(shm_path, "cyclone_tracking")
+                if os.path.exists(shm_path)
+                else os.path.join(self.store_dir, "raw_data")
+            )
+
+        self.scratch_dir = scratch_dir
+        if DistributedManager().local_rank == 0:
+            os.makedirs(self.scratch_dir, exist_ok=True)
+
+    def initialise_store_coords(self) -> None:
+        """Initialize coordinate system for data storage.
+
+        Creates the internal coordinate system for storing to the internal
+        KV io backend, with optionally adding static variables at each time step.
+        """
+        _input_vars = self.input_vars
+        if self.static_coords:
+            _input_vars = np.array(
+                list(self.input_vars) + list(self.static_coords["variable"])
+            )
+
+        self._store_coords = OrderedDict(
+            {
+                "lead_time": self._lead_times,
+                "variable": np.array(_input_vars),
+                "lat": np.array(self.lats),
+                "lon": np.array(self.lons),
+            }
+        )
+
+    @property
+    def input_coords(self) -> OrderedDict:
+        """Returns the coords of the data to be passed to record_state.
+
+        Returns
+        -------
+        OrderedDict
+            Coordinate system for input data
+        """
+        return OrderedDict(
+            {
+                "time": np.empty(0),
+                "lead_time": self._lead_times,
+                "variable": np.array(self.input_vars),
+                "lat": np.array(self.lats),
+                "lon": np.array(self.lons),
+            }
+        )
+
+    def initialise_te_kvstore(self) -> None:
+        """Initialize the KV store that stores model output in TE compatible format."""
+        # create store
+        self.store = KVBackend()
+
+        # add arrays to the store
+        oco = copy.deepcopy(self._store_coords)
+        out_vars = oco.pop("variable")
+
+        oco["time"] = np.array([None])
+        oco["ensemble"] = np.array([None] * self.batch_size)
+        oco.move_to_end("time", last=False)
+        oco.move_to_end("ensemble", last=False)
+
+        self.store.add_array(coords=oco, array_name=out_vars)
+
+    def dump_raw_data(self) -> tuple[list[str], np.ndarray]:
+        """Dump raw data from store to NetCDF files.
+
+        Morphs the store to TempestExtremes-compatible [time, lat, lon] structure
+        and writes to (optionally in-RAM) NetCDF files, which can be ingested by TE.
+
+        Returns
+        -------
+        tuple[list[str], np.ndarray]
+            Tuple of (list of paths to the created NetCDF files, member indices)
+        """
+        if len(self.store.coords["time"]) > 1:
+            raise ValueError(
+                "Currently, TempestExtremes interface only works for single IC per evaluation cycle."
+            )
+
+        ic = self.store.coords["time"][0]
+        mems = self.store.coords["ensemble"]
+
+        # morph store to TempestExtremes-compatible [time, lat, lon] structure
+        lead_times = self.store.coords.pop("lead_time")
+        self.store.coords["time"] = [ic + lt for lt in lead_times]
+
+        for var in self.store.root.keys():
+            self.store.root[var] = self.store.root[var].squeeze(1)
+            self.store.dims[var] = ["ensemble", "time", "lat", "lon"]
+
+        # for each member, write te compatible nc file
+        raw_files = []
+
+        # in case last batch has less ensemble members than batch size, expand coords of store so to_xarray() does not fail
+        if len(mems) < self.batch_size:
+            self.store.coords["ensemble"] = list(self.store.coords["ensemble"]) + [
+                None
+            ] * (self.batch_size - len(mems))
+
+        for mem in mems:
+            raw_dat = f"{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}.nc"
+            raw_dat = os.path.join(self.scratch_dir, raw_dat)
+            raw_files.append(raw_dat)
+            kw_args = {"path": raw_dat, "format": "NETCDF4", "mode": "w"}
+
+            _store = self.store.to_xarray().sel(ensemble=mem).drop_vars("ensemble")
+            _store.to_netcdf(**kw_args)
+
+        # new clean store
+        self.initialise_te_kvstore()
+
+        return raw_files, mems
+
+    def setup_files(
+        self, out_file_names: list[str] | None = None
+    ) -> tuple[list[str], list[str], list[str], list[str]]:
+        """Set up input and output files for TE processing.
+
+        Creates necessary file lists and paths for TE detect and stitch operations.
+
+        Returns
+        -------
+        tuple[list[str], list[str], list[str], list[str]]
+            Tuple containing (input_file_list, output_file_list, node_file, track_file)
+        """
+        # write store to in-memory file
+        raw_files, mems = self.dump_raw_data()
+
+        # make sure if file names are passed that there's one per member
+        if out_file_names is not None:
+            if len(out_file_names) != len(mems):
+                raise ValueError(
+                    f"{len(out_file_names)} passed for {len(mems)} ensemble members"
+                )
+
+        # IC string from the raw filename to make list files unique across ICs
+        ic_str = os.path.basename(raw_files[0]).split("_mem_")[0]
+
+        ins, outs, node_files, track_files = [], [], [], []
+        for ii, (mem, raw_dat) in enumerate(zip(mems, raw_files)):
+            # in_files to file
+            _ins = os.path.join(
+                self.scratch_dir,
+                f"input_files_{self.rank:04d}_{ic_str}_mem_{mem:05d}.txt",
+            )
+            with open(_ins, "w") as fl:
+                fl.write(raw_dat + "\n")
+
+            _outs = os.path.join(
+                self.scratch_dir,
+                f"output_files_{self.rank:04d}_{ic_str}_mem_{mem:05d}.txt",
+            )
+            base_name = os.path.basename(raw_dat)
+            base_name = base_name.rsplit(".", 1)[0]
+            node_file = os.path.join(
+                self.scratch_dir, base_name + f"_mem_{mem:05d}_tc_centres.txt"
+            )
+            with open(_outs, "w") as fl:
+                fl.write(node_file + "\n")
+
+            track_file = (
+                out_file_names[ii] if out_file_names else "tracks_" + base_name + ".csv"
+            )
+            track_file = os.path.join(self.store_dir, track_file)
+
+            ins.append(_ins)
+            outs.append(_outs)
+            node_files.append(node_file)
+            track_files.append(track_file)
+
+        return ins, outs, node_files, track_files
+
+    def record_state(self, xx: torch.Tensor, coords: CoordSystem) -> None:
+        """Record state data to the internal store.
+
+        Updates store with current time and ensemble information,
+        concatenates static data if available, and writes to store.
+
+        Parameters
+        ----------
+        xx : torch.Tensor
+            Input tensor data
+        coords : CoordSystem
+            Coordinate system for the input data
+        """
+        # update store mem and time
+        for dim in ["time", "ensemble"]:
+            if not np.array_equal(self.store.coords[dim], coords[dim]):
+                self.store.coords[dim] = coords[dim]
+
+        # concatenate static data
+        if self.static_vars is not None and self.static_coords is not None:
+            self.static_vars = self.static_vars.to(xx.device)
+            static_coords = CoordSystem(self.static_coords)
+            if len(xx.shape) > len(self.static_vars.shape):
+                _static_vars, _static_coords = tile_coords(
+                    self.static_vars, static_coords, coords
+                )
+            else:
+                _static_vars, _static_coords = self.static_vars, static_coords
+            xx, coords = cat_coords((xx, _static_vars), (coords, _static_coords))
+
+        # select output data and write to store
+        xx_sub, coords_sub = map_coords(xx, coords, self._store_coords)
+        self.store.write(*split_coords(xx_sub, coords_sub, dim="variable"))
+
+    @staticmethod
+    def run_te(command: list[str], print_output: bool) -> None:
+        """Run TempestExtremes command and handle output.
+
+        Parameters
+        ----------
+        command : list[str]
+            Command to execute as list of strings
+        print_output : bool
+            Whether to print command output to terminal
+
+        Raises
+        ------
+        ChildProcessError
+            If TempestExtremes command fails (detected by "EXCEPTION" in output
+            or a non-zero return code from the OS, e.g. segfault or OOM kill)
+        """
+        out = run(command, capture_output=True)  # noqa: S603
+
+        stdout_text = out.stdout.decode("utf-8")
+        stderr_text = out.stderr.decode("utf-8") if out.stderr else ""
+
+        if print_output:
+            print(stdout_text)
+
+        # TE itself exits 0 even on errors, but uses "EXCEPTION" in stdout.
+        # A non-zero return code means the process was killed by the OS
+        # (e.g. SIGSEGV, OOM SIGKILL, missing shared lib) before TE could
+        # report anything.
+        if out.returncode != 0:
+            if not print_output:
+                print(stdout_text)
+            if stderr_text:
+                print(stderr_text)
+            raise ChildProcessError(
+                f"\nERROR: {command[0]} was killed or crashed "
+                f"(returncode={out.returncode}), see output above for details."
+            )
+
+        if "EXCEPTION" in stdout_text:
+            print(stdout_text)
+            raise ChildProcessError(
+                f"\nERROR: {command[0]} failed, see output above from TempestExtremes for details."
+            )
+
+    def detect_and_stitch(
+        self, ins: str, outs: str, node_file: str, track_file: str
+    ) -> None:
+        """Run TempestExtremes detect and stitch for a single ensemble member.
+
+        Parameters
+        ----------
+        ins : str
+            Path to input file list
+        outs : str
+            Path to output file list
+        node_file : str
+            Path to node file
+        track_file : str
+            Path to track file
+
+        Raises
+        ------
+        ChildProcessError
+            If TempestExtremes detect or stitch operations fail
+        """
+        self.run_te(
+            command=self.detect_cmd + ["--in_data_list", ins, "--out_file_list", outs],
+            print_output=self.print_te_output,
+        )
+        self.run_te(
+            command=self.stitch_cmd + ["--in", node_file, "--out", track_file],
+            print_output=self.print_te_output,
+        )
+
+    def track_cyclones(self, out_file_names: list[str] | None = None) -> None:
+        """Execute cyclone tracking using TempestExtremes.
+
+        Runs the complete tracking pipeline including node detection
+        and stitching operations.
+
+        Parameters
+        ----------
+        out_file_names : list[str] | None, optional
+            Custom output file names for each ensemble member, by default None
+
+        Raises
+        ------
+        ChildProcessError
+            If TempestExtremes detect or stitch operations fail
+        """
+        then = time.time()
+
+        # set up TE helper files
+        insies, outsies, node_files, self.track_files = self.setup_files(out_file_names)
+
+        try:
+            for ins, outs, node_file, track_file in zip(
+                insies, outsies, node_files, self.track_files
+            ):
+                self.detect_and_stitch(ins, outs, node_file, track_file)
+        finally:
+            self.tidy_up(insies, outsies)
+
+        logger.info(f"took {(time.time() - then):.1f}s to track cyclones")
+
+    def __call__(self, out_file_names: list[str] | None = None) -> None:
+        """Make the class callable to execute cyclone tracking.
+
+        Parameters
+        ----------
+        out_file_names : list[str] | None, optional
+            Custom output file names for each ensemble member, by default None
+        """
+        return self.track_cyclones(out_file_names)
+
+    def tidy_up(self, insies: list[str], outsies: list[str]) -> None:
+        """Clean up temporary files after processing.
+
+        Handles raw data files based on keep_raw_data setting and
+        removes TempestExtremes helper files.
+
+        Parameters
+        ----------
+        insies : list[str]
+            Paths to input file lists
+        outsies : list[str]
+            Paths to output file lists
+        """
+        for ins, outs in zip(insies, outsies):
+            # Read the raw data path from the input file list (may not exist on failure)
+            raw_dat = None
+            if os.path.exists(ins):
+                with open(ins) as fl:
+                    raw_dat = fl.read().strip()
+
+            if raw_dat and os.path.exists(raw_dat):
+                if self.keep_raw:  # move field data to disk
+                    out_path = os.path.join(self.store_dir, "raw_data")
+                    raw_dest = os.path.join(out_path, os.path.basename(raw_dat))
+                    if (
+                        raw_dat != raw_dest
+                    ):  # nothing to do if scratch_dir == raw_data dir
+                        if os.path.exists(raw_dest):
+                            os.remove(raw_dest)
+                        shutil.move(raw_dat, out_path)
+                else:  # delete field data
+                    os.remove(raw_dat)
+
+            # delete TE helper files
+            files = [ins, outs]
+            if os.path.exists(outs):
+                with open(outs) as fl:
+                    _files = [line.strip() for line in fl]
+                files.extend(_files)
+
+            for file in files:
+                if os.path.exists(file):
+                    os.remove(file)
+
+
+class TempestExecutorManager:
+    """Singleton (Borg pattern) that owns the shared thread-pool, semaphore, and
+    task list used by :class:`AsyncTempestExtremes`.
+
+    Every instance shares the same ``__dict__``, so state is consistent across
+    the process.  Heavy resources (executor, semaphore) are created lazily on
+    first access, avoiding import-time side-effects such as
+    ``torch.cuda.device_count()`` or ``os.cpu_count()`` calls.
+
+    Example
+    -------
+    >>> mgr = TempestExecutorManager()
+    >>> future = mgr.submit(some_fn, arg1, arg2)
+    >>> mgr.register_task(future)
+    """
+
+    _shared_state: dict = {}
+    _executor: ThreadPoolExecutor | None
+    _tasks: list[Future]
+    _lock: threading.Lock
+    _semaphore: threading.Semaphore | None
+
+    def __new__(cls) -> "TempestExecutorManager":
+        obj = super().__new__(cls)
+        obj.__dict__ = cls._shared_state
+        if not hasattr(obj, "_executor"):
+            obj._executor = None
+        if not hasattr(obj, "_tasks"):
+            obj._tasks = []
+        if not hasattr(obj, "_lock"):
+            obj._lock = threading.Lock()
+        if not hasattr(obj, "_semaphore"):
+            obj._semaphore = None
+        return obj
+
+    # ------------------------------------------------------------------
+    # Lazy properties
+    # ------------------------------------------------------------------
+
+    @property
+    def executor(self) -> ThreadPoolExecutor:
+        """Lazily create and return the shared ``ThreadPoolExecutor``.
+
+        Pool size is ``min(8, cpu_count)`` — deliberately larger than the old
+        default of 4, because the :pyattr:`semaphore` (not the pool) controls
+        actual subprocess concurrency.  The extra headroom avoids deadlocks
+        when coordinator tasks and per-member tasks share the same pool.
+        """
+        with self._lock:
+            if self._executor is None:
+                max_workers = min(8, os.cpu_count() or 1)
+                self._executor = ThreadPoolExecutor(
+                    max_workers=max_workers,
+                    thread_name_prefix="tempest_extremes",
+                )
+                atexit.register(TempestExecutorManager.cleanup)
+        return self._executor
+
+    @property
+    def semaphore(self) -> threading.Semaphore:
+        """Lazily create and return the per-rank concurrency semaphore.
+
+        Defaults to ``cpu_count // local_gpu_count`` so each rank gets a fair
+        share of CPU cores.  Override via :meth:`set_concurrency_limit`.
+        """
+        with self._lock:
+            if self._semaphore is None:
+                local_ranks = torch.cuda.device_count() or 1
+                self._semaphore = threading.Semaphore(
+                    max(1, (os.cpu_count() or 1) // local_ranks)
+                )
+        return self._semaphore
+
+    # ------------------------------------------------------------------
+    # Public helpers
+    # ------------------------------------------------------------------
+
+    def set_concurrency_limit(self, limit: int) -> None:
+        """Override the per-rank TE concurrency limit.
+
+        Parameters
+        ----------
+        limit : int
+            Maximum number of concurrent TempestExtremes subprocesses for
+            this rank.
+        """
+        with self._lock:
+            self._semaphore = threading.Semaphore(max(1, limit))
+
+    def submit(self, fn: Any, *args: Any, **kwargs: Any) -> Future:
+        """Submit *fn* to the shared executor and return its ``Future``."""
+        return self.executor.submit(fn, *args, **kwargs)
+
+    def register_task(self, future: Future) -> None:
+        """Track *future* so :meth:`cleanup` can wait for it."""
+        with self._lock:
+            self._tasks.append(future)
+
+    def prune_tasks(self) -> None:
+        """Remove completed futures from the tracked task list."""
+        with self._lock:
+            self._tasks = [f for f in self._tasks if not f.done()]
+
+    @property
+    def task_count(self) -> int:
+        """Number of currently tracked (may include completed) tasks."""
+        with self._lock:
+            return len(self._tasks)
+
+    @classmethod
+    def is_initialized(cls) -> bool:
+        """Return ``True`` if the executor has been created."""
+        return cls._shared_state.get("_executor") is not None
+
+    # ------------------------------------------------------------------
+    # Cleanup
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def cleanup(timeout_per_task: int = 360) -> None:
+        """Wait for all tracked tasks, shut down the pool, and reset state.
+
+        Registered via ``atexit`` when the executor is first created.
+
+        Parameters
+        ----------
+        timeout_per_task : int, optional
+            Timeout in seconds for each task, by default 360.
+
+        Raises
+        ------
+        ChildProcessError
+            If one or more background TempestExtremes tasks failed.
+        """
+        mgr = TempestExecutorManager()
+        with mgr._lock:
+            if mgr._executor is not None:
+                child_process_errors: list[Exception] = []
+                for i, future in enumerate(mgr._tasks):
+                    try:
+                        future.result(timeout=timeout_per_task)
+                    except ChildProcessError as e:
+                        logger.error(
+                            f"Background TempestExtremes task {i + 1} failed "
+                            f"with ChildProcessError: {e}"
+                        )
+                        child_process_errors.append(e)
+                    except Exception as e:
+                        logger.error(
+                            f"Background TempestExtremes task {i + 1} failed: {e}"
+                        )
+                mgr._executor.shutdown(wait=True)
+                mgr._executor = None
+                mgr._tasks.clear()
+
+                if child_process_errors:
+                    raise ChildProcessError(
+                        "One or more background TempestExtremes tasks "
+                        f"failed: {child_process_errors}"
+                    )
+
+
+class AsyncTempestExtremes(TempestExtremes):
+    """Asynchronous version of TempestExtremes that runs cyclone tracking in background threads.
+
+    This class extends TempestExtremes to provide asynchronous cyclone tracking capabilities
+    using background thread pools. It allows for non-blocking cyclone tracking operations
+    while maintaining data integrity through synchronization mechanisms.
+
+    Follows the parallelization paradigm from async_tracking_utils.py.
+
+    Parameters
+    ----------
+    *args
+        Positional arguments passed to parent TempestExtremes class
+    **kwargs
+        Keyword arguments passed to parent TempestExtremes class.
+        Special parameters:
+        - timeout : int, optional
+            Timeout in seconds for operations, by default 60
+        - max_workers_per_rank : int, optional
+            Hard cap on the total number of concurrent TempestExtremes
+            subprocesses for this rank.  If None (default), uses
+            ``cpu_count // local_gpu_count``.  Overrides the
+            :class:`TempestExecutorManager` singleton's default.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # Extract async-specific parameters with default values
+        self.timeout = kwargs.pop("timeout", 60)
+        max_workers_per_rank = kwargs.pop("max_workers_per_rank", None)
+
+        # Initialize the parent class
+        super().__init__(*args, **kwargs)
+
+        if max_workers_per_rank is not None:
+            TempestExecutorManager().set_concurrency_limit(max_workers_per_rank)
+
+        # Track background tasks for this instance
+        self._instance_tasks: list[Future] = []
+        self._instance_lock = threading.Lock()
+        self._has_failed = False  # Track if any previous task failed
+        self._cleanup_done = False  # Track if cleanup has been performed
+
+    def record_state(self, xx: torch.Tensor, coords: CoordSystem) -> None:
+        """Record state data, checking for any previous task failures.
+
+        Parameters
+        ----------
+        xx : torch.Tensor
+            Input tensor data
+        coords : CoordSystem
+            Coordinate system for the input data
+
+        Raises
+        ------
+        ChildProcessError
+            If any previous cyclone tracking task failed
+        """
+        # Check if any previous task failed and raise error immediately
+        self._check_for_failures()
+
+        # Call parent's record_state method
+        super().record_state(xx, coords)
+
+    def _check_for_failures(self) -> None:
+        """Check if any previous tasks failed with ChildProcessError and raise immediately.
+
+        This method checks the status of all background tasks and raises an exception
+        if any have failed, ensuring early failure detection.
+
+        Raises
+        ------
+        ChildProcessError
+            If any previous cyclone tracking task failed
+        Exception
+            If any task failed with a different exception type
+        """
+        if self._has_failed:
+            raise ChildProcessError(
+                "Previous cyclone tracking task failed - stopping execution"
+            )
+
+        # Check completed tasks for failures
+        with self._instance_lock:
+            for future in self._instance_tasks:
+                if future.done():
+                    try:
+                        future.result()  # This will raise if the task failed
+                    except ChildProcessError as e:
+                        self._has_failed = True
+                        raise e  # Re-raise immediately
+                    except Exception as e:
+                        self._has_failed = True
+                        raise e  # Re-raise other exceptions too
+
+    def track_cyclones_async(self, out_file_names: list[str] | None = None) -> Future:
+        """Submit cyclone tracking to background thread pool.
+
+        This method submits cyclone tracking operations to a background thread pool
+        for asynchronous execution, allowing the main thread to continue processing.
+
+        IMPORTANT: The netCDF file writing (dump_raw_data) is done SYNCHRONOUSLY
+        in the main thread before submitting, because HDF5/netCDF4 is not thread-safe.
+        Only the CPU-intensive TempestExtremes detect/stitch runs in the background.
+
+        Returns
+        -------
+        Future
+            A Future object that can be used to check status or get results
+
+        Raises
+        ------
+        ChildProcessError
+            If any previous cyclone tracking task failed
+        """
+        self._check_for_failures()
+        mgr = TempestExecutorManager()
+
+        mgr.prune_tasks()
+        with self._instance_lock:
+            self._instance_tasks = [f for f in self._instance_tasks if not f.done()]
+
+        running_tasks = mgr.task_count
+        if running_tasks >= 3:
+            logger.warning(
+                f"Warning: {running_tasks} TempestExtremes tasks already "
+                "running. Consider waiting for some to complete."
+            )
+
+        # CRITICAL: Run setup_files() (which includes dump_raw_data with
+        # netCDF writes) SYNCHRONOUSLY in the main thread.  HDF5/netCDF4 is
+        # not thread-safe; concurrent writes cause segmentation faults.
+        insies, outsies, node_files, track_files = self.setup_files(out_file_names)
+        self.track_files = track_files
+
+        future = mgr.submit(
+            self._run_te_and_cleanup, insies, outsies, node_files, track_files
+        )
+
+        mgr.register_task(future)
+        with self._instance_lock:
+            self._instance_tasks.append(future)
+
+        return future
+
+    def wait_for_completion(self, timeout_per_task: int | None = None) -> None:
+        """Wait for all background tasks associated with this instance to complete.
+
+        This method blocks until all background tasks have finished execution.
+
+        Parameters
+        ----------
+        timeout_per_task : int | None, optional
+            Timeout in seconds for each task. If None, uses self.timeout.
+
+        Raises
+        ------
+        ChildProcessError
+            If any background task failed with ChildProcessError
+        Exception
+            If any background task failed with other exceptions
+        """
+        if timeout_per_task is None:
+            timeout_per_task = self.timeout
+
+        with self._instance_lock:
+            tasks_to_wait = list(self._instance_tasks)
+
+        if tasks_to_wait:
+            logger.info(
+                f"Waiting for {len(tasks_to_wait)} TempestExtremes tasks to complete..."
+            )
+
+            errors = []
+            for i, future in enumerate(tasks_to_wait):
+                try:
+                    logger.info(
+                        f"Waiting for task {i + 1}/{len(tasks_to_wait)} to complete..."
+                    )
+                    future.result(timeout=timeout_per_task)
+                except Exception as e:
+                    logger.error(f"Task {i + 1}/{len(tasks_to_wait)} failed: {e}")
+                    errors.append(e)
+
+            if errors:
+                raise ChildProcessError(
+                    f"{len(errors)} background task(s) failed: {errors}"
+                )
+        else:
+            logger.info("No background tasks to wait for.")
+
+    def _process_single_member(
+        self, ins: str, outs: str, node_file: str, track_file: str
+    ) -> None:
+        """Process a single ensemble member (detect + stitch).
+
+        This method is designed to run in a separate thread for parallel processing
+        of ensemble members.
+
+        Parameters
+        ----------
+        ins : str
+            Path to input file list for this member
+        outs : str
+            Path to output file list for this member
+        node_file : str
+            Path to node file for this member
+        track_file : str
+            Path to track file for this member
+
+        Raises
+        ------
+        ChildProcessError
+            If TempestExtremes detect or stitch operations fail
+        """
+        with TempestExecutorManager().semaphore:
+            then = time.time()
+            self.detect_and_stitch(ins, outs, node_file, track_file)
+            if self.print_te_output:
+                logger.info(
+                    f"took {(time.time() - then):.1f}s to track cyclones for one member"
+                )
+
+    def _run_te_and_cleanup(
+        self,
+        insies: list[str],
+        outsies: list[str],
+        node_files: list[str],
+        track_files: list[str],
+    ) -> None:
+        """Run TempestExtremes processing and cleanup (no netCDF writing).
+
+        This method is designed to run in a background thread after the netCDF
+        files have already been written by the main thread.
+
+        Per-member tasks are submitted to the shared
+        :class:`TempestExecutorManager` pool rather than a local throw-away
+        pool.  Actual subprocess concurrency is bounded by the manager's
+        semaphore, so extra pool threads only queue work — they do not cause
+        resource exhaustion.
+
+        Parameters
+        ----------
+        insies : list[str]
+            List of input file list paths
+        outsies : list[str]
+            List of output file list paths
+        node_files : list[str]
+            List of node file paths
+        track_files : list[str]
+            List of track file paths
+
+        Raises
+        ------
+        ChildProcessError
+            If TempestExtremes detect or stitch operations fail for any member
+        """
+        then = time.time()
+        mgr = TempestExecutorManager()
+        n_members = len(insies)
+
+        try:
+            member_futures = [
+                mgr.submit(
+                    self._process_single_member, ins, outs, node_file, track_file
+                )
+                for ins, outs, node_file, track_file in zip(
+                    insies, outsies, node_files, track_files
+                )
+            ]
+
+            exceptions: list[tuple[int, Exception]] = []
+            for i, future in enumerate(member_futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.error(f"Member {i + 1} processing failed: {e}")
+                    exceptions.append((i, e))
+
+            if exceptions:
+                raise ChildProcessError(
+                    f"Processing failed for {len(exceptions)} member(s): {exceptions}"
+                )
+        finally:
+            self.tidy_up(insies, outsies)
+
+        logger.info(
+            f"took {(time.time() - then):.1f}s to track cyclones for all "
+            f"{n_members} members"
+        )
+
+    def track_cyclones(self, out_file_names: list[str] | None = None) -> None:
+        """Execute cyclone tracking with parallel processing per ensemble member.
+
+        This override of the parent method dumps data synchronously (within
+        this thread), then submits per-member processing tasks to the shared
+        :class:`TempestExecutorManager` pool, allowing multiple ensemble
+        members to be processed in parallel while avoiding race conditions
+        during data dumping.
+
+        Parameters
+        ----------
+        out_file_names : list of str, optional
+            Custom output file names for each ensemble member
+
+        Raises
+        ------
+        ChildProcessError
+            If TempestExtremes detect or stitch operations fail for any member
+        """
+        insies, outsies, node_files, self.track_files = self.setup_files(out_file_names)
+        self._run_te_and_cleanup(insies, outsies, node_files, self.track_files)
+
+    def cleanup(self, timeout_per_task: int | None = None) -> None:
+        """Explicitly clean up and wait for all background tasks to complete.
+
+        This method should be called before the object is destroyed or the program exits
+        to ensure all cyclone tracking tasks complete successfully.
+
+        Parameters
+        ----------
+        timeout_per_task : int | None, optional
+            Timeout in seconds for each task. If None, uses self.timeout.
+
+        Raises
+        ------
+        ChildProcessError
+            If any background task failed
+        Exception
+            If any task failed with other exceptions
+        """
+        if self._cleanup_done:
+            return
+
+        if timeout_per_task is None:
+            timeout_per_task = self.timeout
+
+        try:
+            self.wait_for_completion(timeout_per_task=timeout_per_task)
+            self._cleanup_done = True
+
+        except Exception as _:
+            self._cleanup_done = True  # Mark as done even on failure to avoid retry
+            raise
+
+    def __del__(self) -> None:
+        """Destructor that ensures all processes have finished before the class gets destroyed.
+
+        This method performs cleanup operations when the object is being destroyed,
+        ensuring all background tasks complete and resources are properly released.
+        """
+        try:
+            # Use getattr to handle case where initialization failed before _cleanup_done was set
+            if not getattr(self, "_cleanup_done", True):
+                self.cleanup(timeout_per_task=30)  # Shorter timeout in destructor
+        except Exception as e:
+            print(
+                "\033[95mError in AsyncTempestExtremes destructor: had no time to cleanup.\033[0m"
+            )
+            print(
+                "\033[95mplease call self.cleanup() from script before class goes out of scope.\033[0m"
+            )
+            print(f"\033[95mThis is resulting in the following error: {e}\033[0m")
+            # Note: In destructor, we log but don't re-raise to avoid issues during interpreter shutdown
+
+    def __call__(self, out_file_names: list[str] | None = None) -> Future[None]:  # type: ignore[override]
+        """Override call method to use async version by default.
+
+        This method makes the class callable and uses the asynchronous
+        tracking method by default.
+
+        Returns
+        -------
+        Future[None]
+            A Future object for the submitted cyclone tracking task
+
+        Raises
+        ------
+        ChildProcessError
+            If any previous cyclone tracking task failed
+        """
+        return self.track_cyclones_async(out_file_names)

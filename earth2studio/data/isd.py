@@ -23,8 +23,8 @@ import shutil
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
-import nest_asyncio
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -33,6 +33,7 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    _sync_async,
     datasource_cache_root,
     prep_data_inputs,
 )
@@ -150,13 +151,8 @@ class ISD:
         self._tmp_cache_hash: str | None = None
         self._verbose = verbose
 
-        # Check to see if there is a running loop (initialized in async)
-        try:
-            nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            self.fs = None
+        # Filesystem is lazily initialized on first call
+        self.fs: s3fs.S3FileSystem | None = None
 
         self.async_timeout = async_timeout
 
@@ -194,19 +190,13 @@ class ISD:
         """
         # Run async path synchronously
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        df = loop.run_until_complete(self.fetch(time, variable, fields))
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
+            df = _sync_async(
+                self.fetch, time, variable, fields, timeout=self.async_timeout
+            )
+        finally:
+            # Delete cache if needed
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return df
 
@@ -234,14 +224,10 @@ class ISD:
             ISD data frame
         """
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If you are calling this "
-                "function directly make sure the data source is initialized inside the "
-                "async loop!"
-            )
+            await self._async_init()
 
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        session = await self.fs.set_session(refresh=True)
+        session = await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         time, variable = prep_data_inputs(time, variable)
         schema = self.resolve_fields(fields)
@@ -257,7 +243,7 @@ class ISD:
                 raise e
 
         # Load dataframes for each station-year (cached parquet if available)
-        func_map: list[asyncio.Task[_StationData]] = []
+        func_map: list[Any] = []
         for station in self.stations:
             for dt in time:
                 func_map.append(  # noqa: PERF401

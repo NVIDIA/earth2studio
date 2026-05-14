@@ -18,13 +18,14 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import logging
 import os
 import sys
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+from loguru import logger
 
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -53,8 +54,6 @@ from earth2studio.serve.server.config import (
 config = get_config()
 config_manager = get_config_manager()
 config_manager.setup_logging()
-
-logger = logging.getLogger(__name__)
 
 
 class WorkflowStatus:
@@ -621,6 +620,20 @@ def json_serial(obj: Any) -> Any:
 class WorkflowRegistry:
     """Registry for managing custom workflows."""
 
+    _instance: WorkflowRegistry | None = None
+
+    @classmethod
+    def instance(cls) -> WorkflowRegistry:
+        """Return the singleton WorkflowRegistry, creating it on first call."""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def _reset_instance(cls) -> None:
+        """Reset the singleton (for testing)."""
+        cls._instance = None
+
     def __init__(self, **config: Any) -> None:
         self._workflows: dict[str, type[Workflow]] = {}
         self._workflow_instances: dict[str, Workflow] = {}
@@ -752,11 +765,74 @@ class WorkflowRegistry:
 
         return instance
 
-    def list_workflows(self) -> dict[str, str]:
-        """List all registered workflows."""
+    def is_workflow_exposed(self, workflow_name: str) -> bool:
+        """
+        Check if a workflow is exposed via API.
+
+        A workflow is exposed if:
+        - The exposed_workflows list is empty (all workflows exposed by default), OR
+        - The workflow name is in the exposed_workflows list, OR
+        - The workflow name is in the warmup_workflows list (accessible for warmup)
+
+        Parameters
+        ----------
+        workflow_name : str
+            Name of the workflow to check
+
+        Returns
+        -------
+        bool
+            True if workflow should be exposed, False otherwise
+        """
+        config = get_config()
+        exposed_workflows = config.workflow_exposure.exposed_workflows
+        warmup_workflows = config.workflow_exposure.warmup_workflows
+
+        # Empty list means all workflows are exposed
+        if not exposed_workflows:
+            return True
+
+        # Check if in exposed list or warmup list
+        return workflow_name in exposed_workflows or workflow_name in warmup_workflows
+
+    def list_workflows(self, exposed_only: bool = True) -> dict[str, str]:
+        """
+        List registered workflows.
+
+        Parameters
+        ----------
+        exposed_only : bool, optional
+            If True, only return workflows that are in exposed_workflows
+            (warmup-only workflows are excluded from public listing).
+            If False, return all registered workflows.
+
+        Returns
+        -------
+        dict
+            Dictionary mapping workflow names to descriptions
+        """
+        if not exposed_only:
+            return {
+                name: workflow_class.description
+                for name, workflow_class in self._workflows.items()
+            }
+
+        config = get_config()
+        exposed_workflows = config.workflow_exposure.exposed_workflows
+
+        # Empty list means all workflows are exposed (including warmup)
+        if not exposed_workflows:
+            return {
+                name: workflow_class.description
+                for name, workflow_class in self._workflows.items()
+            }
+
+        # Only return workflows in the exposed_workflows list
+        # (warmup-only workflows are excluded from public listing)
         return {
             name: workflow_class.description
             for name, workflow_class in self._workflows.items()
+            if name in exposed_workflows
         }
 
     def discover_and_register_from_directories(
@@ -779,9 +855,10 @@ class WorkflowRegistry:
         """
         # Always include built-in workflows if requested (serve/server/example_workflows)
         if include_builtin:
-            _repo_root = Path(__file__).resolve().parent.parent.parent.parent
+            from earth2studio.serve.server.config import resolve_repo_root
+
             builtin_workflows_dir = (
-                _repo_root / "serve" / "server" / "example_workflows"
+                resolve_repo_root() / "serve" / "server" / "example_workflows"
             )
             already_included = builtin_workflows_dir in {Path(d) for d in workflow_dirs}
             if builtin_workflows_dir.exists() and not already_included:
@@ -947,10 +1024,6 @@ def parse_workflow_directories_from_env() -> list[str]:
     return workflow_dirs
 
 
-# Global workflow registry instance
-workflow_registry = WorkflowRegistry()
-
-
 # Convenience function for backward compatibility and ease of use
 @check_optional_dependencies()
 def register_all_workflows(redis_client: redis.Redis) -> None:
@@ -974,4 +1047,4 @@ def register_all_workflows(redis_client: redis.Redis) -> None:
     >>> redis_client = redis.Redis(host='localhost', port=6379)
     >>> register_all_workflows(redis_client)
     """
-    workflow_registry.auto_register_workflows(redis_client)
+    WorkflowRegistry.instance().auto_register_workflows(redis_client)

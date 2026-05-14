@@ -24,7 +24,7 @@ from collections.abc import Callable
 from typing import Any
 
 import fsspec
-import nest_asyncio
+import fsspec.asyn
 import numpy as np
 import torch
 import zarr
@@ -153,17 +153,11 @@ class AsyncZarrBackend:
 
         # Set up base zarr group file system on current thread loop
         # (good for blocking calls and direct async)
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        self.root, self.fs = loop.run_until_complete(
-            self._initialize_zarr_group(file_name, fs_factory, zarr_kwargs)
+        loop = fsspec.asyn.get_loop()
+        self.root, self.fs = fsspec.asyn.sync(
+            loop, self._initialize_zarr_group, file_name, fs_factory, zarr_kwargs
         )
-        loop.run_until_complete(self._validate_parallel_coords())
+        fsspec.asyn.sync(loop, self._validate_parallel_coords)
         self.loop = loop
 
     def _initialize_loop_pool(
@@ -483,8 +477,8 @@ class AsyncZarrBackend:
             Name(s) of the array(s) that will be written to.
         """
         # Block this until complete, prevents race conditions when initialization
-        x, coords = self.loop.run_until_complete(
-            self.prepare_inputs(x, coords, array_name)
+        x, coords = fsspec.asyn.sync(
+            self.loop, self.prepare_inputs, x, coords, array_name
         )
 
         # Threads are cycled based on rotating index, pretty crude but works

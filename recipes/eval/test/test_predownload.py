@@ -20,10 +20,22 @@ from collections import OrderedDict
 
 import numpy as np
 import pytest
+import torch
 from omegaconf import OmegaConf
-from predownload import _compute_verification_times, _infer_step_hours
+from predownload import (
+    _compute_verification_times,
+    _infer_step_hours,
+    _squeeze_lead_time,
+    _union_variables,
+)
 from src.output import sentinel_path
-from src.work import build_work_items
+from src.work import (
+    build_work_items,
+    clear_predownload_progress,
+    filter_predownload_completed,
+    predownload_progress_dir,
+    write_predownload_marker,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -188,3 +200,115 @@ class TestSentinelPath:
         sp.parent.mkdir(parents=True, exist_ok=True)
         sp.write_text("2024-01-01T00:00:00")
         assert sp.exists()
+
+
+# ---------------------------------------------------------------------------
+# _squeeze_lead_time
+# ---------------------------------------------------------------------------
+
+
+class TestSqueezeLeadTime:
+    def test_removes_lead_time_dim(self):
+        coords = OrderedDict(
+            {
+                "time": np.array([np.datetime64("2024-01-01")]),
+                "lead_time": np.array([np.timedelta64(0, "ns")]),
+                "variable": np.array(["t2m", "z500"]),
+                "lat": np.linspace(90, -90, 4),
+                "lon": np.linspace(0, 360, 8, endpoint=False),
+            }
+        )
+        x = torch.randn(1, 1, 2, 4, 8)
+        x_out, coords_out = _squeeze_lead_time(x, coords)
+
+        assert x_out.shape == (1, 2, 4, 8)
+        assert "lead_time" not in coords_out
+        assert list(coords_out.keys()) == ["time", "variable", "lat", "lon"]
+
+    def test_preserves_data_values(self):
+        coords = OrderedDict(
+            {
+                "time": np.array([np.datetime64("2024-01-01")]),
+                "lead_time": np.array([np.timedelta64(0, "ns")]),
+                "variable": np.array(["t2m"]),
+            }
+        )
+        x = torch.tensor([[[[[42.0]]]]])  # (1, 1, 1, 1, 1)
+        x_out, _ = _squeeze_lead_time(x, coords)
+        assert x_out.item() == 42.0
+
+
+# ---------------------------------------------------------------------------
+# _union_variables
+# ---------------------------------------------------------------------------
+
+
+class TestUnionVariables:
+    def test_no_overlap(self):
+        result = _union_variables(["a", "b"], ["c", "d"])
+        assert result == ["a", "b", "c", "d"]
+
+    def test_full_overlap(self):
+        result = _union_variables(["a", "b"], ["a", "b"])
+        assert result == ["a", "b"]
+
+    def test_partial_overlap_preserves_order(self):
+        result = _union_variables(["t2m", "z500", "u10m"], ["z500", "t2m", "v10m"])
+        assert result == ["t2m", "z500", "u10m", "v10m"]
+
+    def test_empty_inputs(self):
+        assert _union_variables([], ["a"]) == ["a"]
+        assert _union_variables(["a"], []) == ["a"]
+        assert _union_variables([], []) == []
+
+
+# ---------------------------------------------------------------------------
+# Predownload progress tracking
+# ---------------------------------------------------------------------------
+
+
+class TestPredownloadProgress:
+    @pytest.fixture()
+    def cfg(self, tmp_path):
+        return OmegaConf.create({"output": {"path": str(tmp_path / "outputs")}})
+
+    def test_progress_dir_path(self, cfg, tmp_path):
+        d = predownload_progress_dir(cfg, "data")
+        assert d == tmp_path / "outputs" / ".predownload_progress" / "data"
+
+    def test_write_and_filter_marker(self, cfg):
+        t1 = np.datetime64("2024-01-01T00:00:00")
+        t2 = np.datetime64("2024-01-02T00:00:00")
+        times = [t1, t2]
+
+        # No markers yet — all times remain.
+        remaining = filter_predownload_completed(times, cfg, "data")
+        assert len(remaining) == 2
+
+        # Write marker for t1.
+        write_predownload_marker(t1, cfg, "data")
+
+        # Now only t2 should remain.
+        remaining = filter_predownload_completed(times, cfg, "data")
+        assert len(remaining) == 1
+        assert remaining[0] == t2
+
+    def test_clear_predownload_progress(self, cfg):
+        t1 = np.datetime64("2024-01-01T00:00:00")
+        write_predownload_marker(t1, cfg, "data")
+
+        d = predownload_progress_dir(cfg, "data")
+        assert d.exists()
+
+        clear_predownload_progress(cfg)
+        assert not d.exists()
+
+    def test_separate_namespaces(self, cfg):
+        t1 = np.datetime64("2024-01-01T00:00:00")
+        times = [t1]
+
+        write_predownload_marker(t1, cfg, "data")
+
+        # Marker for "data" namespace should not affect "verification".
+        remaining = filter_predownload_completed(times, cfg, "verification")
+        assert len(remaining) == 1

@@ -43,7 +43,7 @@ repos:
             )$
 
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.2
+    rev: v3.21.2
     hooks:
     -   id: pyupgrade
         args: [--py310-plus]
@@ -75,6 +75,7 @@ repos:
               (?x)^(examples|
                 test |
                 serve/test/.* |
+                serve/server/example_workflows/.* |
                 docs |
                 recipes/.*/test/.* |
                 earth2studio/models/nn)

@@ -7,18 +7,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.14.0a0] - 2026-04-xx
+## [0.15.0a0] - 2026-05-xx
 
 ### Added
 
-- Added GenCast 1 degree Mini model
-- Added CAMS Global atmospheric composition forecast data source (`CAMS_FX`)
-- Added `CAMSGlobalLexicon` for CAMS variable mappings (AOD, total column gases)
+- Added Himawari-8/9 AHI ISatSS L2 Full Disk satellite data source (`HimawariAHI`)
+- Added GHCN-Daily global station observation data frame source (`GHCNDaily`)
+- Added NNJA conventional (in-situ + GPS RO) observation data source (`NNJAObsConv`)
 - Added real-time GDAS conventional observation data source (`NomadsGDASObsConv`)
-- Added `GDASObsConvLexicon` for NOMADS PrepBUFR variable mappings
 - Added `quality` field to `E2STUDIO_SCHEMA` for observation QC markers
 
 ### Changed
+
+- UFS Satellite Obs source is now the only one that provides the UFS specific
+  `channel_index` and general `sensor_index` fields, all other now provide
+  `sensor_index` only which can be used to consistently map from UFS to L1 products
+- Added `wavenumber` (cm⁻¹) field to all satellite schemas
+- Changed `channel_index` to `sensor_index` in `E2STUDIO_SCHEMA`
 
 ### Deprecated
 
@@ -26,14 +31,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed potential `uint16` underflow in UFS channel index expansion
+- S3 upload bug in server utilities
+- Fixed pres obs from UFS to be Pascal units
+
 ### Security
 
 ### Dependencies
+
+- Removed nested_asyncio for Python 3.14 compatibility and updated async data sources
+
+## [0.14.0] - 2026-04-27
+
+### Added
+
+- Added GenCast 1 degree Mini model
+- Added CAMS Global atmospheric composition forecast data source (`CAMS_FX`)
+- Added MetOp AMSU-A Level 1B brightness temperature data source (`MetOpAMSUA`)
+- Added MetOp AVHRR Level 1B radiance/brightness temperature data source (`MetOpAVHRR`)
+- Added JPSS ATMS Level 1 BUFR brightness-temperature data source (`JPSS_ATMS`)
+- Added JPSS CrIS FSR Level 1 spectral radiance data source (`JPSS_CRIS`)
+- Added MetOp IASI Level 1C infrared brightness temperature data source (`MetOpIASI`)
+- Added NClimGrid daily CONUS gridded climate data source (`NClimGridDaily`)
+- Added MTG-I FCI Level-1C Full Disk satellite radiance data source (`MeteosatFCI`)
+
+### Fixed
+
+- Fixed source code links in documentation
+
+### Dependencies
+
+- Added `eumdac>=3.1.0` to `data` optional dependency group for EUMETSAT Data Store access
+- Moved package dependencies defaults to CUDA 13.0 following torch
+- Moving suggested Python version to 3.13
+- Pointing physicsnemo to git main source for torch 2.11 compatibility
 
 ## [0.13.0] - 2026-03-20
 
 ### Added
 
+- Added tropical cyclone tracking recipe with async TempestExtremes integration
 - Added NOAA UFS observation dataframe sources for satellite and conventional data
 - Added Earth2Studio base schema for dataframe sources
 - Added Planetary Computer data source for ECMWF IFS analysis data

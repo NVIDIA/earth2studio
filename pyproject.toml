@@ -20,10 +20,9 @@ dependencies = [
     "huggingface-hub>=0.27.0",
     "loguru",
     "netCDF4>=1.6.4,<1.7.3", # https://github.com/Unidata/netcdf4-python/issues/1438
-    "nest_asyncio",
     "pygrib",
     "python-dotenv",
-    "pandas<3.0", # https://github.com/esgf2-us/intake-esgf/issues/167
+    "pandas",
     "pyarrow>=14.0.0",
     "rich",
     "s3fs>=2023.5.0",
@@ -42,6 +41,7 @@ classifiers = [
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
     'Programming Language :: Python :: 3 :: Only',
     "Intended Audience :: Science/Research",
     "Environment :: GPU",
@@ -59,14 +59,13 @@ Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 [project.optional-dependencies]
 data = [
     "cdsapi>=0.7.5",
-    "cfgrib >= 0.9.10.3",
+    "cfgrib>=0.9.10.3",
     "eccodes>=2.39.2",
     "eccodeslib>=2.39.2",
     "ecmwf-opendata>=0.3.3",
-    "intake-esgf>=2025.9.26",
-    "pandas<3.0", # https://github.com/esgf2-us/intake-esgf/issues/167
+    "intake-esgf>=2026.1.26; python_version>='3.12'",
     "planetary-computer>=0.5.0",
-    "globus-sdk<4.0.0", # TODO: Remove once intake-esgf updates
+    "pybufrkit>=0.2.22",
     "pystac-client>=0.9.0",
     "httpx==0.28.1",
     "rasterio>=1.3.9",
@@ -74,6 +73,7 @@ data = [
     "pyproj>=3.7.1", # TODO: pygrib imports this, so technically in core, to check
     "scipy>=1.15.2",
     "multi-storage-client[boto3,google-cloud-storage,fsspec]>=0.33.0",
+    "eumdac>=3.1.0",
 ]
 perturbation = [
     "torch-harmonics>=0.7.4",
@@ -106,6 +106,11 @@ serve = [
     "python-multipart>=0.0.6",
     "requests>=2.25.0",
     "urllib3>=1.26.0",
+    # Object storage related
+    "cryptography>=41.0.0",
+    "multi-storage-client>=0.44.0",
+    "azure-storage-blob>=12.19.0",
+    "azure-identity>=1.15.0",
 ]
 # PX Models
 ace2 = [
@@ -126,7 +131,7 @@ aifsens = [
     "flash-attn",
 ]
 atlas = [
-    "natten",
+    "natten ; python_version < '3.14'",
     "timm",
     "torch-harmonics",
     "einops",
@@ -168,14 +173,14 @@ fuxi = [
 gencast = [
     "graphcast",
     "dm-haiku>=0.0.14",
-    "jax[cuda12]>=0.4.26",
+    "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
 ]
 graphcast = [
     "graphcast",
     "dm-haiku>=0.0.14",
-    "jax[cuda12]>=0.4.26",
+    "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
 ]
@@ -204,7 +209,7 @@ stormcast = [
     "pyproj>=3.7.1",
 ]
 stormscope = [
-    "natten",
+    "natten ; python_version < '3.14'",
     "nvidia-physicsnemo>=2.0",
     "nvtx>=0.2.11",
     "earth2studio[utils]",
@@ -222,8 +227,8 @@ corrdiff = [
     "scipy>=1.15.2",
 ]
 cyclone = [
-    "cucim-cu12>=25.4.0",
-    "cupy-cuda12x<14.0.0", # 14.0.0 has some odd issue, thrust needs c++17, need to revisit
+    "cucim-cu13>=25.4.0",
+    "cupy-cuda13x",
     "scikit-image>=0.25.2",
 ]
 derived = []
@@ -243,17 +248,17 @@ windgust-afno = [
 da-healda = [
     "earth2grid",
     "nvidia-physicsnemo>=2.0",
-    "cupy-cuda12x<14.0.0",
-    "cudf-cu12==26.2.*",
+    "cupy-cuda13x",
+    "cudf-cu13>=26.2.0",
 ]
 da-interp = [
-    "cupy-cuda12x<14.0.0",
-    "cudf-cu12==26.2.*",
+    "cupy-cuda13x",
+    "cudf-cu13>=26.2.0",
 ]
 da-stormcast = [
     "earth2studio[stormcast]",
-    "cupy-cuda12x<14.0.0",
-    "cudf-cu12==26.2.*",
+    "cupy-cuda13x",
+    "cudf-cu13>=26.2.0",
 ]
 # All, must not have conflicts
 all = [
@@ -288,12 +293,17 @@ default-groups = ["dev", "build"]
 no-build-isolation-package = ["earth2grid", "flash-attn", "natten", "torch-harmonics"]
 override-dependencies = []
 
+[[tool.uv.index]]
+name = "ort-cuda-13-nightly"
+url = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/"
+
 [tool.uv.extra-build-dependencies]
 earth2grid = ["setuptools", "torch"]
 flash-attn = ["torch", "packaging", "ninja"]
 natten = ["setuptools", "cmake", "torch"]
 
 [tool.uv.sources]
+onnxruntime-gpu = { index = "ort-cuda-13-nightly" }
 cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
 cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "8b8b358466e6b2f50d1779009790002ceb596e72" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" }
@@ -308,16 +318,8 @@ torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
 ]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
-explicit = true
+# Remove once update release with torch 2.11 fixable
+nvidia-physicsnemo = { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "369a15782b9922d7694d49a00bfaf8960b9be429" }
 
 [exclude.uv.workspace]
 members = ["recipes/*"]
@@ -464,10 +466,11 @@ ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
 # ==== MyPy configuration ====
 # See: https://mypy.readthedocs.io/en/stable/config_file.html
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 packages = ['earth2studio']
 exclude = [
-    'examples', 'test', 'docs', 'serve/test', 'recipes/.*/test'
+    'examples', 'test', 'docs', 'serve/test', 'recipes/.*/test',
+    'serve/server/example_workflows',
 ]
 disallow_untyped_calls = true
 disallow_untyped_defs = true
