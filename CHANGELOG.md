@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Himawari-8/9 AHI ISatSS L2 Full Disk satellite data source (`HimawariAHI`)
 - Added GHCN-Daily global station observation data frame source (`GHCNDaily`)
 - Added NNJA conventional (in-situ + GPS RO) observation data source (`NNJAObsConv`)
+- Added NCEP CFSv2 operational forecast data sources for the pressure-level
+  `pgbf` and surface-flux `flxf` products (`CFS_FX`, `CFS_FX_Flux`), backed by
+  either NOMADS (real-time) or the AWS Open Data mirror (archive)
+- Added `CFSLexicon` and `CFSFluxLexicon` for CFSv2 variable mappings
 
 ### Changed
 

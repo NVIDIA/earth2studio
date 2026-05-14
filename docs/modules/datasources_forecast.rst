@@ -25,6 +25,8 @@ Typically used in intercomparison workflows.
       data.AIFS_FX
       data.CAMS_FX
       data.AIFS_ENS_FX
+      data.CFS_FX
+      data.CFS_FX_Flux
       data.GFS_FX
       data.GEFS_FX
       data.GEFS_FX_721x1440
