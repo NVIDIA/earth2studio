@@ -298,6 +298,38 @@ def test_cfs_call_mock(tmp_path, monkeypatch):
     np.testing.assert_allclose(data.sel(variable="z500").values[0, 0], fake_grid * 9.81)
 
 
+@pytest.mark.timeout(15)
+def test_cfs_missing_variable_returns_nan(tmp_path, monkeypatch):
+    # If the requested variable is in the lexicon but absent from the .idx,
+    # _create_tasks emits a warning and skips it.  The output slot must be
+    # NaN (detectable missing) rather than uninitialised memory.
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    # Index only has msl; z500 is missing on purpose.
+    partial_index = {"1::PRMSL::mean sea level": (0, 65300, 1)}
+    fake_grid = np.full((181, 360), 101325.0, dtype=np.float32)
+
+    async def _fake_fetch_index(uri):
+        return partial_index
+
+    async def _fake_fetch_remote_file(*args, **kwargs):
+        return str(tmp_path / "ignored.grb2")
+
+    ds = CFS_FX(source="aws", cache=True)
+    with (
+        patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
+        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
+        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
+        patch("earth2studio.data.cfs._decode_cfs_grib", return_value=fake_grid),
+    ):
+        ds.fs = object()  # type: ignore[assignment]
+        data = ds(_TEST_CYCLE, timedelta(hours=6), ["msl", "z500"])
+
+    np.testing.assert_allclose(data.sel(variable="msl").values[0, 0], fake_grid)
+    # Skipped variable surfaces as all-NaN.
+    assert np.isnan(data.sel(variable="z500").values).all()
+
+
 # ----------------------------------------------------------------------
 # available()
 # ----------------------------------------------------------------------

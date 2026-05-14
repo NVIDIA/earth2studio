@@ -312,15 +312,18 @@ class CFS_Reforecast_FX:
         self._validate_time(time)
         self._validate_leadtime(lead_time)
 
+        # NaN-initialise so variables that fail to match a grib record
+        # surface as detectable missing values instead of arbitrary memory.
         xr_array = xr.DataArray(
-            data=np.empty(
+            data=np.full(
                 (
                     len(time),
                     len(lead_time),
                     len(variable),
                     len(self.CFS_LAT),
                     len(self.CFS_LON),
-                )
+                ),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "lat", "lon"],
             coords={

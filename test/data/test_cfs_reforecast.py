@@ -203,6 +203,46 @@ def test_cfs_reforecast_call_mock(tmp_path, monkeypatch):
     np.testing.assert_allclose(data.sel(variable="z500").values[0, 0], fake_grid * 9.81)
 
 
+@pytest.mark.timeout(15)
+def test_cfs_reforecast_missing_variable_returns_nan(tmp_path, monkeypatch):
+    # If _decode_cfs_reforecast_grib drops a variable (no matching grib
+    # record), the corresponding output slot must be NaN, not uninitialised
+    # memory.
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    fake_grid = np.full((181, 360), 50000.0, dtype=np.float32)
+
+    async def _fake_fetch_remote_file(self, uri):
+        return str(tmp_path / "ignored.grb2")
+
+    def _fake_decode_drop_second(grib_file, variables):
+        # Decode only the first requested variable; the second is reported
+        # missing.  This mirrors the in-product behaviour when a grib record
+        # is absent from the file.
+        return [
+            (variables[0][0], variables[0][4](fake_grid)),
+        ]
+
+    ds = CFS_Reforecast_FX(cache=True)
+    with (
+        patch.object(
+            CFS_Reforecast_FX, "_async_init", new=AsyncMock(return_value=None)
+        ),
+        patch.object(
+            CFS_Reforecast_FX, "_fetch_remote_file", new=_fake_fetch_remote_file
+        ),
+        patch(
+            "earth2studio.data.cfs_reforecast._decode_cfs_reforecast_grib",
+            side_effect=_fake_decode_drop_second,
+        ),
+    ):
+        ds.fs = object()  # type: ignore[assignment]
+        data = ds(_TEST_CYCLE, [timedelta(hours=6)], ["msl", "z500"])
+
+    np.testing.assert_allclose(data.sel(variable="msl").values[0, 0], fake_grid)
+    assert np.isnan(data.sel(variable="z500").values).all()
+
+
 # ----------------------------------------------------------------------
 # Live HTTPS fetch tests (slow)
 # ----------------------------------------------------------------------

@@ -298,15 +298,19 @@ class CFS_FX:
             session = await self.fs.set_session(refresh=True)
 
         try:
+            # NaN-initialise so variables that are not resolved against the
+            # grib index surface as detectable missing values instead of
+            # arbitrary memory.
             xr_array = xr.DataArray(
-                data=np.empty(
+                data=np.full(
                     (
                         len(time),
                         len(lead_time),
                         len(variable),
                         len(self.CFS_LAT),
                         len(self.CFS_LON),
-                    )
+                    ),
+                    np.nan,
                 ),
                 dims=["time", "lead_time", "variable", "lat", "lon"],
                 coords={
@@ -360,12 +364,16 @@ class CFS_FX:
 
         # Fetch every required .idx in parallel up front.  Most CFS variable
         # records live in the same grib file (one file per IC x lead_time), so
-        # we cache them in a dict keyed by URI.
+        # we cache them in a dict keyed by URI.  Bound the index fetches by
+        # the configured ``async_workers`` budget rather than launching all
+        # of them simultaneously through a bare ``tqdm.gather``.
         idx_uris = [self._grib_index_uri(t, lt) for t in time for lt in lead_time]
-        idx_results = await tqdm.gather(
-            *(self._fetch_index(uri) for uri in idx_uris),
+        idx_results = await gather_with_concurrency(
+            [self._fetch_index(uri) for uri in idx_uris],
+            max_workers=self._async_workers,
+            task_timeout=60.0,
             desc="Fetching CFS index files",
-            disable=True,
+            verbose=True,
         )
         idx_by_uri = dict(zip(idx_uris, idx_results))
 
