@@ -270,15 +270,6 @@ class ARCO:
         )
         return xr_array
 
-    async def fetch_wrapper(
-        self,
-        e: tuple[datetime, int, str, int],
-        xr_array: xr.DataArray,
-    ) -> None:
-        """Small wrapper to pack arrays into the DataArray"""
-        out = await self.fetch_array(e[0], e[2])
-        xr_array[e[1], e[3]] = out
-
     async def fetch_chunk_group(
         self,
         e: tuple[datetime, int, str, bool, list],
