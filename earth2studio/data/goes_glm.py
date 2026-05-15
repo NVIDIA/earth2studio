@@ -24,7 +24,6 @@ import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -123,12 +122,13 @@ class GOESGLM:
         ``"west"`` to auto-select the active GOES-East / GOES-West
         platform for each requested timestamp; pass ``"G16"``,
         ``"G17"``, ``"G18"`` or ``"G19"`` to pin a single platform.
-    bbox : tuple[float, float, float, float] | None, optional
-        ``(lat_min, lat_max, lon_min, lon_max)`` filter applied at
-        parse time. Coordinates use the GLM native convention
-        (latitude in ``[-90, 90]``, longitude in ``[-180, 180)``).
-        ``None`` (default) returns the full disk. For example, CONUS
-        is ``(24.5, 49.5, -125.0, -66.0)``.
+    lat_lon_bbox : tuple[float, float, float, float] | None, optional
+        Bounding box ``(lat_min, lon_min, lat_max, lon_max)`` in
+        degrees, applied at parse time. Accepts either ``[-180, 180)``
+        or ``[0, 360)`` longitude convention (auto-detected when
+        ``lon_max >= 180``). ``None`` (default) returns the full disk.
+        For example, CONUS in the ``[-180, 180)`` convention is
+        ``(24.5, -125.0, 49.5, -66.0)``.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for selecting events around each
         requested timestamp. Accepts a single value (symmetric ±
@@ -150,9 +150,9 @@ class GOESGLM:
     Warning
     -------
     GLM produces hundreds of files per hour. Large time windows can
-    download tens to hundreds of gigabytes of NetCDFs. Use ``bbox`` to
-    discard out-of-region events on parse and keep ``time_tolerance``
-    bounded.
+    download tens to hundreds of gigabytes of NetCDFs. Use
+    ``lat_lon_bbox`` to discard out-of-region events on parse and
+    keep ``time_tolerance`` bounded.
 
     Note
     ----
@@ -180,14 +180,14 @@ class GOESGLM:
 
         ds = GOESGLM(
             satellite="east",
-            bbox=(24.5, 49.5, -125.0, -66.0),  # CONUS
+            lat_lon_bbox=(24.5, -125.0, 49.5, -66.0),  # CONUS
             time_tolerance=np.timedelta64(5, "m"),
         )
         df = ds(datetime(2024, 6, 1, 18, 0), ["flashe", "flashc"])
 
     Badges
     ------
-    region:na region:sa dataclass:observation product:insitu
+    region:na region:sa dataclass:observation product:atmos product:insitu
     """
 
     SOURCE_ID = "earth2studio.data.goes_glm"
@@ -209,7 +209,7 @@ class GOESGLM:
     def __init__(
         self,
         satellite: str = "east",
-        bbox: tuple[float, float, float, float] | None = None,
+        lat_lon_bbox: tuple[float, float, float, float] | None = None,
         time_tolerance: TimeTolerance = np.timedelta64(2, "m"),
         cache: bool = True,
         verbose: bool = True,
@@ -220,7 +220,7 @@ class GOESGLM:
         sat = (
             satellite.lower()
             if satellite.lower() in ("east", "west")
-            else (satellite.upper())
+            else satellite.upper()
         )
         if sat not in ("east", "west") and sat not in _BUCKETS:
             raise ValueError(
@@ -229,14 +229,7 @@ class GOESGLM:
             )
         self._satellite = sat
 
-        if bbox is not None:
-            lat_min, lat_max, lon_min, lon_max = bbox
-            if lat_min >= lat_max or lon_min >= lon_max:
-                raise ValueError(
-                    f"bbox bounds must be (lat_min < lat_max, lon_min < lon_max); "
-                    f"got {bbox}"
-                )
-        self._bbox = bbox
+        self._lat_lon_bbox = _normalize_lat_lon_bbox(lat_lon_bbox)
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
@@ -382,14 +375,8 @@ class GOESGLM:
             tmax = t + self._tolerance_upper
             sat = self._satellite_for_time(t)
             windows.append((tmin, tmax, sat))
-            # Cover any hours overlapping the window, including the one
-            # containing tmin even when tmax falls back into the prior
-            # bin (negative tolerance). Start one file duration before
-            # tmin so the prefix listing matches the widened file-start
-            # acceptance bound used below.
             hr = (tmin - _GLM_FILE_DURATION).replace(minute=0, second=0, microsecond=0)
-            stop = tmax if tmax >= tmin else tmin
-            while hr <= stop:
+            while hr <= tmax:
                 prefix_jobs[(sat, self._hour_prefix(sat, hr))] = None
                 hr += timedelta(hours=1)
 
@@ -413,7 +400,7 @@ class GOESGLM:
         seen_uris: set[str] = set()
         for entries in listings:
             for sat, key in entries:
-                file_start = _parse_filename_start(key)
+                file_start = self._parse_filename_start(key)
                 if file_start is None:
                     continue
                 for tmin, tmax, win_sat in windows:
@@ -467,14 +454,12 @@ class GOESGLM:
         """Parse each cached file once, filter per requested time, and
         emit one long-format DataFrame across all variables and times.
         """
-        # Parse all files (each only once); skip files whose cache is
-        # missing (download skipped due to FileNotFoundError).
         events_by_file: dict[str, pd.DataFrame] = {}
         for f in files:
             local = self._cache_path(f.s3_uri)
             if not pathlib.Path(local).is_file():
                 continue
-            events = _parse_glm_file(local, self._bbox)
+            events = self._parse_glm_file(local, self._lat_lon_bbox)
             if events is None or events.empty:
                 continue
             events["satellite"] = f.satellite
@@ -516,10 +501,7 @@ class GOESGLM:
 
     def _empty_result(self, schema: pa.Schema) -> pd.DataFrame:
         empty = pd.DataFrame(
-            {
-                f.name: pd.Series(dtype=_arrow_to_pandas_dtype(f.type))
-                for f in self.SCHEMA
-            }
+            {name: pd.Series(dtype="object") for name in self.SCHEMA.names}
         )
         empty.attrs["source"] = self.SOURCE_ID
         return empty[[name for name in schema.names if name in empty.columns]]
@@ -581,19 +563,19 @@ class GOESGLM:
 
     @classmethod
     def available(cls, time: datetime | np.datetime64) -> bool:
-        """Check if the given date time is in the GLM archive window.
+        """Check whether data is available for a given time.
+
+        Offline check against the GLM archive window; per-slot
+        platform cutovers are enforced when the source is called.
 
         Parameters
         ----------
         time : datetime | np.datetime64
-            Date time to check.
+            Date-time to check.
 
         Returns
         -------
         bool
-            ``True`` when ``time`` falls within the public GLM-L2-LCFA
-            archive window (irrespective of satellite slot). Per-slot
-            cutovers are enforced when the source is actually called.
         """
         if isinstance(time, np.datetime64):
             time = time.astype("datetime64[ns]").astype("datetime64[us]").item()
@@ -634,119 +616,108 @@ class GOESGLM:
             selected.append(cls.SCHEMA.field(name))
         return pa.schema(selected)
 
+    @classmethod
+    def _parse_filename_start(cls, key: str) -> datetime | None:
+        """Extract the file-start datetime from a GLM L2 LCFA S3 key.
 
-def _arrow_to_pandas_dtype(arrow_type: pa.DataType) -> Any:
-    """Map a PyArrow type to a pandas/numpy dtype for empty-DataFrame stubs."""
-    if pa.types.is_timestamp(arrow_type):
-        unit = arrow_type.unit
-        return f"datetime64[{unit}]"
-    if pa.types.is_floating(arrow_type):
-        return np.dtype(arrow_type.to_pandas_dtype())
-    if pa.types.is_integer(arrow_type):
-        return np.dtype(arrow_type.to_pandas_dtype())
-    if pa.types.is_string(arrow_type):
-        return object
-    return object
-
-
-def _parse_filename_start(key: str) -> datetime | None:
-    """Extract the start datetime from a GLM L2 LCFA S3 key or filename.
-
-    Filenames follow ``OR_GLM-L2-LCFA_<G16|G17|G18|G19>_s<YYYYJJJHHMMSSF>_e..._c....nc``
-    where ``F`` is a decisecond digit (rounded down here).
-    """
-    base = os.path.basename(key)
-    idx = base.find("_s")
-    if idx < 0:
-        return None
-    stamp = base[idx + 2 : idx + 2 + 13]
-    if len(stamp) != 13 or not stamp.isdigit():
-        return None
-    try:
-        return datetime.strptime(stamp, "%Y%j%H%M%S")
-    except ValueError:
-        return None
-
-
-def _parse_glm_file(
-    path: str,
-    bbox: tuple[float, float, float, float] | None,
-) -> pd.DataFrame | None:
-    """Parse a GLM L2 LCFA NetCDF file into a flat events DataFrame.
-
-    Returns ``None`` if the file has no events or all events fall
-    outside ``bbox``.
-    """
-    with netCDF4.Dataset(path) as ds:
-        if "event_lat" not in ds.variables:
+        Filenames follow
+        ``OR_GLM-L2-LCFA_<G16|G17|G18|G19>_s<YYYYJJJHHMMSSF>_e..._c....nc``
+        where ``F`` is a decisecond digit (rounded down here).
+        """
+        base = os.path.basename(key)
+        idx = base.find("_s")
+        if idx < 0:
             return None
-        if ds.dimensions["number_of_events"].size == 0:
+        stamp = base[idx + 2 : idx + 2 + 13]
+        if len(stamp) != 13 or not stamp.isdigit():
             return None
-
-        lat = np.asarray(ds.variables["event_lat"][:], dtype=np.float32)
-        lon = np.asarray(ds.variables["event_lon"][:], dtype=np.float32)
-        energy = np.asarray(ds.variables["event_energy"][:], dtype=np.float32)
-
-        # Per-event timestamps from event_time_offset + units. Fall back
-        # to the file's time_coverage_start global attribute if the
-        # variable's units are missing or unparsable.
-        offset = np.asarray(ds.variables["event_time_offset"][:], dtype=np.float64)
-        units = getattr(ds.variables["event_time_offset"], "units", None)
-        times = _resolve_event_times(ds, offset, units)
-
-    if bbox is not None:
-        lat_min, lat_max, lon_min, lon_max = bbox
-        mask = (lat >= lat_min) & (lat <= lat_max) & (lon >= lon_min) & (lon <= lon_max)
-        if not mask.any():
-            return None
-        lat = lat[mask]
-        lon = lon[mask]
-        energy = energy[mask]
-        times = times[mask]
-
-    return pd.DataFrame(
-        {
-            "time": pd.to_datetime(times),
-            "lat": lat,
-            "lon": lon,
-            "event_energy": energy,
-        }
-    )
-
-
-def _resolve_event_times(ds: Any, offset: np.ndarray, units: str | None) -> np.ndarray:
-    """Convert per-event ``event_time_offset`` to a numpy datetime64
-    array, preferring CF ``num2date`` and falling back to the file's
-    ``time_coverage_start`` attribute when the variable units are
-    absent."""
-    if units:
         try:
-            dates = cast(
-                np.ndarray,
-                netCDF4.num2date(
-                    offset,
-                    units,
-                    only_use_cftime_datetimes=False,
-                    only_use_python_datetimes=True,
-                ),
+            return datetime.strptime(stamp, "%Y%j%H%M%S")
+        except ValueError:
+            return None
+
+    @classmethod
+    def _parse_glm_file(
+        cls,
+        path: str,
+        lat_lon_bbox: tuple[float, float, float, float] | None,
+    ) -> pd.DataFrame | None:
+        """Parse a GLM L2 LCFA NetCDF file into a flat events DataFrame.
+
+        Returns ``None`` if the file has no events or all events fall
+        outside ``lat_lon_bbox``.
+        """
+        with netCDF4.Dataset(path) as ds:
+            if "event_lat" not in ds.variables:
+                return None
+            if ds.dimensions["number_of_events"].size == 0:
+                return None
+
+            lat = np.asarray(ds.variables["event_lat"][:], dtype=np.float32)
+            lon = np.asarray(ds.variables["event_lon"][:], dtype=np.float32)
+            energy = np.asarray(ds.variables["event_energy"][:], dtype=np.float32)
+            offset = np.asarray(ds.variables["event_time_offset"][:], dtype=np.float64)
+            epoch = (
+                pd.Timestamp(ds.time_coverage_start)
+                .to_pydatetime()
+                .replace(tzinfo=None)
             )
-            return np.asarray(
-                [np.datetime64(d, "us") for d in dates],
-                dtype="datetime64[us]",
-            )
-        except (ValueError, TypeError):
-            pass
-    epoch_str = getattr(ds, "time_coverage_start", None)
-    if not epoch_str:
-        raise ValueError(
-            "GLM file lacks both event_time_offset.units and "
-            "time_coverage_start; cannot resolve event timestamps."
+
+        times = np.asarray(
+            [np.datetime64(epoch + timedelta(seconds=float(s)), "us") for s in offset],
+            dtype="datetime64[us]",
         )
-    # pd.Timestamp tolerates the trailing 'Z' and fractional seconds
-    # variants that real GLM files use; datetime.fromisoformat() does
-    # not on Python < 3.11.
-    epoch = pd.Timestamp(epoch_str).to_pydatetime().replace(tzinfo=None)
-    return np.asarray(
-        [np.datetime64(epoch + timedelta(seconds=float(s)), "us") for s in offset],
-        dtype="datetime64[us]",
-    )
+
+        if lat_lon_bbox is not None:
+            lat_min, lon_min, lat_max, lon_max = lat_lon_bbox
+            mask = (
+                (lat >= lat_min)
+                & (lat <= lat_max)
+                & (lon >= lon_min)
+                & (lon <= lon_max)
+            )
+            if not mask.any():
+                return None
+            lat = lat[mask]
+            lon = lon[mask]
+            energy = energy[mask]
+            times = times[mask]
+
+        return pd.DataFrame(
+            {
+                "time": pd.to_datetime(times),
+                "lat": lat,
+                "lon": lon,
+                "event_energy": energy,
+            }
+        )
+
+
+def _normalize_lat_lon_bbox(
+    lat_lon_bbox: tuple[float, float, float, float] | None,
+) -> tuple[float, float, float, float] | None:
+    """Validate a ``(lat_min, lon_min, lat_max, lon_max)`` box.
+
+    Accepts either ``[-180, 180)`` or ``[0, 360)`` longitude
+    conventions and normalises to the native GLM ``[-180, 180)``
+    convention used by the on-disk event coordinates.
+    """
+    if lat_lon_bbox is None:
+        return None
+    lat_min, lon_min, lat_max, lon_max = lat_lon_bbox
+    if lat_min >= lat_max or lon_min >= lon_max:
+        raise ValueError(
+            "lat_lon_bbox bounds must be "
+            "(lat_min < lat_max, lon_min < lon_max); "
+            f"got {lat_lon_bbox}"
+        )
+    if lon_max >= 180.0:
+        lon_min = ((lon_min + 180.0) % 360.0) - 180.0
+        lon_max = ((lon_max + 180.0) % 360.0) - 180.0
+        if lon_min >= lon_max:
+            raise ValueError(
+                "lat_lon_bbox crosses the antimeridian after "
+                "normalising from [0, 360) to [-180, 180); split it "
+                f"into two boxes. Got {lat_lon_bbox}."
+            )
+    return (lat_min, lon_min, lat_max, lon_max)

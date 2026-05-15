@@ -1378,19 +1378,23 @@ Keep-a-Changelog format:
 ### Added
 
 - Added <SourceName> <source_type> for <brief description> (`ClassName`)
-- Added `SourceNameLexicon` for <source> variable mappings
 
 ### Dependencies
 
 - Added `<package>` to `data` optional dependency group (if applicable)
 ```
 
+> **One line per data source.** The lexicon ships with the source and
+> is implied by it — do NOT add a separate `Added <SourceName>Lexicon`
+> bullet. Reviewers have flagged this as noise. The CHANGELOG entry
+> should describe the user-facing capability, not the internal
+> implementation pieces.
+
 Look at existing entries for style reference. For example, recent
 additions look like:
 
 ```markdown
 - Added CAMS Global atmospheric composition forecast data source (`CAMS_FX`)
-- Added `CAMSGlobalLexicon` for CAMS variable mappings (AOD, total column gases)
 ```
 
 If no new dependencies were added, omit the Dependencies subsection
@@ -1435,6 +1439,50 @@ Fix all errors before proceeding. Re-run until clean.
 ## Step 12 — Write Pytest Unit Tests
 
 Create `test/data/test_<filename>.py` following the existing patterns.
+
+### 12.0. Canonical test names and ordering (REQUIRED)
+
+**Every test name in this file must use the prefix
+`test_<source_name>_` (lowercase, underscore-separated).** Do not
+invent ad-hoc names like `test_filename_start_parse` or
+`test_validate_time_and_available` — they fail to match the rest of
+the codebase and have been called out in reviews. Use the canonical
+suffixes below, in this order:
+
+| Section | Test name (suffix) | Purpose |
+|---|---|---|
+| Mock end-to-end | `*_call_mock` | Full `__call__` happy path, full schema |
+| Mock end-to-end | `*_call_mock_fields_subset` | `fields=` subset path |
+| Mock end-to-end | `*_call_mock_empty` | Empty discovery / empty result |
+| Mock end-to-end | `*_call_mock_bbox` | Spatial-filter path (DataFrameSource only) |
+| Network (slow, xfail) | `*_fetch` | Real-network smoke test |
+| Network (slow, xfail) | `*_cache` | `cache=True / False` toggle |
+| Unit — errors | `*_exceptions` | Constructor + call + `resolve_fields` errors, **one test**, multiple `pytest.raises` |
+| Unit — fields | `*_resolve_fields` | `resolve_fields(None/str/list/Schema)` |
+| Unit — availability | `*_available` | `available()` classmethod |
+| Unit — time check | `*_validate_time` | Internal time-window check (only if class has one) |
+| Unit — config | `*_tolerance_conversion` | `time_tolerance` normalisation |
+| Unit — routing | `*_satellite_routing` | Multi-platform / slot routing (sat sources only) |
+| Unit — parser | `*_parse_file` | Internal NetCDF/GRIB/BUFR parser |
+| Internal plumbing | `*_discover_files` | S3 listing + window filter (one test, mocked `fs._ls`) |
+| Internal plumbing | `*_fetch_remote_file` | S3 download path (one test, mocked `fs._cat_file`) |
+
+**Rules:**
+
+1. **Match the order above.** Reviewers scan the file top-to-bottom
+   and expect the mock tests first, network tests second, unit tests
+   third, internal plumbing last.
+2. **One test per concern.** Do not split happy-path/error/edge-case
+   into three separate functions for the same internal helper — fold
+   them into a single canonical test using multiple assertions or
+   `pytest.raises` blocks.
+3. **Do NOT test trivial helpers in isolation.** Filename parsing,
+   epoch-string conversion, and similar one-line helpers are exercised
+   transitively by the mock tests and parser test; a dedicated
+   `test_*_filename_parse` or `test_*_event_times_fallback` is noise
+   that reviewers will ask you to remove.
+4. **No docstrings on test functions** — the canonical name is the
+   only label needed.
 
 ### 12a. Test file structure for DataSource
 
