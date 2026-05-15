@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -19,11 +19,6 @@ from collections import OrderedDict
 import numpy as np
 import torch
 import yaml  # type: ignore
-from climate_learn.data.precipmodule import LogTransform
-from climate_learn.data.processing.era5_constants import PRECIP_VARIABLES
-from climate_learn.models.hub import Res_Slim_ViT
-from climate_learn.utils.fused_attn import FusedAttn
-from climate_learn.utils.visualize import TileCoordinates, TileProcessor
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -32,7 +27,26 @@ from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
 )
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import CoordSystem
+
+try:
+    from climate_learn.data.precipmodule import LogTransform
+    from climate_learn.data.processing.era5_constants import PRECIP_VARIABLES
+    from climate_learn.models.hub import Res_Slim_ViT
+    from climate_learn.utils.fused_attn import FusedAttn
+    from climate_learn.utils.visualize import TileCoordinates, TileProcessor
+except ImportError:
+    OptionalDependencyFailure("orbit2")
+    LogTransform = None
+    PRECIP_VARIABLES = None
+    Res_Slim_ViT = None
+    FusedAttn = None
+    TileCoordinates = None
+    TileProcessor = None
 
 VARIABLES = [
     "t2m",
@@ -92,6 +106,7 @@ OUT_HEIGHT = 2880
 OUT_WIDTH = 5760
 
 
+@check_optional_dependencies()
 class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     """ORBIT-2 precipitation downscaling model
 
