@@ -154,10 +154,25 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self.in_variables = ORBIT_VARIABLE_MAPPING + STATIC_VARIABLES
         self.out_variables = OUT_VARIABLES
 
-        self.land_sea_mask = land_sea_mask
-        self.orography = orography
-        self.lattitude = lattitude
-        self.landcover = landcover
+        # Register static variables as buffers (auto-move with .to(device))
+        # Shape: (1, 1, H, W) so only batch expand is needed at forward time
+        self.register_buffer(
+            "land_sea_mask",
+            torch.from_numpy(land_sea_mask).float().unsqueeze(0).unsqueeze(0),
+        )
+        self.register_buffer(
+            "orography",
+            torch.from_numpy(orography).float().unsqueeze(0).unsqueeze(0),
+        )
+        self.register_buffer(
+            "lattitude",
+            torch.from_numpy(lattitude).float().unsqueeze(0).unsqueeze(0),
+        )
+        self.register_buffer(
+            "landcover",
+            torch.from_numpy(landcover).float().unsqueeze(0).unsqueeze(0),
+        )
+
         self.normalize_mean_lowres = normalize_mean_lowres
         self.normalize_std_lowres = normalize_std_lowres
         self.normalize_mean_highres = normalize_mean_highres
@@ -430,26 +445,13 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         # Remove the last row (was 90° before flip, now at end) to get (720, 1440)
         x = x[:, :, :-1, :]
 
-        # Add static Variables to input tensor
-        land_sea_mask = (
-            torch.from_numpy(self.land_sea_mask)
-            .to(x.device)
-            .to(torch.float32)
-            .unsqueeze(0)
-        )
-        land_sea_mask = land_sea_mask.expand(x.shape[0], *land_sea_mask.shape)
-        orography = (
-            torch.from_numpy(self.orography).to(x.device).to(torch.float32).unsqueeze(0)
-        )
-        orography = orography.expand(x.shape[0], *orography.shape)
-        lattitude = (
-            torch.from_numpy(self.lattitude).to(x.device).to(torch.float32).unsqueeze(0)
-        )
-        lattitude = lattitude.expand(x.shape[0], *lattitude.shape)
-        landcover = (
-            torch.from_numpy(self.landcover).to(x.device).to(torch.float32).unsqueeze(0)
-        )
-        landcover = landcover.expand(x.shape[0], *landcover.shape)
+        # Add static variables (buffers are already on correct device)
+        # Buffers are (1, 1, H, W), expand to (batch, 1, H, W)
+        batch = x.shape[0]
+        land_sea_mask = self.land_sea_mask.expand(batch, -1, -1, -1)
+        orography = self.orography.expand(batch, -1, -1, -1)
+        lattitude = self.lattitude.expand(batch, -1, -1, -1)
+        landcover = self.landcover.expand(batch, -1, -1, -1)
 
         x = torch.cat((x, land_sea_mask, orography, lattitude, landcover), dim=1)
 
