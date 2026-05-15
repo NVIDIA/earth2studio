@@ -1454,7 +1454,7 @@ suffixes below, in this order:
 | Network (slow, xfail) | `*_fetch` | Real-network smoke test |
 | Network (slow, xfail) | `*_cache` | `cache=True / False` toggle |
 | Mock end-to-end | `*_call_mock` | Full `__call__` happy path, full schema |
-| Unit — errors | `*_exceptions` | Constructor + call + `resolve_fields` errors, **one test**, multiple `pytest.raises` |
+| Unit — errors | `*_exceptions` | Single error/exception test, multiple `pytest.raises` |
 | Unit — availability | `*_available` | `available()` classmethod |
 | Unit — time check | `*_validate_time` | Internal time-window check (only if class has one) |
 
