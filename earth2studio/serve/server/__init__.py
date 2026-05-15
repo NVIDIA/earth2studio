@@ -26,7 +26,6 @@ from earth2studio.serve.server.workflow import (
     get_workflow_config,
     parse_workflow_directories_from_env,
     register_all_workflows,
-    workflow_registry,
 )
 
 

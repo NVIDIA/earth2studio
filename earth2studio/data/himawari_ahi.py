@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import hashlib
 import os
 import pathlib
@@ -24,13 +23,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-import nest_asyncio
 import numpy as np
 import s3fs
 import xarray as xr
 from loguru import logger
 
 from earth2studio.data.utils import (
+    _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
@@ -345,15 +344,8 @@ class HimawariAHI:
         # Pixel ROI bounds (lazily computed on first fetch when bbox is set)
         self._pixel_roi: tuple[int, int, int, int] | None = None
 
-        # Attempt sync init of filesystem
-        try:
-            nest_asyncio.apply()
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError as e:
-            if "no running event loop" not in str(e).lower():
-                logger.warning(f"Himawari async init failed: {e}")
-            self.fs = None
+        # Filesystem is lazily initialized on first call
+        self.fs: s3fs.S3FileSystem | None = None
 
     async def _async_init(self) -> None:
         """Async initialization of S3 filesystem.
@@ -390,21 +382,9 @@ class HimawariAHI:
         xr.DataArray
             Data array with dimensions [time, variable, y, x]
         """
-        nest_asyncio.apply()
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        try:
-            xr_array = loop.run_until_complete(
-                asyncio.wait_for(
-                    self.fetch(time, variable), timeout=self._async_timeout
-                )
+            xr_array = _sync_async(
+                self.fetch, time, variable, timeout=self._async_timeout
             )
         finally:
             if not self._cache:
@@ -432,11 +412,7 @@ class HimawariAHI:
             Data array with dimensions [time, variable, y, x]
         """
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If you are calling this "
-                "function directly make sure the data source is initialized "
-                "inside the async loop!"
-            )
+            await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
         self._validate_time(time)
@@ -535,7 +511,7 @@ class HimawariAHI:
 
             # List files in the directory to discover tiles
             try:
-                all_files = await self.fs._ls(base_dir, detail=False)  # type: ignore[attr-defined]
+                all_files = await self.fs._ls(base_dir, detail=False)  # type: ignore[union-attr]
             except FileNotFoundError:
                 logger.warning(f"No data found for {t} at {base_dir}, skipping")
                 continue

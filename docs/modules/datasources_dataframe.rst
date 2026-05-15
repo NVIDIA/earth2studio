@@ -21,6 +21,7 @@ Data sources that provide tabular data as DataFrames.
       :template: datasource.rst
 
       data.GHCNDaily
+      data.GOESGLM
       data.ISD
       data.JPSS_ATMS
       data.JPSS_CRIS
@@ -28,6 +29,8 @@ Data sources that provide tabular data as DataFrames.
       data.MetOpAVHRR
       data.MetOpIASI
       data.MetOpMHS
+      data.NNJAObsConv
+      data.NomadsGDASObsConv
       data.RandomDataFrame
       data.UFSObsConv
       data.UFSObsSat

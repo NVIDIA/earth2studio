@@ -27,7 +27,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, TypeVar
 from urllib.parse import urlparse
 
-import nest_asyncio
 import netCDF4
 import numpy as np
 import pygrib
@@ -36,7 +35,7 @@ from loguru import logger
 from tqdm import tqdm
 
 from earth2studio.data import GOES
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import _sync_async, datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon.base import LexiconType
 from earth2studio.lexicon.planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFSLexicon,
@@ -214,18 +213,13 @@ class _PlanetaryComputerData:
         xr.DataArray
             Data array from planetary computer
         """
-        nest_asyncio.apply()
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        result = loop.run_until_complete(
-            asyncio.wait_for(self.fetch(time, variable), timeout=self._async_timeout)
-        )
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
+            result = _sync_async(
+                self.fetch, time, variable, timeout=self._async_timeout
+            )
+        finally:
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
         return result
 
     async def fetch(

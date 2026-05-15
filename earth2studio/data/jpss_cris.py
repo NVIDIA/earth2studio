@@ -29,7 +29,6 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import h5py
-import nest_asyncio
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -37,6 +36,7 @@ import s3fs
 from loguru import logger
 
 from earth2studio.data.utils import (
+    _sync_async,
     datasource_cache_root,
     gather_with_concurrency,
     prep_data_inputs,
@@ -485,12 +485,7 @@ class JPSS_CRIS:
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
 
-        try:
-            nest_asyncio.apply()
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            self.fs: s3fs.S3FileSystem | None = None
+        self.fs: s3fs.S3FileSystem | None = None
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
@@ -531,19 +526,8 @@ class JPSS_CRIS:
             Long-format DataFrame with one row per FOV per channel.
         """
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        try:
-            df = loop.run_until_complete(
-                asyncio.wait_for(
-                    self.fetch(time, variable, fields), timeout=self.async_timeout
-                )
+            df = _sync_async(
+                self.fetch, time, variable, fields, timeout=self.async_timeout
             )
         finally:
             if not self._cache:
@@ -574,13 +558,9 @@ class JPSS_CRIS:
             Long-format DataFrame.
         """
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialised! If calling this function "
-                "directly, make sure the data source is initialised inside "
-                "the async loop!"
-            )
+            await self._async_init()
 
-        session = await self.fs.set_session(refresh=True)
+        session = await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         time_list, variable_list = prep_data_inputs(time, variable)
         schema = self.resolve_fields(fields)

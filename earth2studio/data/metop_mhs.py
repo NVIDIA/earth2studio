@@ -24,13 +24,13 @@ import struct
 import uuid
 from datetime import datetime, timedelta
 
-import nest_asyncio
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
 from earth2studio.data.utils import (
+    _sync_async,
     datasource_cache_root,
     prep_data_inputs,
     radiance_to_bt,
@@ -604,17 +604,8 @@ class MetOpMHS:
             per channel.
         """
         try:
-            nest_asyncio.apply()
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
-            df = loop.run_until_complete(
-                asyncio.wait_for(
-                    self.fetch(time, variable, fields), timeout=self.async_timeout
-                )
+            df = _sync_async(
+                self.fetch, time, variable, fields, timeout=self.async_timeout
             )
         finally:
             if not self._cache:

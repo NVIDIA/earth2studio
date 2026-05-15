@@ -35,7 +35,6 @@ from earth2studio.serve.server.workflow import (
     json_serial,
     parse_workflow_directories_from_env,
     register_all_workflows,
-    workflow_registry,
 )
 
 _SERVE_AVAILABLE = False
@@ -1537,7 +1536,7 @@ class TestWorkflowRegistry:
             workflow_file = Path(tmpdir) / "test_workflow_module.py"
             workflow_file.write_text(
                 """
-from earth2studio.serve.server.workflow import Workflow, WorkflowParameters, workflow_registry
+from earth2studio.serve.server.workflow import Workflow, WorkflowParameters, WorkflowRegistry
 
 class SimpleWorkflow(Workflow):
     # No __init__ needed - name and description set by registry
@@ -1552,18 +1551,17 @@ class SimpleWorkflow(Workflow):
     def run(self, parameters, execution_id):
         return {"result": "success"}
 
-workflow_registry.register(SimpleWorkflow)
+WorkflowRegistry.instance().register(SimpleWorkflow)
 """
             )
 
             successful, failed = self.registry.discover_and_register_from_directories(
                 [tmpdir], include_builtin=False
             )
-            from earth2studio.serve.server.workflow import workflow_registry
 
             assert successful == 1
             assert failed == 0
-            assert "simple" in workflow_registry.list_workflows().keys()
+            assert "simple" in WorkflowRegistry.instance().list_workflows().keys()
 
     def test_discover_and_register_with_invalid_python_file(self):
         """Test discovering workflows from directory with invalid Python file"""
@@ -1810,7 +1808,9 @@ class TestHelperFunctions:
         """Test register_all_workflows convenience function"""
         mock_redis = Mock(spec=redis.Redis)
 
-        with patch.object(workflow_registry, "auto_register_workflows") as mock_auto:
+        with patch.object(
+            WorkflowRegistry.instance(), "auto_register_workflows"
+        ) as mock_auto:
             register_all_workflows(mock_redis)
             mock_auto.assert_called_once_with(mock_redis)
 
@@ -1865,3 +1865,29 @@ class TestWorkflowIntegration:
         workflows = registry.list_workflows()
         assert len(workflows) == 2
         assert "workflow2" not in workflows
+
+
+class TestWorkflowRegistrySingleton:
+    """Tests for the WorkflowRegistry.instance() singleton pattern."""
+
+    def setup_method(self):
+        self._original_instance = WorkflowRegistry._instance
+        WorkflowRegistry._instance = None
+
+    def teardown_method(self):
+        WorkflowRegistry._instance = self._original_instance
+
+    def test_instance_returns_same_object(self):
+        a = WorkflowRegistry.instance()
+        b = WorkflowRegistry.instance()
+        assert a is b
+
+    def test_reset_instance_creates_new_object(self):
+        a = WorkflowRegistry.instance()
+        WorkflowRegistry._reset_instance()
+        b = WorkflowRegistry.instance()
+        assert a is not b
+
+    def test_instance_returns_workflow_registry(self):
+        inst = WorkflowRegistry.instance()
+        assert isinstance(inst, WorkflowRegistry)

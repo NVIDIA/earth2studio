@@ -245,26 +245,26 @@ badges_definitions = {
         "text_color": "#fff",
         "tooltip": "North America",
     },
-    "region:sa": {
-        "label": "SA",
-        "icon": '<i class="fa-solid fa-earth-americas"></i>',
-        "color": "#1976d2",
-        "text_color": "#fff",
-        "tooltip": "South America",
-    },
     "region:eu": {
         "label": "EU",
         "icon": '<i class="fa-solid fa-earth-europe"></i>',
-        "color": "#1e88e5",
+        "color": "#1976d2",
         "text_color": "#fff",
         "tooltip": "Europe",
     },
     "region:as": {
         "label": "AS",
         "icon": '<i class="fa-solid fa-earth-asia"></i>',
+        "color": "#1e88e5",
+        "text_color": "#fff",
+        "tooltip": "Asia",
+    },
+    "region:au": {
+        "label": "AU",
+        "icon": '<i class="fa-solid fa-earth-oceania"></i>',
         "color": "#42a5f5",
         "text_color": "#000",
-        "tooltip": "Asia",
+        "tooltip": "Australia",
     },
     "region:af": {
         "label": "AF",
@@ -273,12 +273,12 @@ badges_definitions = {
         "text_color": "#000",
         "tooltip": "Africa",
     },
-    "region:au": {
-        "label": "AU",
-        "icon": '<i class="fa-solid fa-earth-oceania"></i>',
+    "region:sa": {
+        "label": "SA",
+        "icon": '<i class="fa-solid fa-earth-americas"></i>',
         "color": "#90caf9",
         "text_color": "#000",
-        "tooltip": "Australia",
+        "tooltip": "South America",
     },
     # ── Class ──────────────────────────────────────────────────────────
     "class:nwc": {

@@ -69,6 +69,8 @@ E2STUDIO_VOCAB = {
     "rsut": "outgoing shortwave radiation (W m-2)",
     "rsds": "surface downwelling shortwave radiation (W m-2)",
     "refc": "Maximum/Composite radar reflectivity (dB)",
+    "flashe": "lightning flash event optical energy (J)",
+    "flashc": "lightning flash event count (per detected event, 1.0)",
     "aerot": "aerosol optical thickness",
     "snowc": "snow coverage (%)",
     "csnow": "categorical snow",
