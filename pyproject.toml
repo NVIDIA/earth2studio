@@ -234,7 +234,6 @@ cyclone = [
 ]
 derived = []
 orbit = [
-    "earth2grid",
     "climate-learn"
 ]
 precip-afno = [

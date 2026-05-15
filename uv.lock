@@ -1881,7 +1881,6 @@ interp-modafno = [
 ]
 orbit = [
     { name = "climate-learn" },
-    { name = "earth2grid" },
 ]
 pangu = [
     { name = "onnx" },
@@ -2043,7 +2042,6 @@ requires-dist = [
     { name = "earth2grid", marker = "extra == 'cbottle'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'da-healda'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'dlesym'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
-    { name = "earth2grid", marker = "extra == 'orbit'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'stormscope'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'utils'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earthkit-regrid", marker = "extra == 'aifs'", specifier = "==0.4.0" },
