@@ -92,11 +92,15 @@ ORBIT_VARIABLE_MAPPING = [
     "2m_temperature_min",
 ]
 
-STATIC_VARIABLES = [
+ORBIT_STATIC_VARIABLES = [
     "land_sea_mask",
     "orography",
     "lattitude",
     "landcover",
+]
+
+ORBIT_OUT_VARIABLES = [
+    "total_precipitation_24hr",
 ]
 
 IN_HEIGHT = 720
@@ -116,7 +120,11 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
     - https://dl.acm.org/doi/10.1145/3712285.3771989
 
-
+    Note
+    ----
+    The input variables ``t2m_min`` and ``t2m_max`` are daily minimum and maximum
+    2-meter temperature values (not instantaneous). The model is fine-tuned for
+    IMERG 24-hour accumulated precipitation (``tp24``).
 
     Parameters
     ----------
@@ -177,8 +185,8 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
         self.model = core_model
 
-        self.in_variables = ORBIT_VARIABLE_MAPPING + STATIC_VARIABLES
-        self.out_variables = ["tp24"]
+        self.core_input_variables = ORBIT_VARIABLE_MAPPING + ORBIT_STATIC_VARIABLES
+        self.core_output_varaibles = ORBIT_OUT_VARIABLES
 
         # Register static variables as buffers (auto-move with .to(device))
         # Shape: (1, 1, H, W) so only batch expand is needed at forward time
@@ -203,11 +211,11 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         # For precip channels, we use LogTransform instead of mean/std normalization
         normalize_mean_dict = dict(normalize_mean_lowres)
         normalize_std_dict = dict(normalize_std_lowres)
-        n_channels = len(self.in_variables)
+        n_channels = len(self.core_input_variables)
         norm_mean = torch.zeros(n_channels)
         norm_std = torch.ones(n_channels)
         precip_mask = torch.zeros(n_channels, dtype=torch.bool)
-        for i, var in enumerate(self.in_variables):
+        for i, var in enumerate(self.core_input_variables):
             if var in PRECIP_VARIABLES:
                 precip_mask[i] = True
             else:
@@ -222,10 +230,10 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         # Build output denormalization: mean/std buffers
         denorm_mean_dict = dict(normalize_mean_highres)
         denorm_std_dict = dict(normalize_std_highres)
-        n_out = len(self.out_variables)
+        n_out = len(self.core_output_varaibles)
         denorm_mean = torch.zeros(n_out)
         denorm_std = torch.ones(n_out)
-        for i, var in enumerate(self.out_variables):
+        for i, var in enumerate(self.core_output_varaibles):
             if var not in PRECIP_VARIABLES:
                 denorm_mean[i] = float(denorm_mean_dict[var][0])
                 denorm_std[i] = float(denorm_std_dict[var][0])
@@ -236,7 +244,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self.register_buffer("denorm_std", inv_std.view(1, -1, 1, 1))
         # Track which output channels are precip (no denorm, identity)
         out_precip_mask = torch.zeros(n_out, dtype=torch.bool)
-        for i, var in enumerate(self.out_variables):
+        for i, var in enumerate(self.core_output_varaibles):
             if var in PRECIP_VARIABLES:
                 out_precip_mask[i] = True
         self.register_buffer("out_precip_mask", out_precip_mask)
@@ -280,7 +288,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         output_coords = OrderedDict(
             {
                 "batch": np.empty(0),
-                "variable": np.array(self.out_variables),
+                "variable": np.array(["tp24"]),
                 "lat": np.linspace(90, -90, OUT_HEIGHT),
                 "lon": np.linspace(0, 360, OUT_WIDTH, endpoint=False),
             }
@@ -344,7 +352,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         drop_path = conf["model"]["drop_path"]
         drop_rate = conf["model"]["drop_rate"]
 
-        in_channels = len(ORBIT_VARIABLE_MAPPING + STATIC_VARIABLES)
+        in_channels = len(ORBIT_VARIABLE_MAPPING + ORBIT_STATIC_VARIABLES)
         if do_tiling:
             if overlap % 2 != 0:
                 raise ValueError("Only handling even overlapping for now")
@@ -486,7 +494,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     ) -> torch.Tensor:
         """Postprocess Precipitation Data to get rid of unphysical values"""
 
-        prcp_index = out_variables.index("tp24")
+        prcp_index = out_variables.index("total_precipitation_24hr")
         for i in range(y.shape[1]):
             if i == prcp_index:
                 torch.clamp_(y[:, prcp_index, :, :], min=0.0)
@@ -590,9 +598,11 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
                     # x_tile: [batch, channels, height, width] for input
                     x_tile = x[:, :, coords.yi1 : coords.yi2, coords.xi1 : coords.xi2]
                     yhat = self.model.forward(
-                        x_tile, self.in_variables, self.out_variables
+                        x_tile,
+                        self.core_input_variables,
+                        self.core_output_varaibles,
                     )
-                    yhat = self.clip_replace_constant(yhat, self.out_variables)
+                    yhat = self.clip_replace_constant(yhat, self.core_output_varaibles)
                     yhat = self._denormalize_output(yhat)
                     yhat = torch.flip(yhat, dims=(2,))
                     tile_coords.append(self.adjust_coords_for_flip(coords, processor))
@@ -600,8 +610,10 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             yhat = self.stitch_tiles(tiles, tile_coords, processor, yhat.shape[0])
         else:
             x = self.preprocess_input(x)
-            yhat = self.model.forward(x, self.in_variables, self.out_variables)
-            yhat = self.clip_replace_constant(yhat, self.out_variables)
+            yhat = self.model.forward(
+                x, self.core_input_variables, self.core_output_varaibles
+            )
+            yhat = self.clip_replace_constant(yhat, self.core_output_varaibles)
             yhat = self._denormalize_output(yhat)
         return yhat
 
