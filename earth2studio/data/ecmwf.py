@@ -328,9 +328,16 @@ class _ECMWFOpenDataSource(ABC):
             logger.error(f"Failed to open GRIB file {grib_file}")
             raise e
         try:
-            # Handle ensemble (pf) by stacking members in requested order
+            # Handle ensemble (pf) by stacking members in requested order.
+            # Also capture the first GRIB message so we can read its native
+            # longitude origin (`longitudeOfFirstGridPointInDegrees`) —
+            # ECMWF open-data files do not all start at lon = -180; some
+            # start at lon = 0. The previous unconditional `-N/2` roll
+            # silently rotated the latter group by 180°. Reading the
+            # metadata makes the roll correct for any origin convention.
             if self._fc_type == "pf" and len(self._members) > 0:
                 member_arrays: list[np.ndarray] = []
+                first_msg = None
                 for m in self._members:
                     msgs = grbs.select(number=m)
                     if not msgs:
@@ -338,11 +345,24 @@ class _ECMWFOpenDataSource(ABC):
                             f"No GRIB messages found for ensemble member {m} in {grib_file}"
                         )
                     member_arrays.append(msgs[0].values)
+                    if first_msg is None:
+                        first_msg = msgs[0]
                 values = np.stack(member_arrays, axis=0)  # [ensemble, y, x]
             else:
-                values = grbs[1].values  # [y, x]
-            # Provided [-180, 180], roll to [0, 360] along x dimension
-            values = np.roll(values, shift=-len(self.LON) // 2, axis=-1)
+                first_msg = grbs[1]
+                values = first_msg.values  # [y, x]
+
+            # Roll so the array's index 0 corresponds to lon = 0° on the
+            # destination grid `self.LON` (canonical 0..360 ascending).
+            # If the file's index 0 is at `lon_first`, the required shift is
+            # `lon_first / lon_inc  mod  N`. Reduces to the previous
+            # hardcoded `-N/2` (≡ +N/2 mod N) when `lon_first == -180`.
+            lon_first = float(first_msg.longitudeOfFirstGridPointInDegrees)
+            lon_inc = float(first_msg.iDirectionIncrementInDegrees)
+            n_lon = len(self.LON)
+            shift_px = int(round(lon_first / lon_inc)) % n_lon
+            if shift_px != 0:
+                values = np.roll(values, shift=shift_px, axis=-1)
             xr_array[task.data_array_indices] = task.modifier(values)
         except Exception as e:
             logger.error(f"Failed to read data from GRIB file {grib_file}")
