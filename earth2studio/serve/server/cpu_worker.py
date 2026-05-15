@@ -17,12 +17,13 @@
 from __future__ import annotations
 
 import json
-import logging
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from loguru import logger
 
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -59,7 +60,6 @@ config_manager = get_config_manager()
 
 # Configure logging
 config_manager.setup_logging()
-logger = logging.getLogger(__name__)
 
 # Register custom workflows in the CPU worker process
 try:
@@ -281,8 +281,7 @@ def create_results_zip(
     create_zip : bool, optional
         If False, only build file manifest without creating zip file, by default True
     """
-    # Create logger adapter with execution_id for automatic log prefixing
-    log = logging.LoggerAdapter(logger, {"execution_id": request_id})
+    log = logger.bind(execution_id=request_id)
 
     try:
         zip_filename: str | None = f"{request_id}"

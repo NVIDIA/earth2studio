@@ -28,10 +28,10 @@ from earth2studio.data import GFS, HRRR, InferenceOutputSource
 from earth2studio.io import IOBackend, NetCDF4Backend, XarrayBackend
 from earth2studio.models.dx import DerivedSurfacePressure
 from earth2studio.models.px import FCN3, DiagnosticWrapper, InterpModAFNO, StormCast
-from earth2studio.serve.server import Earth2Workflow, workflow_registry
+from earth2studio.serve.server import Earth2Workflow, WorkflowRegistry
 
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class StormCastFCN3Workflow(Earth2Workflow):
     name = "stormcast_fcn3_workflow"
     description = "StormCast + FCN3 workflow"

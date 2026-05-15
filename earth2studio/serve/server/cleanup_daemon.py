@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import shutil
 import signal
 import sys
@@ -26,6 +25,8 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from loguru import logger
 
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -44,7 +45,6 @@ from earth2studio.serve.server.workflow import WorkflowStatus
 # Configure logging (config is obtained in main())
 config_manager = get_config_manager()
 config_manager.setup_logging()
-logger = logging.getLogger(__name__)
 
 
 def _delete_result_files(

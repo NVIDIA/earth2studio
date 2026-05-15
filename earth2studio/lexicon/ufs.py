@@ -16,6 +16,7 @@
 
 from collections.abc import Callable
 
+import numpy as np
 import pandas as pd
 
 from .base import LexiconType
@@ -90,6 +91,12 @@ class GSIConventionalLexicon(metaclass=LexiconType):
 
             def mod(x: pd.DataFrame) -> pd.DataFrame:
                 return x[(x["elev"] >= 90) & (x["elev"] <= 110)]
+
+        elif val == "pres":
+            # GSI stores surface pressure observations in hPa (mb), convert to Pa
+            def mod(x: pd.DataFrame) -> pd.DataFrame:
+                x["observation"] = (x["observation"] * 100.0).astype(np.float32)
+                return x
 
         else:
 

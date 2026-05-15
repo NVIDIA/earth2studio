@@ -25,22 +25,18 @@ It loads the FCN model once and stores it in the instance.
 """
 
 import json
-import logging
 from typing import Any, Literal
 
 import zarr
+from loguru import logger
 from pydantic import Field
 
 from earth2studio.serve.server.workflow import (
     Workflow,
     WorkflowParameters,
     WorkflowProgress,
-    workflow_registry,
+    WorkflowRegistry,
 )
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class DeterministicFCNWorkflowParameters(WorkflowParameters):
@@ -83,7 +79,7 @@ class DeterministicFCNWorkflowParameters(WorkflowParameters):
     )
 
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class DeterministicFCNWorkflow(Workflow):
     """
     Deterministic workflow that runs Earth2Studio deterministic forecasts.

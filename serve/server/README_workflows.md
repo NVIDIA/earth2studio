@@ -193,7 +193,7 @@ class MyCustomWorkflow(Workflow):
 
 ### Step 3: Register Your Workflow
 
-The `@workflow_registry.register` decorator will ensure that your workflow gets added to the
+The `@WorkflowRegistry.instance().register` decorator will ensure that your workflow gets added to the
 workflow registry as long as it is found in a file within the directory set by the `WORKFLOW_DIR`
 environment variable.
 
@@ -316,7 +316,7 @@ class DeterministicWorkflowParameters(WorkflowParameters):
 ```python
 from earth2studio.serve.server.workflow import WorkflowProgress
 
-@workflow_registry.register()
+@WorkflowRegistry.instance().register
 class DeterministicWorkflow(Workflow):
     """Earth2Studio deterministic forecast workflow"""
 
@@ -732,7 +732,7 @@ To add your own custom workflows:
 3. **Start the server** - workflows are auto-registered:
 
 Your custom workflows will be registered alongside the built-in example workflows as long as they
-have the `@workflow_registry.register()` decorator.
+have the `@WorkflowRegistry.instance().register` decorator.
 
 ### Example Usage
 
@@ -808,7 +808,7 @@ class MyCustomProgress(WorkflowProgress):
     processing_stage: str = Field("initialization", description="Current processing stage")
     error_count: Optional[int] = Field(None, description="Number of errors encountered")
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class MyWorkflow(Workflow):
     name = "my_workflow"
 

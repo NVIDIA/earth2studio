@@ -548,6 +548,9 @@ class UFSObsConv(_UFSObsBase):
         # Convert hours offset to timedelta, and add to datetime of file
         if name == "Time":
             values = pd.to_timedelta(values, unit="h") + task.datetime_file
+        # GSI stores Pressure in hPa (mb), convert to Pa
+        elif name == "Pressure":
+            values = values * 100.0
         return values
 
     def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
