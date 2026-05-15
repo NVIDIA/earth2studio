@@ -29,7 +29,7 @@ try:
 except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
-from earth2studio.models.dx import CBottleTCGuidance
+from earth2studio.models.dx.cbottle_tc import CBottleTCGuidance
 from earth2studio.utils import handshake_dim
 
 
@@ -212,6 +212,91 @@ class TestCBottleTCMock:
         handshake_dim(out_coords, "variable", 2)
         handshake_dim(out_coords, "lead_time", 1)
         handshake_dim(out_coords, "time", 0)
+
+    def test_calculate_odds_ratio_unit_contract_forwards_to_core(
+        self, mock_core_model, mock_classifier_model, mock_sst_ds, monkeypatch
+    ):
+        """Unit contract: wrapper forwards inputs/kwargs and returns core outputs."""
+        dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds).to(
+            "cpu"
+        )
+        guidance, coords = dx.create_guidance_tensor(
+            torch.tensor([30.0]),
+            torch.tensor([120.0]),
+            [datetime(2000, 1, 1)],
+        )
+
+        called: dict[str, torch.Tensor | dict | float | int] = {}
+
+        def _fake_calculate_odds_ratio(batch, guidance_pixels, **kwargs):
+            called["batch"] = batch
+            called["guidance_pixels"] = guidance_pixels
+            called["kwargs"] = kwargs
+            return 1.5, torch.zeros_like(batch["target"])
+
+        monkeypatch.setattr(
+            dx.core_model,
+            "calculate_odds_ratio",
+            _fake_calculate_odds_ratio,
+            raising=False,
+        )
+        log_odds_ratio, forward_latents = dx.calculate_odds_ratio(
+            guidance,
+            coords,
+            num_steps=12,
+        )
+
+        assert log_odds_ratio == pytest.approx(1.5)
+        assert isinstance(called["batch"], dict)
+        assert called["guidance_pixels"].ndim == 1
+        assert called["guidance_pixels"].numel() > 0
+        assert called["kwargs"]["num_steps"] == 12
+        assert called["kwargs"]["guidance_scale"] == pytest.approx(0.1 * 20.0 * 64.0)
+        assert called["kwargs"]["compute_forward_divergences"] is False
+        assert forward_latents.shape == called["batch"]["target"].shape
+
+    def test_calculate_odds_ratio_rejects_multiple_samples(
+        self, mock_core_model, mock_classifier_model, mock_sst_ds
+    ):
+        """Unit guardrail: odds-ratio path is defined for one flattened sample."""
+        dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds).to(
+            "cpu"
+        )
+        guidance, coords = dx.create_guidance_tensor(
+            torch.tensor([30.0]),
+            torch.tensor([120.0]),
+            [datetime(2000, 1, 1), datetime(2000, 1, 2)],
+        )
+
+        with pytest.raises(ValueError, match="exactly one sample"):
+            dx.calculate_odds_ratio(guidance, coords)
+
+    def test_calculate_odds_ratio_rejects_empty_guidance(
+        self, mock_core_model, mock_classifier_model, mock_sst_ds, monkeypatch
+    ):
+        """Unit guardrail: all-NaN guidance map should be rejected."""
+        dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds).to(
+            "cpu"
+        )
+        guidance, coords = dx.create_guidance_tensor(
+            torch.tensor([30.0]),
+            torch.tensor([120.0]),
+            [datetime(2000, 1, 1)],
+        )
+        guidance[:] = torch.nan
+
+        def _fake_calculate_odds_ratio(*args, **kwargs):
+            raise AssertionError("core calculate_odds_ratio should not be reached")
+
+        monkeypatch.setattr(
+            dx.core_model,
+            "calculate_odds_ratio",
+            _fake_calculate_odds_ratio,
+            raising=False,
+        )
+
+        with pytest.raises(ValueError, match="No guidance pixels set"):
+            dx.calculate_odds_ratio(guidance, coords)
 
     def test_validate_sst_time_valid(
         self, mock_core_model, mock_classifier_model, mock_sst_ds
