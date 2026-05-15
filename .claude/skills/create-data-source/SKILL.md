@@ -1378,19 +1378,23 @@ Keep-a-Changelog format:
 ### Added
 
 - Added <SourceName> <source_type> for <brief description> (`ClassName`)
-- Added `SourceNameLexicon` for <source> variable mappings
 
 ### Dependencies
 
 - Added `<package>` to `data` optional dependency group (if applicable)
 ```
 
+> **One line per data source.** The lexicon ships with the source and
+> is implied by it — do NOT add a separate `Added <SourceName>Lexicon`
+> bullet. Reviewers have flagged this as noise. The CHANGELOG entry
+> should describe the user-facing capability, not the internal
+> implementation pieces.
+
 Look at existing entries for style reference. For example, recent
 additions look like:
 
 ```markdown
 - Added CAMS Global atmospheric composition forecast data source (`CAMS_FX`)
-- Added `CAMSGlobalLexicon` for CAMS variable mappings (AOD, total column gases)
 ```
 
 If no new dependencies were added, omit the Dependencies subsection
@@ -1436,7 +1440,31 @@ Fix all errors before proceeding. Re-run until clean.
 
 Create `test/data/test_<filename>.py` following the existing patterns.
 
-### 12a. Test file structure for DataSource
+### 12.0. Canonical test names and ordering (REQUIRED)
+
+**Every test name in this file must use the prefix
+`test_<source_name>_` (lowercase, underscore-separated).** Do not
+invent ad-hoc names like `test_filename_start_parse` or
+`test_validate_time_and_available` — they fail to match the rest of
+the codebase and have been called out in reviews. Use the canonical
+suffixes below, in this order:
+
+| Section | Test name (suffix) | Purpose |
+|---|---|---|
+| Network (slow, xfail) | `*_fetch` | Real-network smoke test |
+| Network (slow, xfail) | `*_cache` | `cache=True / False` toggle |
+| Mock end-to-end | `*_call_mock` | Full `__call__` happy path, full schema |
+| Unit — errors | `*_exceptions` | Single error/exception test, multiple `pytest.raises` |
+| Unit — availability | `*_available` | `available()` classmethod |
+| Unit — time check | `*_validate_time` | Internal time-window check (only if class has one) |
+
+**Rules:**
+
+1. **Match the order above following existing data sources**
+2. **Do NOT test trivial helpers in isolation**
+3. **No docstrings on test functions**
+
+### 12a. Example test file structure for DataSource
 
 ```python
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
