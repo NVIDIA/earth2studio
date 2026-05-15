@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `sensor_index` only which can be used to consistently map from UFS to L1 products
 - Added `wavenumber` (cm⁻¹) field to all satellite schemas
 - Changed `channel_index` to `sensor_index` in `E2STUDIO_SCHEMA`
+- Added Orbit-2 precipitation downscaling model
 
 ### Deprecated
 
