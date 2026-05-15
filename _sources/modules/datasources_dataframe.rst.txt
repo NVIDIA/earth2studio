@@ -29,6 +29,7 @@ Data sources that provide tabular data as DataFrames.
       data.MetOpIASI
       data.MetOpMHS
       data.NNJAObsConv
+      data.NomadsGDASObsConv
       data.RandomDataFrame
       data.UFSObsConv
       data.UFSObsSat
