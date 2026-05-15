@@ -360,6 +360,11 @@ class _ECMWFOpenDataSource(ABC):
             assert first_msg is not None  # guaranteed: loop requires ≥1 member
             lon_first = float(first_msg.longitudeOfFirstGridPointInDegrees)
             lon_inc = float(first_msg.iDirectionIncrementInDegrees)
+            if lon_inc == 0.0:
+                raise ValueError(
+                    f"iDirectionIncrementInDegrees is 0 in {grib_file}; "
+                    "cannot compute longitude roll shift (non-regular grid?)"
+                )
             n_lon = len(self.LON)
             shift_px = int(round(lon_first / lon_inc)) % n_lon
             if shift_px != 0:
