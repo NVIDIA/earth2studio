@@ -63,16 +63,6 @@ import numpy as np
 from earth2studio.models.dx import CBottleTCGuidance
 from earth2studio.lexicon import CBottleLexicon
 
-# Route model and hub caches off local disk.
-CACHE_ROOT = "/lustre/fsw/portfolios/coreai/projects/coreai_climate_earth2/pmanshausen/cache"
-os.makedirs(CACHE_ROOT, exist_ok=True)
-os.environ.setdefault("EARTH2STUDIO_CACHE", CACHE_ROOT)
-os.environ.setdefault("HF_HOME", os.path.join(CACHE_ROOT, "huggingface"))
-os.environ.setdefault(
-    "HUGGINGFACE_HUB_CACHE",
-    os.path.join(CACHE_ROOT, "huggingface", "hub"),
-)
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 package = CBottleTCGuidance.load_default_package()
 

@@ -460,7 +460,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         second_of_day = input["second_of_day"].to(device)
         day_of_year = input["day_of_year"].to(device)
 
-        self.core_model.sigma_max = torch.Tensor([self.sigma_max]).to(device)
+        self.core_model.sigma_max = float(self.sigma_max)
         self.core_model.num_steps = self.sampler_steps
         # Process in batches with progress bar if verbose is enabled
         n_samples = len(times)
@@ -552,6 +552,13 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         -------
         tuple[float, torch.Tensor]
             ``(log_odds_ratio, forward_latents)`` from cBottle.
+
+        Note
+        ----
+        This method requires the underlying cBottle model to be loaded with
+        ``allow_second_order_derivatives=True`` via :meth:`load_model`. The default
+        ``allow_second_order_derivatives=False`` path is optimized for standard guided
+        sampling and fails for odds-ratio computations.
         """
 
         output_coords = self.output_coords(coords)
