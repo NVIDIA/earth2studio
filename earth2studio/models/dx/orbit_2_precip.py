@@ -24,7 +24,6 @@ from climate_learn.data.processing.era5_constants import PRECIP_VARIABLES
 from climate_learn.models.hub import Res_Slim_ViT
 from climate_learn.utils.fused_attn import FusedAttn
 from climate_learn.utils.visualize import TileCoordinates, TileProcessor
-from torchvision.transforms import transforms
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -94,7 +93,7 @@ OUT_WIDTH = 5760
 
 
 class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
-    """ORBIT-2 precipitation downscaling model, built into Earth2Studio.
+    """ORBIT-2 precipitation downscaling model
 
     Note
     ----
@@ -108,28 +107,40 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     ----------
     core_model : torch.nn.Module
         Core pytorch model
-    land_sea_mask : np.array
-        Static Variable Used in Model
-    orography : np.array
-        Static Variable Used in Model
-    lattitude : np.array
-        Static Variable Used in Model
-    landcover : np.array
-        Static Variable Used in Model
-    normalize_mean_lowres : Float
-        Mean for data normalization
-    normalize_std_lowres : Float
-        Standard Deviation for data normalization
-    normalize_mean_highres : Float
-        Mean value for data normalization
-    normalize_std_highres : Float
-        Standard Deviation for data normalization
-    do_tiling : Bool
+    land_sea_mask : np.ndarray
+        Binary land-sea mask at 0.25° resolution, shape ``(720, 1440)``.
+        Values are 1 over land, 0 over ocean.
+    orography : np.ndarray
+        Surface geopotential height (meters) at 0.25° resolution,
+        shape ``(720, 1440)``.
+    lattitude : np.ndarray
+        Latitude values broadcast to grid shape ``(720, 1440)``, used as a
+        positional encoding input to the model.
+    landcover : np.ndarray
+        Land-use / land-cover classification at 0.25° resolution,
+        shape ``(720, 1440)``.
+    normalize_mean_lowres : np.lib.npyio.NpzFile
+        Per-variable mean values for input normalization. Keys are variable
+        names, values are single-element arrays.
+    normalize_std_lowres : np.lib.npyio.NpzFile
+        Per-variable standard deviation values for input normalization. Keys
+        are variable names, values are single-element arrays.
+    normalize_mean_highres : np.lib.npyio.NpzFile
+        Per-variable mean values for output denormalization. Keys are variable
+        names, values are single-element arrays.
+    normalize_std_highres : np.lib.npyio.NpzFile
+        Per-variable standard deviation values for output denormalization. Keys
+        are variable names, values are single-element arrays.
+    do_tiling : bool
         Boolean to indicate whether tiled inference is performed
-    div : Int
+    div : int
         If performing tiling, number of tiles to divide input into
-    overlap: Int
+    overlap : int
         If performing tiling, number of overlap pixels to use during tiled inference
+
+    Badges
+    ------
+    region:global class:mrf product:precip year:2025 gpu:60gb
     """
 
     def __init__(
@@ -173,10 +184,48 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             torch.from_numpy(landcover).float().unsqueeze(0).unsqueeze(0),
         )
 
-        self.normalize_mean_lowres = normalize_mean_lowres
-        self.normalize_std_lowres = normalize_std_lowres
-        self.normalize_mean_highres = normalize_mean_highres
-        self.normalize_std_highres = normalize_std_highres
+        # Build input normalization: mean/std vectors as buffers, precip mask
+        # For precip channels, we use LogTransform instead of mean/std normalization
+        normalize_mean_dict = dict(normalize_mean_lowres)
+        normalize_std_dict = dict(normalize_std_lowres)
+        n_channels = len(self.in_variables)
+        norm_mean = torch.zeros(n_channels)
+        norm_std = torch.ones(n_channels)
+        precip_mask = torch.zeros(n_channels, dtype=torch.bool)
+        for i, var in enumerate(self.in_variables):
+            if var in PRECIP_VARIABLES:
+                precip_mask[i] = True
+            else:
+                norm_mean[i] = float(normalize_mean_dict[var][0])
+                norm_std[i] = float(normalize_std_dict[var][0])
+        # Shape (1, C, 1, 1) for broadcasting over (B, C, H, W)
+        self.register_buffer("norm_mean", norm_mean.view(1, -1, 1, 1))
+        self.register_buffer("norm_std", norm_std.view(1, -1, 1, 1))
+        self.register_buffer("precip_mask", precip_mask)
+        self.log_transform = LogTransform(m2mm=True, LOG1P=True, thres_mm_per_day=0.25)
+
+        # Build output denormalization: mean/std buffers
+        denorm_mean_dict = dict(normalize_mean_highres)
+        denorm_std_dict = dict(normalize_std_highres)
+        n_out = len(self.out_variables)
+        denorm_mean = torch.zeros(n_out)
+        denorm_std = torch.ones(n_out)
+        for i, var in enumerate(self.out_variables):
+            if var not in PRECIP_VARIABLES:
+                denorm_mean[i] = float(denorm_mean_dict[var][0])
+                denorm_std[i] = float(denorm_std_dict[var][0])
+        # Invert: denorm(x) = x * (1/std) - mean/std
+        inv_std = 1.0 / denorm_std
+        inv_mean = -denorm_mean * inv_std
+        self.register_buffer("denorm_mean", inv_mean.view(1, -1, 1, 1))
+        self.register_buffer("denorm_std", inv_std.view(1, -1, 1, 1))
+        # Track which output channels are precip (no denorm, identity)
+        out_precip_mask = torch.zeros(n_out, dtype=torch.bool)
+        for i, var in enumerate(self.out_variables):
+            if var in PRECIP_VARIABLES:
+                out_precip_mask[i] = True
+        self.register_buffer("out_precip_mask", out_precip_mask)
+
         self.do_tiling = do_tiling
         self.div = div
         self.overlap = overlap
@@ -387,54 +436,13 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             overlap,
         )
 
-    def get_normalize_lowres(self) -> OrderedDict:
-        """Get Normalization Transformations for Low Resolution Data"""
-        normalize_mean = dict(self.normalize_mean_lowres)
-        normalize_std = dict(self.normalize_std_lowres)
-        normed = OrderedDict()
-        for var in self.in_variables:
-            if var in PRECIP_VARIABLES:
-                normed[var] = LogTransform(m2mm=True, LOG1P=True, thres_mm_per_day=0.25)
-            else:
-                normed[var] = transforms.Normalize(
-                    normalize_mean[var][0], normalize_std[var][0]
-                )
-        return normed
+    def _denormalize_output(self, yhat: torch.Tensor) -> torch.Tensor:
+        """Denormalize model output using precomputed buffers.
 
-    def get_normalize_highres(self) -> OrderedDict:
-        """Get Normalization Transformations for High Resolution Data"""
-        normalize_mean = dict(self.normalize_mean_highres)
-        normalize_std = dict(self.normalize_std_highres)
-        normed = OrderedDict()
-        for var in self.out_variables:
-            if var in PRECIP_VARIABLES:
-                normed[var] = LogTransform(m2mm=True, LOG1P=True, thres_mm_per_day=0.25)
-            else:
-                normed[var] = transforms.Normalize(
-                    normalize_mean[var][0], normalize_std[var][0]
-                )
-        return normed
-
-    def get_denormalize(self) -> transforms.Normalize:
-        """Get DeNormalization Transformations for High Resolution Data"""
-        norm = self.get_normalize_highres()
-        if isinstance(norm, dict):
-            mean_norm = torch.tensor(
-                [
-                    norm[k].mean if k not in PRECIP_VARIABLES else 0.0
-                    for k in norm.keys()
-                ]
-            )
-            std_norm = torch.tensor(
-                [norm[k].std if k not in PRECIP_VARIABLES else 1.0 for k in norm.keys()]
-            )
-        else:
-            mean_norm = norm.mean
-            std_norm = norm.std
-        std_denorm = 1 / std_norm
-        mean_denorm = -mean_norm * std_denorm
-        denormed = transforms.Normalize(mean_denorm, std_denorm)
-        return denormed
+        For non-precip channels: x_denorm = x * inv_std + inv_mean
+        For precip channels (identity): mean=0, std=1 so no-op.
+        """
+        return yhat * self.denorm_std + self.denorm_mean
 
     def preprocess_input(self, x: torch.Tensor) -> torch.Tensor:
         """Preprocess Earth2Studio data to match ORBIT-2 DATA"""
@@ -455,12 +463,12 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
         x = torch.cat((x, land_sea_mask, orography, lattitude, landcover), dim=1)
 
-        # Normalize Data
-        norm_transforms = self.get_normalize_lowres()
-        i = 0
-        for k in norm_transforms.keys():
-            x[:, i] = norm_transforms[k](x[:, i])
-            i = i + 1
+        # Normalize: apply log transform to precip channels, mean/std to rest
+        for i in range(x.shape[1]):
+            if self.precip_mask[i]:
+                x[:, i] = self.log_transform(x[:, i])
+        # Vectorized mean/std normalization (precip channels have mean=0, std=1)
+        x = (x - self.norm_mean) / self.norm_std
 
         return x
 
@@ -577,8 +585,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
                         x_tile, self.in_variables, self.out_variables
                     )
                     yhat = self.clip_replace_constant(yhat, self.out_variables)
-                    denorm_transforms = self.get_denormalize()
-                    yhat[:, :] = denorm_transforms(yhat[:, :])
+                    yhat = self._denormalize_output(yhat)
                     yhat = torch.flip(yhat, dims=(2,))
                     tile_coords.append(self.adjust_coords_for_flip(coords, processor))
                     tiles.append(yhat)
@@ -587,8 +594,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             x = self.preprocess_input(x)
             yhat = self.model.forward(x, self.in_variables, self.out_variables)
             yhat = self.clip_replace_constant(yhat, self.out_variables)
-            denorm_transforms = self.get_denormalize()
-            yhat[:, :] = denorm_transforms(yhat[:, :])
+            yhat = self._denormalize_output(yhat)
         return yhat
 
     @batch_func()
