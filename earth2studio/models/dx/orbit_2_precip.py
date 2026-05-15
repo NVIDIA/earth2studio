@@ -40,7 +40,7 @@ try:
     from climate_learn.utils.fused_attn import FusedAttn
     from climate_learn.utils.visualize import TileCoordinates, TileProcessor
 except ImportError:
-    OptionalDependencyFailure("orbit2")
+    OptionalDependencyFailure("orbit")
     LogTransform = None
     PRECIP_VARIABLES = None
     Res_Slim_ViT = None
