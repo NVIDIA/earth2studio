@@ -1461,8 +1461,8 @@ suffixes below, in this order:
 **Rules:**
 
 1. **Match the order above following existing data sources**
-3. **Do NOT test trivial helpers in isolation**
-4. **No docstrings on test functions**
+2. **Do NOT test trivial helpers in isolation**
+3. **No docstrings on test functions**
 
 ### 12a. Example test file structure for DataSource
 
