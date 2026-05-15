@@ -187,7 +187,7 @@ class GOESGLM:
 
     Badges
     ------
-    region:na region:sa dataclass:observation product:atmos product:insitu
+    region:na region:sa dataclass:observation product:sat
     """
 
     SOURCE_ID = "earth2studio.data.goes_glm"
