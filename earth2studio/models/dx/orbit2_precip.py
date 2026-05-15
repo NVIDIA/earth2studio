@@ -99,8 +99,6 @@ STATIC_VARIABLES = [
     "landcover",
 ]
 
-OUT_VARIABLES = ["total_precipitation_24hr"]
-
 IN_HEIGHT = 720
 IN_WIDTH = 1440
 OUT_HEIGHT = 2880
@@ -117,7 +115,8 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     following references:
 
     - https://dl.acm.org/doi/10.1145/3712285.3771989
-    - https://dl.acm.org/doi/10.1145/3712285.3771989
+
+
 
     Parameters
     ----------
@@ -179,7 +178,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self.model = core_model
 
         self.in_variables = ORBIT_VARIABLE_MAPPING + STATIC_VARIABLES
-        self.out_variables = OUT_VARIABLES
+        self.out_variables = ["tp24"]
 
         # Register static variables as buffers (auto-move with .to(device))
         # Shape: (1, 1, H, W) so only batch expand is needed at forward time
@@ -281,7 +280,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         output_coords = OrderedDict(
             {
                 "batch": np.empty(0),
-                "variable": np.array(["tp24"]),
+                "variable": np.array(self.out_variables),
                 "lat": np.linspace(90, -90, OUT_HEIGHT),
                 "lon": np.linspace(0, 360, OUT_WIDTH, endpoint=False),
             }
@@ -298,9 +297,9 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "hf://jychoi-hpc/ORBIT-2",
+            "hf://jychoi-hpc/ORBIT-2@718625a11bc908633efc0ed2b6e5aac05af26a66",
             cache_options={
-                "cache_storage": Package.default_cache("orbit-2"),
+                "cache_storage": Package.default_cache("orbit2"),
                 "same_names": True,
             },
         )
@@ -312,19 +311,10 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     ) -> DiagnosticModel:
         """Load diagnostic from package"""
         # Load YAML configuration
-        with open(
-            package.resolve(
-                model_type
-                + "-finetune"
-                + "/"
-                + model_type
-                + "_"
-                + model_size
-                + "_"
-                + model_variable
-                + ".yaml"
-            ),
-        ) as f:
+        config_path = (
+            f"{model_type}-finetune/" f"{model_type}_{model_size}_{model_variable}.yaml"
+        )
+        with open(package.resolve(config_path)) as f:
             conf = yaml.safe_load(f)
 
         try:
@@ -496,7 +486,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     ) -> torch.Tensor:
         """Postprocess Precipitation Data to get rid of unphysical values"""
 
-        prcp_index = out_variables.index("total_precipitation_24hr")
+        prcp_index = out_variables.index("tp24")
         for i in range(y.shape[1]):
             if i == prcp_index:
                 torch.clamp_(y[:, prcp_index, :, :], min=0.0)
