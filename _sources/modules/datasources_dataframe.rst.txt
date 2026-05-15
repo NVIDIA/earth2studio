@@ -21,6 +21,7 @@ Data sources that provide tabular data as DataFrames.
       :template: datasource.rst
 
       data.GHCNDaily
+      data.GOESGLM
       data.ISD
       data.JPSS_ATMS
       data.JPSS_CRIS
