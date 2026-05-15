@@ -93,8 +93,7 @@ RUN uv pip install --system --break-system-packages \
 # /opt/pytorch/pytorch/third_party/protobuf/.
 RUN rm -rf /opt/pytorch/pytorch/third_party/protobuf
 
-# CRPS comparison tool for validating forecast equivalence between systems.
-COPY recipes/eval/compare.py /workspace/tools/compare/compare.py
-COPY recipes/eval/src/__init__.py recipes/eval/src/data_loading.py /workspace/tools/compare/src/
+# CRPS comparison tool is shipped with the serve scripts (self-contained).
+# Available at $SCRIPT_DIR/compare_crps.py after build.
 
 CMD ["/workspace/earth2studio-project/serve/server/scripts/startup.sh"]
