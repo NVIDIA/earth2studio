@@ -357,6 +357,7 @@ class _ECMWFOpenDataSource(ABC):
             # If the file's index 0 is at `lon_first`, the required shift is
             # `lon_first / lon_inc  mod  N`. Reduces to the previous
             # hardcoded `-N/2` (≡ +N/2 mod N) when `lon_first == -180`.
+            assert first_msg is not None  # guaranteed: loop requires ≥1 member
             lon_first = float(first_msg.longitudeOfFirstGridPointInDegrees)
             lon_inc = float(first_msg.iDirectionIncrementInDegrees)
             n_lon = len(self.LON)
