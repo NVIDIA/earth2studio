@@ -14,32 +14,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import zipfile
 from collections import OrderedDict
-from pathlib import Path
 
 import numpy as np
 import torch
+import yaml  # type: ignore
+from climate_learn.data.precipmodule import LogTransform
+from climate_learn.data.processing.era5_constants import PRECIP_VARIABLES
+from climate_learn.models.hub import Res_Slim_ViT
+from climate_learn.utils.fused_attn import FusedAttn
+from climate_learn.utils.visualize import TileCoordinates, TileProcessor
+from torchvision.transforms import transforms
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.nn.climatenet_conv import CGNetModule
 from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
 )
 from earth2studio.utils.type import CoordSystem
-
-import yaml
-from climate_learn.models.hub import Res_Slim_ViT
-from climate_learn.utils.fused_attn import FusedAttn
-from climate_learn.data.precipmodule import LogTransform
-from climate_learn.data.processing.era5_constants import PRECIP_VARIABLES
-from climate_learn.utils.visualize import TileProcessor, TileCoordinates
-from torchvision.transforms import transforms
-import earth2grid
-from typing import Tuple, List, Optional, Dict, Any
 
 VARIABLES = [
     "t2m",
@@ -141,18 +135,18 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     def __init__(
         self,
         core_model: torch.nn.Module,
-        land_sea_mask,
-        orography,
-        lattitude,
-        landcover,
-        normalize_mean_lowres,
-        normalize_std_lowres,
-        normalize_mean_highres,
-        normalize_std_highres,
-        do_tiling,
-        div,
-        overlap,
-    ):
+        land_sea_mask: np.ndarray,
+        orography: np.ndarray,
+        lattitude: np.ndarray,
+        landcover: np.ndarray,
+        normalize_mean_lowres: np.lib.npyio.NpzFile,
+        normalize_std_lowres: np.lib.npyio.NpzFile,
+        normalize_mean_highres: np.lib.npyio.NpzFile,
+        normalize_std_highres: np.lib.npyio.NpzFile,
+        do_tiling: bool,
+        div: int,
+        overlap: int,
+    ) -> None:
         super().__init__()
 
         self.model = core_model
@@ -171,20 +165,6 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self.do_tiling = do_tiling
         self.div = div
         self.overlap = overlap
-
-        src_grid = earth2grid.latlon.LatLonGrid(
-            lat=np.linspace(90, -90, 721),
-            lon=np.linspace(0, 360, 1440, endpoint=False)
-        )
-
-        # Define target grid (lat ascending: -90 -> 90)
-        dst_grid = earth2grid.latlon.LatLonGrid(
-            lat=np.linspace(-90, 90, 721),
-            lon=np.arange(0, 360, 0.25)
-        )
-
-        # Build regridder (stays on GPU)
-        self._regridder = earth2grid.get_regridder(src_grid, dst_grid).float()
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of diagnostic model
@@ -222,11 +202,11 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             {
                 "batch": np.empty(0),
                 "variable": np.array(OUT_VARIABLES),
-                "lat": np.linspace(-90, 90, OUT_HEIGHT, endpoint=False), #720*4
-                "lon": np.linspace(0, 360, OUT_WIDTH, endpoint=False), #1440*4
+                "lat": np.linspace(90, -90, OUT_HEIGHT),
+                "lon": np.linspace(0, 360, OUT_WIDTH, endpoint=False),
             }
         )
-        
+
         target_input_coords = self.input_coords()
         for i, key in enumerate(target_input_coords):
             if key != "batch":
@@ -247,12 +227,26 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         return package
 
     @classmethod
-    def load_model(cls, package: Package, model_type: str, model_size: str, model_variable: str) -> DiagnosticModel:
+    def load_model(
+        cls, package: Package, model_type: str, model_size: str, model_variable: str
+    ) -> DiagnosticModel:
         """Load diagnostic from package"""
         # Load YAML configuration
-        with open(package.resolve(model_type+"-finetune"+"/"+model_type+"_"+model_size+"_"+model_variable+".yaml"), "r") as f:
-            conf = yaml.load(f, Loader=yaml.FullLoader)
-            
+        with open(
+            package.resolve(
+                model_type
+                + "-finetune"
+                + "/"
+                + model_type
+                + "_"
+                + model_size
+                + "_"
+                + model_variable
+                + ".yaml"
+            ),
+        ) as f:
+            conf = yaml.safe_load(f)
+
         try:
             do_tiling = conf["tiling"]["do_tiling"]
             if do_tiling:
@@ -282,11 +276,12 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
         in_channels = len(ORBIT_VARIABLE_MAPPING + STATIC_VARIABLES)
         if do_tiling:
-            assert overlap % 2 == 0, "Only handling even overlapping for now"
+            if overlap % 2 != 0:
+                raise ValueError("Only handling even overlapping for now")
             top = bottom = overlap // 2
             left = right = overlap // 2 * 2
-            in_height = int(IN_HEIGHT/div + top + bottom)
-            in_width = int(IN_WIDTH/div + left + right)
+            in_height = int(IN_HEIGHT / div + top + bottom)
+            in_width = int(IN_WIDTH / div + left + right)
         else:
             in_height = IN_HEIGHT
             in_width = IN_WIDTH
@@ -298,10 +293,10 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             (in_height, in_width),
             in_channels,
             out_channels,
-            superres_mag = superres_mag,
+            superres_mag=superres_mag,
             history=1,
-            patch_size= patch_size,
-            cnn_ratio = cnn_ratio,
+            patch_size=patch_size,
+            cnn_ratio=cnn_ratio,
             learn_pos_emb=True,
             embed_dim=embed_dim,
             depth=depth,
@@ -310,37 +305,74 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             mlp_ratio=mlp_ratio,
             drop_path=drop_path,
             drop_rate=drop_rate,
-            FusedAttn_option = FusedAttn.DEFAULT, 
+            FusedAttn_option=FusedAttn.DEFAULT,
         )
         model.data_config(
-            spatial_resolution['ERA5_2'],
+            spatial_resolution["ERA5_2"],
             (in_height, in_width),
             in_channels,
             out_channels,
         )
 
         map_location = "cpu"
-        checkpoint = torch.load(package.resolve(model_type+"-finetune"+"/"+model_type+"_"+model_size+"_"+model_variable+".ckpt"), map_location=map_location, weights_only=True)
+        checkpoint = torch.load(
+            package.resolve(
+                model_type
+                + "-finetune"
+                + "/"
+                + model_type
+                + "_"
+                + model_size
+                + "_"
+                + model_variable
+                + ".ckpt"
+            ),
+            map_location=map_location,
+            weights_only=True,
+        )
 
         pretrain_model = checkpoint["model_state_dict"]
         del checkpoint
 
         model.load_state_dict(pretrain_model)
 
-        land_sea_mask = np.load(package.resolve("static_variables/land_sea_mask_0.25deg.npy"))
+        land_sea_mask = np.load(
+            package.resolve("static_variables/land_sea_mask_0.25deg.npy")
+        )
         orography = np.load(package.resolve("static_variables/orography_0.25deg.npy"))
         lattitude = np.load(package.resolve("static_variables/lattitude_0.25deg.npy"))
         landcover = np.load(package.resolve("static_variables/landcover_0.25deg.npy"))
 
-        normalize_mean_lowres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_mean.npz"))
-        normalize_std_lowres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_std.npz"))
+        normalize_mean_lowres = np.load(
+            package.resolve("mean_std/era5/0.25_deg/normalize_mean.npz")
+        )
+        normalize_std_lowres = np.load(
+            package.resolve("mean_std/era5/0.25_deg/normalize_std.npz")
+        )
 
-        normalize_mean_highres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_mean.npz"))
-        normalize_std_highres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_std.npz"))
+        normalize_mean_highres = np.load(
+            package.resolve("mean_std/era5/0.25_deg/normalize_mean.npz")
+        )
+        normalize_std_highres = np.load(
+            package.resolve("mean_std/era5/0.25_deg/normalize_std.npz")
+        )
 
-        return cls(model, land_sea_mask, orography, lattitude, landcover, normalize_mean_lowres, normalize_std_lowres, normalize_mean_highres, normalize_std_highres, do_tiling, div, overlap)
+        return cls(
+            model,
+            land_sea_mask,
+            orography,
+            lattitude,
+            landcover,
+            normalize_mean_lowres,
+            normalize_std_lowres,
+            normalize_mean_highres,
+            normalize_std_highres,
+            do_tiling,
+            div,
+            overlap,
+        )
 
-    def get_normalize_lowres(self):
+    def get_normalize_lowres(self) -> OrderedDict:
         """Get Normalization Transformations for Low Resolution Data"""
         normalize_mean = dict(self.normalize_mean_lowres)
         normalize_std = dict(self.normalize_std_lowres)
@@ -354,7 +386,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
                 )
         return normed
 
-    def get_normalize_highres(self):
+    def get_normalize_highres(self) -> OrderedDict:
         """Get Normalization Transformations for High Resolution Data"""
         normalize_mean = dict(self.normalize_mean_highres)
         normalize_std = dict(self.normalize_std_highres)
@@ -368,12 +400,19 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
                 )
         return normed
 
-    def get_denormalize(self):
+    def get_denormalize(self) -> transforms.Normalize:
         """Get DeNormalization Transformations for High Resolution Data"""
         norm = self.get_normalize_highres()
         if isinstance(norm, dict):
-            mean_norm = torch.tensor([norm[k].mean if k not in PRECIP_VARIABLES else 0. for k in norm.keys()])
-            std_norm = torch.tensor([norm[k].std if k not in PRECIP_VARIABLES else 1. for k in norm.keys()])
+            mean_norm = torch.tensor(
+                [
+                    norm[k].mean if k not in PRECIP_VARIABLES else 0.0
+                    for k in norm.keys()
+                ]
+            )
+            std_norm = torch.tensor(
+                [norm[k].std if k not in PRECIP_VARIABLES else 1.0 for k in norm.keys()]
+            )
         else:
             mean_norm = norm.mean
             std_norm = norm.std
@@ -382,46 +421,51 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         denormed = transforms.Normalize(mean_denorm, std_denorm)
         return denormed
 
-
     def preprocess_input(self, x: torch.Tensor) -> torch.Tensor:
         """Preprocess Earth2Studio data to match ORBIT-2 DATA"""
-        device = x.device
-
-        regridder = self._regridder.to(device)
-
-        # Regrid — expects (..., lat, lon), handles time+variable dims automatically
-        # x shape: (time, variables, lat, lon)
-        x = regridder(x)
-
-        #Remove 90 degree latitude from data to make (720, 1440)
-        x = x[:,:,1:,:]
-
-        #Flip latitude (89.75, -90) -> (-90, 89.75)
+        # Input lat is [90, ..., -90] (721 points, descending)
+        # Flip lat axis to get [-90, ..., 90] (ascending)
         x = torch.flip(x, dims=(2,))
 
-        #Add static Variables to input tensor
-        land_sea_mask = torch.from_numpy(self.land_sea_mask).to(x.device).to(torch.float32).unsqueeze(0)
+        # Remove the last row (was 90° before flip, now at end) to get (720, 1440)
+        x = x[:, :, :-1, :]
+
+        # Add static Variables to input tensor
+        land_sea_mask = (
+            torch.from_numpy(self.land_sea_mask)
+            .to(x.device)
+            .to(torch.float32)
+            .unsqueeze(0)
+        )
         land_sea_mask = land_sea_mask.expand(x.shape[0], *land_sea_mask.shape)
-        orography = torch.from_numpy(self.orography).to(x.device).to(torch.float32).unsqueeze(0)
+        orography = (
+            torch.from_numpy(self.orography).to(x.device).to(torch.float32).unsqueeze(0)
+        )
         orography = orography.expand(x.shape[0], *orography.shape)
-        lattitude = torch.from_numpy(self.lattitude).to(x.device).to(torch.float32).unsqueeze(0)
+        lattitude = (
+            torch.from_numpy(self.lattitude).to(x.device).to(torch.float32).unsqueeze(0)
+        )
         lattitude = lattitude.expand(x.shape[0], *lattitude.shape)
-        landcover = torch.from_numpy(self.landcover).to(x.device).to(torch.float32).unsqueeze(0)
+        landcover = (
+            torch.from_numpy(self.landcover).to(x.device).to(torch.float32).unsqueeze(0)
+        )
         landcover = landcover.expand(x.shape[0], *landcover.shape)
 
-        x = torch.cat((x, land_sea_mask, orography, lattitude, landcover),dim=1)
+        x = torch.cat((x, land_sea_mask, orography, lattitude, landcover), dim=1)
 
-        #Normalize Data
+        # Normalize Data
         norm_transforms = self.get_normalize_lowres()
         i = 0
         for k in norm_transforms.keys():
-            x[:,i] = norm_transforms[k](x[:,i])
+            x[:, i] = norm_transforms[k](x[:, i])
             i = i + 1
 
         return x
 
     @staticmethod
-    def clip_replace_constant(y, out_variables):
+    def clip_replace_constant(
+        y: torch.Tensor, out_variables: list[str]
+    ) -> torch.Tensor:
         """Postprocess Precipitation Data to get rid of unphysical values"""
 
         prcp_index = out_variables.index("total_precipitation_24hr")
@@ -471,24 +515,28 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
     @staticmethod
     def stitch_tiles(
-        tiles: List, tile_coords: List, processor: TileProcessor, batch_size: int 
+        tiles: list, tile_coords: list, processor: TileProcessor, batch_size: int
     ) -> torch.Tensor:
         """Stitch tiles together into complete images.
 
         Reconstructs full image from processed tiles, handling overlap regions.
         """
-        preds = torch.zeros((batch_size,1,processor.yout, processor.xout), dtype=torch.float32, device=tiles[0].device)
+        preds = torch.zeros(
+            (batch_size, 1, processor.yout, processor.xout),
+            dtype=torch.float32,
+            device=tiles[0].device,
+        )
 
         # Place each tile in the correct position
         for i in range(len(tiles)):
             coords = tile_coords[i]
 
             # Place prediction
-            preds[:, :, coords.yo1r : coords.yo2r, coords.xo1r : coords.xo2r] = tiles[i][:, :, coords.yo1t : coords.yo2t, coords.xo1t : coords.xo2t]
+            preds[:, :, coords.yo1r : coords.yo2r, coords.xo1r : coords.xo2r] = tiles[
+                i
+            ][:, :, coords.yo1t : coords.yo2t, coords.xo1t : coords.xo2t]
 
         return preds
-
-
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -506,7 +554,13 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         """
         if self.do_tiling:
             x = self.preprocess_input(x)
-            processor = TileProcessor(self.div, self.overlap, (IN_HEIGHT, IN_WIDTH), (OUT_HEIGHT, OUT_WIDTH), 1)
+            processor = TileProcessor(
+                self.div,
+                self.overlap,
+                (IN_HEIGHT, IN_WIDTH),
+                (OUT_HEIGHT, OUT_WIDTH),
+                1,
+            )
             tiles = []
             tile_coords = []
             for vindex in range(self.div):  # Vertical tile index
@@ -517,23 +571,22 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
                     # Extract tile data from full tensors
                     # x_tile: [batch, channels, height, width] for input
                     x_tile = x[:, :, coords.yi1 : coords.yi2, coords.xi1 : coords.xi2]
-                    yhat = self.model.forward(x_tile, self.in_variables, self.out_variables)
+                    yhat = self.model.forward(
+                        x_tile, self.in_variables, self.out_variables
+                    )
                     yhat = self.clip_replace_constant(yhat, self.out_variables)
                     denorm_transforms = self.get_denormalize()
-                    yhat[:,:] = denorm_transforms(yhat[:,:])
+                    yhat[:, :] = denorm_transforms(yhat[:, :])
                     yhat = torch.flip(yhat, dims=(2,))
                     tile_coords.append(self.adjust_coords_for_flip(coords, processor))
                     tiles.append(yhat)
             yhat = self.stitch_tiles(tiles, tile_coords, processor, yhat.shape[0])
-            yhat = torch.flip(yhat, dims=(2,))
         else:
             x = self.preprocess_input(x)
             yhat = self.model.forward(x, self.in_variables, self.out_variables)
             yhat = self.clip_replace_constant(yhat, self.out_variables)
-            #Flip Lattitude to have correct orientation
-            yhat = torch.flip(yhat, dims=(2,))
             denorm_transforms = self.get_denormalize()
-            yhat[:,:] = denorm_transforms(yhat[:,:])
+            yhat[:, :] = denorm_transforms(yhat[:, :])
         return yhat
 
     @batch_func()
@@ -550,4 +603,3 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             out = self._forward(x)
 
         return out, output_coords
-
