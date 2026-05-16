@@ -113,7 +113,8 @@ OUT_WIDTH = 5760
 
 @check_optional_dependencies()
 class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
-    """ORBIT-2 precipitation downscaling model
+    """ORBIT-2 precipitation downscaling model supporting both 9.5m and 126m parameter
+    variants.
 
     Note
     ----
@@ -365,7 +366,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         model_type: Literal["global"] = "global",
-        model_size: Literal["9.5m"] = "9.5m",
+        model_size: Literal["9.5m", "126m"] = "9.5m",
         model_variable: Literal["precipitation"] = "precipitation",
     ) -> DiagnosticModel:
         """Load ORBIT-2 precipitation diagnostic model from package files.
@@ -376,7 +377,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             Model package containing configuration and checkpoint files.
         model_type : Literal["global"], optional
             ORBIT-2 model family to load, by default "global"
-        model_size : Literal["9.5m"], optional
+        model_size : Literal["9.5m", "126m"], optional
             ORBIT-2 model size variant to load, by default "9.5m"
         model_variable : Literal["precipitation"], optional
             Target variable variant to load, by default "precipitation"

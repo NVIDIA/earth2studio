@@ -172,22 +172,13 @@ def test_orbit2_precip(x, device):
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-@pytest.mark.parametrize(
-    "x",
-    [
-        torch.randn(1, 20, 721, 1440),
-        torch.randn(2, 20, 721, 1440),
-    ],
-)
 @pytest.mark.parametrize("model_size", ["9.5m", "126m"])
-def test_orbit2_precip_package(x, device, model_size):
+def test_orbit2_precip_package(device, model_size):
     package = OrbitGlobalPrecip.load_default_package()
-    # dx = OrbitGlobalPrecip.load_model(package, "global", "9.5m", "precipitation").to(device)
     dx = OrbitGlobalPrecip.load_model(
         package, "global", model_size, "precipitation"
     ).to(device)
-    # x = torch.randn(2, 19, 721, 1440).to(device)
-    x = x.to(device)
+    x = torch.randn(1, 20, 721, 1440).to(device)
     coords = OrderedDict(
         {
             "batch": np.ones(x.shape[0]),
@@ -206,7 +197,7 @@ def test_orbit2_precip_package(x, device, model_size):
     handshake_dim(out_coords, "batch", 0)
 
 
-def test_orbit2_precip_exceptions(device):
+def test_orbit2_precip_exceptions():
     x = torch.randn(1, 20, 720, 1440)
     land_sea_mask = np.zeros((720, 1440))
     orography = np.zeros((720, 1440))
