@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
+from typing import Literal
 
 import numpy as np
 import torch
@@ -164,6 +165,48 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         If performing tiling, number of tiles to divide input into
     overlap : int
         If performing tiling, number of overlap pixels to use during tiled inference
+
+     Example
+    -------
+    The derived inputs ``tp24``, ``t2m_max``, and ``t2m_min`` must be computed from
+    hourly ERA5 fields before calling the model:
+
+    >>> import numpy as np
+    >>> import torch
+    >>> from earth2studio.data import NCAR_ERA5, prep_data_array
+    >>> from earth2studio.models.dx import OrbitGlobalPrecip
+    >>> from earth2studio.utils.time import to_time_array
+    >>>
+    >>> package = OrbitGlobalPrecip.load_default_package()
+    >>> orbit = OrbitGlobalPrecip.load_model(package)
+    >>> orbit = orbit.to("cuda")
+    >>> data = NCAR_ERA5()
+    >>> time = to_time_array([np.datetime64("2023-06-01")])
+    >>>
+    >>> # Fetch base variables (all except tp24, t2m_max, t2m_min)
+    >>> base_vars = orbit.input_coords()["variable"][:-3]
+    >>> x, coords = prep_data_array(data(time, base_vars), device="cuda")
+    >>>
+    >>> # Build past 24-hour precipitation accumulation and t2 max/min.
+    >>> batch_p = torch.zeros((len(time), 24, 4, x.shape[-2], x.shape[-1]), device="cuda")
+    >>> for i in range(24):
+    ...     time0 = np.array(time) - np.timedelta64(i, "h")
+    ...     p, _ = prep_data_array(data(time0, ["cp", "lsp", "t2m", "sst"]), device="cuda")
+    ...     batch_p[:, i] = p
+    >>> total_p_24hr = (batch_p[:, :, 0] + batch_p[:, :, 1]).sum(dim=1).unsqueeze(1)
+    >>> t2_sst_combined = torch.where(
+    ...     torch.isnan(batch_p[:, :, 3]), batch_p[:, :, 2], batch_p[:, :, 3]
+    ... )
+    >>> t2_max = t2_sst_combined.max(dim=1).values.unsqueeze(1)
+    >>> t2_min = t2_sst_combined.min(dim=1).values.unsqueeze(1)
+    >>> x = torch.cat((x, total_p_24hr, t2_max, t2_min), dim=1)
+    >>>
+    >>> input_coords = OrderedDict(
+    ...     {k: v for k, v in orbit.input_coords().items() if k != "batch"}
+    ... )
+    >>> input_coords["time"] = time
+    >>> input_coords.move_to_end("time", last=False)
+    >>> output, output_coords = orbit(x, input_coords)
 
     Badges
     ------
@@ -319,9 +362,30 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
     @classmethod
     def load_model(
-        cls, package: Package, model_type: str, model_size: str, model_variable: str
+        cls,
+        package: Package,
+        model_type: Literal["global"] = "global",
+        model_size: Literal["9.5m"] = "9.5m",
+        model_variable: Literal["precipitation"] = "precipitation",
     ) -> DiagnosticModel:
-        """Load diagnostic from package"""
+        """Load ORBIT-2 precipitation diagnostic model from package files.
+
+        Parameters
+        ----
+        package : Package
+            Model package containing configuration and checkpoint files.
+        model_type : Literal["global"], optional
+            ORBIT-2 model family to load, by default "global"
+        model_size : Literal["9.5m"], optional
+            ORBIT-2 model size variant to load, by default "9.5m"
+        model_variable : Literal["precipitation"], optional
+            Target variable variant to load, by default "precipitation"
+
+        Returns
+        ----
+        DiagnosticModel
+            Loaded ORBIT-2 precipitation diagnostic model ready for inference.
+        """
         # Load YAML configuration
         config_path = (
             f"{model_type}-finetune/" f"{model_type}_{model_size}_{model_variable}.yaml"
