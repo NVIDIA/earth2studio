@@ -529,10 +529,13 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         """Denormalize model output using precomputed buffers.
 
         For non-precip channels: x_denorm = x * inv_std + inv_mean
-        For precip channels (identity): mean=0, std=1 so no-op and converts mm -> m.
+        For precip channels: the model outputs in log1p(mm) space, so we apply
+        expm1 to recover mm, then convert mm -> m by dividing by 1000.
         """
         yhat = yhat * self.denorm_std + self.denorm_mean
-        yhat[:, self.out_precip_mask] = yhat[:, self.out_precip_mask] / 1000.0
+        yhat[:, self.out_precip_mask] = (
+            torch.expm1(yhat[:, self.out_precip_mask]) / 1000.0
+        )
         return yhat
 
     def preprocess_input(self, x: torch.Tensor) -> torch.Tensor:
