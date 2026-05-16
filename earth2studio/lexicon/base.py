@@ -59,6 +59,7 @@ E2STUDIO_VOCAB = {
     "tpi": "total precipitation index",
     "tp06": "total precipitation accumulated over past 6 hours (m)",
     "tp12": "total precipitation accumulated over past 12 hours (m)",
+    "tp24": "total precipitation accumulated over past 24 hours (m)",
     "cp06": "convective precipitation accumulated over past 6 hours (m)",
     "tpf": "total precipitation flux (kg m-2 s-1)",
     "tcc": "total cloud cover (0 - 1)",

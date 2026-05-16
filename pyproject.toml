@@ -232,6 +232,9 @@ cyclone = [
     "scikit-image>=0.25.2",
 ]
 derived = []
+orbit = [
+    "climate-learn"
+]
 precip-afno = [
     "nvidia-physicsnemo>=1.0.1",
 ]
@@ -264,7 +267,7 @@ da-stormcast = [
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
     "earth2studio[aifs,aifsens,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast]",
-    "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
+    "earth2studio[cbottle,climatenet,corrdiff,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda]",
 ]
 
@@ -320,6 +323,8 @@ torch-harmonics = [
 ]
 # Remove once update release with torch 2.11 fixable
 nvidia-physicsnemo = { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "369a15782b9922d7694d49a00bfaf8960b9be429" }
+climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
+
 
 [exclude.uv.workspace]
 members = ["recipes/*"]

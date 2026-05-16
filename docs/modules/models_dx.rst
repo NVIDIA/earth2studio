@@ -48,6 +48,7 @@ etc.
       DerivedTCWV
       DerivedVPD
       DerivedWS
+      OrbitGlobalPrecip
       PrecipitationAFNO
       PrecipitationAFNOv2
       SolarRadiationAFNO1H
