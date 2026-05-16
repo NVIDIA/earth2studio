@@ -65,6 +65,7 @@ VARIABLES = [
     "q500",
     "q850",
     "swvl1",
+    "sst",
     "tp24",
     "t2m_max",
     "t2m_min",
@@ -122,9 +123,12 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
     Note
     ----
-    The input variables ``t2m_min`` and ``t2m_max`` are daily minimum and maximum
-    2-meter temperature values (not instantaneous). The model is fine-tuned for
-    IMERG 24-hour accumulated precipitation (``tp24``).
+    A few details regarding the model's variables:
+
+    - The input variables ``t2m_min`` and ``t2m_max`` are daily minimum and maximum
+    2-meter temperature values (not instantaneous).
+    - ``t2m`` and ``sst`` are combined to represent global surface temperature.
+    - The model is fine-tuned for IMERG 24-hour accumulated precipitation (``tp24``).
 
     Parameters
     ----------
@@ -461,13 +465,30 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         return yhat
 
     def preprocess_input(self, x: torch.Tensor) -> torch.Tensor:
-        """Preprocess Earth2Studio data to match ORBIT-2 DATA"""
+        """Preprocess Earth2Studio data to match ORBIT-2 DATA
+
+        Expects input channels ordered as VARIABLES (including trailing sst).
+        Replaces t2m with sst over ocean pixels (where land_sea_mask == 0 and
+        sst is not NaN), then drops the sst channel before proceeding.
+        """
+        # Drop sst channel based on its position in VARIABLES
+        sst_index = VARIABLES.index("sst")
+        sst = x[:, sst_index]
+        x = torch.cat((x[:, :sst_index], x[:, sst_index + 1 :]), dim=1)
+
         # Input lat is [90, ..., -90] (721 points, descending)
         # Flip lat axis to get [-90, ..., 90] (ascending)
         x = torch.flip(x, dims=(2,))
+        sst = torch.flip(sst, dims=(1,))
 
         # Remove the last row (was 90° before flip, now at end) to get (720, 1440)
         x = x[:, :, :-1, :]
+        sst = sst[:, :-1, :]
+
+        # Replace t2m (channel 0) with sst over ocean
+        ocean_mask = self.land_sea_mask.squeeze() == 0
+        replace_mask = ocean_mask & ~torch.isnan(sst)
+        x[:, 0] = torch.where(replace_mask, sst, x[:, 0])
 
         # Add static variables (buffers are already on correct device)
         # Buffers are (1, 1, H, W), expand to (batch, 1, H, W)
