@@ -387,6 +387,12 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         DiagnosticModel
             Loaded ORBIT-2 precipitation diagnostic model
         """
+        valid_sizes = ("9.5m", "126m")
+        if model_size not in valid_sizes:
+            raise ValueError(
+                f"Invalid model_size '{model_size}'. Must be one of {valid_sizes}."
+            )
+
         # Load YAML configuration
         config_path = (
             f"{model_type}-finetune/" f"{model_type}_{model_size}_{model_variable}.yaml"
