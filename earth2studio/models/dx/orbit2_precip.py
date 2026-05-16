@@ -127,8 +127,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     ----
     A few details regarding the model's variables:
 
-    - The input variables ``t2m_min`` and ``t2m_max`` are daily minimum and maximum
-        2-meter temperature values (not instantaneous).
+    - The input variables ``t2m_min`` and ``t2m_max`` are daily minimum and maximum.
     - ``t2m`` and ``sst`` are combined to represent global surface temperature.
     - The model is fine-tuned for IMERG 24-hour accumulated precipitation (``tp24``).
 
@@ -167,7 +166,8 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     overlap : int
         If performing tiling, number of overlap pixels to use during tiled inference
 
-     Example
+
+    Example
     -------
     The derived inputs ``tp24``, ``t2m_max``, and ``t2m_min`` must be computed from
     hourly ERA5 fields before calling the model:
@@ -712,6 +712,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             )
             yhat = self.clip_replace_constant(yhat, self.core_output_varaibles)
             yhat = self._denormalize_output(yhat)
+            yhat = torch.flip(yhat, dims=(2,))
         return yhat
 
     @batch_func()
