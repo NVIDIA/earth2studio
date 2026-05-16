@@ -128,7 +128,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     A few details regarding the model's variables:
 
     - The input variables ``t2m_min`` and ``t2m_max`` are daily minimum and maximum
-    2-meter temperature values (not instantaneous).
+        2-meter temperature values (not instantaneous).
     - ``t2m`` and ``sst`` are combined to represent global surface temperature.
     - The model is fine-tuned for IMERG 24-hour accumulated precipitation (``tp24``).
 
@@ -211,7 +211,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global class:mrf product:precip year:2025 gpu:60gb
+    region:global class:mrf product:precip year:2025 gpu:40gb
     """
 
     def __init__(
@@ -285,7 +285,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             if var not in PRECIP_VARIABLES:
                 denorm_mean[i] = float(denorm_mean_dict[var][0])
                 denorm_std[i] = float(denorm_std_dict[var][0])
-        # Invert: denorm(x) = x * (1/std) - mean/std
+        # Store inverted stats matching torchvision.transforms.Normalize convention
         inv_std = 1.0 / denorm_std
         inv_mean = -denorm_mean * inv_std
         self.register_buffer("denorm_mean", inv_mean.view(1, -1, 1, 1))
@@ -528,11 +528,13 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     def _denormalize_output(self, yhat: torch.Tensor) -> torch.Tensor:
         """Denormalize model output using precomputed buffers.
 
-        For non-precip channels: x_denorm = x * inv_std + inv_mean
+        Uses the same convention as torchvision.transforms.Normalize:
+        denorm(x) = (x - denorm_mean) / denorm_std = x * std + mean
+
         For precip channels: the model outputs in log1p(mm) space, so we apply
         expm1 to recover mm, then convert mm -> m by dividing by 1000.
         """
-        yhat = yhat * self.denorm_std + self.denorm_mean
+        yhat = (yhat - self.denorm_mean) / self.denorm_std
         yhat[:, self.out_precip_mask] = (
             torch.expm1(yhat[:, self.out_precip_mask]) / 1000.0
         )
