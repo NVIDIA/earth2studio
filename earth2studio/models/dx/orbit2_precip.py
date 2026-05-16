@@ -384,7 +384,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         Returns
         ----
         DiagnosticModel
-            Loaded ORBIT-2 precipitation diagnostic model ready for inference.
+            Loaded ORBIT-2 precipitation diagnostic model
         """
         # Load YAML configuration
         config_path = (
