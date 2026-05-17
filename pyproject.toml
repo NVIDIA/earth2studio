@@ -62,7 +62,7 @@ data = [
     "cfgrib>=0.9.10.3",
     "eccodes>=2.39.2",
     "eccodeslib>=2.39.2",
-    "ecmwf-opendata>=0.3.3",
+    "ecmwf-opendata>=0.3.29",
     "intake-esgf>=2026.1.26; python_version>='3.12'",
     "planetary-computer>=0.5.0",
     "pybufrkit>=0.2.22",
@@ -121,13 +121,13 @@ ace2 = [
 aifs = [
     "anemoi-models==0.5.1",
     "earthkit-regrid==0.4.0",
-    "ecmwf-opendata>=0.3.3",
+    "ecmwf-opendata>=0.3.29",
     "flash-attn",
 ]
 aifsens = [
     "anemoi-models==0.5.1",
     "earthkit-regrid==0.4.0",
-    "ecmwf-opendata>=0.3.3",
+    "ecmwf-opendata>=0.3.29",
     "flash-attn",
 ]
 atlas = [
