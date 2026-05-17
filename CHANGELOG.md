@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - S3 upload bug in server utilities
 - Fixed pres obs from UFS to be Pascal units
 - Fixed chunk downloading race condition in file system cache for Zarr data sources
+- Fixed 180° longitude misalignment in ECMWF open-data sources for some GRIB files with
+  non-standard lon origin
 
 ### Security
 

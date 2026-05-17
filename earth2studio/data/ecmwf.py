@@ -329,35 +329,25 @@ class _ECMWFOpenDataSource(ABC):
             raise e
         try:
             # Handle ensemble (pf) by stacking members in requested order.
-            # Also capture the first GRIB message so we can read its native
-            # longitude origin (`longitudeOfFirstGridPointInDegrees`) —
-            # ECMWF open-data files do not all start at lon = -180; some
-            # start at lon = 0. The previous unconditional `-N/2` roll
-            # silently rotated the latter group by 180°. Reading the
-            # metadata makes the roll correct for any origin convention.
             if self._fc_type == "pf" and len(self._members) > 0:
                 member_arrays: list[np.ndarray] = []
-                first_msg = None
                 for m in self._members:
-                    msgs = grbs.select(number=m)
+                    msgs = grbs.select(number=m)  # Filter to ensemble member
                     if not msgs:
                         raise RuntimeError(
                             f"No GRIB messages found for ensemble member {m} in {grib_file}"
                         )
                     member_arrays.append(msgs[0].values)
-                    if first_msg is None:
-                        first_msg = msgs[0]
                 values = np.stack(member_arrays, axis=0)  # [ensemble, y, x]
             else:
-                first_msg = grbs[1]
-                values = first_msg.values  # [y, x]
+                values = grbs[1].values  # [y, x]
 
+            # Assuming all gribs files being read are on the same grid, get the first
+            # GRIB files longitude origin (`longitudeOfFirstGridPointInDegrees`) ECMWF
+            # open-data files do not all start at lon = -180; some start at lon = 0.
             # Roll so the array's index 0 corresponds to lon = 0° on the
             # destination grid `self.LON` (canonical 0..360 ascending).
-            # If the file's index 0 is at `lon_first`, the required shift is
-            # `lon_first / lon_inc  mod  N`. Reduces to the previous
-            # hardcoded `-N/2` (≡ +N/2 mod N) when `lon_first == -180`.
-            assert first_msg is not None  # guaranteed: loop requires ≥1 member
+            first_msg = grbs[1]  # PyGrib messages getitem from file handle is 1-based
             lon_first = float(first_msg.longitudeOfFirstGridPointInDegrees)
             lon_inc = float(first_msg.iDirectionIncrementInDegrees)
             if lon_inc == 0.0:
