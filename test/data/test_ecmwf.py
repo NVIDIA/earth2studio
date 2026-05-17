@@ -75,6 +75,11 @@ def test_ifs_fetch(time, variable):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
     assert np.allclose(data.values, data_fx.values[:, 0])
 
+    try:
+        shutil.rmtree(ds.cache)
+    except FileNotFoundError:
+        pass
+
 
 @pytest.mark.slow
 @pytest.mark.xfail

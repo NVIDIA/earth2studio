@@ -171,6 +171,12 @@ class _ECMWFOpenDataSource(ABC):
         xr.DataArray
             ECMWF weather data array
         """
+        time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
+
+        # Make sure input time is valid (synchronous, no IO needed)
+        self._validate_time(time)
+        self._validate_leadtime(time, lead_time)
+
         return _sync_async(
             self._ecmwf_fetch,
             time,
@@ -187,12 +193,13 @@ class _ECMWFOpenDataSource(ABC):
     ) -> xr.DataArray:
         """Async method to retrieve ECMWF data."""
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
-        # Create cache dir if doesnt exist
-        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         # Make sure input time is valid
         self._validate_time(time)
         self._validate_leadtime(time, lead_time)
+
+        # Create cache dir if doesnt exist
+        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         # Pre-allocate full array (could be made more efficient)
         if not self._fc_type == "pf":
