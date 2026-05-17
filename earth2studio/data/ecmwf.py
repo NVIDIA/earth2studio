@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import functools
 import hashlib
 import os
@@ -33,7 +32,11 @@ import xarray as xr
 from loguru import logger
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import datasource_cache_root, prep_forecast_inputs
+from earth2studio.data.utils import (
+    _sync_async,
+    datasource_cache_root,
+    prep_forecast_inputs,
+)
 from earth2studio.lexicon import AIFSLexicon, IFSLexicon
 from earth2studio.lexicon.ecmwf import ECMWFOpenDataLexicon
 from earth2studio.utils.imports import (
@@ -168,21 +171,13 @@ class _ECMWFOpenDataSource(ABC):
         xr.DataArray
             ECMWF weather data array
         """
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(
-                self._ecmwf_fetch(time, lead_time, variable),
-                timeout=self.async_timeout,
-            )
+        return _sync_async(
+            self._ecmwf_fetch,
+            time,
+            lead_time,
+            variable,
+            timeout=self.async_timeout,
         )
-
-        return xr_array
 
     async def _ecmwf_fetch(
         self,
@@ -405,8 +400,8 @@ class _ECMWFOpenDataSource(ABC):
                 request["levelist"] = level
             if self._fc_type == "pf":
                 request["number"] = self._members
-            # Download
-            await asyncio.to_thread(self.client.retrieve, **request)
+            # Download, no await asyncio.to_thread, just let opendata be the bottle neck
+            self.client.retrieve(request)
 
         return cache_path
 
@@ -720,7 +715,7 @@ class IFS_ENS(_ECMWFOpenDataSource):
         Python SDK, by default "aws".
     member: int, optional
         Ensemble member id to use. If 0 the control forecast will be requested, if
-        greater than 0 perturbed ensemble member will be requested, by default 0.
+        greater than 0 perturbed ensemble member will be requested, by default 1.
     cache : bool, optional
         Cache data source in local memory, by default True.
     verbose : bool, optional
@@ -753,7 +748,7 @@ class IFS_ENS(_ECMWFOpenDataSource):
     def __init__(
         self,
         source: Literal["aws", "ecmwf", "azure"] = "aws",
-        member: int = 0,
+        member: int = 1,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
@@ -761,6 +756,10 @@ class IFS_ENS(_ECMWFOpenDataSource):
         fc_type: Literal["cf", "pf"]
         if member == 0:
             fc_type = "cf"  # control forecast
+            logger.warning(
+                "ECMWF open-data may no longer offer the control member "
+                "via IFS ENS. If this fails, try another member index."
+            )
         elif member > 0:
             fc_type = "pf"  # perturbed forecast
         else:
@@ -865,7 +864,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         Python SDK, by default "aws".
     member: int, optional
         Ensemble member id to use. If 0 the control forecast will be requested, if
-        greater than 0 perturbed ensemble member will be requested, by default 0.
+        greater than 0 perturbed ensemble member will be requested, by default 1.
     cache : bool, optional
         Cache data source in local memory, by default True.
     verbose : bool, optional
@@ -898,7 +897,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
     def __init__(
         self,
         source: Literal["aws", "ecmwf", "azure"] = "aws",
-        member: int = 0,
+        member: int = 1,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
@@ -906,6 +905,10 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         fc_type: Literal["cf", "pf"]
         if member == 0:
             fc_type = "cf"  # control forecast
+            logger.warning(
+                "ECMWF open-data may no longer offer the control member "
+                "via IFS ENS. If this fails, try another member index."
+            )
         elif member > 0:
             fc_type = "pf"  # perturbed forecast
         else:
