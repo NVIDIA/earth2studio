@@ -234,26 +234,33 @@ class TestCBottleTCMock:
             called["kwargs"] = kwargs
             return 1.5, torch.zeros_like(batch["target"])
 
+        def _fake_regrid(x, grid):
+            # Return a lat-lon shaped tensor
+            return x.new_zeros(*x.shape[:-1], 721, 1440)
+
         monkeypatch.setattr(
             dx.core_model,
             "calculate_odds_ratio",
             _fake_calculate_odds_ratio,
             raising=False,
         )
-        log_odds_ratio, forward_latents = dx.calculate_odds_ratio(
+        monkeypatch.setattr(dx, "regrid_hpx_to_latlon", _fake_regrid)
+
+        log_odds_ratio, forward_latents, latent_coords = dx.calculate_odds_ratio(
             guidance,
             coords,
-            num_steps=12,
         )
 
         assert log_odds_ratio == pytest.approx(1.5)
         assert isinstance(called["batch"], dict)
         assert called["guidance_pixels"].ndim == 1
         assert called["guidance_pixels"].numel() > 0
-        assert called["kwargs"]["num_steps"] == 12
-        assert called["kwargs"]["guidance_scale"] == pytest.approx(0.1 * 20.0 * 64.0)
+        assert called["kwargs"]["num_steps"] == dx.sampler_steps
+        assert called["kwargs"]["guidance_scale"] == 128
         assert called["kwargs"]["compute_forward_divergences"] is False
-        assert forward_latents.shape == called["batch"]["target"].shape
+        assert "variable" in latent_coords
+        assert "lat" in latent_coords
+        assert "lon" in latent_coords
 
     def test_calculate_odds_ratio_rejects_multiple_samples(
         self, mock_core_model, mock_classifier_model, mock_sst_ds

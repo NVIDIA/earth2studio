@@ -528,8 +528,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         coords: CoordSystem,
         guidance_scale: float = 128,
         compute_forward_divergences: bool = False,
-        **kwargs: dict,
-    ) -> tuple[float | torch.Tensor, torch.Tensor]:
+    ) -> tuple[float | torch.Tensor, torch.Tensor, CoordSystem]:
         """Compute classifier-guided log-odds ratio for one guidance sample.
 
         Parameters
@@ -543,15 +542,11 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         compute_forward_divergences : bool, optional
             If True, compute forward-phase Hutchinson divergence terms. These are
             not required for ``log_odds_ratio`` and increase runtime; by default False.
-        **kwargs
-            Additional keyword arguments forwarded to
-            :meth:`cbottle.inference.CBottle3d.calculate_odds_ratio`.
 
         Returns
         -------
-        tuple[float | torch.Tensor, torch.Tensor]
-            ``(log_odds_ratio, forward_latents)`` from cBottle.  ``log_odds_ratio``
-            may be a Python float or a scalar tensor depending on the cBottle version.
+        tuple[float | torch.Tensor, torch.Tensor, CoordSystem]
+            log_odds_ratio, forward_latents, latent_coords
 
         Note
         ----
@@ -609,14 +604,40 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             raise ValueError("No guidance pixels set (all guidance entries are NaN).")
 
         self.core_model.sigma_max = float(self.sigma_max)
-        return self.core_model.calculate_odds_ratio(
+        log_odds_ratio, forward_latents = self.core_model.calculate_odds_ratio(
             batch=batch,
             guidance_pixels=guidance_pixels,
             guidance_scale=guidance_scale,
             compute_forward_divergences=compute_forward_divergences,
             num_steps=self.sampler_steps,
-            **kwargs,
-        )
+        )  # forward_latents shape: (1, 45, 1, 49152)
+
+        if self.lat_lon:
+            domain_grid = getattr(
+                self.core_model.net.domain, "_grid", self.core_model.net.domain
+            )
+            forward_latents = self.regrid_hpx_to_latlon(
+                forward_latents, domain_grid
+            ).squeeze(2)
+            latent_coords = OrderedDict(
+                {
+                    "batch": np.arange(forward_latents.shape[0]),
+                    "variable": np.array(self.output_variables),
+                    "lat": self.lat_grid.cpu().numpy(),
+                    "lon": self.lon_grid.cpu().numpy(),
+                }
+            )
+        else:
+            latent_coords = OrderedDict(
+                {
+                    "batch": np.arange(forward_latents.shape[0]),
+                    "variable": np.array(self.output_variables),
+                    "hpx": np.arange(4**HPX_LEVEL * 12),
+                }
+            )
+            forward_latents = forward_latents.squeeze(2)
+
+        return log_odds_ratio, forward_latents, latent_coords
 
     def regrid_hpx_to_latlon(
         self,

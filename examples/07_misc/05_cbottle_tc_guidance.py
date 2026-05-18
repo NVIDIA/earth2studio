@@ -73,7 +73,6 @@ from datetime import datetime
 import numpy as np
 import torch
 
-from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.dx import CBottleTCGuidance
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -95,14 +94,11 @@ lon = torch.tensor([-82.0], device=device)  # Converted internally to [0, 360)
 times = [datetime(2005, 10, 11, 12)]
 
 model = CBottleTCGuidance.load_model(package, seed=0).to(device)
-
+# Create guidance tensor
 guidance, coords = model.create_guidance_tensor(lat, lon, times)
 guidance = guidance.to(device)
-
 # Run guided sampling
 guided_sample, guided_coords = model(guidance, coords)
-print(f"guided_sample shape: {tuple(guided_sample.shape)}")
-print(f"n_output_variables: {guided_coords['variable'].shape[0]}")
 
 # %%
 # Post Processing Guided Sample
@@ -174,51 +170,37 @@ model = CBottleTCGuidance.load_model(
     allow_second_order_derivatives=True,
 ).to(device)
 
-log_odds_ratio, forward_latents = model.calculate_odds_ratio(
+log_odds_ratio, forward_latents, latent_coords = model.calculate_odds_ratio(
     guidance,
     coords,
 )
 
-print(f"log_odds_ratio: {log_odds_ratio:.4f}")
-print(f"forward_latents shape: {tuple(forward_latents.shape)}")
+print(f"Log odds ratio: {log_odds_ratio:.4f}")
+print(f"Forward latents shape: {tuple(forward_latents.shape)}")
 
 # %%
 # Post Processing Forward Latents
 # --------------------------------
-# The ``forward_latents`` tensor is in the model's native HEALPix pixel ordering.  We
-# regrid a single channel (uas / u10m) to a regular lat-lon grid and visualize the same
+# The ``forward_latents`` tensor is returned on the same grid as the model output
+# (lat-lon when ``lat_lon=True``).  We visualize a single channel (u10m) over the same
 # Caribbean domain.  This shows the latent-space representation that the odds-ratio
 # computation operates on.
 
 # %%
 plt.close("all")
 
-# Identify the u10m channel in cBottle's native variable ordering
-uas_var = next(
-    var
-    for var, (native_name, level) in CBottleLexicon.VOCAB.items()
-    if native_name == "uas" and level == -1
-)
-uas_idx = int(np.where(guided_coords["variable"] == uas_var)[0][0])
-latent_native = forward_latents[:, uas_idx : uas_idx + 1, :1, :]
+# Identify the u10m channel in output variable ordering
+latent_variables = latent_coords["variable"]
+u_latent_idx = int(np.where(latent_variables == u_var)[0][0])
+latent_u = forward_latents[0, u_latent_idx].detach().cpu().numpy()
 
-# Regrid from native HEALPix to lat-lon
-domain_grid = getattr(model.core_model.net.domain, "_grid", model.core_model.net.domain)
-latent_ll = (
-    model.regrid_hpx_to_latlon(latent_native, grid=domain_grid)
-    .squeeze()
-    .detach()
-    .cpu()
-    .numpy()
-)
-
-latent_carib = latent_ll[np.ix_(lat_mask, lon_mask)]
+latent_u_carib = latent_u[np.ix_(lat_mask, lon_mask)]
 
 fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(8, 4.5))
 pcm = ax.pcolormesh(
     lon_carib_deg,
     lat_carib,
-    latent_carib,
+    latent_u_carib,
     shading="auto",
     cmap="viridis",
     transform=ccrs.PlateCarree(),
@@ -226,7 +208,7 @@ pcm = ax.pcolormesh(
 ax.set_extent([-100.0, -60.0, lat_min, lat_max], crs=ccrs.PlateCarree())
 ax.coastlines(resolution="110m", linewidth=0.8)
 ax.gridlines(draw_labels=True, linewidth=0.5, alpha=0.5, linestyle="--")
-plt.colorbar(pcm, ax=ax, label=f"Forward Latent ({uas_var})", pad=0.08, shrink=0.92)
-ax.set_title(f"Forward Latents: {uas_var} Channel")
+plt.colorbar(pcm, ax=ax, label=f"Forward Latent ({u_var})", pad=0.08, shrink=0.92)
+ax.set_title(f"Forward Latents: {u_var} Channel")
 plt.tight_layout()
 plt.savefig("outputs/05_cbottle_tc_forward_latents.jpg")
