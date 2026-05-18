@@ -526,10 +526,10 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         self,
         x: torch.Tensor,
         coords: CoordSystem,
-        guidance_scale: float = 0.1 * 20.0 * 64.0,
+        guidance_scale: float = 128,
         compute_forward_divergences: bool = False,
-        **kwargs,
-    ) -> tuple[float, torch.Tensor]:
+        **kwargs: dict,
+    ) -> tuple[float | torch.Tensor, torch.Tensor]:
         """Compute classifier-guided log-odds ratio for one guidance sample.
 
         Parameters
@@ -539,8 +539,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         coords : CoordSystem
             Coordinate system associated with ``x``.
         guidance_scale : float, optional
-            Guidance scale forwarded to cBottle odds-ratio evaluation. Defaults to
-            ``0.1 * 20 * 64``.
+            Guidance scale forwarded to cBottle odds-ratio evaluation. Defaults to 128.
         compute_forward_divergences : bool, optional
             If True, compute forward-phase Hutchinson divergence terms. These are
             not required for ``log_odds_ratio`` and increase runtime; by default False.
@@ -550,8 +549,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         Returns
         -------
-        tuple[float, torch.Tensor]
-            ``(log_odds_ratio, forward_latents)`` from cBottle.
+        tuple[float | torch.Tensor, torch.Tensor]
+            ``(log_odds_ratio, forward_latents)`` from cBottle.  ``log_odds_ratio``
+            may be a Python float or a scalar tensor depending on the cBottle version.
 
         Note
         ----
@@ -614,6 +614,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             guidance_pixels=guidance_pixels,
             guidance_scale=guidance_scale,
             compute_forward_divergences=compute_forward_divergences,
+            num_steps=self.sampler_steps,
             **kwargs,
         )
 

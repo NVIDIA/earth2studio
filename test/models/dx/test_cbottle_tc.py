@@ -29,7 +29,7 @@ try:
 except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
-from earth2studio.models.dx.cbottle_tc import CBottleTCGuidance
+from earth2studio.models.dx import CBottleTCGuidance
 from earth2studio.utils import handshake_dim
 
 
@@ -226,7 +226,7 @@ class TestCBottleTCMock:
             [datetime(2000, 1, 1)],
         )
 
-        called: dict[str, torch.Tensor | dict | float | int] = {}
+        called: dict = {}
 
         def _fake_calculate_odds_ratio(batch, guidance_pixels, **kwargs):
             called["batch"] = batch
