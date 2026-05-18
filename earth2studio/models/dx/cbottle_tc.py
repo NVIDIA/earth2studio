@@ -621,36 +621,26 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     def regrid_hpx_to_latlon(
         self,
         x: torch.Tensor,
-        grid: "earth2grid.base.Grid | None" = None,
-        nlat: int = 721,
-        nlon: int = 1440,
-        includes_south_pole: bool = True,
+        grid: "earth2grid.base.Grid",
     ) -> torch.Tensor:
-        """Regrid an HPX tensor to a regular lat/lon grid.
+        """Regrid an HPX tensor to lat/lon grid.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor whose last dimension is HPX pixels.
-        grid : earth2grid.base.Grid | None, optional
-            Source HPX grid for ``x``. If None, use the cBottle output grid.
-        nlat : int, optional
-            Number of latitude points in output grid, by default 721.
-        nlon : int, optional
-            Number of longitude points in output grid, by default 1440.
-        includes_south_pole : bool, optional
-            Passed to equiangular lat/lon grid builder, by default True.
+        grid : earth2grid.base.Grid
+            Input HPX grid
 
         Returns
         -------
         torch.Tensor
             Regridded tensor with trailing dimensions ``(..., nlat, nlon)``.
         """
-        source_grid = self.core_model.output_grid if grid is None else grid
         latlon_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-            nlat, nlon, includes_south_pole=includes_south_pole
+            721, 1440, includes_south_pole=True
         )
-        regridder = earth2grid.get_regridder(source_grid, latlon_grid).to(
+        regridder = earth2grid.get_regridder(grid, latlon_grid).to(
             self.device_buffer.device
         )
         return regridder(x)
