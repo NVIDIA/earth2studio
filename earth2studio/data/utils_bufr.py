@@ -45,6 +45,8 @@ except ImportError:
     BufrDecoder = None  # type: ignore[assignment,misc]
     TableGroupCacheManager = None  # type: ignore[assignment,misc]
 
+DEFAULT_COMPILED_TEMPLATE_CACHE_MAX = 200
+
 
 # ─────────────────────────────────────────────────────────────────────
 # PrepBUFR descriptor ID constants
@@ -356,6 +358,7 @@ def register_dx_tables(
 def create_decoder(
     table_b: dict[int, tuple[Any, ...]],
     table_d: dict[int, tuple[Any, ...]],
+    compiled_template_cache_max: int | None = DEFAULT_COMPILED_TEMPLATE_CACHE_MAX,
 ) -> Any:
     """Register custom NCEP tables and create a pybufrkit decoder.
 
@@ -365,6 +368,9 @@ def create_decoder(
         NCEP Table B entries.
     table_d : dict
         NCEP Table D entries.
+    compiled_template_cache_max : int or None
+        Maximum number of compiled BUFR templates to cache in pybufrkit.
+        Set to None to disable template compilation.
 
     Returns
     -------
@@ -372,7 +378,7 @@ def create_decoder(
         Configured decoder instance.
     """
     register_dx_tables(table_b, table_d)
-    return BufrDecoder()
+    return BufrDecoder(compiled_template_cache_max=compiled_template_cache_max)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -442,10 +448,14 @@ def parse_prepbufr_messages(
         ctx = silence_bufr_noise() if silence_noise else contextlib.nullcontext()
         with ctx:
             try:
-                dx_decoder = BufrDecoder()
+                dx_decoder = BufrDecoder(
+                    compiled_template_cache_max=DEFAULT_COMPILED_TEMPLATE_CACHE_MAX
+                )
                 for dx_bytes in dx_messages:
                     try:
-                        dx_msg = dx_decoder.process(dx_bytes)
+                        dx_msg = dx_decoder.process(
+                            dx_bytes, wire_template_data=False
+                        )
                     except Exception:  # noqa: S112
                         logger.debug("Skipping unparseable DX-table message")
                         continue
@@ -486,8 +496,7 @@ def init_decode_worker(
         NCEP Table D entries.
     """
     global _worker_decoder  # noqa: PLW0603
-    register_dx_tables(table_b, table_d)
-    _worker_decoder = BufrDecoder()
+    _worker_decoder = create_decoder(table_b, table_d)
 
 
 def get_worker_decoder() -> Any:

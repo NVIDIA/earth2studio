@@ -63,23 +63,13 @@ from earth2studio.data.utils_bufr import (
 from earth2studio.data.utils_bufr import (
     parse_prepbufr_messages as _bufr_parse_prepbufr_messages,
 )
-from earth2studio.data.utils_bufr import (
-    register_dx_tables as _bufr_register_dx_tables,
-)
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.lexicon.gdas import GDASObsConvLexicon
 from earth2studio.utils.imports import (
-    OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import normalize_time_tolerance, timearray_to_datetime
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
-
-try:
-    from pybufrkit.decoder import Decoder as BufrDecoder
-except ImportError:
-    OptionalDependencyFailure("data")
-    BufrDecoder = None  # type: ignore[assignment,misc]
 
 NOMADS_BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod"
 
@@ -1066,8 +1056,7 @@ def _init_decode_worker(
     as a module-level global.
     """
     global _worker_decoder  # noqa: PLW0603
-    _bufr_register_dx_tables(table_b, table_d)
-    _worker_decoder = BufrDecoder()
+    _worker_decoder = _bufr_create_decoder(table_b, table_d)
 
 
 def _decode_message_worker(
@@ -1136,7 +1125,7 @@ def _decode_message(
         Observation rows for this message.
     """
     try:
-        msg = decoder.process(msg_bytes)
+        msg = decoder.process(msg_bytes, wire_template_data=False)
     except Exception:
         return []
 
