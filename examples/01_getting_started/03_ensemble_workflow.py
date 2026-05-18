@@ -36,7 +36,7 @@ In this example you will learn:
 # /// script
 # dependencies = [
 #   "torch==2.11.0", # Match lock file to avoid torch-harmonics issue
-#   "earth2studio[fcn,perturbation] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[fcn,perturbation] @ git+https://github.com/NVIDIA/earth2studio.git@0.15.0",
 #   "scipy>=1.15.2",
 #   "cartopy",
 # ]
