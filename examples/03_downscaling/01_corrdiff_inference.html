@@ -50,10 +50,10 @@
 
 
 
-    <script src="../../_static/documentation_options.js?v=7ca84bf6"></script>
+    <script src="../../_static/documentation_options.js?v=81d874b0"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script src="../../_static/badge-data.js?v=826a09cc"></script>
+    <script src="../../_static/badge-data.js?v=3e18b04b"></script>
     <script src="../../_static/badge-filter.js?v=bda7ac9e"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
@@ -80,7 +80,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.14" />
+  <meta name="docsearch:version" content="0.15" />
 
 
   </head>
@@ -385,8 +385,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../userguide/components/datasources.html">Data and Forecast Sources</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../userguide/components/perturbation.html">Perturbations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../userguide/components/io.html">Output Handling</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/statistics.html">Statistics</a></li>
-
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/statistics.html">Statistics and Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -430,6 +429,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FCN3.html">FCN3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FengWu.html">FengWu</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FuXi.html">FuXi</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GenCastMini.html">GenCastMini</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastOperational.html">GraphCastOperational</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastSmall.html">GraphCastSmall</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.InterpModAFNO.html">InterpModAFNO</a></li>
@@ -456,6 +456,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedTCWV.html">DerivedTCWV</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedVPD.html">DerivedVPD</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedWS.html">DerivedWS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.OrbitGlobalPrecip.html">OrbitGlobalPrecip</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html">PrecipitationAFNO</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html">PrecipitationAFNOv2</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO1H.html">SolarRadiationAFNO1H</a></li>
@@ -479,11 +480,14 @@
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CMIP6MultiRealm.html">CMIP6MultiRealm</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS.html">GFS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GOES.html">GOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HimawariAHI.html">HimawariAHI</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HRRR.html">HRRR</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS.html">IFS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_ENS.html">IFS_ENS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS.html">JPSS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MRMS.html">MRMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MeteosatFCI.html">MeteosatFCI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NClimGridDaily.html">NClimGridDaily</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NCAR_ERA5.html">NCAR_ERA5</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerECMWFOpenDataIFS.html">PlanetaryComputerECMWFOpenDataIFS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerGOES.html">PlanetaryComputerGOES</a></li>
@@ -503,6 +507,7 @@
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_forecast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Forecast Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_FX.html">AIFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CAMS_FX.html">CAMS_FX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_ENS_FX.html">AIFS_ENS_FX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS_FX.html">GFS_FX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GEFS_FX.html">GEFS_FX</a></li>
@@ -513,7 +518,17 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_dataframe.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GHCNDaily.html">GHCNDaily</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GOESGLM.html">GOESGLM</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.ISD.html">ISD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS_ATMS.html">JPSS_ATMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS_CRIS.html">JPSS_CRIS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpAMSUA.html">MetOpAMSUA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpAVHRR.html">MetOpAVHRR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpIASI.html">MetOpIASI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpMHS.html">MetOpMHS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NNJAObsConv.html">NNJAObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NomadsGDASObsConv.html">NomadsGDASObsConv</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.RandomDataFrame.html">RandomDataFrame</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsConv.html">UFSObsConv</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsSat.html">UFSObsSat</a></li>
@@ -623,6 +638,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../07_misc/02_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../07_misc/03_io_performance.html">IO Backend Performance</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../07_misc/04_local_datasource.html">Creating a Local Data Source</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/05_cbottle_tc_guidance.html">CBottle Tropical Cyclone Guidance</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../08_extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -844,6 +860,91 @@ Earth-2 studio</p>
 <span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
 </pre></div>
 </div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading corrdiff_inference_package.zip: 0%|          | 0.00/684M [00:00&lt;?, ?B/s]
+Downloading corrdiff_inference_package.zip: 0%|          | 1.32M/684M [00:00&lt;00:52, 13.8MB/s]
+Downloading corrdiff_inference_package.zip: 1%|          | 5.10M/684M [00:00&lt;00:24, 29.0MB/s]
+Downloading corrdiff_inference_package.zip: 2%|▏         | 13.7M/684M [00:00&lt;00:12, 56.8MB/s]
+Downloading corrdiff_inference_package.zip: 3%|▎         | 21.3M/684M [00:00&lt;00:10, 64.8MB/s]
+Downloading corrdiff_inference_package.zip: 4%|▍         | 27.5M/684M [00:00&lt;00:12, 55.4MB/s]
+Downloading corrdiff_inference_package.zip: 5%|▌         | 34.7M/684M [00:00&lt;00:11, 61.5MB/s]
+Downloading corrdiff_inference_package.zip: 6%|▌         | 41.6M/684M [00:00&lt;00:10, 64.8MB/s]
+Downloading corrdiff_inference_package.zip: 7%|▋         | 48.6M/684M [00:00&lt;00:09, 67.4MB/s]
+Downloading corrdiff_inference_package.zip: 8%|▊         | 56.0M/684M [00:00&lt;00:09, 70.4MB/s]
+Downloading corrdiff_inference_package.zip: 9%|▉         | 63.5M/684M [00:01&lt;00:08, 72.7MB/s]
+Downloading corrdiff_inference_package.zip: 10%|█         | 70.7M/684M [00:01&lt;00:08, 73.5MB/s]
+Downloading corrdiff_inference_package.zip: 11%|█▏        | 78.3M/684M [00:01&lt;00:08, 75.3MB/s]
+Downloading corrdiff_inference_package.zip: 13%|█▎        | 85.8M/684M [00:01&lt;00:08, 76.2MB/s]
+Downloading corrdiff_inference_package.zip: 14%|█▎        | 93.1M/684M [00:01&lt;00:08, 74.2MB/s]
+Downloading corrdiff_inference_package.zip: 15%|█▍        | 102M/684M [00:01&lt;00:07, 80.2MB/s]
+Downloading corrdiff_inference_package.zip: 16%|█▌        | 110M/684M [00:01&lt;00:07, 80.0MB/s]
+Downloading corrdiff_inference_package.zip: 17%|█▋        | 118M/684M [00:01&lt;00:07, 81.1MB/s]
+Downloading corrdiff_inference_package.zip: 18%|█▊        | 126M/684M [00:01&lt;00:07, 82.0MB/s]
+Downloading corrdiff_inference_package.zip: 20%|█▉        | 134M/684M [00:01&lt;00:07, 82.2MB/s]
+Downloading corrdiff_inference_package.zip: 21%|██        | 142M/684M [00:02&lt;00:07, 74.6MB/s]
+Downloading corrdiff_inference_package.zip: 22%|██▏       | 154M/684M [00:02&lt;00:06, 87.0MB/s]
+Downloading corrdiff_inference_package.zip: 24%|██▎       | 162M/684M [00:02&lt;00:08, 68.1MB/s]
+Downloading corrdiff_inference_package.zip: 25%|██▍       | 171M/684M [00:02&lt;00:07, 72.2MB/s]
+Downloading corrdiff_inference_package.zip: 26%|██▋       | 180M/684M [00:02&lt;00:06, 77.8MB/s]
+Downloading corrdiff_inference_package.zip: 27%|██▋       | 188M/684M [00:02&lt;00:06, 78.9MB/s]
+Downloading corrdiff_inference_package.zip: 29%|██▊       | 196M/684M [00:02&lt;00:09, 56.6MB/s]
+Downloading corrdiff_inference_package.zip: 30%|██▉       | 204M/684M [00:03&lt;00:08, 62.4MB/s]
+Downloading corrdiff_inference_package.zip: 31%|███       | 213M/684M [00:03&lt;00:07, 68.9MB/s]
+Downloading corrdiff_inference_package.zip: 32%|███▏      | 222M/684M [00:03&lt;00:06, 74.9MB/s]
+Downloading corrdiff_inference_package.zip: 34%|███▍      | 231M/684M [00:03&lt;00:05, 79.9MB/s]
+Downloading corrdiff_inference_package.zip: 35%|███▍      | 239M/684M [00:03&lt;00:05, 82.0MB/s]
+Downloading corrdiff_inference_package.zip: 36%|███▋      | 248M/684M [00:03&lt;00:05, 85.8MB/s]
+Downloading corrdiff_inference_package.zip: 38%|███▊      | 257M/684M [00:03&lt;00:05, 81.6MB/s]
+Downloading corrdiff_inference_package.zip: 39%|███▉      | 268M/684M [00:03&lt;00:04, 90.3MB/s]
+Downloading corrdiff_inference_package.zip: 40%|████      | 277M/684M [00:03&lt;00:04, 90.4MB/s]
+Downloading corrdiff_inference_package.zip: 42%|████▏     | 286M/684M [00:04&lt;00:04, 91.1MB/s]
+Downloading corrdiff_inference_package.zip: 43%|████▎     | 295M/684M [00:04&lt;00:04, 90.8MB/s]
+Downloading corrdiff_inference_package.zip: 44%|████▍     | 304M/684M [00:04&lt;00:04, 92.3MB/s]
+Downloading corrdiff_inference_package.zip: 46%|████▌     | 313M/684M [00:04&lt;00:04, 94.8MB/s]
+Downloading corrdiff_inference_package.zip: 47%|████▋     | 322M/684M [00:04&lt;00:04, 93.6MB/s]
+Downloading corrdiff_inference_package.zip: 48%|████▊     | 332M/684M [00:04&lt;00:04, 83.2MB/s]
+Downloading corrdiff_inference_package.zip: 50%|████▉     | 341M/684M [00:04&lt;00:04, 85.8MB/s]
+Downloading corrdiff_inference_package.zip: 51%|█████     | 350M/684M [00:04&lt;00:03, 90.0MB/s]
+Downloading corrdiff_inference_package.zip: 53%|█████▎    | 359M/684M [00:04&lt;00:04, 72.7MB/s]
+Downloading corrdiff_inference_package.zip: 54%|█████▍    | 369M/684M [00:05&lt;00:04, 79.4MB/s]
+Downloading corrdiff_inference_package.zip: 55%|█████▌    | 378M/684M [00:05&lt;00:03, 82.7MB/s]
+Downloading corrdiff_inference_package.zip: 57%|█████▋    | 387M/684M [00:05&lt;00:03, 87.3MB/s]
+Downloading corrdiff_inference_package.zip: 58%|█████▊    | 396M/684M [00:05&lt;00:03, 89.2MB/s]
+Downloading corrdiff_inference_package.zip: 59%|█████▉    | 406M/684M [00:05&lt;00:03, 92.1MB/s]
+Downloading corrdiff_inference_package.zip: 61%|██████    | 415M/684M [00:05&lt;00:03, 93.3MB/s]
+Downloading corrdiff_inference_package.zip: 62%|██████▏   | 424M/684M [00:05&lt;00:02, 94.6MB/s]
+Downloading corrdiff_inference_package.zip: 63%|██████▎   | 433M/684M [00:05&lt;00:02, 95.2MB/s]
+Downloading corrdiff_inference_package.zip: 65%|██████▍   | 443M/684M [00:05&lt;00:02, 95.4MB/s]
+Downloading corrdiff_inference_package.zip: 66%|██████▌   | 452M/684M [00:05&lt;00:02, 97.2MB/s]
+Downloading corrdiff_inference_package.zip: 68%|██████▊   | 462M/684M [00:06&lt;00:02, 96.3MB/s]
+Downloading corrdiff_inference_package.zip: 69%|██████▉   | 471M/684M [00:06&lt;00:02, 97.5MB/s]
+Downloading corrdiff_inference_package.zip: 70%|███████   | 481M/684M [00:06&lt;00:02, 81.7MB/s]
+Downloading corrdiff_inference_package.zip: 72%|███████▏  | 491M/684M [00:06&lt;00:02, 86.3MB/s]
+Downloading corrdiff_inference_package.zip: 73%|███████▎  | 500M/684M [00:06&lt;00:02, 90.8MB/s]
+Downloading corrdiff_inference_package.zip: 74%|███████▍  | 509M/684M [00:06&lt;00:03, 57.8MB/s]
+Downloading corrdiff_inference_package.zip: 76%|███████▌  | 519M/684M [00:06&lt;00:02, 66.4MB/s]
+Downloading corrdiff_inference_package.zip: 77%|███████▋  | 529M/684M [00:07&lt;00:02, 73.0MB/s]
+Downloading corrdiff_inference_package.zip: 78%|███████▊  | 537M/684M [00:07&lt;00:02, 72.1MB/s]
+Downloading corrdiff_inference_package.zip: 80%|███████▉  | 546M/684M [00:07&lt;00:01, 78.3MB/s]
+Downloading corrdiff_inference_package.zip: 81%|████████▏ | 557M/684M [00:07&lt;00:01, 85.3MB/s]
+Downloading corrdiff_inference_package.zip: 83%|████████▎ | 566M/684M [00:07&lt;00:01, 65.0MB/s]
+Downloading corrdiff_inference_package.zip: 84%|████████▍ | 575M/684M [00:07&lt;00:01, 72.3MB/s]
+Downloading corrdiff_inference_package.zip: 86%|████████▌ | 585M/684M [00:07&lt;00:01, 60.0MB/s]
+Downloading corrdiff_inference_package.zip: 87%|████████▋ | 595M/684M [00:08&lt;00:01, 68.7MB/s]
+Downloading corrdiff_inference_package.zip: 88%|████████▊ | 602M/684M [00:08&lt;00:01, 68.6MB/s]
+Downloading corrdiff_inference_package.zip: 89%|████████▉ | 610M/684M [00:08&lt;00:01, 69.2MB/s]
+Downloading corrdiff_inference_package.zip: 90%|█████████ | 617M/684M [00:08&lt;00:00, 71.0MB/s]
+Downloading corrdiff_inference_package.zip: 91%|█████████ | 624M/684M [00:08&lt;00:00, 70.7MB/s]
+Downloading corrdiff_inference_package.zip: 92%|█████████▏| 631M/684M [00:08&lt;00:00, 70.3MB/s]
+Downloading corrdiff_inference_package.zip: 93%|█████████▎| 639M/684M [00:08&lt;00:00, 72.2MB/s]
+Downloading corrdiff_inference_package.zip: 94%|█████████▍| 646M/684M [00:08&lt;00:00, 71.9MB/s]
+Downloading corrdiff_inference_package.zip: 95%|█████████▌| 653M/684M [00:08&lt;00:00, 72.8MB/s]
+Downloading corrdiff_inference_package.zip: 96%|█████████▋| 660M/684M [00:09&lt;00:00, 71.6MB/s]
+Downloading corrdiff_inference_package.zip: 97%|█████████▋| 667M/684M [00:09&lt;00:00, 53.0MB/s]
+Downloading corrdiff_inference_package.zip: 98%|█████████▊| 673M/684M [00:09&lt;00:00, 56.9MB/s]
+Downloading corrdiff_inference_package.zip: 100%|█████████▉| 681M/684M [00:09&lt;00:00, 62.4MB/s]
+Downloading corrdiff_inference_package.zip: 100%|██████████| 684M/684M [00:09&lt;00:00, 75.7MB/s]
+</pre></div>
+</div>
 </section>
 <section id="execute-the-workflow">
 <h2>Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Link to this heading">#</a></h2>
@@ -856,63 +957,66 @@ Typhoon Koinu.</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="p">([</span><span class="s2">&quot;2023-10-04T18:00:00&quot;</span><span class="p">],</span> <span class="n">corrdiff</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">number_of_samples</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-03-24 22:13:49.033 | INFO     | __main__:run:114 - Running corrdiff inference!
-2026-03-24 22:13:49.033 | INFO     | __main__:run:116 - Inference device: cuda
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-05-18 02:19:57.694 | INFO     | __main__:run:114 - Running corrdiff inference!
+2026-05-18 02:19:57.694 | INFO     | __main__:run:116 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:13:49.164 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 264233423-556738
+2026-05-18 02:19:58.130 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 337873698-579539
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:13:49.177 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 258060355-819591
+2026-05-18 02:19:58.133 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 264233423-556738
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:13:49.190 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 258879946-735487
+2026-05-18 02:19:58.134 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 337303053-570645
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:13:49.202 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 407465443-514270
+2026-05-18 02:19:58.136 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 411076281-975703
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:13:49.214 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 330494443-911634
+2026-05-18 02:19:58.137 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 258060355-819591
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:13:49.227 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 264790161-556189
+2026-05-18 02:19:58.139 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 330494443-911634
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:13:49.239 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 411076281-975703
+2026-05-18 02:19:58.141 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 258879946-735487
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:13:49.251 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 412051984-953804
+2026-05-18 02:19:58.143 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 331406077-849817
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:13:49.264 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 418951103-1205697
+2026-05-18 02:19:58.144 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 418951103-1205697
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:13:49.277 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 337303053-570645
+2026-05-18 02:19:58.146 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 412051984-953804
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:13:49.289 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 337873698-579539
+2026-05-18 02:19:58.148 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 407465443-514270
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:13:49.301 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 331406077-849817
+2026-05-18 02:19:58.149 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 264790161-556189
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
-Fetching GFS data:   8%|▊         | 1/12 [00:00&lt;00:01,  6.70it/s]
-Fetching GFS data: 100%|██████████| 12/12 [00:00&lt;00:00, 80.24it/s]
-2026-03-24 22:13:49.321 | SUCCESS  | __main__:run:129 - Fetched data from GFS
-2026-03-24 22:13:49.333 | INFO     | __main__:run:143 - Inference starting!
-2026-03-24 22:13:51.126 | SUCCESS  | __main__:run:147 - Inference complete
+Fetching GFS data:   8%|▊         | 1/12 [00:00&lt;00:04,  2.20it/s]
+Fetching GFS data:  17%|█▋        | 2/12 [00:00&lt;00:02,  3.91it/s]
+Fetching GFS data:  33%|███▎      | 4/12 [00:00&lt;00:01,  7.73it/s]
+Fetching GFS data:  67%|██████▋   | 8/12 [00:00&lt;00:00, 12.68it/s]
+Fetching GFS data: 100%|██████████| 12/12 [00:00&lt;00:00, 12.45it/s]
+2026-05-18 02:19:59.107 | SUCCESS  | __main__:run:129 - Fetched data from GFS
+2026-05-18 02:19:59.119 | INFO     | __main__:run:143 - Inference starting!
+2026-05-18 02:20:00.482 | SUCCESS  | __main__:run:147 - Inference complete
 </pre></div>
 </div>
 </section>
@@ -972,7 +1076,7 @@ fields on projections of a sphere.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/04_corr_diff_prediction.jpg&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_01_corrdiff_inference_001.png" srcset="../../_images/sphx_glr_01_corrdiff_inference_001.png" alt="Radar Reflectivity, 2-meter Temperature, 10-meter Wind Speed" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 11.032 seconds)</p>
+<img src="../../_images/sphx_glr_01_corrdiff_inference_001.png" srcset="../../_images/sphx_glr_01_corrdiff_inference_001.png" alt="Radar Reflectivity, 2-meter Temperature, 10-meter Wind Speed" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 20.693 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-03-downscaling-01-corrdiff-inference-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/63b690742a5ec33b16ce53675a470f65/01_corrdiff_inference.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">01_corrdiff_inference.ipynb</span></code></a></p>

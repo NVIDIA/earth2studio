@@ -45,6 +45,12 @@ In this example you will learn:
     # ///
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 42-55
 
 Set Up
@@ -85,6 +91,12 @@ rolled out.
         StormScopeGOES,
         StormScopeMRMS,
     )
+
+
+
+
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 79-90
@@ -131,6 +143,92 @@ Model options:
     model_mrms.eval()
 
 
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    Downloading config.json: 0%|          | 0.00/38.0 [00:00<?, ?B/s]    Downloading config.json: 100%|██████████| 38.0/38.0 [00:00<00:00, 96.3B/s]    Downloading config.json: 100%|██████████| 38.0/38.0 [00:00<00:00, 96.1B/s]
+    Downloading registry.json: 0%|          | 0.00/3.97k [00:00<?, ?B/s]    Downloading registry.json: 100%|██████████| 3.97k/3.97k [00:00<00:00, 16.5kB/s]    Downloading registry.json: 100%|██████████| 3.97k/3.97k [00:00<00:00, 16.4kB/s]
+    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 0%|          | 0.00/742M [00:00<?, ?B/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 1%|▏         | 10.0M/742M [00:00<00:11, 64.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 7%|▋         | 50.0M/742M [00:00<00:03, 222MB/s]     Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 12%|█▏        | 90.0M/742M [00:00<00:02, 286MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 18%|█▊        | 130M/742M [00:00<00:01, 322MB/s]     Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 23%|██▎       | 170M/742M [00:00<00:01, 338MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 30%|██▉       | 220M/742M [00:00<00:01, 377MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 36%|███▋      | 270M/742M [00:00<00:01, 403MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 42%|████▏     | 310M/742M [00:00<00:01, 392MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 49%|████▊     | 360M/742M [00:01<00:00, 405MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 55%|█████▌    | 410M/742M [00:01<00:00, 412MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 61%|██████    | 450M/742M [00:01<00:00, 399MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 66%|██████▌   | 490M/742M [00:01<00:00, 371MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 73%|███████▎  | 540M/742M [00:01<00:00, 393MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 80%|███████▉  | 590M/742M [00:01<00:00, 335MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 86%|████████▋ | 640M/742M [00:01<00:00, 352MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 92%|█████████▏| 680M/742M [00:02<00:00, 315MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 97%|█████████▋| 720M/742M [00:02<00:00, 321MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 100%|██████████| 742M/742M [00:02<00:00, 344MB/s]
+    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 0%|          | 0.00/742M [00:00<?, ?B/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 1%|▏         | 10.0M/742M [00:00<00:13, 54.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 7%|▋         | 50.0M/742M [00:00<00:03, 200MB/s]     Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 12%|█▏        | 90.0M/742M [00:00<00:02, 265MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 18%|█▊        | 130M/742M [00:00<00:02, 309MB/s]     Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 23%|██▎       | 170M/742M [00:00<00:01, 335MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 28%|██▊       | 210M/742M [00:00<00:01, 352MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 34%|███▎      | 250M/742M [00:00<00:01, 363MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 39%|███▉      | 290M/742M [00:00<00:01, 369MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 44%|████▍     | 330M/742M [00:01<00:01, 365MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 50%|████▉     | 370M/742M [00:01<00:01, 365MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 55%|█████▌    | 410M/742M [00:01<00:00, 372MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 61%|██████    | 450M/742M [00:01<00:00, 377MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 66%|██████▌   | 490M/742M [00:01<00:00, 384MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 71%|███████▏  | 530M/742M [00:01<00:00, 385MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 77%|███████▋  | 570M/742M [00:01<00:00, 386MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 82%|████████▏ | 610M/742M [00:01<00:00, 383MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 88%|████████▊ | 650M/742M [00:01<00:00, 370MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 93%|█████████▎| 690M/742M [00:02<00:00, 364MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 98%|█████████▊| 730M/742M [00:02<00:00, 358MB/s]    Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 100%|██████████| 742M/742M [00:02<00:00, 347MB/s]
+    Downloading lat.npy: 0%|          | 0.00/7.27M [00:00<?, ?B/s]    Downloading lat.npy: 100%|██████████| 7.27M/7.27M [00:00<00:00, 58.3MB/s]    Downloading lat.npy: 100%|██████████| 7.27M/7.27M [00:00<00:00, 57.2MB/s]
+    Downloading lon.npy: 0%|          | 0.00/7.27M [00:00<?, ?B/s]    Downloading lon.npy: 100%|██████████| 7.27M/7.27M [00:00<00:00, 54.5MB/s]    Downloading lon.npy: 100%|██████████| 7.27M/7.27M [00:00<00:00, 53.2MB/s]
+    Downloading goes_means.npy: 0%|          | 0.00/160 [00:00<?, ?B/s]    Downloading goes_means.npy: 100%|██████████| 160/160 [00:00<00:00, 1.43kB/s]    Downloading goes_means.npy: 100%|██████████| 160/160 [00:00<00:00, 1.42kB/s]
+    Downloading goes_stds.npy: 0%|          | 0.00/192 [00:00<?, ?B/s]    Downloading goes_stds.npy: 100%|██████████| 192/192 [00:00<00:00, 1.08kB/s]    Downloading goes_stds.npy: 100%|██████████| 192/192 [00:00<00:00, 1.07kB/s]
+    Downloading era5_means.npy: 0%|          | 0.00/132 [00:00<?, ?B/s]    Downloading era5_means.npy: 100%|██████████| 132/132 [00:00<00:00, 592B/s]    Downloading era5_means.npy: 100%|██████████| 132/132 [00:00<00:00, 589B/s]
+    Downloading era5_stds.npy: 0%|          | 0.00/132 [00:00<?, ?B/s]    Downloading era5_stds.npy: 100%|██████████| 132/132 [00:00<00:00, 1.30kB/s]    Downloading era5_stds.npy: 100%|██████████| 132/132 [00:00<00:00, 1.29kB/s]
+    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 0%|          | 0.00/741M [00:00<?, ?B/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 1%|▏         | 10.0M/741M [00:00<00:24, 31.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 3%|▎         | 20.0M/741M [00:00<00:15, 50.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 4%|▍         | 30.0M/741M [00:00<00:11, 62.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 5%|▌         | 40.0M/741M [00:00<00:10, 71.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 7%|▋         | 50.0M/741M [00:00<00:09, 76.6MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 8%|▊         | 60.0M/741M [00:00<00:08, 80.2MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 9%|▉         | 70.0M/741M [00:01<00:08, 82.9MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 11%|█         | 80.0M/741M [00:01<00:14, 48.7MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 12%|█▏        | 90.0M/741M [00:01<00:12, 56.5MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 13%|█▎        | 100M/741M [00:01<00:10, 64.2MB/s]     Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 15%|█▍        | 110M/741M [00:01<00:09, 70.2MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 16%|█▌        | 120M/741M [00:01<00:08, 75.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 18%|█▊        | 130M/741M [00:02<00:08, 78.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 19%|█▉        | 140M/741M [00:02<00:08, 78.6MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 20%|██        | 150M/741M [00:02<00:07, 84.9MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 22%|██▏       | 160M/741M [00:02<00:07, 85.5MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 23%|██▎       | 170M/741M [00:02<00:06, 87.1MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 24%|██▍       | 180M/741M [00:02<00:06, 87.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 26%|██▌       | 190M/741M [00:02<00:06, 87.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 27%|██▋       | 200M/741M [00:02<00:06, 88.5MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 28%|██▊       | 210M/741M [00:02<00:06, 85.7MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 30%|██▉       | 220M/741M [00:03<00:06, 89.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 31%|███       | 230M/741M [00:03<00:06, 77.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 34%|███▎      | 250M/741M [00:03<00:05, 89.2MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 35%|███▌      | 260M/741M [00:03<00:07, 69.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 38%|███▊      | 280M/741M [00:03<00:05, 95.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 40%|████      | 300M/741M [00:04<00:04, 94.7MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 43%|████▎     | 320M/741M [00:04<00:04, 92.6MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 45%|████▍     | 330M/741M [00:04<00:04, 92.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 46%|████▌     | 340M/741M [00:04<00:04, 91.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 47%|████▋     | 350M/741M [00:04<00:04, 91.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 49%|████▊     | 360M/741M [00:04<00:04, 90.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 50%|████▉     | 370M/741M [00:04<00:04, 90.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 51%|█████▏    | 380M/741M [00:04<00:04, 90.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 53%|█████▎    | 390M/741M [00:05<00:04, 87.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 54%|█████▍    | 400M/741M [00:05<00:03, 90.2MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 55%|█████▌    | 410M/741M [00:05<00:03, 90.1MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 57%|█████▋    | 420M/741M [00:05<00:03, 89.5MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 58%|█████▊    | 430M/741M [00:05<00:03, 83.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 61%|██████    | 450M/741M [00:05<00:03, 90.9MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 62%|██████▏   | 460M/741M [00:05<00:03, 90.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 63%|██████▎   | 470M/741M [00:06<00:03, 89.9MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 65%|██████▍   | 480M/741M [00:06<00:03, 89.9MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 66%|██████▌   | 490M/741M [00:06<00:02, 89.7MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 67%|██████▋   | 500M/741M [00:06<00:02, 89.6MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 69%|██████▉   | 510M/741M [00:06<00:02, 89.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 70%|███████   | 520M/741M [00:06<00:02, 89.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 72%|███████▏  | 530M/741M [00:06<00:02, 89.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 73%|███████▎  | 540M/741M [00:06<00:02, 89.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 74%|███████▍  | 550M/741M [00:06<00:02, 89.2MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 76%|███████▌  | 560M/741M [00:07<00:02, 89.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 77%|███████▋  | 570M/741M [00:07<00:02, 89.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 78%|███████▊  | 580M/741M [00:07<00:01, 89.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 80%|███████▉  | 590M/741M [00:07<00:01, 89.5MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 81%|████████  | 600M/741M [00:07<00:01, 89.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 82%|████████▏ | 610M/741M [00:07<00:01, 89.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 84%|████████▎ | 620M/741M [00:07<00:01, 89.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 85%|████████▌ | 630M/741M [00:07<00:01, 89.1MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 86%|████████▋ | 640M/741M [00:08<00:01, 89.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 88%|████████▊ | 650M/741M [00:08<00:01, 89.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 89%|████████▉ | 660M/741M [00:08<00:00, 89.2MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 90%|█████████ | 670M/741M [00:08<00:00, 89.2MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 92%|█████████▏| 680M/741M [00:08<00:00, 89.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 93%|█████████▎| 690M/741M [00:08<00:00, 89.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 94%|█████████▍| 700M/741M [00:08<00:00, 89.5MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 96%|█████████▌| 710M/741M [00:08<00:00, 89.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 97%|█████████▋| 720M/741M [00:08<00:00, 89.1MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 99%|█████████▊| 730M/741M [00:09<00:00, 89.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 100%|█████████▉| 740M/741M [00:09<00:00, 89.1MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 100%|██████████| 741M/741M [00:09<00:00, 84.2MB/s]
+    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 0%|          | 0.00/741M [00:00<?, ?B/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 1%|▏         | 10.0M/741M [00:00<00:53, 14.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 3%|▎         | 20.0M/741M [00:00<00:26, 28.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 4%|▍         | 30.0M/741M [00:00<00:18, 41.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 5%|▌         | 40.0M/741M [00:01<00:14, 52.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 7%|▋         | 50.0M/741M [00:01<00:11, 61.6MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 8%|▊         | 60.0M/741M [00:01<00:16, 43.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 9%|▉         | 70.0M/741M [00:02<00:21, 32.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 11%|█         | 80.0M/741M [00:02<00:17, 40.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 12%|█▏        | 90.0M/741M [00:02<00:14, 48.6MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 13%|█▎        | 100M/741M [00:02<00:11, 56.7MB/s]     Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 15%|█▍        | 110M/741M [00:02<00:10, 63.9MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 16%|█▌        | 120M/741M [00:02<00:12, 51.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 18%|█▊        | 130M/741M [00:03<00:15, 42.1MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 19%|█▉        | 140M/741M [00:03<00:12, 50.7MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 20%|██        | 150M/741M [00:03<00:10, 58.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 22%|██▏       | 160M/741M [00:03<00:12, 48.1MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 23%|██▎       | 170M/741M [00:03<00:10, 55.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 24%|██▍       | 180M/741M [00:03<00:09, 63.1MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 26%|██▌       | 190M/741M [00:04<00:11, 52.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 27%|██▋       | 200M/741M [00:04<00:12, 43.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 28%|██▊       | 210M/741M [00:04<00:10, 51.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 30%|██▉       | 220M/741M [00:04<00:09, 59.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 31%|███       | 230M/741M [00:04<00:08, 66.1MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 32%|███▏      | 240M/741M [00:05<00:07, 71.6MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 34%|███▎      | 250M/741M [00:05<00:06, 76.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 35%|███▌      | 260M/741M [00:05<00:07, 64.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 36%|███▋      | 270M/741M [00:05<00:11, 44.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 38%|███▊      | 280M/741M [00:05<00:09, 52.7MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 39%|███▉      | 290M/741M [00:06<00:07, 60.1MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 40%|████      | 300M/741M [00:06<00:06, 66.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 42%|████▏     | 310M/741M [00:06<00:06, 72.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 43%|████▎     | 320M/741M [00:06<00:08, 50.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 45%|████▍     | 330M/741M [00:06<00:07, 58.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 46%|████▌     | 340M/741M [00:06<00:06, 60.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 47%|████▋     | 350M/741M [00:07<00:07, 54.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 49%|████▊     | 360M/741M [00:07<00:06, 61.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 50%|████▉     | 370M/741M [00:07<00:05, 67.7MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 51%|█████▏    | 380M/741M [00:07<00:06, 62.1MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 53%|█████▎    | 390M/741M [00:08<00:10, 33.7MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 54%|█████▍    | 400M/741M [00:08<00:09, 38.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 55%|█████▌    | 410M/741M [00:08<00:07, 46.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 57%|█████▋    | 420M/741M [00:08<00:09, 35.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 58%|█████▊    | 430M/741M [00:09<00:07, 43.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 59%|█████▉    | 440M/741M [00:09<00:06, 51.7MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 61%|██████    | 450M/741M [00:09<00:09, 31.1MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 62%|██████▏   | 460M/741M [00:09<00:07, 38.7MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 63%|██████▎   | 470M/741M [00:10<00:06, 46.7MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 65%|██████▍   | 480M/741M [00:10<00:07, 38.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 66%|██████▌   | 490M/741M [00:10<00:05, 46.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 67%|██████▋   | 500M/741M [00:10<00:04, 54.1MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 69%|██████▉   | 510M/741M [00:10<00:04, 54.5MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 70%|███████   | 520M/741M [00:11<00:06, 38.6MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 72%|███████▏  | 530M/741M [00:11<00:04, 46.5MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 73%|███████▎  | 540M/741M [00:11<00:04, 46.4MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 74%|███████▍  | 550M/741M [00:11<00:03, 54.5MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 76%|███████▌  | 560M/741M [00:11<00:03, 61.8MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 77%|███████▋  | 570M/741M [00:12<00:03, 53.5MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 78%|███████▊  | 580M/741M [00:12<00:04, 37.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 80%|███████▉  | 590M/741M [00:12<00:03, 44.9MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 81%|████████  | 600M/741M [00:12<00:02, 52.9MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 82%|████████▏ | 610M/741M [00:13<00:02, 48.6MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 84%|████████▎ | 620M/741M [00:13<00:02, 56.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 85%|████████▌ | 630M/741M [00:13<00:01, 62.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 86%|████████▋ | 640M/741M [00:13<00:02, 42.7MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 88%|████████▊ | 650M/741M [00:13<00:01, 50.6MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 89%|████████▉ | 660M/741M [00:14<00:01, 58.2MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 90%|█████████ | 670M/741M [00:14<00:01, 64.7MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 92%|█████████▏| 680M/741M [00:14<00:00, 67.9MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 93%|█████████▎| 690M/741M [00:14<00:00, 73.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 94%|█████████▍| 700M/741M [00:14<00:00, 54.5MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 96%|█████████▌| 710M/741M [00:15<00:00, 37.3MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 97%|█████████▋| 720M/741M [00:15<00:00, 45.2MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 99%|█████████▊| 730M/741M [00:15<00:00, 53.0MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 100%|█████████▉| 740M/741M [00:15<00:00, 51.9MB/s]    Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 100%|██████████| 741M/741M [00:15<00:00, 49.6MB/s]
+    Downloading mrms_means.npy: 0%|          | 0.00/132 [00:00<?, ?B/s]    Downloading mrms_means.npy: 100%|██████████| 132/132 [00:00<00:00, 682B/s]    Downloading mrms_means.npy: 100%|██████████| 132/132 [00:00<00:00, 679B/s]
+    Downloading mrms_stds.npy: 0%|          | 0.00/132 [00:00<?, ?B/s]    Downloading mrms_stds.npy: 100%|██████████| 132/132 [00:00<00:00, 582B/s]    Downloading mrms_stds.npy: 100%|██████████| 132/132 [00:00<00:00, 578B/s]
+
+    StormScopeMRMS(
+      (stage_models): ModuleList(
+        (0-1): 2 x EDMPrecond(
+          (model): DropInDiT(
+            (pnm): DiT(
+              (tokenizer): PatchEmbed2DTokenizer(
+                (x_embedder): PatchEmbed2D(
+                  (pad): ZeroPad2d((0, 0, 0, 0))
+                  (proj): Conv2d(14, 768, kernel_size=(4, 4), stride=(4, 4))
+                )
+              )
+              (conditioning_embedder): DiTConditionEmbedder(
+                (t_embedder): PositionalEmbedding(
+                  (mlp): Sequential(
+                    (0): Linear(in_features=256, out_features=768, bias=True)
+                    (1): SiLU()
+                    (2): Linear(in_features=768, out_features=768, bias=True)
+                  )
+                )
+              )
+              (detokenizer): ProjReshape2DDetokenizer(
+                (proj_layer): ProjLayer(
+                  (proj_layer_norm): LayerNorm((768,), eps=1e-06, elementwise_affine=False)
+                  (output_projection): Linear(in_features=768, out_features=16, bias=True)
+                  (adaptive_modulation): Sequential(
+                    (0): SiLU()
+                    (1): Linear(in_features=768, out_features=1536, bias=True)
+                  )
+                )
+              )
+              (blocks): ModuleList(
+                (0-15): 16 x DiTBlock(
+                  (attention): Natten2DSelfAttention(
+                    (qkv): Linear(in_features=768, out_features=2304, bias=True)
+                    (q_norm): Identity()
+                    (k_norm): Identity()
+                    (proj): Linear(in_features=768, out_features=768, bias=True)
+                    (attn_drop): Dropout(p=0.0, inplace=False)
+                    (proj_drop): Dropout(p=0.0, inplace=False)
+                  )
+                  (pre_attention_norm): LayerNorm((768,), eps=1e-06, elementwise_affine=False)
+                  (pre_mlp_norm): LayerNorm((768,), eps=1e-06, elementwise_affine=False)
+                  (linear): Mlp(
+                    (layers): Sequential(
+                      (0): Linear(in_features=768, out_features=3072, bias=True)
+                      (1): GELU(approximate='tanh')
+                      (2): Linear(in_features=3072, out_features=768, bias=True)
+                    )
+                  )
+                  (adaptive_modulation): Sequential(
+                    (0): SiLU()
+                    (1): Linear(in_features=768, out_features=4608, bias=True)
+                  )
+                  (drop_path): DropPath(drop_prob=0.000)
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 118-125
 
 Setup GOES Data Source and Interpolators
@@ -172,6 +270,20 @@ the regridding functionality.
     )
 
 
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2026-05-18 02:27:30.970 | WARNING  | earth2studio.models.px.stormscope:build_input_interpolator:294 - Some input gridpoints are invalid after interpolation. This may be expected if the input data source is not available at all gridpoints, but consider double-checking coordinates and/or the max_dist_km parameter. Invalid points will be filled with the model's _INPUT_INVALID_FILL_CONSTANT (0.0).
+    Fetching GOES data:   0%|          | 0/1 [00:00<?, ?it/s]                                                             2026-05-18 02:27:31.785 | DEBUG    | earth2studio.data.goes:fetch_array:354 - Fetching GOES file: noaa-goes16/ABI-L2-MCMIPC/2023/339/12/OR_ABI-L2-MCMIPC-M6_G16_s20233391201173_e20233391203557_c20233391204066.nc
+    Fetching GOES data:   0%|          | 0/1 [00:00<?, ?it/s]    Fetching GOES data: 100%|██████████| 1/1 [00:02<00:00,  2.73s/it]    Fetching GOES data: 100%|██████████| 1/1 [00:02<00:00,  2.73s/it]
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 154-158
 
 Setup MRMS Data Source and Interpolators
@@ -197,6 +309,21 @@ conditioned on GOES, so we also build the GOES conditioning interpolator.
     model_mrms.build_conditioning_interpolator(goes_lat, goes_lon)
 
 
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    Fetching MRMS data:   0%|          | 0/1 [00:00<?, ?it/s]                                                             2026-05-18 02:27:34.900 | INFO     | earth2studio.data.mrms:_fetch_task:297 - Fetching MRMS file: s3://noaa-mrms-pds/CONUS/MergedReflectivityQCComposite_00.50/20231205/MRMS_MergedReflectivityQCComposite_00.50_20231205-120039.grib2.gz
+    Fetching MRMS data:   0%|          | 0/1 [00:00<?, ?it/s]    Fetching MRMS data: 100%|██████████| 1/1 [00:05<00:00,  5.49s/it]    Fetching MRMS data: 100%|██████████| 1/1 [00:05<00:00,  5.49s/it]
+    2026-05-18 02:27:49.258 | WARNING  | earth2studio.models.px.stormscope:build_input_interpolator:294 - Some input gridpoints are invalid after interpolation. This may be expected if the input data source is not available at all gridpoints, but consider double-checking coordinates and/or the max_dist_km parameter. Invalid points will be filled with the model's _INPUT_INVALID_FILL_CONSTANT (-0.25285158).
+    2026-05-18 02:27:51.023 | WARNING  | earth2studio.models.px.stormscope:build_conditioning_interpolator:340 - Some conditioning gridpoints are invalid after interpolation. This may be expected if the conditioning data source is not available at all gridpoints, but consider double-checking coordinates and/or the max_dist_km parameter. Invalid points will be filled with the model's _INPUT_INVALID_FILL_CONSTANT (-0.25285158).
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 174-178
 
 Add Batch Dimension
@@ -220,6 +347,12 @@ this can be increased to produce multiple ensemble members.
 
     x = x.to(dtype=torch.float32)
     x_mrms = x_mrms.to(dtype=torch.float32)
+
+
+
+
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 194-201
@@ -260,6 +393,21 @@ GOES imagery) via `call_with_conditioning`.
         y_coords = y_pred_coords
         y_mrms = y_mrms_pred
         y_coords_mrms = y_coords_mrms_pred
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    Fetching GFS data:   0%|          | 0/1 [00:00<?, ?it/s]                                                            2026-05-18 02:27:51.408 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231205/12/atmos/gfs.t12z.pgrb2.0p25.f000 249984047-806119
+    Fetching GFS data:   0%|          | 0/1 [00:00<?, ?it/s]    Fetching GFS data: 100%|██████████| 1/1 [00:00<00:00,  1.06it/s]    Fetching GFS data: 100%|██████████| 1/1 [00:00<00:00,  1.06it/s]
+    Fetching GFS data:   0%|          | 0/1 [00:00<?, ?it/s]                                                            2026-05-18 02:30:30.353 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231205/12/atmos/gfs.t12z.pgrb2.0p25.f001 251001283-806171
+    Fetching GFS data:   0%|          | 0/1 [00:00<?, ?it/s]    Fetching GFS data: 100%|██████████| 1/1 [00:00<00:00,  1.90it/s]    Fetching GFS data: 100%|██████████| 1/1 [00:00<00:00,  1.90it/s]
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 229-233
@@ -350,6 +498,22 @@ grayscale with MRMS reflectivity (refc) overlaid.
 
     plt.tight_layout()
     plt.savefig("outputs/20_stormscope_goes_example.png", dpi=300)
+
+
+
+.. image-sg:: /examples/04_nowcasting/images/sphx_glr_03_stormscope_goes_example_001.png
+   :alt: Predicted GOES abi13c with MRMS overlay from 2023-12-05 12:00:00 UTC initialization (lead 2:00:00)
+   :srcset: /examples/04_nowcasting/images/sphx_glr_03_stormscope_goes_example_001.png
+   :class: sphx-glr-single-img
+
+
+
+
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (6 minutes 29.789 seconds)
 
 
 .. _sphx_glr_download_examples_04_nowcasting_03_stormscope_goes_example.py:

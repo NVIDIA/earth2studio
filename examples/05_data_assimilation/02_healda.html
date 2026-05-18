@@ -50,10 +50,10 @@
 
 
 
-    <script src="../../_static/documentation_options.js?v=7ca84bf6"></script>
+    <script src="../../_static/documentation_options.js?v=81d874b0"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script src="../../_static/badge-data.js?v=826a09cc"></script>
+    <script src="../../_static/badge-data.js?v=3e18b04b"></script>
     <script src="../../_static/badge-filter.js?v=bda7ac9e"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
@@ -80,7 +80,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.14" />
+  <meta name="docsearch:version" content="0.15" />
 
 
   </head>
@@ -385,8 +385,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../userguide/components/datasources.html">Data and Forecast Sources</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../userguide/components/perturbation.html">Perturbations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../userguide/components/io.html">Output Handling</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/statistics.html">Statistics</a></li>
-
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/statistics.html">Statistics and Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -430,6 +429,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FCN3.html">FCN3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FengWu.html">FengWu</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FuXi.html">FuXi</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GenCastMini.html">GenCastMini</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastOperational.html">GraphCastOperational</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastSmall.html">GraphCastSmall</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.InterpModAFNO.html">InterpModAFNO</a></li>
@@ -456,6 +456,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedTCWV.html">DerivedTCWV</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedVPD.html">DerivedVPD</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedWS.html">DerivedWS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.OrbitGlobalPrecip.html">OrbitGlobalPrecip</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html">PrecipitationAFNO</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html">PrecipitationAFNOv2</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO1H.html">SolarRadiationAFNO1H</a></li>
@@ -479,11 +480,14 @@
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CMIP6MultiRealm.html">CMIP6MultiRealm</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS.html">GFS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GOES.html">GOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HimawariAHI.html">HimawariAHI</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HRRR.html">HRRR</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS.html">IFS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_ENS.html">IFS_ENS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS.html">JPSS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MRMS.html">MRMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MeteosatFCI.html">MeteosatFCI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NClimGridDaily.html">NClimGridDaily</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NCAR_ERA5.html">NCAR_ERA5</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerECMWFOpenDataIFS.html">PlanetaryComputerECMWFOpenDataIFS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerGOES.html">PlanetaryComputerGOES</a></li>
@@ -503,6 +507,7 @@
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_forecast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Forecast Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_FX.html">AIFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CAMS_FX.html">CAMS_FX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_ENS_FX.html">AIFS_ENS_FX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS_FX.html">GFS_FX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GEFS_FX.html">GEFS_FX</a></li>
@@ -513,7 +518,17 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_dataframe.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GHCNDaily.html">GHCNDaily</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GOESGLM.html">GOESGLM</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.ISD.html">ISD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS_ATMS.html">JPSS_ATMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS_CRIS.html">JPSS_CRIS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpAMSUA.html">MetOpAMSUA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpAVHRR.html">MetOpAVHRR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpIASI.html">MetOpIASI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpMHS.html">MetOpMHS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NNJAObsConv.html">NNJAObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NomadsGDASObsConv.html">NomadsGDASObsConv</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.RandomDataFrame.html">RandomDataFrame</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsConv.html">UFSObsConv</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsSat.html">UFSObsSat</a></li>
@@ -623,6 +638,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../07_misc/02_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../07_misc/03_io_performance.html">IO Backend Performance</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../07_misc/04_local_datasource.html">Creating a Local Data Source</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/05_cbottle_tc_guidance.html">CBottle Tropical Cyclone Guidance</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../08_extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -759,6 +775,157 @@ grid.</p>
 <span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading config.json: 0%|          | 0.00/25.0 [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 25.0/25.0 [00:00&lt;00:00, 103B/s]
+Downloading config.json: 100%|██████████| 25.0/25.0 [00:00&lt;00:00, 102B/s]
+
+Downloading healda_ufs_era5.mdlus: 0%|          | 0.00/1.22G [00:00&lt;?, ?B/s]
+Downloading healda_ufs_era5.mdlus: 1%|          | 10.0M/1.22G [00:00&lt;00:55, 23.5MB/s]
+Downloading healda_ufs_era5.mdlus: 2%|▏         | 20.0M/1.22G [00:00&lt;00:31, 40.8MB/s]
+Downloading healda_ufs_era5.mdlus: 2%|▏         | 30.0M/1.22G [00:00&lt;00:23, 53.4MB/s]
+Downloading healda_ufs_era5.mdlus: 3%|▎         | 40.0M/1.22G [00:00&lt;00:20, 62.7MB/s]
+Downloading healda_ufs_era5.mdlus: 4%|▍         | 50.0M/1.22G [00:00&lt;00:18, 69.4MB/s]
+Downloading healda_ufs_era5.mdlus: 5%|▍         | 60.0M/1.22G [00:01&lt;00:16, 74.0MB/s]
+Downloading healda_ufs_era5.mdlus: 6%|▌         | 70.0M/1.22G [00:01&lt;00:15, 77.2MB/s]
+Downloading healda_ufs_era5.mdlus: 6%|▋         | 80.0M/1.22G [00:01&lt;00:15, 79.9MB/s]
+Downloading healda_ufs_era5.mdlus: 7%|▋         | 90.0M/1.22G [00:01&lt;00:14, 81.2MB/s]
+Downloading healda_ufs_era5.mdlus: 8%|▊         | 100M/1.22G [00:01&lt;00:14, 82.1MB/s]
+Downloading healda_ufs_era5.mdlus: 9%|▉         | 110M/1.22G [00:01&lt;00:14, 83.4MB/s]
+Downloading healda_ufs_era5.mdlus: 10%|▉         | 120M/1.22G [00:01&lt;00:14, 83.8MB/s]
+Downloading healda_ufs_era5.mdlus: 10%|█         | 130M/1.22G [00:01&lt;00:13, 84.2MB/s]
+Downloading healda_ufs_era5.mdlus: 11%|█         | 140M/1.22G [00:02&lt;00:13, 84.2MB/s]
+Downloading healda_ufs_era5.mdlus: 12%|█▏        | 150M/1.22G [00:02&lt;00:13, 84.4MB/s]
+Downloading healda_ufs_era5.mdlus: 13%|█▎        | 160M/1.22G [00:02&lt;00:13, 85.0MB/s]
+Downloading healda_ufs_era5.mdlus: 14%|█▎        | 170M/1.22G [00:02&lt;00:13, 85.1MB/s]
+Downloading healda_ufs_era5.mdlus: 14%|█▍        | 180M/1.22G [00:02&lt;00:13, 84.9MB/s]
+Downloading healda_ufs_era5.mdlus: 15%|█▌        | 190M/1.22G [00:02&lt;00:13, 85.3MB/s]
+Downloading healda_ufs_era5.mdlus: 16%|█▌        | 200M/1.22G [00:02&lt;00:12, 85.1MB/s]
+Downloading healda_ufs_era5.mdlus: 17%|█▋        | 210M/1.22G [00:02&lt;00:12, 85.2MB/s]
+Downloading healda_ufs_era5.mdlus: 18%|█▊        | 220M/1.22G [00:03&lt;00:12, 85.3MB/s]
+Downloading healda_ufs_era5.mdlus: 18%|█▊        | 230M/1.22G [00:03&lt;00:12, 85.4MB/s]
+Downloading healda_ufs_era5.mdlus: 19%|█▉        | 240M/1.22G [00:03&lt;00:12, 85.2MB/s]
+Downloading healda_ufs_era5.mdlus: 20%|██        | 250M/1.22G [00:03&lt;00:12, 84.8MB/s]
+Downloading healda_ufs_era5.mdlus: 21%|██        | 260M/1.22G [00:03&lt;00:12, 84.9MB/s]
+Downloading healda_ufs_era5.mdlus: 22%|██▏       | 270M/1.22G [00:03&lt;00:12, 85.2MB/s]
+Downloading healda_ufs_era5.mdlus: 22%|██▏       | 280M/1.22G [00:03&lt;00:12, 82.3MB/s]
+Downloading healda_ufs_era5.mdlus: 23%|██▎       | 290M/1.22G [00:03&lt;00:11, 86.0MB/s]
+Downloading healda_ufs_era5.mdlus: 24%|██▍       | 300M/1.22G [00:04&lt;00:11, 85.9MB/s]
+Downloading healda_ufs_era5.mdlus: 25%|██▍       | 310M/1.22G [00:04&lt;00:11, 85.6MB/s]
+Downloading healda_ufs_era5.mdlus: 26%|██▌       | 320M/1.22G [00:04&lt;00:11, 85.6MB/s]
+Downloading healda_ufs_era5.mdlus: 26%|██▋       | 330M/1.22G [00:04&lt;00:11, 85.6MB/s]
+Downloading healda_ufs_era5.mdlus: 27%|██▋       | 340M/1.22G [00:04&lt;00:11, 85.3MB/s]
+Downloading healda_ufs_era5.mdlus: 28%|██▊       | 350M/1.22G [00:04&lt;00:11, 85.3MB/s]
+Downloading healda_ufs_era5.mdlus: 29%|██▉       | 360M/1.22G [00:04&lt;00:10, 85.2MB/s]
+Downloading healda_ufs_era5.mdlus: 30%|██▉       | 370M/1.22G [00:04&lt;00:10, 85.4MB/s]
+Downloading healda_ufs_era5.mdlus: 30%|███       | 380M/1.22G [00:05&lt;00:10, 85.2MB/s]
+Downloading healda_ufs_era5.mdlus: 31%|███       | 390M/1.22G [00:05&lt;00:10, 85.3MB/s]
+Downloading healda_ufs_era5.mdlus: 32%|███▏      | 400M/1.22G [00:05&lt;00:10, 85.2MB/s]
+Downloading healda_ufs_era5.mdlus: 33%|███▎      | 410M/1.22G [00:05&lt;00:10, 85.2MB/s]
+Downloading healda_ufs_era5.mdlus: 34%|███▎      | 420M/1.22G [00:05&lt;00:10, 85.2MB/s]
+Downloading healda_ufs_era5.mdlus: 34%|███▍      | 430M/1.22G [00:05&lt;00:10, 85.2MB/s]
+Downloading healda_ufs_era5.mdlus: 35%|███▌      | 440M/1.22G [00:05&lt;00:09, 85.0MB/s]
+Downloading healda_ufs_era5.mdlus: 36%|███▌      | 450M/1.22G [00:05&lt;00:09, 84.7MB/s]
+Downloading healda_ufs_era5.mdlus: 37%|███▋      | 460M/1.22G [00:05&lt;00:09, 85.7MB/s]
+Downloading healda_ufs_era5.mdlus: 38%|███▊      | 470M/1.22G [00:06&lt;00:09, 85.6MB/s]
+Downloading healda_ufs_era5.mdlus: 38%|███▊      | 480M/1.22G [00:06&lt;00:16, 49.1MB/s]
+Downloading healda_ufs_era5.mdlus: 39%|███▉      | 490M/1.22G [00:06&lt;00:14, 56.3MB/s]
+Downloading healda_ufs_era5.mdlus: 40%|████      | 500M/1.22G [00:06&lt;00:12, 62.4MB/s]
+Downloading healda_ufs_era5.mdlus: 41%|████      | 510M/1.22G [00:06&lt;00:11, 68.1MB/s]
+Downloading healda_ufs_era5.mdlus: 42%|████▏     | 520M/1.22G [00:07&lt;00:10, 72.5MB/s]
+Downloading healda_ufs_era5.mdlus: 42%|████▏     | 530M/1.22G [00:07&lt;00:09, 75.8MB/s]
+Downloading healda_ufs_era5.mdlus: 43%|████▎     | 540M/1.22G [00:07&lt;00:09, 77.6MB/s]
+Downloading healda_ufs_era5.mdlus: 44%|████▍     | 550M/1.22G [00:07&lt;00:09, 80.0MB/s]
+Downloading healda_ufs_era5.mdlus: 45%|████▍     | 560M/1.22G [00:07&lt;00:08, 82.2MB/s]
+Downloading healda_ufs_era5.mdlus: 46%|████▌     | 570M/1.22G [00:07&lt;00:08, 82.6MB/s]
+Downloading healda_ufs_era5.mdlus: 46%|████▋     | 580M/1.22G [00:07&lt;00:08, 83.7MB/s]
+Downloading healda_ufs_era5.mdlus: 47%|████▋     | 590M/1.22G [00:07&lt;00:08, 84.0MB/s]
+Downloading healda_ufs_era5.mdlus: 48%|████▊     | 600M/1.22G [00:08&lt;00:08, 84.6MB/s]
+Downloading healda_ufs_era5.mdlus: 49%|████▉     | 610M/1.22G [00:08&lt;00:08, 81.0MB/s]
+Downloading healda_ufs_era5.mdlus: 50%|████▉     | 620M/1.22G [00:08&lt;00:08, 82.2MB/s]
+Downloading healda_ufs_era5.mdlus: 50%|█████     | 630M/1.22G [00:08&lt;00:07, 87.1MB/s]
+Downloading healda_ufs_era5.mdlus: 51%|█████▏    | 640M/1.22G [00:08&lt;00:07, 83.6MB/s]
+Downloading healda_ufs_era5.mdlus: 52%|█████▏    | 650M/1.22G [00:08&lt;00:07, 86.8MB/s]
+Downloading healda_ufs_era5.mdlus: 53%|█████▎    | 660M/1.22G [00:08&lt;00:07, 84.6MB/s]
+Downloading healda_ufs_era5.mdlus: 54%|█████▎    | 670M/1.22G [00:08&lt;00:07, 82.9MB/s]
+Downloading healda_ufs_era5.mdlus: 54%|█████▍    | 680M/1.22G [00:08&lt;00:06, 87.4MB/s]
+Downloading healda_ufs_era5.mdlus: 55%|█████▌    | 690M/1.22G [00:09&lt;00:06, 86.8MB/s]
+Downloading healda_ufs_era5.mdlus: 56%|█████▌    | 700M/1.22G [00:09&lt;00:06, 86.3MB/s]
+Downloading healda_ufs_era5.mdlus: 57%|█████▋    | 710M/1.22G [00:09&lt;00:06, 86.0MB/s]
+Downloading healda_ufs_era5.mdlus: 58%|█████▊    | 720M/1.22G [00:09&lt;00:06, 85.4MB/s]
+Downloading healda_ufs_era5.mdlus: 58%|█████▊    | 730M/1.22G [00:09&lt;00:06, 85.2MB/s]
+Downloading healda_ufs_era5.mdlus: 59%|█████▉    | 740M/1.22G [00:09&lt;00:06, 85.5MB/s]
+Downloading healda_ufs_era5.mdlus: 60%|██████    | 750M/1.22G [00:09&lt;00:06, 85.4MB/s]
+Downloading healda_ufs_era5.mdlus: 61%|██████    | 760M/1.22G [00:09&lt;00:05, 85.5MB/s]
+Downloading healda_ufs_era5.mdlus: 62%|██████▏   | 770M/1.22G [00:10&lt;00:05, 85.2MB/s]
+Downloading healda_ufs_era5.mdlus: 62%|██████▏   | 780M/1.22G [00:10&lt;00:05, 83.9MB/s]
+Downloading healda_ufs_era5.mdlus: 63%|██████▎   | 790M/1.22G [00:10&lt;00:05, 80.1MB/s]
+Downloading healda_ufs_era5.mdlus: 64%|██████▍   | 800M/1.22G [00:10&lt;00:06, 72.8MB/s]
+Downloading healda_ufs_era5.mdlus: 65%|██████▍   | 810M/1.22G [00:10&lt;00:06, 73.9MB/s]
+Downloading healda_ufs_era5.mdlus: 66%|██████▋   | 830M/1.22G [00:10&lt;00:04, 93.8MB/s]
+Downloading healda_ufs_era5.mdlus: 67%|██████▋   | 840M/1.22G [00:11&lt;00:05, 80.5MB/s]
+Downloading healda_ufs_era5.mdlus: 69%|██████▉   | 860M/1.22G [00:11&lt;00:04, 91.7MB/s]
+Downloading healda_ufs_era5.mdlus: 70%|██████▉   | 870M/1.22G [00:11&lt;00:06, 62.8MB/s]
+Downloading healda_ufs_era5.mdlus: 70%|███████   | 880M/1.22G [00:11&lt;00:06, 62.0MB/s]
+Downloading healda_ufs_era5.mdlus: 71%|███████▏  | 890M/1.22G [00:11&lt;00:06, 57.1MB/s]
+Downloading healda_ufs_era5.mdlus: 72%|███████▏  | 900M/1.22G [00:12&lt;00:07, 49.1MB/s]
+Downloading healda_ufs_era5.mdlus: 73%|███████▎  | 910M/1.22G [00:12&lt;00:07, 46.0MB/s]
+Downloading healda_ufs_era5.mdlus: 75%|███████▌  | 940M/1.22G [00:12&lt;00:04, 74.6MB/s]
+Downloading healda_ufs_era5.mdlus: 78%|███████▊  | 970M/1.22G [00:12&lt;00:02, 110MB/s]
+Downloading healda_ufs_era5.mdlus: 79%|███████▉  | 990M/1.22G [00:13&lt;00:02, 109MB/s]
+Downloading healda_ufs_era5.mdlus: 81%|████████  | 0.99G/1.22G [00:13&lt;00:02, 100MB/s]
+Downloading healda_ufs_era5.mdlus: 83%|████████▎ | 1.01G/1.22G [00:13&lt;00:02, 95.4MB/s]
+Downloading healda_ufs_era5.mdlus: 84%|████████▍ | 1.03G/1.22G [00:13&lt;00:02, 92.3MB/s]
+Downloading healda_ufs_era5.mdlus: 85%|████████▍ | 1.04G/1.22G [00:13&lt;00:02, 91.0MB/s]
+Downloading healda_ufs_era5.mdlus: 86%|████████▌ | 1.04G/1.22G [00:14&lt;00:02, 90.0MB/s]
+Downloading healda_ufs_era5.mdlus: 87%|████████▋ | 1.05G/1.22G [00:14&lt;00:01, 88.8MB/s]
+Downloading healda_ufs_era5.mdlus: 87%|████████▋ | 1.06G/1.22G [00:14&lt;00:01, 88.0MB/s]
+Downloading healda_ufs_era5.mdlus: 88%|████████▊ | 1.07G/1.22G [00:14&lt;00:01, 87.3MB/s]
+Downloading healda_ufs_era5.mdlus: 89%|████████▉ | 1.08G/1.22G [00:14&lt;00:01, 86.7MB/s]
+Downloading healda_ufs_era5.mdlus: 90%|████████▉ | 1.09G/1.22G [00:14&lt;00:01, 86.3MB/s]
+Downloading healda_ufs_era5.mdlus: 91%|█████████ | 1.10G/1.22G [00:14&lt;00:01, 84.3MB/s]
+Downloading healda_ufs_era5.mdlus: 91%|█████████▏| 1.11G/1.22G [00:14&lt;00:01, 86.3MB/s]
+Downloading healda_ufs_era5.mdlus: 92%|█████████▏| 1.12G/1.22G [00:14&lt;00:01, 85.8MB/s]
+Downloading healda_ufs_era5.mdlus: 93%|█████████▎| 1.13G/1.22G [00:15&lt;00:01, 85.4MB/s]
+Downloading healda_ufs_era5.mdlus: 94%|█████████▎| 1.14G/1.22G [00:15&lt;00:00, 85.7MB/s]
+Downloading healda_ufs_era5.mdlus: 95%|█████████▍| 1.15G/1.22G [00:15&lt;00:00, 75.6MB/s]
+Downloading healda_ufs_era5.mdlus: 95%|█████████▌| 1.16G/1.22G [00:15&lt;00:00, 77.0MB/s]
+Downloading healda_ufs_era5.mdlus: 96%|█████████▌| 1.17G/1.22G [00:15&lt;00:00, 79.2MB/s]
+Downloading healda_ufs_era5.mdlus: 97%|█████████▋| 1.18G/1.22G [00:15&lt;00:00, 80.8MB/s]
+Downloading healda_ufs_era5.mdlus: 98%|█████████▊| 1.19G/1.22G [00:15&lt;00:00, 81.6MB/s]
+Downloading healda_ufs_era5.mdlus: 99%|█████████▊| 1.20G/1.22G [00:16&lt;00:00, 82.5MB/s]
+Downloading healda_ufs_era5.mdlus: 99%|█████████▉| 1.21G/1.22G [00:16&lt;00:00, 70.5MB/s]
+Downloading healda_ufs_era5.mdlus: 100%|██████████| 1.22G/1.22G [00:16&lt;00:00, 66.7MB/s]
+Downloading healda_ufs_era5.mdlus: 100%|██████████| 1.22G/1.22G [00:16&lt;00:00, 79.8MB/s]
+
+Downloading condition_hpx6_padxy.npy: 0%|          | 0.00/384k [00:00&lt;?, ?B/s]
+Downloading condition_hpx6_padxy.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 881kB/s]
+Downloading condition_hpx6_padxy.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 878kB/s]
+
+Downloading atms_normalizations.csv: 0%|          | 0.00/2.78k [00:00&lt;?, ?B/s]
+Downloading atms_normalizations.csv: 100%|██████████| 2.78k/2.78k [00:00&lt;00:00, 13.4kB/s]
+Downloading atms_normalizations.csv: 100%|██████████| 2.78k/2.78k [00:00&lt;00:00, 13.3kB/s]
+
+Downloading mhs_normalizations.csv: 0%|          | 0.00/1.28k [00:00&lt;?, ?B/s]
+Downloading mhs_normalizations.csv: 100%|██████████| 1.28k/1.28k [00:00&lt;00:00, 6.58kB/s]
+Downloading mhs_normalizations.csv: 100%|██████████| 1.28k/1.28k [00:00&lt;00:00, 6.54kB/s]
+
+Downloading amsua_normalizations.csv: 0%|          | 0.00/4.67k [00:00&lt;?, ?B/s]
+Downloading amsua_normalizations.csv: 100%|██████████| 4.67k/4.67k [00:00&lt;00:00, 22.7kB/s]
+Downloading amsua_normalizations.csv: 100%|██████████| 4.67k/4.67k [00:00&lt;00:00, 22.5kB/s]
+
+Downloading amsub_normalizations.csv: 0%|          | 0.00/675 [00:00&lt;?, ?B/s]
+Downloading amsub_normalizations.csv: 100%|██████████| 675/675 [00:00&lt;00:00, 2.36kB/s]
+Downloading amsub_normalizations.csv: 100%|██████████| 675/675 [00:00&lt;00:00, 2.35kB/s]
+
+Downloading conv_normalizations.csv: 0%|          | 0.00/632 [00:00&lt;?, ?B/s]
+Downloading conv_normalizations.csv: 100%|██████████| 632/632 [00:00&lt;00:00, 2.25kB/s]
+Downloading conv_normalizations.csv: 100%|██████████| 632/632 [00:00&lt;00:00, 2.24kB/s]
+
+Downloading era5_13_levels_stats.csv: 0%|          | 0.00/3.36k [00:00&lt;?, ?B/s]
+Downloading era5_13_levels_stats.csv: 100%|██████████| 3.36k/3.36k [00:00&lt;00:00, 16.2kB/s]
+Downloading era5_13_levels_stats.csv: 100%|██████████| 3.36k/3.36k [00:00&lt;00:00, 16.1kB/s]
+</pre></div>
+</div>
 </section>
 <section id="fetch-observations">
 <h2>Fetch Observations<a class="headerlink" href="#fetch-observations" title="Link to this heading">#</a></h2>
@@ -791,216 +958,235 @@ window around the analysis time so that observations will be retrieved for.</p>
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching GSI files:   0%|          | 0/25 [00:00&lt;?, ?it/s]
-Fetching GSI files: 100%|██████████| 25/25 [00:00&lt;00:00, 21691.68it/s]
-2026-03-24 22:33:35.706 | INFO     | __main__:&lt;module&gt;:108 - Fetched 8515112 conventional observations
+Fetching GSI files:   4%|▍         | 1/25 [00:00&lt;00:12,  1.86it/s]
+Fetching GSI files:  12%|█▏        | 3/25 [00:00&lt;00:04,  4.90it/s]
+Fetching GSI files:  24%|██▍       | 6/25 [00:00&lt;00:02,  9.25it/s]
+Fetching GSI files:  36%|███▌      | 9/25 [00:01&lt;00:01, 11.14it/s]
+Fetching GSI files:  48%|████▊     | 12/25 [00:01&lt;00:00, 14.48it/s]
+Fetching GSI files:  64%|██████▍   | 16/25 [00:01&lt;00:00, 18.08it/s]
+Fetching GSI files:  80%|████████  | 20/25 [00:01&lt;00:00, 21.57it/s]
+Fetching GSI files:  92%|█████████▏| 23/25 [00:01&lt;00:00, 20.91it/s]
+Fetching GSI files: 100%|██████████| 25/25 [00:01&lt;00:00, 13.90it/s]
+2026-05-18 02:42:28.329 | INFO     | __main__:&lt;module&gt;:108 - Fetched 8515112 conventional observations
 
 Fetching GSI files:   0%|          | 0/90 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:33:40.205 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n16_ges.2023123112_control.nc4 not found
+2026-05-18 02:42:28.662 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n16_ges.2023123112_control.nc4 not found
 
-Fetching GSI files:   0%|          | 0/90 [00:04&lt;?, ?it/s]
-Fetching GSI files:  57%|█████▋    | 51/90 [00:04&lt;00:03, 11.48it/s]
+Fetching GSI files:   0%|          | 0/90 [00:00&lt;?, ?it/s]
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:24,  3.65it/s]
 
-2026-03-24 22:33:40.224 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n16_ges.2023123106_control.nc4 not found
+2026-05-18 02:42:28.668 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n16_ges.2023123100_control.nc4 not found
 
-Fetching GSI files:  57%|█████▋    | 51/90 [00:04&lt;00:03, 11.48it/s]
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:24,  3.65it/s]
 
-2026-03-24 22:33:40.234 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n15_ges.2023123106_control.nc4 not found
+2026-05-18 02:42:28.735 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n17_ges.2024010100_control.nc4 not found
 
-Fetching GSI files:  57%|█████▋    | 51/90 [00:04&lt;00:03, 11.48it/s]
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:24,  3.65it/s]
+Fetching GSI files:   4%|▍         | 4/90 [00:00&lt;00:17,  4.83it/s]
 
-2026-03-24 22:33:40.237 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n15_ges.2023123118_control.nc4 not found
+2026-05-18 02:42:29.329 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n15_ges.2023123118_control.nc4 not found
 
-Fetching GSI files:  57%|█████▋    | 51/90 [00:04&lt;00:03, 11.48it/s]
+Fetching GSI files:   4%|▍         | 4/90 [00:00&lt;00:17,  4.83it/s]
+Fetching GSI files:  10%|█         | 9/90 [00:00&lt;00:06, 11.89it/s]
 
-2026-03-24 22:33:40.261 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_metop-a_ges.2023123106_control.nc4 not found
+2026-05-18 02:42:29.400 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_metop-a_ges.2023123112_control.nc4 not found
 
-Fetching GSI files:  57%|█████▋    | 51/90 [00:04&lt;00:03, 11.48it/s]
+Fetching GSI files:  10%|█         | 9/90 [00:01&lt;00:06, 11.89it/s]
 
-2026-03-24 22:33:40.267 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n17_ges.2024010100_control.nc4 not found
+2026-05-18 02:42:29.406 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n16_ges.2024010100_control.nc4 not found
 
-Fetching GSI files:  57%|█████▋    | 51/90 [00:04&lt;00:03, 11.48it/s]
+Fetching GSI files:  10%|█         | 9/90 [00:01&lt;00:06, 11.89it/s]
 
-2026-03-24 22:33:40.277 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_metop-a_ges.2023123112_control.nc4 not found
+2026-05-18 02:42:29.412 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n16_ges.2023123100_control.nc4 not found
 
-Fetching GSI files:  57%|█████▋    | 51/90 [00:04&lt;00:03, 11.48it/s]
+Fetching GSI files:  10%|█         | 9/90 [00:01&lt;00:06, 11.89it/s]
+Fetching GSI files:  14%|█▍        | 13/90 [00:01&lt;00:04, 16.19it/s]
 
-2026-03-24 22:33:40.282 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n15_ges.2024010100_control.nc4 not found
+2026-05-18 02:42:29.469 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n17_ges.2023123112_control.nc4 not found
 
-Fetching GSI files:  57%|█████▋    | 51/90 [00:04&lt;00:03, 11.48it/s]
+Fetching GSI files:  14%|█▍        | 13/90 [00:01&lt;00:04, 16.19it/s]
 
-2026-03-24 22:33:40.295 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n16_ges.2023123112_control.nc4 not found
+2026-05-18 02:42:29.486 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_metop-a_ges.2023123106_control.nc4 not found
 
-Fetching GSI files:  57%|█████▋    | 51/90 [00:04&lt;00:03, 11.48it/s]
+Fetching GSI files:  14%|█▍        | 13/90 [00:01&lt;00:04, 16.19it/s]
 
-2026-03-24 22:33:40.302 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n16_ges.2024010100_control.nc4 not found
+2026-05-18 02:42:29.545 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n17_ges.2023123106_control.nc4 not found
 
-Fetching GSI files:  57%|█████▋    | 51/90 [00:04&lt;00:03, 11.48it/s]
+Fetching GSI files:  14%|█▍        | 13/90 [00:01&lt;00:04, 16.19it/s]
 
-2026-03-24 22:33:40.306 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_metop-a_ges.2023123100_control.nc4 not found
+2026-05-18 02:42:29.546 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_n18_ges.2023123106_control.nc4 not found
 
-Fetching GSI files:  57%|█████▋    | 51/90 [00:04&lt;00:03, 11.48it/s]
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
+Fetching GSI files:  14%|█▍        | 13/90 [00:01&lt;00:04, 16.19it/s]
 
-2026-03-24 22:33:40.308 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n17_ges.2023123100_control.nc4 not found
+2026-05-18 02:42:29.613 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n17_ges.2023123106_control.nc4 not found
 
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
+Fetching GSI files:  14%|█▍        | 13/90 [00:01&lt;00:04, 16.19it/s]
+Fetching GSI files:  23%|██▎       | 21/90 [00:01&lt;00:02, 26.48it/s]
 
-2026-03-24 22:33:40.312 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_metop-a_ges.2023123100_control.nc4 not found
+2026-05-18 02:42:29.615 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_n18_ges.2023123112_control.nc4 not found
 
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
+Fetching GSI files:  23%|██▎       | 21/90 [00:01&lt;00:02, 26.48it/s]
 
-2026-03-24 22:33:40.337 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n17_ges.2023123100_control.nc4 not found
+2026-05-18 02:42:29.619 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_metop-a_ges.2023123118_control.nc4 not found
 
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
+Fetching GSI files:  23%|██▎       | 21/90 [00:01&lt;00:02, 26.48it/s]
 
-2026-03-24 22:33:40.339 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n16_ges.2023123100_control.nc4 not found
+2026-05-18 02:42:29.688 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n16_ges.2023123112_control.nc4 not found
 
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
+Fetching GSI files:  23%|██▎       | 21/90 [00:01&lt;00:02, 26.48it/s]
 
-2026-03-24 22:33:40.343 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n16_ges.2023123106_control.nc4 not found
+2026-05-18 02:42:29.693 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n16_ges.2023123118_control.nc4 not found
 
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
+Fetching GSI files:  23%|██▎       | 21/90 [00:01&lt;00:02, 26.48it/s]
+Fetching GSI files:  31%|███       | 28/90 [00:01&lt;00:01, 33.72it/s]
 
-2026-03-24 22:33:40.349 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_metop-a_ges.2023123118_control.nc4 not found
+2026-05-18 02:42:29.742 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n17_ges.2023123112_control.nc4 not found
 
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
+Fetching GSI files:  31%|███       | 28/90 [00:01&lt;00:01, 33.72it/s]
 
-2026-03-24 22:33:40.357 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n17_ges.2023123106_control.nc4 not found
+2026-05-18 02:42:29.772 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_metop-a_ges.2024010100_control.nc4 not found
 
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
+Fetching GSI files:  31%|███       | 28/90 [00:01&lt;00:01, 33.72it/s]
 
-2026-03-24 22:33:40.366 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n16_ges.2023123118_control.nc4 not found
+2026-05-18 02:42:29.809 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n16_ges.2023123118_control.nc4 not found
 
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
+Fetching GSI files:  31%|███       | 28/90 [00:01&lt;00:01, 33.72it/s]
+Fetching GSI files:  40%|████      | 36/90 [00:01&lt;00:01, 42.53it/s]
 
-2026-03-24 22:33:40.374 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n17_ges.2023123118_control.nc4 not found
+2026-05-18 02:42:29.898 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n16_ges.2024010100_control.nc4 not found
 
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
+Fetching GSI files:  40%|████      | 36/90 [00:01&lt;00:01, 42.53it/s]
 
-2026-03-24 22:33:40.380 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_n18_ges.2023123118_control.nc4 not found
+2026-05-18 02:42:29.924 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n17_ges.2023123118_control.nc4 not found
 
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
+Fetching GSI files:  40%|████      | 36/90 [00:01&lt;00:01, 42.53it/s]
+Fetching GSI files:  47%|████▋     | 42/90 [00:01&lt;00:01, 37.08it/s]
 
-2026-03-24 22:33:40.391 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n17_ges.2023123112_control.nc4 not found
+2026-05-18 02:42:30.083 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_n18_ges.2024010100_control.nc4 not found
 
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
+Fetching GSI files:  47%|████▋     | 42/90 [00:01&lt;00:01, 37.08it/s]
 
-2026-03-24 22:33:40.394 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_metop-a_ges.2023123112_control.nc4 not found
+2026-05-18 02:42:30.103 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_metop-a_ges.2023123100_control.nc4 not found
 
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
+Fetching GSI files:  47%|████▋     | 42/90 [00:01&lt;00:01, 37.08it/s]
 
-2026-03-24 22:33:40.409 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n17_ges.2023123106_control.nc4 not found
+2026-05-18 02:42:30.143 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_metop-a_ges.2023123100_control.nc4 not found
 
-Fetching GSI files:  68%|██████▊   | 61/90 [00:04&lt;00:02, 14.23it/s]
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  47%|████▋     | 42/90 [00:01&lt;00:01, 37.08it/s]
 
-2026-03-24 22:33:40.415 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n17_ges.2023123112_control.nc4 not found
+2026-05-18 02:42:30.176 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n15_ges.2023123112_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  47%|████▋     | 42/90 [00:01&lt;00:01, 37.08it/s]
+Fetching GSI files:  56%|█████▌    | 50/90 [00:01&lt;00:00, 44.90it/s]
 
-2026-03-24 22:33:40.417 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_n18_ges.2023123112_control.nc4 not found
+2026-05-18 02:42:30.213 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_n18_ges.2023123100_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  56%|█████▌    | 50/90 [00:01&lt;00:00, 44.90it/s]
 
-2026-03-24 22:33:40.422 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_n18_ges.2023123106_control.nc4 not found
+2026-05-18 02:42:30.218 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_metop-a_ges.2023123118_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  56%|█████▌    | 50/90 [00:01&lt;00:00, 44.90it/s]
 
-2026-03-24 22:33:40.433 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n16_ges.2023123100_control.nc4 not found
+2026-05-18 02:42:30.282 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_metop-a_ges.2023123106_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  56%|█████▌    | 50/90 [00:01&lt;00:00, 44.90it/s]
+Fetching GSI files:  62%|██████▏   | 56/90 [00:01&lt;00:00, 47.57it/s]
 
-2026-03-24 22:33:40.434 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_metop-a_ges.2024010100_control.nc4 not found
+2026-05-18 02:42:30.299 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_n18_ges.2023123118_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  62%|██████▏   | 56/90 [00:01&lt;00:00, 47.57it/s]
 
-2026-03-24 22:33:40.444 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_n18_ges.2023123100_control.nc4 not found
+2026-05-18 02:42:30.313 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n16_ges.2023123106_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  62%|██████▏   | 56/90 [00:01&lt;00:00, 47.57it/s]
 
-2026-03-24 22:33:40.452 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n16_ges.2023123118_control.nc4 not found
+2026-05-18 02:42:30.353 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n15_ges.2024010100_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  62%|██████▏   | 56/90 [00:01&lt;00:00, 47.57it/s]
 
-2026-03-24 22:33:40.464 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_metop-a_ges.2024010100_control.nc4 not found
+2026-05-18 02:42:30.370 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n16_ges.2023123106_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  62%|██████▏   | 56/90 [00:01&lt;00:00, 47.57it/s]
+Fetching GSI files:  69%|██████▉   | 62/90 [00:02&lt;00:00, 46.78it/s]
 
-2026-03-24 22:33:40.473 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_n18_ges.2024010100_control.nc4 not found
+2026-05-18 02:42:30.444 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n17_ges.2024010100_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  69%|██████▉   | 62/90 [00:02&lt;00:00, 46.78it/s]
 
-2026-03-24 22:33:40.490 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n15_ges.2023123100_control.nc4 not found
+2026-05-18 02:42:30.513 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_metop-a_ges.2024010100_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  69%|██████▉   | 62/90 [00:02&lt;00:00, 46.78it/s]
+Fetching GSI files:  76%|███████▌  | 68/90 [00:02&lt;00:00, 49.65it/s]
 
-2026-03-24 22:33:40.495 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n15_ges.2023123112_control.nc4 not found
+2026-05-18 02:42:30.523 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n17_ges.2023123118_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  76%|███████▌  | 68/90 [00:02&lt;00:00, 49.65it/s]
 
-2026-03-24 22:33:40.503 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n17_ges.2023123118_control.nc4 not found
+2026-05-18 02:42:30.586 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_metop-a_ges.2023123112_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  76%|███████▌  | 68/90 [00:02&lt;00:00, 49.65it/s]
 
-2026-03-24 22:33:40.505 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_metop-a_ges.2023123106_control.nc4 not found
+2026-05-18 02:42:30.588 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n17_ges.2023123100_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
+Fetching GSI files:  76%|███████▌  | 68/90 [00:02&lt;00:00, 49.65it/s]
 
-2026-03-24 22:33:40.509 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n17_ges.2024010100_control.nc4 not found
+2026-05-18 02:42:30.594 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n15_ges.2023123106_control.nc4 not found
 
-Fetching GSI files:  82%|████████▏ | 74/90 [00:04&lt;00:00, 19.14it/s]
-Fetching GSI files:  98%|█████████▊| 88/90 [00:04&lt;00:00, 26.06it/s]
+Fetching GSI files:  76%|███████▌  | 68/90 [00:02&lt;00:00, 49.65it/s]
 
-2026-03-24 22:33:40.517 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n16_ges.2024010100_control.nc4 not found
+2026-05-18 02:42:30.662 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n17_ges.2023123100_control.nc4 not found
 
-Fetching GSI files:  98%|█████████▊| 88/90 [00:04&lt;00:00, 26.06it/s]
+Fetching GSI files:  76%|███████▌  | 68/90 [00:02&lt;00:00, 49.65it/s]
+Fetching GSI files:  84%|████████▍ | 76/90 [00:02&lt;00:00, 51.56it/s]
 
-2026-03-24 22:33:40.518 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_metop-a_ges.2023123118_control.nc4 not found
+2026-05-18 02:42:30.764 | WARNING  | earth2studio.data.ufs:_handle_missing_file:758 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n15_ges.2023123100_control.nc4 not found
 
-Fetching GSI files:  98%|█████████▊| 88/90 [00:04&lt;00:00, 26.06it/s]
-Fetching GSI files: 100%|██████████| 90/90 [00:04&lt;00:00, 18.92it/s]
-2026-03-24 22:33:43.043 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_metop-a_ges.2023123100_control.nc4
-2026-03-24 22:33:43.043 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_metop-a_ges.2023123106_control.nc4
-2026-03-24 22:33:43.043 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_metop-a_ges.2023123112_control.nc4
-2026-03-24 22:33:43.043 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_metop-a_ges.2023123118_control.nc4
-2026-03-24 22:33:43.044 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_metop-a_ges.2024010100_control.nc4
-2026-03-24 22:33:44.658 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_n18_ges.2023123100_control.nc4
-2026-03-24 22:33:44.658 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_n18_ges.2023123106_control.nc4
-2026-03-24 22:33:44.658 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_n18_ges.2023123112_control.nc4
-2026-03-24 22:33:44.658 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_n18_ges.2023123118_control.nc4
-2026-03-24 22:33:44.658 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_n18_ges.2024010100_control.nc4
-2026-03-24 22:33:45.440 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_metop-a_ges.2023123100_control.nc4
-2026-03-24 22:33:45.441 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_metop-a_ges.2023123106_control.nc4
-2026-03-24 22:33:45.441 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_metop-a_ges.2023123112_control.nc4
-2026-03-24 22:33:45.441 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_metop-a_ges.2023123118_control.nc4
-2026-03-24 22:33:45.441 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_metop-a_ges.2024010100_control.nc4
-2026-03-24 22:33:48.110 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n16_ges.2023123100_control.nc4
-2026-03-24 22:33:48.110 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n16_ges.2023123106_control.nc4
-2026-03-24 22:33:48.110 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n16_ges.2023123112_control.nc4
-2026-03-24 22:33:48.110 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n16_ges.2023123118_control.nc4
-2026-03-24 22:33:48.110 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n16_ges.2024010100_control.nc4
-2026-03-24 22:33:48.111 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n17_ges.2023123100_control.nc4
-2026-03-24 22:33:48.111 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n17_ges.2023123106_control.nc4
-2026-03-24 22:33:48.111 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n17_ges.2023123112_control.nc4
-2026-03-24 22:33:48.111 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n17_ges.2023123118_control.nc4
-2026-03-24 22:33:48.111 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n17_ges.2024010100_control.nc4
-2026-03-24 22:33:49.948 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n15_ges.2023123100_control.nc4
-2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n15_ges.2023123106_control.nc4
-2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n15_ges.2023123112_control.nc4
-2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n15_ges.2023123118_control.nc4
-2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n15_ges.2024010100_control.nc4
-2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n16_ges.2023123100_control.nc4
-2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n16_ges.2023123106_control.nc4
-2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n16_ges.2023123112_control.nc4
-2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n16_ges.2023123118_control.nc4
-2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n16_ges.2024010100_control.nc4
-2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n17_ges.2023123100_control.nc4
-2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n17_ges.2023123106_control.nc4
-2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n17_ges.2023123112_control.nc4
-2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n17_ges.2023123118_control.nc4
-2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n17_ges.2024010100_control.nc4
-2026-03-24 22:33:50.075 | INFO     | __main__:&lt;module&gt;:117 - Fetched 4378286 satellite observations
+Fetching GSI files:  84%|████████▍ | 76/90 [00:02&lt;00:00, 51.56it/s]
+Fetching GSI files:  91%|█████████ | 82/90 [00:02&lt;00:00, 46.39it/s]
+Fetching GSI files:  97%|█████████▋| 87/90 [00:02&lt;00:00, 40.46it/s]
+Fetching GSI files: 100%|██████████| 90/90 [00:02&lt;00:00, 33.85it/s]
+2026-05-18 02:42:33.550 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_metop-a_ges.2023123100_control.nc4
+2026-05-18 02:42:33.550 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_metop-a_ges.2023123106_control.nc4
+2026-05-18 02:42:33.550 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_metop-a_ges.2023123112_control.nc4
+2026-05-18 02:42:33.550 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_metop-a_ges.2023123118_control.nc4
+2026-05-18 02:42:33.550 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_metop-a_ges.2024010100_control.nc4
+2026-05-18 02:42:35.241 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_n18_ges.2023123100_control.nc4
+2026-05-18 02:42:35.241 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_n18_ges.2023123106_control.nc4
+2026-05-18 02:42:35.241 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_n18_ges.2023123112_control.nc4
+2026-05-18 02:42:35.241 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_n18_ges.2023123118_control.nc4
+2026-05-18 02:42:35.241 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_n18_ges.2024010100_control.nc4
+2026-05-18 02:42:36.066 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_metop-a_ges.2023123100_control.nc4
+2026-05-18 02:42:36.066 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_metop-a_ges.2023123106_control.nc4
+2026-05-18 02:42:36.066 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_metop-a_ges.2023123112_control.nc4
+2026-05-18 02:42:36.066 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_metop-a_ges.2023123118_control.nc4
+2026-05-18 02:42:36.066 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_metop-a_ges.2024010100_control.nc4
+2026-05-18 02:42:38.856 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n16_ges.2023123100_control.nc4
+2026-05-18 02:42:38.856 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n16_ges.2023123106_control.nc4
+2026-05-18 02:42:38.856 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n16_ges.2023123112_control.nc4
+2026-05-18 02:42:38.856 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n16_ges.2023123118_control.nc4
+2026-05-18 02:42:38.857 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n16_ges.2024010100_control.nc4
+2026-05-18 02:42:38.857 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n17_ges.2023123100_control.nc4
+2026-05-18 02:42:38.857 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n17_ges.2023123106_control.nc4
+2026-05-18 02:42:38.857 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n17_ges.2023123112_control.nc4
+2026-05-18 02:42:38.857 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n17_ges.2023123118_control.nc4
+2026-05-18 02:42:38.857 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n17_ges.2024010100_control.nc4
+2026-05-18 02:42:40.761 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n15_ges.2023123100_control.nc4
+2026-05-18 02:42:40.762 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n15_ges.2023123106_control.nc4
+2026-05-18 02:42:40.762 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n15_ges.2023123112_control.nc4
+2026-05-18 02:42:40.762 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n15_ges.2023123118_control.nc4
+2026-05-18 02:42:40.762 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n15_ges.2024010100_control.nc4
+2026-05-18 02:42:40.762 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n16_ges.2023123100_control.nc4
+2026-05-18 02:42:40.762 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n16_ges.2023123106_control.nc4
+2026-05-18 02:42:40.762 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n16_ges.2023123112_control.nc4
+2026-05-18 02:42:40.762 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n16_ges.2023123118_control.nc4
+2026-05-18 02:42:40.763 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n16_ges.2024010100_control.nc4
+2026-05-18 02:42:40.763 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n17_ges.2023123100_control.nc4
+2026-05-18 02:42:40.763 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n17_ges.2023123106_control.nc4
+2026-05-18 02:42:40.763 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n17_ges.2023123112_control.nc4
+2026-05-18 02:42:40.763 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n17_ges.2023123118_control.nc4
+2026-05-18 02:42:40.763 | WARNING  | earth2studio.data.ufs:_compile_dataframe:218 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n17_ges.2024010100_control.nc4
+2026-05-18 02:42:40.922 | INFO     | __main__:&lt;module&gt;:117 - Fetched 4378286 satellite observations
 </pre></div>
 </div>
 </section>
@@ -1070,7 +1256,7 @@ proper combined - to illustrate the impact each observation type has on the anal
 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Combined analysis shape: </span><span class="si">{</span><span class="n">result_both</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-03-24 22:34:26.520 | INFO     | __main__:&lt;module&gt;:188 - Combined analysis shape: (1, 74, 181, 360)
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-05-18 02:42:55.196 | INFO     | __main__:&lt;module&gt;:188 - Combined analysis shape: (1, 74, 181, 360)
 </pre></div>
 </div>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
@@ -1078,7 +1264,7 @@ proper combined - to illustrate the impact each observation type has on the anal
 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sat-only analysis shape: </span><span class="si">{</span><span class="n">result_sat</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-03-24 22:34:29.984 | INFO     | __main__:&lt;module&gt;:193 - Sat-only analysis shape: (1, 74, 181, 360)
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-05-18 02:42:58.523 | INFO     | __main__:&lt;module&gt;:193 - Sat-only analysis shape: (1, 74, 181, 360)
 </pre></div>
 </div>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
@@ -1086,7 +1272,7 @@ proper combined - to illustrate the impact each observation type has on the anal
 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Conv-only analysis shape: </span><span class="si">{</span><span class="n">result_conv</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-03-24 22:34:36.949 | INFO     | __main__:&lt;module&gt;:198 - Conv-only analysis shape: (1, 74, 181, 360)
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-05-18 02:43:03.006 | INFO     | __main__:&lt;module&gt;:198 - Conv-only analysis shape: (1, 74, 181, 360)
 </pre></div>
 </div>
 </section>
@@ -1114,10 +1300,16 @@ Compare the three runs for surface temperature (t2m) and geopotential 500 hPa
 <span class="n">lon</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
 <span class="n">cmaps</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Spectral_r&quot;</span><span class="p">,</span> <span class="s2">&quot;PRGn&quot;</span><span class="p">]</span>
 
+
+<span class="k">def</span><span class="w"> </span><span class="nf">to_numpy</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CuPy / Numpy helper function&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">arr</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="s2">&quot;get&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">arr</span>
+
+
 <span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">da</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">titles</span><span class="p">,</span> <span class="n">results</span><span class="p">)):</span>
     <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">var</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">plot_vars</span><span class="p">):</span>
         <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span>
-        <span class="n">field</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>  <span class="c1"># [nlat, nlon] cupy -&gt; numpy</span>
+        <span class="n">field</span> <span class="o">=</span> <span class="n">to_numpy</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
             <span class="n">lon</span><span class="p">,</span>
             <span class="n">lat</span><span class="p">,</span>
@@ -1163,34 +1355,33 @@ yields the most accurate global prediction.</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching NCAR ERA5 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:35:09.049 | DEBUG    | earth2studio.data.ncar:fetch_array:402 - Fetching NCAR ERA5 variable: 2T in file s3://nsf-ncar-era5/e5.oper.an.sfc/202401/e5.oper.an.sfc.128_167_2t.ll025sc.2024010100_2024013123.nc
+2026-05-18 02:43:32.683 | DEBUG    | earth2studio.data.ncar:fetch_array:389 - Fetching NCAR ERA5 variable: 2T in file s3://nsf-ncar-era5/e5.oper.an.sfc/202401/e5.oper.an.sfc.128_167_2t.ll025sc.2024010100_2024013123.nc
 
 Fetching NCAR ERA5 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2026-03-24 22:35:09.049 | DEBUG    | earth2studio.data.ncar:fetch_array:402 - Fetching NCAR ERA5 variable: Z in file s3://nsf-ncar-era5/e5.oper.an.pl/202401/e5.oper.an.pl.128_129_z.ll025sc.2024010100_2024010123.nc
+2026-05-18 02:43:32.684 | DEBUG    | earth2studio.data.ncar:fetch_array:389 - Fetching NCAR ERA5 variable: Z in file s3://nsf-ncar-era5/e5.oper.an.pl/202401/e5.oper.an.pl.128_129_z.ll025sc.2024010100_2024010123.nc
 
 Fetching NCAR ERA5 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching NCAR ERA5 data: 100%|██████████| 2/2 [00:00&lt;00:00, 23.60it/s]
+Fetching NCAR ERA5 data:  50%|█████     | 1/2 [00:07&lt;00:07,  7.22s/it]
+Fetching NCAR ERA5 data: 100%|██████████| 2/2 [00:07&lt;00:00,  3.65s/it]
 </pre></div>
 </div>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">diff_titles</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Conv+Sat - ERA5&quot;</span><span class="p">,</span> <span class="s2">&quot;Sat - ERA5&quot;</span><span class="p">,</span> <span class="s2">&quot;Conv - ERA5&quot;</span><span class="p">]</span>
 <span class="n">diff_results</span> <span class="o">=</span> <span class="p">[</span><span class="n">result_both</span><span class="p">,</span> <span class="n">result_sat</span><span class="p">,</span> <span class="n">result_conv</span><span class="p">]</span>
 <span class="k">for</span> <span class="n">title</span><span class="p">,</span> <span class="n">da_pred</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">diff_titles</span><span class="p">,</span> <span class="n">diff_results</span><span class="p">):</span>
     <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">plot_vars</span><span class="p">:</span>
-        <span class="n">field_pred</span> <span class="o">=</span> <span class="n">da_pred</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">field_pred</span><span class="p">,</span> <span class="s2">&quot;get&quot;</span><span class="p">):</span>
-            <span class="n">field_pred</span> <span class="o">=</span> <span class="n">field_pred</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
-        <span class="n">field_era5</span> <span class="o">=</span> <span class="n">era5_interp</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">field_pred</span> <span class="o">=</span> <span class="n">to_numpy</span><span class="p">(</span><span class="n">da_pred</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">field_era5</span> <span class="o">=</span> <span class="n">to_numpy</span><span class="p">(</span><span class="n">era5_interp</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">mae</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">field_pred</span> <span class="o">-</span> <span class="n">field_era5</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2"> MAE: </span><span class="si">{</span><span class="n">mae</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-03-24 22:35:09.195 | INFO     | __main__:&lt;module&gt;:284 - Conv+Sat - ERA5 | t2m MAE: 0.7994
-2026-03-24 22:35:09.196 | INFO     | __main__:&lt;module&gt;:284 - Conv+Sat - ERA5 | z500 MAE: 51.2045
-2026-03-24 22:35:09.196 | INFO     | __main__:&lt;module&gt;:284 - Sat - ERA5 | t2m MAE: 0.8488
-2026-03-24 22:35:09.197 | INFO     | __main__:&lt;module&gt;:284 - Sat - ERA5 | z500 MAE: 164.9523
-2026-03-24 22:35:09.198 | INFO     | __main__:&lt;module&gt;:284 - Conv - ERA5 | t2m MAE: 4.3312
-2026-03-24 22:35:09.198 | INFO     | __main__:&lt;module&gt;:284 - Conv - ERA5 | z500 MAE: 571.0181
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-05-18 02:43:40.039 | INFO     | __main__:&lt;module&gt;:288 - Conv+Sat - ERA5 | t2m MAE: 1.4210
+2026-05-18 02:43:40.040 | INFO     | __main__:&lt;module&gt;:288 - Conv+Sat - ERA5 | z500 MAE: 208.3272
+2026-05-18 02:43:40.042 | INFO     | __main__:&lt;module&gt;:288 - Sat - ERA5 | t2m MAE: 1.6925
+2026-05-18 02:43:40.043 | INFO     | __main__:&lt;module&gt;:288 - Sat - ERA5 | z500 MAE: 536.9377
+2026-05-18 02:43:40.044 | INFO     | __main__:&lt;module&gt;:288 - Conv - ERA5 | t2m MAE: 4.3268
+2026-05-18 02:43:40.046 | INFO     | __main__:&lt;module&gt;:288 - Conv - ERA5 | z500 MAE: 560.6304
 </pre></div>
 </div>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
@@ -1207,10 +1398,8 @@ Fetching NCAR ERA5 data: 100%|██████████| 2/2 [00:00&lt;00:0
 <span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">da_pred</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">diff_titles</span><span class="p">,</span> <span class="n">diff_results</span><span class="p">)):</span>
     <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">var</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">plot_vars</span><span class="p">):</span>
         <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span>
-        <span class="n">field_pred</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">da_pred</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
-        <span class="p">)</span>  <span class="c1"># [nlat, nlon] cupy -&gt; numpy</span>
-        <span class="n">field_era5</span> <span class="o">=</span> <span class="n">era5_interp</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># [nlat, nlon]</span>
+        <span class="n">field_pred</span> <span class="o">=</span> <span class="n">to_numpy</span><span class="p">(</span><span class="n">da_pred</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">field_era5</span> <span class="o">=</span> <span class="n">to_numpy</span><span class="p">(</span><span class="n">era5_interp</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">diff</span> <span class="o">=</span> <span class="n">field_pred</span> <span class="o">-</span> <span class="n">field_era5</span>
         <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
             <span class="n">lon</span><span class="p">,</span>
@@ -1248,7 +1437,7 @@ Fetching NCAR ERA5 data: 100%|██████████| 2/2 [00:00&lt;00:0
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/22_healda_differences.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_02_healda_003.png" srcset="../../_images/sphx_glr_02_healda_003.png" alt="HealDA Analysis Error 2024-01-01T00:00 UTC, t2m, z500" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (2 minutes 16.531 seconds)</p>
+<img src="../../_images/sphx_glr_02_healda_003.png" srcset="../../_images/sphx_glr_02_healda_003.png" alt="HealDA Analysis Error 2024-01-01T00:00 UTC, t2m, z500" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (2 minutes 11.650 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-05-data-assimilation-02-healda-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/68e9ee6ad2767494d2fc831c5e7b4763/02_healda.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">02_healda.ipynb</span></code></a></p>

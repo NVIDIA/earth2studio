@@ -55,6 +55,12 @@ In this example you will learn:
     # ///
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 52-62
 
 Set Up
@@ -92,6 +98,12 @@ Thus, we need the following:
     package = CBottleTCGuidance.load_default_package()
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 84-90
 
 Guided TC Sampling (Fast Path)
@@ -115,6 +127,18 @@ standard guided inference.
     guidance = guidance.to(device)
     # Run guided sampling
     guided_sample, guided_coords = model(guidance, coords)
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    Downloading training-state-002176000.checkpoint: 0%|          | 0.00/1.67G [00:00<?, ?B/s]    Downloading training-state-002176000.checkpoint: 1%|          | 10.0M/1.67G [00:00<00:33, 53.8MB/s]    Downloading training-state-002176000.checkpoint: 4%|▎         | 60.0M/1.67G [00:00<00:07, 236MB/s]     Downloading training-state-002176000.checkpoint: 6%|▋         | 110M/1.67G [00:00<00:05, 325MB/s]     Downloading training-state-002176000.checkpoint: 9%|▉         | 160M/1.67G [00:00<00:04, 374MB/s]    Downloading training-state-002176000.checkpoint: 12%|█▏        | 210M/1.67G [00:00<00:03, 405MB/s]    Downloading training-state-002176000.checkpoint: 15%|█▌        | 260M/1.67G [00:00<00:03, 421MB/s]    Downloading training-state-002176000.checkpoint: 18%|█▊        | 310M/1.67G [00:00<00:03, 437MB/s]    Downloading training-state-002176000.checkpoint: 21%|██        | 360M/1.67G [00:00<00:03, 447MB/s]    Downloading training-state-002176000.checkpoint: 24%|██▍       | 410M/1.67G [00:01<00:03, 446MB/s]    Downloading training-state-002176000.checkpoint: 27%|██▋       | 460M/1.67G [00:01<00:02, 453MB/s]    Downloading training-state-002176000.checkpoint: 30%|██▉       | 510M/1.67G [00:01<00:02, 459MB/s]    Downloading training-state-002176000.checkpoint: 33%|███▎      | 560M/1.67G [00:01<00:02, 464MB/s]    Downloading training-state-002176000.checkpoint: 36%|███▌      | 610M/1.67G [00:01<00:02, 466MB/s]    Downloading training-state-002176000.checkpoint: 39%|███▊      | 660M/1.67G [00:01<00:02, 463MB/s]    Downloading training-state-002176000.checkpoint: 42%|████▏     | 710M/1.67G [00:01<00:02, 466MB/s]    Downloading training-state-002176000.checkpoint: 45%|████▍     | 760M/1.67G [00:01<00:02, 467MB/s]    Downloading training-state-002176000.checkpoint: 48%|████▊     | 810M/1.67G [00:01<00:02, 468MB/s]    Downloading training-state-002176000.checkpoint: 50%|█████     | 860M/1.67G [00:02<00:01, 466MB/s]    Downloading training-state-002176000.checkpoint: 53%|█████▎    | 910M/1.67G [00:02<00:01, 419MB/s]    Downloading training-state-002176000.checkpoint: 56%|█████▋    | 960M/1.67G [00:02<00:01, 402MB/s]    Downloading training-state-002176000.checkpoint: 59%|█████▉    | 0.99G/1.67G [00:02<00:01, 417MB/s]    Downloading training-state-002176000.checkpoint: 62%|██████▏   | 1.04G/1.67G [00:02<00:01, 418MB/s]    Downloading training-state-002176000.checkpoint: 65%|██████▌   | 1.08G/1.67G [00:02<00:01, 386MB/s]    Downloading training-state-002176000.checkpoint: 67%|██████▋   | 1.12G/1.67G [00:02<00:01, 394MB/s]    Downloading training-state-002176000.checkpoint: 70%|███████   | 1.17G/1.67G [00:03<00:01, 417MB/s]    Downloading training-state-002176000.checkpoint: 73%|███████▎  | 1.22G/1.67G [00:03<00:01, 427MB/s]    Downloading training-state-002176000.checkpoint: 76%|███████▌  | 1.27G/1.67G [00:03<00:01, 414MB/s]    Downloading training-state-002176000.checkpoint: 79%|███████▉  | 1.32G/1.67G [00:03<00:00, 434MB/s]    Downloading training-state-002176000.checkpoint: 82%|████████▏ | 1.37G/1.67G [00:03<00:00, 448MB/s]    Downloading training-state-002176000.checkpoint: 85%|████████▌ | 1.42G/1.67G [00:03<00:00, 456MB/s]    Downloading training-state-002176000.checkpoint: 88%|████████▊ | 1.46G/1.67G [00:03<00:00, 466MB/s]    Downloading training-state-002176000.checkpoint: 91%|█████████ | 1.51G/1.67G [00:03<00:00, 471MB/s]    Downloading training-state-002176000.checkpoint: 94%|█████████▍| 1.56G/1.67G [00:03<00:00, 469MB/s]    Downloading training-state-002176000.checkpoint: 97%|█████████▋| 1.61G/1.67G [00:04<00:00, 473MB/s]    Downloading training-state-002176000.checkpoint: 100%|█████████▉| 1.66G/1.67G [00:04<00:00, 477MB/s]    Downloading training-state-002176000.checkpoint: 100%|██████████| 1.67G/1.67G [00:04<00:00, 430MB/s]
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 104-108
@@ -174,6 +198,17 @@ generated tropical cyclone structure.
     plt.savefig("outputs/05_cbottle_tc_guided_sample.jpg")
 
 
+
+
+.. image-sg:: /examples/07_misc/images/sphx_glr_05_cbottle_tc_guidance_001.png
+   :alt: Guided TC Sample: 10m Zonal Wind
+   :srcset: /examples/07_misc/images/sphx_glr_05_cbottle_tc_guidance_001.png
+   :class: sphx-glr-single-img
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 156-164
 
 Computing the Odds Ratio
@@ -203,6 +238,19 @@ the default sampler settings for improved quality and more stable odds-ratio val
 
     print(f"Log odds ratio: {log_odds_ratio:.4f}")
     print(f"Forward latents shape: {tuple(forward_latents.shape)}")
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    calculate_odds_ratio[forward]:   0%|          | 0/27 [00:00<?, ?it/s]    calculate_odds_ratio[forward]:   4%|▎         | 1/27 [00:00<00:25,  1.01it/s]    calculate_odds_ratio[forward]:   7%|▋         | 2/27 [00:01<00:24,  1.04it/s]    calculate_odds_ratio[forward]:  11%|█         | 3/27 [00:02<00:23,  1.04it/s]    calculate_odds_ratio[forward]:  15%|█▍        | 4/27 [00:03<00:21,  1.05it/s]    calculate_odds_ratio[forward]:  19%|█▊        | 5/27 [00:04<00:21,  1.04it/s]    calculate_odds_ratio[forward]:  22%|██▏       | 6/27 [00:05<00:20,  1.05it/s]    calculate_odds_ratio[forward]:  26%|██▌       | 7/27 [00:06<00:19,  1.05it/s]    calculate_odds_ratio[forward]:  30%|██▉       | 8/27 [00:07<00:18,  1.05it/s]    calculate_odds_ratio[forward]:  33%|███▎      | 9/27 [00:08<00:17,  1.04it/s]    calculate_odds_ratio[forward]:  37%|███▋      | 10/27 [00:09<00:16,  1.04it/s]    calculate_odds_ratio[forward]:  41%|████      | 11/27 [00:10<00:15,  1.04it/s]    calculate_odds_ratio[forward]:  44%|████▍     | 12/27 [00:11<00:14,  1.04it/s]    calculate_odds_ratio[forward]:  48%|████▊     | 13/27 [00:12<00:13,  1.05it/s]    calculate_odds_ratio[forward]:  52%|█████▏    | 14/27 [00:13<00:12,  1.05it/s]    calculate_odds_ratio[forward]:  56%|█████▌    | 15/27 [00:14<00:11,  1.05it/s]    calculate_odds_ratio[forward]:  59%|█████▉    | 16/27 [00:15<00:10,  1.05it/s]    calculate_odds_ratio[forward]:  63%|██████▎   | 17/27 [00:16<00:09,  1.05it/s]    calculate_odds_ratio[forward]:  67%|██████▋   | 18/27 [00:17<00:08,  1.04it/s]    calculate_odds_ratio[forward]:  70%|███████   | 19/27 [00:18<00:07,  1.05it/s]    calculate_odds_ratio[forward]:  74%|███████▍  | 20/27 [00:19<00:06,  1.05it/s]    calculate_odds_ratio[forward]:  78%|███████▊  | 21/27 [00:20<00:05,  1.05it/s]    calculate_odds_ratio[forward]:  81%|████████▏ | 22/27 [00:21<00:05,  1.14s/it]    calculate_odds_ratio[forward]:  85%|████████▌ | 23/27 [00:22<00:04,  1.08s/it]    calculate_odds_ratio[forward]:  89%|████████▉ | 24/27 [00:23<00:03,  1.04s/it]    calculate_odds_ratio[forward]:  93%|█████████▎| 25/27 [00:24<00:02,  1.01s/it]    calculate_odds_ratio[forward]:  96%|█████████▋| 26/27 [00:25<00:00,  1.00it/s]    calculate_odds_ratio[forward]: 100%|██████████| 27/27 [00:26<00:00,  1.02it/s]                                                                                  calculate_odds_ratio[backward]:   0%|          | 0/26 [00:00<?, ?it/s]    calculate_odds_ratio[backward]:   4%|▍         | 1/26 [00:05<02:06,  5.07s/it]    calculate_odds_ratio[backward]:   8%|▊         | 2/26 [00:09<01:58,  4.93s/it]    calculate_odds_ratio[backward]:  12%|█▏        | 3/26 [00:16<02:12,  5.76s/it]    calculate_odds_ratio[backward]:  15%|█▌        | 4/26 [00:23<02:14,  6.14s/it]    calculate_odds_ratio[backward]:  19%|█▉        | 5/26 [00:30<02:13,  6.35s/it]    calculate_odds_ratio[backward]:  23%|██▎       | 6/26 [00:36<02:09,  6.48s/it]    calculate_odds_ratio[backward]:  27%|██▋       | 7/26 [00:43<02:04,  6.56s/it]    calculate_odds_ratio[backward]:  31%|███       | 8/26 [00:50<01:59,  6.62s/it]    calculate_odds_ratio[backward]:  35%|███▍      | 9/26 [00:57<01:53,  6.66s/it]    calculate_odds_ratio[backward]:  38%|███▊      | 10/26 [01:03<01:46,  6.68s/it]    calculate_odds_ratio[backward]:  42%|████▏     | 11/26 [01:10<01:40,  6.69s/it]    calculate_odds_ratio[backward]:  46%|████▌     | 12/26 [01:17<01:33,  6.71s/it]    calculate_odds_ratio[backward]:  50%|█████     | 13/26 [01:23<01:27,  6.72s/it]    calculate_odds_ratio[backward]:  54%|█████▍    | 14/26 [01:30<01:20,  6.72s/it]    calculate_odds_ratio[backward]:  58%|█████▊    | 15/26 [01:38<01:16,  6.92s/it]    calculate_odds_ratio[backward]:  62%|██████▏   | 16/26 [01:44<01:08,  6.87s/it]    calculate_odds_ratio[backward]:  65%|██████▌   | 17/26 [01:51<01:01,  6.83s/it]    calculate_odds_ratio[backward]:  69%|██████▉   | 18/26 [01:58<00:54,  6.80s/it]    calculate_odds_ratio[backward]:  73%|███████▎  | 19/26 [02:05<00:47,  6.78s/it]    calculate_odds_ratio[backward]:  77%|███████▋  | 20/26 [02:11<00:40,  6.77s/it]    calculate_odds_ratio[backward]:  81%|████████  | 21/26 [02:18<00:33,  6.76s/it]    calculate_odds_ratio[backward]:  85%|████████▍ | 22/26 [02:25<00:27,  6.75s/it]    calculate_odds_ratio[backward]:  88%|████████▊ | 23/26 [02:31<00:20,  6.74s/it]    calculate_odds_ratio[backward]:  92%|█████████▏| 24/26 [02:38<00:13,  6.74s/it]    calculate_odds_ratio[backward]:  96%|█████████▌| 25/26 [02:45<00:06,  6.74s/it]    calculate_odds_ratio[backward]: 100%|██████████| 26/26 [02:50<00:00,  6.17s/it]                                                                                   calculate_odds_ratio[backward_no_guidance]:   0%|          | 0/26 [00:00<?, ?it/s]    calculate_odds_ratio[backward_no_guidance]:   4%|▍         | 1/26 [00:04<01:49,  4.37s/it]    calculate_odds_ratio[backward_no_guidance]:   8%|▊         | 2/26 [00:08<01:44,  4.36s/it]    calculate_odds_ratio[backward_no_guidance]:  12%|█▏        | 3/26 [00:13<01:40,  4.37s/it]    calculate_odds_ratio[backward_no_guidance]:  15%|█▌        | 4/26 [00:17<01:36,  4.37s/it]    calculate_odds_ratio[backward_no_guidance]:  19%|█▉        | 5/26 [00:21<01:31,  4.38s/it]    calculate_odds_ratio[backward_no_guidance]:  23%|██▎       | 6/26 [00:26<01:27,  4.37s/it]    calculate_odds_ratio[backward_no_guidance]:  27%|██▋       | 7/26 [00:30<01:23,  4.37s/it]    calculate_odds_ratio[backward_no_guidance]:  31%|███       | 8/26 [00:34<01:18,  4.38s/it]    calculate_odds_ratio[backward_no_guidance]:  35%|███▍      | 9/26 [00:39<01:14,  4.37s/it]    calculate_odds_ratio[backward_no_guidance]:  38%|███▊      | 10/26 [00:43<01:09,  4.36s/it]    calculate_odds_ratio[backward_no_guidance]:  42%|████▏     | 11/26 [00:48<01:08,  4.56s/it]    calculate_odds_ratio[backward_no_guidance]:  46%|████▌     | 12/26 [00:53<01:03,  4.50s/it]    calculate_odds_ratio[backward_no_guidance]:  50%|█████     | 13/26 [00:57<00:58,  4.46s/it]    calculate_odds_ratio[backward_no_guidance]:  54%|█████▍    | 14/26 [01:01<00:53,  4.44s/it]    calculate_odds_ratio[backward_no_guidance]:  58%|█████▊    | 15/26 [01:06<00:48,  4.43s/it]    calculate_odds_ratio[backward_no_guidance]:  62%|██████▏   | 16/26 [01:10<00:44,  4.41s/it]    calculate_odds_ratio[backward_no_guidance]:  65%|██████▌   | 17/26 [01:14<00:39,  4.40s/it]    calculate_odds_ratio[backward_no_guidance]:  69%|██████▉   | 18/26 [01:19<00:35,  4.40s/it]    calculate_odds_ratio[backward_no_guidance]:  73%|███████▎  | 19/26 [01:23<00:30,  4.40s/it]    calculate_odds_ratio[backward_no_guidance]:  77%|███████▋  | 20/26 [01:28<00:26,  4.40s/it]    calculate_odds_ratio[backward_no_guidance]:  81%|████████  | 21/26 [01:32<00:21,  4.39s/it]    calculate_odds_ratio[backward_no_guidance]:  85%|████████▍ | 22/26 [01:36<00:17,  4.39s/it]    calculate_odds_ratio[backward_no_guidance]:  88%|████████▊ | 23/26 [01:41<00:13,  4.39s/it]    calculate_odds_ratio[backward_no_guidance]:  92%|█████████▏| 24/26 [01:45<00:08,  4.39s/it]    calculate_odds_ratio[backward_no_guidance]:  96%|█████████▌| 25/26 [01:50<00:04,  4.39s/it]    calculate_odds_ratio[backward_no_guidance]: 100%|██████████| 26/26 [01:54<00:00,  4.38s/it]                                                                                               Log odds ratio: 2.2465
+    Forward latents shape: (1, 45, 721, 1440)
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 182-188
@@ -243,6 +291,22 @@ computation operates on.
     ax.set_title(f"Forward Latents: {u_var} Channel")
     plt.tight_layout()
     plt.savefig("outputs/05_cbottle_tc_forward_latents.jpg")
+
+
+
+.. image-sg:: /examples/07_misc/images/sphx_glr_05_cbottle_tc_guidance_002.png
+   :alt: Forward Latents: u10m Channel
+   :srcset: /examples/07_misc/images/sphx_glr_05_cbottle_tc_guidance_002.png
+   :class: sphx-glr-single-img
+
+
+
+
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (5 minutes 39.602 seconds)
 
 
 .. _sphx_glr_download_examples_07_misc_05_cbottle_tc_guidance.py:

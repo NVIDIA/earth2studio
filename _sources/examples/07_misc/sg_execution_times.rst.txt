@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:00.000** total execution time for 5 files **from examples/07_misc**:
+**12:53.200** total execution time for 5 files **from examples/07_misc**:
 
 .. container::
 
@@ -32,18 +32,18 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_examples_07_misc_01_distributed_manager.py` (``01_distributed_manager.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_examples_07_misc_02_cbottle_generation.py` (``02_cbottle_generation.py``)
-     - 00:00.000
+   * - :ref:`sphx_glr_examples_07_misc_05_cbottle_tc_guidance.py` (``05_cbottle_tc_guidance.py``)
+     - 05:39.602
      - 0.0
    * - :ref:`sphx_glr_examples_07_misc_03_io_performance.py` (``03_io_performance.py``)
-     - 00:00.000
+     - 03:28.641
      - 0.0
    * - :ref:`sphx_glr_examples_07_misc_04_local_datasource.py` (``04_local_datasource.py``)
-     - 00:00.000
+     - 01:50.118
      - 0.0
-   * - :ref:`sphx_glr_examples_07_misc_05_cbottle_tc_guidance.py` (``05_cbottle_tc_guidance.py``)
-     - 00:00.000
+   * - :ref:`sphx_glr_examples_07_misc_02_cbottle_generation.py` (``02_cbottle_generation.py``)
+     - 01:44.287
+     - 0.0
+   * - :ref:`sphx_glr_examples_07_misc_01_distributed_manager.py` (``01_distributed_manager.py``)
+     - 00:10.553
      - 0.0

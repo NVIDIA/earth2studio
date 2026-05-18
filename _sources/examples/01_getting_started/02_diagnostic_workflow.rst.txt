@@ -47,6 +47,12 @@ In this example you will learn:
     # ///
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 44-48
 
 Set Up
@@ -100,6 +106,22 @@ Thus, we need the following:
     io = ZarrBackend()
 
 
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    Downloading config.json: 0%|          | 0.00/22.0 [00:00<?, ?B/s]    Downloading config.json: 100%|██████████| 22.0/22.0 [00:00<00:00, 78.1B/s]    Downloading config.json: 100%|██████████| 22.0/22.0 [00:00<00:00, 77.9B/s]
+    Downloading fcn.mdlus: 0%|          | 0.00/287M [00:00<?, ?B/s]    Downloading fcn.mdlus: 3%|▎         | 10.0M/287M [00:00<00:05, 53.7MB/s]    Downloading fcn.mdlus: 17%|█▋        | 50.0M/287M [00:00<00:01, 206MB/s]    Downloading fcn.mdlus: 35%|███▍      | 100M/287M [00:00<00:00, 311MB/s]     Downloading fcn.mdlus: 52%|█████▏    | 150M/287M [00:00<00:00, 349MB/s]    Downloading fcn.mdlus: 66%|██████▌   | 190M/287M [00:00<00:00, 368MB/s]    Downloading fcn.mdlus: 84%|████████▎ | 240M/287M [00:00<00:00, 390MB/s]    Downloading fcn.mdlus: 100%|██████████| 287M/287M [00:00<00:00, 414MB/s]    Downloading fcn.mdlus: 100%|██████████| 287M/287M [00:00<00:00, 346MB/s]
+    Downloading global_means.npy: 0%|          | 0.00/336 [00:00<?, ?B/s]    Downloading global_means.npy: 100%|██████████| 336/336 [00:00<00:00, 2.78kB/s]    Downloading global_means.npy: 100%|██████████| 336/336 [00:00<00:00, 2.77kB/s]
+    Downloading global_stds.npy: 0%|          | 0.00/336 [00:00<?, ?B/s]    Downloading global_stds.npy: 100%|██████████| 336/336 [00:00<00:00, 3.00kB/s]    Downloading global_stds.npy: 100%|██████████| 336/336 [00:00<00:00, 2.98kB/s]
+    Downloading precipitation_afno.zip: 0%|          | 0.00/261M [00:00<?, ?B/s]    Downloading precipitation_afno.zip: 1%|          | 1.51M/261M [00:00<00:18, 14.6MB/s]    Downloading precipitation_afno.zip: 6%|▋         | 16.7M/261M [00:00<00:02, 96.9MB/s]    Downloading precipitation_afno.zip: 10%|█         | 26.9M/261M [00:00<00:02, 82.5MB/s]    Downloading precipitation_afno.zip: 13%|█▎        | 35.1M/261M [00:00<00:03, 69.5MB/s]    Downloading precipitation_afno.zip: 19%|█▉        | 49.2M/261M [00:00<00:02, 91.9MB/s]    Downloading precipitation_afno.zip: 23%|██▎       | 58.8M/261M [00:00<00:02, 81.9MB/s]    Downloading precipitation_afno.zip: 28%|██▊       | 72.6M/261M [00:00<00:02, 98.5MB/s]    Downloading precipitation_afno.zip: 32%|███▏      | 82.8M/261M [00:00<00:01, 97.2MB/s]    Downloading precipitation_afno.zip: 37%|███▋      | 97.7M/261M [00:01<00:01, 91.5MB/s]    Downloading precipitation_afno.zip: 41%|████      | 107M/261M [00:01<00:01, 86.6MB/s]     Downloading precipitation_afno.zip: 44%|████▍     | 116M/261M [00:01<00:02, 68.4MB/s]    Downloading precipitation_afno.zip: 51%|█████     | 132M/261M [00:01<00:01, 89.9MB/s]    Downloading precipitation_afno.zip: 55%|█████▍    | 142M/261M [00:01<00:01, 81.3MB/s]    Downloading precipitation_afno.zip: 60%|█████▉    | 155M/261M [00:01<00:01, 93.3MB/s]    Downloading precipitation_afno.zip: 63%|██████▎   | 165M/261M [00:02<00:01, 74.6MB/s]    Downloading precipitation_afno.zip: 71%|███████   | 185M/261M [00:02<00:00, 103MB/s]     Downloading precipitation_afno.zip: 78%|███████▊  | 203M/261M [00:02<00:00, 122MB/s]    Downloading precipitation_afno.zip: 83%|████████▎ | 217M/261M [00:02<00:00, 101MB/s]    Downloading precipitation_afno.zip: 90%|████████▉ | 234M/261M [00:02<00:00, 119MB/s]    Downloading precipitation_afno.zip: 95%|█████████▍| 247M/261M [00:02<00:00, 103MB/s]    Downloading precipitation_afno.zip: 99%|█████████▉| 259M/261M [00:02<00:00, 94.0MB/s]    Downloading precipitation_afno.zip: 100%|██████████| 261M/261M [00:02<00:00, 92.0MB/s]
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 91-97
 
 Execute the Workflow
@@ -121,6 +143,68 @@ saving to file. Check the API docs for more information.
     )
 
     print(io.root.tree())
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2026-05-18 02:08:46.978 | INFO     | earth2studio.run:diagnostic:198 - Running diagnostic workflow!
+    2026-05-18 02:08:46.978 | INFO     | earth2studio.run:diagnostic:205 - Inference device: cuda
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.419 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 0-1002486
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.422 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 155987833-763786
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.423 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 407717702-959428
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.425 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 472734498-976207
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.427 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 210050666-761020
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.429 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 264548957-746714
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.430 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 263723951-825006
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.432 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 422428446-507899
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.434 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 343243269-852573
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.435 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 471746333-988165
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.437 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 209303792-746874
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.438 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 270673885-954744
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.440 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 265295671-828915
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.441 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 269727465-946420
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.443 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 433893232-1229275
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.444 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 426047081-975958
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.445 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 342333604-909665
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.447 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 215895048-622148
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.448 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 427023039-950918
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.450 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 350106602-970343
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.451 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 344095842-882412
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.453 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 349147153-959449
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.455 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 406739323-978379
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.456 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 414253228-840220
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.457 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 412154325-999310
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                             2026-05-18 02:08:47.459 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20210601/00/atmos/gfs.t00z.pgrb2.0p25.f000 215284398-610650
+    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]    Fetching GFS data:   4%|▍         | 1/26 [00:00<00:14,  1.67it/s]    Fetching GFS data:  19%|█▉        | 5/26 [00:00<00:02,  8.62it/s]    Fetching GFS data:  38%|███▊      | 10/26 [00:00<00:00, 16.52it/s]    Fetching GFS data:  54%|█████▍    | 14/26 [00:00<00:00, 20.94it/s]    Fetching GFS data:  77%|███████▋  | 20/26 [00:01<00:00, 29.72it/s]    Fetching GFS data: 100%|██████████| 26/26 [00:01<00:00, 22.46it/s]
+    2026-05-18 02:08:48.627 | SUCCESS  | earth2studio.run:diagnostic:228 - Fetched data from GFS
+    2026-05-18 02:08:48.639 | INFO     | earth2studio.run:diagnostic:260 - Inference starting!
+
+    Running inference:   0%|          | 0/9 [00:00<?, ?it/s]
+    Running inference:  11%|█         | 1/9 [00:00<00:01,  4.22it/s]
+    Running inference:  22%|██▏       | 2/9 [00:00<00:01,  4.55it/s]
+    Running inference:  33%|███▎      | 3/9 [00:00<00:01,  4.67it/s]
+    Running inference:  44%|████▍     | 4/9 [00:00<00:01,  4.72it/s]
+    Running inference:  56%|█████▌    | 5/9 [00:01<00:00,  4.74it/s]
+    Running inference:  67%|██████▋   | 6/9 [00:01<00:00,  4.77it/s]
+    Running inference:  78%|███████▊  | 7/9 [00:01<00:00,  4.79it/s]
+    Running inference:  89%|████████▉ | 8/9 [00:01<00:00,  4.79it/s]
+    Running inference: 100%|██████████| 9/9 [00:01<00:00,  4.80it/s]    Running inference: 100%|██████████| 9/9 [00:01<00:00,  4.73it/s]
+    2026-05-18 02:08:50.540 | SUCCESS  | earth2studio.run:diagnostic:276 - 
+    Inference complete
+    /
+    ├── lat (720,) float64
+    ├── lead_time (9,) timedelta64
+    ├── lon (1440,) float64
+    ├── time (1,) datetime64
+    └── tp (1, 9, 720, 1440) float32
+
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 109-120
@@ -183,6 +267,22 @@ prognostic model.
     )
 
     plt.savefig("outputs/02_tp_prediction.jpg")
+
+
+
+.. image-sg:: /examples/01_getting_started/images/sphx_glr_02_diagnostic_workflow_001.png
+   :alt: 2021-06-01 - Lead time: 48hrs
+   :srcset: /examples/01_getting_started/images/sphx_glr_02_diagnostic_workflow_001.png
+   :class: sphx-glr-single-img
+
+
+
+
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (0 minutes 17.985 seconds)
 
 
 .. _sphx_glr_download_examples_01_getting_started_02_diagnostic_workflow.py:
