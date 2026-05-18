@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added GOES Geostationary Lightning Mapper L2 LCFA event data source (`GOESGLM`)
 - Added real-time GDAS conventional observation data source (`NomadsGDASObsConv`)
 - Added `quality` field to `E2STUDIO_SCHEMA` for observation QC markers
+- Added Climate in a Bottle tropical cyclone guidance and odds ration example
 
 ### Changed
 
@@ -26,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `wavenumber` (cm⁻¹) field to all satellite schemas
 - Changed `channel_index` to `sensor_index` in `E2STUDIO_SCHEMA`
 - Added Orbit-2 precipitation downscaling model
+- Disabled Atlas example from documentation build due to slow performance
 
 ### Deprecated
 
