@@ -290,7 +290,7 @@ partd==1.4.2
     # via dask
 pathspec==1.0.4
     # via hatchling
-pillow==11.3.0
+pillow==12.2.0
     # via bokeh
 pluggy==1.6.0
     # via hatchling
@@ -408,7 +408,7 @@ typing-extensions==4.15.0
     #   zarr
 tzdata==2025.3 ; sys_platform == 'emscripten' or sys_platform == 'win32'
     # via pandas
-urllib3==2.6.3
+urllib3==2.7.0
     # via
     #   botocore
     #   distributed
