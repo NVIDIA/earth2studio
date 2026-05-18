@@ -86,6 +86,23 @@ utility workflows.
     </div>
 
 
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Guided tropical cyclone sampling with cBottle and odds-ratio diagnostics.">
+
+.. only:: html
+
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_05_cbottle_tc_guidance_thumb.png
+    :alt:
+
+  :doc:`/examples/07_misc/05_cbottle_tc_guidance`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">CBottle Tropical Cyclone Guidance</div>
+    </div>
+
+
 .. thumbnail-parent-div-close
 
 .. raw:: html
@@ -100,4 +117,5 @@ utility workflows.
    /examples/07_misc/02_cbottle_generation
    /examples/07_misc/03_io_performance
    /examples/07_misc/04_local_datasource
+   /examples/07_misc/05_cbottle_tc_guidance
 

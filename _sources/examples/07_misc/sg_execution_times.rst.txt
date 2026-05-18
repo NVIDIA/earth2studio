@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:00.000** total execution time for 4 files **from examples/07_misc**:
+**00:00.000** total execution time for 5 files **from examples/07_misc**:
 
 .. container::
 
@@ -42,5 +42,8 @@ Computation times
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_07_misc_04_local_datasource.py` (``04_local_datasource.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_07_misc_05_cbottle_tc_guidance.py` (``05_cbottle_tc_guidance.py``)
      - 00:00.000
      - 0.0

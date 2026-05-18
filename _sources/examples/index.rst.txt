@@ -220,23 +220,6 @@ and post-processing workflows.
     </div>
 
 
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="Deterministic inference using the Atlas prognostic model.">
-
-.. only:: html
-
-  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_06_atlas_inference_thumb.png
-    :alt:
-
-  :doc:`/examples/02_medium_range/06_atlas_inference`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Running Atlas Inference</div>
-    </div>
-
-
 .. thumbnail-parent-div-close
 
 .. raw:: html
@@ -576,6 +559,23 @@ utility workflows.
 .. raw:: html
 
       <div class="sphx-glr-thumbnail-title">Creating a Local Data Source</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Guided tropical cyclone sampling with cBottle and odds-ratio diagnostics.">
+
+.. only:: html
+
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_05_cbottle_tc_guidance_thumb.png
+    :alt:
+
+  :doc:`/examples/07_misc/05_cbottle_tc_guidance`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">CBottle Tropical Cyclone Guidance</div>
     </div>
 
 
