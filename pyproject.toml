@@ -294,6 +294,7 @@ conflicts = [
 default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
 no-build-isolation-package = ["earth2grid", "flash-attn", "natten", "torch-harmonics"]
+override-dependencies = []
 
 [[tool.uv.index]]
 name = "ort-cuda-13-nightly"
