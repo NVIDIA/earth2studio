@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import os
 import urllib.request
 from concurrent.futures import ProcessPoolExecutor
@@ -71,7 +72,6 @@ def extract_from_historic_data(
     ic: np.datetime64,
     n_steps: int,
     time_step: np.timedelta64,
-    vars: list[str],
     data_source_mngr: DataSourceManager,
 ) -> pd.DataFrame:
     """Fetch reanalysis data and extract TC tracks with TempestExtremes.
@@ -86,8 +86,6 @@ def extract_from_historic_data(
         Number of time steps to extract.
     time_step : np.timedelta64
         Spacing between time steps.
-    vars : list[str]
-        Variable names required by TempestExtremes.
     data_source_mngr : DataSourceManager
         Manager providing the correct data source for the time range.
 
@@ -96,6 +94,7 @@ def extract_from_historic_data(
     pd.DataFrame
         Extracted TC tracks from the reanalysis data.
     """
+    variables = list(cfg.cyclone_tracking.vars)
     times = np.arange(n_steps) * time_step
     data_source = data_source_mngr.select_data_source(ic + times)
 
@@ -103,7 +102,7 @@ def extract_from_historic_data(
         data_source,
         time=[ic],
         lead_time=times,
-        variable=vars,
+        variable=variables,
         device="cpu",
     )
     xx = xx.unsqueeze(0)
@@ -119,7 +118,7 @@ def extract_from_historic_data(
     cyclone_tracking = TempestExtremes(
         detect_cmd=cfg.cyclone_tracking.detect_cmd,
         stitch_cmd=cfg.cyclone_tracking.stitch_cmd,
-        input_vars=cfg.cyclone_tracking.vars,
+        input_vars=variables,
         batch_size=1,
         n_steps=n_steps - 1,
         time_step=time_step,
@@ -198,9 +197,7 @@ def extract_from_ibtracs(
     if hours:
         ic = (ic - np.timedelta64(hours, "h")).astype("datetime64[h]")
 
-    n_steps = (storm.time[-1] - ic) // time_step
-    if (storm.time[-1] - ic) % time_step != 0:
-        n_steps += 1
+    n_steps = math.ceil((storm.time[-1] - ic) / time_step)
 
     ib_storm = ib_storm[
         ib_storm["time"].isin(np.arange(ic, ic + n_steps * time_step, time_step))
@@ -210,13 +207,17 @@ def extract_from_ibtracs(
 
 
 def match_tracks(
-    ib_storm: pd.DataFrame, hist_tracks: pd.DataFrame, case: str
+    ib_storm: pd.DataFrame,
+    hist_tracks: pd.DataFrame,
+    case: str,
+    max_dist: float = 300000,
 ) -> pd.DataFrame:
     """Match extracted tracks against IBTrACS to identify the target storm.
 
-    Iterates over IBTrACS observation times and compares against each
-    detected track. A match is declared when a track point is within
-    300 km of the IBTrACS position.
+    Iterates over IBTrACS observation times (in chronological order) and
+    compares against each detected track. A match is declared at the first
+    time step for which the extracted track's position lies within
+    ``max_dist`` metres of the corresponding IBTrACS reference position.
 
     Parameters
     ----------
@@ -226,6 +227,10 @@ def match_tracks(
         All tracks extracted by TempestExtremes.
     case : str
         Storm name (for logging).
+    max_dist : float, optional
+        Maximum great-circle distance (in metres) between the extracted
+        track and the IBTrACS reference position at the matching time
+        step. Defaults to ``300000`` (300 km).
 
     Returns
     -------
@@ -249,7 +254,7 @@ def match_tracks(
                 lat_track = track.loc[track["time"] == time, "lat"].item()
                 lon_track = track.loc[track["time"] == time, "lon"].item()
                 dist = great_circle_distance(lat_ib, lon_ib, lat_track, lon_track)
-                if dist < 300000:
+                if dist < max_dist:
                     matched_track = track_id
                     logger.info(
                         f"matched track {matched_track} for storm {case} "
@@ -359,7 +364,6 @@ def process_case(
     ibtracs: tropytracks.TrackDataset,
     data_source_mngr: DataSourceManager,
     time_step: np.timedelta64,
-    vars: list[str],
 ) -> pd.DataFrame | None:
     """Run the full baseline pipeline for one storm.
 
@@ -375,14 +379,13 @@ def process_case(
         Manager providing the correct data source for the time range.
     time_step : np.timedelta64
         Time step for the reanalysis extraction.
-    vars : list[str]
-        Variables required by TempestExtremes.
 
     Returns
     -------
     pd.DataFrame | None
         The merged matched track ready for :func:`write_track_to_csv`, or
-        ``None`` if no reanalysis track matched within the 300 km threshold.
+        ``None`` if no reanalysis track matched within the configured
+        ``max_dist`` threshold (defaults to 300 km).
     """
     ib_storm, ic, n_steps = extract_from_ibtracs(cfg, ibtracs, case, time_step)
 
@@ -391,11 +394,11 @@ def process_case(
         ic=ic,
         n_steps=n_steps,
         time_step=time_step,
-        vars=vars,
         data_source_mngr=data_source_mngr,
     )
 
-    matched_track = match_tracks(ib_storm, hist_tracks, case)
+    max_dist = cfg.get("max_dist", 300000)
+    matched_track = match_tracks(ib_storm, hist_tracks, case, max_dist)
     if matched_track.empty:
         return None
 
@@ -435,12 +438,10 @@ def _init_worker(cfg: DictConfig, ibtracs_path: str) -> None:
     _WORKER["dsm"] = DataSourceManager(cfg)
 
 
-def _run_case(case: str, time_step: np.timedelta64, vars: list[str]) -> None:
+def _run_case(case: str, time_step: np.timedelta64) -> None:
     """Per-worker entry point: process one storm and write its CSV."""
     cfg = _WORKER["cfg"]
-    matched = process_case(
-        case, cfg, _WORKER["ibtracs"], _WORKER["dsm"], time_step, vars
-    )
+    matched = process_case(case, cfg, _WORKER["ibtracs"], _WORKER["dsm"], time_step)
     if matched is None:
         logger.warning(
             f"no reanalysis track matched storm {case} within the 300 km "
@@ -453,7 +454,6 @@ def _run_case(case: str, time_step: np.timedelta64, vars: list[str]) -> None:
 def extract_baseline(
     cfg: DictConfig,
     time_step: np.timedelta64 = np.timedelta64(6, "h"),
-    vars: list[str] | None = None,
 ) -> None:
     """Extract TC reference tracks from reanalysis using IBTrACS ground truth.
 
@@ -470,13 +470,7 @@ def extract_baseline(
         Hydra configuration object. May define ``num_workers`` (int).
     time_step : np.timedelta64, optional
         Time step for the reanalysis extraction, by default 6 h.
-    vars : list[str] | None, optional
-        Variables required by TempestExtremes. Defaults to
-        ``['msl', 'z300', 'z500', 'u10m', 'v10m']``.
     """
-    if vars is None:
-        vars = ["msl", "z300", "z500", "u10m", "v10m"]
-
     ibtracs_path = ensure_ibtracs(cfg.ibtracs_source_data)
     cases = sorted(cfg.cases.keys())
     requested_workers = cfg.get("num_workers", 1)
@@ -487,7 +481,7 @@ def extract_baseline(
             f"({len(cases)}); capping to {n_workers} to avoid idle workers"
         )
 
-    runner = partial(_run_case, time_step=time_step, vars=vars)
+    runner = partial(_run_case, time_step=time_step)
 
     if n_workers <= 1:
         _init_worker(cfg, ibtracs_path)

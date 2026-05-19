@@ -493,7 +493,17 @@ TempestExtremes to extract tropical cyclone tracks. Since
 multiple storms may be active globally at any given time,
 a second matching step compares all extracted tracks against
 the IBTrACS ground truth to identify the correct track for
-each named storm.
+each named storm. A track is matched at the first IBTrACS
+observation time for which the extracted storm position lies
+within ``max_dist`` metres of the IBTrACS reference position.
+The ``max_dist`` setting is optional and defaults to
+``300000`` (300 km) if omitted:
+
+```yaml
+max_dist: 300000   # optional; max. distance (in metres) between
+                   # extracted track and IBTrACS reference at the
+                   # matching time step; defaults to 300000 (300 km)
+```
 
 **IO Configuration:**
 

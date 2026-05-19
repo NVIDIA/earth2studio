@@ -341,10 +341,13 @@ class InstabilityDetection:
         ), self._output_coords
 
 
-def great_circle_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+def great_circle_distance(
+    lat1: float, lon1: float, lat2: float, lon2: float, radius: float = 6371000
+) -> float:
     """Compute the great-circle distance between two points on a sphere.
 
-    Uses the Haversine formula with Earth's mean radius of 6371 km.
+    Uses the Haversine formula on the sphere, the radius of which is
+    defautlting to Earth's mean radius of 6371 km.
 
     Parameters
     ----------
@@ -369,4 +372,4 @@ def great_circle_distance(lat1: float, lon1: float, lat2: float, lon2: float) ->
     aa = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
     cc = 2 * np.arctan2(np.sqrt(aa), np.sqrt(1 - aa))
 
-    return 6371000 * cc
+    return radius * cc
