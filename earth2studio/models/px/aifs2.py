@@ -855,7 +855,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         x: torch.Tensor,
         coords: CoordSystem,
-        step: int = 1,
+        step: int = 0,
     ) -> tuple[torch.Tensor, CoordSystem]:
         output_coords = self.output_coords(coords)
         with torch.autocast(device_type=str(x.device), dtype=torch.float16):
@@ -935,7 +935,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Prepare input tensor
         x = self._prepare_input(x, coords)
-        step = 1
+        step = 0
 
         while True:
             # Front hook
