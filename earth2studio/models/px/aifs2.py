@@ -571,14 +571,21 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         time_array: np.datetime64,
         longitudes: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Get cosine and sine of Julian day"""
+        """Get cosine and sine of Julian day.
+
+        Reference implementation: earthkit.data.sources.forcings.ForcingMaker
+        https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/sources/forcings.py
+        """
         days: np.floating = (
             time_array.astype("datetime64[D]") - time_array.astype("datetime64[Y]")
         ).astype(np.float32)
         hours: np.floating = (
             time_array.astype("datetime64[h]") - time_array.astype("datetime64[D]")
         ).astype(np.float32)
-        julian_days = days + (hours / 24.0)
+        seconds: np.floating = (
+            time_array.astype("datetime64[s]") - time_array.astype("datetime64[h]")
+        ).astype(np.float32)
+        julian_days = days + hours / 24.0 + seconds / 86400.0
         normalized = 2 * np.pi * (julian_days / 365.25)
         cos_julian_day = torch.full_like(
             longitudes, np.cos(normalized), dtype=torch.float32
@@ -593,7 +600,11 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         time_array: np.datetime64,
         longitudes: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Get cosine and sine of local time"""
+        """Get cosine and sine of local time.
+
+        Reference implementation: earthkit.data.sources.forcings.ForcingMaker
+        https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/sources/forcings.py
+        """
         hours: np.floating = (
             time_array.astype("datetime64[h]") - time_array.astype("datetime64[D]")
         ).astype(np.float32)
@@ -610,7 +621,11 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         latitudes: torch.Tensor,
         longitudes: torch.Tensor,
     ) -> torch.Tensor:
-        """Get cosine zenith fields for input time array"""
+        """Get cosine zenith fields for input time array.
+
+        Reference implementation: earthkit.data.utils.meteo.cos_solar_zenith_angle
+        https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/utils/meteo.py
+        """
 
         # Get Julian day
         days: np.floating = (
@@ -622,7 +637,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         seconds: np.floating = (
             date.astype("datetime64[s]") - date.astype("datetime64[h]")
         ).astype(np.float32)
-        julian_day = days + seconds / 86400.0
+        julian_day = days + hours / 24.0 + seconds / 86400.0
 
         # Convert angle to tensor
         angle = torch.tensor(
