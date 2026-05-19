@@ -85,9 +85,13 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         lat/lon.
     invariants : torch.Tensor
         Tensor of shape [5, 721, 1440] containing the invariant fields "lsm", "sdor",
-        "slor", "z", and "wmb" (model bathymetry).
+        "slor", "z", and "wmb" (model bathymetry). Empty if preload_invariants=False.
     lsm_mask : torch.Tensor
         Land-sea mask tensor of shape [542080,] for masking ocean/land-only variables.
+    preload_invariants : bool
+        If True (default), invariant fields are fetched from IFS at load time and
+        cached. If False, invariant fields must be provided as input variables,
+        enabling use of invariants from alternative sources for exact reproducibility.
 
     Warning
     -------
@@ -261,10 +265,16 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         inverse_interpolation_matrix: torch.Tensor,
         invariants: torch.Tensor,
         lsm_mask: torch.Tensor,
+        preload_invariants: bool = True,
     ) -> None:
         super().__init__()
         self.model = model
-        self.register_buffer("invariants", invariants)
+        self.preload_invariants = preload_invariants
+        if preload_invariants:
+            self.register_buffer("invariants", invariants)
+        else:
+            # Store None placeholder - invariants will come from input
+            self.register_buffer("invariants", torch.empty(0))
         self.register_buffer("latitudes", latitudes)
         self.register_buffer("longitudes", longitudes)
         self.register_buffer("interpolation_matrix", interpolation_matrix)
@@ -325,6 +335,13 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
+        # Get prognostic input variables
+        input_vars = [self.VARIABLES[i] for i in self.input_ids]
+
+        # If not preloading invariants, add them as input variables
+        if not self.preload_invariants:
+            input_vars = input_vars + self.VARIABLE_INVARIANTS
+
         return OrderedDict(
             {
                 "batch": np.empty(0),
@@ -332,7 +349,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "lead_time": np.array(
                     [np.timedelta64(-6, "h"), np.timedelta64(0, "h")]
                 ),
-                "variable": np.array([self.VARIABLES[i] for i in self.input_ids]),
+                "variable": np.array(input_vars),
                 "lat": np.linspace(90.0, -90.0, 721),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
@@ -398,8 +415,27 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     @check_optional_dependencies()
-    def load_model(cls, package: Package) -> PrognosticModel:
-        """Load prognostic from package"""
+    def load_model(
+        cls, package: Package, preload_invariants: bool = True
+    ) -> PrognosticModel:
+        """Load prognostic from package
+
+        Parameters
+        ----------
+        package : Package
+            Model package to load from
+        preload_invariants : bool, optional
+            If True (default), invariant fields (lsm, sdor, slor, z, wmb) are fetched
+            from IFS at load time and cached. If False, these fields must be provided
+            as input variables, allowing use of invariants from alternative sources
+            (e.g., ECMWF Open Data) for exact reproducibility with reference
+            implementations.
+
+        Returns
+        -------
+        PrognosticModel
+            Loaded AIFS2 model
+        """
 
         # Load model
         model_path = package.resolve("aifs-single-mse-2.0.ckpt")
@@ -480,25 +516,33 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             dtype=torch.float32,
         )
 
-        # Fetch invariants from IFS
-        ifs = IFS(cache=True, verbose=False)
-        invariants, _ = fetch_data(
-            source=ifs,
-            time=np.array([np.datetime64("2026-01-01T00:00:00")]),
-            variable=["lsm", "sdor", "slor", "z"],
-        )
-        invariants = invariants.squeeze()
+        # Fetch invariants from IFS (only if preloading)
+        if preload_invariants:
+            ifs = IFS(cache=True, verbose=False)
+            invariants, _ = fetch_data(
+                source=ifs,
+                time=np.array([np.datetime64("2026-01-01T00:00:00")]),
+                variable=["lsm", "sdor", "slor", "z"],
+            )
+            invariants = invariants.squeeze()
 
-        # Load land-sea mask for masking wave variables (ocean only)
-        lsm_latlon = invariants[0]  # lsm is first in invariants
-        lsm_flat = lsm_latlon.flatten().to(dtype=torch.float32)
-        lsm_interp = torch_interpolation_matrix @ lsm_flat
-        lsm_mask = lsm_interp == 0  # Ocean where lsm == 0
+            # Load land-sea mask for masking wave variables (ocean only)
+            lsm_latlon = invariants[0]  # lsm is first in invariants
+            lsm_flat = lsm_latlon.flatten().to(dtype=torch.float32)
+            lsm_interp = torch_interpolation_matrix @ lsm_flat
+            lsm_mask = lsm_interp == 0  # Ocean where lsm == 0
 
-        # Add wmb (model bathymetry) as zeros - it's a forcing/invariant
-        # The model internally handles wmb, we just need a placeholder
-        wmb = torch.zeros_like(invariants[0:1])
-        invariants = torch.cat([invariants, wmb], dim=0)
+            # Add wmb (model bathymetry) as zeros - it's a forcing/invariant
+            # The model internally handles wmb, we just need a placeholder
+            wmb = torch.zeros_like(invariants[0:1])
+            invariants = torch.cat([invariants, wmb], dim=0)
+        else:
+            # Placeholder - invariants will come from input
+            invariants = torch.empty(0)
+            # lsm_mask still needed for wave variable masking
+            # When not preloading, we can't compute lsm_mask at load time
+            # Use a placeholder that allows all values (no masking)
+            lsm_mask = torch.zeros(542080, dtype=torch.bool)
 
         return cls(
             model,
@@ -510,6 +554,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             inverse_interpolation_matrix=torch_inverse_interpolation_matrix,
             invariants=invariants,
             lsm_mask=lsm_mask,
+            preload_invariants=preload_invariants,
         )
 
     @staticmethod
@@ -684,33 +729,62 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> torch.Tensor:
         """Prepare input tensor and coordinates for the AIFS model."""
-        # Interpolate the input tensor to the model grid
-        shape = x.shape
-        x = x.flatten(start_dim=4)
-        x = x.flatten(end_dim=3)
-        x = torch.swapaxes(x, 0, -1)
-        x = x.to(dtype=torch.float32)
-        x = self.interpolation_matrix @ x
-        x = torch.swapaxes(x, 0, -1)
-        x = x.reshape([shape[0] * shape[1], shape[2], shape[3], -1])
-        x = torch.swapaxes(x, 2, 3)
+        # Determine number of prognostic variables vs invariants in input
+        n_prognostic = len(self.input_ids)
+        if self.preload_invariants:
+            # All input variables are prognostic
+            x_prognostic = x
+        else:
+            # Split input: first n_prognostic are prognostic, rest are invariants
+            x_prognostic = x[..., :n_prognostic, :, :]
+            x_invariants = x[..., n_prognostic:, :, :]
+
+        # Interpolate the prognostic input tensor to the model grid
+        shape = x_prognostic.shape
+        x_prog = x_prognostic.flatten(start_dim=4)
+        x_prog = x_prog.flatten(end_dim=3)
+        x_prog = torch.swapaxes(x_prog, 0, -1)
+        x_prog = x_prog.to(dtype=torch.float32)
+        x_prog = self.interpolation_matrix @ x_prog
+        x_prog = torch.swapaxes(x_prog, 0, -1)
+        x_prog = x_prog.reshape([shape[0] * shape[1], shape[2], shape[3], -1])
+        x_prog = torch.swapaxes(x_prog, 2, 3)
         n_bt = shape[0] * shape[1]
         n_lead = shape[2]
-        n_nodes = x.shape[2]
+        n_nodes = x_prog.shape[2]
 
-        # Interpolate invariants
-        i = self.invariants.flatten(start_dim=1)
-        i = torch.swapaxes(i, 0, -1)
-        i = i.to(dtype=torch.float32)
-        i = self.interpolation_matrix @ i
+        # Handle invariants
+        if self.preload_invariants:
+            # Use preloaded invariants
+            i = self.invariants.flatten(start_dim=1)
+            i = torch.swapaxes(i, 0, -1)
+            i = i.to(dtype=torch.float32)
+            i = self.interpolation_matrix @ i
+        else:
+            # Use invariants from input (take from first time step only)
+            # Invariants shape: [batch, time, lead_time, n_invariants, lat, lon]
+            # We only need one copy since they're static
+            inv_shape = x_invariants.shape
+            i = x_invariants[:, :, 0, :, :, :]  # Take first lead_time
+            i = i.flatten(start_dim=3)
+            i = i.flatten(end_dim=2)
+            i = torch.swapaxes(i, 0, -1)
+            i = i.to(dtype=torch.float32)
+            i = self.interpolation_matrix @ i
+            # Reshape back: we need [n_invariants, n_nodes] for later assignment
+            i = torch.swapaxes(i, 0, -1)
+            i = i.reshape([inv_shape[0] * inv_shape[1], inv_shape[3], -1])
+            # Take mean over batch*time since invariants should be constant
+            i = i[0]  # Just take first batch
+            i = torch.swapaxes(i, 0, -1)
 
         # Reconstruct full feature tensor in checkpoint variable space
         x_full = torch.zeros(
             (n_bt, n_lead, n_nodes, len(self.VARIABLES)),
-            device=x.device,
+            device=x_prog.device,
             dtype=torch.float32,
         )
-        x_full[..., self.input_ids] = x
+        x_full[..., self.input_ids] = x_prog
         x_full[..., self.invariant_ids] = i
 
         # Compute generated forcings
@@ -916,16 +990,30 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Helper function of create a lat/lon tensor with the input prognostic and zero
         filled diagnostic variables.
         """
-        batch, time, lead, _, height, width = x.shape
+        batch, time, lead, n_input_vars, height, width = x.shape
         out = torch.zeros(
             (batch, time, lead, len(self.VARIABLES), height, width),
             device=x.device,
         )
 
-        out[:, :, 0, self.input_ids] = x[0, 0, 0, ...]
-        out[:, :, 0, self.invariant_ids] = self.invariants
-        out[:, :, 1, self.input_ids] = x[0, 0, 1, ...]
-        out[:, :, 1, self.invariant_ids] = self.invariants
+        # Determine number of prognostic variables
+        n_prognostic = len(self.input_ids)
+
+        if self.preload_invariants:
+            # All input variables are prognostic
+            out[:, :, 0, self.input_ids] = x[0, 0, 0, ...]
+            out[:, :, 0, self.invariant_ids] = self.invariants
+            out[:, :, 1, self.input_ids] = x[0, 0, 1, ...]
+            out[:, :, 1, self.invariant_ids] = self.invariants
+        else:
+            # Input contains prognostic + invariant variables
+            x_prognostic = x[..., :n_prognostic, :, :]
+            x_invariants = x[..., n_prognostic:, :, :]
+            out[:, :, 0, self.input_ids] = x_prognostic[0, 0, 0, ...]
+            out[:, :, 0, self.invariant_ids] = x_invariants[0, 0, 0, ...]
+            out[:, :, 1, self.input_ids] = x_prognostic[0, 0, 1, ...]
+            out[:, :, 1, self.invariant_ids] = x_invariants[0, 0, 1, ...]
+
         out = out[:, :, :, self.output_ids, ...]
 
         out_coords = coords.copy()
