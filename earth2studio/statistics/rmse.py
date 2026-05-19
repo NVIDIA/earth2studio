@@ -41,12 +41,12 @@ class rmse:
         assert weights.ndim == 2.
     batch_update: bool = False
         Whether to apply batch updates to the rmse with each invocation of __call__.
-        This is particularly useful when data is recieved in a stream of batches. Each
+        This is particularly useful when data is received in a stream of batches. Each
         invocation of __call__ will return the running rmse. In particular, it will apply
         the square root operation after calculating the running mean squared error.
     ensemble_dimension: str | None = None
         Compute ensemble mean over this dimension before computing RMSE. If None (default),
-        no reduction is perfomed.
+        no reduction is performed.
     """
 
     def __init__(
@@ -156,13 +156,13 @@ class mae(rmse):
         Example: if reduction_dimensions = ['lat', 'lon'] then
         assert weights.ndim == 2.
     batch_update: bool = False
-        Whether to applying batch updates to the rmse with each invocation of __call__.
-        This is particularly useful when data is recieved in a stream of batches. Each
+        Whether to apply batch updates to the rmse with each invocation of __call__.
+        This is particularly useful when data is received in a stream of batches. Each
         invocation of __call__ will return the running rmse. In particular, it will apply
         the square root operation after calculating the running mean squared error.
     ensemble_dimension: str | None = None
         Compute ensemble mean over this dimension before computing MAE. If None (default),
-        no reduction is perfomed.
+        no reduction is performed.
     """
 
     def __str__(self) -> str:
@@ -234,14 +234,14 @@ class spread_skill_ratio:
         Example: if reduction_dimensions = ['lat', 'lon'] then
         assert weights.ndim == 2. Ignored if None, by default None.
     ensemble_batch_update : bool, optional
-        Whether to applying batch updates to the ensemble mean and variance components
+        Whether to apply batch updates to the ensemble mean and variance components
         of the spread and skill with each invocation of __call__. This is particularly
-        useful when ensemble data is recieved in a stream of batches. Each invocation of
+        useful when ensemble data is received in a stream of batches. Each invocation of
         __call__ will return the running spread/skill ratio., by default False.
     reduction_batch_update : bool, optional
-        Whether to applying batch updates to the reduction rmse and averaging components
+        Whether to apply batch updates to the reduction rmse and averaging components
         of the spread/skill with each invocation of __call__. This is particularly
-        useful when time data is recieved in a stream of batches., by default False.
+        useful when time data is received in a stream of batches., by default False.
     """
 
     def __init__(
