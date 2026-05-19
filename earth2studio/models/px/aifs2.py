@@ -54,7 +54,6 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Note
     ----
-    This model uses the checkpoints provided by ECMWF on HuggingFace.
     Key differences from AIFS v1:
 
     - New wave component with 11 wave variables
@@ -62,6 +61,11 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - Extended pressure levels to 10 hPa
     - Vertical velocity (W) changed from prognostic to diagnostic
 
+    It is recommended to use the :class:`~earth2studio.data.IFS` data source to
+    prepare model inputs given the variable set required.
+
+    Note
+    ----
     For additional information see the following resources:
 
     - https://arxiv.org/abs/2509.18994
@@ -89,9 +93,10 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     lsm_mask : torch.Tensor
         Land-sea mask tensor of shape [542080,] for masking ocean/land-only variables.
     preload_invariants : bool
-        If True (default), invariant fields are fetched from IFS at load time and
+        If True, invariant fields are fetched from IFS at load time and
         cached. If False, invariant fields must be provided as input variables,
-        enabling use of invariants from alternative sources for exact reproducibility.
+        enabling use of invariants from alternative sources for exact reproducibility,
+        by default True.
 
     Warning
     -------
@@ -425,11 +430,11 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package : Package
             Model package to load from
         preload_invariants : bool, optional
-            If True (default), invariant fields (lsm, sdor, slor, z, wmb) are fetched
+            If True, invariant fields (lsm, sdor, slor, z, wmb) are fetched
             from IFS at load time and cached. If False, these fields must be provided
             as input variables, allowing use of invariants from alternative sources
             (e.g., ECMWF Open Data) for exact reproducibility with reference
-            implementations.
+            implementations, by default True.
 
         Returns
         -------
