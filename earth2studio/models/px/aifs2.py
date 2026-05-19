@@ -90,8 +90,6 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     invariants : torch.Tensor
         Tensor of shape [5, 721, 1440] containing the invariant fields "lsm", "sdor",
         "slor", "z", and "wmb" (model bathymetry). Empty if preload_invariants=False.
-    lsm_mask : torch.Tensor
-        Land-sea mask tensor of shape [542080,] for masking ocean/land-only variables.
     preload_invariants : bool
         If True, invariant fields are fetched from IFS at load time and
         cached. If False, invariant fields must be provided as input variables,
@@ -269,7 +267,6 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         interpolation_matrix: torch.Tensor,
         inverse_interpolation_matrix: torch.Tensor,
         invariants: torch.Tensor,
-        lsm_mask: torch.Tensor,
         preload_invariants: bool = True,
     ) -> None:
         super().__init__()
@@ -286,7 +283,6 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer(
             "inverse_interpolation_matrix", inverse_interpolation_matrix
         )
-        self.register_buffer("lsm_mask", lsm_mask)
 
         # Check to make sure that the models total variable input variables are
         # consistent with the wrappers
@@ -531,12 +527,6 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
             invariants = invariants.squeeze()
 
-            # Load land-sea mask for masking wave variables (ocean only)
-            lsm_latlon = invariants[0]  # lsm is first in invariants
-            lsm_flat = lsm_latlon.flatten().to(dtype=torch.float32)
-            lsm_interp = torch_interpolation_matrix @ lsm_flat
-            lsm_mask = lsm_interp == 0  # Ocean where lsm == 0
-
             # Add wmb (model bathymetry) as zeros - it's a forcing/invariant
             # The model internally handles wmb, we just need a placeholder
             wmb = torch.zeros_like(invariants[0:1])
@@ -544,10 +534,6 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         else:
             # Placeholder - invariants will come from input
             invariants = torch.empty(0)
-            # lsm_mask still needed for wave variable masking
-            # When not preloading, we can't compute lsm_mask at load time
-            # Use a placeholder that allows all values (no masking)
-            lsm_mask = torch.zeros(542080, dtype=torch.bool)
 
         return cls(
             model,
@@ -558,7 +544,6 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             interpolation_matrix=torch_interpolation_matrix,
             inverse_interpolation_matrix=torch_inverse_interpolation_matrix,
             invariants=invariants,
-            lsm_mask=lsm_mask,
             preload_invariants=preload_invariants,
         )
 
