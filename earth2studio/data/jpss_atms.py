@@ -27,7 +27,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-import nest_asyncio
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -35,6 +34,7 @@ import s3fs
 from loguru import logger
 
 from earth2studio.data.utils import (
+    _sync_async,
     datasource_cache_root,
     gather_with_concurrency,
     prep_data_inputs,
@@ -113,6 +113,40 @@ _ATMS_SCAN_PERIOD_S: float = 8.0 / 3.0  # 2.667 s
 # The 96 FOVs span ~1.73 s of the 2.667 s scan cycle (~65% duty cycle).
 _ATMS_FOV_DWELL_S: float = 0.018  # 18 ms per FOV
 
+# ATMS channel center frequencies (GHz), 1-indexed → 0-indexed array.
+# Source: JPSS ATMS SDR ATBD, Table 2-1.
+_ATMS_CHANNEL_FREQ_GHZ: np.ndarray = np.array(
+    [
+        23.8,
+        31.4,
+        50.3,
+        51.76,
+        52.8,
+        53.596,
+        54.40,
+        54.94,
+        55.50,
+        57.29,
+        57.29,
+        57.29,
+        57.29,
+        57.29,
+        57.29,
+        88.20,
+        165.5,
+        183.31,
+        183.31,
+        183.31,
+        183.31,
+        183.31,
+    ],
+    dtype=np.float64,
+)
+
+# Speed of light in cm/s for frequency (GHz) → wavenumber (cm^-1) conversion.
+_C_CM_S: float = 2.99792458e10
+_ATMS_CHANNEL_WAVENUMBER: np.ndarray = _ATMS_CHANNEL_FREQ_GHZ * 1e9 / _C_CM_S
+
 
 def _fov_to_scan_angle(fov: float) -> float:
     """Convert a 1-indexed field-of-view number to scan angle in degrees.
@@ -176,7 +210,7 @@ class JPSS_ATMS:
     The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
     following the same convention as :class:`~earth2studio.data.UFSObsSat`.
 
-    ATMS has 22 channels spanning 23.8--183.31 GHz.  The ``channel_index``
+    ATMS has 22 channels spanning 23.8--183.31 GHz.  The ``sensor_index``
     column (1--22) identifies each channel:
 
     .. list-table:: ATMS Channel Specification
@@ -318,7 +352,8 @@ class JPSS_ATMS:
                 nullable=True,
                 metadata={"bufr_name": "fieldOfViewNumber (converted to degrees)"},
             ),
-            E2STUDIO_SCHEMA.field("channel_index"),
+            E2STUDIO_SCHEMA.field("sensor_index"),
+            E2STUDIO_SCHEMA.field("wavenumber"),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),
@@ -357,12 +392,7 @@ class JPSS_ATMS:
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
 
-        try:
-            nest_asyncio.apply()
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            self.fs: s3fs.S3FileSystem | None = None
+        self.fs: s3fs.S3FileSystem | None = None
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
@@ -406,19 +436,8 @@ class JPSS_ATMS:
             Long-format DataFrame with one row per FOV per channel.
         """
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        try:
-            df = loop.run_until_complete(
-                asyncio.wait_for(
-                    self.fetch(time, variable, fields), timeout=self.async_timeout
-                )
+            df = _sync_async(
+                self.fetch, time, variable, fields, timeout=self.async_timeout
             )
         finally:
             if not self._cache:
@@ -452,13 +471,9 @@ class JPSS_ATMS:
             Long-format DataFrame.
         """
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialised! If calling this function "
-                "directly, make sure the data source is initialised inside "
-                "the async loop!"
-            )
+            await self._async_init()
 
-        session = await self.fs.set_session(refresh=True)
+        session = await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         time_list, variable_list = prep_data_inputs(time, variable)
         schema = self.resolve_fields(fields)
@@ -630,7 +645,7 @@ class JPSS_ATMS:
                 "time",
                 "lat",
                 "lon",
-                "channel_index",
+                "sensor_index",
                 "satellite",
                 "variable",
             )
@@ -778,7 +793,8 @@ class JPSS_ATMS:
                                     "lat": float(lat[i]),
                                     "lon": float(lon[i]) % 360.0,
                                     "scan_angle": _fov_to_scan_angle(fov_index),
-                                    "channel_index": ch + 1,
+                                    "sensor_index": ch + 1,
+                                    "wavenumber": float(_ATMS_CHANNEL_WAVENUMBER[ch]),
                                     "solza": float(solza[i]),
                                     "solaza": float(solaza[i]),
                                     "satellite_za": float(sat_za[i]),
@@ -803,7 +819,8 @@ class JPSS_ATMS:
         df["lat"] = df["lat"].astype(np.float32)
         df["lon"] = df["lon"].astype(np.float32)
         df["scan_angle"] = df["scan_angle"].astype(np.float32)
-        df["channel_index"] = df["channel_index"].astype(np.uint16)
+        df["sensor_index"] = df["sensor_index"].astype(np.uint16)
+        df["wavenumber"] = df["wavenumber"].astype(np.float64)
         df["solza"] = df["solza"].astype(np.float32)
         df["solaza"] = df["solaza"].astype(np.float32)
         df["satellite_za"] = df["satellite_za"].astype(np.float32)

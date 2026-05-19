@@ -29,10 +29,10 @@ from earth2studio import run
 from earth2studio.data import GFS
 from earth2studio.io import IOBackend
 from earth2studio.models.px import DLWP, FCN
-from earth2studio.serve.server import Earth2Workflow, workflow_registry
+from earth2studio.serve.server import Earth2Workflow, WorkflowRegistry
 
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class DeterministicEarth2Workflow(Earth2Workflow):
     """
     Deterministic workflow with auto-registration

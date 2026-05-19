@@ -49,6 +49,7 @@ from earth2studio.serve.server.config import (  # noqa: E402
     get_config_manager,
     get_workflow_config,
     reset_config,
+    resolve_serve_path,
 )
 
 
@@ -94,9 +95,7 @@ class TestConfigDataclasses:
         """Test PathsConfig default values"""
         config = PathsConfig()
         assert config.default_output_dir == "/outputs"
-        assert (
-            config.results_zip_dir == "/workspace/earth2studio-project/examples/outputs"
-        )
+        assert config.results_zip_dir == "/outputs"
         assert config.output_format == "zarr"
         assert config.result_zip_enabled is False
 
@@ -104,7 +103,7 @@ class TestConfigDataclasses:
         """Test LoggingConfig default values"""
         config = LoggingConfig()
         assert config.level == "INFO"
-        assert "%(asctime)s" in config.format
+        assert "{time:" in config.format
 
     def test_server_config_defaults(self) -> None:
         """Test ServerConfig default values"""
@@ -468,40 +467,33 @@ class TestGetRedisUrl:
 class TestSetupLogging:
     """Test setup_logging method"""
 
-    def test_setup_logging_configures_logging(self) -> None:
-        """Test that setup_logging configures logging correctly"""
+    def test_setup_logging_configures_loguru(self) -> None:
+        """Test that setup_logging configures loguru without error"""
         reset_config()
         manager = ConfigManager()
         manager._config.logging.level = "DEBUG"
-        manager._config.logging.format = "%(levelname)s - %(message)s"
-
-        # Clear existing handlers to test fresh setup
-        root_logger = logging.getLogger()
-        root_logger.handlers.clear()
-        root_logger.setLevel(logging.WARNING)  # Set to different level first
 
         manager.setup_logging()
 
-        # Verify logging was configured (may have been set by basicConfig)
-        # The exact level depends on when basicConfig was called, but we verify
-        # the method doesn't raise an error
-        assert root_logger is not None
+        # Verify a stdlib logger message routes through without error
+        logging.getLogger("test").info("smoke test")
 
-    def test_setup_logging_adds_execution_id_filter(self) -> None:
-        """Test that setup_logging adds ExecutionIdFilter"""
+    def test_setup_logging_intercepts_stdlib(self) -> None:
+        """Test that setup_logging installs InterceptHandler on stdlib root logger"""
+        import earth2studio.serve.server.config as config_mod
+
         reset_config()
         manager = ConfigManager()
-        manager.setup_logging()
 
         root_logger = logging.getLogger()
-        # Check that at least one handler has the filter
-        for handler in root_logger.handlers:
-            for filter_obj in handler.filters:
-                if "ExecutionIdFilter" in str(type(filter_obj)):
-                    # Filter found, test passes
-                    return
-        # Note: This may not always be true depending on when logging is initialized
-        # But we test that the method doesn't raise an error
+        root_logger.handlers.clear()
+
+        manager.setup_logging()
+
+        handler_cls = config_mod._InterceptHandler
+        assert any(
+            type(h).__name__ == handler_cls.__name__ for h in root_logger.handlers
+        )
 
 
 class TestGetWorkflowConfig:
@@ -754,3 +746,28 @@ class TestObjectStorageEnvOverrides:
         monkeypatch.setenv("CONFIG_DIR", "/custom/conf")
         manager._initialize_config()
         assert isinstance(manager._config, AppConfig)
+
+    def test_int_override_ignores_non_integer_value(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Non-integer env-var value is ignored with a warning."""
+        manager = self._get_manager()
+        original_port = manager.config.redis.port
+        monkeypatch.setenv("REDIS_PORT", "not_a_number")
+        manager._apply_env_overrides()
+        assert manager.config.redis.port == original_port
+
+
+class TestResolveServePath:
+    """Test the resolve_serve_path helper."""
+
+    def test_prefers_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MY_DIR", "/explicit/path")
+        result = resolve_serve_path("MY_DIR", "serve/server/conf")
+        assert result == Path("/explicit/path")
+
+    def test_falls_back_to_repo_relative(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("MY_DIR", raising=False)
+        result = resolve_serve_path("MY_DIR", "serve/server/conf")
+        assert result.name == "conf"
+        assert "serve" in str(result)

@@ -22,6 +22,12 @@ file(s) before writing or reviewing code:
 | `e2s-012-time-tolerance.mdc` | Time tolerance patterns |
 | `e2s-013-assimilation-models.mdc` | Implementing data assimilation models |
 
+## Python Environment
+
+Always use `uv run` to execute Python commands (e.g. `uv run pytest`, `uv run black`).
+Alternatively, use the project virtualenv at `.venv/` (e.g. `.venv/bin/python`).
+**Never use the system Python directly** — it does not have project dependencies installed.
+
 ## Key Conventions (quick reference)
 
 - **License header** — every `.py` file in `earth2studio/` must start with the SPDX Apache-2.0
@@ -41,6 +47,7 @@ a matching task:
 | `create-data-source` | Create a new data source wrapper |
 | `create-prognostic-wrapper` | Create a new prognostic model (px) wrapper |
 | `validate-data-source` | Validate a newly implemented data source |
+| `release-rebase` | Prepare a new minor alpha release (rebase, bump, changelog, PR) |
 
 ## Custom Commands
 
@@ -55,4 +62,3 @@ Use these slash commands (defined in `.claude/commands/`) to run common tasks:
 | `/test-full` | Run the full test suite with coverage |
 | `/docs` | Build docs — fast, full (with examples), or targeted single example |
 | `/docs-serve` | Build docs then serve locally at <http://localhost:8000> |
-| `/release` | Bump version, update changelog, strip example tags, open release PR |

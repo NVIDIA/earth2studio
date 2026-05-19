@@ -27,6 +27,14 @@ resume: true
 
 perturbation: null
 
+# Cache the full forecast-window valid times into data.zarr so score.py can
+# use it as the verification store.  Must be set here (not just on the
+# predownload.py CLI) because score.py re-reads this block to decide whether
+# data.zarr holds verification data.
+predownload:
+    verification:
+        enabled: true
+
 output:
     overwrite: false
     variables:
