@@ -454,7 +454,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             col_indices=torch.from_numpy(interpolation_matrix["indices"]),
             values=torch.from_numpy(interpolation_matrix["data"]),
             size=(interpolation_matrix["shape"][0], interpolation_matrix["shape"][1]),
-            dtype=torch.float64,
+            dtype=torch.float32,
         )
         inverse_interpolation_package = Package(
             "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear/",
@@ -477,7 +477,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 inverse_interpolation_matrix["shape"][0],
                 inverse_interpolation_matrix["shape"][1],
             ),
-            dtype=torch.float64,
+            dtype=torch.float32,
         )
 
         # Fetch invariants from IFS
@@ -491,10 +491,9 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Load land-sea mask for masking wave variables (ocean only)
         lsm_latlon = invariants[0]  # lsm is first in invariants
-        lsm_flat = lsm_latlon.flatten()
-        lsm_flat_64 = lsm_flat.to(dtype=torch.float64)
-        lsm_interp = torch_interpolation_matrix @ lsm_flat_64
-        lsm_mask = lsm_interp.to(dtype=torch.float32) == 0  # Ocean where lsm == 0
+        lsm_flat = lsm_latlon.flatten().to(dtype=torch.float32)
+        lsm_interp = torch_interpolation_matrix @ lsm_flat
+        lsm_mask = lsm_interp == 0  # Ocean where lsm == 0
 
         # Add wmb (model bathymetry) as zeros - it's a forcing/invariant
         # The model internally handles wmb, we just need a placeholder
@@ -690,9 +689,8 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = x.flatten(start_dim=4)
         x = x.flatten(end_dim=3)
         x = torch.swapaxes(x, 0, -1)
-        x = x.to(dtype=torch.float64)
-        x = self.interpolation_matrix @ x
         x = x.to(dtype=torch.float32)
+        x = self.interpolation_matrix @ x
         x = torch.swapaxes(x, 0, -1)
         x = x.reshape([shape[0] * shape[1], shape[2], shape[3], -1])
         x = torch.swapaxes(x, 2, 3)
@@ -703,9 +701,8 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Interpolate invariants
         i = self.invariants.flatten(start_dim=1)
         i = torch.swapaxes(i, 0, -1)
-        i = i.to(dtype=torch.float64)
-        i = self.interpolation_matrix @ i
         i = i.to(dtype=torch.float32)
+        i = self.interpolation_matrix @ i
 
         # Reconstruct full feature tensor in checkpoint variable space
         x_full = torch.zeros(
@@ -846,9 +843,8 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = x.flatten(end_dim=1)
         x = torch.swapaxes(x, 0, 1)
         x = x.flatten(start_dim=1)
-        x = x.to(dtype=torch.float64)
-        x = self.inverse_interpolation_matrix @ x
         x = x.to(dtype=torch.float32)
+        x = self.inverse_interpolation_matrix @ x
         x = torch.reshape(x, [x.shape[0], shape[0], shape[-1]])
         x = torch.swapaxes(x, 0, 1)
         x = torch.swapaxes(x, 1, 2)
