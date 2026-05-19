@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Himawari-8/9 AHI ISatSS L2 Full Disk satellite data source (`HimawariAHI`)
 - Added GHCN-Daily global station observation data frame source (`GHCNDaily`)
 - Added NNJA conventional (in-situ + GPS RO) observation data source (`NNJAObsConv`)
+- Added GOES Geostationary Lightning Mapper L2 LCFA event data source (`GOESGLM`)
+- Added real-time GDAS conventional observation data source (`NomadsGDASObsConv`)
+- Added `quality` field to `E2STUDIO_SCHEMA` for observation QC markers
+- Added Climate in a Bottle tropical cyclone guidance and odds ration example
 
 ### Changed
 
@@ -22,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `sensor_index` only which can be used to consistently map from UFS to L1 products
 - Added `wavenumber` (cm⁻¹) field to all satellite schemas
 - Changed `channel_index` to `sensor_index` in `E2STUDIO_SCHEMA`
+- Added Orbit-2 precipitation downscaling model
+- Disabled Atlas example from documentation build due to slow performance
 
 ### Deprecated
 
@@ -32,12 +38,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed potential `uint16` underflow in UFS channel index expansion
 - S3 upload bug in server utilities
 - Fixed pres obs from UFS to be Pascal units
+- Fixed chunk downloading race condition in file system cache for Zarr data sources
+- Fixed 180° longitude misalignment in ECMWF open-data sources for some GRIB files with
+  non-standard lon origin
 
 ### Security
 
 ### Dependencies
 
 - Removed nested_asyncio for Python 3.14 compatibility and updated async data sources
+- Bumping minimum ecmwf-opendata version to 0.3.29 to resolve IFS data request errors
 
 ## [0.14.0] - 2026-04-27
 

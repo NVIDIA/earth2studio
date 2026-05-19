@@ -26,6 +26,7 @@ os.environ.setdefault("MKL_DYNAMIC", "FALSE")
 import hydra  # noqa: E402
 from loguru import logger  # noqa: E402
 from omegaconf import DictConfig  # noqa: E402
+from src.modes.baseline_extraction import extract_baseline  # noqa: E402
 from src.modes.generate_tc_hunt_ensembles import (  # noqa: E402
     generate_ensemble,
     reproduce_members,
@@ -42,9 +43,13 @@ def tc_hunt(cfg: DictConfig) -> None:
     elif cfg.mode == "reproduce_members":
         reproduce_members(cfg)
 
+    elif cfg.mode == "extract_baseline":
+        extract_baseline(cfg)
+
     else:
         raise ValueError(
-            f'invalid mode: {cfg.mode}, choose from "generate_ensemble", "reproduce_members"'
+            f"invalid mode: {cfg.mode}, choose from "
+            f'"generate_ensemble", "reproduce_members", "extract_baseline"'
         )
 
     logger.success("finished **yaaayyyy**")

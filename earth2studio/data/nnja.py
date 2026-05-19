@@ -18,26 +18,17 @@
 #
 # Reference: https://psl.noaa.gov/data/nnja_obs/
 # Public S3 bucket: s3://noaa-reanalyses-pds/observations/reanalysis/
-#
-# This module is intentionally self-contained: the PrepBUFR decoding
-# helpers below duplicate concepts already present in
-# ``earth2studio.data.gdas`` (which decodes the same NCEP PrepBUFR file
-# format from NOMADS). A future PR may extract a shared ``_prepbufr``
-# module; for now the duplication keeps this PR isolated and avoids
-# changing GDAS behaviour.
+
 
 from __future__ import annotations
 
-import contextlib
 import hashlib
 import os
 import pathlib
 import shutil
-import struct
-import sys
 import time
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -57,6 +48,32 @@ from earth2studio.data.utils import (
     managed_session,
     prep_data_inputs,
 )
+from earth2studio.data.utils_bufr import (
+    HDR_DHR,
+    HDR_ELV,
+    HDR_SID,
+    HDR_TYP,
+    HDR_XOB,
+    HDR_YOB,
+    MNEMONIC_TO_DESCR,
+    OBS_CAT,
+    OBS_POB,
+    OBS_QUALITY_MAP,
+    OBS_UOB,
+    OBS_VOB,
+    OBS_WQM,
+    OBSERVATION_DESCR_IDS,
+    PREPBUFR_OBS_TYPES,
+)
+from earth2studio.data.utils_bufr import (
+    parse_prepbufr_messages as _bufr_parse_prepbufr_messages,
+)
+from earth2studio.data.utils_bufr import (
+    register_dx_tables as _bufr_register_dx_tables,
+)
+from earth2studio.data.utils_bufr import (
+    silence_bufr_noise as _silence_bufr_noise,
+)
 from earth2studio.lexicon import NNJAObsConvLexicon
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.utils.imports import (
@@ -68,99 +85,13 @@ from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
 try:
     from pybufrkit.decoder import Decoder as BufrDecoder
-    from pybufrkit.tables import TableGroupCacheManager
 except ImportError:
     OptionalDependencyFailure("data")
     BufrDecoder = None  # type: ignore[assignment,misc]
-    TableGroupCacheManager = None  # type: ignore[assignment,misc]
 
 
 NNJA_BUCKET = "noaa-reanalyses-pds"
 NNJA_PREFIX = "observations/reanalysis"
-
-
-@contextlib.contextmanager
-def _silence_bufr_noise() -> Iterator[None]:
-    """Suppress chatty C-library stderr from pybufrkit.
-
-    pybufrkit writes informational messages straight to file
-    descriptor 2 (e.g. ``Cannot find sub-centre 3 nor valid default``)
-    when the file uses NCEP-local descriptors. We rely on the DX
-    tables embedded in each NNJA file to decode those correctly, so
-    these messages are spurious and would otherwise flood the log
-    with one line per BUFR message.
-
-    The redirect only covers C-level writes; Python ``print``,
-    ``logger`` and exceptions still propagate normally. We also
-    flush ``sys.stderr`` first so any pending Python-side stderr
-    is preserved.
-    """
-    sys.stderr.flush()
-    saved_fd = os.dup(2)
-    devnull_fd = os.open(os.devnull, os.O_WRONLY)
-    try:
-        os.dup2(devnull_fd, 2)
-        try:
-            yield
-        finally:
-            sys.stderr.flush()
-            os.dup2(saved_fd, 2)
-    finally:
-        os.close(devnull_fd)
-        os.close(saved_fd)
-
-
-# ── PrepBUFR descriptor IDs (NCEP-local) ─────────────────────────────
-# Header field descriptors
-_HDR_SID = 1194  # Station ID
-_HDR_XOB = 6240  # Longitude (deg E)
-_HDR_YOB = 5002  # Latitude (deg N)
-_HDR_DHR = 4215  # Obs time minus cycle time (h)
-_HDR_ELV = 10199  # Station elevation (m)
-_HDR_TYP = 55007  # Report type code
-_HDR_T29 = 55008  # Data dump report type code
-
-# Observation field descriptors
-_OBS_CAT = 8193  # Observation category code
-_OBS_POB = 7245  # Pressure observation (MB)
-_OBS_ZOB = 10007  # Height (m)
-_OBS_TOB = 12245  # Temperature (DEG C)
-_OBS_QOB = 13245  # Specific humidity (MG/KG)
-_OBS_UOB = 11003  # U-wind component (m/s)
-_OBS_VOB = 11004  # V-wind component (m/s)
-
-_OBSERVATION_DESCR_IDS: set[int] = {
-    _OBS_POB,
-    _OBS_ZOB,
-    _OBS_TOB,
-    _OBS_QOB,
-    _OBS_UOB,
-    _OBS_VOB,
-}
-
-# Lexicon mnemonic -> descriptor ID for non-wind variables
-_MNEMONIC_TO_DESCR: dict[str, int] = {
-    "TOB": _OBS_TOB,
-    "QOB": _OBS_QOB,
-    "POB": _OBS_POB,
-    "ZOB": _OBS_ZOB,
-    "UOB": _OBS_UOB,
-    "VOB": _OBS_VOB,
-}
-
-# PrepBUFR section-1 dataCategory -> NCEP message-type class string
-_PREPBUFR_OBS_TYPES: dict[int, str] = {
-    102: "ADPUPA",  # Upper air: radiosondes, pilot balloons, dropsondes
-    104: "AIRCFT",  # Aircraft
-    105: "SATWND",  # Satellite-derived winds
-    107: "VADWND",  # VAD (NEXRAD) winds
-    109: "ADPSFC",  # Surface land
-    110: "SFCSHP",  # Surface marine
-    112: "GPSIPW",  # GPS precipitable water
-    113: "SYNDAT",  # Synthetic bogus data
-    119: "RASSDA",  # RASS virtual temperature
-    121: "ASCATW",  # ASCAT scatterometer winds
-}
 
 
 # ── GPS RO BUFR descriptor IDs (NCEP gpsro encoding) ─────────────────
@@ -205,6 +136,7 @@ _NNJA_CONV_SCHEMA = pa.schema(
         E2STUDIO_SCHEMA.field("lon"),
         E2STUDIO_SCHEMA.field("station"),
         E2STUDIO_SCHEMA.field("station_elev"),
+        E2STUDIO_SCHEMA.field("quality"),
         E2STUDIO_SCHEMA.field("observation"),
         E2STUDIO_SCHEMA.field("variable"),
     ]
@@ -574,23 +506,6 @@ class _NNJAObsBase:
         return pa.schema(selected)
 
 
-def _safe_int(v: Any) -> int:
-    if isinstance(v, (int, float)):
-        return int(v)
-    if isinstance(v, bytes):
-        s = v.decode("ascii", errors="replace").strip()
-    elif v is None:
-        s = ""
-    else:
-        s = str(v).strip()
-    if not s:
-        return 0
-    try:
-        return int(s)
-    except ValueError:
-        return 0
-
-
 def _parse_prepbufr_messages(
     file_data: bytes,
 ) -> tuple[
@@ -604,176 +519,7 @@ def _parse_prepbufr_messages(
     (dataCategory=11) carrying the NCEP-local Table B / Table D
     descriptor definitions needed to decode subsequent data messages.
     """
-    table_b: dict[int, tuple[Any, ...]] = {}
-    table_d: dict[int, tuple[Any, ...]] = {}
-    data_messages: list[tuple[bytes, int]] = []
-    dx_messages: list[bytes] = []
-
-    pos = 0
-    while pos < len(file_data):
-        idx = file_data.find(b"BUFR", pos)
-        if idx == -1:
-            break
-        msg_len = struct.unpack(">I", b"\x00" + file_data[idx + 4 : idx + 7])[0]
-        if msg_len < 8:
-            pos = idx + 4
-            continue
-        msg_bytes = file_data[idx : idx + msg_len]
-
-        # BUFR ed3/4: section-0 = 8 bytes, section-1 octet-9 (offset 16) is dataCategory
-        data_cat = file_data[idx + 16] if idx + 16 < len(file_data) else 0
-        if data_cat == 11:
-            dx_messages.append(msg_bytes)
-        else:
-            data_messages.append((msg_bytes, data_cat))
-        pos = idx + msg_len
-
-    if dx_messages:
-        with _silence_bufr_noise():
-            try:
-                dx_decoder = BufrDecoder()
-                for dx_bytes in dx_messages:
-                    try:
-                        dx_msg = dx_decoder.process(dx_bytes)
-                    except Exception:  # noqa: S112
-                        logger.debug("Skipping unparseable NNJA DX-table message")
-                        continue
-                    td = dx_msg.template_data.value
-                    dvas = td.decoded_values_all_subsets
-                    if not dvas:
-                        continue
-                    _extract_dx_tables(dvas[0], table_b, table_d)
-            except Exception as e:
-                logger.warning(f"Failed to extract NNJA DX tables: {e}")
-
-    return table_b, table_d, data_messages
-
-
-def _extract_dx_tables(
-    flat: list[Any],
-    table_b: dict[int, tuple[Any, ...]],
-    table_d: dict[int, tuple[Any, ...]],
-) -> None:
-    """Extract NCEP Table B and D entries from a DX-message subset.
-
-    Encoding layout (per NCEP BUFRLIB):
-
-    - n_table_a, [table_a entries (3 fields each) ...]
-    - n_table_b, [table_b entries (11 fields each) ...]
-    - n_table_d, [table_d entries (variable length) ...]
-    """
-
-    def _str(v: Any) -> str:
-        if isinstance(v, bytes):
-            return v.decode("ascii", errors="replace").strip()
-        if v is None:
-            return ""
-        return str(v).strip()
-
-    def _fxy(f: Any, x: Any, y: Any) -> int:
-        return _safe_int(f) * 100000 + _safe_int(x) * 1000 + _safe_int(y)
-
-    n = len(flat)
-    idx = 0
-    if idx >= n:
-        return
-    n_a = _safe_int(flat[idx])
-    idx += 1
-    idx += n_a * 3
-    if idx >= n:
-        return
-
-    # Table B
-    n_b = _safe_int(flat[idx])
-    idx += 1
-    for _ in range(n_b):
-        if idx + 10 >= n:
-            return
-        f_v = flat[idx]
-        x_v = flat[idx + 1]
-        y_v = flat[idx + 2]
-        mnemonic = _str(flat[idx + 3])
-        unit = _str(flat[idx + 5])
-        sign_scale = _str(flat[idx + 6])
-        scale_s = _str(flat[idx + 7])
-        sign_ref = _str(flat[idx + 8])
-        ref_s = _str(flat[idx + 9])
-        width_s = _str(flat[idx + 10])
-        idx += 11
-
-        desc_id = _fxy(f_v, x_v, y_v)
-        if desc_id == 0:
-            continue
-        scale = _safe_int(scale_s)
-        if sign_scale == "-":
-            scale = -scale
-        reference = _safe_int(ref_s)
-        if sign_ref == "-":
-            reference = -reference
-        width = _safe_int(width_s)
-        table_b[desc_id] = (
-            mnemonic,
-            unit,
-            scale,
-            reference,
-            width,
-            unit,
-            scale,
-            max(1, (width + 3) // 4),
-        )
-
-    # Table D
-    if idx >= n:
-        return
-    n_d = _safe_int(flat[idx])
-    idx += 1
-    for _ in range(n_d):
-        if idx + 3 >= n:
-            return
-        f_v = flat[idx]
-        x_v = flat[idx + 1]
-        y_v = flat[idx + 2]
-        seq_mnemonic = _str(flat[idx + 3])
-        idx += 4
-        seq_id = _fxy(f_v, x_v, y_v)
-        if seq_id == 0:
-            continue
-        if idx >= n:
-            return
-        n_members = _safe_int(flat[idx])
-        idx += 1
-        members: list[str] = []
-        for _ in range(n_members):
-            if idx >= n:
-                break
-            members.append(_str(flat[idx]))
-            idx += 1
-        if members:
-            table_d[seq_id] = (seq_mnemonic, members)
-
-
-def _register_dx_tables(
-    table_b: dict[int, tuple[Any, ...]],
-    table_d: dict[int, tuple[Any, ...]],
-) -> None:
-    """Reset pybufrkit's table cache and (re-)register NCEP DX tables."""
-    TableGroupCacheManager.clear_extra_entries()
-    # ``_TABLE_GROUP_CACHE`` is a private attribute of pybufrkit's
-    # ``TableGroupCacheManager``; reach into it to invalidate any
-    # previously-built TableGroup that captured a stale set of extra
-    # entries. If pybufrkit ever renames or restructures this cache we
-    # log a warning and fall back to ``add_extra_entries`` alone, which
-    # still works for the common case where the cache hasn't been
-    # populated yet in the current process.
-    try:
-        TableGroupCacheManager._TABLE_GROUP_CACHE.invalidate()
-    except AttributeError as exc:
-        logger.warning(
-            f"pybufrkit TableGroupCacheManager._TABLE_GROUP_CACHE not available "
-            f"({exc}); skipping cache invalidation"
-        )
-    if table_b or table_d:
-        TableGroupCacheManager.add_extra_entries(table_b, table_d)
+    return _bufr_parse_prepbufr_messages(file_data, silence_noise=True)
 
 
 def _decode_message(
@@ -852,23 +598,23 @@ def _extract_subset(
     }
     for d, v in zip(descs, vals):
         did = d.id
-        if did == _HDR_SID:
+        if did == HDR_SID:
             header["sid"] = (
                 v.decode("ascii", errors="replace").strip()
                 if isinstance(v, bytes)
                 else (str(v).strip() if v is not None else "")
             )
-        elif did == _HDR_XOB:
+        elif did == HDR_XOB:
             header["xob"] = v
-        elif did == _HDR_YOB:
+        elif did == HDR_YOB:
             header["yob"] = v
-        elif did == _HDR_DHR:
+        elif did == HDR_DHR:
             header["dhr"] = v if v is not None else 0.0
-        elif did == _HDR_ELV:
+        elif did == HDR_ELV:
             header["elv"] = v
-        elif did == _HDR_TYP:
+        elif did == HDR_TYP:
             header["typ"] = v
-        elif did == _OBS_CAT:
+        elif did == OBS_CAT:
             break
 
     lat = header["yob"]
@@ -893,8 +639,8 @@ def _extract_subset(
     for var_name, key in var_keys:
         if key.startswith("wind::"):
             need_wind = True
-        elif key in _MNEMONIC_TO_DESCR:
-            needed_ids[var_name] = _MNEMONIC_TO_DESCR[key]
+        elif key in MNEMONIC_TO_DESCR:
+            needed_ids[var_name] = MNEMONIC_TO_DESCR[key]
 
     base_row: dict[str, Any] = {
         "time": obs_time,
@@ -908,6 +654,7 @@ def _extract_subset(
         "station_elev": (
             np.float32(header["elv"]) if header["elv"] is not None else None
         ),
+        "quality": None,
     }
 
     # Walk observation levels: a new POB starts a level
@@ -915,14 +662,14 @@ def _extract_subset(
     in_obs = False
     for d, v in zip(descs, vals):
         did = d.id
-        if did == _OBS_POB:
+        if did == OBS_POB:
             if in_obs and current:
                 _emit_level_rows(
                     rows, current, base_row, needed_ids, need_wind, var_keys
                 )
-            current = {_OBS_POB: v}
+            current = {OBS_POB: v}
             in_obs = True
-        elif in_obs and did in _OBSERVATION_DESCR_IDS:
+        elif in_obs and did in OBSERVATION_DESCR_IDS:
             if did not in current:
                 current[did] = v
     if in_obs and current:
@@ -1092,7 +839,7 @@ def _emit_level_rows(
     var_keys: list[tuple[str, str]],
 ) -> None:
     """Append one row per requested variable for the current pressure level."""
-    pob = level.get(_OBS_POB)
+    pob = level.get(OBS_POB)
     pres_val = (
         np.float32(pob) if pob is not None else None
     )  # PrepBUFR mb (lexicon mod converts to Pa for `pres`)
@@ -1108,6 +855,10 @@ def _emit_level_rows(
         row = common.copy()
         row["variable"] = var_name
         row["observation"] = np.float32(val)
+        # Quality mark for this observation
+        qm_id = OBS_QUALITY_MAP.get(desc_id)
+        qv = level.get(qm_id) if qm_id is not None else None
+        row["quality"] = np.uint16(int(qv)) if qv is not None else None
         rows.append(row)
 
     # Wind decomposition: u from UOB, v from VOB. Each component is
@@ -1115,18 +866,22 @@ def _emit_level_rows(
     # yields a row for the requested component (PrepBUFR usually pairs
     # u/v but unpaired levels do occur).
     if need_wind:
-        uob = level.get(_OBS_UOB)
-        vob = level.get(_OBS_VOB)
+        uob = level.get(OBS_UOB)
+        vob = level.get(OBS_VOB)
+        wqm = level.get(OBS_WQM)
+        wind_quality = np.uint16(int(wqm)) if wqm is not None else None
         for var_name, key in var_keys:
             if key == "wind::u" and uob is not None:
                 row = common.copy()
                 row["variable"] = var_name
                 row["observation"] = np.float32(uob)
+                row["quality"] = wind_quality
                 rows.append(row)
             elif key == "wind::v" and vob is not None:
                 row = common.copy()
                 row["variable"] = var_name
                 row["observation"] = np.float32(vob)
+                row["quality"] = wind_quality
                 rows.append(row)
 
 
@@ -1149,7 +904,7 @@ def _init_decode_worker(
     as a module-level global.
     """
     global _worker_decoder  # noqa: PLW0603
-    _register_dx_tables(table_b, table_d)
+    _bufr_register_dx_tables(table_b, table_d)
     _worker_decoder = BufrDecoder()
 
 
@@ -1510,9 +1265,9 @@ class NNJAObsConv(_NNJAObsBase):
         ]
 
         work_items: list[tuple[bytes, str]] = [
-            (msg_bytes, _PREPBUFR_OBS_TYPES[data_cat])
+            (msg_bytes, PREPBUFR_OBS_TYPES[data_cat])
             for msg_bytes, data_cat in messages
-            if data_cat in _PREPBUFR_OBS_TYPES
+            if data_cat in PREPBUFR_OBS_TYPES
         ]
         if not work_items:
             return pd.DataFrame()
@@ -1558,7 +1313,7 @@ class NNJAObsConv(_NNJAObsBase):
         else:
             # Sequential decode (single worker or few messages)
             with _silence_bufr_noise():
-                _register_dx_tables(table_b, table_d)
+                _bufr_register_dx_tables(table_b, table_d)
                 decoder = BufrDecoder()
                 for msg_bytes, obs_class in work_items:
                     all_rows.extend(
@@ -1642,7 +1397,7 @@ class NNJAObsConv(_NNJAObsBase):
         else:
             # Sequential decode (single worker or few messages)
             with _silence_bufr_noise():
-                _register_dx_tables(table_b, table_d)
+                _bufr_register_dx_tables(table_b, table_d)
                 decoder = BufrDecoder()
                 for msg_bytes in work_items:
                     try:
