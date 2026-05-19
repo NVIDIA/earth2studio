@@ -53,7 +53,7 @@
     <script src="../../../_static/documentation_options.js?v=81d874b0"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script src="../../../_static/badge-data.js?v=3e18b04b"></script>
+    <script src="../../../_static/badge-data.js"></script>
     <script src="../../../_static/badge-filter.js?v=bda7ac9e"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
@@ -733,11 +733,11 @@ as passed in reduction_dimensions.
 Example: if reduction_dimensions = [‘lat’, ‘lon’] then
 assert weights.ndim == 2.</p></li>
 <li><p><strong>batch_update</strong> (<em>bool = False</em>) – Whether to apply batch updates to the rmse with each invocation of __call__.
-This is particularly useful when data is recieved in a stream of batches. Each
+This is particularly useful when data is received in a stream of batches. Each
 invocation of __call__ will return the running rmse. In particular, it will apply
 the square root operation after calculating the running mean squared error.</p></li>
 <li><p><strong>ensemble_dimension</strong> (<em>str</em><em> | </em><em>None = None</em>) – Compute ensemble mean over this dimension before computing RMSE. If None (default),
-no reduction is perfomed.</p></li>
+no reduction is performed.</p></li>
 </ul>
 </dd>
 </dl>

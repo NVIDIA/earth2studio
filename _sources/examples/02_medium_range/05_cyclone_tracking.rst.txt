@@ -49,12 +49,6 @@ In this example you will learn:
     # ///
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 46-59
 
 Set Up
@@ -105,12 +99,6 @@ This example needs the following:
     start_time = datetime(2009, 8, 5)  # Start date for inference
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 91-99
 
 Tracking Analysis Data
@@ -142,145 +130,6 @@ For the forecast we will predict for two days (these will get executed as a batc
 
     era5_tracks = output.cpu()
     torch.save(era5_tracks, "outputs/13_era5_paths.pt")
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2026-05-18 02:17:18.193 | DEBUG    | earth2studio.data.arco:_async_init:125 - Using Multi-Storage Client for ARCO data access
-    2026-05-18 02:17:19.125 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/.zattrs to local cache
-    2026-05-18 02:17:19.304 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/.zgroup to local cache
-    2026-05-18 02:17:19.308 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/.zmetadata to local cache
-    2026-05-18 02:17:19.474 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/level/0 to local cache
-    2026-05-18 02:17:19.638 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/model-level-1h-0p25deg.zarr-v1/.zattrs to local cache
-    2026-05-18 02:17:19.764 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/model-level-1h-0p25deg.zarr-v1/.zgroup to local cache
-    2026-05-18 02:17:19.781 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/model-level-1h-0p25deg.zarr-v1/.zmetadata to local cache
-    2026-05-18 02:17:19.913 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/model-level-1h-0p25deg.zarr-v1/hybrid/0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:17:20.038 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960672.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:17:20.043 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960672.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:17:20.061 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960672.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:17:20.090 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960672.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:17:20.095 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960672.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:02,  1.84it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:02<00:00,  1.33it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:03<00:00,  1.44it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:03<00:00,  1.43it/s]
-    Step 0: ARCO tracks output shape torch.Size([1, 7, 1, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:03.924 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960678.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:03.928 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960678.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:03.930 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960678.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:03.931 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960678.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:03.932 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960678.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  2.87it/s]    Fetching ARCO data:  60%|██████    | 3/5 [00:00<00:00,  5.89it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:03<00:01,  1.10s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.07it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.24it/s]
-    Step 1: ARCO tracks output shape torch.Size([1, 7, 2, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:08.180 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960684.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:08.181 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960684.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:08.185 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960684.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:08.186 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960684.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:08.187 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960684.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  2.09it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:04<00:01,  1.07s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.00s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.01it/s]
-    Step 2: ARCO tracks output shape torch.Size([1, 7, 3, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:13.315 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960690.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:13.318 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960690.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:13.320 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960690.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:13.323 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960690.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:13.332 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960690.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  2.66it/s]    Fetching ARCO data:  40%|████      | 2/5 [00:00<00:00,  4.08it/s]    Fetching ARCO data:  60%|██████    | 3/5 [00:00<00:00,  5.02it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:03<00:01,  1.05s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.34s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.02it/s]
-    Step 3: ARCO tracks output shape torch.Size([1, 8, 4, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:18.414 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960696.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:18.422 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960696.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:18.425 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960696.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:18.425 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960696.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:18.427 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960696.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  2.81it/s]    Fetching ARCO data:  40%|████      | 2/5 [00:00<00:00,  4.48it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:02<00:00,  1.19it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:05<00:00,  1.32s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:05<00:00,  1.06s/it]
-    Step 4: ARCO tracks output shape torch.Size([1, 9, 5, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:23.938 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960702.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:23.942 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960702.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:23.944 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960702.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:23.947 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960702.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:23.962 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960702.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  3.50it/s]    Fetching ARCO data:  40%|████      | 2/5 [00:00<00:00,  3.75it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:02<00:00,  1.17it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.07s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.11it/s]
-    Step 5: ARCO tracks output shape torch.Size([1, 10, 6, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:33.986 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960708.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:33.989 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960708.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:33.992 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960708.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:33.997 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960708.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:34.011 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960708.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  2.03it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:03<00:00,  1.29it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.09s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.02it/s]
-    Step 6: ARCO tracks output shape torch.Size([1, 11, 7, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:39.082 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960714.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:39.085 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960714.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:39.085 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960714.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:39.086 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960714.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:39.089 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960714.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  3.23it/s]    Fetching ARCO data:  40%|████      | 2/5 [00:00<00:00,  5.16it/s]    Fetching ARCO data:  60%|██████    | 3/5 [00:00<00:00,  6.46it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:03<00:01,  1.18s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.25s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.08it/s]
-    Step 7: ARCO tracks output shape torch.Size([1, 12, 8, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:43.937 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960720.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:43.941 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960720.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:43.943 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960720.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:43.950 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960720.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:43.950 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960720.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  2.73it/s]    Fetching ARCO data:  40%|████      | 2/5 [00:00<00:00,  4.71it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:03<00:00,  1.12it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.05s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.12it/s]
-    Step 8: ARCO tracks output shape torch.Size([1, 13, 9, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:48.617 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960726.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:48.620 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960726.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:48.621 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960726.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:48.623 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960726.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:48.636 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960726.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  2.79it/s]    Fetching ARCO data:  60%|██████    | 3/5 [00:00<00:00,  6.56it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:03<00:01,  1.01s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:05<00:00,  1.32s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:05<00:00,  1.02s/it]
-    Step 9: ARCO tracks output shape torch.Size([1, 14, 10, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:53.953 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960732.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:53.955 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960732.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:53.957 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960732.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:53.959 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960732.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:53.963 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960732.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  2.82it/s]    Fetching ARCO data:  60%|██████    | 3/5 [00:00<00:00,  6.63it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:04<00:01,  1.53s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:05<00:00,  1.34s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:05<00:00,  1.12s/it]
-    Step 10: ARCO tracks output shape torch.Size([1, 15, 11, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:59.741 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960738.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:59.747 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960738.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:59.750 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960738.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:59.755 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960738.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:18:59.793 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960738.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  2.03it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:02<00:00,  1.37it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.10it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.19it/s]
-    Step 11: ARCO tracks output shape torch.Size([1, 16, 12, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:04.167 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960744.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:04.168 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960744.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:04.171 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960744.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:04.186 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960744.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:04.196 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960744.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:02,  1.94it/s]    Fetching ARCO data:  60%|██████    | 3/5 [00:00<00:00,  5.35it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:03<00:00,  1.06it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.01it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.22it/s]
-    Step 12: ARCO tracks output shape torch.Size([1, 17, 13, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:11.091 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960750.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:11.094 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960750.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:11.094 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960750.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:11.097 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960750.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:11.099 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960750.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  2.26it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:02<00:00,  1.39it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.02it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.12it/s]
-    Step 13: ARCO tracks output shape torch.Size([1, 18, 14, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:15.751 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960756.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:15.756 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960756.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:15.760 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960756.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:15.766 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960756.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:15.771 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960756.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  2.05it/s]    Fetching ARCO data:  60%|██████    | 3/5 [00:00<00:00,  6.11it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.14s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.06it/s]
-    Step 14: ARCO tracks output shape torch.Size([1, 19, 15, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:20.687 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960762.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:20.688 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960762.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:20.694 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960762.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:20.695 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960762.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:20.703 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960762.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  2.04it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:04<00:01,  1.06s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.12it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.11it/s]
-    Step 15: ARCO tracks output shape torch.Size([1, 20, 16, 4])
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:25.425 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960768.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:25.425 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960768.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:25.427 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960768.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:25.429 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960768.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]                                                             2026-05-18 02:19:25.430 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960768.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/5 [00:00<?, ?it/s]    Fetching ARCO data:  20%|██        | 1/5 [00:00<00:01,  2.71it/s]    Fetching ARCO data:  40%|████      | 2/5 [00:00<00:00,  4.68it/s]    Fetching ARCO data:  80%|████████  | 4/5 [00:02<00:00,  1.30it/s]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.02s/it]    Fetching ARCO data: 100%|██████████| 5/5 [00:04<00:00,  1.18it/s]
-    Step 16: ARCO tracks output shape torch.Size([1, 21, 17, 4])
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 119-128
@@ -334,44 +183,6 @@ inference loop.
 
     sfno_tracks = output.cpu()
     torch.save(sfno_tracks, "outputs/13_sfno_paths.pt")
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    Fetching ARCO data:   0%|          | 0/13 [00:00<?, ?it/s]                                                              2026-05-18 02:19:30.332 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/13 [00:00<?, ?it/s]                                                              2026-05-18 02:19:30.332 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/960672.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/13 [00:00<?, ?it/s]                                                              2026-05-18 02:19:30.337 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/960672.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/13 [00:00<?, ?it/s]    Fetching ARCO data:   8%|▊         | 1/13 [00:00<00:01,  7.15it/s]                                                                      2026-05-18 02:19:30.379 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/surface_pressure/960672.0.0 to local cache
-    Fetching ARCO data:   8%|▊         | 1/13 [00:00<00:01,  7.15it/s]                                                                      2026-05-18 02:19:30.386 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
-    Fetching ARCO data:   8%|▊         | 1/13 [00:00<00:01,  7.15it/s]                                                                      2026-05-18 02:19:30.400 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/100m_u_component_of_wind/960672.0.0 to local cache
-    Fetching ARCO data:   8%|▊         | 1/13 [00:00<00:01,  7.15it/s]                                                                      2026-05-18 02:19:30.407 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
-    Fetching ARCO data:   8%|▊         | 1/13 [00:00<00:01,  7.15it/s]                                                                      2026-05-18 02:19:30.525 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/100m_v_component_of_wind/960672.0.0 to local cache
-    Fetching ARCO data:   8%|▊         | 1/13 [00:00<00:01,  7.15it/s]    Fetching ARCO data:  31%|███       | 4/13 [00:00<00:00, 13.07it/s]    Fetching ARCO data:  46%|████▌     | 6/13 [00:00<00:00, 15.10it/s]    Fetching ARCO data:  62%|██████▏   | 8/13 [00:00<00:00, 10.80it/s]    Fetching ARCO data:  77%|███████▋  | 10/13 [00:00<00:00, 11.37it/s]    Fetching ARCO data:  92%|█████████▏| 12/13 [00:02<00:00,  2.52it/s]    Fetching ARCO data: 100%|██████████| 13/13 [00:04<00:00,  1.44it/s]    Fetching ARCO data: 100%|██████████| 13/13 [00:04<00:00,  2.70it/s]
-    Running inference:   0%|          | 0/17 [00:00<?, ?it/s]Step 0: SFNO tracks output shape torch.Size([1, 7, 1, 4])
-    Running inference:   6%|▌         | 1/17 [00:00<00:03,  4.63it/s]Step 1: SFNO tracks output shape torch.Size([1, 8, 2, 4])
-    Running inference:  12%|█▏        | 2/17 [00:00<00:04,  3.49it/s]Step 2: SFNO tracks output shape torch.Size([1, 8, 3, 4])
-    Running inference:  18%|█▊        | 3/17 [00:00<00:04,  3.32it/s]Step 3: SFNO tracks output shape torch.Size([1, 9, 4, 4])
-    Running inference:  24%|██▎       | 4/17 [00:01<00:03,  3.29it/s]Step 4: SFNO tracks output shape torch.Size([1, 10, 5, 4])
-    Running inference:  29%|██▉       | 5/17 [00:01<00:03,  3.25it/s]Step 5: SFNO tracks output shape torch.Size([1, 10, 6, 4])
-    Running inference:  35%|███▌      | 6/17 [00:01<00:03,  3.16it/s]Step 6: SFNO tracks output shape torch.Size([1, 10, 7, 4])
-    Running inference:  41%|████      | 7/17 [00:02<00:03,  3.25it/s]Step 7: SFNO tracks output shape torch.Size([1, 11, 8, 4])
-    Running inference:  47%|████▋     | 8/17 [00:02<00:02,  3.18it/s]Step 8: SFNO tracks output shape torch.Size([1, 12, 9, 4])
-    Running inference:  53%|█████▎    | 9/17 [00:02<00:02,  3.14it/s]Step 9: SFNO tracks output shape torch.Size([1, 13, 10, 4])
-    Running inference:  59%|█████▉    | 10/17 [00:03<00:02,  3.21it/s]Step 10: SFNO tracks output shape torch.Size([1, 13, 11, 4])
-    Running inference:  65%|██████▍   | 11/17 [00:03<00:01,  3.33it/s]Step 11: SFNO tracks output shape torch.Size([1, 14, 12, 4])
-    Running inference:  71%|███████   | 12/17 [00:03<00:01,  3.34it/s]Step 12: SFNO tracks output shape torch.Size([1, 15, 13, 4])
-    Running inference:  76%|███████▋  | 13/17 [00:03<00:01,  3.26it/s]Step 13: SFNO tracks output shape torch.Size([1, 16, 14, 4])
-    Running inference:  82%|████████▏ | 14/17 [00:04<00:00,  3.22it/s]Step 14: SFNO tracks output shape torch.Size([1, 17, 15, 4])
-    Running inference:  88%|████████▊ | 15/17 [00:04<00:00,  3.30it/s]Step 15: SFNO tracks output shape torch.Size([1, 18, 16, 4])
-    Running inference:  94%|█████████▍| 16/17 [00:04<00:00,  3.26it/s]Step 16: SFNO tracks output shape torch.Size([1, 19, 17, 4])
-    Running inference: 100%|██████████| 17/17 [00:05<00:00,  3.18it/s]    Running inference: 100%|██████████| 17/17 [00:05<00:00,  3.26it/s]
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 167-179
@@ -472,17 +283,6 @@ masked out and any "path" that isnt over 2 points long
     plt.savefig(f"outputs/13_{start_time}_cyclone_tracks.jpg", bbox_inches="tight", dpi=300)
 
 
-
-
-.. image-sg:: /examples/02_medium_range/images/sphx_glr_05_cyclone_tracking_001.png
-   :alt: Tropical Cyclone Tracks 2009-08-05 to 2009-08-09
-   :srcset: /examples/02_medium_range/images/sphx_glr_05_cyclone_tracking_001.png
-   :class: sphx-glr-single-img
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 260-266
 
 In addition to filtering out the NaN values, users may want to apply other post
@@ -491,11 +291,6 @@ threshold or other geography based filters.
 
 No cyclone tracker is perfect, we encourage users to experiment and tune the tracker
 as needed.
-
-
-.. rst-class:: sphx-glr-timing
-
-   **Total running time of the script:** (2 minutes 33.262 seconds)
 
 
 .. _sphx_glr_download_examples_02_medium_range_05_cyclone_tracking.py:

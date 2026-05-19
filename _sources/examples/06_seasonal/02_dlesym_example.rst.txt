@@ -51,12 +51,6 @@ In this example you will learn:
     # ///
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 48-66
 
 Set Up
@@ -128,31 +122,6 @@ Also note the input and output variable set for each model.
         model_hpx.output_coords(in_coords_hpx)["variable"],
     )
 
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    Downloading config.yaml: 0%|          | 0.00/1.36k [00:00<?, ?B/s]    Downloading config.yaml: 100%|██████████| 1.36k/1.36k [00:00<00:00, 6.86kB/s]    Downloading config.yaml: 100%|██████████| 1.36k/1.36k [00:00<00:00, 6.83kB/s]
-    Downloading atmos_model_0.mdlus: 0%|          | 0.00/37.6M [00:00<?, ?B/s]    Downloading atmos_model_0.mdlus: 27%|██▋       | 10.0M/37.6M [00:00<00:00, 58.6MB/s]    Downloading atmos_model_0.mdlus: 100%|██████████| 37.6M/37.6M [00:00<00:00, 156MB/s]
-    Downloading ocean_model_0.mdlus: 0%|          | 0.00/2.97M [00:00<?, ?B/s]    Downloading ocean_model_0.mdlus: 100%|██████████| 2.97M/2.97M [00:00<00:00, 16.2MB/s]    Downloading ocean_model_0.mdlus: 100%|██████████| 2.97M/2.97M [00:00<00:00, 16.0MB/s]
-    Downloading hpx_lat.npy: 0%|          | 0.00/384k [00:00<?, ?B/s]    Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00<00:00, 3.78MB/s]    Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00<00:00, 3.76MB/s]
-    Downloading hpx_lon.npy: 0%|          | 0.00/384k [00:00<?, ?B/s]    Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00<00:00, 3.63MB/s]    Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00<00:00, 3.59MB/s]
-    Downloading land_sea_mask.npy: 0%|          | 0.00/192k [00:00<?, ?B/s]    Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00<00:00, 1.82MB/s]    Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00<00:00, 1.80MB/s]
-    Downloading topography.npy: 0%|          | 0.00/192k [00:00<?, ?B/s]    Downloading topography.npy: 100%|██████████| 192k/192k [00:00<00:00, 1.17MB/s]    Downloading topography.npy: 100%|██████████| 192k/192k [00:00<00:00, 1.16MB/s]
-    DLESyM LatLon input coord shapes:  [('batch', (0,)), ('time', (0,)), ('lead_time', (9,)), ('variable', (11,)), ('lat', (721,)), ('lon', (1440,))]
-    DLESyM HPX input coord shapes:  [('batch', (0,)), ('time', (0,)), ('lead_time', (9,)), ('variable', (9,)), ('face', (12,)), ('height', (64,)), ('width', (64,))]
-    Lat-lon input variable names:  ['z500' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'sst' 'u10m' 'v10m' 'z300'
-     'z700']
-    Lat-lon output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'sst']
-    HEALPix input variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'sst']
-    HEALPix output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'sst']
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 114-129
 
 Making Predictions, Regridding, and Selecting Outputs
@@ -211,92 +180,6 @@ for each of the atmosphere and ocean components.
     )
 
 
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2026-05-18 02:45:16.171 | DEBUG    | earth2studio.data.arco:_async_init:125 - Using Multi-Storage Client for ARCO data access
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:16.938 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/1064592.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:16.950 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/1064592.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:16.984 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/1064592.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:16.987 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/1064592.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:16.988 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/1064592.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:16.992 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/sea_surface_temperature/1064592.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:16.994 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/1064592.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  14%|█▍        | 1/7 [00:00<00:02,  2.64it/s]    Fetching ARCO data:  29%|██▊       | 2/7 [00:00<00:01,  3.92it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:02<00:00,  2.42it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  2.13it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  2.29it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:19.988 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/sea_surface_temperature/1064598.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:19.989 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/1064598.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:19.992 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/1064598.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:19.994 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/1064598.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:19.996 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/1064598.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:19.997 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/1064598.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:19.998 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/1064598.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  14%|█▍        | 1/7 [00:00<00:02,  2.30it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:03<00:00,  1.76it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  2.05it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  1.98it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:23.530 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/1064604.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:23.530 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/1064604.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:23.537 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/1064604.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:23.540 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/1064604.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:23.540 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/sea_surface_temperature/1064604.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:23.540 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/1064604.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:23.543 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/1064604.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  14%|█▍        | 1/7 [00:00<00:02,  2.33it/s]    Fetching ARCO data:  57%|█████▋    | 4/7 [00:00<00:00,  8.80it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:03<00:00,  1.53it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  1.69it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  1.92it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:27.189 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/1064610.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:27.189 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/1064610.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:27.190 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/1064610.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:27.192 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/1064610.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:27.193 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/1064610.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:27.194 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/sea_surface_temperature/1064610.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:27.199 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/1064610.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  14%|█▍        | 1/7 [00:00<00:02,  2.08it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:02<00:00,  2.52it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:02<00:00,  2.87it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:02<00:00,  2.73it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:29.747 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/1064616.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:29.755 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/1064616.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:29.761 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/1064616.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:29.762 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/1064616.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:29.765 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/1064616.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:29.766 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/sea_surface_temperature/1064616.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:29.777 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/1064616.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  14%|█▍        | 1/7 [00:00<00:02,  2.76it/s]    Fetching ARCO data:  43%|████▎     | 3/7 [00:00<00:00,  7.15it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:02<00:00,  1.87it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  1.77it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  2.00it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:33.268 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/1064622.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:33.272 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/1064622.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:33.274 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/1064622.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:33.276 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/1064622.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:33.280 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/1064622.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:33.281 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/sea_surface_temperature/1064622.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:33.297 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/1064622.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  14%|█▍        | 1/7 [00:00<00:02,  2.44it/s]    Fetching ARCO data:  57%|█████▋    | 4/7 [00:00<00:00,  8.96it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:02<00:00,  1.69it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  1.90it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  2.13it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:36.551 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/1064628.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:36.551 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/1064628.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:36.559 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/sea_surface_temperature/1064628.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:36.562 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/1064628.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:36.562 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/1064628.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:36.565 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/1064628.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:36.583 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/1064628.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  14%|█▍        | 1/7 [00:00<00:02,  2.28it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:01<00:00,  3.07it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  1.71it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  1.94it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:40.174 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/1064634.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:40.176 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/1064634.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:40.178 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/1064634.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:40.181 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/1064634.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:40.183 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/1064634.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:40.185 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/1064634.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:40.186 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/sea_surface_temperature/1064634.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  14%|█▍        | 1/7 [00:00<00:02,  2.80it/s]    Fetching ARCO data:  29%|██▊       | 2/7 [00:00<00:01,  3.95it/s]    Fetching ARCO data:  71%|███████▏  | 5/7 [00:00<00:00,  9.96it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  1.63it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  2.07it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:43.569 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/1064640.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:43.571 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/1064640.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:43.572 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/1064640.0.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:43.573 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/sea_surface_temperature/1064640.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:43.573 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/1064640.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:43.576 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/1064640.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]                                                             2026-05-18 02:45:43.581 | DEBUG    | earth2studio.data.utils:_make_local_details:1066 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/1064640.0.0 to local cache
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  14%|█▍        | 1/7 [00:00<00:02,  2.54it/s]    Fetching ARCO data:  29%|██▊       | 2/7 [00:00<00:01,  4.22it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:02<00:00,  2.24it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  1.85it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:03<00:00,  2.03it/s]
-    Atmosphere outputs (variables, lead_time [hrs]): ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m'] [ 6 12 18 24 30 36 42 48 54 60 66 72 78 84 90 96]
-    Ocean outputs (variables, lead_time [hrs]): ['sst'] [48 96]
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 167-173
 
 Model Iteration for Longer Forecasts
@@ -320,18 +203,6 @@ a total of 60 days.
             x_ocean, x_ocean_coords = model_ll.retrieve_valid_ocean_outputs(x, x_coords)
 
     print(f"Completed forecast with {n_steps} steps")
-
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    Completed forecast with 16 steps
-
 
 
 
@@ -367,68 +238,6 @@ input and output lead time dimensions.
 
     ds = io.to_xarray()
     print(ds)
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2026-05-18 02:45:54.462 | INFO     | earth2studio.run:deterministic:78 - Running simple workflow!
-    2026-05-18 02:45:54.462 | INFO     | earth2studio.run:deterministic:85 - Inference device: cuda
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:00<00:00, 28.97it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:00<00:00, 28.71it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:00<00:00, 25.02it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:00<00:00, 28.91it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:00<00:00, 29.45it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:00<00:00, 29.59it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:00<00:00, 29.68it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:00<00:00, 29.57it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:00<00:00, 24.93it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:00<00:00, 28.84it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:00<00:00, 24.65it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:00<00:00, 28.49it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:00<00:00, 29.00it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:00<00:00, 29.14it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:00<00:00, 25.63it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:00<00:00, 29.62it/s]
-    Fetching ARCO data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO data:  86%|████████▌ | 6/7 [00:00<00:00, 26.48it/s]    Fetching ARCO data: 100%|██████████| 7/7 [00:00<00:00, 26.57it/s]
-    2026-05-18 02:45:56.877 | SUCCESS  | earth2studio.run:deterministic:109 - Fetched data from ARCO
-    2026-05-18 02:45:57.309 | INFO     | earth2studio.run:deterministic:139 - Inference starting!
-
-    Running inference:   0%|          | 0/17 [00:00<?, ?it/s]
-    Running inference:   6%|▌         | 1/17 [00:00<00:07,  2.06it/s]
-    Running inference:  12%|█▏        | 2/17 [00:01<00:11,  1.35it/s]
-    Running inference:  18%|█▊        | 3/17 [00:02<00:11,  1.21it/s]
-    Running inference:  24%|██▎       | 4/17 [00:03<00:11,  1.15it/s]
-    Running inference:  29%|██▉       | 5/17 [00:04<00:10,  1.12it/s]
-    Running inference:  35%|███▌      | 6/17 [00:05<00:09,  1.10it/s]
-    Running inference:  41%|████      | 7/17 [00:06<00:09,  1.09it/s]
-    Running inference:  47%|████▋     | 8/17 [00:07<00:08,  1.09it/s]
-    Running inference:  53%|█████▎    | 9/17 [00:07<00:07,  1.08it/s]
-    Running inference:  59%|█████▉    | 10/17 [00:08<00:06,  1.08it/s]
-    Running inference:  65%|██████▍   | 11/17 [00:09<00:05,  1.08it/s]
-    Running inference:  71%|███████   | 12/17 [00:10<00:04,  1.08it/s]
-    Running inference:  76%|███████▋  | 13/17 [00:11<00:03,  1.07it/s]
-    Running inference:  82%|████████▏ | 14/17 [00:12<00:02,  1.07it/s]
-    Running inference:  88%|████████▊ | 15/17 [00:13<00:01,  1.07it/s]
-    Running inference:  94%|█████████▍| 16/17 [00:14<00:00,  1.07it/s]
-    Running inference: 100%|██████████| 17/17 [00:15<00:00,  1.07it/s]    Running inference: 100%|██████████| 17/17 [00:15<00:00,  1.10it/s]
-    2026-05-18 02:46:12.728 | SUCCESS  | earth2studio.run:deterministic:151 - 
-    Inference complete
-    <xarray.Dataset> Size: 10GB
-    Dimensions:     (time: 1, lead_time: 265, lat: 721, lon: 1440)
-    Coordinates:
-      * time        (time) datetime64[s] 8B 2021-06-15
-      * lead_time   (lead_time) timedelta64[ns] 2kB -2 days +00:00:00 ... 64 days...
-      * lat         (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
-      * lon         (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
-    Data variables:
-        z500        (time, lead_time, lat, lon) float32 1GB 5.253e+04 ... 4.784e+04
-        tau300-700  (time, lead_time, lat, lon) float32 1GB 5.85e+04 ... 5.457e+04
-        z1000       (time, lead_time, lat, lon) float32 1GB 890.4 890.4 ... -859.3
-        t2m         (time, lead_time, lat, lon) float32 1GB 273.7 273.7 ... 225.4
-        tcwv        (time, lead_time, lat, lon) float32 1GB 8.898 8.898 ... 0.3585
-        t850        (time, lead_time, lat, lon) float32 1GB 265.6 265.6 ... 242.9
-        z250        (time, lead_time, lat, lon) float32 1GB 9.844e+04 ... 9.048e+04
-        ws10m       (time, lead_time, lat, lon) float32 1GB 0.0292 0.0292 ... 4.117
-        sst         (time, lead_time, lat, lon) float32 1GB 271.5 271.5 ... 272.1
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 217-220
@@ -504,22 +313,6 @@ Let's plot some of the forecasted outputs for the atmosphere and ocean component
 
     plt.tight_layout()
     plt.savefig("outputs/14_ws10m_sst_prediction.png")
-
-
-
-.. image-sg:: /examples/06_seasonal/images/sphx_glr_02_dlesym_example_001.png
-   :alt: Initialization: 2021-06-15 - Lead time: 1536 hours, Initialization: 2021-06-15 - Lead time: 1536 hours
-   :srcset: /examples/06_seasonal/images/sphx_glr_02_dlesym_example_001.png
-   :class: sphx-glr-single-img
-
-
-
-
-
-
-.. rst-class:: sphx-glr-timing
-
-   **Total running time of the script:** (1 minutes 35.448 seconds)
 
 
 .. _sphx_glr_download_examples_06_seasonal_02_dlesym_example.py:

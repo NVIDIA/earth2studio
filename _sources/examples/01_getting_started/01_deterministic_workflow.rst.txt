@@ -46,12 +46,6 @@ In this example you will learn:
     # ///
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 43-48
 
 Set Up
@@ -101,18 +95,6 @@ Thus, we need the following:
     io = ZarrBackend()
 
 
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    Downloading dlwp_cubesphere.zip: 0%|          | 0.00/67.2M [00:00<?, ?B/s]    Downloading dlwp_cubesphere.zip: 2%|▏         | 1.44M/67.2M [00:00<00:04, 14.2MB/s]    Downloading dlwp_cubesphere.zip: 25%|██▌       | 17.0M/67.2M [00:00<00:00, 99.0MB/s]    Downloading dlwp_cubesphere.zip: 40%|███▉      | 26.7M/67.2M [00:00<00:00, 86.3MB/s]    Downloading dlwp_cubesphere.zip: 62%|██████▏   | 41.4M/67.2M [00:00<00:00, 110MB/s]     Downloading dlwp_cubesphere.zip: 78%|███████▊  | 52.3M/67.2M [00:00<00:00, 80.9MB/s]    Downloading dlwp_cubesphere.zip: 98%|█████████▊| 65.9M/67.2M [00:00<00:00, 96.5MB/s]    Downloading dlwp_cubesphere.zip: 100%|██████████| 67.2M/67.2M [00:00<00:00, 91.9MB/s]
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 85-94
 
 Execute the Workflow
@@ -135,75 +117,6 @@ For the forecast we will predict for two days (these will get executed as a batc
     io = run.deterministic(["2024-01-01"], nsteps, model, data, io)
 
     print(io.root.tree())
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2026-05-18 02:08:11.404 | INFO     | earth2studio.run:deterministic:78 - Running simple workflow!
-    2026-05-18 02:08:11.404 | INFO     | earth2studio.run:deterministic:85 - Inference device: cuda
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:11.808 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 397402829-996456
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:11.811 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 208052937-721817
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:11.813 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 420029701-1181204
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:11.814 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 329116923-847018
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:11.816 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 408062467-879185
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:11.818 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 294691465-856457
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:11.820 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 251230645-803982
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS data:  14%|█▍        | 1/7 [00:00<00:03,  1.79it/s]    Fetching GFS data:  29%|██▊       | 2/7 [00:00<00:01,  2.72it/s]    Fetching GFS data: 100%|██████████| 7/7 [00:01<00:00,  8.55it/s]    Fetching GFS data: 100%|██████████| 7/7 [00:01<00:00,  6.48it/s]
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:13.277 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323956279-837771
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:13.280 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 246334297-805355
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:13.282 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 289307267-851916
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:13.283 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 391722290-987401
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:13.285 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 414179964-1179422
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:13.286 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 402321768-876246
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2026-05-18 02:08:13.288 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204118947-720169
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS data:  14%|█▍        | 1/7 [00:00<00:03,  1.84it/s]    Fetching GFS data:  29%|██▊       | 2/7 [00:00<00:01,  3.44it/s]    Fetching GFS data:  57%|█████▋    | 4/7 [00:00<00:00,  6.44it/s]    Fetching GFS data: 100%|██████████| 7/7 [00:00<00:00,  8.55it/s]
-    2026-05-18 02:08:14.131 | SUCCESS  | earth2studio.run:deterministic:109 - Fetched data from GFS
-    2026-05-18 02:08:14.144 | INFO     | earth2studio.run:deterministic:139 - Inference starting!
-
-    Running inference:   0%|          | 0/21 [00:00<?, ?it/s]
-    Running inference:   5%|▍         | 1/21 [00:00<00:04,  4.89it/s]
-    Running inference:  10%|▉         | 2/21 [00:00<00:07,  2.51it/s]
-    Running inference:  14%|█▍        | 3/21 [00:01<00:06,  2.87it/s]
-    Running inference:  19%|█▉        | 4/21 [00:01<00:05,  3.03it/s]
-    Running inference:  24%|██▍       | 5/21 [00:01<00:04,  3.26it/s]
-    Running inference:  29%|██▊       | 6/21 [00:01<00:04,  3.28it/s]
-    Running inference:  33%|███▎      | 7/21 [00:02<00:04,  3.32it/s]
-    Running inference:  38%|███▊      | 8/21 [00:02<00:03,  3.37it/s]
-    Running inference:  43%|████▎     | 9/21 [00:02<00:03,  3.58it/s]
-    Running inference:  48%|████▊     | 10/21 [00:03<00:03,  3.53it/s]
-    Running inference:  52%|█████▏    | 11/21 [00:03<00:02,  3.71it/s]
-    Running inference:  57%|█████▋    | 12/21 [00:03<00:02,  3.60it/s]
-    Running inference:  62%|██████▏   | 13/21 [00:03<00:02,  3.55it/s]
-    Running inference:  67%|██████▋   | 14/21 [00:04<00:02,  3.50it/s]
-    Running inference:  71%|███████▏  | 15/21 [00:04<00:01,  3.68it/s]
-    Running inference:  76%|███████▌  | 16/21 [00:04<00:01,  3.78it/s]
-    Running inference:  81%|████████  | 17/21 [00:04<00:01,  3.91it/s]
-    Running inference:  86%|████████▌ | 18/21 [00:05<00:00,  3.76it/s]
-    Running inference:  90%|█████████ | 19/21 [00:05<00:00,  3.89it/s]
-    Running inference:  95%|█████████▌| 20/21 [00:05<00:00,  3.94it/s]
-    Running inference: 100%|██████████| 21/21 [00:05<00:00,  4.03it/s]    Running inference: 100%|██████████| 21/21 [00:05<00:00,  3.58it/s]
-    2026-05-18 02:08:20.005 | SUCCESS  | earth2studio.run:deterministic:151 - 
-    Inference complete
-    /
-    ├── lat (721,) float64
-    ├── lead_time (21,) timedelta64
-    ├── lon (1440,) float64
-    ├── t2m (1, 21, 721, 1440) float32
-    ├── t850 (1, 21, 721, 1440) float32
-    ├── tcwv (1, 21, 721, 1440) float32
-    ├── time (1,) datetime64
-    ├── z1000 (1, 21, 721, 1440) float32
-    ├── z300 (1, 21, 721, 1440) float32
-    ├── z500 (1, 21, 721, 1440) float32
-    └── z700 (1, 21, 721, 1440) float32
-
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 104-111
@@ -250,22 +163,6 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     ax.coastlines()
     ax.gridlines()
     plt.savefig("outputs/01_t2m_prediction.jpg")
-
-
-
-.. image-sg:: /examples/01_getting_started/images/sphx_glr_01_deterministic_workflow_001.png
-   :alt: 2024-01-01 - Lead time: 24hrs
-   :srcset: /examples/01_getting_started/images/sphx_glr_01_deterministic_workflow_001.png
-   :class: sphx-glr-single-img
-
-
-
-
-
-
-.. rst-class:: sphx-glr-timing
-
-   **Total running time of the script:** (0 minutes 29.111 seconds)
 
 
 .. _sphx_glr_download_examples_01_getting_started_01_deterministic_workflow.py:

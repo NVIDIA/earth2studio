@@ -51,12 +51,6 @@ In this example you will learn:
     # ///
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 48-64
 
 Creating a Simple CorrDiff Workflow
@@ -166,12 +160,6 @@ For this workflow, we specify
 
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 152-163
 
 Set Up
@@ -204,18 +192,6 @@ It's clear we need the following:
     io = ZarrBackend()
 
 
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    Downloading corrdiff_inference_package.zip: 0%|          | 0.00/684M [00:00<?, ?B/s]    Downloading corrdiff_inference_package.zip: 0%|          | 1.32M/684M [00:00<00:52, 13.8MB/s]    Downloading corrdiff_inference_package.zip: 1%|          | 5.10M/684M [00:00<00:24, 29.0MB/s]    Downloading corrdiff_inference_package.zip: 2%|▏         | 13.7M/684M [00:00<00:12, 56.8MB/s]    Downloading corrdiff_inference_package.zip: 3%|▎         | 21.3M/684M [00:00<00:10, 64.8MB/s]    Downloading corrdiff_inference_package.zip: 4%|▍         | 27.5M/684M [00:00<00:12, 55.4MB/s]    Downloading corrdiff_inference_package.zip: 5%|▌         | 34.7M/684M [00:00<00:11, 61.5MB/s]    Downloading corrdiff_inference_package.zip: 6%|▌         | 41.6M/684M [00:00<00:10, 64.8MB/s]    Downloading corrdiff_inference_package.zip: 7%|▋         | 48.6M/684M [00:00<00:09, 67.4MB/s]    Downloading corrdiff_inference_package.zip: 8%|▊         | 56.0M/684M [00:00<00:09, 70.4MB/s]    Downloading corrdiff_inference_package.zip: 9%|▉         | 63.5M/684M [00:01<00:08, 72.7MB/s]    Downloading corrdiff_inference_package.zip: 10%|█         | 70.7M/684M [00:01<00:08, 73.5MB/s]    Downloading corrdiff_inference_package.zip: 11%|█▏        | 78.3M/684M [00:01<00:08, 75.3MB/s]    Downloading corrdiff_inference_package.zip: 13%|█▎        | 85.8M/684M [00:01<00:08, 76.2MB/s]    Downloading corrdiff_inference_package.zip: 14%|█▎        | 93.1M/684M [00:01<00:08, 74.2MB/s]    Downloading corrdiff_inference_package.zip: 15%|█▍        | 102M/684M [00:01<00:07, 80.2MB/s]     Downloading corrdiff_inference_package.zip: 16%|█▌        | 110M/684M [00:01<00:07, 80.0MB/s]    Downloading corrdiff_inference_package.zip: 17%|█▋        | 118M/684M [00:01<00:07, 81.1MB/s]    Downloading corrdiff_inference_package.zip: 18%|█▊        | 126M/684M [00:01<00:07, 82.0MB/s]    Downloading corrdiff_inference_package.zip: 20%|█▉        | 134M/684M [00:01<00:07, 82.2MB/s]    Downloading corrdiff_inference_package.zip: 21%|██        | 142M/684M [00:02<00:07, 74.6MB/s]    Downloading corrdiff_inference_package.zip: 22%|██▏       | 154M/684M [00:02<00:06, 87.0MB/s]    Downloading corrdiff_inference_package.zip: 24%|██▎       | 162M/684M [00:02<00:08, 68.1MB/s]    Downloading corrdiff_inference_package.zip: 25%|██▍       | 171M/684M [00:02<00:07, 72.2MB/s]    Downloading corrdiff_inference_package.zip: 26%|██▋       | 180M/684M [00:02<00:06, 77.8MB/s]    Downloading corrdiff_inference_package.zip: 27%|██▋       | 188M/684M [00:02<00:06, 78.9MB/s]    Downloading corrdiff_inference_package.zip: 29%|██▊       | 196M/684M [00:02<00:09, 56.6MB/s]    Downloading corrdiff_inference_package.zip: 30%|██▉       | 204M/684M [00:03<00:08, 62.4MB/s]    Downloading corrdiff_inference_package.zip: 31%|███       | 213M/684M [00:03<00:07, 68.9MB/s]    Downloading corrdiff_inference_package.zip: 32%|███▏      | 222M/684M [00:03<00:06, 74.9MB/s]    Downloading corrdiff_inference_package.zip: 34%|███▍      | 231M/684M [00:03<00:05, 79.9MB/s]    Downloading corrdiff_inference_package.zip: 35%|███▍      | 239M/684M [00:03<00:05, 82.0MB/s]    Downloading corrdiff_inference_package.zip: 36%|███▋      | 248M/684M [00:03<00:05, 85.8MB/s]    Downloading corrdiff_inference_package.zip: 38%|███▊      | 257M/684M [00:03<00:05, 81.6MB/s]    Downloading corrdiff_inference_package.zip: 39%|███▉      | 268M/684M [00:03<00:04, 90.3MB/s]    Downloading corrdiff_inference_package.zip: 40%|████      | 277M/684M [00:03<00:04, 90.4MB/s]    Downloading corrdiff_inference_package.zip: 42%|████▏     | 286M/684M [00:04<00:04, 91.1MB/s]    Downloading corrdiff_inference_package.zip: 43%|████▎     | 295M/684M [00:04<00:04, 90.8MB/s]    Downloading corrdiff_inference_package.zip: 44%|████▍     | 304M/684M [00:04<00:04, 92.3MB/s]    Downloading corrdiff_inference_package.zip: 46%|████▌     | 313M/684M [00:04<00:04, 94.8MB/s]    Downloading corrdiff_inference_package.zip: 47%|████▋     | 322M/684M [00:04<00:04, 93.6MB/s]    Downloading corrdiff_inference_package.zip: 48%|████▊     | 332M/684M [00:04<00:04, 83.2MB/s]    Downloading corrdiff_inference_package.zip: 50%|████▉     | 341M/684M [00:04<00:04, 85.8MB/s]    Downloading corrdiff_inference_package.zip: 51%|█████     | 350M/684M [00:04<00:03, 90.0MB/s]    Downloading corrdiff_inference_package.zip: 53%|█████▎    | 359M/684M [00:04<00:04, 72.7MB/s]    Downloading corrdiff_inference_package.zip: 54%|█████▍    | 369M/684M [00:05<00:04, 79.4MB/s]    Downloading corrdiff_inference_package.zip: 55%|█████▌    | 378M/684M [00:05<00:03, 82.7MB/s]    Downloading corrdiff_inference_package.zip: 57%|█████▋    | 387M/684M [00:05<00:03, 87.3MB/s]    Downloading corrdiff_inference_package.zip: 58%|█████▊    | 396M/684M [00:05<00:03, 89.2MB/s]    Downloading corrdiff_inference_package.zip: 59%|█████▉    | 406M/684M [00:05<00:03, 92.1MB/s]    Downloading corrdiff_inference_package.zip: 61%|██████    | 415M/684M [00:05<00:03, 93.3MB/s]    Downloading corrdiff_inference_package.zip: 62%|██████▏   | 424M/684M [00:05<00:02, 94.6MB/s]    Downloading corrdiff_inference_package.zip: 63%|██████▎   | 433M/684M [00:05<00:02, 95.2MB/s]    Downloading corrdiff_inference_package.zip: 65%|██████▍   | 443M/684M [00:05<00:02, 95.4MB/s]    Downloading corrdiff_inference_package.zip: 66%|██████▌   | 452M/684M [00:05<00:02, 97.2MB/s]    Downloading corrdiff_inference_package.zip: 68%|██████▊   | 462M/684M [00:06<00:02, 96.3MB/s]    Downloading corrdiff_inference_package.zip: 69%|██████▉   | 471M/684M [00:06<00:02, 97.5MB/s]    Downloading corrdiff_inference_package.zip: 70%|███████   | 481M/684M [00:06<00:02, 81.7MB/s]    Downloading corrdiff_inference_package.zip: 72%|███████▏  | 491M/684M [00:06<00:02, 86.3MB/s]    Downloading corrdiff_inference_package.zip: 73%|███████▎  | 500M/684M [00:06<00:02, 90.8MB/s]    Downloading corrdiff_inference_package.zip: 74%|███████▍  | 509M/684M [00:06<00:03, 57.8MB/s]    Downloading corrdiff_inference_package.zip: 76%|███████▌  | 519M/684M [00:06<00:02, 66.4MB/s]    Downloading corrdiff_inference_package.zip: 77%|███████▋  | 529M/684M [00:07<00:02, 73.0MB/s]    Downloading corrdiff_inference_package.zip: 78%|███████▊  | 537M/684M [00:07<00:02, 72.1MB/s]    Downloading corrdiff_inference_package.zip: 80%|███████▉  | 546M/684M [00:07<00:01, 78.3MB/s]    Downloading corrdiff_inference_package.zip: 81%|████████▏ | 557M/684M [00:07<00:01, 85.3MB/s]    Downloading corrdiff_inference_package.zip: 83%|████████▎ | 566M/684M [00:07<00:01, 65.0MB/s]    Downloading corrdiff_inference_package.zip: 84%|████████▍ | 575M/684M [00:07<00:01, 72.3MB/s]    Downloading corrdiff_inference_package.zip: 86%|████████▌ | 585M/684M [00:07<00:01, 60.0MB/s]    Downloading corrdiff_inference_package.zip: 87%|████████▋ | 595M/684M [00:08<00:01, 68.7MB/s]    Downloading corrdiff_inference_package.zip: 88%|████████▊ | 602M/684M [00:08<00:01, 68.6MB/s]    Downloading corrdiff_inference_package.zip: 89%|████████▉ | 610M/684M [00:08<00:01, 69.2MB/s]    Downloading corrdiff_inference_package.zip: 90%|█████████ | 617M/684M [00:08<00:00, 71.0MB/s]    Downloading corrdiff_inference_package.zip: 91%|█████████ | 624M/684M [00:08<00:00, 70.7MB/s]    Downloading corrdiff_inference_package.zip: 92%|█████████▏| 631M/684M [00:08<00:00, 70.3MB/s]    Downloading corrdiff_inference_package.zip: 93%|█████████▎| 639M/684M [00:08<00:00, 72.2MB/s]    Downloading corrdiff_inference_package.zip: 94%|█████████▍| 646M/684M [00:08<00:00, 71.9MB/s]    Downloading corrdiff_inference_package.zip: 95%|█████████▌| 653M/684M [00:08<00:00, 72.8MB/s]    Downloading corrdiff_inference_package.zip: 96%|█████████▋| 660M/684M [00:09<00:00, 71.6MB/s]    Downloading corrdiff_inference_package.zip: 97%|█████████▋| 667M/684M [00:09<00:00, 53.0MB/s]    Downloading corrdiff_inference_package.zip: 98%|█████████▊| 673M/684M [00:09<00:00, 56.9MB/s]    Downloading corrdiff_inference_package.zip: 100%|█████████▉| 681M/684M [00:09<00:00, 62.4MB/s]    Downloading corrdiff_inference_package.zip: 100%|██████████| 684M/684M [00:09<00:00, 75.7MB/s]
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 179-188
 
 Execute the Workflow
@@ -233,35 +209,6 @@ Typhoon Koinu.
 .. code-block:: Python
 
     io = run(["2023-10-04T18:00:00"], corrdiff, data, io, number_of_samples=1)
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2026-05-18 02:19:57.694 | INFO     | __main__:run:114 - Running corrdiff inference!
-    2026-05-18 02:19:57.694 | INFO     | __main__:run:116 - Inference device: cuda
-    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2026-05-18 02:19:58.130 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 337873698-579539
-    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2026-05-18 02:19:58.133 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 264233423-556738
-    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2026-05-18 02:19:58.134 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 337303053-570645
-    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2026-05-18 02:19:58.136 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 411076281-975703
-    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2026-05-18 02:19:58.137 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 258060355-819591
-    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2026-05-18 02:19:58.139 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 330494443-911634
-    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2026-05-18 02:19:58.141 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 258879946-735487
-    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2026-05-18 02:19:58.143 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 331406077-849817
-    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2026-05-18 02:19:58.144 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 418951103-1205697
-    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2026-05-18 02:19:58.146 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 412051984-953804
-    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2026-05-18 02:19:58.148 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 407465443-514270
-    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2026-05-18 02:19:58.149 | DEBUG    | earth2studio.data.gfs:fetch_array:367 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 264790161-556189
-    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]    Fetching GFS data:   8%|▊         | 1/12 [00:00<00:04,  2.20it/s]    Fetching GFS data:  17%|█▋        | 2/12 [00:00<00:02,  3.91it/s]    Fetching GFS data:  33%|███▎      | 4/12 [00:00<00:01,  7.73it/s]    Fetching GFS data:  67%|██████▋   | 8/12 [00:00<00:00, 12.68it/s]    Fetching GFS data: 100%|██████████| 12/12 [00:00<00:00, 12.45it/s]
-    2026-05-18 02:19:59.107 | SUCCESS  | __main__:run:129 - Fetched data from GFS
-    2026-05-18 02:19:59.119 | INFO     | __main__:run:143 - Inference starting!
-    2026-05-18 02:20:00.482 | SUCCESS  | __main__:run:147 - Inference complete
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 193-199
@@ -326,22 +273,6 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     ax2.set_title("10-meter Wind Speed")
 
     plt.savefig("outputs/04_corr_diff_prediction.jpg")
-
-
-
-.. image-sg:: /examples/03_downscaling/images/sphx_glr_01_corrdiff_inference_001.png
-   :alt: Radar Reflectivity, 2-meter Temperature, 10-meter Wind Speed
-   :srcset: /examples/03_downscaling/images/sphx_glr_01_corrdiff_inference_001.png
-   :class: sphx-glr-single-img
-
-
-
-
-
-
-.. rst-class:: sphx-glr-timing
-
-   **Total running time of the script:** (0 minutes 20.693 seconds)
 
 
 .. _sphx_glr_download_examples_03_downscaling_01_corrdiff_inference.py:
