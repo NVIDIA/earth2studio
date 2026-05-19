@@ -124,6 +124,13 @@ aifs = [
     "ecmwf-opendata>=0.3.29",
     "flash-attn",
 ]
+aifs2 = [
+    "anemoi-models==0.9.3",
+    "earthkit-regrid>=0.5.1",
+    "ecmwf-opendata>=0.3.29",
+    "flash-attn",
+    "torch-geometric>=2.6.0",
+]
 aifsens = [
     "anemoi-models==0.5.1",
     "earthkit-regrid==0.4.0",
@@ -266,7 +273,7 @@ da-stormcast = [
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
-    "earth2studio[aifs,aifsens,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast]",
+    "earth2studio[aifs2,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast]",
     "earth2studio[cbottle,climatenet,corrdiff,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda]",
 ]
@@ -289,6 +296,12 @@ conflicts = [
   [
     { extra = "ace2" },
     { extra = "sfno" },
+  ],
+  [
+    { extra = "aifs" },
+    { extra = "aifs2" },
+    { extra = "aifsens" },
+    { extra = "all" },
   ]
 ]
 default-groups = ["dev", "build"]

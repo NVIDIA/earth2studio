@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added real-time GDAS conventional observation data source (`NomadsGDASObsConv`)
 - Added `quality` field to `E2STUDIO_SCHEMA` for observation QC markers
 - Added Climate in a Bottle tropical cyclone guidance and odds ration example
+- Added AIFS 2.0 prognostic model (`AIFS2`) with wave and 10 hPa pressure level support
 
 ### Changed
 

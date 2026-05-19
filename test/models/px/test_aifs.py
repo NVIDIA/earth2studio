@@ -22,9 +22,19 @@ import pytest
 import torch
 
 try:
-    import anemoi  # noqa: F401
+    from importlib.metadata import version
+
+    import anemoi.models  # noqa: F401
+
+    anemoi_version = version("anemoi-models")
+    # AIFS 1.x requires anemoi-models 0.5.x (not 0.9.x which is for AIFS 2.x)
+    if not anemoi_version.startswith("0.5"):
+        pytest.skip(
+            f"anemoi-models {anemoi_version} not compatible with AIFS 1.x (requires 0.5.x)",
+            allow_module_level=True,
+        )
 except ImportError:
-    pytest.skip("anemoi not installed", allow_module_level=True)
+    pytest.skip("anemoi-models not installed", allow_module_level=True)
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import AIFS
