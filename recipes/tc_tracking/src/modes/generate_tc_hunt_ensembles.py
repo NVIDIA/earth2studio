@@ -41,6 +41,7 @@ from src.data.tc_hunt_file_output import (
 )
 from src.tc_hunt_utils import (
     InstabilityDetection,
+    assign_runs_to_rank,
     get_set_of_random_seeds,
     remove_duplicates,
     run_with_rank_ordered_execution,
@@ -288,41 +289,6 @@ def run_inference(
             consolidate_metadata(store.store)
 
     return store
-
-
-def assign_runs_to_rank(
-    ic_mems: list[tuple[np.datetime64, np.ndarray, int]],
-) -> list[tuple[np.datetime64, np.ndarray, int]] | None:
-    """Partition work items across distributed ranks.
-
-    Splits the list of initial-condition / member batches evenly across all
-    ranks. Returns ``None`` for ranks that receive no work.
-
-    Parameters
-    ----------
-    ic_mems : list[tuple[np.datetime64, np.ndarray, int]]
-        List of (initial_condition, member_indices, random_seed) tuples
-
-    Returns
-    -------
-    list[tuple[np.datetime64, np.ndarray, int]] | None
-        Subset of work items assigned to this rank, or None if idle
-    """
-    dist = DistributedManager()
-
-    # get the number of initial conditions
-    ic_mems_per_rank = len(ic_mems) // dist.world_size
-    if len(ic_mems) % dist.world_size != 0:
-        ic_mems_per_rank += 1
-
-    # get the initial conditions for this rank
-    ic_mems = ic_mems[dist.rank * ic_mems_per_rank : (dist.rank + 1) * ic_mems_per_rank]
-
-    if len(ic_mems) == 0:
-        logger.info(f"nothing to do for rank {dist.rank}, exiting")
-        return None
-
-    return ic_mems
 
 
 def configure_runs(
