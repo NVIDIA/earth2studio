@@ -6,6 +6,19 @@ argument-hint: URL or local path to reference inference script/repo (optional �
 
 # Create Prognostic Model Wrapper
 
+> **Note:** Creating a complete prognostic model wrapper involves three major phases,
+> each with its own skill:
+>
+> 1. **`create-prognostic-wrapper`** (this skill) — Steps 0-8: Implement the wrapper
+>    class, dependencies, coordinate system, forward pass, model loading, and
+>    registration
+> 2. **`create-prognostic-tests`** — Step 9: Write smoke tests, data fetch tests,
+>    pytest unit tests (mock + package), and comparison scripts
+> 3. **`validate-prognostic-wrapper`** — Final validation: Run tests with coverage,
+>    reference comparison, sanity-check plots, and open a PR with automated review
+>
+> Complete all steps in this skill first, then invoke the next skill in sequence.
+
 Create a new Earth2Studio prognostic model wrapper by following every step below in order.
 Each confirmation gate marked by starting with:
 
@@ -516,6 +529,9 @@ def load_default_package(cls) -> Package:
         },
     )
 ```
+
+Note: when using a hugging face repo, lock the url to a specific commit with the
+pattern `hf://org/repo@commit`.
 
 ### 6b. Implement load_model
 
