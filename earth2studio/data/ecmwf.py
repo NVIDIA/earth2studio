@@ -405,6 +405,8 @@ class _ECMWFOpenDataSource(ABC):
             }
             if levtype == "pl" or levtype == "sl":  # Pressure levels or soil levels
                 request["levelist"] = level
+            if levtype == "wave":  # Wave variables from wave stream
+                request["stream"] = "wave"
             if self._fc_type == "pf":
                 request["number"] = self._members
             # Download, no await asyncio.to_thread, just let opendata be the bottle neck
