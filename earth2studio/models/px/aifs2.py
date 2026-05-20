@@ -983,7 +983,9 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = self._prepare_output(x, coords)
         return x, coords
 
-    def _fill_input(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+    def _fill_input(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Helper function of create a lat/lon tensor with the input prognostic and zero
         filled diagnostic variables.
         """
