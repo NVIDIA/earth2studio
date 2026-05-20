@@ -20,6 +20,7 @@ import os
 import pathlib
 import re
 import shutil
+import uuid
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import datetime
@@ -93,6 +94,7 @@ class ARCO:
 
         self._cache = cache
         self._verbose = verbose
+        self._tmp_cache_hash: str | None = None
 
         self.zarr_group: zarr.core.group.AsyncGroup | None = None
         self.level_coords = None
@@ -387,7 +389,12 @@ class ARCO:
         """Get the appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "arco")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_arco")
+            if self._tmp_cache_hash is None:
+                # First access for temp cache: create a random suffix to avoid collisions
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            cache_location = os.path.join(
+                cache_location, f"tmp_arco_{self._tmp_cache_hash}"
+            )
         return cache_location
 
     @classmethod
