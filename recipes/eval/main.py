@@ -16,14 +16,20 @@
 
 import hydra
 import numpy as np
+import torch
 from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
+from src.data import resolve_ic_source
 from src.distributed import configure_logging
-from src.inference import run_inference
-from src.models import load_diagnostics, load_prognostic
 from src.output import OutputManager, sentinel_path
-from src.work import build_work_items, distribute_work
+from src.pipelines import build_pipeline
+from src.work import (
+    build_work_items,
+    clear_progress,
+    distribute_work,
+    filter_completed_items,
+)
 
 
 @hydra.main(version_base=None, config_path="cfg", config_name="default")
@@ -33,57 +39,84 @@ def main(cfg: DictConfig) -> None:
     DistributedManager.initialize()
     configure_logging()
     dist = DistributedManager()
+    device = dist.device
+
+    # Instantiate the pipeline early (no weights loaded yet) so we can
+    # consult its class-level flags before the pre-download sentinel check
+    # and the primary data-source resolution.
+    pipeline = build_pipeline(cfg)
 
     # --- Pre-download check -------------------------------------------------
-    if cfg.get("require_predownload", True):
-        sp = sentinel_path(cfg)
-        if not sp.exists():
-            raise RuntimeError(
-                f"Pre-download sentinel not found at '{sp}'.\n"
-                "Run 'python predownload.py' with the same config before inference.\n"
-                "To skip this check, set require_predownload=false."
-            )
-        logger.info(f"Pre-download sentinel found: {sp}")
+    # The top-level sentinel check applies to single-source pipelines, where
+    # `predownload.py` writes a sentinel after caching `cfg.data_source`.
+    # Multi-source pipelines (needs_data_source=False) handle their own
+    # source resolution + BYO via pipeline-specific config blocks, so the
+    # top-level sentinel is not meaningful for them.
+    if pipeline.needs_data_source:
+        fully_byo = (
+            cfg.get("ic_source") is not None
+            and cfg.get("verification_source") is not None
+        )
+        if cfg.get("require_predownload", True) and not fully_byo:
+            sp = sentinel_path(cfg)
+            if not sp.exists():
+                raise RuntimeError(
+                    f"Pre-download sentinel not found at '{sp}'.\n"
+                    "Run 'python predownload.py' with the same config before inference.\n"
+                    "To skip this check, set require_predownload=false."
+                )
+            logger.info(f"Pre-download sentinel found: {sp}")
+    else:
+        logger.info(
+            f"Pipeline '{type(pipeline).__name__}' resolves its own data "
+            "sources; skipping top-level predownload sentinel check."
+        )
 
     # --- Build and distribute work ------------------------------------------
     all_items = build_work_items(cfg)
-    my_items = distribute_work(all_items, dist.rank, dist.world_size)
+    resume = cfg.get("resume", False)
 
-    # --- Load models --------------------------------------------------------
-    # All ranks must participate so barriers inside run_on_rank0_first are met.
-    prognostic = load_prognostic(cfg)
-    diagnostics = load_diagnostics(cfg)
+    if resume:
+        remaining_items = filter_completed_items(all_items, cfg)
+        if not remaining_items:
+            logger.success("All work items already completed — nothing to do.")
+            if dist.distributed:
+                torch.distributed.barrier()
+            return
+    else:
+        remaining_items = all_items
+        if cfg.output.get("overwrite", False):
+            clear_progress(cfg)
 
-    # --- Instantiate perturbation if running ensembles ----------------------
-    perturbation = None
-    if cfg.get("ensemble_size", 1) > 1 and "perturbation" in cfg:
-        perturbation = hydra.utils.instantiate(cfg.perturbation)
+    my_items = distribute_work(remaining_items, dist.rank, dist.world_size)
 
-    # --- Instantiate data source --------------------------------------------
-    data_source = hydra.utils.instantiate(cfg.data_source)
+    # --- Pipeline setup -----------------------------------------------------
+    pipeline.setup(cfg, device)
 
-    # --- Collect all IC times for output coordinate setup -------------------
+    # Use all_items for coord building so the zarr schema always covers the
+    # full set of ICs, even when resuming a partial run.
     all_times = np.array(sorted({item.time for item in all_items}))
+    output_variables = list(cfg.output.variables)
+    total_coords = pipeline.build_total_coords(all_times, cfg.get("ensemble_size", 1))
 
-    # --- Run inference with managed output ----------------------------------
-    # OutputManager.__enter__/__exit__ contain barriers, so every rank must
-    # enter the context manager even if it has no work items.
-    with OutputManager(
-        cfg,
-        prognostic=prognostic,
-        times=all_times,
-        nsteps=cfg.nsteps,
-        ensemble_size=cfg.get("ensemble_size", 1),
-    ) as output_mgr:
+    # Single-source pipelines: main.py resolves and passes the primary source.
+    # Multi-source pipelines: pipeline.setup() has already cached its sources
+    # internally, so main.py passes None and the pipeline ignores it.
+    if pipeline.needs_data_source:
+        data_source = resolve_ic_source(
+            cfg,
+            byo=cfg.get("ic_source"),
+            live_source=cfg.data_source,
+        )
+    else:
+        data_source = None
+
+    # --- Run ----------------------------------------------------------------
+    with OutputManager(cfg) as output_mgr:
+        output_mgr.validate_output_store(total_coords, output_variables)
         if my_items:
-            run_inference(
-                work_items=my_items,
-                prognostic=prognostic,
-                data_source=data_source,
-                output_mgr=output_mgr,
-                nsteps=cfg.nsteps,
-                perturbation=perturbation,
-                diagnostics=diagnostics,
+            pipeline.run(
+                my_items, data_source, output_mgr, output_variables, device, cfg
             )
         else:
             logger.info(f"Rank {dist.rank}: no work items, waiting at barrier.")

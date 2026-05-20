@@ -15,8 +15,8 @@ model installs and suggested environment set up for the most complete experience
 
 ## Install using Pip
 
-Earth2Studio runs on [PyTorch](https://pytorch.org/get-started/locally/); make sure it
-is installed correctly for your system first.
+Earth2Studio runs on [PyTorch](https://pytorch.org/get-started/locally/); **make sure it
+is installed correctly for your system first**.
 To get the latest release of Earth2Studio, install from the Python index.
 
 ```bash
@@ -30,8 +30,8 @@ and it's recommended that users use an uv project for the best install experienc
 
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
-uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
+uv init --python=3.13
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.14.0"
 ```
 
 :::{dropdown} uv Install
@@ -285,8 +285,8 @@ uv add earth2studio --extra fcn3
 ::::
 :::::
 :::::{tab-item} FengWu
-Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
-manual install depending on CUDA and Python version.
+Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/#python-installs).
+This might have specific pip installation steps depending on your CUDA version.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -306,8 +306,8 @@ uv add earth2studio --extra fengwu
 ::::
 :::::
 :::::{tab-item} FuXi
-Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
-manual install depending on CUDA version.
+Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/#python-installs).
+This might have specific pip installation steps depending on your CUDA version.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -347,8 +347,8 @@ uv add earth2studio --extra graphcast
 ::::
 :::::
 :::::{tab-item} Pangu
-Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
-manual install depending on CUDA version.
+Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/#python-installs).
+This might have specific pip installation steps depending on your CUDA version.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -523,7 +523,6 @@ uv add earth2studio --extra corrdiff
 :::::
 :::::{tab-item} Cyclone Trackers
 Notes: Additional dependencies for cyclone tracking models `TCTrackerVitart` and `TCTrackerWuDuan`.
-Only Python 3.12 and below support.
 
 ::::{tab-set}
 :::{tab-item} uv
@@ -839,15 +838,15 @@ the following commands:
 
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
-uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
+uv init --python=3.13
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.14.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
-uv venv --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
+uv venv --python=3.13
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.14.0"
 ```
 
 (pytorch_container_environment)=
@@ -870,7 +869,7 @@ docker run -it -t nvcr.io/nvidia/pytorch:25.12-py3
     libeccodes-tools libeccodes-dev
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.14.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -883,7 +882,7 @@ do with pip, for example:
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
+    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.14.0"
 ```
 
 :::
@@ -909,10 +908,10 @@ However this demonstrates that in principle Earth2Studio can be installed using 
 package tooling.
 
 ```bash
-conda create -n earth2studio python=3.12
+conda create -n earth2studio python=3.13
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.14.0"
 ```
 
 # System Recommendations
@@ -924,8 +923,8 @@ The following are recommended to closely match development and automation enviro
 minimizing the chance for unexpected incompatibilities:
 
 - OS: Ubuntu 24.04 LTS
-- Python Version: 3.12
-- CUDA Version: 12.8
+- Python Version: 3.13
+- CUDA Version: 13.0
 
 ## Hardware
 

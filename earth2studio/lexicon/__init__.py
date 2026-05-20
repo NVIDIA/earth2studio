@@ -21,15 +21,27 @@ from .cbottle import CBottleLexicon
 from .cds import CDSLexicon
 from .cmip6 import CMIP6Lexicon
 from .ecmwf import AIFSLexicon, IFSLexicon
+from .gdas import GDASObsConvLexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
+from .ghcn import GHCNLexicon
 from .goes import GOESLexicon
+from .goes_glm import GOESGLMLexicon
+from .himawari_ahi import HimawariAHILexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSATMSLexicon, JPSSCrISLexicon, JPSSLexicon
-from .metop import MetOpAMSUALexicon, MetOpAVHRRLexicon, MetOpMHSLexicon
+from .meteosat import MeteosatFCILexicon
+from .metop import (
+    MetOpAMSUALexicon,
+    MetOpAVHRRLexicon,
+    MetOpIASILexicon,
+    MetOpMHSLexicon,
+)
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
+from .nclimgrid import NClimGridLexicon
+from .nnja import NNJAObsConvLexicon
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFSLexicon,
     PlanetaryComputerGOESLexicon,

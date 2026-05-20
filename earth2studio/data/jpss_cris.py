@@ -29,7 +29,6 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import h5py
-import nest_asyncio
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -37,20 +36,16 @@ import s3fs
 from loguru import logger
 
 from earth2studio.data.utils import (
+    _sync_async,
     datasource_cache_root,
     gather_with_concurrency,
     prep_data_inputs,
+    radiance_to_bt,
 )
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.lexicon.jpss import JPSSCrISLexicon
 from earth2studio.utils.time import TimeTolerance, normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, VariableArray
-
-# ---------------------------------------------------------------------------
-# NOAA CrIS S3 bucket layout
-# s3://noaa-nesdis-n20-pds/CrIS-FS-SDR/<YYYY>/<MM>/<DD>/SCRIF_*.h5
-# s3://noaa-nesdis-n20-pds/CrIS-SDR-GEO/<YYYY>/<MM>/<DD>/GCRSO_*.h5
-# ---------------------------------------------------------------------------
 
 # S3 bucket per satellite short-name
 _SAT_BUCKET_MAP: dict[str, str] = {
@@ -182,13 +177,6 @@ _CRIS_WAVENUMBER_APOD: np.ndarray = np.concatenate(
     ]
 ).astype(np.float64)
 
-# Planck radiation constants for converting spectral radiance (mW/(m^2 sr cm^-1))
-# to brightness temperature (K).
-#   c1 = 2 h c^2  in mW m^-2 sr^-1 (cm^-1)^-3  (i.e. mW/(m^2 sr cm^-4))
-#   c2 = h c / k_B  in cm K
-_PLANCK_C1: float = 1.191042722543250e-5  # mW / (m^2 sr cm^-4)  [CRTM SpcCoeff]
-_PLANCK_C2: float = 1.438775246065195  # cm K  [CRTM SpcCoeff]
-
 # ---------------------------------------------------------------------------
 # Hamming apodization constants
 # ---------------------------------------------------------------------------
@@ -213,33 +201,6 @@ _BAND_SLICES: list[tuple[int, int, int]] = [
         _CRIS_NUM_SCIENCE_SW,
     ),  # SWIR
 ]
-
-
-def _radiance_to_bt(
-    radiance: np.ndarray,
-    wavenumber: np.ndarray = _CRIS_WAVENUMBER,
-) -> np.ndarray:
-    """Convert spectral radiance to brightness temperature via inverse Planck.
-
-    Parameters
-    ----------
-    radiance : np.ndarray
-        Spectral radiance in mW/(m^2 sr cm^-1).  Shape ``(n_fov, n_channels)``
-        or ``(n_channels,)``.  NaN values are preserved.
-    wavenumber : np.ndarray
-        Wavenumber grid in cm^-1, shape ``(n_channels,)``.
-
-    Returns
-    -------
-    np.ndarray
-        Brightness temperature in Kelvin, same shape as *radiance*.
-    """
-    nu = wavenumber  # (n_channels,)
-    # T_B = c2 * nu / ln(1 + c1 * nu^3 / L)
-    nu3 = nu * nu * nu
-    with np.errstate(divide="ignore", invalid="ignore"):
-        bt = _PLANCK_C2 * nu / np.log1p(_PLANCK_C1 * nu3 / radiance)
-    return bt
 
 
 def _hamming_apodize(radiance: np.ndarray) -> np.ndarray:
@@ -366,7 +327,7 @@ class JPSS_CRIS:
     of each band (4 per band, 12 total) are trimmed during apodization,
     yielding 2211 science channels.  Set ``apodize=False`` to retain the full
     2223 unapodized channels (including 12 guard channels with
-    ``channel_index=0``).
+    ``sensor_index=0``).
 
     Each HDF5 granule contains a small number of scan lines, each with 30
     Fields of Regard (FOR) and 9 Fields of View (FOV) per FOR (3x3 detector
@@ -377,10 +338,10 @@ class JPSS_CRIS:
     - **SWIR** (3.92--4.64 µm, 2155--2550 cm^-1): 637 channels at 0.625 cm^-1
 
     When ``apodize=True`` (default), guard channels are trimmed and the output
-    has 2211 channels with contiguous ``channel_index`` 1--2211.
+    has 2211 channels with contiguous ``sensor_index`` 1--2211.
 
     When ``apodize=False``, the returned :class:`~pandas.DataFrame` has one row
-    per FOV per channel including guard channels.  The ``channel_index`` column
+    per FOV per channel including guard channels.  The ``sensor_index`` column
     uses the GSI ``sensor_chan`` numbering convention:
 
     - **LWIR** channels 0--1 (0-based) → sensor_chan 0 (guard; not in GSI)
@@ -419,7 +380,7 @@ class JPSS_CRIS:
         channels that are directly comparable with
         :class:`~earth2studio.data.UFSObsSat`.  Set to ``False`` to
         retain the unapodized spectra with all 2223 channels (including
-        12 guard channels with ``channel_index=0``).
+        12 guard channels with ``sensor_index=0``).
 
         .. note::
 
@@ -480,7 +441,8 @@ class JPSS_CRIS:
                 nullable=True,
                 metadata={"description": "SatelliteZenithAngle from CrIS GEO file"},
             ),
-            E2STUDIO_SCHEMA.field("channel_index"),
+            E2STUDIO_SCHEMA.field("sensor_index"),
+            E2STUDIO_SCHEMA.field("wavenumber"),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),
@@ -523,12 +485,7 @@ class JPSS_CRIS:
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
 
-        try:
-            nest_asyncio.apply()
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            self.fs: s3fs.S3FileSystem | None = None
+        self.fs: s3fs.S3FileSystem | None = None
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
@@ -569,19 +526,8 @@ class JPSS_CRIS:
             Long-format DataFrame with one row per FOV per channel.
         """
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        try:
-            df = loop.run_until_complete(
-                asyncio.wait_for(
-                    self.fetch(time, variable, fields), timeout=self.async_timeout
-                )
+            df = _sync_async(
+                self.fetch, time, variable, fields, timeout=self.async_timeout
             )
         finally:
             if not self._cache:
@@ -612,13 +558,9 @@ class JPSS_CRIS:
             Long-format DataFrame.
         """
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialised! If calling this function "
-                "directly, make sure the data source is initialised inside "
-                "the async loop!"
-            )
+            await self._async_init()
 
-        session = await self.fs.set_session(refresh=True)
+        session = await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         time_list, variable_list = prep_data_inputs(time, variable)
         schema = self.resolve_fields(fields)
@@ -912,6 +854,7 @@ class JPSS_CRIS:
         sensor_chan = (
             _CRIS_GSI_SENSOR_CHAN_APOD if self._apodize else _CRIS_GSI_SENSOR_CHAN
         )
+        wavenumber = _CRIS_WAVENUMBER_APOD if self._apodize else _CRIS_WAVENUMBER
 
         arrs: dict[str, pa.Array] = {
             "time": pa.array(np.repeat(all_times, n_channels)),
@@ -923,9 +866,13 @@ class JPSS_CRIS:
             "scan_angle": pa.array(
                 np.repeat(all_sat_za, n_channels), type=pa.float32()
             ),
-            "channel_index": pa.array(
+            "sensor_index": pa.array(
                 np.tile(sensor_chan, n_total),
                 type=pa.uint16(),
+            ),
+            "wavenumber": pa.array(
+                np.tile(wavenumber, n_total),
+                type=pa.float64(),
             ),
             "solza": pa.array(np.repeat(all_sol_za, n_channels), type=pa.float32()),
             "solaza": pa.array(np.repeat(all_sol_aza, n_channels), type=pa.float32()),
@@ -1121,7 +1068,8 @@ class JPSS_CRIS:
 
         # Convert spectral radiance → brightness temperature (K) so that
         # the observation column is in the same units as UFSObsSat.
-        radiance_valid = _radiance_to_bt(radiance_valid, wn).astype(np.float32)
+        # CrIS uses pure inverse Planck (no band correction).
+        radiance_valid = radiance_to_bt(radiance_valid, wn).astype(np.float32)
 
         return _CrISDecodedGranule(
             lat=lat_valid,

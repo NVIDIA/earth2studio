@@ -14,8 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import os
 import urllib.request
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 
 import numpy as np
 import pandas as pd
@@ -26,7 +29,7 @@ from physicsnemo.distributed import DistributedManager
 
 from earth2studio.data import fetch_data
 from src.data.tc_hunt_data_utils import DataSourceManager, load_heights
-from src.tc_hunt_utils import great_circle_distance, run_with_rank_ordered_execution
+from src.tc_hunt_utils import great_circle_distance
 from src.tempest_extremes import TempestExtremes
 
 IBTRACS_URL = (
@@ -69,7 +72,6 @@ def extract_from_historic_data(
     ic: np.datetime64,
     n_steps: int,
     time_step: np.timedelta64,
-    vars: list[str],
     data_source_mngr: DataSourceManager,
 ) -> pd.DataFrame:
     """Fetch reanalysis data and extract TC tracks with TempestExtremes.
@@ -84,8 +86,6 @@ def extract_from_historic_data(
         Number of time steps to extract.
     time_step : np.timedelta64
         Spacing between time steps.
-    vars : list[str]
-        Variable names required by TempestExtremes.
     data_source_mngr : DataSourceManager
         Manager providing the correct data source for the time range.
 
@@ -94,14 +94,15 @@ def extract_from_historic_data(
     pd.DataFrame
         Extracted TC tracks from the reanalysis data.
     """
-    times = np.arange(np.timedelta64(0, "h"), n_steps * time_step, time_step)
+    variables = list(cfg.cyclone_tracking.vars)
+    times = np.arange(n_steps) * time_step
     data_source = data_source_mngr.select_data_source(ic + times)
 
     xx, coords = fetch_data(
         data_source,
         time=[ic],
         lead_time=times,
-        variable=vars,
+        variable=variables,
         device="cpu",
     )
     xx = xx.unsqueeze(0)
@@ -117,7 +118,7 @@ def extract_from_historic_data(
     cyclone_tracking = TempestExtremes(
         detect_cmd=cfg.cyclone_tracking.detect_cmd,
         stitch_cmd=cfg.cyclone_tracking.stitch_cmd,
-        input_vars=cfg.cyclone_tracking.vars,
+        input_vars=variables,
         batch_size=1,
         n_steps=n_steps - 1,
         time_step=time_step,
@@ -192,16 +193,11 @@ def extract_from_ibtracs(
     ic = storm.time[0]
 
     # Ensure ic is at 00h, 06h, 12h, or 18h
-    ic_datetime = pd.to_datetime(ic)
-    hour = ic_datetime.hour
-    if hour % 6 != 0:
-        hours_to_subtract = hour % 6
-        ic = ic - np.timedelta64(hours_to_subtract, "h")
-        ic = ic.astype("datetime64[h]")
+    hours = pd.Timestamp(ic).hour % 6
+    if hours:
+        ic = (ic - np.timedelta64(hours, "h")).astype("datetime64[h]")
 
-    n_steps = (storm.time[-1] - ic) // time_step
-    if (storm.time[-1] - ic) % time_step != 0:
-        n_steps += 1
+    n_steps = math.ceil((storm.time[-1] - ic) / time_step)
 
     ib_storm = ib_storm[
         ib_storm["time"].isin(np.arange(ic, ic + n_steps * time_step, time_step))
@@ -211,13 +207,17 @@ def extract_from_ibtracs(
 
 
 def match_tracks(
-    ib_storm: pd.DataFrame, hist_tracks: pd.DataFrame, case: str
+    ib_storm: pd.DataFrame,
+    hist_tracks: pd.DataFrame,
+    case: str,
+    max_dist: float = 300000,
 ) -> pd.DataFrame:
     """Match extracted tracks against IBTrACS to identify the target storm.
 
-    Iterates over IBTrACS observation times and compares against each
-    detected track. A match is declared when a track point is within
-    300 km of the IBTrACS position.
+    Iterates over IBTrACS observation times (in chronological order) and
+    compares against each detected track. A match is declared at the first
+    time step for which the extracted track's position lies within
+    ``max_dist`` metres of the corresponding IBTrACS reference position.
 
     Parameters
     ----------
@@ -227,24 +227,19 @@ def match_tracks(
         All tracks extracted by TempestExtremes.
     case : str
         Storm name (for logging).
+    max_dist : float, optional
+        Maximum great-circle distance (in metres) between the extracted
+        track and the IBTrACS reference position at the matching time
+        step. Defaults to ``300000`` (300 km).
 
     Returns
     -------
     pd.DataFrame
         The matched track, or an empty DataFrame if no match is found.
     """
-    times = np.array(
-        [
-            pd.to_datetime(
-                f"{hist_tracks['year'].iloc[jj]}-"
-                f"{int(hist_tracks.iloc[jj]['month']):02d}-"
-                f"{int(hist_tracks.iloc[jj]['day']):02d} "
-                f"{int(hist_tracks.iloc[jj]['hour']):02d}:00:00"
-            )
-            for jj in range(len(hist_tracks))
-        ]
+    hist_tracks.insert(
+        0, "time", pd.to_datetime(hist_tracks[["year", "month", "day", "hour"]])
     )
-    hist_tracks.insert(0, "time", times)
 
     unique_track_ids = hist_tracks["track_id"].unique()
 
@@ -259,7 +254,7 @@ def match_tracks(
                 lat_track = track.loc[track["time"] == time, "lat"].item()
                 lon_track = track.loc[track["time"] == time, "lon"].item()
                 dist = great_circle_distance(lat_ib, lon_ib, lat_track, lon_track)
-                if dist < 300000:
+                if dist < max_dist:
                     matched_track = track_id
                     logger.info(
                         f"matched track {matched_track} for storm {case} "
@@ -363,67 +358,142 @@ def write_track_to_csv(
     matched_track.to_csv(os.path.join(store_dir, csv_name), index=False)
 
 
+def process_case(
+    case: str,
+    cfg: DictConfig,
+    ibtracs: tropytracks.TrackDataset,
+    data_source_mngr: DataSourceManager,
+    time_step: np.timedelta64,
+) -> pd.DataFrame | None:
+    """Run the full baseline pipeline for one storm.
+
+    Parameters
+    ----------
+    case : str
+        Storm name (must match an IBTrACS entry).
+    cfg : DictConfig
+        Hydra configuration object.
+    ibtracs : tropytracks.TrackDataset
+        Pre-loaded IBTrACS dataset.
+    data_source_mngr : DataSourceManager
+        Manager providing the correct data source for the time range.
+    time_step : np.timedelta64
+        Time step for the reanalysis extraction.
+
+    Returns
+    -------
+    pd.DataFrame | None
+        The merged matched track ready for :func:`write_track_to_csv`, or
+        ``None`` if no reanalysis track matched within the configured
+        ``max_dist`` threshold (defaults to 300 km).
+    """
+    ib_storm, ic, n_steps = extract_from_ibtracs(cfg, ibtracs, case, time_step)
+
+    hist_tracks = extract_from_historic_data(
+        cfg=cfg,
+        ic=ic,
+        n_steps=n_steps,
+        time_step=time_step,
+        data_source_mngr=data_source_mngr,
+    )
+
+    max_dist = cfg.get("max_dist", 300000)
+    matched_track = match_tracks(ib_storm, hist_tracks, case, max_dist)
+    if matched_track.empty:
+        return None
+
+    return add_ibtracs_data(matched_track, ib_storm)
+
+
+_WORKER: dict = {}
+
+
+def _init_worker(cfg: DictConfig, ibtracs_path: str) -> None:
+    """Per-worker initialiser: load IBTrACS + the data source manager once.
+
+    Used as the ``initializer`` of :class:`ProcessPoolExecutor` so each worker
+    process pays the IBTrACS load cost a single time, regardless of how many
+    storms it ends up handling. Also called directly in the serial fast path.
+
+    The :class:`DistributedManager` singleton is also marked as initialised
+    here: the ``TempestExtremes`` diagnostic queries ``DistributedManager()``
+    for its rank, and a fresh worker process starts with the singleton
+    uninitialised. Baseline extraction parallelises via
+    :class:`ProcessPoolExecutor` and does not need a real torch process
+    group, so we skip straight to physicsnemo's no-launcher fallback (rank
+    0, single process, CPU device) instead of calling
+    :meth:`DistributedManager.initialize` — the latter would try to bind a
+    CUDA device whenever stale ``RANK`` / ``WORLD_SIZE`` env vars from a
+    previous torchrun invocation are present, crashing on CPU-only systems.
+    """
+    if not DistributedManager.is_initialized():
+        DistributedManager._shared_state["_is_initialized"] = True
+    _WORKER["cfg"] = cfg
+    _WORKER["ibtracs"] = tropytracks.TrackDataset(
+        basin="all",
+        source="ibtracs",
+        ibtracs_mode="jtwc_neumann",
+        ibtracs_url=ibtracs_path,
+    )
+    _WORKER["dsm"] = DataSourceManager(cfg)
+
+
+def _run_case(case: str, time_step: np.timedelta64) -> None:
+    """Per-worker entry point: process one storm and write its CSV."""
+    cfg = _WORKER["cfg"]
+    matched = process_case(case, cfg, _WORKER["ibtracs"], _WORKER["dsm"], time_step)
+    if matched is None:
+        logger.warning(
+            f"no reanalysis track matched storm {case} within the 300 km "
+            f"threshold — skipping CSV output"
+        )
+        return
+    write_track_to_csv(matched, case, cfg.store_dir, cfg.cases[case].basin)
+
+
 def extract_baseline(
     cfg: DictConfig,
     time_step: np.timedelta64 = np.timedelta64(6, "h"),
-    vars: list[str] | None = None,
 ) -> None:
     """Extract TC reference tracks from reanalysis using IBTrACS ground truth.
 
     For each case defined in the configuration, queries IBTrACS to determine
     when the storm was active, fetches the corresponding reanalysis data,
     runs TempestExtremes to extract all TC tracks, and matches the result
-    against IBTrACS to identify the target storm.
+    against IBTrACS to identify the target storm. Cases are processed in
+    parallel across ``cfg.num_workers`` worker processes (defaults to 1 =
+    serial); each worker writes its own per-storm CSV file independently.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra configuration object.
+        Hydra configuration object. May define ``num_workers`` (int).
     time_step : np.timedelta64, optional
         Time step for the reanalysis extraction, by default 6 h.
-    vars : list[str] | None, optional
-        Variables required by TempestExtremes. Defaults to
-        ``['msl', 'z300', 'z500', 'u10m', 'v10m']``.
     """
-    if vars is None:
-        vars = ["msl", "z300", "z500", "u10m", "v10m"]
-
-    DistributedManager.initialize()
-
-    ibtracs_path = run_with_rank_ordered_execution(
-        ensure_ibtracs, cfg.ibtracs_source_data
-    )
-
-    ibtracs = tropytracks.TrackDataset(
-        basin="all",
-        source="ibtracs",
-        ibtracs_mode="jtwc_neumann",
-        ibtracs_url=ibtracs_path,
-    )
-
-    data_source_mngr = DataSourceManager(cfg)
-
-    for case in cfg.cases:
-        ib_storm, ic, n_steps = extract_from_ibtracs(cfg, ibtracs, case, time_step)
-
-        hist_tracks = extract_from_historic_data(
-            cfg=cfg,
-            ic=ic,
-            n_steps=n_steps,
-            time_step=time_step,
-            vars=vars,
-            data_source_mngr=data_source_mngr,
+    ibtracs_path = ensure_ibtracs(cfg.ibtracs_source_data)
+    cases = sorted(cfg.cases.keys())
+    requested_workers = cfg.get("num_workers", 1)
+    n_workers = min(requested_workers, len(cases))
+    if n_workers < requested_workers:
+        logger.warning(
+            f"num_workers={requested_workers} exceeds the number of cases "
+            f"({len(cases)}); capping to {n_workers} to avoid idle workers"
         )
 
-        matched_track = match_tracks(ib_storm, hist_tracks, case)
+    runner = partial(_run_case, time_step=time_step)
 
-        if matched_track.empty:
-            logger.warning(
-                f"no reanalysis track matched storm {case} within the 300 km "
-                f"threshold — skipping CSV output"
-            )
-            continue
+    if n_workers <= 1:
+        _init_worker(cfg, ibtracs_path)
+        for case in cases:
+            runner(case)
+        return
 
-        matched_track = add_ibtracs_data(matched_track, ib_storm)
-
-        write_track_to_csv(matched_track, case, cfg.store_dir, cfg.cases[case].basin)
+    with ProcessPoolExecutor(
+        max_workers=n_workers,
+        initializer=_init_worker,
+        initargs=(cfg, ibtracs_path),
+    ) as pool:
+        # Iterate so exceptions raised inside workers propagate
+        for _ in pool.map(runner, cases):
+            pass

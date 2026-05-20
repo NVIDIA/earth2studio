@@ -24,13 +24,17 @@ import struct
 import uuid
 from datetime import datetime, timedelta
 
-import nest_asyncio
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    _sync_async,
+    datasource_cache_root,
+    prep_data_inputs,
+    radiance_to_bt,
+)
 from earth2studio.lexicon import MetOpMHSLexicon
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.utils.imports import (
@@ -78,10 +82,6 @@ _MDR_SIZE = 4316
 #   https://www.star.nesdis.noaa.gov/mirs/documents/0.0_NOAA_KLM_Users_Guide.pdf
 _SCAN_PERIOD_S = 8.0 / 3.0  # 2.667 s per scan revolution
 _FOV_DWELL_S = _SCAN_PERIOD_S / _NUM_FOVS  # ~29.6 ms per FOV step
-
-# Planck constants for radiance → brightness temperature conversion
-_C1 = 1.191062e-05  # mW/m²/sr/cm⁻⁴
-_C2 = 1.4387863  # cm·K
 
 # MHS central wavenumbers (cm⁻¹) per channel 1–5
 # Frequency → wavenumber: ν(cm⁻¹) = f(GHz) / c(cm/s) × 1e9
@@ -169,51 +169,6 @@ def _parse_giadr_radiance(
     return wavenumbers, intercepts, slopes
 
 
-def _radiance_to_bt(
-    radiance: np.ndarray,
-    channel_idx: int,
-    wavenumbers: np.ndarray | None = None,
-    band_a: np.ndarray | None = None,
-    band_b: np.ndarray | None = None,
-) -> np.ndarray:
-    """Convert calibrated radiance to brightness temperature.
-
-    Uses the inverse Planck function with band correction:
-        T* = C2 * γ / ln(1 + C1 * γ³ / R)
-        T  = A + T* * B   (intercept + slope * T*)
-
-    Parameters
-    ----------
-    radiance : np.ndarray
-        Calibrated radiance in mW/m²/sr/cm⁻¹
-    channel_idx : int
-        0-based channel index
-    wavenumbers : np.ndarray | None
-        Central wavenumbers (cm⁻¹) per channel. Falls back to module default.
-    band_a : np.ndarray | None
-        Band correction intercept per channel (K). Falls back to module default.
-    band_b : np.ndarray | None
-        Band correction slope per channel. Falls back to module default.
-
-    Returns
-    -------
-    np.ndarray
-        Brightness temperature in Kelvin
-    """
-    wn = wavenumbers if wavenumbers is not None else _WAVENUMBERS
-    a = (band_a if band_a is not None else _BAND_A)[channel_idx]
-    b = (band_b if band_b is not None else _BAND_B)[channel_idx]
-    gamma = wn[channel_idx]
-
-    # Guard against zero/negative radiance
-    valid = radiance > 0
-    bt = np.full_like(radiance, np.nan, dtype=np.float64)
-    r = radiance[valid]
-    t_star = _C2 * gamma / np.log(1.0 + _C1 * gamma**3 / r)
-    bt[valid] = a + t_star * b
-    return bt
-
-
 def _parse_mphr(data: bytes) -> dict[str, str]:
     """Parse the Main Product Header Record (ASCII key=value pairs).
 
@@ -292,7 +247,7 @@ def _parse_native_mhs(data: bytes) -> pd.DataFrame:
     -------
     pd.DataFrame
         One row per (scan_line, FOV, channel) observation with columns:
-        time, class, lat, lon, elev, scan_angle, channel_index, solza,
+        time, class, lat, lon, elev, scan_angle, sensor_index, solza,
         solaza, satellite_za, satellite_aza, quality, satellite,
         observation, variable
     """
@@ -421,10 +376,19 @@ def _parse_native_mhs(data: bytes) -> pd.DataFrame:
     valid_channels = list(range(1, MetOpMHSLexicon.MHS_NUM_CHANNELS + 1))
     n_valid_channels = len(valid_channels)
 
+    # Use channel-specific wavenumber and band correction (additive formula)
+    wn_arr = wn if wn is not None else _WAVENUMBERS
+    a_arr = band_a if band_a is not None else _BAND_A
+    b_arr = band_b if band_b is not None else _BAND_B
+
     bt_arrays: dict[int, np.ndarray] = {}
     for ch_idx in valid_channels:
-        bt_arrays[ch_idx] = _radiance_to_bt(
-            radiances[:, ch_idx - 1], ch_idx - 1, wn, band_a, band_b
+        ch_0 = ch_idx - 1  # 0-based index
+        bt_arrays[ch_idx] = radiance_to_bt(
+            radiances[:, ch_0],
+            wn_arr[ch_0],
+            band_correction=(a_arr[ch_0], b_arr[ch_0]),
+            correction_formula="additive",
         )
 
     # Step 5: Build long-format DataFrame (one row per FOV × channel)
@@ -441,7 +405,8 @@ def _parse_native_mhs(data: bytes) -> pd.DataFrame:
     all_sataza = np.tile(sat_azi, n_valid_channels)
 
     all_obs = np.empty(total_rows, dtype=np.float32)
-    all_channel_idx = np.empty(total_rows, dtype=np.uint16)
+    all_sensor_idx = np.empty(total_rows, dtype=np.uint16)
+    all_wavenumber = np.empty(total_rows, dtype=np.float64)
     all_scan_angle = np.tile(sat_za, n_valid_channels)  # scan angle ≈ sat zenith
     all_quality = np.tile(quality, n_valid_channels)
 
@@ -449,7 +414,8 @@ def _parse_native_mhs(data: bytes) -> pd.DataFrame:
         start = i * rows_per_channel
         end = start + rows_per_channel
         all_obs[start:end] = bt_arrays[ch_idx].astype(np.float32)
-        all_channel_idx[start:end] = ch_idx
+        all_sensor_idx[start:end] = ch_idx
+        all_wavenumber[start:end] = wn_arr[ch_idx - 1]
 
     df = pd.DataFrame(
         {
@@ -459,7 +425,8 @@ def _parse_native_mhs(data: bytes) -> pd.DataFrame:
             "lon": all_lons,
             "elev": all_elevs,
             "scan_angle": all_scan_angle,
-            "channel_index": all_channel_idx,
+            "sensor_index": all_sensor_idx,
+            "wavenumber": all_wavenumber,
             "solza": all_solza,
             "solaza": all_solaza,
             "satellite_za": all_satza,
@@ -494,7 +461,7 @@ class MetOpMHS:
 
     The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
     following the same convention as :class:`~earth2studio.data.UFSObsSat`.
-    The ``channel_index`` column (1--5) identifies each channel.
+    The ``sensor_index`` column (1--5) identifies each channel.
 
     This data source downloads Level 1B products from the EUMETSAT Data Store
     and parses the EPS native binary format to extract brightness temperatures,
@@ -565,7 +532,8 @@ class MetOpMHS:
             E2STUDIO_SCHEMA.field("lon"),
             E2STUDIO_SCHEMA.field("elev"),
             E2STUDIO_SCHEMA.field("scan_angle"),
-            E2STUDIO_SCHEMA.field("channel_index"),
+            E2STUDIO_SCHEMA.field("sensor_index"),
+            E2STUDIO_SCHEMA.field("wavenumber"),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),
@@ -636,17 +604,8 @@ class MetOpMHS:
             per channel.
         """
         try:
-            nest_asyncio.apply()
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
-            df = loop.run_until_complete(
-                asyncio.wait_for(
-                    self.fetch(time, variable, fields), timeout=self.async_timeout
-                )
+            df = _sync_async(
+                self.fetch, time, variable, fields, timeout=self.async_timeout
             )
         finally:
             if not self._cache:
@@ -728,7 +687,7 @@ class MetOpMHS:
                 "time",
                 "lat",
                 "lon",
-                "channel_index",
+                "sensor_index",
                 "satellite",
                 "variable",
             ]

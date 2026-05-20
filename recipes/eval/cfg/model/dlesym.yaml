@@ -1,0 +1,7 @@
+# DLESyM coupled Earth-system prognostic (DLESyMLatLon — lat/lon I/O variant)
+# One model step advances 96 hours and produces 16 output lead times at 6h
+# stride.  The ocean component is coarser (valid only at 48h, 96h within each
+# step); non-valid ocean lead times are masked to NaN in the output zarr.
+architecture: earth2studio.models.px.DLESyMLatLon
+# Omit package_path to use the default NGC checkpoint.
+# package_path: /path/to/custom/checkpoint

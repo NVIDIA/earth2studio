@@ -42,9 +42,9 @@ from earth2studio.data.metop_avhrr import (
     _parse_grh,
     _parse_mphr,
     _parse_native_avhrr,
-    _radiance_to_bt,
     _radiance_to_refl,
 )
+from earth2studio.data.utils import radiance_to_bt
 
 
 # ---------------------------------------------------------------------------
@@ -182,12 +182,12 @@ def _build_avhrr_dataframe(
     base_time = datetime(2025, 1, 15, 10, 30, 0)
     # Simulate all 6 channels (like real parser produces)
     channel_info = [
-        ("1", 1, "refl"),
-        ("2", 2, "refl"),
-        ("3a", 3, "refl"),
-        ("3b", 4, "rad"),
-        ("4", 5, "rad"),
-        ("5", 6, "rad"),
+        ("1", 1, "refl", np.nan),
+        ("2", 2, "refl", np.nan),
+        ("3a", 3, "refl", np.nan),
+        ("3b", 4, "rad", 2690.80),
+        ("4", 5, "rad", 927.77),
+        ("5", 6, "rad", 833.13),
     ]
     rows = [
         {
@@ -199,14 +199,15 @@ def _build_avhrr_dataframe(
             "variable": "avhrr",
             "satellite": satellite,
             "scan_angle": rng.uniform(-55, 55),
-            "channel_index": ch_idx,
+            "sensor_index": ch_idx,
+            "wavenumber": wavenumber,
             "solza": rng.uniform(0, 90),
             "solaza": rng.uniform(0, 360),
             "satellite_za": rng.uniform(0, 65),
             "satellite_aza": rng.uniform(0, 360),
             "quality": 0,
         }
-        for _ch_name, ch_idx, cls in channel_info
+        for _ch_name, ch_idx, cls, wavenumber in channel_info
         for _ in range(n_pixels)
     ]
     return pd.DataFrame(rows)
@@ -305,7 +306,7 @@ def test_parse_giadr_radiance():
 def test_radiance_to_bt():
     # Typical ch4 values: wavenumber ~928 cm⁻¹, A~0.34, B~0.9985
     rad = np.array([10.0, 20.0, 0.0, -1.0], dtype=np.float64)
-    bt = _radiance_to_bt(rad, 928.0, 0.34, 0.9985)
+    bt = radiance_to_bt(rad, 928.0, band_correction=(0.34, 0.9985))
     # First two should give reasonable BT (150-350K range)
     assert 150 < bt[0] < 350
     assert 150 < bt[1] < 350
@@ -389,7 +390,7 @@ def test_parse_native_avhrr_multiple_channels():
     if not df.empty:
         assert (df["variable"] == "avhrr").all()
         # All channels are always returned
-        assert len(df["channel_index"].unique()) >= 1
+        assert len(df["sensor_index"].unique()) >= 1
 
 
 # ---------------------------------------------------------------------------
@@ -461,7 +462,7 @@ def test_metop_avhrr_schema_satellite_fields():
     for field in [
         "satellite",
         "scan_angle",
-        "channel_index",
+        "sensor_index",
         "solza",
         "solaza",
         "satellite_za",

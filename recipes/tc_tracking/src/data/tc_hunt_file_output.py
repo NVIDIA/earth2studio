@@ -260,8 +260,8 @@ def initialise_netcdf_output(
     )
 
     # add random seed to store
-    store.add_array(coords={"ensemble": mems}, array_name="random_seed")
-    store.write(torch.from_numpy(seeds), {"ensemble": mems}, "random_seed")
+    store.add_array(coords=OrderedDict({"ensemble": mems}), array_name="random_seed")
+    store.write(torch.from_numpy(seeds), OrderedDict({"ensemble": mems}), "random_seed")
 
     # add arrays to the store
     add_arrays_to_store(

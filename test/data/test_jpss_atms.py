@@ -53,10 +53,10 @@ def test_jpss_atms_fetch(time, variable):
     assert set(df["variable"].unique()).issubset({"atms"})
     assert "observation" in df.columns
     assert "satellite" in df.columns
-    assert "channel_index" in df.columns
+    assert "sensor_index" in df.columns
 
     if not df.empty:
-        assert df["channel_index"].between(1, 22).all()
+        assert df["sensor_index"].between(1, 22).all()
         assert df["lat"].between(-90, 90).all()
         assert df["lon"].between(0, 360).all()
         assert (df["observation"] > 0).all()
@@ -212,7 +212,7 @@ def test_jpss_atms_call_mock(tmp_path):
     assert not df.empty
     assert list(df.columns) == ds.SCHEMA.names
     assert set(df["variable"].unique()) == {"atms"}
-    assert df["channel_index"].between(1, 22).all()
+    assert df["sensor_index"].between(1, 22).all()
     assert len(df) == n_fov * n_channels
     assert df["satellite"].iloc[0] == "n20"
     assert "quality" in df.columns

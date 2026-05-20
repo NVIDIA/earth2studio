@@ -497,14 +497,15 @@ class TempestExtremes:
                 self.store.coords[dim] = coords[dim]
 
         # concatenate static data
-        if self.static_vars is not None:
+        if self.static_vars is not None and self.static_coords is not None:
             self.static_vars = self.static_vars.to(xx.device)
+            static_coords = CoordSystem(self.static_coords)
             if len(xx.shape) > len(self.static_vars.shape):
                 _static_vars, _static_coords = tile_coords(
-                    self.static_vars, self.static_coords, coords
+                    self.static_vars, static_coords, coords
                 )
             else:
-                _static_vars, _static_coords = self.static_vars, self.static_coords
+                _static_vars, _static_coords = self.static_vars, static_coords
             xx, coords = cat_coords((xx, _static_vars), (coords, _static_coords))
 
         # select output data and write to store
@@ -815,13 +816,13 @@ class TempestExecutorManager:
                         future.result(timeout=timeout_per_task)
                     except ChildProcessError as e:
                         logger.error(
-                            f"Background TempestExtremes task {i+1} failed "
+                            f"Background TempestExtremes task {i + 1} failed "
                             f"with ChildProcessError: {e}"
                         )
                         child_process_errors.append(e)
                     except Exception as e:
                         logger.error(
-                            f"Background TempestExtremes task {i+1} failed: {e}"
+                            f"Background TempestExtremes task {i + 1} failed: {e}"
                         )
                 mgr._executor.shutdown(wait=True)
                 mgr._executor = None
@@ -1010,11 +1011,11 @@ class AsyncTempestExtremes(TempestExtremes):
             for i, future in enumerate(tasks_to_wait):
                 try:
                     logger.info(
-                        f"Waiting for task {i+1}/{len(tasks_to_wait)} to complete..."
+                        f"Waiting for task {i + 1}/{len(tasks_to_wait)} to complete..."
                     )
                     future.result(timeout=timeout_per_task)
                 except Exception as e:
-                    logger.error(f"Task {i+1}/{len(tasks_to_wait)} failed: {e}")
+                    logger.error(f"Task {i + 1}/{len(tasks_to_wait)} failed: {e}")
                     errors.append(e)
 
             if errors:
@@ -1109,13 +1110,12 @@ class AsyncTempestExtremes(TempestExtremes):
                 try:
                     future.result()
                 except Exception as e:
-                    logger.error(f"Member {i+1} processing failed: {e}")
+                    logger.error(f"Member {i + 1} processing failed: {e}")
                     exceptions.append((i, e))
 
             if exceptions:
                 raise ChildProcessError(
-                    f"Processing failed for {len(exceptions)} member(s): "
-                    f"{exceptions}"
+                    f"Processing failed for {len(exceptions)} member(s): {exceptions}"
                 )
         finally:
             self.tidy_up(insies, outsies)

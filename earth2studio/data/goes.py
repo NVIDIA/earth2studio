@@ -22,7 +22,6 @@ import pathlib
 import shutil
 from datetime import datetime, timezone
 
-import nest_asyncio
 import numpy as np
 import s3fs
 import xarray as xr
@@ -30,6 +29,7 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    _sync_async,
     datasource_cache_root,
     prep_data_inputs,
 )
@@ -207,13 +207,8 @@ class GOES:
         # Validate satellite and scan mode
         self._validate_satellite_scan_mode(self._satellite, self._scan_mode)
 
-        # Set up S3 filesystem
-        try:
-            nest_asyncio.apply()
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            self.fs = None
+        # Filesystem is lazily initialized on first call
+        self.fs: s3fs.S3FileSystem | None = None
 
     async def _async_init(self) -> None:
         """Async initialization of S3 filesystem"""
@@ -241,24 +236,13 @@ class GOES:
         xr.DataArray
             Data array containing the requested GOES data
         """
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(self.fetch(time, variable), timeout=self._async_timeout)
-        )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
+            xr_array = _sync_async(
+                self.fetch, time, variable, timeout=self._async_timeout
+            )
+        finally:
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
 
@@ -282,11 +266,7 @@ class GOES:
             GOES data array
         """
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If you are calling this \
-            function directly make sure the data source is initialized inside the async \
-            loop!"
-            )
+            await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
         # Make sure input time is valid
@@ -296,7 +276,8 @@ class GOES:
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        session = await self.fs.set_session(refresh=True)
+        fs = self.fs  # guaranteed non-None after _async_init
+        session = await fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         # Create DataArray with appropriate dimensions
         if self._scan_mode == "F":
@@ -329,10 +310,6 @@ class GOES:
         # Close aiohttp client if s3fs
         if session:
             await session.close()
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
 
         # Add the grid coords to the data array
         xr_array = xr_array.assign_coords(
@@ -426,7 +403,7 @@ class GOES:
         matching_files = [f for f in files if pattern in f]
 
         # Get time stamps from file names
-        def get_time(file_name):
+        def get_time(file_name: str) -> datetime:
             start_str = file_name.split("/")[-1].split("_")[-3][1:-1]
             return datetime.strptime(start_str, "%Y%j%H%M%S")
 

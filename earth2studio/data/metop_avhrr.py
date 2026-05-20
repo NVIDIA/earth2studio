@@ -26,13 +26,17 @@ import uuid
 import zipfile
 from datetime import datetime, timedelta
 
-import nest_asyncio
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    _sync_async,
+    datasource_cache_root,
+    prep_data_inputs,
+    radiance_to_bt,
+)
 from earth2studio.lexicon import MetOpAVHRRLexicon
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.utils.imports import (
@@ -123,10 +127,6 @@ _MDR_FRAME_INDICATOR_OFFSET = _MDR_FRAME_SYNC_OFFSET + 12  # u4
 
 # FRAME_INDICATOR bit 16: 0=channel 3b, 1=channel 3a
 _FRAME_IND_3A_MASK = 1 << 16
-
-# Planck constants for brightness temperature conversion
-_C1 = 1.191062e-05  # mW/(m²·sr·cm⁻⁴)
-_C2 = 1.4387863  # K·cm
 
 # Spacecraft ID mapping (from MPHR)
 _SPACECRAFT_MAP = {
@@ -328,37 +328,6 @@ def _parse_giadr_radiance(data: bytes, offset: int, rec_size: int) -> _AVHRRCali
     return cal
 
 
-def _radiance_to_bt(
-    radiance: np.ndarray, wavenumber: float, a: float, b: float
-) -> np.ndarray:
-    """Convert spectral radiance to brightness temperature.
-
-    Uses inverse Planck with band correction: BT = A + B * (C2*ν / ln(1 + C1*ν³/L))
-
-    Parameters
-    ----------
-    radiance : np.ndarray
-        Spectral radiance in mW/(m²·sr·cm⁻¹)
-    wavenumber : float
-        Central wavenumber (cm⁻¹)
-    a : float
-        Band correction intercept (K)
-    b : float
-        Band correction slope (K/K)
-
-    Returns
-    -------
-    np.ndarray
-        Brightness temperature (K)
-    """
-    valid = radiance > 0
-    bt = np.full_like(radiance, np.nan, dtype=np.float64)
-    r = radiance[valid]
-    t_planck = _C2 * wavenumber / np.log(1.0 + _C1 * wavenumber**3 / r)
-    bt[valid] = a + b * t_planck
-    return bt
-
-
 def _radiance_to_refl(radiance: np.ndarray, solar_irrad: float) -> np.ndarray:
     """Convert radiance to reflectance percentage.
 
@@ -457,7 +426,7 @@ def _parse_native_avhrr(
 
     # Step 4: Channel map — always extract all channels.
     # Channel index in SCENE_RADIANCES: 0=ch1, 1=ch2, 2=ch3a/3b, 3=ch4, 4=ch5
-    # channel_index values match MetOpAVHRRLexicon.AVHRR_CHANNEL_INDEX
+    # sensor_index values match MetOpAVHRRLexicon.AVHRR_CHANNEL_INDEX
     channel_map: dict[str, dict] = {
         "1": {"rad_idx": 0, "type": "vis", "ch_num": 1},
         "2": {"rad_idx": 1, "type": "vis", "ch_num": 2},
@@ -546,6 +515,16 @@ def _parse_native_avhrr(
     # Step 7: Calibrate and build per-channel DataFrames
     frames: list[pd.DataFrame] = []
 
+    # Build wavenumber map per channel key (NaN for visible channels)
+    wn_map: dict[str, float] = {
+        "1": np.nan,
+        "2": np.nan,
+        "3a": np.nan,
+        "3b": calibration.ch3b_wavenumber,
+        "4": calibration.ch4_wavenumber,
+        "5": calibration.ch5_wavenumber,
+    }
+
     for ch_key, ch_info in all_channels.items():
         rad_idx = ch_info["rad_idx"]
         ch_type = ch_info["type"]
@@ -590,7 +569,10 @@ def _parse_native_avhrr(
                 ),
             }
             wn, a, b = ir_cal_map[ch_key]
-            obs = _radiance_to_bt(raw_rad, wn, a, b).astype(np.float32)
+            # AVHRR uses additive band correction: T = A + B * T*
+            obs = radiance_to_bt(
+                raw_rad, wn, band_correction=(a, b), correction_formula="additive"
+            ).astype(np.float32)
 
             # For ch3b: mask out scan lines where 3a is active (bit16=1)
             if ch_key == "3b":
@@ -599,6 +581,9 @@ def _parse_native_avhrr(
                         base_idx = i_scan * _NAV_NUM_POINTS
                         obs[base_idx : base_idx + _NAV_NUM_POINTS] = np.nan
 
+        # Compute per-channel wavenumber
+        ch_wn = wn_map[ch_key]
+
         df = pd.DataFrame(
             {
                 "time": pd.to_datetime(times),
@@ -606,7 +591,8 @@ def _parse_native_avhrr(
                 "lat": lats,
                 "lon": lons,
                 "scan_angle": satza,
-                "channel_index": np.full(n_pixels, ch_num, dtype=np.uint16),
+                "sensor_index": np.full(n_pixels, ch_num, dtype=np.uint16),
+                "wavenumber": np.full(n_pixels, ch_wn, dtype=np.float64),
                 "solza": solza,
                 "solaza": solazi,
                 "satellite_za": satza,
@@ -646,7 +632,7 @@ class MetOpAVHRR:
 
     The returned :class:`~pandas.DataFrame` has one row per pixel per channel,
     following the same convention as :class:`~earth2studio.data.UFSObsSat`.
-    The ``channel_index`` column (1--6) identifies each channel.  The ``class``
+    The ``sensor_index`` column (1--6) identifies each channel.  The ``class``
     column differentiates observation types: ``"refl"`` for visible/NIR
     channels (1, 2, 3A) and ``"rad"`` for thermal IR channels (3B, 4, 5).
 
@@ -717,7 +703,8 @@ class MetOpAVHRR:
             E2STUDIO_SCHEMA.field("lat"),
             E2STUDIO_SCHEMA.field("lon"),
             E2STUDIO_SCHEMA.field("scan_angle"),
-            E2STUDIO_SCHEMA.field("channel_index"),
+            E2STUDIO_SCHEMA.field("sensor_index"),
+            E2STUDIO_SCHEMA.field("wavenumber"),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),
@@ -789,17 +776,8 @@ class MetOpAVHRR:
             per channel.
         """
         try:
-            nest_asyncio.apply()
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
-            df = loop.run_until_complete(
-                asyncio.wait_for(
-                    self.fetch(time, variable, fields), timeout=self.async_timeout
-                )
+            df = _sync_async(
+                self.fetch, time, variable, fields, timeout=self.async_timeout
             )
         finally:
             if not self._cache:
@@ -881,7 +859,7 @@ class MetOpAVHRR:
                 "time",
                 "lat",
                 "lon",
-                "channel_index",
+                "sensor_index",
                 "satellite",
                 "variable",
             ]

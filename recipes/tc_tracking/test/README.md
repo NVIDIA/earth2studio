@@ -1,6 +1,6 @@
 # Tests
 
-## Test 1: Reproducibility of Helene Ensemble Members
+## Test 1: Generate Ensemble Forecast with Cyclone Tracking
 
 > [!Note]
 > The test can be done manually following the steps below. Alternatively,
@@ -21,11 +21,15 @@ cd earth2studio/recipes/tc_tracking/test
 python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=baseline_helene.yaml
 ```
 
+### Expected Result: Generate Ensemble
+
 You can find the track files in `outputs_baseline_helene/cyclone_tracks_te`.
 The directory should contain five csv files with naming pattern according to
 `tracks_2024-09-24T00:00:00_mem_000X_seed_YYYYYYYYY_bs_2.csv`
 This pattern provides information about initial condition, ensemble member ID
 and batch size.
+
+## Test 2: Reproducibility of Helene Ensemble Members
 
 Next, check if the random seeds for members three and four provided in
 `cfg/reproduce_helene.yaml` are identical to the seeds in the csv file names.
@@ -44,7 +48,7 @@ we need to apply the same batch size in the reproduction run and reproduce the f
 batch that contained the ensemble member in question. For the present case, this means
 that member two will also be reproduced, as it is in the same batch as member three.
 
-### Expected Result — Reproducibility
+### Expected Result: Reproduce Helene
 
 There should now be three track files in `outputs_reproduce_helene/cyclone_tracks_te`,
 with file names identical to the associated files in `outputs_baseline_helene/cyclone_tracks_te`.
@@ -62,7 +66,7 @@ diff outputs_baseline_helene/cyclone_tracks_te/tracks_2024-09-24T00:00:00_mem_00
 
 Repeat the diff call for all reproduced ensemble members, the return should always be empty.
 
-## Test 2: Extracting individual storms from historic data
+## Test 3: Extracting individual storms from historic data
 
 > [!Note]
 > The test can be done manually following the steps below. Alternatively,
@@ -78,18 +82,28 @@ that storm using TempestExtremes.
 The IBTrACS data file is downloaded automatically on first use (~300 MB).
 
 For the current test, let us extract Typhoon Hato (2017) and Hurricane Helene (2024)
-from ERA5:
+from ERA5. Unlike the ensemble forecast tests above, `extract_baseline` is CPU-only
+and does not use `torchrun`; the two storms are processed in parallel via a
+`ProcessPoolExecutor` (`num_workers: 2` in `cfg/extract_era5.yaml`):
 
 ```bash
 cd earth2studio/recipes/tc_tracking/test
 python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=extract_era5.yaml
 ```
 
+To exercise the serial fallback, override the worker count from the command line:
+
+```bash
+python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=extract_era5.yaml \
+    num_workers=1
+```
+
 ### Expected Result — Historic Extraction
 
 The run should produce two reference tracks in `outputs_reference_tracks/`.
-Now, let us compare the extracted tracks with the baseline, in both cases
-the files should be identical:
+Output is deterministic regardless of the `num_workers` setting (each storm writes
+its own CSV independently). Now, let us compare the extracted tracks with the
+baseline, in both cases the files should be identical:
 
 <!-- markdownlint-disable MD013 -->
 

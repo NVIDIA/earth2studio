@@ -36,11 +36,12 @@ from earth2studio.data.metop_mhs import (
     _QUALITY_OFFSET,
     _SCENE_RADIANCE_OFFSET,
     _TERRAIN_ELEVATION_OFFSET,
+    _WAVENUMBERS,
     _parse_grh,
     _parse_mphr,
     _parse_native_mhs,
-    _radiance_to_bt,
 )
+from earth2studio.data.utils import radiance_to_bt
 from earth2studio.lexicon import MetOpMHSLexicon
 
 
@@ -273,11 +274,12 @@ def test_parse_mphr():
 
 def test_radiance_to_bt():
     radiance = np.array([0.01, 0.05, 0.1], dtype=np.float64)
-    bt = _radiance_to_bt(radiance, 0)
+    # Use channel 0 wavenumber from _WAVENUMBERS
+    bt = radiance_to_bt(radiance, _WAVENUMBERS[0])
     assert np.all(np.isfinite(bt)) and np.all(bt > 0)
     assert bt[2] > bt[1] > bt[0]
 
-    bt_zero = _radiance_to_bt(np.array([0.0, -1.0], dtype=np.float64), 2)
+    bt_zero = radiance_to_bt(np.array([0.0, -1.0], dtype=np.float64), _WAVENUMBERS[2])
     assert np.all(np.isnan(bt_zero))
 
 

@@ -21,6 +21,7 @@ from typing import Any
 
 import numpy as np
 import torch
+from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 
@@ -63,35 +64,32 @@ def set_initial_times(cfg: DictConfig) -> np.ndarray:
 def remove_duplicates(
     data_list: list[list],
 ) -> list[list]:
-    """Remove duplicate sub-lists while preserving numpy dtype distinctions.
+    """Remove duplicate reproduction work items, preserving order.
 
-    Two arrays with the same values but different dtypes are considered
-    different.
+    Each sub-list is expected to follow the reproduction schema
+    ``[np.datetime64, np.ndarray, int]`` (initial condition, batch member
+    indices, random seed).  Arrays with the same values but different dtypes
+    or shapes are considered different.
 
     Parameters
     ----------
     data_list : list[list]
-        List of sub-lists, each potentially containing numpy arrays or
-        datetime64 objects.
+        List of ``[np.datetime64, np.ndarray, int]`` sub-lists.
 
     Returns
     -------
     list[list]
         De-duplicated list preserving original order.
     """
-
-    def to_hashable(item: object) -> object:
-        if isinstance(item, np.ndarray):
-            return (tuple(item.tolist()), str(item.dtype), item.shape)
-        elif isinstance(item, np.datetime64):
-            return str(item)
-        return item
-
     seen: set[tuple] = set()
     result: list[list] = []
 
     for sublist in data_list:
-        hashable_key = tuple(to_hashable(item) for item in sublist)
+        hashable_key = (
+            sublist[0],
+            (tuple(sublist[1].tolist()), str(sublist[1].dtype), sublist[1].shape),
+            sublist[2],
+        )
         if hashable_key not in seen:
             seen.add(hashable_key)
             result.append(sublist)
@@ -139,6 +137,39 @@ def get_set_of_random_seeds(
         seeds = rng.integers(low=0, high=2**32, size=n_batches * n_ics, dtype=np.uint32)
 
     return seeds
+
+
+def assign_runs_to_rank(items: list[Any]) -> list[Any] | None:
+    """Partition work items across distributed ranks.
+
+    Splits *items* evenly across all ranks via contiguous slicing, which is
+    deterministic for a deterministic input. Returns ``None`` for ranks that
+    receive no work.
+
+    Parameters
+    ----------
+    items : list[Any]
+        List of work items (e.g. ``(initial_condition, member_indices, seed)``
+        tuples or storm names).
+
+    Returns
+    -------
+    list[Any] | None
+        Subset of *items* assigned to this rank, or ``None`` if idle.
+    """
+    dist = DistributedManager()
+
+    items_per_rank = len(items) // dist.world_size
+    if len(items) % dist.world_size != 0:
+        items_per_rank += 1
+
+    items = items[dist.rank * items_per_rank : (dist.rank + 1) * items_per_rank]
+
+    if len(items) == 0:
+        logger.info(f"nothing to do for rank {dist.rank}, exiting")
+        return None
+
+    return items
 
 
 def run_with_rank_ordered_execution(
@@ -310,10 +341,13 @@ class InstabilityDetection:
         ), self._output_coords
 
 
-def great_circle_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+def great_circle_distance(
+    lat1: float, lon1: float, lat2: float, lon2: float, radius: float = 6371000
+) -> float:
     """Compute the great-circle distance between two points on a sphere.
 
-    Uses the Haversine formula with Earth's mean radius of 6371 km.
+    Uses the Haversine formula on the sphere, the radius of which is
+    defautlting to Earth's mean radius of 6371 km.
 
     Parameters
     ----------
@@ -338,4 +372,4 @@ def great_circle_distance(lat1: float, lon1: float, lat2: float, lon2: float) ->
     aa = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
     cc = 2 * np.arctan2(np.sqrt(aa), np.sqrt(1 - aa))
 
-    return 6371000 * cc
+    return radius * cc

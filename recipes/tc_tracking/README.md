@@ -141,8 +141,24 @@ Runs are configured through YAML files located in
 python tc_hunt.py --config-name=config.yaml
 ```
 
-The script can also be executed in distributed settings
-using Slurm, MPI, or torchrun. For example:
+The pipeline has three operational modes:
+
+- **`generate_ensemble`**: Generate an ensemble prediction
+  and extract tropical cyclones.
+- **`reproduce_members`**: Reproduce
+  individual ensemble members to store atmospheric fields
+  of interesting tracks. Note: Currently only works with
+  FCN3, as AIFS-ENS does not expose a method to set the
+  model's internal random state.
+- **`extract_baseline`**: Extract tropical
+  cyclone tracks from historical reanalysis data (e.g. ERA5)
+  for validation purposes.
+
+**Parallelism:**
+
+The two GPU-bound modes (`generate_ensemble` and
+`reproduce_members`) can be executed in distributed
+settings using Slurm, MPI, or torchrun, e.g.
 
 ```bash
 torchrun --nproc-per-node=2 tc_hunt.py --config-name=config.yaml
@@ -152,14 +168,20 @@ The pipeline has three operational modes:
 
 - **`generate_ensemble`**: Generate an ensemble prediction
   and extract tropical cyclones.
-- **`reproduce_members`**: Reproduce individual ensemble
-  members to store atmospheric fields of interesting tracks.
-  Note: Currently only works with FCN3, as AIFS-ENS does
-  not expose a method to set the model's internal random
-  state.
-- **`extract_baseline`**: Extract tropical cyclone tracks
-  from historical reanalysis data (e.g. ERA5) for validation
-  purposes.
+- **`reproduce_members`**: Reproduce
+  individual ensemble members to store atmospheric fields
+  of interesting tracks. Note: Currently only works with
+  FCN3, as AIFS-ENS does not expose a method to set the
+  model's internal random state.
+- **`extract_baseline`**: Extract tropical
+  cyclone tracks from historical reanalysis data (e.g. ERA5)
+  for validation purposes.
+  The CPU-bound `extract_baseline` mode does not use
+  `torchrun` and does not require a GPU. Instead, individual
+  storms are distributed across CPU worker processes via the
+  ``num_workers`` configuration entry (see
+  [Section 2.3](#23-extract-reference-tracks-from-era5)),
+  so a plain ``python tc_hunt.py ...`` invocation suffices.
 
 In the following we will explain how to configure the yaml
 files for those three modes. You can find example configs
@@ -470,24 +492,32 @@ TempestExtremes to extract tropical cyclone tracks. Since
 multiple storms may be active globally at any given time,
 a second matching step compares all extracted tracks against
 the IBTrACS ground truth to identify the correct track for
-each named storm.
+each named storm. A track is matched at the first IBTrACS
+observation time for which the extracted storm position lies
+within ``max_dist`` metres of the IBTrACS reference position.
+The ``max_dist`` setting is optional and defaults to
+``300000`` (300 km) if omitted:
+
+```yaml
+max_dist: 300000   # optional; max. distance (in metres) between
+                   # extracted track and IBTrACS reference at the
+                   # matching time step; defaults to 300000 (300 km)
+```
 
 **IO Configuration:**
 
 **IBTrACS Data:**
 
-Download the IBTrACS data in CSV format:
+The pipeline requires the IBTrACS dataset in CSV format.
+Specify a local path in the configuration:
 
-<!-- markdownlint-disable MD013 -->
-
-```bash
-wget https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.ALL.list.v04r01.csv
+```yaml
+ibtracs_source_data: "./aux_data/ibtracs.ALL.list.v04r01.csv"
 ```
 
-<!-- markdownlint-enable MD013 -->
-
-Note: This file is over 300MB and may take several minutes
-to download.
+If the file does not exist at the configured path, it is
+downloaded automatically from NCEI (~300 MB). The download
+only occurs once; subsequent runs use the cached file.
 
 **Reanalysis Data:**
 
@@ -504,7 +534,7 @@ to download.
 
 ```yaml
 store_dir: "./outputs_${project}"
-ibtracs_source_data: "/path/to/ibtracs.ALL.list.v04r01.csv"
+ibtracs_source_data: "./aux_data/ibtracs.ALL.list.v04r01.csv"
 
 data_source:
     era5_train:
@@ -517,6 +547,25 @@ data_source:
         source:
             _target_: earth2studio.data.CDS
 ```
+
+**Parallel Extraction:**
+
+`extract_baseline` is CPU-bound (no GPU required) and
+distributes individual storms across worker processes via
+a [`ProcessPoolExecutor`][ppe-docs]. Set the desired number
+of workers in the configuration:
+
+```yaml
+num_workers: 2     # 1 = serial; capped at len(cases)
+```
+
+Each worker handles one storm at a time and writes its own
+per-storm CSV file independently, so output is
+deterministic and no inter-process communication is needed.
+Serial runs (`num_workers: 1`) skip the pool entirely and use the
+same code path inline. If `num_workers` exceeds the number
+of configured cases, it is silently capped to `len(cases)`
+and a warning is logged.
 
 ## 3. Visualisation
 
@@ -614,10 +663,12 @@ comparison with forecast predictions. Note that downloading
 the ERA5 field data for Hato and Helene is required and can
 take some time. If it takes too long, you can skip this step
 and use the pre-computed reference tracks provided in
-`./test/aux_data` instead.
+`./aux_data` instead.
 
-First, download the IBTrACS data, then extract the baseline
-tracks:
+The IBTrACS data file is downloaded automatically on first
+use. Extract the baseline tracks (no `torchrun` / GPU
+needed; storms are spread across `num_workers` CPU worker
+processes as configured in the YAML):
 
 ```bash
 python tc_hunt.py --config-name=extract_era5.yaml
@@ -738,5 +789,6 @@ tracks are identical.
 [te-install]: https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended
 [flash-attn-help]: https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html#flash-attention-has-long-build-time-for-aifs-models
 [docker-build]: https://docs.docker.com/get-started/docker-concepts/building-images/build-tag-and-publish-an-image/#build-an-image
+[ppe-docs]: https://docs.python.org/3/library/concurrent.futures.html#processpoolexecutor
 
 <!-- markdownlint-enable MD013 -->

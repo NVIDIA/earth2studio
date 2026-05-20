@@ -24,13 +24,12 @@ import shutil
 from datetime import datetime, timedelta, timezone
 
 import h5py  # type: ignore
-import nest_asyncio
 import numpy as np
 import s3fs
 import xarray as xr
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import _sync_async, datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon.jpss import JPSSLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -109,11 +108,7 @@ class JPSS:
         self._verbose: bool = verbose
         self._async_timeout: int = async_timeout
 
-        try:
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            self.fs = None
+        self.fs: s3fs.S3FileSystem | None = None
 
     async def _async_init(self) -> None:
         """Async initialization of S3 filesystem"""
@@ -139,22 +134,13 @@ class JPSS:
         xr.DataArray
             Data array containing the requested JPSS data
         """
-        nest_asyncio.apply()
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(self.fetch(time, variable), timeout=self._async_timeout)
-        )
-
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
+            xr_array = _sync_async(
+                self.fetch, time, variable, timeout=self._async_timeout
+            )
+        finally:
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
 
@@ -179,9 +165,7 @@ class JPSS:
             Data array containing the requested JPSS data
         """
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If you are calling this function directly, make sure the data source is initialized inside the async loop!"
-            )
+            await self._async_init()
 
         # Prepare data inputs
         time, variable = prep_data_inputs(time, variable)
@@ -195,7 +179,7 @@ class JPSS:
         # Add lat/lon to the variable list
         extended_variables = list(variable) + ["_lat", "_lon"]
 
-        session = await self.fs.set_session(refresh=True)
+        session = await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         # Determine array dimensions
         y_size, x_size = self.PRODUCT_DIMENSIONS[self._product_type]
@@ -234,11 +218,11 @@ class JPSS:
         )
 
         # Fetch geolocation data
-        async_tasks = [(i, t) for i, t in enumerate(time)]
+        geo_tasks = [(i, t) for i, t in enumerate(time)]
         await tqdm.gather(
             *map(
                 lambda args: self.fetch_geolocation_wrapper(args, xr_array=xr_array),
-                async_tasks,
+                geo_tasks,
             ),
             desc="Fetching VIIRS geolocation data",
             disable=(not self._verbose),
@@ -260,8 +244,8 @@ class JPSS:
             await session.close()
 
         # Close aiohttp client cleanly as in GOES implementation
-        await self.fs.set_session(refresh=True)
-        s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
+        await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
+        s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)  # type: ignore[union-attr]
 
         return xr_array
 

@@ -30,9 +30,9 @@ from zarr import consolidate_metadata
 
 from earth2studio.data import fetch_data
 from earth2studio.io import NetCDF4Backend, ZarrBackend
-from earth2studio.models.auto import Package
+from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px import PrognosticModel
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils.coords import CoordSystem, map_coords
 from src.data.tc_hunt_data_utils import DataSourceManager, load_heights
 from src.data.tc_hunt_file_output import (
     initialise_netcdf_output,
@@ -41,6 +41,7 @@ from src.data.tc_hunt_file_output import (
 )
 from src.tc_hunt_utils import (
     InstabilityDetection,
+    assign_runs_to_rank,
     get_set_of_random_seeds,
     remove_duplicates,
     run_with_rank_ordered_execution,
@@ -85,8 +86,8 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
     Parameters
     ----------
     cfg : DictConfig
-        Hydra configuration object. May contain ``model`` (str) and
-        ``model_package`` (str) keys
+        Hydra configuration object. Must contain ``model`` (str) and may
+        contain ``model_package`` (str)
 
     Returns
     -------
@@ -96,12 +97,16 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
     Raises
     ------
     ValueError
-        If the requested model name is not supported
+        If ``cfg.model`` is not set or the requested model name is not
+        supported
     """
-    model_name = "fcn3"
-    if "model" in cfg:
-        model_name = cfg.model
+    if "model" not in cfg:
+        raise ValueError(
+            "cfg.model must be specified in the YAML config (e.g. 'fcn3' or 'aifs')"
+        )
+    model_name = cfg.model
 
+    model_cls: type[AutoModelMixin]
     if model_name.lower().startswith("aifs"):
         from earth2studio.models.px import AIFSENS
 
@@ -236,14 +241,13 @@ def run_inference(
         if stability_check:
             stability_check.reset(deepcopy(coords))
 
-        # set random state or apply perturbation
-        if ("model" not in cfg) or (cfg.model == "fcn3"):
-            model.set_rng(seed=seed)
-        elif cfg.model.lower().startswith("aifs"):
-            # no need for perturbation, but also cannot set internal noise state
-            pass
+        # Set random state where supported. FCN3 exposes set_rng for seeding
+        # its internal noise generator; AIFS-ENS does not expose its internal
+        # noise state, so seeding is silently skipped.
+        if hasattr(model, "set_rng"):
+            model.set_rng(seed=seed)  # type: ignore[attr-defined]
 
-        iterator = model.create_iterator(xx, coords)
+        iterator = model.create_iterator(xx, CoordSystem(coords))
         stab = torch.ones(mini_batch_size)
 
         # roll out the model and record data as desired
@@ -255,7 +259,9 @@ def run_inference(
                 cyclone_tracking.record_state(xx, coords)
 
             if stability_check:
-                yy, coy = map_coords(xx, coords, stability_check.input_coords)
+                yy, coy = map_coords(
+                    xx, CoordSystem(coords), stability_check.input_coords
+                )
                 stab, _ = stability_check(yy, coy)
                 if not stab.all():
                     ic_mems.append((ic, mems, seed + 1))
@@ -279,44 +285,10 @@ def run_inference(
     # Consolidate metadata in zarr files
     if dist.rank == 0 and cfg.store_type == "zarr" and store is not None:
         # TODO add barrier such that rank 0 finishes last
-        consolidate_metadata(store.store)
+        if isinstance(store, ZarrBackend):
+            consolidate_metadata(store.store)
 
     return store
-
-
-def distribute_runs(
-    ic_mems: list[tuple[np.datetime64, np.ndarray, int]],
-) -> list[tuple[np.datetime64, np.ndarray, int]] | None:
-    """Partition work items across distributed ranks.
-
-    Splits the list of initial-condition / member batches evenly across all
-    ranks. Returns ``None`` for ranks that receive no work.
-
-    Parameters
-    ----------
-    ic_mems : list[tuple[np.datetime64, np.ndarray, int]]
-        List of (initial_condition, member_indices, random_seed) tuples
-
-    Returns
-    -------
-    list[tuple[np.datetime64, np.ndarray, int]] | None
-        Subset of work items assigned to this rank, or None if idle
-    """
-    dist = DistributedManager()
-
-    # get the number of initial conditions
-    ic_mems_per_rank = len(ic_mems) // dist.world_size
-    if len(ic_mems) % dist.world_size != 0:
-        ic_mems_per_rank += 1
-
-    # get the initial conditions for this rank
-    ic_mems = ic_mems[dist.rank * ic_mems_per_rank : (dist.rank + 1) * ic_mems_per_rank]
-
-    if len(ic_mems) == 0:
-        logger.info(f"nothing to do for rank {dist.rank}, exiting")
-        return None
-
-    return ic_mems
 
 
 def configure_runs(
@@ -359,7 +331,7 @@ def configure_runs(
     if not DistributedManager().distributed:
         return ic_mems, ics
 
-    ic_mems_rank = distribute_runs(ic_mems)
+    ic_mems_rank = assign_runs_to_rank(ic_mems)
 
     return ic_mems_rank, ics
 
@@ -441,7 +413,7 @@ def set_reproduction_configs(
     if not DistributedManager().distributed:
         return ic_mems, ics
 
-    ic_mems_rank = distribute_runs(ic_mems)
+    ic_mems_rank = assign_runs_to_rank(ic_mems)
 
     return ic_mems_rank, ics
 
@@ -467,7 +439,9 @@ def reproduce_members(cfg: DictConfig) -> None:
     """
     if cfg.store_type == "zarr":
         raise ValueError("Zarr output not supported for reproducing ensemble members")
-    if cfg.get("model", "fcn3") != "fcn3":
+    if "model" not in cfg:
+        raise ValueError("cfg.model must be specified in the YAML config (e.g. 'fcn3')")
+    if cfg.model != "fcn3":
         raise ValueError("Currently, reproducibility works for FCN3 only")
 
     initialise(cfg)
