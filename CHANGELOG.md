@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added AIFS 2.0 prognostic model (`AIFS2`) with wave and 10 hPa pressure level support
+- Added AIFS 2.0 ensemble prognostic model (`AIFS2ENS`) with stochastic noise injection
 - Added wave variables to IFS data source for AIFS2 support
 
 ### Changed
@@ -26,7 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
-- Added `aifs2` optional dependency group for AIFS 2.0 model
 - Removed `aifs` and `aifsens` from the `[all]` extra due to dependency conflicts with
   `aifs2` (incompatible anemoi-models versions).
 
