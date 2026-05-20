@@ -112,6 +112,12 @@ import numpy as np
 import xarray as xr
 from cartopy.mpl.ticker import LatitudeFormatter, LongitudeFormatter
 
+# fall back to ``print`` when not running inside an IPython kernel so that
+# ``display(...)`` calls work both as a plain script and after
+# ``jupytext --to notebook`` conversion
+if "display" not in globals():
+    display = print
+
 base_name = field_data.split("/")[-1].split(".")[0]
 out_dir = f"outputs_{base_name}"
 
@@ -125,17 +131,19 @@ countries = cfeature.NaturalEarthFeature(
     edgecolor="black",
 )
 
+# subselect lat/lon box, coarsen data if scale factor > 1
 sub_ds = ds.sel(
     lat=list(np.arange(lat_min, lat_max, scale * 0.25)),
     lon=list(np.arange(lon_min, lon_max, scale * 0.25)),
 )
 
+# extract variable and obtain global min/max values
 if variable == "wind_speed":
     sub_ds = np.sqrt(np.square(sub_ds.u10m) + np.square(sub_ds.v10m))
 else:
     sub_ds = sub_ds[variable]
 
-print(ds)
+display(ds)
 
 # %% [markdown]
 # ### Step 2: Load Track Data
@@ -159,8 +167,10 @@ from data_handling import extract_tracks_from_file
 
 track_dir = os.path.abspath(track_dir)
 
+# extract time steps of field data
 time_stamps = ds.time.values + ds.lead_time.values
 
+# select track file of ensemble member
 track_file = [
     f
     for f in os.listdir(track_dir)
@@ -169,13 +179,19 @@ track_file = [
 ][0]
 track_file = os.path.join(track_dir, track_file)
 
+# extract tracks from prediction
 tracks = extract_tracks_from_file(track_file)
 
+# separate individual tracks in prediction
 n_tracks = tracks["track_id"].iloc[-1] + 1
 tracks = [tracks.loc[tracks["track_id"] == ii].copy() for ii in range(n_tracks)]
 
+# align track data with simulation time steps
 for ii in range(n_tracks):
+    # extract the lines of tracks for which track['time'] is in time_stamps
     tracks[ii] = tracks[ii][tracks[ii]["time"].isin(time_stamps)]
+
+    # fill the 'time' column with the time_stamps values
     tracks[ii] = tracks[ii].set_index("time").reindex(time_stamps).reset_index()
 
 # %% [markdown]
@@ -189,14 +205,18 @@ for ii in range(n_tracks):
 colour_map = "plasma"
 projection = ccrs.PlateCarree()
 
-min_val = float(np.min(sub_ds[ensemble_member, ...]))
-max_val = float(np.max(sub_ds[ensemble_member, ...]))
-
+# suppress line warnings stemming from potential NANs in track data
 warnings.filterwarnings("ignore", message="invalid value encountered in linestrings")
 
+# get index of ensemble member
 ensemble_idx = np.argwhere(ds.ensemble.values == ensemble_member)[0, 0]
 
+# get min and max vals for colour map
+min_val = float(np.min(sub_ds[ensemble_idx, ...]))
+max_val = float(np.max(sub_ds[ensemble_idx, ...]))
 
+
+# define plots
 def make_figure() -> tuple[plt.Figure, plt.Axes]:
     """Create a figure with a single PlateCarree subplot."""
     fig = plt.figure(figsize=(11, 7))
@@ -219,8 +239,9 @@ def make_frame(frame: int) -> plt.Artist:
     """Render a single animation frame with field data and tracks."""
     print(f"\rprocessing frame {frame+1} of {min(max_frames, sub_ds.shape[2])}", end="")
 
+    # Clear previous plot objects
     for artist in ax.get_children():
-        if hasattr(artist, "get_array"):
+        if hasattr(artist, "get_array"):  # This targets pcolormesh objects
             artist.remove()
 
     plot_ds = sub_ds[ensemble_idx, 0, max(frame, 0), :, :]
@@ -246,6 +267,7 @@ def make_frame(frame: int) -> plt.Artist:
             alpha=1,
         )
 
+    # Enforce the plotting region extent
     ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
 
     if frame == -1:
@@ -287,6 +309,7 @@ ani
 # %%
 plt.close("all")
 
+# Recreate figure and animation
 cbar = None
 fig = plt.figure(figsize=(12, 8))
 ax = fig.add_subplot(1, 1, 1, projection=projection)
