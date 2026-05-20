@@ -30,10 +30,13 @@ try:
     from packaging.version import Version
 
     anemoi_version = version("anemoi-models")
-    # AIFS 2.x requires anemoi-models >= 0.9.3 (not 0.5.x which is for AIFS 1.x)
-    if Version(anemoi_version) < Version("0.9.3"):
+    # AIFS 2.x requires anemoi-models in the range specified by pyproject.toml.
+    if not (Version("0.9.3") <= Version(anemoi_version) < Version("0.9.5")):
         pytest.skip(
-            f"anemoi-models {anemoi_version} not compatible with AIFS 2.x (requires >=0.9.3)",
+            (
+                f"anemoi-models {anemoi_version} not compatible with AIFS 2.x "
+                "(requires >=0.9.3,<0.9.5)"
+            ),
             allow_module_level=True,
         )
 except ImportError as e:

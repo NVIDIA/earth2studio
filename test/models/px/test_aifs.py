@@ -27,10 +27,13 @@ try:
     import anemoi.models  # noqa: F401
 
     anemoi_version = version("anemoi-models")
-    # AIFS 1.x requires anemoi-models 0.5.x (not 0.9.x which is for AIFS 2.x)
-    if not anemoi_version.startswith("0.5"):
+    # AIFS 1.x requires anemoi-models version specified by pyproject.toml.
+    if anemoi_version != "0.5.1":
         pytest.skip(
-            f"anemoi-models {anemoi_version} not compatible with AIFS 1.x (requires 0.5.x)",
+            (
+                f"anemoi-models {anemoi_version} not compatible with AIFS 1.x "
+                "(requires 0.5.1)"
+            ),
             allow_module_level=True,
         )
 except ImportError:
