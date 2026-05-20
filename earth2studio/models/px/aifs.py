@@ -406,7 +406,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             col_indices=torch.from_numpy(interpolation_matrix["indices"]),
             values=torch.from_numpy(interpolation_matrix["data"]),
             size=(interpolation_matrix["shape"][0], interpolation_matrix["shape"][1]),
-            dtype=torch.float32,
+            dtype=torch.float64,
         )
         inverse_interpolation_package = Package(
             "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear/",
@@ -429,7 +429,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 inverse_interpolation_matrix["shape"][0],
                 inverse_interpolation_matrix["shape"][1],
             ),
-            dtype=torch.float32,
+            dtype=torch.float64,
         )
 
         # Fetch invariants from IFS, note that there are deviations between these
@@ -628,8 +628,9 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = x.flatten(start_dim=4)
         x = x.flatten(end_dim=3)
         x = torch.swapaxes(x, 0, -1)
-        x = x.to(dtype=torch.float32)
+        x = x.to(dtype=torch.float64)
         x = self.interpolation_matrix @ x
+        x = x.to(dtype=torch.float32)
         x = torch.swapaxes(x, 0, -1)
         x = x.reshape([shape[0] * shape[1], shape[2], shape[3], -1])
         x = torch.swapaxes(x, 2, 3)
@@ -640,8 +641,9 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Interpolate invariants
         i = self.invariants.flatten(start_dim=1)
         i = torch.swapaxes(i, 0, -1)
-        i = i.to(dtype=torch.float32)
+        i = i.to(dtype=torch.float64)
         i = self.interpolation_matrix @ i
+        i = i.to(dtype=torch.float32)
 
         # Reconstruct full feature tensor in checkpoint variable space (ordering and
         # indices are checkpoint dependent).
@@ -784,8 +786,9 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = x.flatten(end_dim=1)
         x = torch.swapaxes(x, 0, 1)
         x = x.flatten(start_dim=1)
-        x = x.to(dtype=torch.float32)
+        x = x.to(dtype=torch.float64)
         x = self.inverse_interpolation_matrix @ x
+        x = x.to(dtype=torch.float32)
         x = torch.reshape(x, [x.shape[0], shape[0], shape[-1]])
         x = torch.swapaxes(x, 0, 1)
         x = torch.swapaxes(x, 1, 2)
