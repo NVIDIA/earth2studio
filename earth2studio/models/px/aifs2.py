@@ -523,14 +523,9 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             invariants, _ = fetch_data(
                 source=ifs,
                 time=np.array([np.datetime64("2026-01-01T00:00:00")]),
-                variable=["lsm", "sdor", "slor", "z"],
+                variable=["lsm", "sdor", "slor", "z", "wmb"],
             )
             invariants = invariants.squeeze()
-
-            # Add wmb (model bathymetry) as zeros - it's a forcing/invariant
-            # The model internally handles wmb, we just need a placeholder
-            wmb = torch.zeros_like(invariants[0:1])
-            invariants = torch.cat([invariants, wmb], dim=0)
         else:
             # Placeholder - invariants will come from input
             invariants = torch.empty(0)
