@@ -641,17 +641,14 @@ def test_aifs2_call(time, device):
     # ERA5 0.25deg: 721*1440 = 1,038,240 points
     interpolation_matrix = make_two_nnz_per_first_row_csr(
         n_rows=542_080, n_cols=1_038_240, device=device
-    ).to(torch.float64)
+    )
 
     inverse_interpolation_matrix = make_two_nnz_per_first_row_csr(
         n_rows=1_038_240, n_cols=542_080, device=device
-    ).to(torch.float64)
+    )
 
     # AIFS2 has 5 invariants: lsm, sdor, slor, z, wmb
     invariants = torch.zeros(5, 721, 1440, device=device)
-
-    # Land-sea mask on O96 grid (True for ocean)
-    lsm_mask = torch.ones(542080, dtype=torch.bool, device=device)
 
     # Initialize AIFS2
     p = AIFS2(
@@ -661,7 +658,6 @@ def test_aifs2_call(time, device):
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
         invariants=invariants,
-        lsm_mask=lsm_mask,
     ).to(device)
 
     # Create "domain coords"
@@ -707,14 +703,13 @@ def test_aifs2_iter(ensemble, device):
 
     interpolation_matrix = make_two_nnz_per_first_row_csr(
         n_rows=542_080, n_cols=1_038_240, device=device
-    ).to(torch.float64)
+    )
 
     inverse_interpolation_matrix = make_two_nnz_per_first_row_csr(
         n_rows=1_038_240, n_cols=542_080, device=device
-    ).to(torch.float64)
+    )
 
     invariants = torch.zeros(5, 721, 1440, device=device)
-    lsm_mask = torch.ones(542080, dtype=torch.bool, device=device)
 
     p = AIFS2(
         model=model,
@@ -723,7 +718,6 @@ def test_aifs2_iter(ensemble, device):
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
         invariants=invariants,
-        lsm_mask=lsm_mask,
     ).to(device)
 
     # Create "domain coords"
@@ -784,14 +778,13 @@ def test_aifs2_exceptions(dc, device):
 
     interpolation_matrix = make_two_nnz_per_first_row_csr(
         n_rows=542_080, n_cols=1_038_240, device=device
-    ).to(torch.float64)
+    )
 
     inverse_interpolation_matrix = make_two_nnz_per_first_row_csr(
         n_rows=1_038_240, n_cols=542_080, device=device
-    ).to(torch.float64)
+    )
 
     invariants = torch.zeros(5, 721, 1440, device=device)
-    lsm_mask = torch.ones(542080, dtype=torch.bool, device=device)
 
     p = AIFS2(
         model=model,
@@ -800,7 +793,6 @@ def test_aifs2_exceptions(dc, device):
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
         invariants=invariants,
-        lsm_mask=lsm_mask,
     ).to(device)
 
     # Initialize Data Source
