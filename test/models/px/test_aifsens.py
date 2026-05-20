@@ -21,6 +21,21 @@ import numpy as np
 import pytest
 import torch
 
+try:
+    from importlib.metadata import version
+
+    import anemoi.models  # noqa: F401
+
+    anemoi_version = version("anemoi-models")
+    # AIFSENS requires anemoi-models 0.5.x (not 0.9.x which is for AIFS 2.x)
+    if not anemoi_version.startswith("0.5"):
+        pytest.skip(
+            f"anemoi-models {anemoi_version} not compatible with AIFSENS (requires 0.5.x)",
+            allow_module_level=True,
+        )
+except ImportError:
+    pytest.skip("anemoi-models not installed", allow_module_level=True)
+
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import AIFSENS
 from earth2studio.models.px.aifsens import VARIABLES

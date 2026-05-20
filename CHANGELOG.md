@@ -7,7 +7,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.15.0a0] - 2026-05-xx
+## [0.16.0a0] - xxxx-xx-xx
+
+### Added
+
+- Added AIFS 2.0 prognostic model (`AIFS2`) with wave and 10 hPa pressure level support
+- Added wave variables to IFS data source for AIFS2 support
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+- Added `aifs2` optional dependency group for AIFS 2.0 model
+- Removed `aifs` and `aifsens` from the `[all]` extra due to dependency conflicts with
+  `aifs2` (incompatible anemoi-models versions).
+
+## [0.15.0] - 2026-05-xx
 
 ### Added
 
@@ -29,10 +52,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Orbit-2 precipitation downscaling model
 - Disabled Atlas example from documentation build due to slow performance
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Fixed potential `uint16` underflow in UFS channel index expansion
@@ -41,8 +60,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed chunk downloading race condition in file system cache for Zarr data sources
 - Fixed 180° longitude misalignment in ECMWF open-data sources for some GRIB files with
   non-standard lon origin
-
-### Security
 
 ### Dependencies
 
