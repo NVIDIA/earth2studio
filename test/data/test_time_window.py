@@ -16,6 +16,7 @@
 
 """Tests for TimeWindow data wrapper."""
 
+import asyncio
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -84,6 +85,10 @@ class MockDataSource:
                 "lon": np.linspace(0, 360, 20),
             },
         )
+
+    async def fetch(self, time, variable):
+        """Mock async data fetch."""
+        return self(time, variable)
 
 
 class TestTimeWindowInitialization:
@@ -356,6 +361,31 @@ class TestTimeWindowOffsetCalculation:
         # Output time should match input time, not offset times
         assert len(result.time) == 1
         assert result.time.values[0] == np.datetime64(base_time)
+
+    def test_fetch_matches_sync_output_coordinates(self):
+        """Test async fetch applies offsets and preserves output coordinates."""
+        ds = MockDataSource()
+        tw = TimeWindow(
+            datasource=ds,
+            offsets=[timedelta(hours=-6), timedelta(hours=0), timedelta(hours=6)],
+            suffixes=["_tm1", "_t", "_tp1"],
+        )
+
+        base_time = datetime(2024, 1, 1, 12, 0)
+        result = asyncio.run(tw.fetch(base_time, ["t2m", "u10m"]))
+
+        expected_vars = [
+            "t2m_tm1",
+            "t2m_t",
+            "t2m_tp1",
+            "u10m_tm1",
+            "u10m_t",
+            "u10m_tp1",
+        ]
+        actual_vars = [str(v) for v in result.coords["variable"].values]
+        assert actual_vars == expected_vars
+        assert result.time.values[0] == np.datetime64(base_time)
+        assert ds.call_history[0]["time"] == [datetime(2024, 1, 1, 6, 0)]
 
 
 class TestTimeWindowErrorHandling:
