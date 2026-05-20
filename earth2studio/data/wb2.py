@@ -20,6 +20,7 @@ import inspect
 import os
 import pathlib
 import shutil
+import uuid
 from datetime import datetime
 from typing import Literal
 
@@ -60,6 +61,7 @@ class _WB2Base:
 
         self._cache = cache
         self._verbose = verbose
+        self._tmp_cache_hash: str | None = None
         self.async_timeout = async_timeout
 
         # Check to see if there is a running loop (initialized in async)
@@ -258,7 +260,12 @@ class _WB2Base:
         """Get the appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "wb2era5")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_wb2era5")
+            if self._tmp_cache_hash is None:
+                # First access for temp cache: create a random suffix to avoid collisions
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            cache_location = os.path.join(
+                cache_location, f"tmp_wb2era5_{self._tmp_cache_hash}"
+            )
         return cache_location
 
     @classmethod

@@ -20,6 +20,7 @@ import hashlib
 import os
 import pathlib
 import shutil
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -121,6 +122,7 @@ class GEFS_FX:
         self._cache = cache
         self._verbose = verbose
         self._max_workers = max_workers
+        self._tmp_cache_hash: str | None = None
 
         if member not in self.GEFS_MEMBERS:
             raise ValueError(f"Invalid GEFS member {member}")
@@ -546,7 +548,12 @@ class GEFS_FX:
         """Return appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "gefs")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_gefs")
+            if self._tmp_cache_hash is None:
+                # First access for temp cache: create a random suffix to avoid collisions
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            cache_location = os.path.join(
+                cache_location, f"tmp_gefs_{self._tmp_cache_hash}"
+            )
         return cache_location
 
     @classmethod
