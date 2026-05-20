@@ -690,6 +690,37 @@ Check that:
 
 If any checks fail, fix the issues and re-run until all pass cleanly.
 
+### 8e. Add model to documentation
+
+Edit `docs/modules/models_px.rst` to add the new model class to the autosummary
+list. Models are listed in **alphabetical order** under the `.. autosummary::`
+directive.
+
+### 8f. Update CHANGELOG.md
+
+Add an entry to the `### Added` section of the **current unreleased version**
+
+```markdown
+### Added
+
+- Added <ModelName> prognostic model (`<ClassName>`) with <brief feature description>
+```
+
+For example:
+
+```markdown
+- Added AIFS 2.0 prognostic model (`AIFS2`) with wave and 10 hPa pressure level support
+```
+
+If the model requires new optional dependencies, also add an entry under
+`### Dependencies`:
+
+```markdown
+### Dependencies
+
+- Added `<model-name>` optional dependency group for <ModelName> model
+```
+
 ---
 
 ## Step 9 — Test the Wrapper
@@ -713,9 +744,8 @@ Invoke the skill:
 
 - **DO NOT** make a general base class with intent to reuse the wrapper across models
 - **DO NOT** over-populate the `load_model()` API — only expose essential parameters
-- **DO** add the model to `docs/modules/models.rst`
-  in the `earth2studio.models.px` section
-  (alphabetical order)
+- **DO** add the model to `docs/modules/models_px.rst` in alphabetical order (Step 8e)
+- **DO** update `CHANGELOG.md` with the new model entry (Step 8f)
 - **DO** use `loguru.logger` for logging, never `print()`, inside `earth2studio/`
 - **DO** ensure all public functions have full type hints
 - **DO** run formatting (`make format`) and linting (`make lint`) before finalizing

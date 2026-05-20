@@ -6,6 +6,19 @@ argument-hint: Name of the prognostic model wrapper class (e.g., Aurora, StormCa
 
 # Test Prognostic Model Wrapper
 
+> **Note:** Creating a complete prognostic model wrapper involves three major phases,
+> each with its own skill:
+>
+> 1. **`create-prognostic-wrapper`** — Steps 0-8: Implement the wrapper
+>    class, dependencies, coordinate system, forward pass, model loading, and
+>    registration
+> 2. **`create-prognostic-tests`** (this skill) — Step 9: Write smoke tests, data fetch tests,
+>    pytest unit tests (mock + package), and comparison scripts
+> 3. **`validate-prognostic-wrapper`** — Final validation: Run tests with coverage,
+>    reference comparison, sanity-check plots, and open a PR with automated review
+>
+> Complete all steps in this skill first, then invoke the next skill in sequence.
+
 Write unit tests for a newly created Earth2Studio prognostic model wrapper by following
 every step below in order.
 Each confirmation gate marked by starting with:

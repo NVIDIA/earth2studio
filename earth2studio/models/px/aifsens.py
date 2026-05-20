@@ -512,10 +512,17 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Reference implementation: earthkit.data.sources.forcings.ForcingMaker
         https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/sources/forcings.py
         """
-        hours = (
+        hours: np.floating = (
             time_array.astype("datetime64[h]") - time_array.astype("datetime64[D]")
         ).astype(np.float32)
-        normalized_time = 2 * np.pi * (hours / 24.0)
+        minutes: np.floating = (
+            time_array.astype("datetime64[m]") - time_array.astype("datetime64[h]")
+        ).astype(np.float32)
+        seconds: np.floating = (
+            time_array.astype("datetime64[s]") - time_array.astype("datetime64[m]")
+        ).astype(np.float32)
+        hours_since_midnight = hours + minutes / 60.0 + seconds / 3600.0
+        normalized_time = 2 * np.pi * (hours_since_midnight / 24.0)
         normalized_longitudes = 2 * np.pi * (longitudes / 360.0)
         tau = normalized_time + normalized_longitudes
         cos_local_time = torch.cos(tau)
