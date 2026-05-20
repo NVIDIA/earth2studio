@@ -40,7 +40,7 @@ try:
     import ecmwf.opendata  # noqa: F401
     import flash_attn  # noqa: F401
 except ImportError:
-    OptionalDependencyFailure("aifsens2")
+    OptionalDependencyFailure("aifs2ens")
 
 
 @check_optional_dependencies()
@@ -62,8 +62,6 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - New wave component with 11 wave variables
     - New snow variable (snowc - snow coverage)
     - Extended pressure levels to 10 hPa
-    - Vertical velocity (W) changed from prognostic to diagnostic
-    - 6-hour forecast time step
 
     It is recommended to use the :class:`~earth2studio.data.IFS` data source to
     prepare model inputs given the variable set required.
@@ -72,7 +70,6 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ----
     For additional information see the following resources:
 
-    - https://arxiv.org/abs/2412.15832
     - https://arxiv.org/abs/2506.10868
     - https://huggingface.co/ecmwf/aifs-ens-2.0
     - https://github.com/ecmwf/anemoi-core
@@ -100,9 +97,9 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cached. If False, invariant fields must be provided as input variables,
         enabling use of invariants from alternative sources for exact reproducibility,
         by default True.
-    rng_seed : int | None
+    seed : int | None
         If specified, sets the random seed before each model forward pass for
-        reproducible stochastic noise. The seed used is `rng_seed + step` where
+        reproducible stochastic noise. The seed used is `seed + step` where
         step is the forecast step number (0, 1, 2, ...). Use the same seed in both
         E2S and vanilla anemoi-inference to get identical outputs, by default None.
 
@@ -278,12 +275,12 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         inverse_interpolation_matrix: torch.Tensor,
         invariants: torch.Tensor,
         preload_invariants: bool = True,
-        rng_seed: int | None = None,
+        seed: int | None = None,
     ) -> None:
         super().__init__()
         self.model = model
         self.preload_invariants = preload_invariants
-        self.rng_seed = rng_seed
+        self.seed = seed
         if preload_invariants:
             self.register_buffer("invariants", invariants)
         else:
@@ -432,7 +429,7 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cls,
         package: Package,
         preload_invariants: bool = True,
-        rng_seed: int | None = None,
+        seed: int | None = None,
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -446,11 +443,10 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             as input variables, allowing use of invariants from alternative sources
             (e.g., ECMWF Open Data) for exact reproducibility with reference
             implementations, by default True.
-        rng_seed : int | None, optional
+        seed : int | None, optional
             If specified, sets the random seed before each model forward pass for
-            reproducible stochastic noise. The seed used is `rng_seed + step` where
-            step is the forecast step number. Use the same seed in both E2S and
-            vanilla anemoi-inference to get identical outputs, by default None.
+            reproducible stochastic noise. The seed used is `seed + step` where
+            step is the forecast step number, by default None.
 
         Returns
         -------
@@ -565,7 +561,7 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             inverse_interpolation_matrix=torch_inverse_interpolation_matrix,
             invariants=invariants,
             preload_invariants=preload_invariants,
-            rng_seed=rng_seed,
+            seed=seed,
         )
 
     @staticmethod
@@ -963,10 +959,10 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_coords = self.output_coords(coords)
         # Set RNG seed for reproducibility if specified
         # Uses step-dependent seed so each forward call is deterministic but different
-        if self.rng_seed is not None:
-            torch.manual_seed(self.rng_seed + step)
+        if self.seed is not None:
+            torch.manual_seed(self.seed + step)
             if x.device.type == "cuda":
-                torch.cuda.manual_seed(self.rng_seed + step)
+                torch.cuda.manual_seed(self.seed + step)
         with torch.autocast(device_type=str(x.device), dtype=torch.bfloat16):
             y = self.model.predict_step(x, fcstep=step)
             out = torch.zeros(
@@ -1010,7 +1006,9 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = self._prepare_output(x, coords)
         return x, coords
 
-    def _fill_input(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+    def _fill_input(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Helper function of create a lat/lon tensor with the input prognostic and zero
         filled diagnostic variables.
         """
