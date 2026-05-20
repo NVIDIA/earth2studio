@@ -215,12 +215,6 @@ class IFSLexicon(ECMWFOpenDataLexicon):
             def mod(x: np.ndarray) -> np.ndarray:
                 return np.sin(np.deg2rad(x))
 
-        elif ifs_key.split("::")[0] == "gh":
-
-            def mod(x: np.ndarray) -> np.ndarray:
-                """Modify data value (if necessary)."""
-                return x * 9.80665  # Standard gravity (m/s²)
-
         else:
 
             def mod(x: np.ndarray) -> np.ndarray:
