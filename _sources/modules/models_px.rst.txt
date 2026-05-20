@@ -35,6 +35,7 @@ Thus are typically used to generate forecast predictions.
 
       ACE2ERA5
       AIFS
+      AIFS2
       AIFSENS
       Atlas
       Aurora
