@@ -628,7 +628,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> torch.Tensor:
         """Prepare input tensor and coordinates for the AIFS ENS model."""
-        handshake_size(coords, "time", 1)
+        handshake_size(coords, "time", 1)  # Prepare input limited to 1 time stamp
         # add invariants
         x = self._add_invariants(x, coords)
 

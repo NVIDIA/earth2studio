@@ -129,13 +129,7 @@ EXPECTED_INPUT_VARIABLES = 88
 @pytest.mark.parametrize(
     "time",
     [
-        np.array([np.datetime64("1993-04-05T00:00")]),
-        np.array(
-            [
-                np.datetime64("1999-10-11T12:00"),
-                np.datetime64("2001-06-04T00:00"),
-            ]
-        ),
+        np.array([np.datetime64("1993-04-05T00:00")]),  # Multiple times not supported
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

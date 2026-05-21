@@ -634,7 +634,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> torch.Tensor:
         """Prepare input tensor and coordinates for the AIFS model."""
-        handshake_size(coords, "time", 1)
+        handshake_size(coords, "time", 1)  # Prepare input limited to 1 time stamp
         # Interpolate the input tensor to the model grid
         shape = x.shape
         x = x.flatten(start_dim=4)
