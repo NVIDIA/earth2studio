@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import os
 import zipfile
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
@@ -536,13 +537,23 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Fetch invariants from IFS (only if preloading)
         # Use a recent date to ensure wave data (wmb) is available
         if preload_invariants:
-            ifs = IFS(cache=True, verbose=False)
-            invariants, _ = fetch_data(
-                source=ifs,
-                time=np.array([np.datetime64("2026-05-15T00:00:00")]),
-                variable=["lsm", "sdor", "slor", "z", "wmb"],
-            )
-            invariants = invariants.squeeze()
+            # Check for cached invariants first
+            cache_dir = Package.default_cache("aifs-ens-2.0")
+            invariants_path = os.path.join(cache_dir, "invariants.pt")
+
+            if os.path.exists(invariants_path):
+                invariants = torch.load(invariants_path, weights_only=True)
+            else:
+                ifs = IFS(cache=True, verbose=False)
+                invariants, _ = fetch_data(
+                    source=ifs,
+                    time=np.array([np.datetime64("2026-05-15T00:00:00")]),
+                    variable=["lsm", "sdor", "slor", "z", "wmb"],
+                )
+                invariants = invariants.squeeze()
+                # Cache the invariants tensor
+                os.makedirs(cache_dir, exist_ok=True)
+                torch.save(invariants, invariants_path)
         else:
             # Placeholder - invariants will come from input
             invariants = torch.empty(0)

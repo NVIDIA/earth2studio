@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import os
 import zipfile
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
@@ -435,13 +436,23 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Fetch invariants from IFS, note that there are deviations between these
         # invariant fields depending on where and what time the data is fetched.
         # For this model, we will use ECMWF's own invarints in the IFS data store.
-        ifs = IFS(cache=True, verbose=False)
-        invariants, _ = fetch_data(
-            source=ifs,
-            time=np.array([np.datetime64("2026-01-01T00:00:00")]),
-            variable=["lsm", "sdor", "slor", "z"],
-        )
-        invariants = invariants.squeeze()
+        # Check for cached invariants first
+        cache_dir = Package.default_cache("aifs-single-1.1")
+        invariants_path = os.path.join(cache_dir, "invariants.pt")
+
+        if os.path.exists(invariants_path):
+            invariants = torch.load(invariants_path, weights_only=True)
+        else:
+            ifs = IFS(cache=True, verbose=False)
+            invariants, _ = fetch_data(
+                source=ifs,
+                time=np.array([np.datetime64("2026-01-01T00:00:00")]),
+                variable=["lsm", "sdor", "slor", "z"],
+            )
+            invariants = invariants.squeeze()
+            # Cache the invariants tensor
+            os.makedirs(cache_dir, exist_ok=True)
+            torch.save(invariants, invariants_path)
 
         # Can also fetch from NCAR ERA5 backup but these have some differences
         # invariant_package = Package(
