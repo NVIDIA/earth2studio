@@ -30,20 +30,16 @@ try:
     from packaging.version import Version
 
     anemoi_version = version("anemoi-models")
-    # AIFS 2.x requires anemoi-models in the range specified by pyproject.toml.
-    if not (Version("0.9.3") <= Version(anemoi_version) < Version("0.9.5")):
+    if Version(anemoi_version) != Version("0.11.2"):
         pytest.skip(
-            (
-                f"anemoi-models {anemoi_version} not compatible with AIFS 2.x "
-                "(requires >=0.9.3,<0.9.5)"
-            ),
+            f"anemoi-models {anemoi_version} not compatible with AIFS ENS 2.x (requires ==0.11.2)",
             allow_module_level=True,
         )
 except ImportError as e:
-    pytest.skip(f"AIFS2 dependencies not installed: {e}", allow_module_level=True)
+    pytest.skip(f"AIFS2ENS dependencies not installed: {e}", allow_module_level=True)
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.px import AIFS2
+from earth2studio.models.px import AIFS2ENS
 from earth2studio.utils import handshake_dim
 
 
@@ -77,19 +73,20 @@ class DotDict(dict):
         del self[name]
 
 
-class PhooAIFS2Model(torch.nn.Module):
-    """Mock AIFS2 model for unit testing."""
+class PhooAIFS2ENSModel(torch.nn.Module):
+    """Mock AIFS ENS 2 model for unit testing."""
 
     def __init__(self):
         super().__init__()
 
-        # Mock data indices following AIFS2 checkpoint structure
+        # Mock data indices following AIFS ENS 2 checkpoint structure
+        # This is identical to AIFS2 since they share the same variable set
         data_indices = DotDict()
         data_indices.data = DotDict()
         data_indices.data.input = DotDict()
         data_indices.data.output = DotDict()
 
-        # AIFS2 uses checkpoint variable names (e.g., "10u" instead of "u10m")
+        # AIFS ENS 2 uses checkpoint variable names (e.g., "10u" instead of "u10m")
         # This is the full variable mapping sorted alphabetically by checkpoint name
         # Variable order MUST match the real checkpoint exactly
         data_indices.data._name_to_index = {
@@ -630,10 +627,10 @@ class PhooAIFS2Model(torch.nn.Module):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aifs2_call(time, device):
-    """Test AIFS2 single step forward pass."""
+def test_aifs2ens_call(time, device):
+    """Test AIFS2ENS single step forward pass."""
     # Spoof model
-    model = PhooAIFS2Model()
+    model = PhooAIFS2ENSModel()
 
     # Create tensors with the correct shapes for O96 octahedral grid
     # O96 has 542,080 points
@@ -642,6 +639,7 @@ def test_aifs2_call(time, device):
 
     # Create sparse tensors for interpolation matrices
     # ERA5 0.25deg: 721*1440 = 1,038,240 points
+    # Use float32 to match the wrapper's expected dtype
     interpolation_matrix = make_two_nnz_per_first_row_csr(
         n_rows=542_080, n_cols=1_038_240, device=device
     )
@@ -650,11 +648,11 @@ def test_aifs2_call(time, device):
         n_rows=1_038_240, n_cols=542_080, device=device
     )
 
-    # AIFS2 has 5 invariants: lsm, sdor, slor, z, wmb
+    # AIFS2ENS has 5 invariants: lsm, sdor, slor, z, wmb
     invariants = torch.zeros(5, 721, 1440, device=device)
 
-    # Initialize AIFS2
-    p = AIFS2(
+    # Initialize AIFS2ENS (note: no lsm_mask parameter unlike AIFS2)
+    p = AIFS2ENS(
         model=model,
         latitudes=latitudes,
         longitudes=longitudes,
@@ -693,12 +691,12 @@ def test_aifs2_call(time, device):
 
 @pytest.mark.parametrize("ensemble", [1])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aifs2_iter(ensemble, device):
-    """Test AIFS2 iterator produces correct sequence."""
+def test_aifs2ens_iter(ensemble, device):
+    """Test AIFS2ENS iterator produces correct sequence."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
 
     # Spoof model
-    model = PhooAIFS2Model()
+    model = PhooAIFS2ENSModel()
 
     # Create tensors
     latitudes = torch.randn(1, 1, 542080, 1, device=device)
@@ -714,7 +712,7 @@ def test_aifs2_iter(ensemble, device):
 
     invariants = torch.zeros(5, 721, 1440, device=device)
 
-    p = AIFS2(
+    p = AIFS2ENS(
         model=model,
         latitudes=latitudes,
         longitudes=longitudes,
@@ -770,11 +768,11 @@ def test_aifs2_iter(ensemble, device):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aifs2_exceptions(dc, device):
-    """Test AIFS2 raises on invalid coordinates."""
+def test_aifs2ens_exceptions(dc, device):
+    """Test AIFS2ENS raises on invalid coordinates."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
 
-    model = PhooAIFS2Model()
+    model = PhooAIFS2ENSModel()
 
     latitudes = torch.randn(1, 1, 542080, 1, device=device)
     longitudes = torch.randn(1, 1, 542080, 1, device=device)
@@ -789,7 +787,7 @@ def test_aifs2_exceptions(dc, device):
 
     invariants = torch.zeros(5, 721, 1440, device=device)
 
-    p = AIFS2(
+    p = AIFS2ENS(
         model=model,
         latitudes=latitudes,
         longitudes=longitudes,
@@ -811,8 +809,8 @@ def test_aifs2_exceptions(dc, device):
 
 
 @pytest.fixture(scope="function")
-def model() -> AIFS2:
-    """Load real AIFS2 model from package, mocking IFS fetch if needed."""
+def model() -> AIFS2ENS:
+    """Load real AIFS2ENS model from package, mocking IFS fetch if needed."""
     from unittest.mock import patch
 
     # Mock fetch_data to return fake invariants if IFS would be called
@@ -822,20 +820,22 @@ def model() -> AIFS2:
         fake_coords = {"time": time, "variable": np.array(variable)}
         return fake_invariants, fake_coords
 
-    package = AIFS2.load_default_package()
-    with patch("earth2studio.models.px.aifs2.fetch_data", side_effect=mock_fetch_data):
-        p = AIFS2.load_model(package)
+    package = AIFS2ENS.load_default_package()
+    with patch(
+        "earth2studio.models.px.aifs2ens.fetch_data", side_effect=mock_fetch_data
+    ):
+        p = AIFS2ENS.load_model(package)
     return p
 
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_aifs2_package(device, model):
-    """Integration test with real AIFS2 model weights."""
+def test_aifs2ens_package(device, model):
+    """Integration test with real AIFS2ENS model weights."""
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
 
-    # Test the cached model package AIFS2
+    # Test the cached model package AIFS2ENS
     p = model.to(device)
 
     # Create "domain coords"

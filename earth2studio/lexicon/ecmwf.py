@@ -216,9 +216,8 @@ class IFSLexicon(ECMWFOpenDataLexicon):
                 return np.sin(np.deg2rad(x))
 
         elif ifs_key.split("::")[0] == "gh":
-
+            # Convert geopotential height to geopotential
             def mod(x: np.ndarray) -> np.ndarray:
-                """Modify data value (if necessary)."""
                 return x * 9.80665  # Standard gravity (m/s²)
 
         else:

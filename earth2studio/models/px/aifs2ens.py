@@ -41,26 +41,28 @@ try:
     import ecmwf.opendata  # noqa: F401
     import flash_attn  # noqa: F401
 except ImportError:
-    OptionalDependencyFailure("aifs2")
+    OptionalDependencyFailure("aifs2ens")
 
 
 @check_optional_dependencies()
-class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """Artificial Intelligence Forecasting System version 2 (AIFS v2), a data driven
-    forecast model developed by the European Centre for Medium-Range Weather Forecasts
-    (ECMWF). AIFS v2 is based on a graph neural network (GNN) encoder and decoder, and
-    a sliding window transformer processor. It extends AIFS v1 with wave forecasting
-    capabilities, improved stratospheric representation (10 hPa level), and snow cover.
-    Consists of a single model with a time-step size of 6 hours.
+class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+    """Artificial Intelligence Forecasting System Ensemble version 2 (AIFS ENS v2),
+    a data driven ensemble forecast model developed by the European Centre for
+    Medium-Range Weather Forecasts (ECMWF). AIFS ENS v2 is based on a graph neural
+    network (GNN) encoder and decoder, and a sliding window transformer processor.
+    It extends AIFS ENS v1 with wave forecasting capabilities, improved stratospheric
+    representation (10 hPa level), and snow cover. The ensemble model incorporates
+    inherent stochasticity through noise conditioning, producing different forecasts
+    for the same initial conditions.
 
     Note
     ----
-    Key differences from AIFS v1:
+    Key features of AIFS ENS v2:
 
+    - Ensemble model with inherent stochasticity (noise conditioning)
     - New wave component with 11 wave variables
     - New snow variable (snowc - snow coverage)
     - Extended pressure levels to 10 hPa
-    - Vertical velocity (W) changed from prognostic to diagnostic
 
     It is recommended to use the :class:`~earth2studio.data.IFS` data source to
     prepare model inputs given the variable set required.
@@ -69,14 +71,14 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ----
     For additional information see the following resources:
 
-    - https://arxiv.org/abs/2509.18994
-    - https://huggingface.co/ecmwf/aifs-single-2.0
+    - https://arxiv.org/abs/2506.10868
+    - https://huggingface.co/ecmwf/aifs-ens-2.0
     - https://github.com/ecmwf/anemoi-core
 
     Parameters
     ----------
     model : torch.nn.Module
-        Core PyTorch module with the pretrained AIFS v2 weights loaded.
+        Core PyTorch module with the pretrained AIFS ENS v2 weights loaded.
     latitudes : torch.Tensor
         Latitude values for the native octahedral grid, registered as a buffer for
         interpolation.
@@ -96,6 +98,11 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cached. If False, invariant fields must be provided as input variables,
         enabling use of invariants from alternative sources for exact reproducibility,
         by default True.
+    seed : int | None
+        If specified, sets the random seed before each model forward pass for
+        reproducible stochastic noise. The seed used is `seed + step` where
+        step is the forecast step number (0, 1, 2, ...). Use the same seed in both
+        E2S and vanilla anemoi-inference to get identical outputs, by default None.
 
     Warning
     -------
@@ -108,7 +115,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     product:land product:solar product:ocean year:2026 gpu:40gb
     """
 
-    # Full variable list for AIFS v2 (sorted alphabetically by checkpoint name)
+    # Full variable list for AIFS ENS v2 (sorted alphabetically by checkpoint name)
     # The order MUST match checkpoint data_indices.data._name_to_index
     VARIABLES = [
         "u100m",
@@ -269,10 +276,12 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         inverse_interpolation_matrix: torch.Tensor,
         invariants: torch.Tensor,
         preload_invariants: bool = True,
+        seed: int | None = None,
     ) -> None:
         super().__init__()
         self.model = model
         self.preload_invariants = preload_invariants
+        self.seed = seed
         if preload_invariants:
             self.register_buffer("invariants", invariants)
         else:
@@ -407,9 +416,9 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "hf://ecmwf/aifs-single-2.0@08286fc247419bc40666226c816ad4ac686d2a8b",
+            "hf://ecmwf/aifs-ens-2.0@29a1f8c4ab76cd0e5b64cfd415f4ff9e08edf7cf",
             cache_options={
-                "cache_storage": Package.default_cache("aifs-single-2.0"),
+                "cache_storage": Package.default_cache("aifs-ens-2.0"),
                 "same_names": True,
             },
         )
@@ -418,7 +427,10 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     @check_optional_dependencies()
     def load_model(
-        cls, package: Package, preload_invariants: bool = True
+        cls,
+        package: Package,
+        preload_invariants: bool = True,
+        seed: int | None = None,
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -432,15 +444,19 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             as input variables, allowing use of invariants from alternative sources
             (e.g., ECMWF Open Data) for exact reproducibility with reference
             implementations, by default True.
+        seed : int | None, optional
+            If specified, sets the random seed before each model forward pass for
+            reproducible stochastic noise. The seed used is `seed + step` where
+            step is the forecast step number, by default None.
 
         Returns
         -------
         PrognosticModel
-            Loaded AIFS2 model
+            Loaded AIFS2ENS model
         """
 
         # Load model
-        model_path = package.resolve("aifs-single-mse-2.0.ckpt")
+        model_path = package.resolve("aifs-ens-crps-2.0.ckpt")
         model = torch.load(
             model_path, weights_only=False, map_location=torch.ones(1).device
         )
@@ -478,7 +494,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear",
             cache_options={
                 "cache_storage": Package.default_cache(
-                    "aifs-single-2.0_interpolation_matrix"
+                    "aifs-ens-2.0_interpolation_matrix"
                 ),
                 "same_names": True,
             },
@@ -498,7 +514,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear/",
             cache_options={
                 "cache_storage": Package.default_cache(
-                    "aifs-single-2.0_inverse_interpolation_matrix"
+                    "aifs-ens-2.0_inverse_interpolation_matrix"
                 ),
                 "same_names": True,
             },
@@ -522,7 +538,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Use a recent date to ensure wave data (wmb) is available
         if preload_invariants:
             # Check for cached invariants first
-            cache_dir = Package.default_cache("aifs-single-2.0")
+            cache_dir = Package.default_cache("aifs-ens-2.0")
             invariants_path = os.path.join(cache_dir, "invariants.pt")
 
             if os.path.exists(invariants_path):
@@ -552,6 +568,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             inverse_interpolation_matrix=torch_inverse_interpolation_matrix,
             invariants=invariants,
             preload_invariants=preload_invariants,
+            seed=seed,
         )
 
     @staticmethod
@@ -970,7 +987,13 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         step: int = 0,
     ) -> tuple[torch.Tensor, CoordSystem]:
         output_coords = self.output_coords(coords)
-        with torch.autocast(device_type=str(x.device), dtype=torch.float16):
+        # Set RNG seed for reproducibility if specified
+        # Uses step-dependent seed so each forward call is deterministic but different
+        if self.seed is not None:
+            torch.manual_seed(self.seed + step)
+            if x.device.type == "cuda":
+                torch.cuda.manual_seed(self.seed + step)
+        with torch.autocast(device_type=str(x.device), dtype=torch.bfloat16):
             y = self.model.predict_step(x, fcstep=step)
             out = torch.zeros(
                 (x.shape[0], x.shape[1], x.shape[2], len(self.VARIABLES)),

@@ -155,6 +155,52 @@ uv add earth2studio --extra aifsens
 :::
 ::::
 :::::
+:::::{tab-item} AIFS2
+Notes: This model depends on
+[flash-attention](https://github.com/Dao-AILab/flash-attention), which can take a long
+time to compile. See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+for compilation tips.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[aifs2] --no-build-isolation
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra aifs2
+```
+
+:::
+::::
+:::::
+:::::{tab-item} AIFS2 Ensemble
+Notes: This model depends on
+[flash-attention](https://github.com/Dao-AILab/flash-attention), which can take a long
+time to compile. See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+for compilation tips.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[aifs2ens] --no-build-isolation
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra aifs2ens
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Atlas
 Notes: The Atlas model depends on [natten](https://github.com/SHI-Labs/NATTEN), which
 can take a long time to compile.
