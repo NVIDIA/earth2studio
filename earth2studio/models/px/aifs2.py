@@ -523,7 +523,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ifs = IFS(cache=True, verbose=False)
             invariants, _ = fetch_data(
                 source=ifs,
-                time=np.array([np.datetime64("2026-05-01T00:00:00")]),
+                time=np.array([np.datetime64("2026-05-15T00:00:00")]),
                 variable=["lsm", "sdor", "slor", "z", "wmb"],
             )
             invariants = invariants.squeeze()
