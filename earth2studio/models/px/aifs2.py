@@ -738,15 +738,17 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Interpolate the prognostic input tensor to the model grid
         shape = x_prognostic.shape
+        n_batch = shape[0]
+        n_time = shape[1]
         x_prog = x_prognostic.flatten(start_dim=4)
         x_prog = x_prog.flatten(end_dim=3)
         x_prog = torch.swapaxes(x_prog, 0, -1)
         x_prog = x_prog.to(dtype=torch.float32)
         x_prog = self.interpolation_matrix @ x_prog
         x_prog = torch.swapaxes(x_prog, 0, -1)
-        x_prog = x_prog.reshape([shape[0] * shape[1], shape[2], shape[3], -1])
+        x_prog = x_prog.reshape([n_batch * n_time, shape[2], shape[3], -1])
         x_prog = torch.swapaxes(x_prog, 2, 3)
-        n_bt = shape[0] * shape[1]
+        n_bt = n_batch * n_time
         n_lead = shape[2]
         n_nodes = x_prog.shape[2]
 
@@ -784,7 +786,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x_full[..., self.input_ids] = x_prog
         x_full[..., self.invariant_ids] = i
 
-        # Compute generated forcings
+        # Compute static forcings (lat/lon based - same for all times)
         cos_latitude = torch.cos(torch.deg2rad(self.latitudes)).to(dtype=torch.float32)
         sin_latitude = torch.sin(torch.deg2rad(self.latitudes)).to(dtype=torch.float32)
         cos_longitude = torch.cos(torch.deg2rad(self.longitudes)).to(
@@ -798,51 +800,59 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cos_longitude = cos_longitude.repeat(n_bt, n_lead, 1, 1)
         sin_longitude = sin_longitude.repeat(n_bt, n_lead, 1, 1)
 
-        cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(
-            coords["time"][0] - np.timedelta64(6, "h"), self.longitudes
-        )
-        cos_julian_day_1, sin_julian_day_1 = self.get_cos_sin_julian_day(
-            coords["time"][0], self.longitudes
-        )
-        cos_julian_day = torch.cat([cos_julian_day_0, cos_julian_day_1], dim=1).repeat(
-            n_bt, 1, 1, 1
-        )
-        sin_julian_day = torch.cat([sin_julian_day_0, sin_julian_day_1], dim=1).repeat(
-            n_bt, 1, 1, 1
-        )
-
-        cos_local_time_0, sin_local_time_0 = self.get_cos_sin_local_time(
-            coords["time"][0] - np.timedelta64(6, "h"), self.longitudes
-        )
-        cos_local_time_1, sin_local_time_1 = self.get_cos_sin_local_time(
-            coords["time"][0], self.longitudes
-        )
-        cos_local_time = torch.cat([cos_local_time_0, cos_local_time_1], dim=1).repeat(
-            n_bt, 1, 1, 1
-        )
-        sin_local_time = torch.cat([sin_local_time_0, sin_local_time_1], dim=1).repeat(
-            n_bt, 1, 1, 1
-        )
-
-        cos_zenith_angle_0 = self.get_cosine_zenith_fields(
-            coords["time"][0] - np.timedelta64(6, "h"), self.latitudes, self.longitudes
-        )
-        cos_zenith_angle_1 = self.get_cosine_zenith_fields(
-            coords["time"][0], self.latitudes, self.longitudes
-        )
-        cos_zenith_angle = torch.cat(
-            [cos_zenith_angle_0, cos_zenith_angle_1], dim=1
-        ).repeat(n_bt, 1, 1, 1)
-
         x_full[..., self.forcing_ids[0]] = cos_latitude[..., 0]
         x_full[..., self.forcing_ids[1]] = cos_longitude[..., 0]
         x_full[..., self.forcing_ids[2]] = sin_latitude[..., 0]
         x_full[..., self.forcing_ids[3]] = sin_longitude[..., 0]
-        x_full[..., self.forcing_ids[4]] = cos_julian_day[..., 0]
-        x_full[..., self.forcing_ids[5]] = cos_local_time[..., 0]
-        x_full[..., self.forcing_ids[6]] = sin_julian_day[..., 0]
-        x_full[..., self.forcing_ids[7]] = sin_local_time[..., 0]
-        x_full[..., self.forcing_ids[8]] = cos_zenith_angle[..., 0]
+
+        # Compute time-dependent forcings (loop over times)
+        for t in range(n_time):
+            time_t = coords["time"][t]
+            # Indices for this time in the flattened batch*time dimension
+            bt_start = t * n_batch
+            bt_end = (t + 1) * n_batch
+
+            cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(
+                time_t - np.timedelta64(6, "h"), self.longitudes
+            )
+            cos_julian_day_1, sin_julian_day_1 = self.get_cos_sin_julian_day(
+                time_t, self.longitudes
+            )
+            cos_julian_day = torch.cat(
+                [cos_julian_day_0, cos_julian_day_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+            sin_julian_day = torch.cat(
+                [sin_julian_day_0, sin_julian_day_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+
+            cos_local_time_0, sin_local_time_0 = self.get_cos_sin_local_time(
+                time_t - np.timedelta64(6, "h"), self.longitudes
+            )
+            cos_local_time_1, sin_local_time_1 = self.get_cos_sin_local_time(
+                time_t, self.longitudes
+            )
+            cos_local_time = torch.cat(
+                [cos_local_time_0, cos_local_time_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+            sin_local_time = torch.cat(
+                [sin_local_time_0, sin_local_time_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+
+            cos_zenith_angle_0 = self.get_cosine_zenith_fields(
+                time_t - np.timedelta64(6, "h"), self.latitudes, self.longitudes
+            )
+            cos_zenith_angle_1 = self.get_cosine_zenith_fields(
+                time_t, self.latitudes, self.longitudes
+            )
+            cos_zenith_angle = torch.cat(
+                [cos_zenith_angle_0, cos_zenith_angle_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+
+            x_full[bt_start:bt_end, ..., self.forcing_ids[4]] = cos_julian_day[..., 0]
+            x_full[bt_start:bt_end, ..., self.forcing_ids[5]] = cos_local_time[..., 0]
+            x_full[bt_start:bt_end, ..., self.forcing_ids[6]] = sin_julian_day[..., 0]
+            x_full[bt_start:bt_end, ..., self.forcing_ids[7]] = sin_local_time[..., 0]
+            x_full[bt_start:bt_end, ..., self.forcing_ids[8]] = cos_zenith_angle[..., 0]
 
         x_full = x_full[
             ..., self.input_full_ids
@@ -855,44 +865,64 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> torch.Tensor:
         """Update time based inputs."""
+        n_time = coords["time"].shape[0]
+        # x shape is [batch*time, lead_time, nodes, variables]
+        # We need to figure out n_batch from x shape and n_time
+        n_bt = x.shape[0]
+        n_batch = n_bt // n_time
 
-        time0 = coords["time"][0] + coords["lead_time"][0]
-        time1 = coords["time"][0] + coords["lead_time"][1]
+        for t in range(n_time):
+            time_t = coords["time"][t]
+            bt_start = t * n_batch
+            bt_end = (t + 1) * n_batch
 
-        # Get cos, sin of Julian day
-        cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(
-            time0, self.longitudes
-        )
-        cos_julian_day_1, sin_julian_day_1 = self.get_cos_sin_julian_day(
-            time1, self.longitudes
-        )
-        cos_julian_day = torch.cat([cos_julian_day_0, cos_julian_day_1], dim=1)
-        sin_julian_day = torch.cat([sin_julian_day_0, sin_julian_day_1], dim=1)
+            time0 = time_t + coords["lead_time"][0]
+            time1 = time_t + coords["lead_time"][1]
 
-        # Get cos, sin local time
-        cos_local_time_0, sin_local_time_0 = self.get_cos_sin_local_time(
-            time0, self.longitudes
-        )
-        cos_local_time_1, sin_local_time_1 = self.get_cos_sin_local_time(
-            time1, self.longitudes
-        )
-        cos_local_time = torch.cat([cos_local_time_0, cos_local_time_1], dim=1)
-        sin_local_time = torch.cat([sin_local_time_0, sin_local_time_1], dim=1)
+            # Get cos, sin of Julian day
+            cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(
+                time0, self.longitudes
+            )
+            cos_julian_day_1, sin_julian_day_1 = self.get_cos_sin_julian_day(
+                time1, self.longitudes
+            )
+            cos_julian_day = torch.cat(
+                [cos_julian_day_0, cos_julian_day_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+            sin_julian_day = torch.cat(
+                [sin_julian_day_0, sin_julian_day_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
 
-        # Get cosine zenith angle
-        cos_zenith_angle_0 = self.get_cosine_zenith_fields(
-            time0, self.latitudes, self.longitudes
-        )
-        cos_zenith_angle_1 = self.get_cosine_zenith_fields(
-            time1, self.latitudes, self.longitudes
-        )
-        cos_zenith_angle = torch.cat([cos_zenith_angle_0, cos_zenith_angle_1], dim=1)
+            # Get cos, sin local time
+            cos_local_time_0, sin_local_time_0 = self.get_cos_sin_local_time(
+                time0, self.longitudes
+            )
+            cos_local_time_1, sin_local_time_1 = self.get_cos_sin_local_time(
+                time1, self.longitudes
+            )
+            cos_local_time = torch.cat(
+                [cos_local_time_0, cos_local_time_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+            sin_local_time = torch.cat(
+                [sin_local_time_0, sin_local_time_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
 
-        x[..., self.forcing_ids[4]] = cos_julian_day[..., 0]
-        x[..., self.forcing_ids[5]] = cos_local_time[..., 0]
-        x[..., self.forcing_ids[6]] = sin_julian_day[..., 0]
-        x[..., self.forcing_ids[7]] = sin_local_time[..., 0]
-        x[..., self.forcing_ids[8]] = cos_zenith_angle[..., 0]
+            # Get cosine zenith angle
+            cos_zenith_angle_0 = self.get_cosine_zenith_fields(
+                time0, self.latitudes, self.longitudes
+            )
+            cos_zenith_angle_1 = self.get_cosine_zenith_fields(
+                time1, self.latitudes, self.longitudes
+            )
+            cos_zenith_angle = torch.cat(
+                [cos_zenith_angle_0, cos_zenith_angle_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+
+            x[bt_start:bt_end, ..., self.forcing_ids[4]] = cos_julian_day[..., 0]
+            x[bt_start:bt_end, ..., self.forcing_ids[5]] = cos_local_time[..., 0]
+            x[bt_start:bt_end, ..., self.forcing_ids[6]] = sin_julian_day[..., 0]
+            x[bt_start:bt_end, ..., self.forcing_ids[7]] = sin_local_time[..., 0]
+            x[bt_start:bt_end, ..., self.forcing_ids[8]] = cos_zenith_angle[..., 0]
 
         # Select out actual input variables from the full fields set
         x = x[..., self.input_full_ids]
@@ -977,11 +1007,11 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
-        _ = self.output_coords(coords)  # NOTE: Quick fix for exception handling
+        output_coords = self.output_coords(coords)
         x = self._prepare_input(x, coords)
-        x, coords = self._forward(x, coords)
-        x = self._prepare_output(x, coords)
-        return x, coords
+        x, out_coords = self._forward(x, coords)
+        x = self._prepare_output(x, out_coords)
+        return x, output_coords
 
     def _fill_input(
         self, x: torch.Tensor, coords: CoordSystem

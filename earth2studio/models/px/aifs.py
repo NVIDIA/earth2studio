@@ -28,7 +28,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -634,6 +634,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> torch.Tensor:
         """Prepare input tensor and coordinates for the AIFS model."""
+        handshake_size(coords, "time", 1)
         # Interpolate the input tensor to the model grid
         shape = x.shape
         x = x.flatten(start_dim=4)
