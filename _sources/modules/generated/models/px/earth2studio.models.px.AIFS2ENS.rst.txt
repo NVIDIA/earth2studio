@@ -1,0 +1,23 @@
+﻿AIFS2ENS
+=============================================
+
+.. currentmodule:: earth2studio.models.px
+
+.. autoclass:: AIFS2ENS
+
+   
+    .. automethod:: __call__
+    .. automethod:: create_iterator
+    .. automethod:: load_default_package
+    .. automethod:: load_model
+   
+
+.. _sphx_glr_backref_earth2studio.models.px.AIFS2ENS:
+
+.. minigallery:: earth2studio.models.px.AIFS2ENS
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>
