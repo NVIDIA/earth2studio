@@ -810,9 +810,21 @@ def test_aifs2ens_exceptions(dc, device):
 
 @pytest.fixture(scope="function")
 def model() -> AIFS2ENS:
-    """Load real AIFS2ENS model from package."""
+    """Load real AIFS2ENS model from package, mocking IFS fetch if needed."""
+    from unittest.mock import patch
+
+    # Mock fetch_data to return fake invariants if IFS would be called
+    def mock_fetch_data(source, time, variable, *args, **kwargs):
+        # Return fake invariants tensor (5 variables: lsm, sdor, slor, z, wmb)
+        fake_invariants = torch.zeros(1, 1, 1, len(variable), 721, 1440)
+        fake_coords = {"time": time, "variable": np.array(variable)}
+        return fake_invariants, fake_coords
+
     package = AIFS2ENS.load_default_package()
-    p = AIFS2ENS.load_model(package)
+    with patch(
+        "earth2studio.models.px.aifs2ens.fetch_data", side_effect=mock_fetch_data
+    ):
+        p = AIFS2ENS.load_model(package)
     return p
 
 

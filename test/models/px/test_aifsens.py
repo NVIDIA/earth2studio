@@ -303,8 +303,21 @@ def test_aifsens_exceptions(dc, device):
 
 @pytest.fixture(scope="function")
 def model() -> AIFSENS:
+    """Load real AIFSENS model from package, mocking IFS fetch if needed."""
+    from unittest.mock import patch
+
+    # Mock fetch_data to return fake invariants if IFS would be called
+    def mock_fetch_data(source, time, variable, *args, **kwargs):
+        # Return fake invariants tensor (4 variables: lsm, sdor, slor, z)
+        fake_invariants = torch.zeros(1, 1, 1, len(variable), 721, 1440)
+        fake_coords = {"time": time, "variable": np.array(variable)}
+        return fake_invariants, fake_coords
+
     package = AIFSENS.load_default_package()
-    p = AIFSENS.load_model(package)
+    with patch(
+        "earth2studio.models.px.aifsens.fetch_data", side_effect=mock_fetch_data
+    ):
+        p = AIFSENS.load_model(package)
     return p
 
 
