@@ -518,14 +518,17 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         # Fetch invariants from IFS (only if preloading)
+        # Use a recent date to ensure wave data (wmb) is available
         if preload_invariants:
             ifs = IFS(cache=True, verbose=False)
             invariants, _ = fetch_data(
                 source=ifs,
-                time=np.array([np.datetime64("2026-01-01T00:00:00")]),
+                time=np.array([np.datetime64("2026-05-15T00:00:00")]),
                 variable=["lsm", "sdor", "slor", "z", "wmb"],
             )
             invariants = invariants.squeeze()
+            # Replace NaN in wmb (land areas) with 0
+            invariants = torch.nan_to_num(invariants, nan=0.0)
         else:
             # Placeholder - invariants will come from input
             invariants = torch.empty(0)
