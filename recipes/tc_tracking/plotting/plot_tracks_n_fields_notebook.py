@@ -122,14 +122,6 @@ out_dir = f"outputs_{base_name}"
 
 ds = xr.open_dataset(field_data)
 
-countries = cfeature.NaturalEarthFeature(
-    category="cultural",
-    name="admin_0_countries",
-    scale="110m",
-    facecolor="none",
-    edgecolor="black",
-)
-
 # subselect lat/lon box, coarsen data if scale factor > 1
 sub_ds = ds.sel(
     lat=list(np.arange(lat_min, lat_max, scale * 0.25)),

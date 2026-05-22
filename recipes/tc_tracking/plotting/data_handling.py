@@ -236,29 +236,6 @@ def extract_tracks(in_dir: str) -> list[dict[str, Any]]:
     return tracks
 
 
-def merge_track_dict_by_time(
-    track_dict: dict[str, Any], tru_track: pd.DataFrame
-) -> pd.DataFrame:
-    """Left-join the track stored under ``track_dict["tracks"]`` onto a reference track.
-
-    Thin wrapper around :func:`merge_tracks_by_time` that accepts a
-    prediction dictionary rather than the inner DataFrame.
-
-    Parameters
-    ----------
-    track_dict : dict[str, Any]
-        Prediction dict containing a ``"tracks"`` DataFrame.
-    tru_track : pd.DataFrame
-        Reference track.
-
-    Returns
-    -------
-    pd.DataFrame
-        Merged frame, clipped to the time range of *tru_track*.
-    """
-    return merge_tracks_by_time(track_dict["tracks"], tru_track)
-
-
 def compute_mae(tru_vars: np.ndarray, pred_vars: np.ndarray) -> np.ndarray:
     """Compute mean absolute error along the first axis, ignoring NaNs."""
     return np.nanmean(np.abs(tru_vars - pred_vars), axis=0)
@@ -325,10 +302,7 @@ def rebase_by_lead_time(
 
     max_len = 0
     for track in pred_tracks:
-        merged_track = merge_track_dict_by_time(track, tru_track)
-        if merged_track is None:
-            continue
-
+        merged_track = merge_tracks_by_time(track["tracks"], tru_track)
         merged_track = remove_trailing_nans(merged_track, "msl")
 
         max_len = max(max_len, len(merged_track))
@@ -526,9 +500,6 @@ def cartesian_to_spherical_track(
     )
 
     stats["mean"]["dist"] = np.asarray(dist, dtype=float)
-
-    for var in ["msl", "wind_speed"]:
-        stats["mean"][var + "_err_of_mean"] = stats["mean"][var] - tru_cont[var]
 
     return stats
 
