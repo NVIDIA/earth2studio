@@ -19,6 +19,7 @@ from .arco import ARCOLexicon
 from .cams import CAMSGlobalLexicon
 from .cbottle import CBottleLexicon
 from .cds import CDSLexicon
+from .cfs import CFSFluxLexicon, CFSLexicon
 from .cmip6 import CMIP6Lexicon
 from .ecmwf import AIFSLexicon, IFSLexicon
 from .gdas import GDASObsConvLexicon

@@ -20,6 +20,7 @@ import hashlib
 import os
 import pathlib
 import shutil
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -112,6 +113,7 @@ class GFS:
     ):
         self._cache = cache
         self._verbose = verbose
+        self._tmp_cache_hash: str | None = None
 
         if source == "aws":
             self.uri_prefix = "noaa-gfs-bdp-pds"
@@ -507,7 +509,12 @@ class GFS:
         """Return appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "gfs")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_gfs")
+            if self._tmp_cache_hash is None:
+                # First access for temp cache: create a random suffix to avoid collisions
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            cache_location = os.path.join(
+                cache_location, f"tmp_gfs_{self._tmp_cache_hash}"
+            )
         return cache_location
 
     @classmethod

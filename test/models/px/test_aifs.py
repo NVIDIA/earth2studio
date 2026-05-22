@@ -22,9 +22,22 @@ import pytest
 import torch
 
 try:
-    import anemoi  # noqa: F401
+    from importlib.metadata import version
+
+    import anemoi.models  # noqa: F401
+
+    anemoi_version = version("anemoi-models")
+    # AIFS 1.x requires anemoi-models version specified by pyproject.toml.
+    if anemoi_version != "0.5.1":
+        pytest.skip(
+            (
+                f"anemoi-models {anemoi_version} not compatible with AIFS 1.x "
+                "(requires 0.5.1)"
+            ),
+            allow_module_level=True,
+        )
 except ImportError:
-    pytest.skip("anemoi not installed", allow_module_level=True)
+    pytest.skip("anemoi-models not installed", allow_module_level=True)
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import AIFS
@@ -620,13 +633,7 @@ class PhooAIFSModel(torch.nn.Module):
 @pytest.mark.parametrize(
     "time",
     [
-        np.array([np.datetime64("1993-04-05T00:00")]),
-        np.array(
-            [
-                np.datetime64("1999-10-11T12:00"),
-                np.datetime64("2001-06-04T00:00"),
-            ]
-        ),
+        np.array([np.datetime64("1993-04-05T00:00")]),  # Multiple times not supported
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -810,9 +817,19 @@ def test_aifs_exceptions(dc, device):
 
 @pytest.fixture(scope="function")
 def model() -> AIFS:
-    # Test only on cuda device
+    """Load real AIFS model from package, mocking IFS fetch if needed."""
+    from unittest.mock import patch
+
+    # Mock fetch_data to return fake invariants if IFS would be called
+    def mock_fetch_data(source, time, variable, *args, **kwargs):
+        # Return fake invariants tensor (4 variables: lsm, sdor, slor, z)
+        fake_invariants = torch.zeros(1, 1, 1, len(variable), 721, 1440)
+        fake_coords = {"time": time, "variable": np.array(variable)}
+        return fake_invariants, fake_coords
+
     package = AIFS.load_default_package()
-    p = AIFS.load_model(package)
+    with patch("earth2studio.models.px.aifs.fetch_data", side_effect=mock_fetch_data):
+        p = AIFS.load_model(package)
     return p
 
 

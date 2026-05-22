@@ -46,7 +46,6 @@ a matching task:
 |---|---|
 | `create-data-source` | Create a new data source wrapper |
 | `create-prognostic-wrapper` | Create a new prognostic model (px) wrapper |
-| `validate-data-source` | Validate a newly implemented data source |
 | `release-rebase` | Prepare a new minor alpha release (rebase, bump, changelog, PR) |
 
 ## Custom Commands
