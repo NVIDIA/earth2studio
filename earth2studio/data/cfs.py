@@ -779,7 +779,8 @@ class CFS_FX_Flux(CFS_FX):
 
     Badges
     ------
-    region:global dataclass:simulation product:precip product:land product:atmos
+    region:global dataclass:simulation product:wind product:precip product:temp
+    product:atmos product:land
     """
 
     CFS_PRODUCT = "flxf"

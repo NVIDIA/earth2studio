@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pathlib
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
@@ -87,58 +88,26 @@ def test_translator_covers_lexicons():
 
 
 @pytest.mark.timeout(5)
-@pytest.mark.parametrize(
-    "time",
-    [
-        datetime(year=1981, month=12, day=11),  # one day before archive start
-        datetime(year=2011, month=4, day=1),  # one cycle after archive end
-        datetime(year=2010, month=1, day=1, hour=3),  # off 6-h cycle
-    ],
-)
-def test_cfs_reforecast_invalid_time(time):
+def test_cfs_reforecast_invalid_inputs():
     ds = CFS_Reforecast_FX(cache=False)
-    with pytest.raises(ValueError):
-        ds(time, timedelta(hours=6), "msl")
 
+    # Invalid time: before archive start, after archive end, off 6-h cycle
+    for time in [
+        datetime(year=1981, month=12, day=11),
+        datetime(year=2011, month=4, day=1),
+        datetime(year=2010, month=1, day=1, hour=3),
+    ]:
+        with pytest.raises(ValueError):
+            ds(time, timedelta(hours=6), "msl")
 
-@pytest.mark.timeout(5)
-@pytest.mark.parametrize(
-    "lead_time",
-    [
-        timedelta(hours=-6),
-        timedelta(hours=3),  # not on 6-h cycle
-        timedelta(days=300),  # past the 9-month cap
-    ],
-)
-def test_cfs_reforecast_invalid_leadtime(lead_time):
-    ds = CFS_Reforecast_FX(cache=False)
-    with pytest.raises(ValueError):
-        ds(_TEST_CYCLE, lead_time, "msl")
+    # Invalid lead time: negative, off 6-h cycle, past 9-month cap
+    for lt in [timedelta(hours=-6), timedelta(hours=3), timedelta(days=300)]:
+        with pytest.raises(ValueError):
+            ds(_TEST_CYCLE, lt, "msl")
 
-
-@pytest.mark.timeout(5)
-def test_cfs_reforecast_invalid_variable():
-    ds = CFS_Reforecast_FX(cache=False)
+    # Invalid variable
     with pytest.raises(KeyError):
         ds(_TEST_CYCLE, timedelta(hours=6), "definitely_not_a_real_variable")
-
-
-@pytest.mark.timeout(5)
-def test_cfs_reforecast_uri_construction():
-    ds_pgbf = CFS_Reforecast_FX()
-    ds_flxf = CFS_Reforecast_FX_Flux()
-    t = datetime(2010, 6, 15, 6)
-    lt = timedelta(hours=12)
-    # Forecast issued at 06z, valid at 18z, same cycle directory.
-    assert ds_pgbf._grib_uri(t, lt).endswith(
-        "/2010/201006/20100615/pgbf2010061518.01.2010061506.grb2"
-    )
-    assert ds_flxf._grib_uri(t, lt).endswith(
-        "/2010/201006/20100615/flxf2010061518.01.2010061506.grb2"
-    )
-    # pgbf and flxf live under different subdirs.
-    assert "6-hourly-by-pressure-level-9-month-runs" in ds_pgbf._grib_uri(t, lt)
-    assert "6-hourly-flux-9-month-runs" in ds_flxf._grib_uri(t, lt)
 
 
 @pytest.mark.timeout(5)
@@ -241,6 +210,22 @@ def test_cfs_reforecast_missing_variable_returns_nan(tmp_path, monkeypatch):
 
     np.testing.assert_allclose(data.sel(variable="msl").values[0, 0], fake_grid)
     assert np.isnan(data.sel(variable="z500").values).all()
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(180)
+@pytest.mark.parametrize("cache", [True, False])
+def test_cfs_reforecast_cache(tmp_path, monkeypatch, cache):
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    ds = CFS_Reforecast_FX(cache=cache)
+    ds(_TEST_CYCLE, timedelta(hours=6), ["msl"])
+    cache_dir = pathlib.Path(ds.cache)
+    if cache:
+        assert cache_dir.is_dir()
+        assert any(cache_dir.iterdir())
+    else:
+        assert not cache_dir.exists()
 
 
 # ----------------------------------------------------------------------

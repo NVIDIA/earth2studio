@@ -20,58 +20,6 @@ import numpy as np
 
 from .base import LexiconType
 
-# Standard pressure levels shared between CFS pgbf and other AI weather model
-# input archives.  Selected to match GFSLexicon / E2STUDIO_VOCAB pressure-level
-# coverage.
-_PGBF_PRESSURE_LEVELS = (
-    50,
-    100,
-    150,
-    200,
-    250,
-    300,
-    400,
-    500,
-    600,
-    700,
-    850,
-    925,
-    1000,
-)
-
-# Mapping from the leading character of an E2S pressure-level variable name
-# (e.g. "u500") to the CFS grib parameter id used in the pgbf product.
-_PGBF_PARAM = {
-    "u": "UGRD",
-    "v": "VGRD",
-    "z": "HGT",
-    "t": "TMP",
-    "q": "SPFH",
-    "r": "RH",
-}
-
-
-def _build_pgbf_vocab() -> dict[str, str]:
-    """Return the full pgbf vocabulary mapping E2S names to CFS .idx keys.
-
-    The CFS ``pgbf`` product is a pressure-level archive and does not publish
-    most near-surface fields (``t2m``, ``u10m``, ``v10m``, ``sp``, ``q2m``,
-    ``tcwv``); those live on the T126 Gaussian ``flxf`` grid -- use
-    :class:`CFSFluxLexicon` and :class:`~earth2studio.data.CFS_FX_Flux`
-    for them. Variables that *are* available at the surface in pgbf
-    (dewpoint and relative humidity at 2 m, MSL pressure) are exposed here.
-    """
-    vocab: dict[str, str] = {
-        # Surface / 2 m fields that pgbf does carry
-        "d2m": "pgbf::DPT::2 m above ground",
-        "r2m": "pgbf::RH::2 m above ground",
-        "msl": "pgbf::PRMSL::mean sea level",
-    }
-    for letter, param in _PGBF_PARAM.items():
-        for level in _PGBF_PRESSURE_LEVELS:
-            vocab[f"{letter}{level}"] = f"pgbf::{param}::{level} mb"
-    return vocab
-
 
 class CFSLexicon(metaclass=LexiconType):
     """Climate Forecast System v2 (CFSv2) pressure-level forecast lexicon.
@@ -99,7 +47,61 @@ class CFSLexicon(metaclass=LexiconType):
     - https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/grib2_table4-2-0-3.shtml
     """
 
-    VOCAB = _build_pgbf_vocab()
+    # Standard pressure levels shared between CFS pgbf and other AI weather model
+    # input archives. Selected to match GFSLexicon / E2STUDIO_VOCAB pressure-level
+    # coverage.
+    PRESSURE_LEVELS: tuple[int, ...] = (
+        50,
+        100,
+        150,
+        200,
+        250,
+        300,
+        400,
+        500,
+        600,
+        700,
+        850,
+        925,
+        1000,
+    )
+
+    # Mapping from the leading character of an E2S pressure-level variable name
+    # (e.g. "u500") to the CFS grib parameter id used in the pgbf product.
+    PARAM_MAP: dict[str, str] = {
+        "u": "UGRD",
+        "v": "VGRD",
+        "z": "HGT",
+        "t": "TMP",
+        "q": "SPFH",
+        "r": "RH",
+    }
+
+    @staticmethod
+    def _build_vocab(
+        pressure_levels: tuple[int, ...], param_map: dict[str, str]
+    ) -> dict[str, str]:
+        """Return the full pgbf vocabulary mapping E2S names to CFS .idx keys.
+
+        The CFS ``pgbf`` product is a pressure-level archive and does not publish
+        most near-surface fields (``t2m``, ``u10m``, ``v10m``, ``sp``, ``q2m``,
+        ``tcwv``); those live on the T126 Gaussian ``flxf`` grid -- use
+        :class:`CFSFluxLexicon` and :class:`~earth2studio.data.CFS_FX_Flux`
+        for them. Variables that *are* available at the surface in pgbf
+        (dewpoint and relative humidity at 2 m, MSL pressure) are exposed here.
+        """
+        vocab: dict[str, str] = {
+            # Surface / 2 m fields that pgbf does carry
+            "d2m": "pgbf::DPT::2 m above ground",
+            "r2m": "pgbf::RH::2 m above ground",
+            "msl": "pgbf::PRMSL::mean sea level",
+        }
+        for letter, param in param_map.items():
+            for level in pressure_levels:
+                vocab[f"{letter}{level}"] = f"pgbf::{param}::{level} mb"
+        return vocab
+
+    VOCAB = _build_vocab(PRESSURE_LEVELS, PARAM_MAP)
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
