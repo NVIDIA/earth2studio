@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added AIFS 2.0 prognostic model (`AIFS2`) with wave and 10 hPa pressure level support
 - Added AIFS 2.0 ensemble prognostic model (`AIFS2ENS`) with stochastic noise injection
 - Added wave variables to IFS data source for AIFS2 support
+- Added NCEP CFSv2 operational forecast data sources for the pressure-level
+  `pgbf` and surface-flux `flxf` products (`CFS_FX`, `CFS_FX_Flux`), backed by
+  either NOMADS (real-time) or the AWS Open Data mirror (archive)
+- Added NCEP CFSv2 6-hourly 9-month reforecast data sources
+  (`CFS_Reforecast_FX`, `CFS_Reforecast_FX_Flux`), covering 1981-12-12
+  through 2011-03-27 with cycles every 5 days, served from the NCEI HTTPS
+  archive
 
 ### Changed
 
