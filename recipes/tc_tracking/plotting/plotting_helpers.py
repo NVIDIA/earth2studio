@@ -6,7 +6,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,10 +25,13 @@ import pandas as pd
 from data_handling import merge_tracks_by_time
 from matplotlib.collections import LineCollection
 
+_DEFAULT_TIME_STEP = np.timedelta64(6, "h")
+_DEFAULT_P_REF_PA = 101325
+
 
 def _make_suptitle(
     case: str,
-    ic: Any = None,
+    ic: np.datetime64 | None = None,
     n_tracks: int | None = None,
     n_members: int | None = None,
 ) -> str:
@@ -116,7 +119,7 @@ def plot_spaghetti(
     out_dir: str | None = None,
     alpha: float = 0.2,
     line_width: float = 2,
-    ic: Any = None,
+    ic: np.datetime64 | list[np.datetime64] | None = None,
 ) -> None:
     """Plot ensemble track trajectories (spaghetti plot) on a map.
 
@@ -132,13 +135,13 @@ def plot_spaghetti(
         Storm identifier for the plot title.
     n_members : int
         Total number of ensemble members (including unmatched).
-    out_dir : str or None, optional
+    out_dir : str | None, optional
         If provided, the figure is saved here.
     alpha : float, optional
-        Transparency for ensemble member lines.
+        Transparency for ensemble member lines, by default 0.2
     line_width : float, optional
-        Line width for all tracks.
-    ic : optional
+        Line width for all tracks, by default 2
+    ic : np.datetime64 | list[np.datetime64] | None, optional
         If provided, only plot members whose ``"ic"`` is in *ic*.
     """
     plt.close("all")
@@ -160,9 +163,12 @@ def plot_spaghetti(
     ax.add_feature(cfeature.RIVERS, lw=0.5)
     if case != "debbie_2017_southern_pacific":  # cartopy issues with small islands
         ax.add_feature(cfeature.OCEAN, facecolor="#b0c4de")
-        ax.add_feature(cfeature.LAND, facecolor="#C4B9A3")
+        ax.add_feature(cfeature.LAND, facecolor="#c4b9a3")
 
-    lat_min, lat_max, lon_min, lon_max = 90.0, -90.0, 360.0, -0.1
+    # Seed lat/lon bounds from the true track so the loop only needs to widen
+    # them; works even when ``ic`` filters out every predicted member.
+    lat_min, lat_max = true_track["lat"].min(), true_track["lat"].max()
+    lon_min, lon_max = true_track["lon"].min(), true_track["lon"].max()
 
     segments = []
     for _track in pred_tracks:
@@ -208,13 +214,6 @@ def plot_spaghetti(
         alpha=1.0,
     )
 
-    lat_min, lat_max = min(lat_min, true_track["lat"].min()), max(
-        lat_max, true_track["lat"].max()
-    )
-    lon_min, lon_max = min(lon_min, true_track["lon"].min()), max(
-        lon_max, true_track["lon"].max()
-    )
-
     lat_min, lat_max, lon_min, lon_max = add_some_gap(
         lat_min, lat_max, lon_min, lon_max
     )
@@ -227,16 +226,17 @@ def plot_spaghetti(
     if out_dir:
         fig.savefig(os.path.join(out_dir, f"{case}_tracks.png"))
 
-    return
-
 
 def normalised_intensities(
-    track: pd.DataFrame, tru_track: pd.DataFrame, var: str
+    track: pd.DataFrame,
+    tru_track: pd.DataFrame,
+    var: str,
+    p_ref: float = _DEFAULT_P_REF_PA,
 ) -> pd.DataFrame:
     """Normalise a track variable relative to the reference track.
 
     For pressure (``msl``), the normalisation is
-    ``(pred - ref) / (101325 - ref)``.  For other variables it is
+    ``(pred - ref) / (p_ref - ref)``.  For other variables it is
     ``(pred - ref) / ref``.
 
     Parameters
@@ -247,6 +247,9 @@ def normalised_intensities(
         Reference track.
     var : str
         Variable name to normalise.
+    p_ref : float, optional
+        Reference pressure (Pa) used for the ``msl`` normalisation, by
+        default 101 325 Pa.
 
     Returns
     -------
@@ -257,7 +260,7 @@ def normalised_intensities(
 
     if var == "msl":
         merged_track[var] = (merged_track[var] - merged_track[var + "_tru"]) / (
-            101325 - merged_track[var + "_tru"]
+            p_ref - merged_track[var + "_tru"]
         )
     else:
         merged_track[var] = (
@@ -273,8 +276,9 @@ def plot_relative_over_time(
     ensemble_mean: dict[str, Any],
     case: str,
     n_members: int,
-    ics: Any = None,
+    ics: np.datetime64 | list[np.datetime64] | None = None,
     out_dir: str | None = None,
+    time_step: np.timedelta64 = _DEFAULT_TIME_STEP,
 ) -> None:
     """Plot normalised intensity deviations from the reference track over time.
 
@@ -290,10 +294,12 @@ def plot_relative_over_time(
         Storm identifier for the plot title.
     n_members : int
         Total number of ensemble members.
-    ics : optional
+    ics : np.datetime64 | list[np.datetime64] | None, optional
         If provided, only plot members whose ``"ic"`` is in *ics*.
-    out_dir : str or None, optional
+    out_dir : str | None, optional
         If provided, the figure is saved here.
+    time_step : np.timedelta64, optional
+        Model time step, by default 6 h.
     """
     fig, _ax = plt.subplots(2, 1, figsize=(11, 11), sharex=True)
     fig.suptitle(
@@ -301,48 +307,56 @@ def plot_relative_over_time(
         fontsize=16,
     )
 
-    vars = ["msl", "wind_speed"]
-    labels = ["(msl - msl_ref)/(101325Pa - msl_ref)", "max_wind/max_wind_ref - 1"]
+    variables = ["msl", "wind_speed"]
+    labels = [
+        "(msl - msl_ref)/(101325Pa - msl_ref)",
+        "max_wind/max_wind_ref - 1",
+    ]
 
-    ic, end = pred_tracks[0]["ic"], tru_track["time"].max()
-    rel_steps = int(((end - ic) / np.timedelta64(6, "h") + 1) * 0.75)
+    rel_steps = int(
+        ((tru_track["time"].max() - pred_tracks[0]["ic"]) / time_step + 1) * 0.75
+    )
 
     for ii in range(_ax.shape[0]):
-        vmin, vmax = 1000, -1000
+        ax = _ax[ii]
+        # ``+inf``/``-inf`` are the natural identity values for a running
+        # min/max and survive an empty inner loop without flipping the axis.
+        vmin, vmax = float("inf"), float("-inf")
         for _track in pred_tracks:
-
             track = _track["tracks"]
             if ics is not None and _track["ic"] not in ics:
                 continue
 
-            track = normalised_intensities(track, tru_track, vars[ii])
+            track = normalised_intensities(track, tru_track, variables[ii])
 
-            vmin, vmax = min(vmin, track[vars[ii]][:rel_steps].min()), max(
-                vmax, track[vars[ii]][:rel_steps].max()
-            )
+            vmin = min(vmin, track[variables[ii]][:rel_steps].min())
+            vmax = max(vmax, track[variables[ii]][:rel_steps].max())
 
-            ax = _ax[ii]
-            ax.plot(track["time"], track[vars[ii]], color="black", alpha=0.1)
+            ax.plot(track["time"], track[variables[ii]], color="black", alpha=0.1)
 
-        _ax[ii].set_ylabel(labels[ii])
-        _ax[ii].grid(True)
-        _ax[ii].set_ylim(vmin, vmax)
+        ax.set_ylabel(labels[ii])
+        ax.grid(True)
+        if np.isfinite(vmin) and np.isfinite(vmax):
+            ax.set_ylim(vmin, vmax)
 
         ax.plot(
             tru_track["time"],
-            [0 for _ in range(len(tru_track))],
+            np.zeros(len(tru_track)),
             color="orangered",
             linewidth=2.5,
             label="era5 comparison",
         )
 
         mean = pd.DataFrame(
-            {"time": ensemble_mean["time"], vars[ii]: ensemble_mean["mean"][vars[ii]]}
+            {
+                "time": ensemble_mean["time"],
+                variables[ii]: ensemble_mean["mean"][variables[ii]],
+            }
         )
-        _track = normalised_intensities(mean, tru_track, vars[ii])
+        _track = normalised_intensities(mean, tru_track, variables[ii])
         ax.plot(
             _track["time"],
-            _track[vars[ii]],
+            _track[variables[ii]],
             color="lime",
             linewidth=2.5,
             label="ensemble mean",
@@ -354,14 +368,12 @@ def plot_relative_over_time(
     _ax[-1].set_xlabel("time [UTC]")
 
     plt.xlim(
-        pred_tracks[0]["ic"] - np.timedelta64(6, "h"),
-        tru_track["time"].max() + np.timedelta64(6, "h"),
+        pred_tracks[0]["ic"] - time_step,
+        tru_track["time"].max() + time_step,
     )
 
     if out_dir:
         plt.savefig(os.path.join(out_dir, f"{case}_rel_intensities.png"))
-
-    return
 
 
 def plot_over_time(
@@ -370,10 +382,11 @@ def plot_over_time(
     ensemble_mean: dict[str, Any],
     case: str,
     n_members: int,
-    vars: list[str] = ["msl", "wind_speed", "dist"],
+    variables: list[str] | None = None,
     labels: list[str] | None = None,
-    ics: Any = None,
+    ics: np.datetime64 | list[np.datetime64] | None = None,
     out_dir: str | None = None,
+    time_step: np.timedelta64 = _DEFAULT_TIME_STEP,
 ) -> None:
     """Plot absolute intensity and distance time series for all ensemble members.
 
@@ -389,33 +402,38 @@ def plot_over_time(
         Storm identifier for the plot title.
     n_members : int
         Total number of ensemble members.
-    vars : list[str]
-        Variables to plot (one subplot each).
-    labels : list[str] or None, optional
-        Y-axis labels corresponding to *vars*.  Auto-derived from
+    variables : list[str] | None, optional
+        Variables to plot (one subplot each), by default
+        ``["msl", "wind_speed", "dist"]``
+    labels : list[str] | None, optional
+        Y-axis labels corresponding to *variables*.  Auto-derived from
         :func:`_var_display_info` when *None*.
-    ics : optional
+    ics : np.datetime64 | list[np.datetime64] | None, optional
         If provided, only plot members whose ``"ic"`` is in *ics*.
-    out_dir : str or None, optional
+    out_dir : str | None, optional
         If provided, the figure is saved here.
+    time_step : np.timedelta64, optional
+        Model time step, by default 6 h.
     """
+    if variables is None:
+        variables = ["msl", "wind_speed", "dist"]
     if labels is None:
         labels = [
-            f"{_var_display_info(v)[0]} [{_var_display_info(v)[1]}]" for v in vars
+            f"{_var_display_info(v)[0]} [{_var_display_info(v)[1]}]" for v in variables
         ]
 
-    fig, _ax = plt.subplots(len(vars), 1, figsize=(11, 15), sharex=True)
+    fig, _ax = plt.subplots(len(variables), 1, figsize=(11, 15), sharex=True)
     fig.suptitle(
         _make_suptitle(case, pred_tracks[0]["ic"], len(pred_tracks), n_members),
         fontsize=16,
     )
 
-    t_min, t_max = np.datetime64("2120-05-16 12:00:00"), np.datetime64(
-        "1820-05-16 12:00:00"
-    )
+    # Seed from the first predicted track and widen as the loop progresses.
+    first_times = pred_tracks[0]["tracks"]["time"]
+    t_min, t_max = first_times.min(), first_times.max()
 
     for ii in range(_ax.shape[0]):
-        _, _, scale = _var_display_info(vars[ii])
+        _, _, scale = _var_display_info(variables[ii])
 
         for _track in pred_tracks:
             track = _track["tracks"]
@@ -423,20 +441,20 @@ def plot_over_time(
                 continue
 
             _ax[ii].plot(
-                track["time"], track[vars[ii]] / scale, color="black", alpha=0.1
+                track["time"], track[variables[ii]] / scale, color="black", alpha=0.1
             )
 
             t_min, t_max = min(t_min, track["time"].min()), max(
                 t_max, track["time"].max()
             )
 
-        _ax[ii].set_xlim(t_min - np.timedelta64(6, "h"), t_max + np.timedelta64(6, "h"))
+        _ax[ii].set_xlim(t_min - time_step, t_max + time_step)
         _ax[ii].set_ylabel(labels[ii])
         _ax[ii].grid(True)
 
         _ax[ii].plot(
             tru_track["time"],
-            tru_track[vars[ii]] / scale,
+            tru_track[variables[ii]] / scale,
             color="orangered",
             linewidth=2.5,
             label="era5 comparison",
@@ -444,7 +462,7 @@ def plot_over_time(
 
         _ax[ii].plot(
             ensemble_mean["time"],
-            ensemble_mean["mean"][vars[ii]] / scale,
+            ensemble_mean["mean"][variables[ii]] / scale,
             color="lime",
             linewidth=2.5,
             label="ensemble mean",
@@ -457,14 +475,13 @@ def plot_over_time(
     if out_dir:
         plt.savefig(os.path.join(out_dir, f"{case}_abs_intensities.png"))
 
-    return
-
 
 def plot_ib_era5(
     tru_track: pd.DataFrame,
     case: str,
-    vars: list[str] = ["msl", "wind_speed"],
+    variables: list[str] | None = None,
     out_dir: str | None = None,
+    p_ref: float = _DEFAULT_P_REF_PA,
 ) -> None:
     """Plot ERA5-vs-IBTrACS intensity ratios on twin y-axes.
 
@@ -474,11 +491,18 @@ def plot_ib_era5(
         Reference track containing both ERA5 and IBTrACS columns.
     case : str
         Storm identifier for the plot title.
-    vars : list[str]
-        Variables to compare (``"msl"`` and/or ``"wind_speed"``).
-    out_dir : str or None, optional
+    variables : list[str] | None, optional
+        Variables to compare (``"msl"`` and/or ``"wind_speed"``), by
+        default ``["msl", "wind_speed"]``
+    out_dir : str | None, optional
         If provided, the figure is saved here.
+    p_ref : float, optional
+        Reference pressure (Pa) used for the ``msl`` ratio, by default
+        101 325 Pa.
     """
+    if variables is None:
+        variables = ["msl", "wind_speed"]
+
     plt.close("all")
 
     fig, ax1 = plt.subplots(1, 1, figsize=(8, 5))
@@ -486,16 +510,15 @@ def plot_ib_era5(
 
     ax2 = ax1.twinx()
 
-    if "msl" in vars:
-        p_norm = 101325
+    if "msl" in variables:
         ax1.plot(
             tru_track["time"],
-            (p_norm - tru_track["msl"]) / (p_norm - tru_track["msl_ib"]),
+            (p_ref - tru_track["msl"]) / (p_ref - tru_track["msl_ib"]),
             "black",
         )
-        ax1.set_ylabel("(1013hPa-msl_era5)/(1013hPa-msl_ib)", color="black")
+        ax1.set_ylabel("(1013.25hPa-msl_era5)/(1013.25hPa-msl_ib)", color="black")
 
-    if "wind_speed" in vars:
+    if "wind_speed" in variables:
         ax2.plot(
             tru_track["time"],
             tru_track["wind_speed"] / tru_track["wind_speed_ib"],
@@ -506,8 +529,6 @@ def plot_ib_era5(
     fig.tight_layout()
     if out_dir:
         plt.savefig(os.path.join(out_dir, f"{case}_ib_era5_wind_speed.png"))
-
-    return
 
 
 def root_metrics(
@@ -538,12 +559,13 @@ def root_metrics(
 def plot_errors_over_lead_time(
     err_dict: dict[str, dict[str, np.ndarray]],
     case: str,
-    ic: Any,
+    ic: np.datetime64,
     n_members: int,
     n_tracks: int,
     norm_dict: dict[str, float] | None = None,
     unit_dict: dict[str, str] | None = None,
     out_dir: str | None = None,
+    time_step: np.timedelta64 = _DEFAULT_TIME_STEP,
 ) -> None:
     """Plot error metrics (RMSE, MAE, standard deviation) as a function of lead time.
 
@@ -553,19 +575,21 @@ def plot_errors_over_lead_time(
         Per-variable error metrics.
     case : str
         Storm identifier for the plot title.
-    ic : Any
+    ic : np.datetime64
         Initial condition timestamp.
     n_members : int
         Total number of ensemble members.
     n_tracks : int
         Number of matched tracks.
-    norm_dict : dict[str, float] or None, optional
+    norm_dict : dict[str, float] | None, optional
         Normalisation divisors for display units.  Auto-derived from
         :func:`_var_display_info` when *None*.
-    unit_dict : dict[str, str] or None, optional
+    unit_dict : dict[str, str] | None, optional
         Display unit strings.  Auto-derived when *None*.
-    out_dir : str or None, optional
+    out_dir : str | None, optional
         If provided, the figure is saved here.
+    time_step : np.timedelta64, optional
+        Model time step used for the lead-time axis, by default 6 h.
     """
     if "mse" in err_dict[list(err_dict.keys())[0]].keys():
         err_dict = root_metrics(err_dict)
@@ -575,23 +599,19 @@ def plot_errors_over_lead_time(
     if unit_dict is None:
         unit_dict = {v: _var_display_info(v)[1] for v in err_dict}
 
-    vars = list(err_dict.keys())
-    metrics = list(err_dict[vars[0]].keys())
+    variables = list(err_dict.keys())
+    metrics = list(err_dict[variables[0]].keys())
 
     for extreme in ["min", "max"]:
         if extreme in metrics:
             metrics.remove(extreme)
 
-    print(metrics)
-
-    lead_time = np.arange(err_dict[vars[0]][metrics[0]].shape[0]) * np.timedelta64(
-        6, "h"
-    )
+    lead_time = np.arange(err_dict[variables[0]][metrics[0]].shape[0]) * time_step
 
     fig, ax = plt.subplots(
-        len(vars),
+        len(variables),
         len(metrics),
-        figsize=((len(metrics) + 1) * 2, (len(vars) + 1) * 2),
+        figsize=((len(metrics) + 1) * 2, (len(variables) + 1) * 2),
         sharex=True,
     )
 
@@ -608,7 +628,7 @@ def plot_errors_over_lead_time(
                     f"{var} [{unit_dict[var]}]", fontsize=12, weight="bold"
                 )
 
-            if ivar == len(vars) - 1:
+            if ivar == len(variables) - 1:
                 ax[ivar, imet].set_xlabel("lead time [h]", fontsize=12)
 
     fig.suptitle(_make_suptitle(case, ic, n_tracks, n_members), fontsize=16)
@@ -617,14 +637,12 @@ def plot_errors_over_lead_time(
     if out_dir:
         plt.savefig(os.path.join(out_dir, f"{case}_error_metrics_over_lead_time.png"))
 
-    return
-
 
 def extract_reference_extremes(
     tru_track: pd.DataFrame,
     pred_tracks: list[dict[str, Any]],
     ens_mean: dict[str, Any],
-    vars: list[str],
+    variables: list[str],
 ) -> dict[str, dict[str, Any]]:
     """Extract per-member extreme values and the corresponding reference extremes.
 
@@ -636,7 +654,7 @@ def extract_reference_extremes(
         Matched prediction dicts.
     ens_mean : dict[str, Any]
         Ensemble statistics dict.
-    vars : list[str]
+    variables : list[str]
         Variables to extract extremes for.
 
     Returns
@@ -646,7 +664,7 @@ def extract_reference_extremes(
         and ``"ens_mean"`` (scalar).
     """
     extreme_dict: dict[str, dict[str, Any]] = {}
-    for var in vars:
+    for var in variables:
         if var in ["wind_speed"]:
             reduce_fn = np.nanmax
         elif var in ["msl"]:
@@ -690,15 +708,22 @@ def add_stats_box(
     unit : str
         Display unit string.
     """
-    n_exceed_spd = len(pred_var[pred_var > tru_var])
+    # For wind speed, "more intense" means larger values; for msl it means
+    # smaller values.  Pick the comparator that actually counts members that
+    # are *more intense* than the reference.
+    if var == "wind_speed":
+        n_beyond_ref = int((pred_var > tru_var).sum())
+        comp = "exceeding"
+    else:
+        n_beyond_ref = int((pred_var < tru_var).sum())
+        comp = "below"
     n_total = len(pred_var)
 
-    comp = "exceeding" if var in ["wind_speed"] else "below"
     stats = [
         ("era5 reference:", f"{tru_var:.1f} {unit}"),
         (
             f"members {comp} ref:",
-            f"{n_exceed_spd} of {n_total} ({(n_exceed_spd/n_total)*100:.1f}%)",
+            f"{n_beyond_ref} of {n_total} ({(n_beyond_ref/n_total)*100:.1f}%)",
         ),
         (f"max {reduction} {var}:", f"{pred_var.max():.1f} {unit}"),
         (f"min {reduction} {var}:", f"{pred_var.min():.1f} {unit}"),
@@ -720,15 +745,13 @@ def add_stats_box(
         fontfamily="monospace",
     )
 
-    return
-
 
 def plot_extreme_extremes_histograms(
     pred_tracks: list[dict[str, Any]],
     tru_track: pd.DataFrame,
     ensemble_mean: dict[str, Any],
     case: str,
-    vars: list[str] = ["wind_speed", "msl"],
+    variables: list[str] | None = None,
     out_dir: str | None = None,
     nbins: int = 12,
 ) -> None:
@@ -744,25 +767,31 @@ def plot_extreme_extremes_histograms(
         Ensemble statistics dict.
     case : str
         Storm identifier for the plot title.
-    vars : list[str]
-        Variables to plot (one subplot each).
-    out_dir : str or None, optional
+    variables : list[str] | None, optional
+        Variables to plot (one subplot each), by default
+        ``["wind_speed", "msl"]``
+    out_dir : str | None, optional
         If provided, the figure is saved here.
     nbins : int, optional
-        Number of histogram bins.
+        Number of histogram bins, by default 12
     """
+    if variables is None:
+        variables = ["wind_speed", "msl"]
+
     extreme_dict = extract_reference_extremes(
-        tru_track, pred_tracks, ensemble_mean, vars
+        tru_track, pred_tracks, ensemble_mean, variables
     )
 
-    fig, ax = plt.subplots(1, len(vars), figsize=(3 * (len(vars) + 1), 6), sharey=True)
+    fig, ax = plt.subplots(
+        1, len(variables), figsize=(3 * (len(variables) + 1), 6), sharey=True
+    )
     fig.suptitle(
         _make_suptitle(case, pred_tracks[0]["ic"]),
         fontsize=16,
     )
     ax[0].set_ylabel("count")
 
-    for ii, var in enumerate(vars):
+    for ii, var in enumerate(variables):
 
         reduction = "max" if var in ["wind_speed"] else "min"
         _, unit, scale = _var_display_info(var)
@@ -786,5 +815,3 @@ def plot_extreme_extremes_histograms(
     fig.tight_layout()
     if out_dir:
         fig.savefig(os.path.join(out_dir, f"{case}_histograms.png"))
-
-    plt.show()

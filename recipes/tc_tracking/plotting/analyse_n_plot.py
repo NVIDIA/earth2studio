@@ -6,7 +6,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,12 +36,15 @@ from plotting_helpers import (
 )
 from tqdm import tqdm
 
+_DEFAULT_TIME_STEP = np.timedelta64(6, "h")
+
 
 def load_tracks(
     case: str,
     pred_track_dir: str,
     tru_track_dir: str,
     out_dir: str | None,
+    time_step: np.timedelta64 = _DEFAULT_TIME_STEP,
 ) -> tuple[pd.DataFrame, list[dict[str, Any]], dict[str, Any], int, str | None]:
     """Load predicted and reference tracks for a named storm.
 
@@ -53,9 +56,11 @@ def load_tracks(
         Directory containing predicted track CSV files.
     tru_track_dir : str
         Directory containing the reference track CSV file.
-    out_dir : str or None
+    out_dir : str | None
         Base output directory for plots.  A case-specific sub-directory
         is created automatically.
+    time_step : np.timedelta64, optional
+        Model time step, by default 6 h.
 
     Returns
     -------
@@ -76,7 +81,9 @@ def load_tracks(
         out_dir = os.path.join(out_dir, case)
         os.makedirs(out_dir, exist_ok=True)
 
-    ens_mean = get_ensemble_averages(pred_tracks=pred_tracks, tru_track=tru_track)
+    ens_mean = get_ensemble_averages(
+        pred_tracks=pred_tracks, tru_track=tru_track, time_step=time_step
+    )
 
     return tru_track, pred_tracks, ens_mean, n_members, out_dir
 
@@ -86,19 +93,22 @@ def analyse_individual_storms(
     pred_track_dir: str,
     tru_track_dir: str,
     out_path: str | None,
+    time_step: np.timedelta64 = _DEFAULT_TIME_STEP,
 ) -> None:
     """Generate a full set of analysis plots for each storm individually.
 
     Parameters
     ----------
-    cases : str or list[str]
+    cases : str | list[str]
         Storm identifier(s).
     pred_track_dir : str
         Directory containing predicted track CSV files.
     tru_track_dir : str
         Directory containing reference track CSV files.
-    out_path : str or None
+    out_path : str | None
         Base output directory for plots.
+    time_step : np.timedelta64, optional
+        Model time step, by default 6 h.
     """
     if isinstance(cases, str):
         cases = [cases]
@@ -109,6 +119,7 @@ def analyse_individual_storms(
             pred_track_dir=pred_track_dir,
             tru_track_dir=tru_track_dir,
             out_dir=out_path,
+            time_step=time_step,
         )
 
         plot_spaghetti(
@@ -127,6 +138,7 @@ def analyse_individual_storms(
             case=case,
             n_members=n_members,
             out_dir=out_dir,
+            time_step=time_step,
         )
 
         plot_relative_over_time(
@@ -136,10 +148,14 @@ def analyse_individual_storms(
             case=case,
             n_members=n_members,
             out_dir=out_dir,
+            time_step=time_step,
         )
 
         plot_ib_era5(
-            tru_track=tru_track, case=case, vars=["msl", "wind_speed"], out_dir=out_dir
+            tru_track=tru_track,
+            case=case,
+            variables=["msl", "wind_speed"],
+            out_dir=out_dir,
         )
 
         plot_extreme_extremes_histograms(
@@ -153,7 +169,7 @@ def analyse_individual_storms(
         err_dict, _ = compute_averages_of_errors_over_lead_time(
             pred_tracks=pred_tracks,
             tru_track=tru_track,
-            vars=["wind_speed", "msl", "dist"],
+            variables=["wind_speed", "msl", "dist"],
         )
 
         plot_errors_over_lead_time(
@@ -163,9 +179,8 @@ def analyse_individual_storms(
             n_members=n_members,
             n_tracks=len(pred_tracks),
             out_dir=out_dir,
+            time_step=time_step,
         )
-
-    return
 
 
 def stack_metrics(err_dict: dict[str, dict[str, np.ndarray]]) -> np.ndarray:
@@ -190,20 +205,24 @@ def stack_metrics(err_dict: dict[str, dict[str, np.ndarray]]) -> np.ndarray:
 
 
 def stack_cases(storm_metrics: dict[str, Any], max_len: int) -> dict[str, Any]:
-    """Pad per-storm metric arrays to *max_len* and stack into a 4-D array.
+    """Pad per-storm metric and weight arrays to *max_len* and stack them.
 
     Parameters
     ----------
     storm_metrics : dict[str, Any]
-        Accumulator with ``"data"`` holding a list of 3-D arrays.
+        Accumulator with ``"data"`` (list of 3-D arrays) and ``"weights"``
+        (list of 1-D arrays).
     max_len : int
-        Target lead-time dimension (shorter storms are NaN-padded).
+        Target lead-time dimension (shorter storms are NaN-padded for
+        ``"data"`` and zero-padded for ``"weights"``).
 
     Returns
     -------
     dict[str, Any]
         Updated *storm_metrics* with ``"data"`` as a 4-D ``np.ndarray``
-        of shape ``(n_cases, n_vars, n_metrics, max_len)``.
+        of shape ``(n_cases, n_vars, n_metrics, max_len)`` and
+        ``"weights"`` as a 2-D ``np.ndarray`` of shape
+        ``(n_cases, max_len)``.
     """
     for ii in range(len(storm_metrics["case"])):
         storm_metrics["data"][ii] = np.pad(
@@ -216,48 +235,15 @@ def stack_cases(storm_metrics: dict[str, Any], max_len: int) -> dict[str, Any]:
             mode="constant",
             constant_values=np.nan,
         )
-
-    storm_metrics["data"] = np.stack(storm_metrics["data"], axis=0)
-
-    should_shape = (
-        len(storm_metrics["case"]),
-        len(storm_metrics["var"]),
-        len(storm_metrics["metric"]),
-        max_len,
-    )
-    if storm_metrics["data"].shape != should_shape:
-        raise ValueError(
-            f"shapes not matching when stacking cases: "
-            f'{storm_metrics["data"].shape=} {should_shape=}'
+        storm_metrics["weights"][ii] = np.pad(
+            storm_metrics["weights"][ii],
+            pad_width=(0, max_len - storm_metrics["weights"][ii].shape[-1]),
+            mode="constant",
+            constant_values=0,
         )
 
-    return storm_metrics
-
-
-def extract_weights(storm_metrics: dict[str, Any], max_len: int) -> dict[str, Any]:
-    """Extract ensemble member counts from the metric array into a separate ``weights`` key.
-
-    Parameters
-    ----------
-    storm_metrics : dict[str, Any]
-        Must contain a ``"n_members"`` entry in the ``"metric"`` list.
-    max_len : int
-        Lead-time dimension length (used for shape assertion).
-
-    Returns
-    -------
-    dict[str, Any]
-        Updated *storm_metrics* with ``"weights"`` added and
-        ``"n_members"`` removed from the metric axis.
-    """
-    ens_idx = storm_metrics["metric"].index("n_members")
-    weights = storm_metrics["data"][:, 0, ens_idx, :]
-    weights = np.nan_to_num(weights, nan=0).astype(int)
-
-    storm_metrics["metric"].remove("n_members")
-    storm_metrics["data"] = np.delete(storm_metrics["data"], ens_idx, axis=-2)
-
-    storm_metrics["weights"] = weights
+    storm_metrics["data"] = np.stack(storm_metrics["data"], axis=0)
+    storm_metrics["weights"] = np.stack(storm_metrics["weights"], axis=0).astype(int)
 
     should_shape = (
         len(storm_metrics["case"]),
@@ -279,7 +265,8 @@ def get_individual_storm_metrics(
     pred_track_dir: str,
     tru_track_dir: str,
     out_path: str | None,
-    vars: list[str] = ["wind_speed", "msl", "dist"],
+    variables: list[str] | None = None,
+    time_step: np.timedelta64 = _DEFAULT_TIME_STEP,
 ) -> tuple[dict[str, Any], int, dict[str, Any], dict[str, Any]]:
     """Compute per-storm error metrics and collect ensemble averages and extremes.
 
@@ -291,55 +278,69 @@ def get_individual_storm_metrics(
         Directory containing predicted track CSV files.
     tru_track_dir : str
         Directory containing reference track CSV files.
-    out_path : str or None
+    out_path : str | None
         Base output directory for plots.
-    vars : list[str]
-        Variable names to evaluate.
+    variables : list[str] | None, optional
+        Variable names to evaluate, by default
+        ``["wind_speed", "msl", "dist"]``
+    time_step : np.timedelta64, optional
+        Model time step used for the lead-time axis, by default 6 h.
 
     Returns
     -------
     tuple[dict[str, Any], int, dict[str, Any], dict[str, Any]]
         ``(storm_metrics, max_len, ensemble_averages, extremes)``
     """
+    if variables is None:
+        variables = ["wind_speed", "msl", "dist"]
+
     storm_metrics: dict[str, Any] = {
         "case": [],
         "var": None,
         "metric": None,
         "lead time": None,
         "data": [],
+        "weights": [],
     }
     max_len: int = 0
     ensemble_averages: dict[str, Any] = {}
     extremes: dict[str, Any] = {}
     for case in tqdm(cases, desc="loading storm data"):
-        tru_track, pred_tracks, ens_mean, n_members, out_dir = load_tracks(
+        tru_track, pred_tracks, ens_mean, _n_members, _out_dir = load_tracks(
             case=case,
             pred_track_dir=pred_track_dir,
             tru_track_dir=tru_track_dir,
             out_dir=out_path,
+            time_step=time_step,
         )
         ensemble_averages[case] = ens_mean
 
         err_dict, _max_len = compute_averages_of_errors_over_lead_time(
-            pred_tracks=pred_tracks, tru_track=tru_track, vars=vars
+            pred_tracks=pred_tracks, tru_track=tru_track, variables=variables
         )
 
+        # Strip per-storm extremes and ensemble-member counts from the metric
+        # axis so only the real error metrics remain.  ``n_members`` is the
+        # same array for every variable, so we read it once per storm.
         extremes[case] = {}
-        for var in vars:
+        storm_weights: np.ndarray | None = None
+        for var in variables:
             extremes[case][var] = {}
             for ext, npfun in zip(["min", "max"], [np.nanmin, np.nanmax]):
                 extremes[case][var][ext + "_pred"] = err_dict[var].pop(ext)
                 extremes[case][var][ext + "_tru"] = npfun(tru_track[var])
+            counts = err_dict[var].pop("n_members")
+            if storm_weights is None:
+                storm_weights = np.nan_to_num(counts, nan=0).astype(int)
 
         max_len = max(max_len, _max_len)
         storm_metrics["case"].append(case)
         storm_metrics["data"].append(stack_metrics(err_dict))
+        storm_metrics["weights"].append(storm_weights)
 
     storm_metrics["var"] = list(err_dict.keys())
-    storm_metrics["metric"] = list(
-        err_dict[list(err_dict.keys())[0]].keys()
-    )  # TODO remove n_members
-    storm_metrics["lead time"] = np.arange(max_len) * np.timedelta64(6, "h")
+    storm_metrics["metric"] = list(err_dict[list(err_dict.keys())[0]].keys())
+    storm_metrics["lead time"] = np.arange(max_len) * time_step
 
     return storm_metrics, max_len, ensemble_averages, extremes
 
@@ -380,6 +381,7 @@ def analyse_ensemble_of_storms(
     pred_track_dir: str,
     tru_track_dir: str,
     out_path: str | None,
+    time_step: np.timedelta64 = _DEFAULT_TIME_STEP,
 ) -> dict[str, Any]:
     """Compute and aggregate error metrics across multiple storms.
 
@@ -391,8 +393,10 @@ def analyse_ensemble_of_storms(
         Directory containing predicted track CSV files.
     tru_track_dir : str
         Directory containing reference track CSV files.
-    out_path : str or None
+    out_path : str | None
         Base output directory for plots.
+    time_step : np.timedelta64, optional
+        Model time step used for the lead-time axis, by default 6 h.
 
     Returns
     -------
@@ -400,12 +404,10 @@ def analyse_ensemble_of_storms(
         Ensemble-aggregated error metrics.
     """
     storm_metrics, max_len, _ens_means, _extremes = get_individual_storm_metrics(
-        cases, pred_track_dir, tru_track_dir, out_path
+        cases, pred_track_dir, tru_track_dir, out_path, time_step=time_step
     )
 
     storm_metrics = stack_cases(storm_metrics, max_len)
-
-    storm_metrics = extract_weights(storm_metrics, max_len)
 
     ensemble_metrics = reduce_over_all_storms(storm_metrics)
 
@@ -440,6 +442,7 @@ def analyse_n_plot_tracks() -> None:
     case_selection = [6, 13]
     individual_storms = False
     ensemble_of_storms = True
+    time_step = _DEFAULT_TIME_STEP
 
     pred_track_dir = "/path/to/predictions/cyclone_tracks_te"
     tru_track_dir = "/path/to/reference_tracks"
@@ -451,6 +454,7 @@ def analyse_n_plot_tracks() -> None:
             pred_track_dir=pred_track_dir,
             tru_track_dir=tru_track_dir,
             out_path=out_dir,
+            time_step=time_step,
         )
 
     if ensemble_of_storms:
@@ -459,9 +463,8 @@ def analyse_n_plot_tracks() -> None:
             pred_track_dir=pred_track_dir,
             tru_track_dir=tru_track_dir,
             out_path=out_dir,
+            time_step=time_step,
         )
-
-    return
 
 
 if __name__ == "__main__":

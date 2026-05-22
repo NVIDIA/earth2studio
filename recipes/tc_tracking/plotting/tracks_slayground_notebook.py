@@ -6,7 +6,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -51,6 +51,18 @@
 # - IBTrACS provides observed best track data; ERA5 represents the best
 #   achievable reference for reanalysis-driven forecasts
 #
+# ### Running the notebook
+# This script (and its sibling helpers) imports from `data_handling.py`,
+# `plotting_helpers.py` and `analyse_n_plot.py` using bare module names, so
+# the working directory must be `recipes/tc_tracking/plotting/`. From the
+# recipe root:
+#
+# ```bash
+# cd plotting
+# jupytext --to notebook tracks_slayground_notebook.py
+# jupyter notebook tracks_slayground.ipynb
+# ```
+#
 # ### Configuration
 # - `case` - named storm to analyse. Can be expanded with additional named
 #   storms by following the pattern `{name}_{YYYY}_{basin}`
@@ -61,9 +73,21 @@
 #   data produced with `cfg/extract_era5.yaml`, this would be
 #   `/path/to/outputs_reference_tracks/`)
 # - `out_dir` - path for storing plots
+# - `time_step` - cadence of the predictions; defaults to 6 h to match the
+#   stock FCN3 / AIFS-ENS configurations
 
 # %%
+import numpy as np
 from analyse_n_plot import load_tracks
+from data_handling import compute_averages_of_errors_over_lead_time
+from plotting_helpers import (
+    plot_errors_over_lead_time,
+    plot_extreme_extremes_histograms,
+    plot_ib_era5,
+    plot_over_time,
+    plot_relative_over_time,
+    plot_spaghetti,
+)
 
 # case = 'amphan_2020_north_indian'
 # case = 'beryl_2024_north_atlantic'
@@ -89,12 +113,14 @@ case = "hato_2017_west_pacific"
 pred_track_dir = "/path/to/outputs_hato/cyclone_tracks_te"
 tru_track_dir = "/path/to/outputs_reference_tracks"
 out_dir = "./plots"
+time_step = np.timedelta64(6, "h")
 
 tru_track, pred_tracks, ens_mean, n_members, out_dir = load_tracks(
     case=case,
     pred_track_dir=pred_track_dir,
     tru_track_dir=tru_track_dir,
     out_dir=out_dir,
+    time_step=time_step,
 )
 
 # %% [markdown]
@@ -105,8 +131,6 @@ tru_track, pred_tracks, ens_mean, n_members, out_dir = load_tracks(
 # - **ERA5 reference** is shown in red
 
 # %%
-from plotting_helpers import plot_spaghetti
-
 plot_spaghetti(
     true_track=tru_track,
     pred_tracks=pred_tracks,
@@ -129,8 +153,6 @@ plot_spaghetti(
 # model limitations in resolving fine-scale processes.
 
 # %%
-from plotting_helpers import plot_over_time
-
 plot_over_time(
     pred_tracks=pred_tracks,
     tru_track=tru_track,
@@ -138,6 +160,7 @@ plot_over_time(
     case=case,
     n_members=n_members,
     out_dir=out_dir,
+    time_step=time_step,
 )
 
 # %% [markdown]
@@ -151,8 +174,6 @@ plot_over_time(
 # to observations.
 
 # %%
-from plotting_helpers import plot_relative_over_time
-
 plot_relative_over_time(
     pred_tracks=pred_tracks,
     tru_track=tru_track,
@@ -160,6 +181,7 @@ plot_relative_over_time(
     case=case,
     n_members=n_members,
     out_dir=out_dir,
+    time_step=time_step,
 )
 
 # %% [markdown]
@@ -172,12 +194,10 @@ plot_relative_over_time(
 # (pressure and wind speed).
 
 # %%
-from plotting_helpers import plot_ib_era5
-
 plot_ib_era5(
     tru_track=tru_track,
     case=case,
-    vars=["msl", "wind_speed"],
+    variables=["msl", "wind_speed"],
     out_dir=out_dir,
 )
 
@@ -190,8 +210,6 @@ plot_ib_era5(
 # reference track are shown as vertical lines.
 
 # %%
-from plotting_helpers import plot_extreme_extremes_histograms
-
 plot_extreme_extremes_histograms(
     pred_tracks=pred_tracks,
     tru_track=tru_track,
@@ -209,15 +227,12 @@ plot_extreme_extremes_histograms(
 # pressure intensity, and track distance.
 
 # %%
-from data_handling import compute_averages_of_errors_over_lead_time
-from plotting_helpers import plot_errors_over_lead_time
-
-vars = ["wind_speed", "msl", "dist"]
+variables = ["wind_speed", "msl", "dist"]
 
 err_dict, _ = compute_averages_of_errors_over_lead_time(
     pred_tracks=pred_tracks,
     tru_track=tru_track,
-    vars=vars,
+    variables=variables,
 )
 
 plot_errors_over_lead_time(
@@ -227,4 +242,5 @@ plot_errors_over_lead_time(
     n_members=n_members,
     n_tracks=len(pred_tracks),
     out_dir=out_dir,
+    time_step=time_step,
 )

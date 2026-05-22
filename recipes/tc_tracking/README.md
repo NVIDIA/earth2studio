@@ -569,19 +569,36 @@ and a warning is logged.
 
 ## 3. Visualisation
 
-Two Jupyter notebooks are provided in `./plotting` for
-analysing and visualising tropical cyclone tracking results:
+Two [JupyText](https://jupytext.readthedocs.io/) notebook scripts are
+provided in `./plotting` for analysing and visualising tropical cyclone
+tracking results:
 
-- **`tracks_slayground.ipynb`**: Ensemble track analysis
+- **`tracks_slayground_notebook.py`**: Ensemble track analysis
   including spaghetti plots (trajectory visualisation),
   absolute and relative intensity metrics (wind speed,
   MSLP), comparisons against ERA5 reference tracks and
   IBTrACS observations, extreme value statistics, and
   error moment analysis over lead time.
 
-- **`plot_tracks_n_fields.ipynb`**: Create animated
+- **`plot_tracks_n_fields_notebook.py`**: Create animated
   visualisations of storm tracks overlaid on atmospheric
   field data.
+
+Both scripts can be run as plain Python files or converted to Jupyter
+notebooks via JupyText. From the recipe root:
+
+```bash
+cd plotting
+jupytext --to notebook tracks_slayground_notebook.py
+jupytext --to notebook plot_tracks_n_fields_notebook.py
+jupyter notebook tracks_slayground.ipynb
+```
+
+`./plotting/` must be the working directory because the notebooks import
+their helpers (`analyse_n_plot`, `plotting_helpers`, `data_handling`) by
+bare module name. See `./plotting/README.md` for the full layout, including
+the `analyse_n_plot.py` batch entry point for running the analysis across
+many storms at once.
 
 ## 4. TempestExtremes Integration
 

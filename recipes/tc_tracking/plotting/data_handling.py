@@ -6,7 +6,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,47 +15,25 @@
 # limitations under the License.
 
 import glob
+import os
+import sys
 from typing import Any
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 
+# Make ``src/`` importable when the plotting modules are run from
+# ``recipes/tc_tracking/plotting/`` (the conventional working directory for
+# the notebooks).  Mirrors how ``tc_hunt.py`` exposes ``src`` to the rest of
+# the recipe.
+_RECIPE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _RECIPE_ROOT not in sys.path:
+    sys.path.insert(0, _RECIPE_ROOT)
 
-def great_circle_distance(
-    lat1: float | np.ndarray,
-    lon1: float | np.ndarray,
-    lat2: float | np.ndarray,
-    lon2: float | np.ndarray,
-    radius: float = 6371000,
-) -> float | np.ndarray:
-    """Compute the great-circle distance between two points using the Haversine formula.
+from src.tc_hunt_utils import EARTH_RADIUS_M, great_circle_distance  # noqa: E402
 
-    Parameters
-    ----------
-    lat1 : float or np.ndarray
-        Latitude(s) of the first point in degrees.
-    lon1 : float or np.ndarray
-        Longitude(s) of the first point in degrees.
-    lat2 : float or np.ndarray
-        Latitude(s) of the second point in degrees.
-    lon2 : float or np.ndarray
-        Longitude(s) of the second point in degrees.
-    radius : float, optional
-        Sphere radius in metres.  Defaults to Earth's mean radius (6 371 km).
-
-    Returns
-    -------
-    float or np.ndarray
-        Distance(s) in metres.
-    """
-    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-
-    aa = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
-    cc = 2 * np.arctan2(np.sqrt(aa), np.sqrt(1 - aa))
-
-    return radius * cc
+_DEFAULT_TIME_STEP = np.timedelta64(6, "h")
 
 
 def merge_tracks_by_time(track: pd.DataFrame, tru_track: pd.DataFrame) -> pd.DataFrame:
@@ -119,12 +97,14 @@ def add_track_distance(track: pd.DataFrame, tru_track: pd.DataFrame) -> pd.DataF
 
 
 def match_tracks(
-    pred_tracks: list[dict[str, Any]], true_track: pd.DataFrame
+    pred_tracks: list[dict[str, Any]],
+    true_track: pd.DataFrame,
+    max_dist: float = 300000,
 ) -> list[dict[str, Any]]:
     """Match predicted tracks to a reference track by proximity at first overlap.
 
     A predicted track is considered a match if its first position is within
-    300 km of the reference track at the same time step.
+    ``max_dist`` metres of the reference track at the same time step.
 
     Parameters
     ----------
@@ -134,6 +114,10 @@ def match_tracks(
     true_track : pd.DataFrame
         Reference track with ``lat_ib`` and ``lon_ib`` columns for
         IBTrACS positions.
+    max_dist : float, optional
+        Maximum great-circle distance (in metres) between the first
+        predicted position and the reference position to count as a
+        match, by default 300000 (300 km).
 
     Returns
     -------
@@ -142,7 +126,7 @@ def match_tracks(
         ``"initial_dist"``, and a ``dist`` column on the track DataFrame.
     """
     matched_tracks: list[dict[str, Any]] = []
-    min_dist, max_dist = 25371000.0, -1.0
+    min_seen, max_seen = float("inf"), float("-inf")
 
     for _pred_track_dict in pred_tracks:
         _pred_tracks = _pred_track_dict["tracks"]
@@ -167,8 +151,8 @@ def match_tracks(
             lon_true = ref_row["lon_ib"].item()
             dist = great_circle_distance(lat_pred, lon_pred, lat_true, lon_true)
 
-            if dist <= 300000:
-                min_dist, max_dist = min(min_dist, dist), max(max_dist, dist)
+            if dist <= max_dist:
+                min_seen, max_seen = min(min_seen, dist), max(max_seen, dist)
 
                 track = add_track_distance(track, true_track)
 
@@ -183,9 +167,14 @@ def match_tracks(
                 )
                 break
 
-    line = f"matched {len(matched_tracks)} out of {len(pred_tracks)} tracks, "
-    line += f"with distances ranging from {min_dist/1000:.1f} to {max_dist/1000:.1f} km"
-    print(line)
+    if matched_tracks:
+        logger.info(
+            f"matched {len(matched_tracks)} out of {len(pred_tracks)} tracks, "
+            f"with distances ranging from {min_seen/1000:.1f} to "
+            f"{max_seen/1000:.1f} km"
+        )
+    else:
+        logger.info(f"matched 0 out of {len(pred_tracks)} tracks")
 
     return matched_tracks
 
@@ -247,10 +236,13 @@ def extract_tracks(in_dir: str) -> list[dict[str, Any]]:
     return tracks
 
 
-def merge_tracks_by_lead_time(
+def merge_track_dict_by_time(
     track_dict: dict[str, Any], tru_track: pd.DataFrame
 ) -> pd.DataFrame:
-    """Left-join a predicted track onto a reference track and clip to the overlapping range.
+    """Left-join the track stored under ``track_dict["tracks"]`` onto a reference track.
+
+    Thin wrapper around :func:`merge_tracks_by_time` that accepts a
+    prediction dictionary rather than the inner DataFrame.
 
     Parameters
     ----------
@@ -262,16 +254,9 @@ def merge_tracks_by_lead_time(
     Returns
     -------
     pd.DataFrame
-        Merged frame clipped to the time range covered by both tracks.
+        Merged frame, clipped to the time range of *tru_track*.
     """
-    merged_track = merge_tracks_by_time(track_dict["tracks"], tru_track)
-
-    t_max = max(track_dict["tracks"]["time"].max(), tru_track["time"].max())
-    t_min = min(track_dict["tracks"]["time"].min(), tru_track["time"].min())
-    merged_track = merged_track[merged_track["time"] >= t_min]
-    merged_track = merged_track[merged_track["time"] <= t_max]
-
-    return merged_track
+    return merge_tracks_by_time(track_dict["tracks"], tru_track)
 
 
 def compute_mae(tru_vars: np.ndarray, pred_vars: np.ndarray) -> np.ndarray:
@@ -315,7 +300,7 @@ def remove_trailing_nans(merged_track: pd.DataFrame, var: str) -> pd.DataFrame:
 def rebase_by_lead_time(
     pred_tracks: list[dict[str, Any]],
     tru_track: pd.DataFrame,
-    vars: list[str],
+    variables: list[str],
 ) -> tuple[dict[str, dict[str, list]], int]:
     """Align predicted and true values by lead time for error computation.
 
@@ -325,7 +310,7 @@ def rebase_by_lead_time(
         Matched prediction dicts.
     tru_track : pd.DataFrame
         Reference track.
-    vars : list[str]
+    variables : list[str]
         Variable names to extract.
 
     Returns
@@ -335,12 +320,12 @@ def rebase_by_lead_time(
         and the maximum lead-time length across all tracks.
     """
     err_dict: dict[str, dict[str, list]] = {}
-    for var in vars:
+    for var in variables:
         err_dict[var] = {"pred": [], "tru": []}
 
     max_len = 0
     for track in pred_tracks:
-        merged_track = merge_tracks_by_lead_time(track, tru_track)
+        merged_track = merge_track_dict_by_time(track, tru_track)
         if merged_track is None:
             continue
 
@@ -411,7 +396,7 @@ def compute_error_metrics(
 def compute_averages_of_errors_over_lead_time(
     pred_tracks: list[dict[str, Any]],
     tru_track: pd.DataFrame,
-    vars: list[str],
+    variables: list[str],
 ) -> tuple[dict[str, dict[str, np.ndarray]], int]:
     """Compute error metrics averaged over ensemble members as a function of lead time.
 
@@ -421,7 +406,7 @@ def compute_averages_of_errors_over_lead_time(
         Matched prediction dicts.
     tru_track : pd.DataFrame
         Reference track.
-    vars : list[str]
+    variables : list[str]
         Variable names to evaluate.
 
     Returns
@@ -429,7 +414,7 @@ def compute_averages_of_errors_over_lead_time(
     tuple[dict[str, dict[str, np.ndarray]], int]
         Per-variable error metrics and the maximum lead-time length.
     """
-    err_dict, max_len = rebase_by_lead_time(pred_tracks, tru_track, vars)
+    err_dict, max_len = rebase_by_lead_time(pred_tracks, tru_track, variables)
 
     err_dict = compute_error_metrics(err_dict, max_len)
 
@@ -439,7 +424,7 @@ def compute_averages_of_errors_over_lead_time(
 def lat_lon_to_xyz(
     lat: float | np.ndarray,
     lon: float | np.ndarray,
-    radius: float = 6371000,
+    radius: float = EARTH_RADIUS_M,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Convert latitude/longitude to 3-D Cartesian coordinates.
 
@@ -450,7 +435,7 @@ def lat_lon_to_xyz(
     lon : float or np.ndarray
         Longitude(s) in degrees (range [0, 360)).
     radius : float, optional
-        Sphere radius in metres.  Defaults to Earth's mean radius (6 371 km).
+        Sphere radius in metres, by default ``EARTH_RADIUS_M`` (6 371 km).
 
     Returns
     -------
@@ -551,7 +536,8 @@ def cartesian_to_spherical_track(
 def get_ensemble_averages(
     pred_tracks: list[dict[str, Any]],
     tru_track: pd.DataFrame,
-    vars: list[str] = ["msl", "wind_speed", "x", "y", "z"],
+    variables: list[str] | None = None,
+    time_step: np.timedelta64 = _DEFAULT_TIME_STEP,
 ) -> dict[str, Any]:
     """Compute ensemble mean and variance on the sphere.
 
@@ -564,9 +550,12 @@ def get_ensemble_averages(
         Matched prediction dicts.
     tru_track : pd.DataFrame
         Reference track.
-    vars : list[str]
-        Variables to average (must include ``x``, ``y``, ``z`` for
-        the Cartesian round-trip).
+    variables : list[str] | None, optional
+        Variables to average (must include ``x``, ``y``, ``z`` for the
+        Cartesian round-trip), by default
+        ``["msl", "wind_speed", "x", "y", "z"]``
+    time_step : np.timedelta64, optional
+        Spacing of the output time axis, by default 6 h.
 
     Returns
     -------
@@ -574,23 +563,21 @@ def get_ensemble_averages(
         Dict with keys ``"time"``, ``"n_members"``, ``"mean"``, and
         ``"variance"``.
     """
+    if variables is None:
+        variables = ["msl", "wind_speed", "x", "y", "z"]
+
     stats: dict[str, Any] = {
         "time": None,
         "n_members": None,
-        "mean": {var: [] for var in vars},
-        "variance": {var: [] for var in vars},
+        "mean": {var: [] for var in variables},
+        "variance": {var: [] for var in variables},
     }
 
-    this_is_the_last_time = pred_tracks[0]["ic"]
-
+    last_time = pred_tracks[0]["ic"]
     for track in pred_tracks:
-        this_is_the_last_time = max(
-            this_is_the_last_time, track["tracks"]["time"].values[-1]
-        )
+        last_time = max(last_time, track["tracks"]["time"].values[-1])
 
-    all_times = np.arange(
-        pred_tracks[0]["ic"], this_is_the_last_time, np.timedelta64(6, "h")
-    )
+    all_times = np.arange(pred_tracks[0]["ic"], last_time, time_step)
     stats["time"] = all_times
 
     frame_of_reference = pd.DataFrame(
@@ -607,22 +594,20 @@ def get_ensemble_averages(
             frame_of_reference, track["tracks"], on="time", how="left"
         )
 
-        for var in vars:
+        for var in variables:
             stats["mean"][var].append(contextualised[var])
 
-    for var in vars:
-        if stats["n_members"] is None:
-            stats["n_members"] = np.count_nonzero(~np.isnan(stats["mean"][var]), axis=0)
-        else:
-            if not np.all(
-                stats["n_members"]
-                == np.count_nonzero(~np.isnan(stats["mean"][var]), axis=0)
-            ):
-                raise ValueError(
-                    "n_members is not the same for all variables but should be"
-                )
-
+    for var in variables:
         stacked = np.stack(stats["mean"][var])
+        counts = np.count_nonzero(~np.isnan(stacked), axis=0)
+
+        if stats["n_members"] is None:
+            stats["n_members"] = counts
+        elif not np.all(stats["n_members"] == counts):
+            raise ValueError(
+                "n_members is not the same for all variables but should be"
+            )
+
         stats["variance"][var] = np.nanvar(stacked, axis=0)
         stats["mean"][var] = np.nanmean(stacked, axis=0)
 
