@@ -916,6 +916,8 @@ class AsyncCachingFileSystem(AsyncFileSystem):
         self._metadata = CacheMetadata(self.storage)
         self.load_cache()
         self.fs = fs if fs is not None else filesystem(target_protocol, **self.kwargs)
+        # per-path/chunk locks so that one download per chunk happen...
+        self._fetch_locks: dict[str, asyncio.Lock] = {}
         if not self.fs.async_impl:
             raise ValueError("Underlying filesystem needs to be async")
 
@@ -1075,47 +1077,51 @@ class AsyncCachingFileSystem(AsyncFileSystem):
         **kwargs,
     ):
         """Cat file, this is what is used inside Zarr 3.0 at the moment"""
+        path_chunked = path
+        if start:
+            path_chunked += f"_{start}"
+        if end:
+            path_chunked += f"_{end}"
+
+        if path_chunked not in self._fetch_locks:
+            self._fetch_locks[path_chunked] = asyncio.Lock()
+
         getpath = None
-        try:
-            # Check if file is in cache
-            # This doesnt do anything fancy for chunked data, different chunk ranges
-            # are stored in different files even if there is over lap
-            path_chunked = path
-            if start:
-                path_chunked += f"_{start}"
-            if end:
-                path_chunked += f"_{end}"
-
-            detail = self._check_file(path_chunked)
-            if not detail:
-                storepath = await self._make_local_details(path_chunked)
-                getpath = path
-            else:
-                detail, storepath = (
-                    detail if isinstance(detail, tuple) else (None, detail)
-                )
-        except Exception as e:
-            if on_error == "raise":
-                raise
-            if on_error == "return":
-                out = e
-
-        # If file was not in cache, get it using the base file system
-        if getpath:
-            resp = await self.fs._cat_file(getpath, start=start, end=end)
-            # Save to file
-            if isfilelike(storepath):
-                outfile = storepath
-            else:
-                outfile = open(storepath, "wb")  # noqa: ASYNC101, ASYNC230
+        async with self._fetch_locks[path_chunked]:
             try:
-                outfile.write(resp)
-                # IDK yet
-                # callback.relative_update(len(chunk))
-            finally:
-                if not isfilelike(storepath):
-                    outfile.close()
-            self.save_cache()
+                # Check if file is in cache
+                # This doesnt do anything fancy for chunked data, different chunk ranges
+                # are stored in different files even if there is over lap
+                detail = self._check_file(path_chunked)
+                if not detail:
+                    storepath = await self._make_local_details(path_chunked)
+                    getpath = path
+                else:
+                    detail, storepath = (
+                        detail if isinstance(detail, tuple) else (None, detail)
+                    )
+            except Exception as e:
+                if on_error == "raise":
+                    raise
+                if on_error == "return":
+                    out = e
+
+            # If file was not in cache, get it using the base file system
+            if getpath:
+                resp = await self.fs._cat_file(getpath, start=start, end=end)
+                # Save to file
+                if isfilelike(storepath):
+                    outfile = storepath
+                else:
+                    outfile = open(storepath, "wb")  # noqa: ASYNC101, ASYNC230
+                try:
+                    outfile.write(resp)
+                    # IDK yet
+                    # callback.relative_update(len(chunk))
+                finally:
+                    if not isfilelike(storepath):
+                        outfile.close()
+                self.save_cache()
 
         # Call back is weird here, like the progress should be on the file fetch
         # but then how do we deal with the read? Maybe we times it by 2x?

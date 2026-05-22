@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import functools
 import hashlib
 import os
@@ -33,7 +32,11 @@ import xarray as xr
 from loguru import logger
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import datasource_cache_root, prep_forecast_inputs
+from earth2studio.data.utils import (
+    _sync_async,
+    datasource_cache_root,
+    prep_forecast_inputs,
+)
 from earth2studio.lexicon import AIFSLexicon, IFSLexicon
 from earth2studio.lexicon.ecmwf import ECMWFOpenDataLexicon
 from earth2studio.utils.imports import (
@@ -168,21 +171,19 @@ class _ECMWFOpenDataSource(ABC):
         xr.DataArray
             ECMWF weather data array
         """
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
 
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(
-                self._ecmwf_fetch(time, lead_time, variable),
-                timeout=self.async_timeout,
-            )
+        # Make sure input time is valid (synchronous, no IO needed)
+        self._validate_time(time)
+        self._validate_leadtime(time, lead_time)
+
+        return _sync_async(
+            self._ecmwf_fetch,
+            time,
+            lead_time,
+            variable,
+            timeout=self.async_timeout,
         )
-
-        return xr_array
 
     async def _ecmwf_fetch(
         self,
@@ -192,12 +193,13 @@ class _ECMWFOpenDataSource(ABC):
     ) -> xr.DataArray:
         """Async method to retrieve ECMWF data."""
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
-        # Create cache dir if doesnt exist
-        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         # Make sure input time is valid
         self._validate_time(time)
         self._validate_leadtime(time, lead_time)
+
+        # Create cache dir if doesnt exist
+        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         # Pre-allocate full array (could be made more efficient)
         if not self._fc_type == "pf":
@@ -328,11 +330,11 @@ class _ECMWFOpenDataSource(ABC):
             logger.error(f"Failed to open GRIB file {grib_file}")
             raise e
         try:
-            # Handle ensemble (pf) by stacking members in requested order
+            # Handle ensemble (pf) by stacking members in requested order.
             if self._fc_type == "pf" and len(self._members) > 0:
                 member_arrays: list[np.ndarray] = []
                 for m in self._members:
-                    msgs = grbs.select(number=m)
+                    msgs = grbs.select(number=m)  # Filter to ensemble member
                     if not msgs:
                         raise RuntimeError(
                             f"No GRIB messages found for ensemble member {m} in {grib_file}"
@@ -341,8 +343,24 @@ class _ECMWFOpenDataSource(ABC):
                 values = np.stack(member_arrays, axis=0)  # [ensemble, y, x]
             else:
                 values = grbs[1].values  # [y, x]
-            # Provided [-180, 180], roll to [0, 360] along x dimension
-            values = np.roll(values, shift=-len(self.LON) // 2, axis=-1)
+
+            # Assuming all gribs files being read are on the same grid, get the first
+            # GRIB files longitude origin (`longitudeOfFirstGridPointInDegrees`) ECMWF
+            # open-data files do not all start at lon = -180; some start at lon = 0.
+            # Roll so the array's index 0 corresponds to lon = 0° on the
+            # destination grid `self.LON` (canonical 0..360 ascending).
+            first_msg = grbs[1]  # PyGrib messages getitem from file handle is 1-based
+            lon_first = float(first_msg.longitudeOfFirstGridPointInDegrees)
+            lon_inc = float(first_msg.iDirectionIncrementInDegrees)
+            if lon_inc == 0.0:
+                raise ValueError(
+                    f"iDirectionIncrementInDegrees is 0 in {grib_file}; "
+                    "cannot compute longitude roll shift (non-regular grid?)"
+                )
+            n_lon = len(self.LON)
+            shift_px = int(round(lon_first / lon_inc)) % n_lon
+            if shift_px != 0:
+                values = np.roll(values, shift=shift_px, axis=-1)
             xr_array[task.data_array_indices] = task.modifier(values)
         except Exception as e:
             logger.error(f"Failed to read data from GRIB file {grib_file}")
@@ -387,10 +405,12 @@ class _ECMWFOpenDataSource(ABC):
             }
             if levtype == "pl" or levtype == "sl":  # Pressure levels or soil levels
                 request["levelist"] = level
+            if levtype == "wave":  # Wave variables from wave stream
+                request["stream"] = "wave"
             if self._fc_type == "pf":
                 request["number"] = self._members
-            # Download
-            await asyncio.to_thread(self.client.retrieve, **request)
+            # Download, no await asyncio.to_thread, just let opendata be the bottle neck
+            self.client.retrieve(request)
 
         return cache_path
 
@@ -704,7 +724,7 @@ class IFS_ENS(_ECMWFOpenDataSource):
         Python SDK, by default "aws".
     member: int, optional
         Ensemble member id to use. If 0 the control forecast will be requested, if
-        greater than 0 perturbed ensemble member will be requested, by default 0.
+        greater than 0 perturbed ensemble member will be requested, by default 1.
     cache : bool, optional
         Cache data source in local memory, by default True.
     verbose : bool, optional
@@ -737,7 +757,7 @@ class IFS_ENS(_ECMWFOpenDataSource):
     def __init__(
         self,
         source: Literal["aws", "ecmwf", "azure"] = "aws",
-        member: int = 0,
+        member: int = 1,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
@@ -745,6 +765,10 @@ class IFS_ENS(_ECMWFOpenDataSource):
         fc_type: Literal["cf", "pf"]
         if member == 0:
             fc_type = "cf"  # control forecast
+            logger.warning(
+                "ECMWF open-data may no longer offer the control member "
+                "via IFS ENS. If this fails, try another member index."
+            )
         elif member > 0:
             fc_type = "pf"  # perturbed forecast
         else:
@@ -849,7 +873,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         Python SDK, by default "aws".
     member: int, optional
         Ensemble member id to use. If 0 the control forecast will be requested, if
-        greater than 0 perturbed ensemble member will be requested, by default 0.
+        greater than 0 perturbed ensemble member will be requested, by default 1.
     cache : bool, optional
         Cache data source in local memory, by default True.
     verbose : bool, optional
@@ -882,7 +906,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
     def __init__(
         self,
         source: Literal["aws", "ecmwf", "azure"] = "aws",
-        member: int = 0,
+        member: int = 1,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
@@ -890,6 +914,10 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         fc_type: Literal["cf", "pf"]
         if member == 0:
             fc_type = "cf"  # control forecast
+            logger.warning(
+                "ECMWF open-data may no longer offer the control member "
+                "via IFS ENS. If this fails, try another member index."
+            )
         elif member > 0:
             fc_type = "pf"  # perturbed forecast
         else:

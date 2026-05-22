@@ -11,5 +11,8 @@ outputs*/
 *.gif
 .python-version
 
+# Third-party data (auto-downloaded)
+aux_data/ibtracs*
+
 # Virtual environments
 .venv
