@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed `aifs` and `aifsens` from the `[all]` extra due to dependency conflicts with
   `aifs2` (incompatible anemoi-models versions).
 
-## [0.15.0] - 2026-05-xx
+## [0.15.0] - 2026-05-25
 
 ### Added
 
