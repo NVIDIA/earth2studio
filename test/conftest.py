@@ -56,6 +56,11 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/data/test_hrrr.py": ["data"],
     "test/data/test_mrms.py": ["data"],
     "test/data/test_jpss_atms.py": ["data"],
+    "test/data/test_metop_iasi.py": ["data"],
+    "test/data/test_metop_avhrr.py": ["data"],
+    "test/data/test_metop_mhs.py": ["data"],
+    "test/data/test_metop_amsua.py": ["data"],
+    "test/data/test_meteosat_fci.py": ["data"],
     # Model dx tests
     "test/models/dx/test_cbottle_infill.py": ["cbottle"],
     "test/models/dx/test_cbottle_sr.py": ["cbottle"],
@@ -91,6 +96,12 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/px/test_sfno.py": ["sfno"],
     "test/models/px/test_stormcast.py": ["stormcast"],
     "test/models/px/test_stormscope.py": ["stormscope"],
+    "test/models/px/test_dxwrapper.py": [
+        "fcn3",
+        "corrdiff",
+        "precip-afno-v2",
+        "solarradiation-afno",
+    ],
     # Model da tests
     "test/models/da/test_da_healda.py": ["da-healda"],
     "test/models/da/test_da_interp.py": ["da-interp"],
@@ -109,6 +120,16 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/serve/server/test_server_utils.py": ["serve"],
     "test/serve/server/test_server_worker.py": ["serve"],
     "test/serve/server/test_server_workflow.py": ["serve"],
+    # Statistics tests
+    "test/statistics/test_crps.py": ["statistics"],
+    "test/statistics/test_lsd.py": ["statistics"],
+    "test/statistics/test_ranks.py": ["statistics"],
+    "test/statistics/test_energy_score.py": ["statistics"],
+    # Perturbation tests
+    "test/perturbation/test_spherical_gaussian.py": ["perturbation"],
+    "test/perturbation/test_gaussian.py": ["perturbation"],
+    # Utils tests
+    "test/utils/test_interp.py": ["utils"],
 }
 
 
