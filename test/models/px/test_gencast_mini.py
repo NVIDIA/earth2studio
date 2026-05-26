@@ -23,14 +23,15 @@ import pytest
 import torch
 import xarray as xr
 
-try:
-    from graphcast import denoiser, graphcast
-    from graphcast import gencast as gencast_module
-except ImportError:
-    pytest.importorskip("graphcast")
+from earth2studio.utils.imports import pytest_require
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.px.gencast_mini import (
+pytestmark = pytest_require(groups=["gencast"])
+
+from graphcast import denoiser, graphcast  # noqa: E402
+from graphcast import gencast as gencast_module  # noqa: E402
+
+from earth2studio.data import Random, fetch_data  # noqa: E402
+from earth2studio.models.px.gencast_mini import (  # noqa: E402
     ATMOS_VARIABLES,
     GENERATED_FORCING_VARS,
     INPUT_VARIABLES,
@@ -38,7 +39,7 @@ from earth2studio.models.px.gencast_mini import (
     PRESSURE_LEVELS,
     GenCastMini,
 )
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 # GenCast-specific variable lists (matching graphcast module names)
 GENCAST_TARGET_SURFACE_VARS = (

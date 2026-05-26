@@ -28,8 +28,9 @@ from earth2studio.models.px.ace2 import (
     _npdatetime64_to_cftime,
 )
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import pytest_require
 
-pytest.importorskip("fme")
+pytestmark = pytest_require(groups=["ace2"])
 
 
 class PhooOutput:

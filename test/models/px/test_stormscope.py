@@ -21,12 +21,16 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.px.stormscope import (
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["stormscope"])
+
+from earth2studio.data import Random, fetch_data  # noqa: E402
+from earth2studio.models.px.stormscope import (  # noqa: E402
     StormScopeGOES,
     StormScopeMRMS,
 )
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 
 # Spoof diffusion model with same call signature as EDMPrecond-wrapped models

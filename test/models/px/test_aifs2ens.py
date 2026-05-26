@@ -21,26 +21,13 @@ import numpy as np
 import pytest
 import torch
 
-try:
-    from importlib.metadata import version
+from earth2studio.utils.imports import pytest_require
 
-    import anemoi.models  # noqa: F401
-    import earthkit.regrid  # noqa: F401
-    import flash_attn  # noqa: F401
-    from packaging.version import Version
+pytestmark = pytest_require(groups=["aifs2ens"])
 
-    anemoi_version = version("anemoi-models")
-    if Version(anemoi_version) != Version("0.11.2"):
-        pytest.skip(
-            f"anemoi-models {anemoi_version} not compatible with AIFS ENS 2.x (requires ==0.11.2)",
-            allow_module_level=True,
-        )
-except ImportError as e:
-    pytest.skip(f"AIFS2ENS dependencies not installed: {e}", allow_module_level=True)
-
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.px import AIFS2ENS
-from earth2studio.utils import handshake_dim
+from earth2studio.data import Random, fetch_data  # noqa: E402
+from earth2studio.models.px import AIFS2ENS  # noqa: E402
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 
 def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):

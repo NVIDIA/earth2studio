@@ -21,11 +21,15 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.px import InterpModAFNO
-from earth2studio.models.px.interpmodafno import VARIABLES
-from earth2studio.models.px.persistence import Persistence
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["interp-modafno"])
+
+from earth2studio.data import Random, fetch_data  # noqa: E402
+from earth2studio.models.px import InterpModAFNO  # noqa: E402
+from earth2studio.models.px.interpmodafno import VARIABLES  # noqa: E402
+from earth2studio.models.px.persistence import Persistence  # noqa: E402
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 
 class PhooInterpolationModel(torch.nn.Module):

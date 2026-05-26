@@ -19,9 +19,13 @@ import numpy as np
 import pytest
 import torch
 
-import earth2studio.models.px.dlesym as dlesym_src
-from earth2studio.models.px import DLESyM, DLESyMLatLon
-from earth2studio.utils import handshake_coords
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["dlesym"])
+
+import earth2studio.models.px.dlesym as dlesym_src  # noqa: E402
+from earth2studio.models.px import DLESyM, DLESyMLatLon  # noqa: E402
+from earth2studio.utils import handshake_coords  # noqa: E402
 
 
 class PhooAtmosModel(torch.nn.Module):

@@ -21,28 +21,14 @@ import numpy as np
 import pytest
 import torch
 
-try:
-    from importlib.metadata import version
+from earth2studio.utils.imports import pytest_require
 
-    import anemoi.models  # noqa: F401
+pytestmark = pytest_require(groups=["aifsens"])
 
-    anemoi_version = version("anemoi-models")
-    # AIFSENS requires anemoi-models version specified by pyproject.toml.
-    if anemoi_version != "0.5.1":
-        pytest.skip(
-            (
-                f"anemoi-models {anemoi_version} not compatible with AIFSENS "
-                "(requires 0.5.1)"
-            ),
-            allow_module_level=True,
-        )
-except ImportError:
-    pytest.skip("anemoi-models not installed", allow_module_level=True)
-
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.px import AIFSENS
-from earth2studio.models.px.aifsens import VARIABLES
-from earth2studio.utils import handshake_dim
+from earth2studio.data import Random, fetch_data  # noqa: E402
+from earth2studio.models.px import AIFSENS  # noqa: E402
+from earth2studio.models.px.aifsens import VARIABLES  # noqa: E402
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 
 def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):

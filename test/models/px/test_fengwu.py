@@ -21,10 +21,14 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.auto import Package
-from earth2studio.models.px import FengWu
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["fengwu"])
+
+from earth2studio.data import Random, fetch_data  # noqa: E402
+from earth2studio.models.auto import Package  # noqa: E402
+from earth2studio.models.px import FengWu  # noqa: E402
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 
 class PhooFengWuModel(torch.nn.Module):

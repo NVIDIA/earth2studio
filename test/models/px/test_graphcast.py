@@ -23,15 +23,16 @@ import pytest
 import torch
 import xarray as xr
 
-try:
-    from graphcast import graphcast
-except ImportError:
-    pytest.importorskip("graphcast")
+from earth2studio.utils.imports import pytest_require
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.px.graphcast_operational import GraphCastOperational
-from earth2studio.models.px.graphcast_small import GraphCastSmall
-from earth2studio.utils import handshake_dim
+pytestmark = pytest_require(groups=["graphcast"])
+
+from graphcast import graphcast  # noqa: E402, I001
+
+from earth2studio.data import Random, fetch_data  # noqa: E402
+from earth2studio.models.px.graphcast_operational import GraphCastOperational  # noqa: E402
+from earth2studio.models.px.graphcast_small import GraphCastSmall  # noqa: E402
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 
 def mocked_chunked_prediction_generator(

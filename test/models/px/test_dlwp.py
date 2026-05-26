@@ -21,9 +21,13 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.px import DLWP
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["dlwp"])
+
+from earth2studio.data import Random, fetch_data  # noqa: E402
+from earth2studio.models.px import DLWP  # noqa: E402
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 
 class PhooDLWPModel(torch.nn.Module):

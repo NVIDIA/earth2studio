@@ -21,14 +21,15 @@ import numpy as np
 import pytest
 import torch
 
-try:
-    from aurora import Batch, Metadata
-except ImportError:
-    pytest.importorskip("aurora")
+from earth2studio.utils.imports import pytest_require
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.px import Aurora
-from earth2studio.utils import handshake_dim
+pytestmark = pytest_require(groups=["aurora"])
+
+from aurora import Batch, Metadata  # noqa: E402
+
+from earth2studio.data import Random, fetch_data  # noqa: E402
+from earth2studio.models.px import Aurora  # noqa: E402
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 
 class PhooAuroraModel(torch.nn.Module):

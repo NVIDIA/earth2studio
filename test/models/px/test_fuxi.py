@@ -21,15 +21,14 @@ import numpy as np
 import pytest
 import torch
 
-try:
-    import onnx  # noqa
-except ImportError:
-    pytest.skip("onnx not installed which is needed for tests", allow_module_level=True)
+from earth2studio.utils.imports import pytest_require
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.auto import Package
-from earth2studio.models.px import FuXi
-from earth2studio.utils import handshake_dim
+pytestmark = pytest_require(groups=["fuxi"])
+
+from earth2studio.data import Random, fetch_data  # noqa: E402
+from earth2studio.models.auto import Package  # noqa: E402
+from earth2studio.models.px import FuXi  # noqa: E402
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 
 class PhooFuXiModel(torch.nn.Module):
