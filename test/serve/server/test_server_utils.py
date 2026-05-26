@@ -20,7 +20,11 @@ import pytest
 from fastapi import HTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from earth2studio.serve.server.utils import (
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["serve"])
+
+from earth2studio.serve.server.utils import (  # noqa: E402
     create_file_stream,
     get_inference_request_metadata_key,
     get_inference_request_output_path_key,

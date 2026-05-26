@@ -20,14 +20,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from earth2studio.serve.server.cleanup_daemon import (
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["serve"])
+
+from earth2studio.serve.server.cleanup_daemon import (  # noqa: E402
     _delete_result_files,
     _process_expired_key,
     cleanup_expired_results,
     main,
 )
-from earth2studio.serve.server.config import get_config
-from earth2studio.serve.server.workflow import WorkflowStatus
+from earth2studio.serve.server.config import get_config  # noqa: E402
+from earth2studio.serve.server.workflow import WorkflowStatus  # noqa: E402
 
 
 class TestDeleteResultFiles:

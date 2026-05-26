@@ -25,14 +25,18 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.serve.client.e2client import (
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["serve"])
+
+from earth2studio.serve.client.e2client import (  # noqa: E402
     InferenceOutputModel,
     RemoteEarth2Workflow,
     RemoteEarth2WorkflowResult,
     _convert_time_to_lead_time,
 )
-from earth2studio.serve.client.exceptions import Earth2StudioAPIError
-from earth2studio.serve.client.models import (
+from earth2studio.serve.client.exceptions import Earth2StudioAPIError  # noqa: E402
+from earth2studio.serve.client.models import (  # noqa: E402
     InferenceRequestResponse,
     InferenceRequestResults,
     OutputFile,

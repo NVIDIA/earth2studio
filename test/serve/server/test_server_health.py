@@ -16,7 +16,11 @@
 
 from unittest.mock import MagicMock, patch
 
-from earth2studio.serve.server.health import (
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["serve"])
+
+from earth2studio.serve.server.health import (  # noqa: E402
     HealthResult,
     ServiceStatus,
     check_all_services,

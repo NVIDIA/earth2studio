@@ -23,18 +23,22 @@ from unittest.mock import Mock, patch
 import pytest
 import requests  # type: ignore[import-untyped]
 
-from earth2studio.serve.client.client import Earth2StudioClient
-from earth2studio.serve.client.exceptions import (
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["serve"])
+
+from earth2studio.serve.client.client import Earth2StudioClient  # noqa: E402
+from earth2studio.serve.client.exceptions import (  # noqa: E402
     APIConnectionError as ClientConnectionError,
 )
-from earth2studio.serve.client.exceptions import (
+from earth2studio.serve.client.exceptions import (  # noqa: E402
     BadRequestError,
     Earth2StudioAPIError,
     InferenceRequestNotFoundError,
     InternalServerError,
     RequestTimeoutError,
 )
-from earth2studio.serve.client.models import (
+from earth2studio.serve.client.models import (  # noqa: E402
     HealthStatus,
     InferenceRequest,
     InferenceRequestResponse,

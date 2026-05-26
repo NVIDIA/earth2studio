@@ -26,7 +26,11 @@ from unittest.mock import Mock, patch
 import pytest
 import redis
 
-from earth2studio.serve.server.workflow import WorkflowRegistry
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["serve"])
+
+from earth2studio.serve.server.workflow import WorkflowRegistry  # noqa: E402
 
 
 # Create mock config classes before importing cpu_worker

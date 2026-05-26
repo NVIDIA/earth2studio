@@ -24,7 +24,11 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import Field
 
-from earth2studio.serve.server.workflow import WorkflowRegistry
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["serve"])
+
+from earth2studio.serve.server.workflow import WorkflowRegistry  # noqa: E402
 
 # Set API environment variable before importing main (DANGER!!! REMOVE THIS)
 os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"

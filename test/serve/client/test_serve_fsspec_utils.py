@@ -20,12 +20,16 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from earth2studio.serve.client.fsspec_utils import (
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["serve"])
+
+from earth2studio.serve.client.fsspec_utils import (  # noqa: E402
     SignedURLFileSystem,
     create_cloudfront_mapper,
     get_mapper,
 )
-from earth2studio.serve.client.models import (
+from earth2studio.serve.client.models import (  # noqa: E402
     InferenceRequestResults,
     RequestStatus,
     StorageType,

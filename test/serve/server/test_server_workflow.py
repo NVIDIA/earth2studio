@@ -24,8 +24,12 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from earth2studio.serve.server.config import get_config
-from earth2studio.serve.server.workflow import (
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["serve"])
+
+from earth2studio.serve.server.config import get_config  # noqa: E402, I001
+from earth2studio.serve.server.workflow import (  # noqa: E402
     Workflow,
     WorkflowParameters,
     WorkflowProgress,
@@ -37,16 +41,8 @@ from earth2studio.serve.server.workflow import (
     register_all_workflows,
 )
 
-_SERVE_AVAILABLE = False
-try:
-    import redis  # type: ignore[import-untyped]
-    from pydantic import Field, ValidationError  # type: ignore[import-untyped]
-
-    _SERVE_AVAILABLE = True
-except ImportError:
-    pass
-
-pytestmark = pytest.mark.skipif(not _SERVE_AVAILABLE, reason="serve deps not available")
+import redis  # type: ignore[import-untyped]  # noqa: E402
+from pydantic import Field, ValidationError  # type: ignore[import-untyped]  # noqa: E402
 
 
 @pytest.fixture(scope="module", autouse=True)

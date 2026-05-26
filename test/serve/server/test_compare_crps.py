@@ -33,6 +33,10 @@ import pytest
 import torch
 import xarray as xr
 
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["statistics"])
+
 # ---------------------------------------------------------------------------
 # Import compare_crps module from serve/server/scripts/
 # ---------------------------------------------------------------------------

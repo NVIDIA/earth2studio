@@ -22,18 +22,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-_SERVE_AVAILABLE = False
-try:
-    import hydra  # noqa: F401
-    import omegaconf  # noqa: F401
+from earth2studio.utils.imports import pytest_require
 
-    _SERVE_AVAILABLE = True
-except ImportError:
-    pass
-
-pytestmark = pytest.mark.skipif(
-    not _SERVE_AVAILABLE, reason="hydra / omegaconf not available"
-)
+pytestmark = pytest_require(groups=["serve"])
 
 from earth2studio.serve.server.config import (  # noqa: E402
     AppConfig,

@@ -22,7 +22,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from earth2studio.serve.server.object_storage import (
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["serve"])
+
+from earth2studio.serve.server.object_storage import (  # noqa: E402
     MSCObjectStorage,
     ObjectStorage,
     ObjectStorageError,

@@ -20,8 +20,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from earth2studio.serve.server.worker import get_output_path, run_custom_workflow
-from earth2studio.serve.server.workflow import WorkflowRegistry
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["serve"])
+
+from earth2studio.serve.server.worker import (  # noqa: E402, I001
+    get_output_path,
+    run_custom_workflow,
+)
+from earth2studio.serve.server.workflow import WorkflowRegistry  # noqa: E402
 
 
 class TestGetOutputPath:
