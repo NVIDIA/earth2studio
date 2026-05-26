@@ -21,15 +21,21 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 import pytest
 
-from earth2studio.data import (
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["data"])
+
+from earth2studio.data import (  # noqa: E402, I001
     PlanetaryComputerECMWFOpenDataIFS,
     PlanetaryComputerGOES,
     PlanetaryComputerMODISFire,
     PlanetaryComputerOISST,
     PlanetaryComputerSentinel3AOD,
 )
-from earth2studio.data.planetary_computer import _PlanetaryComputerData
-from earth2studio.lexicon.planetary_computer import PlanetaryComputerOISSTLexicon
+from earth2studio.data.planetary_computer import _PlanetaryComputerData  # noqa: E402
+from earth2studio.lexicon.planetary_computer import (  # noqa: E402
+    PlanetaryComputerOISSTLexicon,
+)
 
 
 def test_planetary_computer_base_init() -> None:

@@ -23,8 +23,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from earth2studio.data import NomadsGDASObsConv
-from earth2studio.lexicon import GDASObsConvLexicon
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["data"])
+
+from earth2studio.data import NomadsGDASObsConv  # noqa: E402
+from earth2studio.lexicon import GDASObsConvLexicon  # noqa: E402
 
 
 @pytest.mark.slow

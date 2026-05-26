@@ -23,7 +23,11 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from earth2studio.data import CAMS_FX
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["data"])
+
+from earth2studio.data import CAMS_FX  # noqa: E402
 
 CAMS_ADS_URL = "https://ads.atmosphere.copernicus.eu/api"
 

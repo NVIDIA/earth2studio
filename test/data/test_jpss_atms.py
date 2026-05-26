@@ -23,7 +23,11 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from earth2studio.data import JPSS_ATMS
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["data"])
+
+from earth2studio.data import JPSS_ATMS  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

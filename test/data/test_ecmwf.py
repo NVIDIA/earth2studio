@@ -21,7 +21,18 @@ from datetime import datetime, timedelta
 import numpy as np
 import pytest
 
-from earth2studio.data import AIFS_ENS_FX, AIFS_FX, IFS, IFS_ENS, IFS_ENS_FX, IFS_FX
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["data"])
+
+from earth2studio.data import (  # noqa: E402, I001
+    AIFS_ENS_FX,
+    AIFS_FX,
+    IFS,
+    IFS_ENS,
+    IFS_ENS_FX,
+    IFS_FX,
+)
 
 
 def now6h():

@@ -21,7 +21,11 @@ from datetime import datetime, timedelta
 import numpy as np
 import pytest
 
-from earth2studio.data import MRMS
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["data"])
+
+from earth2studio.data import MRMS  # noqa: E402
 
 
 @pytest.mark.slow

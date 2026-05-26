@@ -25,7 +25,11 @@ import pytest
 import s3fs
 from fsspec.implementations.http import HTTPFileSystem
 
-from earth2studio.data import HRRR, HRRR_FX
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["data"])
+
+from earth2studio.data import HRRR, HRRR_FX  # noqa: E402
 
 
 @pytest.mark.slow

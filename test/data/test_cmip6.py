@@ -22,8 +22,12 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from earth2studio.data import CMIP6
-from earth2studio.data.cmip6 import CMIP6MultiRealm
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["data"])
+
+from earth2studio.data import CMIP6  # noqa: E402
+from earth2studio.data.cmip6 import CMIP6MultiRealm  # noqa: E402
 
 
 @pytest.mark.slow

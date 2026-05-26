@@ -21,7 +21,11 @@ import shutil
 import numpy as np
 import pytest
 
-from earth2studio.data import CDS
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["data"])
+
+from earth2studio.data import CDS  # noqa: E402
 
 CDS_API_URL = "https://cds.climate.copernicus.eu/api"
 
