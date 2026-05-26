@@ -1,0 +1,43 @@
+
+:orphan:
+
+.. _sphx_glr_examples_03_downscaling_sg_execution_times:
+
+
+Computation times
+=================
+**02:16.724** total execution time for 3 files **from examples/03_downscaling**:
+
+.. container::
+
+  .. raw:: html
+
+    <style scoped>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet" />
+    </style>
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script type="text/javascript" class="init">
+    $(document).ready( function () {
+        $('table.sg-datatable').DataTable({order: [[1, 'desc']]});
+    } );
+    </script>
+
+  .. list-table::
+   :header-rows: 1
+   :class: table table-striped sg-datatable
+
+   * - Example
+     - Time
+     - Mem (MB)
+   * - :ref:`sphx_glr_examples_03_downscaling_02_cbottle_super_resolution.py` (``02_cbottle_super_resolution.py``)
+     - 01:07.175
+     - 0.0
+   * - :ref:`sphx_glr_examples_03_downscaling_03_ensemble_downscaling.py` (``03_ensemble_downscaling.py``)
+     - 01:00.216
+     - 0.0
+   * - :ref:`sphx_glr_examples_03_downscaling_01_corrdiff_inference.py` (``01_corrdiff_inference.py``)
+     - 00:09.333
+     - 0.0

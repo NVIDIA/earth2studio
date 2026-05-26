@@ -1,0 +1,16 @@
+﻿fetch_data
+================================================
+
+.. currentmodule:: earth2studio.data
+
+.. autofunction:: fetch_data
+
+.. _sphx_glr_backref_earth2studio.data.fetch_data:
+
+.. minigallery:: earth2studio.data.fetch_data
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

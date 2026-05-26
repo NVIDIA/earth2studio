@@ -1,0 +1,16 @@
+﻿handshake_size
+============================================================
+
+.. currentmodule:: earth2studio.utils.coords
+
+.. autofunction:: handshake_size
+
+.. _sphx_glr_backref_earth2studio.utils.coords.handshake_size:
+
+.. minigallery:: earth2studio.utils.coords.handshake_size
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

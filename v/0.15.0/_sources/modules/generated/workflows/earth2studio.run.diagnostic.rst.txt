@@ -1,0 +1,16 @@
+﻿diagnostic
+===============================================
+
+.. currentmodule:: earth2studio.run
+
+.. autofunction:: diagnostic
+
+.. _sphx_glr_backref_earth2studio.run.diagnostic:
+
+.. minigallery:: earth2studio.run.diagnostic
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>
