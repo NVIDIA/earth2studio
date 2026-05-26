@@ -23,8 +23,17 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.data import Random, RandomDataFrame, fetch_data, fetch_dataframe
-from earth2studio.models.da.sda_stormcast import StormCastSDA
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["da-stormcast"])
+
+from earth2studio.data import (  # noqa: E402
+    Random,
+    RandomDataFrame,
+    fetch_data,
+    fetch_dataframe,
+)
+from earth2studio.models.da.sda_stormcast import StormCastSDA  # noqa: E402
 
 try:
     import cupy as cp

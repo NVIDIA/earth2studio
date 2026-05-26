@@ -19,6 +19,10 @@ import pytest
 import torch
 import xarray as xr
 
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["da-interp"])
+
 try:
     import cudf
 except ImportError:
@@ -29,7 +33,7 @@ try:
 except ImportError:
     cp = None
 
-from earth2studio.models.da.interp import InterpEquirectangular
+from earth2studio.models.da.interp import InterpEquirectangular  # noqa: E402
 
 
 @pytest.fixture

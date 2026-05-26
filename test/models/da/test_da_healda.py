@@ -22,7 +22,11 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.models.da.healda import (
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["da-healda"])
+
+from earth2studio.models.da.healda import (  # noqa: E402
     ALL_SENSORS,
     E2S_CHANNELS,
     HealDA,
