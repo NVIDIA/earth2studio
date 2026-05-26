@@ -26,9 +26,14 @@ from earth2studio.utils.imports import pytest_require
 
 pytestmark = pytest_require(groups=["cbottle"])
 
-import cbottle  # noqa: E402
-from cbottle.datasets import base  # noqa: E402
-from cbottle.inference import MixtureOfExpertsDenoiser  # noqa: E402
+try:
+    import cbottle  # noqa: E402
+    from cbottle.datasets import base  # noqa: E402
+    from cbottle.inference import MixtureOfExpertsDenoiser  # noqa: E402
+except ImportError:
+    cbottle = None  # type: ignore[assignment]
+    base = None  # type: ignore[assignment]
+    MixtureOfExpertsDenoiser = None  # type: ignore[assignment, misc]
 
 from earth2studio.models.dx import CBottleInfill  # noqa: E402
 from earth2studio.utils import handshake_dim  # noqa: E402
