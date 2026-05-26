@@ -22,15 +22,16 @@ import pytest
 import torch
 import xarray as xr
 
-try:
-    import cbottle
-    import earth2grid
-    from cbottle.datasets import base
-    from cbottle.inference import MixtureOfExpertsDenoiser
-except ImportError:
-    pytest.skip("cbottle dependencies not installed", allow_module_level=True)
+from earth2studio.utils.imports import pytest_require
 
-from earth2studio.data import CBottle3D
+pytestmark = pytest_require(groups=["cbottle"])
+
+import cbottle  # noqa: E402
+import earth2grid  # noqa: E402, F401
+from cbottle.datasets import base  # noqa: E402
+from cbottle.inference import MixtureOfExpertsDenoiser  # noqa: E402, F401
+
+from earth2studio.data import CBottle3D  # noqa: E402
 
 
 @pytest.fixture(scope="class")

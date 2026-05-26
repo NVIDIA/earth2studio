@@ -24,10 +24,14 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from earth2studio.data import GOESGLM
-from earth2studio.data.goes_glm import _GOESGLMFile
+from earth2studio.utils.imports import pytest_require
 
-netCDF4 = pytest.importorskip("netCDF4", reason="netCDF4 not installed")
+pytestmark = pytest_require("netCDF4")
+
+import netCDF4  # noqa: E402
+
+from earth2studio.data import GOESGLM  # noqa: E402
+from earth2studio.data.goes_glm import _GOESGLMFile  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

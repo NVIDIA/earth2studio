@@ -23,9 +23,11 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-from earth2studio.data import NNJAObsConv
+from earth2studio.utils.imports import pytest_require
 
-pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
+pytestmark = pytest_require("pybufrkit")
+
+from earth2studio.data import NNJAObsConv  # noqa: E402
 
 
 @pytest.mark.slow
