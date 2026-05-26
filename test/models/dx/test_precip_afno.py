@@ -28,6 +28,7 @@ class PhooAFNOPrecip(torch.nn.Module):
     def forward(self, x):
         return x[:, :1, :, :]
 
+
 @pytest.mark.parametrize(
     "x",
     [
@@ -63,6 +64,7 @@ def test_afno_precip(x, device):
     handshake_dim(out_coords, "variable", 1)
     handshake_dim(out_coords, "batch", 0)
 
+
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_afno_precip_package(device):
@@ -85,6 +87,7 @@ def test_afno_precip_package(device):
     handshake_dim(out_coords, "lat", 2)
     handshake_dim(out_coords, "variable", 1)
     handshake_dim(out_coords, "batch", 0)
+
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_afno_exceptions(device):

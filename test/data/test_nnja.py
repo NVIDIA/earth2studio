@@ -25,6 +25,8 @@ import pytest
 
 from earth2studio.data import NNJAObsConv
 
+pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
+
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -48,6 +50,7 @@ def test_nnja_obs_conv_fetch(time, variable, tol):
     assert set(df["variable"].unique()).issubset(set(variable))
     assert "observation" in df.columns
     assert not df.empty
+
 
 @pytest.mark.parametrize("cache", [True, False])
 def test_nnja_obs_conv_cache_mock(cache, tmp_path):
@@ -89,6 +92,7 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
     except FileNotFoundError:
         pass
 
+
 def test_nnja_obs_conv_exceptions():
 
     # Invalid source
@@ -125,6 +129,7 @@ def test_nnja_obs_conv_exceptions():
     with pytest.raises(TypeError):
         NNJAObsConv.resolve_fields(wrong_type_schema)
 
+
 def test_nnja_obs_conv_validate_time():
     NNJAObsConv._validate_time([datetime(2024, 1, 1, 0)])
     NNJAObsConv._validate_time([datetime(2024, 1, 1, 6)])
@@ -139,6 +144,7 @@ def test_nnja_obs_conv_validate_time():
 
     with pytest.raises(ValueError):
         NNJAObsConv._validate_time([datetime(1970, 1, 1, 0)])
+
 
 def test_nnja_obs_conv_tolerance_conversion():
 
@@ -159,6 +165,7 @@ def test_nnja_obs_conv_tolerance_conversion():
     )
     assert ds_asym._tolerance_lower == timedelta(hours=-3)
     assert ds_asym._tolerance_upper == timedelta(hours=1)
+
 
 def test_nnja_obs_conv_resolve_fields():
     schema_full = NNJAObsConv.resolve_fields(None)
@@ -191,6 +198,7 @@ def test_nnja_obs_conv_resolve_fields():
     wrong_type = pa.schema([pa.field("time", pa.string())])
     with pytest.raises(TypeError):
         NNJAObsConv.resolve_fields(wrong_type)
+
 
 def test_nnja_obs_conv_mock_fetch():
     """Test NNJAObsConv data processing with mocked S3 fetch."""
@@ -228,6 +236,7 @@ def test_nnja_obs_conv_mock_fetch():
     assert set(df["variable"].unique()) == {"t"}
     assert df["observation"].iloc[0] == pytest.approx(273.15)
 
+
 def test_nnja_obs_conv_available():
     """Test NNJAObsConv.available() classmethod with both datetime types."""
     # Valid 6-hourly cycle times
@@ -251,7 +260,9 @@ def test_nnja_obs_conv_available():
     assert NNJAObsConv.available(np.datetime64("2024-01-01T01:00:00")) is False
     assert NNJAObsConv.available(np.datetime64("1970-01-01T00:00:00")) is False
 
+
 # These are unit tests for BUFR decoding
+
 
 def test_nnja_safe_int():
     """Test _safe_int helper function with various input types."""
@@ -276,6 +287,7 @@ def test_nnja_safe_int():
     assert _safe_int("  012  ") == 12
     assert _safe_int("") == 0
     assert _safe_int("not_a_number") == 0
+
 
 def test_nnja_extract_dx_tables_empty():
     """Test _extract_dx_tables with empty/minimal inputs."""
@@ -304,6 +316,7 @@ def test_nnja_extract_dx_tables_empty():
     assert table_b == {}
     assert table_d == {}
 
+
 def test_nnja_extract_dx_tables_truncated():
     """Test _extract_dx_tables with truncated/partial data."""
     from earth2studio.data.utils_bufr import extract_dx_tables as _extract_dx_tables
@@ -329,6 +342,7 @@ def test_nnja_extract_dx_tables_truncated():
     table_d.clear()
     _extract_dx_tables([0, 0, 1, 0, 1], table_b, table_d)  # truncated D entry
     assert table_d == {}
+
 
 def test_nnja_extract_dx_tables_valid_entries():
     """Test _extract_dx_tables with valid Table B and D entries."""
@@ -408,6 +422,7 @@ def test_nnja_extract_dx_tables_valid_entries():
     assert table_b[12001][2] == -5  # scale is negative
     assert table_b[12001][3] == -9000000  # reference is negative
 
+
 def test_nnja_extract_dx_tables_table_d():
     """Test _extract_dx_tables Table D sequence entries."""
     from earth2studio.data.utils_bufr import extract_dx_tables as _extract_dx_tables
@@ -470,6 +485,7 @@ def test_nnja_extract_dx_tables_table_d():
     assert 301002 in table_d
     assert table_d[301002][1] == ["ONLY_ONE"]
 
+
 def test_nnja_obs_conv_build_uris():
     """Test URI building methods for prepbufr and gpsro."""
     ds = NNJAObsConv(cache=False, verbose=False)
@@ -493,6 +509,7 @@ def test_nnja_obs_conv_build_uris():
 
     # Test backward compat alias
     assert ds._build_uri(cycle) == ds._build_prepbufr_uri(cycle)
+
 
 def test_nnja_obs_conv_create_tasks():
     """Test _create_tasks method for prepbufr variables."""
@@ -520,6 +537,7 @@ def test_nnja_obs_conv_create_tasks():
         [datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 6)], ["t"]
     )
     assert len(tasks_times) == 2  # Two different cycles
+
 
 def test_nnja_obs_conv_finalize_decoded_df():
     """Test _finalize_decoded_df with various inputs."""
@@ -585,6 +603,7 @@ def test_nnja_obs_conv_finalize_decoded_df():
         rows_match, {"t": ("TOB", modifier)}, convert_pres_mb_to_pa=False
     )
     assert result_no_conv["pres"].iloc[0] == pytest.approx(850.0)
+
 
 def test_nnja_obs_conv_finalize_adds_missing_columns():
     """Test _finalize_decoded_df adds missing nullable columns."""

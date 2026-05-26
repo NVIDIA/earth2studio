@@ -21,6 +21,11 @@ import numpy as np
 import pytest
 import torch
 
+try:
+    import onnx  # noqa
+except ImportError:
+    pytest.skip("onnx not installed which is needed for tests", allow_module_level=True)
+
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.auto import Package
 from earth2studio.models.px import FuXi
@@ -47,6 +52,7 @@ class PhooFuXiModel(torch.nn.Module):
         output = x + self.delta_t + 0 * y[0, 0]
         return output
 
+
 @pytest.fixture(scope="class")
 def fuxi_test_package(tmp_path_factory):
     """Creates a bunch of spoof ONNX models to unit test with"""
@@ -67,6 +73,7 @@ def fuxi_test_package(tmp_path_factory):
         open(tmp_path / f"{model}", "a").close()
 
     return Package(str(tmp_path))
+
 
 class TestFuXiMock:
     @pytest.mark.parametrize(
@@ -240,6 +247,7 @@ class TestFuXiMock:
 
         with pytest.raises((KeyError, ValueError)):
             p(x, coords)
+
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

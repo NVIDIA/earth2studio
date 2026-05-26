@@ -23,8 +23,6 @@ from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-import redis  # type: ignore[import-untyped]
-from pydantic import Field, ValidationError  # type: ignore[import-untyped]
 
 from earth2studio.serve.server.config import get_config
 from earth2studio.serve.server.workflow import (
@@ -38,6 +36,17 @@ from earth2studio.serve.server.workflow import (
     parse_workflow_directories_from_env,
     register_all_workflows,
 )
+
+_SERVE_AVAILABLE = False
+try:
+    import redis  # type: ignore[import-untyped]
+    from pydantic import Field, ValidationError  # type: ignore[import-untyped]
+
+    _SERVE_AVAILABLE = True
+except ImportError:
+    pass
+
+pytestmark = pytest.mark.skipif(not _SERVE_AVAILABLE, reason="serve deps not available")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -58,6 +67,7 @@ def api_active_env():  # type: ignore[no-untyped-def]
         else:
             os.environ.pop("EARTH2STUDIO_API_ACTIVE", None)
 
+
 def get_test_config(base_path: str | None = None):  # type: ignore[no-untyped-def]
     """Gets a config with overrides for testing."""
     config = get_config()
@@ -66,6 +76,7 @@ def get_test_config(base_path: str | None = None):  # type: ignore[no-untyped-de
     config.paths.default_output_dir = base_path
     config.paths.results_zip_dir = base_path
     return config
+
 
 @pytest.fixture(autouse=True)
 def setup_test_paths():  # type: ignore[no-untyped-def]
@@ -83,6 +94,7 @@ def setup_test_paths():  # type: ignore[no-untyped-def]
             patch("earth2studio.serve.server.workflow.config", test_config),
         ):
             yield test_config
+
 
 # Test WorkflowStatus Constants
 class TestWorkflowStatus:
@@ -107,6 +119,7 @@ class TestWorkflowStatus:
         assert hasattr(WorkflowStatus, "FAILED")
         assert hasattr(WorkflowStatus, "CANCELLED")
         assert hasattr(WorkflowStatus, "EXPIRED")
+
 
 # Test WorkflowParameters
 class TestWorkflowParameters:
@@ -547,6 +560,7 @@ class TestWorkflowParameters:
         result = StartTimeParams.validate({"start_time": [dt1, dt2]})
         assert result.start_time == [dt1, dt2]
 
+
 # Test WorkflowResult
 class TestWorkflowResult:
     """Test WorkflowResult model"""
@@ -598,6 +612,7 @@ class TestWorkflowResult:
         assert data["workflow_name"] == "test_workflow"
         assert data["execution_id"] == "exec_123"
         assert data["error_message"] == "Test error"
+
 
 # Test WorkflowProgress
 class TestWorkflowProgress:
@@ -723,6 +738,7 @@ class TestWorkflowProgress:
         assert data["progress"]["current_step"] == 5
         assert data["progress"]["total_steps"] == 10
 
+
 # Concrete test implementation of Workflow
 class testWorkflowImpl(Workflow):
     """Test implementation of Workflow for testing purposes"""
@@ -741,6 +757,7 @@ class testWorkflowImpl(Workflow):
         self, parameters: dict[str, Any] | WorkflowParameters, execution_id: str
     ) -> dict[str, Any]:
         return {"result": "success", "execution_id": execution_id}
+
 
 # Additional test workflow classes with fixed names
 class MyWorkflow(Workflow):
@@ -761,6 +778,7 @@ class MyWorkflow(Workflow):
     ) -> dict[str, Any]:
         return {"result": "success", "execution_id": execution_id}
 
+
 class Workflow1(Workflow):
     """Test workflow 1"""
 
@@ -779,6 +797,7 @@ class Workflow1(Workflow):
         self, parameters: dict[str, Any] | WorkflowParameters, execution_id: str
     ) -> dict[str, Any]:
         return {"result": "success", "execution_id": execution_id}
+
 
 class Workflow2(Workflow):
     """Test workflow 2"""
@@ -799,6 +818,7 @@ class Workflow2(Workflow):
     ) -> dict[str, Any]:
         return {"result": "success", "execution_id": execution_id}
 
+
 class Workflow3(Workflow):
     """Test workflow 3"""
 
@@ -817,6 +837,7 @@ class Workflow3(Workflow):
     ) -> dict[str, Any]:
         return {"result": "success", "execution_id": execution_id}
 
+
 def test_json_serial_datetime_date_timedelta_and_unsupported_type():
     """json_serial supports datetime/date/timedelta and raises for other types."""
     dt = datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
@@ -826,6 +847,7 @@ def test_json_serial_datetime_date_timedelta_and_unsupported_type():
     assert json_serial(timedelta(seconds=90)) == 90.0
     with pytest.raises(TypeError, match="is not serializable"):
         json_serial(object())
+
 
 # Test Workflow base class
 class TestWorkflow:
@@ -1258,6 +1280,7 @@ class TestWorkflow:
             # Verify correct path structure
             assert path == Path(tmpdir) / "test_workflow" / "exec_456"
 
+
 # Test WorkflowRegistry
 class TestWorkflowRegistry:
     """Test WorkflowRegistry class"""
@@ -1636,6 +1659,7 @@ WorkflowRegistry.instance().register(SimpleWorkflow)
             with pytest.raises(Exception, match="Test error"):
                 self.registry.auto_register_workflows(mock_redis)
 
+
 class TestWorkflowRegistryExposure:
     """Tests for WorkflowRegistry.is_workflow_exposed and list_workflows with exposure filtering."""
 
@@ -1733,6 +1757,7 @@ class TestWorkflowRegistryExposure:
         assert result["workflow1"] == "First workflow"
         assert result["workflow2"] == "Second workflow"
 
+
 # Test helper functions
 class TestHelperFunctions:
     """Test helper functions"""
@@ -1789,6 +1814,7 @@ class TestHelperFunctions:
             register_all_workflows(mock_redis)
             mock_auto.assert_called_once_with(mock_redis)
 
+
 # Integration tests
 class TestWorkflowIntegration:
     """Integration tests for Workflow and WorkflowRegistry"""
@@ -1839,6 +1865,7 @@ class TestWorkflowIntegration:
         workflows = registry.list_workflows()
         assert len(workflows) == 2
         assert "workflow2" not in workflows
+
 
 class TestWorkflowRegistrySingleton:
     """Tests for the WorkflowRegistry.instance() singleton pattern."""

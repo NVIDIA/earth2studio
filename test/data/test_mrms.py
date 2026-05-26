@@ -66,6 +66,7 @@ def test_mrms_fetch(time, variable):
         assert actual_time_coord in data.coords
         assert data.coords[actual_time_coord].shape[0] == len(time)
 
+
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(60)
@@ -105,6 +106,7 @@ def test_mrms_fetch_multivar(time):
         assert actual_time_coord in data.coords
         assert data.coords[actual_time_coord].shape[0] == len(time)
 
+
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(60)
@@ -118,6 +120,7 @@ def test_mrms_time_tolerance(max_offset_minutes):
     req = np.datetime64(request_time, "s")
     diff = np.abs(resolved - req).astype("timedelta64[s]")
     assert diff <= np.timedelta64(max_offset_minutes, "m")
+
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -154,6 +157,7 @@ def test_mrms_cache(time, variable, cache):
     except FileNotFoundError:
         pass
 
+
 @pytest.mark.timeout(15)
 def test_mrms_available():
     # Out-of-bounds times should not be available
@@ -165,6 +169,7 @@ def test_mrms_available():
     with pytest.raises(ValueError):
         ds = MRMS(cache=False)
         ds([datetime(2019, 1, 1, 0, 0, 0)], "refc")
+
 
 @pytest.mark.slow
 @pytest.mark.timeout(120)
@@ -225,6 +230,7 @@ def test_mrms_corrupted_nearest_file_fallback():
     assert data.coords["actual_time_refc_base"].values != np.datetime64(
         "1970-01-01T00:00:00"
     )
+
 
 @pytest.mark.slow
 @pytest.mark.xfail

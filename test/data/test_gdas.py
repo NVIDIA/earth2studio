@@ -57,6 +57,7 @@ def test_nomads_gdas_fetch(time, variable):
     assert (df["lat"] >= -90).all() and (df["lat"] <= 90).all()
     assert (df["lon"] >= 0).all() and (df["lon"] < 360).all()
 
+
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(120)
@@ -76,6 +77,7 @@ def test_nomads_gdas_wind(variable):
     # Wind components should have reasonable values
     obs = df["observation"].dropna()
     assert (obs.abs() < 200).all()  # m/s, no wind > 200 m/s
+
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -106,6 +108,7 @@ def test_nomads_gdas_cache(time, variable, cache):
     except FileNotFoundError:
         pass
 
+
 def test_nomads_gdas_schema_fields():
     ds = NomadsGDASObsConv()
 
@@ -130,6 +133,7 @@ def test_nomads_gdas_schema_fields():
     fields = ds.resolve_fields(ds.SCHEMA)
     assert fields == ds.SCHEMA.names
 
+
 @pytest.mark.timeout(15)
 def test_nomads_gdas_exceptions():
     ds = NomadsGDASObsConv()
@@ -149,6 +153,7 @@ def test_nomads_gdas_exceptions():
     with pytest.raises(ValueError):
         ds(datetime(2020, 1, 1, 0), "t")
 
+
 @pytest.mark.timeout(15)
 def test_nomads_gdas_available():
     # Future time should not be available
@@ -166,6 +171,7 @@ def test_nomads_gdas_available():
     )
     assert NomadsGDASObsConv.available(recent)
 
+
 @pytest.mark.timeout(15)
 def test_nomads_gdas_url_builder():
     url = NomadsGDASObsConv._build_url(datetime(2026, 4, 5, 12))
@@ -174,6 +180,7 @@ def test_nomads_gdas_url_builder():
         "gdas.20260405/gdas.t12z.prepbufr.nr"
     )
     assert url == expected
+
 
 @pytest.mark.timeout(15)
 def test_nomads_gdas_lexicon():
@@ -194,6 +201,7 @@ def test_nomads_gdas_lexicon():
     key_v, mod_v = GDASObsConvLexicon.get_item("v")
     assert key_v == "wind::v"
 
+
 @pytest.mark.timeout(15)
 def test_nomads_gdas_cache_path():
     ds = NomadsGDASObsConv(cache=True)
@@ -213,6 +221,7 @@ def test_nomads_gdas_cache_path():
     assert path1.startswith(ds.cache)
     assert path1.endswith(".bin")
 
+
 @pytest.mark.timeout(15)
 def test_nomads_gdas_tolerance_conversion():
     # Symmetric tolerance: lower is negative, upper is positive
@@ -224,6 +233,7 @@ def test_nomads_gdas_tolerance_conversion():
     ds2 = NomadsGDASObsConv(time_tolerance=(timedelta(hours=-1), timedelta(hours=6)))
     assert ds2._tolerance_lower == timedelta(hours=-1)
     assert ds2._tolerance_upper == timedelta(hours=6)
+
 
 @pytest.mark.timeout(30)
 def test_nomads_gdas_call_mock(tmp_path):
@@ -291,6 +301,7 @@ def test_nomads_gdas_call_mock(tmp_path):
         mf.assert_called()
         md.assert_called()
 
+
 @pytest.mark.timeout(15)
 def test_nomads_gdas_create_tasks():
     ds = NomadsGDASObsConv(
@@ -310,6 +321,7 @@ def test_nomads_gdas_create_tasks():
     for task in tasks:
         assert "gdas." in task.url
 
+
 @pytest.mark.timeout(15)
 def test_nomads_gdas_empty_result():
     ds = NomadsGDASObsConv()
@@ -318,6 +330,7 @@ def test_nomads_gdas_empty_result():
     assert isinstance(empty_df, pd.DataFrame)
     assert empty_df.empty
     assert list(empty_df.columns) == ds.SCHEMA.names
+
 
 @pytest.mark.timeout(15)
 def test_nomads_gdas_lexicon_modifiers():

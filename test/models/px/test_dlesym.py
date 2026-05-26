@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import numpy as np
 import pytest
 import torch
@@ -36,6 +37,7 @@ class PhooAtmosModel(torch.nn.Module):
         b, t = x.shape[:2]
         return torch.ones(b, t, self.output_time_dim, *x.shape[3:], device=x.device)
 
+
 class PhooOceanModel(torch.nn.Module):
     """Mock ocean model for testing."""
 
@@ -48,6 +50,7 @@ class PhooOceanModel(torch.nn.Module):
         x = in_list[0]
         b, t = x.shape[:2]
         return torch.ones(b, t, self.output_time_dim, *x.shape[3:], device=x.device)
+
 
 def build_dlesym_model(device, nside=64, type="hpx"):
     """Build a DLESyM prognostic model with mock atmos/ocean models.
@@ -106,6 +109,7 @@ def build_dlesym_model(device, nside=64, type="hpx"):
     ).to(device)
 
     return model
+
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.parametrize("grid_type", ["hpx", "ll"])
@@ -178,6 +182,7 @@ def test_dlesym_forward(device, grid_type, batch_size):
     )
     assert np.all(ocean_coords["lead_time"] == dlesym_src._OCEAN_OUTPUT_TIMES)
 
+
 @pytest.mark.parametrize("device", ["cuda:0"])
 @pytest.mark.parametrize("batch_size", [1, 2])
 def test_dlesym_latlon_regridding(device, batch_size):
@@ -229,6 +234,7 @@ def test_dlesym_latlon_regridding(device, batch_size):
     # so here we just check that the mean error is less than 1e-2
     diff = x_ll - x_ll_roundtrip
     assert diff.mean().item() < 1e-2
+
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.parametrize("grid_type", ["hpx", "ll"])
@@ -292,6 +298,7 @@ def test_dlesym_iterator(device, grid_type, batch_size):
         assert np.all(
             coords["lead_time"] == dlesym_src._ATMOS_OUTPUT_TIMES + coupler_step * i
         )
+
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

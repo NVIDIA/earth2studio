@@ -104,6 +104,25 @@ Report results to the user. This validates the coordinate system is compatible w
 
 Create `test/models/px/test_<filename>.py` following the existing test patterns.
 
+### Register test dependencies in conftest.py
+
+Test files that require optional dependencies must be registered in `test/conftest.py`
+so pytest can skip them at collection time (before import) when dependencies are missing.
+
+Add an entry to the `_TEST_DEPENDENCIES` dictionary:
+
+```python
+# In test/conftest.py
+_TEST_DEPENDENCIES: dict[str, list[str]] = {
+    # ...existing entries...
+    "test/models/px/test_<filename>.py": ["<dependency-group>"],
+}
+```
+
+Use the dependency group name from `pyproject.toml` `[project.optional-dependencies]`
+(e.g., `"aurora"`, `"graphcast"`, `"stormcast"`). The hook checks all packages in that
+group, including version constraints.
+
 ### Test file structure
 
 ```python

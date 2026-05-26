@@ -30,6 +30,7 @@ class PhooFCNModel(torch.nn.Module):
     def forward(self, x):
         return x
 
+
 @pytest.mark.parametrize(
     "time",
     [
@@ -76,6 +77,7 @@ def test_fcn_call(time, device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
+
 
 @pytest.mark.parametrize(
     "ensemble",
@@ -125,6 +127,7 @@ def test_fcn_iter(ensemble, device):
         if i > 5:
             break
 
+
 @pytest.mark.parametrize(
     "dc",
     [
@@ -153,12 +156,14 @@ def test_fcn_exceptions(dc, device):
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
 
+
 @pytest.fixture(scope="function")
 def model() -> FCN:
     # Test only on cuda device
     package = FCN.load_default_package()
     p = FCN.load_model(package)
     return p
+
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

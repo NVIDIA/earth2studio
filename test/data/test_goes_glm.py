@@ -20,13 +20,14 @@ import shutil
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
-import netCDF4
 import numpy as np
 import pyarrow as pa
 import pytest
 
 from earth2studio.data import GOESGLM
 from earth2studio.data.goes_glm import _GOESGLMFile
+
+netCDF4 = pytest.importorskip("netCDF4", reason="netCDF4 not installed")
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +53,7 @@ def _write_glm_netcdf(
         en_v[:] = np.asarray(energies, dtype=np.float32)
         off_v = ds.createVariable("event_time_offset", "f8", ("number_of_events",))
         off_v[:] = np.asarray(offsets, dtype=np.float64)
+
 
 # ---------------------------------------------------------------------------
 # Mock tests — exercise __call__ end-to-end without network
@@ -105,6 +107,7 @@ def test_goes_glm_call_mock(tmp_path):
     finally:
         shutil.rmtree(ds.cache, ignore_errors=True)
 
+
 def test_goes_glm_call_mock_fields_subset(tmp_path):
     epoch = datetime(2024, 6, 1, 18, 0, 0)
     s3_uri = (
@@ -145,6 +148,7 @@ def test_goes_glm_call_mock_fields_subset(tmp_path):
     finally:
         shutil.rmtree(ds.cache, ignore_errors=True)
 
+
 def test_goes_glm_call_mock_empty():
     ds = GOESGLM(satellite="east", cache=False, verbose=False)
 
@@ -155,6 +159,7 @@ def test_goes_glm_call_mock_empty():
         df = ds(datetime(2024, 6, 1, 18, 0), ["flashe"])
     assert df.empty
     assert list(df.columns) == ds.SCHEMA.names
+
 
 def test_goes_glm_call_mock_bbox(tmp_path):
     epoch = datetime(2024, 6, 1, 18, 0, 0)
@@ -196,6 +201,7 @@ def test_goes_glm_call_mock_bbox(tmp_path):
     finally:
         shutil.rmtree(ds.cache, ignore_errors=True)
 
+
 # ---------------------------------------------------------------------------
 # Network integration tests (slow, xfail)
 # ---------------------------------------------------------------------------
@@ -215,6 +221,7 @@ def test_goes_glm_fetch():
     assert not df.empty
     assert set(df["variable"].unique()).issubset({"flashe", "flashc"})
 
+
 # ---------------------------------------------------------------------------
 # Unit tests — exceptions, resolve_fields, time/satellite/parse helpers
 # ---------------------------------------------------------------------------
@@ -232,21 +239,25 @@ def test_goes_glm_exceptions():
     with pytest.raises(TypeError):
         GOESGLM.resolve_fields(pa.schema([pa.field("time", pa.string())]))
 
+
 def test_goes_glm_resolve_fields():
     assert GOESGLM.resolve_fields(None).names == GOESGLM.SCHEMA.names
     assert GOESGLM.resolve_fields("observation").names == ["observation"]
     subset = ["time", "lat", "lon", "observation", "variable"]
     assert GOESGLM.resolve_fields(subset).names == subset
 
+
 def test_goes_glm_available():
     assert GOESGLM.available(datetime(2024, 6, 1, 18, 0))
     assert GOESGLM.available(np.datetime64("2024-06-01T18:00"))
     assert not GOESGLM.available(datetime(1990, 1, 1))
 
+
 def test_goes_glm_validate_time():
     GOESGLM._validate_time([datetime(2024, 6, 1, 18, 0)])
     with pytest.raises(ValueError):
         GOESGLM._validate_time([datetime(1990, 1, 1)])
+
 
 def test_goes_glm_tolerance_conversion():
     ds = GOESGLM(time_tolerance=np.timedelta64(2, "m"), cache=False, verbose=False)
@@ -260,6 +271,7 @@ def test_goes_glm_tolerance_conversion():
     assert asym._tolerance_lower == timedelta(seconds=-30)
     assert asym._tolerance_upper == timedelta(seconds=90)
 
+
 def test_goes_glm_satellite_routing():
     ds_e = GOESGLM(satellite="east", cache=False, verbose=False)
     assert ds_e._satellite_for_time(datetime(2024, 1, 1)) == "G16"
@@ -272,6 +284,7 @@ def test_goes_glm_satellite_routing():
     ds_pin = GOESGLM(satellite="G16", cache=False, verbose=False)
     assert ds_pin._satellite_for_time(datetime(2026, 1, 1)) == "G16"
 
+
 def test_goes_glm_lat_lon_bbox_accepts_360_convention():
     # The GLM source filters in [-180, 180); a bbox passed in [0, 360]
     # should be auto-normalised under the hood.
@@ -280,6 +293,7 @@ def test_goes_glm_lat_lon_bbox_accepts_360_convention():
     assert lat_min == 24.5 and lat_max == 49.5
     assert lon_min == pytest.approx(-125.0)
     assert lon_max == pytest.approx(-66.0)
+
 
 def test_goes_glm_parse_file(tmp_path):
     f = tmp_path / "events.nc"
@@ -302,11 +316,13 @@ def test_goes_glm_parse_file(tmp_path):
         GOESGLM._parse_glm_file(str(f), lat_lon_bbox=(-10.0, -10.0, -5.0, -5.0)) is None
     )
 
+
 # ---------------------------------------------------------------------------
 # Internal-plumbing tests (mocked S3 filesystem)
 # ---------------------------------------------------------------------------
 def _run(coro):
     return asyncio.run(coro)
+
 
 def test_goes_glm_discover_files():
     ds = GOESGLM(
@@ -339,6 +355,7 @@ def test_goes_glm_discover_files():
     # Missing prefix → empty result, no exception.
     fake_fs._ls = AsyncMock(side_effect=FileNotFoundError())
     assert _run(ds._discover_files([datetime(2024, 6, 1, 18, 0, 0)])) == []
+
 
 def test_goes_glm_fetch_remote_file(tmp_path):
     ds = GOESGLM(satellite="east", cache=False, verbose=False)

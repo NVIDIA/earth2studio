@@ -114,6 +114,59 @@ def test_model_forward(device):
     ...
 ```
 
+### Automatic Test Skipping for Optional Dependencies
+
+Test files that require optional dependencies are **automatically skipped** at collection time
+via the `pytest_ignore_collect` hook in `test/conftest.py`. This prevents `ModuleNotFoundError`
+during import when dependencies are not installed.
+
+#### How it works
+
+The `_TEST_DEPENDENCIES` dictionary in `test/conftest.py` maps test file paths to their
+required dependency groups (from `pyproject.toml`):
+
+```python
+_TEST_DEPENDENCIES: dict[str, list[str]] = {
+    "test/models/px/test_aifs.py": ["aifs"],
+    "test/models/dx/test_corrdiff.py": ["corrdiff"],
+    "test/data/test_ecmwf.py": ["data"],
+    "test/serve/test_serve_client.py": ["serve"],
+    # ... etc
+}
+```
+
+When pytest collects tests, the hook checks if all packages in the specified groups are
+installed (including version constraints). If any package is missing, the entire test file
+is skipped before Python attempts to import it.
+
+#### Adding new test dependencies
+
+When creating a new test file that requires optional dependencies:
+
+1. Add an entry to `_TEST_DEPENDENCIES` in `test/conftest.py`
+2. Use the dependency group name(s) from `pyproject.toml` `[project.optional-dependencies]`
+3. The hook will automatically check all packages in those groups
+
+```python
+# In test/conftest.py
+_TEST_DEPENDENCIES: dict[str, list[str]] = {
+    # ...existing entries...
+    "test/models/px/test_newmodel.py": ["newmodel-group"],
+}
+```
+
+#### Version-aware checking
+
+The hook respects version constraints in `pyproject.toml`. For example, if a group specifies
+`anemoi-models==0.5.1`, the test file will only run if that exact version is installed.
+
+#### No module-level skip markers needed
+
+With this approach, test files do **not** need `pytestmark = pytest.mark.skipif(...)` or
+similar patterns. Just add the file to `_TEST_DEPENDENCIES` and write normal imports at
+module level.
+```
+
 ## Test Organization
 
 ### File Structure

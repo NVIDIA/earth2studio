@@ -75,6 +75,7 @@ class TestParseRangeHeader:
             parse_range_header("bytes=invalid", 100)
         assert exc_info.value.status_code == 416
 
+
 class TestParseAzureBlobContainerUrl:
     """Tests for parse_azure_blob_container_url."""
 
@@ -108,6 +109,7 @@ class TestParseAzureBlobContainerUrl:
     def test_missing_container_in_path_rejected(self):
         with pytest.raises(ValueError, match="container name"):
             parse_azure_blob_container_url("https://onlyacct.blob.core.windows.net/")
+
 
 class TestCreateFileStream:
     """Tests for create_file_stream."""
@@ -170,6 +172,7 @@ class TestCreateFileStream:
                     pass
         assert "Error streaming desc" in caplog.text
 
+
 class TestRedisKeyFunctions:
     """Tests for Redis key helper functions."""
 
@@ -200,6 +203,7 @@ class TestRedisKeyFunctions:
     def test_get_signed_url_key(self):
         """get_signed_url_key returns expected key format."""
         assert get_signed_url_key("req_1") == ("inference_request:req_1:signed_url")
+
 
 class TestQueueNextStage:
     """Tests for queue_next_stage."""

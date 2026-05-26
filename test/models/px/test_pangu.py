@@ -38,6 +38,7 @@ class PhooPanguModel(torch.nn.Module):
     def forward(self, x, x_surface):
         return x + self.delta_t, x_surface + self.delta_t
 
+
 @pytest.fixture(scope="class")
 def onnx_test_package(tmp_path_factory):
     """Creates a bunch of spoof ONNX models to unit test with"""
@@ -59,6 +60,7 @@ def onnx_test_package(tmp_path_factory):
             output_names=["output", "output_surface"],
         )
     return Package(str(tmp_path))
+
 
 class TestPanguMock:
     @pytest.mark.parametrize(
@@ -207,6 +209,7 @@ class TestPanguMock:
             p(x, coords)
 
         torch.cuda.empty_cache()
+
 
 @pytest.mark.package
 @pytest.mark.parametrize(

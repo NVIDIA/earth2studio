@@ -1440,7 +1440,26 @@ Fix all errors before proceeding. Re-run until clean.
 
 Create `test/data/test_<filename>.py` following the existing patterns.
 
-### 12.0. Canonical test names and ordering (REQUIRED)
+### 12.0. Register test dependencies in conftest.py
+
+Test files that require optional dependencies must be registered in `test/conftest.py`
+so pytest can skip them at collection time (before import) when dependencies are missing.
+
+Add an entry to the `_TEST_DEPENDENCIES` dictionary:
+
+```python
+# In test/conftest.py
+_TEST_DEPENDENCIES: dict[str, list[str]] = {
+    # ...existing entries...
+    "test/data/test_<filename>.py": ["data"],  # or specific group
+}
+```
+
+Use the dependency group name from `pyproject.toml` `[project.optional-dependencies]`
+(typically `"data"` for data sources). The hook checks all packages in that group,
+including version constraints.
+
+### 12.0a. Canonical test names and ordering (REQUIRED)
 
 **Every test name in this file must use the prefix
 `test_<source_name>_` (lowercase, underscore-separated).** Do not

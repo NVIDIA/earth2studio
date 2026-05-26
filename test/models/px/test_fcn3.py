@@ -48,10 +48,12 @@ class PhooFCN3Preprocessor(torch.nn.Module):
     def update_internal_state(self, replace_state=True):
         self.state = torch.randn((10,), device=self.state.device)
 
+
 class PhooFCN3Model(torch.nn.Module):
     def __init__(self, preprocessor):
         super().__init__()
         self.preprocessor = preprocessor
+
 
 class PhooFCN3ModelWrapper(torch.nn.Module):
     def __init__(self, model):
@@ -64,11 +66,13 @@ class PhooFCN3ModelWrapper(torch.nn.Module):
     def set_rng(self, reset: bool = True, seed: int = 333):
         return
 
+
 @pytest.fixture(scope="function")
 def dummy_model():
     preprocessor = PhooFCN3Preprocessor()
     model = PhooFCN3Model(preprocessor)
     return model
+
 
 @pytest.mark.parametrize(
     "time",
@@ -113,6 +117,7 @@ def test_fcn3_call(time, device, dummy_model):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
+
 
 @pytest.mark.parametrize(
     "ensemble",
@@ -161,6 +166,7 @@ def test_fcn3_iter(ensemble, device, dummy_model):
         if i > 5:
             break
 
+
 @pytest.mark.parametrize(
     "dc",
     [
@@ -187,11 +193,13 @@ def test_fcn3_exceptions(dc, device, dummy_model):
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
 
+
 @pytest.fixture(scope="function")
 def model() -> FCN3:
     package = FCN3.load_default_package()
     p = FCN3.load_model(package)
     return p
+
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -199,6 +207,7 @@ def test_fcn3_load_package(device, model):
     torch.cuda.empty_cache()
     # Test the cached model package FCN3
     model.to(device)
+
 
 # Will not test while we do not have 80GB GPU cards
 # in CI

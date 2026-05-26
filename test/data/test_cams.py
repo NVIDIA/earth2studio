@@ -27,14 +27,17 @@ from earth2studio.data import CAMS_FX
 
 CAMS_ADS_URL = "https://ads.atmosphere.copernicus.eu/api"
 
+
 @pytest.fixture(autouse=True)
 def _set_cdsapi_url(monkeypatch):
     """Point cdsapi at the ADS endpoint for all tests in this module."""
     monkeypatch.setenv("CDSAPI_URL", CAMS_ADS_URL)
 
+
 YESTERDAY = datetime.datetime.now(datetime.UTC).replace(
     hour=0, minute=0, second=0, microsecond=0
 ) - datetime.timedelta(days=1)
+
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -65,6 +68,7 @@ def test_cams_fx_fetch(variable, lead_time):
     assert len(data.coords["lon"]) > 0
     assert not np.isnan(data.values).all()
 
+
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(120)
@@ -89,20 +93,24 @@ def test_cams_fx_cache(cache):
     except FileNotFoundError:
         pass
 
+
 @pytest.mark.timeout(30)
 def test_cams_fx_invalid():
     with pytest.raises((ValueError, KeyError)):
         ds = CAMS_FX()
         ds(YESTERDAY, datetime.timedelta(hours=0), "nonexistent_var")
 
+
 def test_cams_fx_time_validation():
     with pytest.raises(ValueError, match="CAMS Global forecast"):
         CAMS_FX._validate_time([datetime.datetime(2014, 1, 1)])
+
 
 def test_cams_fx_available():
     assert CAMS_FX.available(datetime.datetime(2024, 1, 1))
     assert not CAMS_FX.available(datetime.datetime(2010, 1, 1))
     assert CAMS_FX.available(datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC))
+
 
 def test_cams_fx_api_vars_dedup():
     """Variables sharing the same API name must not produce duplicate requests."""
@@ -112,6 +120,7 @@ def test_cams_fx_api_vars_dedup():
     info_b = _resolve_variable("aod550", 1)
     api_vars = list(dict.fromkeys([info_a.api_name, info_b.api_name]))
     assert len(api_vars) == 1
+
 
 def test_cams_fx_call_mock(tmp_path: pathlib.Path):
     """Test CAMS_FX __call__ with surface and pressure-level variables (mocked)."""
@@ -205,6 +214,7 @@ def test_cams_fx_call_mock(tmp_path: pathlib.Path):
             assert data.shape == (1, 2, 2, len(lat), len(lon))
             assert list(data.coords["variable"].values) == ["aod550", "u500"]
             assert mock_dl.call_count == 2
+
 
 def test_cams_fx_pressure_level_leadtime_validation():
     """Pressure-level vars at non-3h lead times must raise ValueError."""

@@ -20,7 +20,11 @@ from collections.abc import Iterable
 import numpy as np
 import pytest
 import torch
-from aurora import Batch, Metadata
+
+try:
+    from aurora import Batch, Metadata
+except ImportError:
+    pytest.importorskip("aurora")
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import Aurora
@@ -41,6 +45,7 @@ class PhooAuroraModel(torch.nn.Module):
                 rollout_step=x.metadata.rollout_step + 1,
             ),
         )
+
 
 @pytest.mark.parametrize(
     "time",
@@ -88,6 +93,7 @@ def test_aurora_call(time, device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
+
 
 @pytest.mark.parametrize(
     "ensemble",
@@ -140,6 +146,7 @@ def test_aurora_iter(ensemble, device):
         if i > 5:
             break
 
+
 @pytest.mark.parametrize(
     "dc",
     [
@@ -169,11 +176,13 @@ def test_aurora_exceptions(dc, device):
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
 
+
 @pytest.fixture(scope="function")
 def model() -> Aurora:
     package = Aurora.load_default_package()
     p = Aurora.load_model(package)
     return p
+
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

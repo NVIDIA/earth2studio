@@ -28,6 +28,7 @@ class PhooAFNOPrecipV2(torch.nn.Module):
     def forward(self, x):
         return x[:, :1, :, :]
 
+
 @pytest.mark.parametrize(
     "x",
     [
@@ -69,6 +70,7 @@ def test_afno_precip_v2(x, device):
     handshake_dim(out_coords, "time", 1)
     handshake_dim(out_coords, "batch", 0)
 
+
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_afno_precip_v2_package(device):
@@ -95,6 +97,7 @@ def test_afno_precip_v2_package(device):
     handshake_dim(out_coords, "lead_time", 2)
     handshake_dim(out_coords, "time", 1)
     handshake_dim(out_coords, "batch", 0)
+
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_afno_v2_exceptions(device):

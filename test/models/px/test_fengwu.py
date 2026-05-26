@@ -40,6 +40,7 @@ class PhooFengWuModel(torch.nn.Module):
             torch.cat([x[:, 69:], torch.empty_like(x[:, 69:])], axis=1) + self.delta_t
         )
 
+
 @pytest.fixture(scope="class")
 def fengwu_test_package(tmp_path_factory):
     """Creates a bunch of spoof ONNX models to unit test with"""
@@ -62,6 +63,7 @@ def fengwu_test_package(tmp_path_factory):
     np.save(tmp_path / "global_means.npy", np.zeros(69))
     np.save(tmp_path / "global_stds.npy", np.ones(69))
     return Package(str(tmp_path))
+
 
 class TestFengWuMock:
 
@@ -198,6 +200,7 @@ class TestFengWuMock:
 
         with pytest.raises((KeyError, ValueError, RuntimeError)):
             p(x, coords)
+
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

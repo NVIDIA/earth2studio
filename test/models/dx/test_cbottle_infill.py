@@ -17,13 +17,17 @@
 from collections import OrderedDict
 from datetime import datetime, timedelta
 
-import cbottle
 import numpy as np
 import pytest
 import torch
 import xarray as xr
-from cbottle.datasets import base
-from cbottle.inference import MixtureOfExpertsDenoiser
+
+try:
+    import cbottle
+    from cbottle.datasets import base
+    from cbottle.inference import MixtureOfExpertsDenoiser
+except ImportError:
+    pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
 from earth2studio.models.dx import CBottleInfill
 from earth2studio.utils import handshake_dim

@@ -17,14 +17,18 @@
 import datetime
 import importlib.util
 
-import cbottle
-import earth2grid  # noqa: F401
 import numpy as np
 import pytest
 import torch
 import xarray as xr
-from cbottle.datasets import base
-from cbottle.inference import MixtureOfExpertsDenoiser  # noqa: F401
+
+try:
+    import cbottle
+    import earth2grid
+    from cbottle.datasets import base
+    from cbottle.inference import MixtureOfExpertsDenoiser
+except ImportError:
+    pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
 from earth2studio.data import CBottle3D
 

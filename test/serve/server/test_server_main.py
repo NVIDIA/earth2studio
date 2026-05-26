@@ -41,6 +41,7 @@ from fastapi.exceptions import FastAPIError  # type: ignore[import-untyped]
 
 _original_route_init = fastapi.routing.APIRoute.__init__
 
+
 def _patched_route_init(self, *args, **kwargs):
     """Patched APIRoute.__init__ that handles union return types with StreamingResponse"""
     import inspect
@@ -68,8 +69,10 @@ def _patched_route_init(self, *args, **kwargs):
             return _original_route_init(self, *args, **kwargs)
         raise
 
+
 # Apply the patch before any imports of earth2studio.serve.server.main
 fastapi.routing.APIRoute.__init__ = _patched_route_init
+
 
 class TestWorkflowSchemaEndpoint:
     """Tests for GET /v1/infer/workflows/{workflow_name}/schema endpoint"""
@@ -236,6 +239,7 @@ class TestWorkflowSchemaEndpoint:
         # Schema should be directly usable (no wrapper objects)
         assert "workflow_name" not in schema
         assert "parameters_schema" not in schema
+
 
 class TestWorkflowParameterValidation:
     """Test workflow parameter validation at submission time"""
@@ -692,6 +696,7 @@ class TestWorkflowParameterValidation:
         assert "Invalid parameters" in data["detail"]
         assert "forecast_times" in data["detail"]
 
+
 class TestWorkflowExecutionRequest:
     """Tests for WorkflowExecutionRequest validation"""
 
@@ -828,6 +833,7 @@ class TestWorkflowExecutionRequest:
         assert request.parameters["config"]["model"]["type"] == "fcn"
         assert len(request.parameters["options"]) == 3
 
+
 class TestQueuePosition:
     """Tests for queue position functionality"""
 
@@ -905,6 +911,7 @@ class TestQueuePosition:
 
         position = get_queue_position(queue_with_error, "any_job")
         assert position is None
+
 
 class TestWorkflowExecutionWithQueuePosition:
     """Tests for workflow execution endpoint with queue position"""
@@ -1190,6 +1197,7 @@ class TestWorkflowExecutionWithQueuePosition:
             assert data["position"] is None
         assert data["status"] == "completed"
 
+
 class TestHealthAndProbes:
     """Tests for /health, /readiness, /liveness, and /metrics endpoints."""
 
@@ -1263,6 +1271,7 @@ class TestHealthAndProbes:
             assert "mock_metric" in response.text
             assert "text/plain" in response.headers.get("content-type", "")
 
+
 class TestListWorkflows:
     """Tests for GET /v1/infer/workflows."""
 
@@ -1308,6 +1317,7 @@ class TestListWorkflows:
         assert "workflows" in data
         assert "fake_wf" in data["workflows"]
         assert data["workflows"]["fake_wf"] == "Fake workflow for list test"
+
 
 class TestAdmissionControl:
     """Tests for check_admission_control (queue full, Redis None)."""
@@ -1413,6 +1423,7 @@ class TestAdmissionControl:
         )
         assert response.status_code == 500
         assert "queue" in response.json().get("detail", "").lower()
+
 
 class TestExecuteWorkflowBranches:
     """Tests for execute_workflow branches (404, 400, 503, 500)."""
@@ -1591,6 +1602,7 @@ class TestExecuteWorkflowBranches:
         assert r_named.status_code == 200
         assert r_default.json()["status"] == r_named.json()["status"] == "queued"
 
+
 class TestHealthMetricsSchemaExceptions:
     """Tests for health, metrics, and schema exception paths."""
 
@@ -1674,6 +1686,7 @@ class TestHealthMetricsSchemaExceptions:
             if "bad_schema_wf" in workflow_registry._workflows:
                 del workflow_registry._workflows["bad_schema_wf"]
 
+
 class TestGetWorkflowStatusBranches:
     """Tests for get_workflow_status branches (404 ValueError, 500 Exception)."""
 
@@ -1750,6 +1763,7 @@ class TestGetWorkflowStatusBranches:
             response = client.get("/v1/infer/status_wf/exec_123/status")
         assert response.status_code == 500
         assert "status" in response.json().get("detail", "").lower()
+
 
 class TestGetWorkflowResultsBranches:
     """Tests for get_workflow_results (EXPIRED, 202, FAILED, CANCELLED, 404, 200, 500)."""
@@ -1924,6 +1938,7 @@ class TestGetWorkflowResultsBranches:
                 mock_reg.get_workflow_class.return_value = mock_wf
                 response = client.get("/v1/infer/results_wf/exec_1/results")
         assert response.status_code == 500
+
 
 class TestGetWorkflowResultFileBranches:
     """Tests for get_workflow_result_file (404, 503, 403, 400, 200)."""
@@ -2173,6 +2188,7 @@ class TestGetWorkflowResultFileBranches:
         )
         assert "bytes 0-4/" in cr and cr.rstrip().endswith("/11")
 
+
 class TestLifespanBranches:
     """Tests for lifespan startup exception branches (lines 236-242)."""
 
@@ -2226,6 +2242,7 @@ class TestLifespanBranches:
                 with TestClient(app):
                     pass
 
+
 class TestHealthCheckWithoutScriptDir:
     """Tests health endpoint when SCRIPT_DIR env var is absent (lines 304-305)."""
 
@@ -2264,6 +2281,7 @@ class TestHealthCheckWithoutScriptDir:
                 response = client_probes.get("/health")
         assert response.status_code == 200
         assert response.json()["status"] == "healthy"
+
 
 class TestNotExposedWorkflowEndpoints:
     """Tests for 404 when workflow is registered but not exposed (lines 427, 539, 671, 743, 876)."""
@@ -2384,6 +2402,7 @@ class TestNotExposedWorkflowEndpoints:
             )
         assert response.status_code == 404
 
+
 class TestExecuteWorkflowAdditionalBranches:
     """Additional coverage for execute_workflow (lines 598, 605-609)."""
 
@@ -2473,6 +2492,7 @@ class TestExecuteWorkflowAdditionalBranches:
                 )
         assert response.status_code == 503
         assert "Redis" in response.json().get("detail", "")
+
 
 class TestGetWorkflowResultFileAdditionalBranches:
     """Additional tests for get_workflow_result_file (lines 895, 903, 919-952, 986, 1035, 1052, 1062-1066)."""
@@ -2654,6 +2674,7 @@ class TestGetWorkflowResultFileAdditionalBranches:
         assert "Failed to retrieve file" in response.json().get("detail", {}).get(
             "error", ""
         )
+
 
 class TestMainEntrypoint:
     """Test main module entrypoint (covers line 1044)."""

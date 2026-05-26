@@ -56,9 +56,11 @@ build_lead_time_chunks = compare_crps.build_lead_time_chunks
 load_prediction_chunk = compare_crps.load_prediction_chunk
 load_verification_chunk = compare_crps.load_verification_chunk
 
+
 # ---------------------------------------------------------------------------
 # Helpers from test_compare.py
 # ---------------------------------------------------------------------------
+
 
 def _make_ds(
     times: list[str],
@@ -90,7 +92,9 @@ def _make_ds(
         )
     return xr.Dataset(data_vars)
 
+
 # ---- assert_compatible ----
+
 
 class TestAssertCompatible:
     """Tests for assert_compatible."""
@@ -118,7 +122,9 @@ class TestAssertCompatible:
         captured = capsys.readouterr()
         assert "WARNING" in captured.err
 
+
 # ---- report_results ----
+
 
 class TestReportResults:
     """Tests for report_results."""
@@ -159,12 +165,14 @@ class TestReportResults:
         assert "Rel Diff%" in captured.out
         assert "%" in captured.out
 
+
 # ---------------------------------------------------------------------------
 # Helpers from test_data_loading.py
 # ---------------------------------------------------------------------------
 
 SMALL_LAT = np.linspace(90, -90, 4)
 SMALL_LON = np.linspace(0, 360, 8, endpoint=False)
+
 
 def _make_prediction_ds(
     n_ensemble: int = 2,
@@ -194,7 +202,9 @@ def _make_prediction_ds(
         )
     return xr.Dataset(data_vars)
 
+
 # ---- spatial_coords_from_dataset ----
+
 
 class TestSpatialCoordsFromDataset:
     """Tests for spatial_coords_from_dataset."""
@@ -212,7 +222,9 @@ class TestSpatialCoordsFromDataset:
         for dim in ("time", "ensemble", "lead_time"):
             assert dim not in coords
 
+
 # ---- build_lead_time_chunks ----
+
 
 class TestBuildLeadTimeChunks:
     """Tests for build_lead_time_chunks."""
@@ -251,7 +263,9 @@ class TestBuildLeadTimeChunks:
         chunks = build_lead_time_chunks(lt, 1)
         assert len(chunks) == 4
 
+
 # ---- load_prediction_chunk ----
+
 
 class TestLoadPredictionChunk:
     """Tests for load_prediction_chunk."""
@@ -281,7 +295,9 @@ class TestLoadPredictionChunk:
         )
         assert tensor.dtype == torch.float32
 
+
 # ---- load_verification_chunk ----
+
 
 class TestLoadVerificationChunk:
     """Tests for load_verification_chunk."""

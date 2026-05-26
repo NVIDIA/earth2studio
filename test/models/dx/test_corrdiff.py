@@ -77,21 +77,25 @@ class MockPhysicsNemoModule(torch.nn.Module):
         cls.created.append(inst)
         return inst
 
+
 @pytest.fixture
 def mock_residual_model():
     """Create a mock residual model for testing."""
     return MockPhysicsNemoModule(img_out_channels=4)
+
 
 @pytest.fixture
 def mock_regression_model():
     """Create a mock regression model for testing."""
     return MockPhysicsNemoModule(img_out_channels=4)
 
+
 @pytest.fixture
 def mock_package():
     """Create a mock package for testing."""
     package = MagicMock(spec=Package)
     return package
+
 
 @pytest.fixture(params=["rectangular", "curvilinear"])
 def sample_model_params(request):
@@ -138,6 +142,7 @@ def sample_model_params(request):
         "out_center": out_center,
         "out_scale": out_scale,
     }
+
 
 @pytest.fixture(params=["rectangular", "curvilinear"])
 def temp_model_files(request):
@@ -217,6 +222,7 @@ def temp_model_files(request):
         ds.to_netcdf(temp_path / "output_latlon_grid.nc")
 
         yield temp_path
+
 
 @pytest.fixture(params=["rectangular", "curvilinear"])
 def temp_model_files_with_invariants(request):
@@ -315,6 +321,7 @@ def temp_model_files_with_invariants(request):
         ds_inv.to_netcdf(temp_path / "invariants.nc")
 
         yield temp_path
+
 
 class TestCorrDiffForward:
     @pytest.mark.parametrize(
@@ -857,6 +864,7 @@ class TestCorrDiffForward:
         )
         out_both, _ = model_both(x, coords)
         assert out_both.shape == (1, 1, 4, 320, 320)
+
 
 class TestCorrDiffLoadModel:
     @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)

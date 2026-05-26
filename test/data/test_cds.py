@@ -25,10 +25,12 @@ from earth2studio.data import CDS
 
 CDS_API_URL = "https://cds.climate.copernicus.eu/api"
 
+
 @pytest.fixture(autouse=True)
 def _set_cdsapi_url(monkeypatch):
     """Point cdsapi at the CDS endpoint for all tests in this module."""
     monkeypatch.setenv("CDSAPI_URL", CDS_API_URL)
+
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -63,6 +65,7 @@ def test_cds_fetch(time, variable):
     assert not np.isnan(data.values).any()
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
+
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(120)
@@ -87,6 +90,7 @@ def test_cds_tp06_fetch(time):
     assert shape[3] == 1440
     assert not np.isnan(data.values).any()
     assert np.array_equal(data.coords["variable"].values, np.array(["tp06"]))
+
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -127,6 +131,7 @@ def test_cds_cache(time, variable, cache):
         shutil.rmtree(ds.cache)
     except FileNotFoundError:
         pass
+
 
 @pytest.mark.xfail
 @pytest.mark.timeout(30)

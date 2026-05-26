@@ -217,6 +217,7 @@ class TestDeleteResultFiles:
         mock_workflow_dir.iterdir.assert_not_called()
         mock_rmtree.assert_not_called()
 
+
 class TestProcessExpiredKey:
     """Test suite for _process_expired_key function"""
 
@@ -424,6 +425,7 @@ class TestProcessExpiredKey:
         assert result is False
         mock_delete_func.assert_not_called()
         mock_redis.setex.assert_not_called()
+
 
 class TestCleanupExpiredResults:
     """Test suite for cleanup_expired_results function"""
@@ -693,6 +695,7 @@ class TestCleanupExpiredResults:
             # Only the valid key (exec_old) should be processed; malformed key is skipped
         assert mock_redis.setex.call_count == 1
         assert mock_redis.setex.call_args[0][0] == "workflow_execution:wf1:exec_old"
+
 
 class TestCleanupDaemonMain:
     """Tests for main() daemon entrypoint."""

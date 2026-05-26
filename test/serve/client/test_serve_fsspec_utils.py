@@ -48,6 +48,7 @@ class TestSignedURLFileSystemInit:
         assert "Signature=s" in fs._query_string
         assert "Key-Pair-Id=k" in fs._query_string
 
+
 class TestSignedURLFileSystemMakeSignedPath:
     """Test _make_signed_path."""
 
@@ -85,6 +86,7 @@ class TestSignedURLFileSystemMakeSignedPath:
         out = fs._make_signed_path("x")
         assert "&Policy=" in out or "&policy=" in out.lower()
 
+
 class TestSignedURLFileSystemHandle403:
     """Test _handle_403."""
 
@@ -108,6 +110,7 @@ class TestSignedURLFileSystemHandle403:
         fs = SignedURLFileSystem(base_fs, {}, "https://example.com")
         with pytest.raises(ValueError, match="other"):
             fs._handle_403(ValueError("other"), "/path")
+
 
 class TestSignedURLFileSystemOpen:
     """Test _open."""
@@ -135,6 +138,7 @@ class TestSignedURLFileSystemOpen:
         fs = SignedURLFileSystem(base_fs, {}, "https://example.com")
         with pytest.raises(FileNotFoundError, match="File not found"):
             fs._open("x")
+
 
 class TestSignedURLFileSystemCatFile:
     """Test cat_file."""
@@ -169,6 +173,7 @@ class TestSignedURLFileSystemCatFile:
         with pytest.raises(FileNotFoundError):
             fs.cat_file("x")
 
+
 class TestSignedURLFileSystemCatFileAsync:
     """Test _cat_file (delegates to cat_file)."""
 
@@ -182,6 +187,7 @@ class TestSignedURLFileSystemCatFileAsync:
         base_fs.cat_file.assert_called_once()
         assert base_fs.cat_file.call_args[1]["start"] == 1
         assert base_fs.cat_file.call_args[1]["end"] == 2
+
 
 class TestSignedURLFileSystemInfo:
     """Test info."""
@@ -201,6 +207,7 @@ class TestSignedURLFileSystemInfo:
         fs = SignedURLFileSystem(base_fs, {}, "https://example.com")
         with pytest.raises(FileNotFoundError):
             fs.info("x")
+
 
 class TestSignedURLFileSystemExists:
     """Test exists."""
@@ -233,6 +240,7 @@ class TestSignedURLFileSystemExists:
         fs = SignedURLFileSystem(base_fs, {}, "https://example.com")
         with pytest.raises(RuntimeError, match="network error"):
             fs.exists("path")
+
 
 class TestCreateCloudfrontMapper:
     """Test create_cloudfront_mapper."""
@@ -281,6 +289,7 @@ class TestCreateCloudfrontMapper:
         fs_arg = mock_fsspec.mapping.FSMap.call_args[1]["fs"]
         assert "*" not in fs_arg._base_url
         assert fs_arg._base_url.rstrip("/").endswith("bucket")
+
 
 class TestGetMapper:
     """Test get_mapper."""

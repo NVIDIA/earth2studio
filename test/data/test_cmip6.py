@@ -69,6 +69,7 @@ def test_cmip6_fetch(table_id, variable, time):
     assert shape[1] == len(variable)
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
+
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(60)
@@ -118,6 +119,7 @@ def test_cmip6_cache(table_id, variable, time, cache):
     except FileNotFoundError:
         pass
 
+
 def test_cmip6_init_valid():
     """CMIP6 initialisation with typical parameters should succeed."""
 
@@ -133,6 +135,7 @@ def test_cmip6_init_valid():
     assert ds.source_id == "MPI-ESM1-2-LR"
     assert ds.table_id == "Amon"
     assert ds.variant_label == "r1i1p1f1"
+
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -157,6 +160,7 @@ def test_cmip6_input(variable, expected_exc):
 
     with pytest.raises(expected_exc):
         _ = ds(datetime(2015, 1, 16), variable)
+
 
 def test_cmip6_pressure_level_tolerance():
 
@@ -200,6 +204,7 @@ def test_cmip6_pressure_level_tolerance():
     data_ok = ds(datetime(2000, 1, 1), ["t500"])
     assert data_ok.shape == (1, 1, len(lat), len(lon))
 
+
 @pytest.mark.xfail
 @pytest.mark.timeout(90)
 @pytest.mark.parametrize(
@@ -222,6 +227,7 @@ def test_cmip6_available(time, source_id, expected):
     )
 
     assert result is expected
+
 
 def test_cmip6_multi_realm_validation_errors():
     """Test CMIP6MultiRealm validation errors in a single test."""
@@ -252,6 +258,7 @@ def test_cmip6_multi_realm_validation_errors():
     ):
         CMIP6MultiRealm([atmos, ocean])
 
+
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(30)
@@ -280,6 +287,7 @@ def test_cmip6_multi_realm_available_variables():
     assert multi.available_variables == (
         atmos.available_variables | ocean.available_variables
     )
+
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -315,6 +323,7 @@ def test_cmip6_multi_realm_available(time, expected):
     result = CMIP6MultiRealm.available(time, sources)
 
     assert result is expected
+
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -371,6 +380,7 @@ def test_cmip6_multi_realm():
     data_priority = multi_priority(time, ["u10m"])
     assert data_priority.shape[0] == 1
     assert data_priority.shape[1] == 1
+
 
 @pytest.mark.parametrize(
     "exact_time_match",

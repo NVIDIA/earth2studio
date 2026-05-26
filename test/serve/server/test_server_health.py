@@ -97,6 +97,7 @@ class TestCheckAllServices:
 
         assert result.rq_workers["inference"].details["queue_depth"] == 42
 
+
 class TestServiceStatus:
     """Tests for the ServiceStatus dataclass."""
 
@@ -105,6 +106,7 @@ class TestServiceStatus:
         assert not s.running
         assert s.pids == []
         assert s.details == {}
+
 
 class TestHealthResult:
     """Tests for the HealthResult dataclass."""

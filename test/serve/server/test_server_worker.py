@@ -20,10 +20,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from earth2studio.serve.server.worker import (
-    get_output_path,
-    run_custom_workflow,
-)
+from earth2studio.serve.server.worker import get_output_path, run_custom_workflow
 from earth2studio.serve.server.workflow import WorkflowRegistry
 
 
@@ -92,6 +89,7 @@ class TestGetOutputPath:
             assert ":" not in dir_name
             assert "Z" not in dir_name
             assert "+" not in dir_name
+
 
 class TestRunCustomWorkflow:
     """Tests for run_custom_workflow."""

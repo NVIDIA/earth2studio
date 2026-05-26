@@ -44,6 +44,7 @@ class PhooAtlasModel(torch.nn.Module):
         # Take second lead time (latest) and add delta_t
         return x[:, self.n_vars :] + self.delta_t
 
+
 class PhooAutoencoder(torch.nn.Module):
     """Dummy autoencoder for testing."""
 
@@ -52,6 +53,7 @@ class PhooAutoencoder(torch.nn.Module):
 
     def forward(self, x, prediction_latent):
         return x
+
 
 class PhooNormalizer(torch.nn.Module):
     """Dummy normalizer for testing."""
@@ -64,6 +66,7 @@ class PhooNormalizer(torch.nn.Module):
 
     def unnormalize(self, x):
         return x
+
 
 class PhooProcessor(torch.nn.Module):
     """Dummy processor for testing."""
@@ -86,6 +89,7 @@ class PhooProcessor(torch.nn.Module):
     def postprocess(self, x, x_cur):
         return x
 
+
 class PhooSinterpolant(torch.nn.Module):
     """Dummy stochastic interpolant for testing."""
 
@@ -94,6 +98,7 @@ class PhooSinterpolant(torch.nn.Module):
 
     def sample(self, model, x, steps, cond, verbose, compute_normalization):
         return x
+
 
 @pytest.fixture()
 def atlas_test_components():
@@ -117,6 +122,7 @@ def atlas_test_components():
         "sinterpolant": sinterpolant,
         "sinterpolant_sample_steps": 60,
     }
+
 
 @pytest.mark.parametrize(
     "time",
@@ -180,6 +186,7 @@ def test_atlas_call(time, device, batch_size, atlas_test_components):
     handshake_dim(out_coords, "time", 1)
     handshake_dim(out_coords, "batch", 0)
 
+
 @pytest.mark.parametrize(
     "ensemble",
     [1, 2],
@@ -238,6 +245,7 @@ def test_atlas_iter(ensemble, atlas_test_components, device):
         if i > 3:
             break
 
+
 @pytest.mark.parametrize(
     "dc",
     [
@@ -263,6 +271,7 @@ def test_atlas_exceptions(dc, atlas_test_components, device):
 
     with pytest.raises((KeyError, ValueError, RuntimeError)):
         p(x, coords)
+
 
 @pytest.mark.parametrize("batch_size", [1, 2])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -317,6 +326,7 @@ def test_atlas_prep_next_input(atlas_test_components, batch_size, device):
     assert np.array_equal(coords_next["lat"], coords["lat"])
     assert np.array_equal(coords_next["lon"], coords["lon"])
 
+
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_atlas_prep_next_input_with_ensemble(atlas_test_components, device):
     """Test prep_next_input with ensemble dimension."""
@@ -363,6 +373,7 @@ def test_atlas_prep_next_input_with_ensemble(atlas_test_components, device):
     # Check ensemble coordinate is preserved
     assert np.array_equal(coords_next["ensemble"], coords["ensemble"])
 
+
 def test_atlas_input_coords(atlas_test_components):
     """Test that input_coords returns expected coordinate system."""
     p = Atlas(**atlas_test_components)
@@ -394,6 +405,7 @@ def test_atlas_input_coords(atlas_test_components):
     assert coords["lon"][0] == pytest.approx(0.0, abs=1e-5)
     assert coords["lon"][-1] == pytest.approx(360.0 - (360.0 / 1440.0), abs=1e-5)
 
+
 def test_atlas_output_coords(atlas_test_components):
     """Test that output_coords returns expected coordinate system."""
     p = Atlas(**atlas_test_components)
@@ -418,6 +430,7 @@ def test_atlas_output_coords(atlas_test_components):
     # Check spatial dimensions match input
     assert len(output_coords["lat"]) == len(input_coords["lat"])
     assert len(output_coords["lon"]) == len(input_coords["lon"])
+
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

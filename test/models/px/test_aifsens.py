@@ -21,6 +21,24 @@ import numpy as np
 import pytest
 import torch
 
+try:
+    from importlib.metadata import version
+
+    import anemoi.models  # noqa: F401
+
+    anemoi_version = version("anemoi-models")
+    # AIFSENS requires anemoi-models version specified by pyproject.toml.
+    if anemoi_version != "0.5.1":
+        pytest.skip(
+            (
+                f"anemoi-models {anemoi_version} not compatible with AIFSENS "
+                "(requires 0.5.1)"
+            ),
+            allow_module_level=True,
+        )
+except ImportError:
+    pytest.skip("anemoi-models not installed", allow_module_level=True)
+
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import AIFSENS
 from earth2studio.models.px.aifsens import VARIABLES
@@ -39,6 +57,7 @@ def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):
         crow, col, val, size=(n_rows, n_cols), dtype=torch.float32
     )
 
+
 class DotDict(dict):
     """Minimal DotDict replacement with recursive dot-notation access."""
 
@@ -54,6 +73,7 @@ class DotDict(dict):
 
     def __delattr__(self, name):
         del self[name]
+
 
 class PhooAIFSENSModel(torch.nn.Module):
     def __init__(self):
@@ -101,8 +121,10 @@ class PhooAIFSENSModel(torch.nn.Module):
         del fcstep
         return torch.ones(x.shape[0], 1, x.shape[2], 100, device=x.device)
 
+
 EXPECTED_OUTPUT_VARIABLES = len(VARIABLES) - 13
 EXPECTED_INPUT_VARIABLES = 88
+
 
 @pytest.mark.parametrize(
     "time",
@@ -162,6 +184,7 @@ def test_aifsens_call(time, device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
+
 
 @pytest.mark.parametrize("ensemble", [1])  # Batch size of 2 is too large
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -227,6 +250,7 @@ def test_aifsens_iter(ensemble, device):
         if i > 5:
             break
 
+
 @pytest.mark.parametrize(
     "dc",
     [
@@ -276,6 +300,7 @@ def test_aifsens_exceptions(dc, device):
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
 
+
 @pytest.fixture(scope="function")
 def model() -> AIFSENS:
     """Load real AIFSENS model from package, mocking IFS fetch if needed."""
@@ -294,6 +319,7 @@ def model() -> AIFSENS:
     ):
         p = AIFSENS.load_model(package)
     return p
+
 
 @pytest.mark.package
 @pytest.mark.parametrize(
