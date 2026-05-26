@@ -23,22 +23,18 @@ from unittest.mock import Mock, patch
 import pytest
 import requests  # type: ignore[import-untyped]
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["serve"])
-
-from earth2studio.serve.client.client import Earth2StudioClient  # noqa: E402
-from earth2studio.serve.client.exceptions import (  # noqa: E402
+from earth2studio.serve.client.client import Earth2StudioClient
+from earth2studio.serve.client.exceptions import (
     APIConnectionError as ClientConnectionError,
 )
-from earth2studio.serve.client.exceptions import (  # noqa: E402
+from earth2studio.serve.client.exceptions import (
     BadRequestError,
     Earth2StudioAPIError,
     InferenceRequestNotFoundError,
     InternalServerError,
     RequestTimeoutError,
 )
-from earth2studio.serve.client.models import (  # noqa: E402
+from earth2studio.serve.client.models import (
     HealthStatus,
     InferenceRequest,
     InferenceRequestResponse,
@@ -71,7 +67,6 @@ class TestEarth2StudioClientInitialization:
         assert client.workflow_name == "custom_workflow"
         assert client.timeout == 60.0
 
-
 class TestEarth2StudioClientHealthCheck:
     """Test health_check method"""
 
@@ -95,7 +90,6 @@ class TestEarth2StudioClientHealthCheck:
         ):
             with pytest.raises(Earth2StudioAPIError, match="API error"):
                 client.health_check()
-
 
 class TestEarth2StudioClientInferenceRequest:
     """Test submit_inference_request method"""
@@ -128,7 +122,6 @@ class TestEarth2StudioClientInferenceRequest:
         ):
             with pytest.raises(BadRequestError, match="Invalid parameters"):
                 client.submit_inference_request(request)
-
 
 class TestEarth2StudioClientGetRequestStatus:
     """Test get_request_status method"""
@@ -171,7 +164,6 @@ class TestEarth2StudioClientGetRequestStatus:
         ):
             with pytest.raises(InferenceRequestNotFoundError):
                 client.get_request_status("nonexistent_id")
-
 
 class TestEarth2StudioClientGetRequestResults:
     """Test get_request_results method"""
@@ -216,7 +208,6 @@ class TestEarth2StudioClientGetRequestResults:
         ) as mock_req:
             client.get_request_results("exec_123", timeout=120.0)
             assert mock_req.call_args[1]["timeout"] == 120.0
-
 
 class TestEarth2StudioClientWaitForCompletion:
     """Test wait_for_completion method"""
@@ -282,7 +273,6 @@ class TestEarth2StudioClientWaitForCompletion:
             with pytest.raises(Earth2StudioAPIError, match="was cancelled"):
                 client.wait_for_completion("exec_123")
 
-
 class TestEarth2StudioClientDownloadResult:
     """Test download_result and related methods"""
 
@@ -312,7 +302,6 @@ class TestEarth2StudioClientDownloadResult:
             assert isinstance(data, io.BytesIO)
             assert data.read() == b"mock file content"
             assert mock_req.call_args[1]["timeout"] == 300.0
-
 
 class TestEarth2StudioClientMakeRequest:
     """Test _make_request method"""
@@ -405,7 +394,6 @@ class TestEarth2StudioClientMakeRequest:
             assert mock_req.call_args[1]["stream"] is True
             assert mock_req.call_args[1]["timeout"] == 120.0
 
-
 class TestEarth2StudioClientContextManager:
     """Test context manager protocol"""
 
@@ -420,7 +408,6 @@ class TestEarth2StudioClientContextManager:
             with client:
                 pass
             mock_close.assert_called_once()
-
 
 class TestEarth2StudioClientParseErrorResponse:
     """Test _parse_error_response method"""

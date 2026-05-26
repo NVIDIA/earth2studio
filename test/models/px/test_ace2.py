@@ -28,14 +28,10 @@ from earth2studio.models.px.ace2 import (
     _npdatetime64_to_cftime,
 )
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["ace2"])
 
 
 class PhooOutput:
     prediction: dict = {}
-
 
 class PhooStepper(torch.nn.Module):
     prognostic_names = [
@@ -153,7 +149,6 @@ class PhooStepper(torch.nn.Module):
         }
         return output, None
 
-
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_ACE2ERA5_call(device):
     torch.cuda.empty_cache()
@@ -194,7 +189,6 @@ def test_ACE2ERA5_call(device):
     handshake_dim(out_coords, "time", 0)
     np.testing.assert_array_equal(out_coords["lat"], ACE_GRID_LAT)
     np.testing.assert_array_equal(out_coords["lon"], ACE_GRID_LON)
-
 
 @pytest.mark.parametrize("batch", [1, 2])
 @pytest.mark.parametrize("device", ["cuda:0"])
@@ -240,7 +234,6 @@ def test_ACE2ERA5_iter(batch, device):
         if i > 2:
             break
 
-
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_ace2era5_package(device):
@@ -281,7 +274,6 @@ def test_ace2era5_package(device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
-
 
 def test_time_conversion_helpers_roundtrip():
     dt_in = np.array(

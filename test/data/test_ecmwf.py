@@ -21,11 +21,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import pytest
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["data"])
-
-from earth2studio.data import (  # noqa: E402, I001
+from earth2studio.data import (
     AIFS_ENS_FX,
     AIFS_FX,
     IFS,
@@ -40,7 +36,6 @@ def now6h():
     nt = datetime.now()
     delta_hr = nt.hour % 6
     return datetime(nt.year, nt.month, nt.day, nt.hour - delta_hr)
-
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -91,7 +86,6 @@ def test_ifs_fetch(time, variable):
     except FileNotFoundError:
         pass
 
-
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(30)
@@ -136,7 +130,6 @@ def test_ifs_ens_fetch(time, variable, member):
     assert shape[4] == 1440
     assert not np.isnan(data.values).any()
     assert np.allclose(data.values, data_fx.values[:, 0])
-
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -184,7 +177,6 @@ def test_ifs_ens_fx_fetch(time, lead_time, variable):
     assert not np.isnan(data.values).any()
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
-
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(30)
@@ -222,7 +214,6 @@ def test_aifs_ens_fx_fetch(lead_time, variable, member):
     assert shape[4] == 1440
     assert not np.isnan(data.values).any()
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
-
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -263,7 +254,6 @@ def test_ifs_cache(time, variable, cache):
     except FileNotFoundError:
         pass
 
-
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize("data_source", [IFS, IFS_ENS])
 @pytest.mark.parametrize(
@@ -282,7 +272,6 @@ def test_ifs_time_available(data_source, time, variable):
         ds = IFS_FX(source="ecmwf")
         ds(time, [timedelta(hours=0)], ["msl"])
 
-
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "lead_time",
@@ -300,7 +289,6 @@ def test_ifs_leadtime_available(lead_time):
 
         ds = IFS_ENS_FX(source="ecmwf")
         ds(time, lead_time, ["msl"])
-
 
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize(

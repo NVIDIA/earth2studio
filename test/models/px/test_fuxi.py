@@ -21,14 +21,10 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["fuxi"])
-
-from earth2studio.data import Random, fetch_data  # noqa: E402
-from earth2studio.models.auto import Package  # noqa: E402
-from earth2studio.models.px import FuXi  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.data import Random, fetch_data
+from earth2studio.models.auto import Package
+from earth2studio.models.px import FuXi
+from earth2studio.utils import handshake_dim
 
 
 class PhooFuXiModel(torch.nn.Module):
@@ -51,7 +47,6 @@ class PhooFuXiModel(torch.nn.Module):
         output = x + self.delta_t + 0 * y[0, 0]
         return output
 
-
 @pytest.fixture(scope="class")
 def fuxi_test_package(tmp_path_factory):
     """Creates a bunch of spoof ONNX models to unit test with"""
@@ -72,7 +67,6 @@ def fuxi_test_package(tmp_path_factory):
         open(tmp_path / f"{model}", "a").close()
 
     return Package(str(tmp_path))
-
 
 class TestFuXiMock:
     @pytest.mark.parametrize(
@@ -246,7 +240,6 @@ class TestFuXiMock:
 
         with pytest.raises((KeyError, ValueError)):
             p(x, coords)
-
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

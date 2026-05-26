@@ -22,11 +22,7 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["da-healda"])
-
-from earth2studio.models.da.healda import (  # noqa: E402
+from earth2studio.models.da.healda import (
     ALL_SENSORS,
     E2S_CHANNELS,
     HealDA,
@@ -46,9 +42,7 @@ TIME_LENGTH = 1
 NLAT = 5
 NLON = 10
 
-
 # ---------- Mock neural network ----------
-
 
 class PhooHealDAModel(torch.nn.Module):
     def __init__(self):
@@ -82,11 +76,9 @@ class PhooHealDAModel(torch.nn.Module):
             device=x.device,
         )
 
-
 class MockGrid:
     def ang2pix(self, lon, lat):
         return torch.zeros(lon.shape[0], dtype=torch.long, device=lon.device)
-
 
 class MockRegridder:
     def __init__(self, nlat, nlon):
@@ -98,7 +90,6 @@ class MockRegridder:
         return torch.randn(
             *x.shape[:-1], self.nlat, self.nlon, dtype=x.dtype, device=x.device
         )
-
 
 def _build_sensor_stats():
     return {
@@ -113,7 +104,6 @@ def _build_sensor_stats():
             "raw_to_local": np.arange(23, dtype=int),
         },
     }
-
 
 def _build_model(device="cpu", lat_lon=False):
     with patch("earth2studio.models.da.healda.earth2grid") as mock_e2g:
@@ -133,7 +123,6 @@ def _build_model(device="cpu", lat_lon=False):
     model._grid = MockGrid()
     return model.to(device)
 
-
 def _build_raw_conv_df(n_obs=10, request_time=None):
     """Raw input format matching conv_schema (time, variable, type, elev, pres in Pa)."""
     if request_time is None:
@@ -152,7 +141,6 @@ def _build_raw_conv_df(n_obs=10, request_time=None):
     )
     df.attrs = {"request_time": request_time}
     return df
-
 
 def _build_raw_sat_df(n_obs=10, request_time=None, sensor="atms"):
     """Raw input format matching sat_schema."""
@@ -176,12 +164,10 @@ def _build_raw_sat_df(n_obs=10, request_time=None, sensor="atms"):
     df.attrs = {"request_time": request_time}
     return df
 
-
 def _mock_forward(inputs):
     return torch.randn(
         inputs["condition"].shape[0], NVAR, 1, NPIX, device=inputs["condition"].device
     )
-
 
 @pytest.mark.parametrize(
     "request_time",
@@ -237,7 +223,6 @@ def test_build_model_inputs(request_time):
         for t in range(n_times - 1):
             assert inputs["offsets"][s, t, 0] <= inputs["offsets"][s, t + 1, 0]
 
-
 @pytest.mark.parametrize(
     "device",
     [
@@ -277,14 +262,12 @@ def test_healda_call(device, request_time, lat_lon):
         assert out.shape == (n_times, NVAR, NPIX)
     assert np.all(out.coords["time"].values == request_time)
 
-
 def test_healda_call_missing_request_time():
     model = _build_model()
     df = _build_raw_conv_df(5)
     df.attrs = {}  # No request_time → should raise
     with pytest.raises(ValueError, match="request_time"):
         model(df)
-
 
 def test_healda_call_empty_obs():
     model = _build_model()
@@ -296,7 +279,6 @@ def test_healda_call_empty_obs():
     assert isinstance(out, xr.DataArray)
     assert out.shape == (1, NVAR, NPIX)
     assert np.all(np.isnan(out.values))
-
 
 def test_healda_generator():
     model = _build_model()
@@ -331,11 +313,9 @@ def test_healda_generator():
 
     gen.close()
 
-
 def test_healda_init_coords():
     model = _build_model()
     assert model.init_coords() is None
-
 
 def test_healda_input_coords():
     model = _build_model()
@@ -349,7 +329,6 @@ def test_healda_input_coords():
     assert "observation" in sat_schema
     assert "channel_index" in sat_schema
 
-
 def test_healda_output_coords():
     model = _build_model()
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
@@ -360,12 +339,10 @@ def test_healda_output_coords():
     assert len(coords["variable"]) == NVAR
     assert len(coords["npix"]) == NPIX
 
-
 @pytest.fixture(scope="function")
 def healda_model() -> HealDA:
     package = HealDA.load_default_package()
     return HealDA.load_model(package)
-
 
 @pytest.mark.package
 @pytest.mark.parametrize(

@@ -21,13 +21,9 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["stormcast"])
-
-from earth2studio.data import HRRR, Random, fetch_data  # noqa: E402
-from earth2studio.models.px import StormCast  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.data import HRRR, Random, fetch_data
+from earth2studio.models.px import StormCast
+from earth2studio.utils import handshake_dim
 
 
 # Spoof models with same call signature
@@ -38,7 +34,6 @@ class PhooStormCastRegressionModel(torch.nn.Module):
 
     def forward(self, x):
         return x[:, : self.out_vars, :, :]
-
 
 class PhooStormCastDiffusionModel(torch.nn.Module):
     def __init__(self):
@@ -51,7 +46,6 @@ class PhooStormCastDiffusionModel(torch.nn.Module):
 
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
-
 
 @pytest.mark.parametrize(
     "time",
@@ -136,7 +130,6 @@ def test_stormcast_call(time, device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
-
 
 @pytest.mark.parametrize(
     "ensemble",
@@ -228,7 +221,6 @@ def test_stormcast_iter(ensemble, device):
         if i > 5:
             break
 
-
 @pytest.mark.parametrize(
     "dc",
     [
@@ -286,13 +278,11 @@ def test_stormcast_exceptions(dc, device):
         # Using the generator with no built-in conditioning should fail
         next(p_iter)
 
-
 @pytest.fixture(scope="function")
 def model() -> StormCast:
     package = StormCast.load_default_package()
     p = StormCast.load_model(package)
     return p
-
 
 @pytest.mark.package
 @pytest.mark.parametrize(

@@ -22,14 +22,10 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["pangu"])
-
-from earth2studio.data import Random, fetch_data  # noqa: E402
-from earth2studio.models.auto import Package  # noqa: E402
-from earth2studio.models.px import Pangu3, Pangu6, Pangu24  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.data import Random, fetch_data
+from earth2studio.models.auto import Package
+from earth2studio.models.px import Pangu3, Pangu6, Pangu24
+from earth2studio.utils import handshake_dim
 
 
 class PhooPanguModel(torch.nn.Module):
@@ -41,7 +37,6 @@ class PhooPanguModel(torch.nn.Module):
 
     def forward(self, x, x_surface):
         return x + self.delta_t, x_surface + self.delta_t
-
 
 @pytest.fixture(scope="class")
 def onnx_test_package(tmp_path_factory):
@@ -64,7 +59,6 @@ def onnx_test_package(tmp_path_factory):
             output_names=["output", "output_surface"],
         )
     return Package(str(tmp_path))
-
 
 class TestPanguMock:
     @pytest.mark.parametrize(
@@ -213,7 +207,6 @@ class TestPanguMock:
             p(x, coords)
 
         torch.cuda.empty_cache()
-
 
 @pytest.mark.package
 @pytest.mark.parametrize(

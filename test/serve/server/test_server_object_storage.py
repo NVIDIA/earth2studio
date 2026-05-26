@@ -22,11 +22,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["serve"])
-
-from earth2studio.serve.server.object_storage import (  # noqa: E402
+from earth2studio.serve.server.object_storage import (
     MSCObjectStorage,
     ObjectStorage,
     ObjectStorageError,
@@ -61,7 +57,6 @@ class TestUploadResult:
         )
         assert "FAILED" in repr(r)
 
-
 class TestObjectStorageError:
     """Tests for ObjectStorageError."""
 
@@ -74,7 +69,6 @@ class TestObjectStorageError:
         with pytest.raises(ObjectStorageError, match="test message"):
             raise ObjectStorageError("test message")
 
-
 class TestObjectStorage:
     """Tests for ObjectStorage abstract base class."""
 
@@ -82,7 +76,6 @@ class TestObjectStorage:
         """ObjectStorage cannot be instantiated (abstract)."""
         with pytest.raises(TypeError):
             ObjectStorage()
-
 
 class TestMSCObjectStorage:
     """Tests for MSCObjectStorage (with mocked multistorageclient)."""
@@ -309,7 +302,6 @@ class TestMSCObjectStorage:
         assert "Signature=" in url
         assert "Key-Pair-Id=KP123" in url
 
-
 class TestMSCObjectStorageS3Additional:
     """Additional tests to cover S3 init branches and other uncovered S3 paths."""
 
@@ -440,7 +432,6 @@ class TestMSCObjectStorageS3Additional:
         storage.storage_type = "unsupported"
         with pytest.raises(ObjectStorageError, match="Unsupported storage_type"):
             storage.generate_signed_url("key.txt")
-
 
 class TestMSCObjectStorageAzure:
     """Tests for MSCObjectStorage with Azure storage type."""

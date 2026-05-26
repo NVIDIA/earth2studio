@@ -21,19 +21,14 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["sfno"])
-
-from earth2studio.data import Random, fetch_data  # noqa: E402
-from earth2studio.models.px import SFNO  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.data import Random, fetch_data
+from earth2studio.models.px import SFNO
+from earth2studio.utils import handshake_dim
 
 
 class PhooSFNOModel(torch.nn.Module):
     def forward(self, x, t, normalized_data=True):
         return x
-
 
 @pytest.mark.parametrize(
     "time",
@@ -78,7 +73,6 @@ def test_sfno_call(time, device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
-
 
 @pytest.mark.parametrize(
     "ensemble",
@@ -127,7 +121,6 @@ def test_sfno_iter(ensemble, device):
         if i > 5:
             break
 
-
 @pytest.mark.parametrize(
     "dc",
     [
@@ -154,13 +147,11 @@ def test_sfno_exceptions(dc, device):
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
 
-
 @pytest.fixture(scope="function")
 def model() -> SFNO:
     package = SFNO.load_default_package()
     p = SFNO.load_model(package)
     return p
-
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU for now, too slow "cpu",

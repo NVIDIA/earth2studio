@@ -23,11 +23,7 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["data"])
-
-from earth2studio.data import JPSS_ATMS  # noqa: E402
+from earth2studio.data import JPSS_ATMS
 
 
 # ---------------------------------------------------------------------------
@@ -66,7 +62,6 @@ def test_jpss_atms_fetch(time, variable):
         assert (df["observation"] > 0).all()
         assert (df["observation"] < 400).all()  # BT in K
 
-
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(120)
@@ -85,7 +80,6 @@ def test_jpss_atms_schema_fields():
     subset_fields = ["time", "lat", "lon", "observation", "variable"]
     df_subset = ds(time, ["atms"], fields=subset_fields)
     assert list(df_subset.columns) == subset_fields
-
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -106,7 +100,6 @@ def test_jpss_atms_cache(cache):
         shutil.rmtree(ds.cache)
     except FileNotFoundError:
         pass
-
 
 # ---------------------------------------------------------------------------
 # Mock / offline tests (no network required)
@@ -159,7 +152,6 @@ def _make_mock_bufr_decode(n_fov=4, n_channels=22):
         raise KeyError(key)
 
     return codes_get_side_effect, codes_get_array_side_effect, bt
-
 
 def test_jpss_atms_call_mock(tmp_path):
     """Exercise the full __call__ path without any network access."""
@@ -222,7 +214,6 @@ def test_jpss_atms_call_mock(tmp_path):
     assert "quality" in df.columns
     assert (df["quality"] == 0).all()
 
-
 # ---------------------------------------------------------------------------
 # Validation / error tests (no network)
 # ---------------------------------------------------------------------------
@@ -233,19 +224,16 @@ def test_jpss_atms_available():
     assert JPSS_ATMS.available(np.datetime64("2024-06-01T12:00"))
     assert not JPSS_ATMS.available(np.datetime64("2015-01-01T00:00"))
 
-
 @pytest.mark.timeout(15)
 def test_jpss_atms_validate_time():
     with pytest.raises(ValueError):
         ds = JPSS_ATMS(satellites=["n20"], cache=False)
         ds(datetime(2015, 1, 1), ["atms"])
 
-
 @pytest.mark.timeout(15)
 def test_jpss_atms_invalid_satellite():
     with pytest.raises(ValueError, match="Invalid satellite"):
         JPSS_ATMS(satellites=["invalid"])
-
 
 def test_jpss_atms_exceptions():
     ds = JPSS_ATMS(satellites=["n20"], cache=False, verbose=False)
@@ -280,7 +268,6 @@ def test_jpss_atms_exceptions():
     with pytest.raises(TypeError):
         ds(datetime(2024, 6, 1, 12), ["atms"], fields=wrong_type_schema)
 
-
 def test_jpss_atms_tolerance_conversion():
     ds_td = JPSS_ATMS(time_tolerance=timedelta(minutes=30), cache=False, verbose=False)
     assert ds_td._tolerance_lower == timedelta(minutes=-30)
@@ -299,7 +286,6 @@ def test_jpss_atms_tolerance_conversion():
     )
     assert ds_asym._tolerance_lower == timedelta(minutes=-10)
     assert ds_asym._tolerance_upper == timedelta(minutes=60)
-
 
 def test_jpss_atms_parse_filename():
     # Valid filename

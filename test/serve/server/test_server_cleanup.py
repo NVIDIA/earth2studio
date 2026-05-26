@@ -20,18 +20,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["serve"])
-
-from earth2studio.serve.server.cleanup_daemon import (  # noqa: E402
+from earth2studio.serve.server.cleanup_daemon import (
     _delete_result_files,
     _process_expired_key,
     cleanup_expired_results,
     main,
 )
-from earth2studio.serve.server.config import get_config  # noqa: E402
-from earth2studio.serve.server.workflow import WorkflowStatus  # noqa: E402
+from earth2studio.serve.server.config import get_config
+from earth2studio.serve.server.workflow import WorkflowStatus
 
 
 class TestDeleteResultFiles:
@@ -220,7 +216,6 @@ class TestDeleteResultFiles:
 
         mock_workflow_dir.iterdir.assert_not_called()
         mock_rmtree.assert_not_called()
-
 
 class TestProcessExpiredKey:
     """Test suite for _process_expired_key function"""
@@ -429,7 +424,6 @@ class TestProcessExpiredKey:
         assert result is False
         mock_delete_func.assert_not_called()
         mock_redis.setex.assert_not_called()
-
 
 class TestCleanupExpiredResults:
     """Test suite for cleanup_expired_results function"""
@@ -699,7 +693,6 @@ class TestCleanupExpiredResults:
             # Only the valid key (exec_old) should be processed; malformed key is skipped
         assert mock_redis.setex.call_count == 1
         assert mock_redis.setex.call_args[0][0] == "workflow_execution:wf1:exec_old"
-
 
 class TestCleanupDaemonMain:
     """Tests for main() daemon entrypoint."""

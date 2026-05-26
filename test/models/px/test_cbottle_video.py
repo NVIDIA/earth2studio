@@ -17,22 +17,17 @@
 from collections import OrderedDict
 from datetime import datetime
 
+import cbottle  # noqa: F401
 import numpy as np
 import pytest
 import torch
 import xarray as xr
+from cbottle.datasets import base
+from cbottle.inference import MixtureOfExpertsDenoiser
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["cbottle"])
-
-import cbottle  # noqa: E402, F401
-from cbottle.datasets import base  # noqa: E402
-from cbottle.inference import MixtureOfExpertsDenoiser  # noqa: E402
-
-from earth2studio.data import Random, fetch_data  # noqa: E402
-from earth2studio.models.px import CBottleVideo  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.data import Random, fetch_data
+from earth2studio.models.px import CBottleVideo
+from earth2studio.utils import handshake_dim
 
 
 @pytest.fixture(scope="class")

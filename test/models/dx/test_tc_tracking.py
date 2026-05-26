@@ -18,15 +18,11 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["cyclone"])
-
-from earth2studio.models.dx import (  # noqa: E402
+from earth2studio.models.dx import (
     TCTrackerVitart,
     TCTrackerWuDuan,
 )
-from earth2studio.utils.coords import CoordSystem  # noqa: E402
+from earth2studio.utils.coords import CoordSystem
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -69,7 +65,6 @@ def test_vorticity_calculation(device):
         atol=1e-5,
     )
 
-
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_haversine_torch(device):
     # Define known points
@@ -83,7 +78,6 @@ def test_haversine_torch(device):
     dist = TCTrackerVitart.haversine_torch(lat1, lon1, lat2, lon2)
 
     torch.testing.assert_close(expected_distance, dist, rtol=1e-3, atol=1e-3)
-
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_latlon_to_equirectangular(device):
@@ -108,7 +102,6 @@ def test_latlon_to_equirectangular(device):
     assert torch.allclose(result[0, 0, 0], torch.tensor(0.0), atol=1e-6)  # x at 0° lon
     assert torch.allclose(result[1, 0, 0], -result[1, 1, 0], atol=1e-6)  # 180° vs -180°
     assert torch.allclose(result[0, 0, 1], result[1, 2, 1], atol=1e-6)  # Both at 0° lat
-
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.parametrize("num_maxima", [0, 1, 2])
@@ -174,7 +167,6 @@ def test_get_local_max(device, num_maxima):
         local_max == expected_output
     ), f"Expected {expected_output}, but got {local_max}"
 
-
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_multiple_tracks(device):
     # Create two tracks: one moving northeast, one moving northwest
@@ -204,7 +196,6 @@ def test_multiple_tracks(device):
     assert path_buffer.shape == (2, 3, 3, 4)
     assert torch.abs(path_buffer[0, 0, :, 0] - path_buffer[0, 1, :, 0]).mean() > 4.0
 
-
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_track_with_gap(device):
     frames = [
@@ -227,7 +218,6 @@ def test_track_with_gap(device):
     assert torch.allclose(path_buffer[0, 0, -1], frames[-1][0, 0])
     assert torch.all(path_buffer[0, 0, 1] == TCTrackerVitart.PATH_FILL_VALUE)
 
-
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_empty_initialization(device):
     frame = torch.tensor([[[30.0, 60.0, 1.0, 1.0]]], device=device)
@@ -237,7 +227,6 @@ def test_empty_initialization(device):
 
     assert result.shape == (1, 1, 1, 4)
     assert torch.allclose(result[0, 0, 0], frame[0, 0])
-
 
 def test_invalid_inputs():
     with pytest.raises(ValueError):
@@ -260,7 +249,6 @@ def test_invalid_inputs():
             torch.ones((1, 1, 1, 4)),
             path_search_window_size=0,  # Invalid window size
         )
-
 
 @pytest.mark.parametrize("num_timesteps", [1, 2])
 @pytest.mark.parametrize("tc_included", [True, False])
@@ -410,7 +398,6 @@ def test_cyclone_tracking_wuduan(num_timesteps, tc_included, device):
             y[0, 0, t, 3].cpu(), np.sqrt([max_10m**2 + max_10m**2]), rtol=1e-1
         )
     assert y.device == torch.device(device)
-
 
 @pytest.mark.parametrize("num_timesteps", [1, 2])
 @pytest.mark.parametrize("tc_included", [True, False])

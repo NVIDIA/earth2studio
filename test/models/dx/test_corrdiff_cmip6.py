@@ -22,13 +22,9 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["corrdiff"])
-
-from earth2studio.data import Random, fetch_data  # noqa: E402
-from earth2studio.models.dx import CorrDiffCMIP6  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.data import Random, fetch_data
+from earth2studio.models.dx import CorrDiffCMIP6
+from earth2studio.utils import handshake_dim
 
 
 class MockPhysicsNemoModule(torch.nn.Module):
@@ -81,18 +77,15 @@ class MockPhysicsNemoModule(torch.nn.Module):
         cls.created.append(inst)
         return inst
 
-
 @pytest.fixture
 def mock_residual_model():
     """Create a mock residual model for testing."""
     return MockPhysicsNemoModule(img_out_channels=4)
 
-
 @pytest.fixture
 def mock_regression_model():
     """Create a mock regression model for testing."""
     return MockPhysicsNemoModule(img_out_channels=4)
-
 
 @pytest.fixture
 def cmip6_model_minimal(mock_residual_model, mock_regression_model):
@@ -134,7 +127,6 @@ def cmip6_model_minimal(mock_residual_model, mock_regression_model):
         inference_mode="regression",
         hr_mean_conditioning=False,
     )
-
 
 class TestCorrDiffCMIP6Utils:
     """Focused unit tests for CorrDiffCMIP6 model utils."""
@@ -258,7 +250,6 @@ class TestCorrDiffCMIP6Utils:
         # Clamp: t2m is in _NONNEGATIVE_VARS, so negatives should become 0
         assert torch.all(y[:, model.output_variables.index("t2m")] >= 0)
 
-
 @pytest.mark.parametrize("inference_mode", ["regression", "both"])
 @pytest.mark.parametrize(
     "time",
@@ -321,7 +312,6 @@ def test_corrdiff_cmip6_forward(
     handshake_dim(out_coords, "lead_time", 2)
     handshake_dim(out_coords, "time", 1)
     handshake_dim(out_coords, "sample", 0)
-
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

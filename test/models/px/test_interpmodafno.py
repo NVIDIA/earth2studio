@@ -21,15 +21,11 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["interp-modafno"])
-
-from earth2studio.data import Random, fetch_data  # noqa: E402
-from earth2studio.models.px import InterpModAFNO  # noqa: E402
-from earth2studio.models.px.interpmodafno import VARIABLES  # noqa: E402
-from earth2studio.models.px.persistence import Persistence  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.data import Random, fetch_data
+from earth2studio.models.px import InterpModAFNO
+from earth2studio.models.px.interpmodafno import VARIABLES
+from earth2studio.models.px.persistence import Persistence
+from earth2studio.utils import handshake_dim
 
 
 class PhooInterpolationModel(torch.nn.Module):
@@ -37,7 +33,6 @@ class PhooInterpolationModel(torch.nn.Module):
 
     def forward(self, x, t_norm):
         return x[:, :73]
-
 
 @pytest.mark.parametrize(
     "time",
@@ -107,7 +102,6 @@ def test_forecast_interpolation_call(time, device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
-
 
 @pytest.mark.parametrize(
     "ensemble",
@@ -192,7 +186,6 @@ def test_forecast_interpolation_iter(ensemble, history, device):
         if i > 10:
             break
 
-
 @pytest.mark.parametrize(
     "dc",
     [
@@ -255,7 +248,6 @@ def test_forecast_interpolation_exceptions(dc, device):
     with pytest.raises(ValueError):
         model.input_coords()
 
-
 @pytest.fixture(scope="function")
 def model() -> InterpModAFNO:
     base_model = Persistence(
@@ -269,7 +261,6 @@ def model() -> InterpModAFNO:
     interp_package = InterpModAFNO.load_default_package()
     model = InterpModAFNO.load_model(interp_package, px_model=base_model)
     return model
-
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

@@ -22,17 +22,12 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
+from graphcast import graphcast
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["graphcast"])
-
-from graphcast import graphcast  # noqa: E402, I001
-
-from earth2studio.data import Random, fetch_data  # noqa: E402
-from earth2studio.models.px.graphcast_operational import GraphCastOperational  # noqa: E402
-from earth2studio.models.px.graphcast_small import GraphCastSmall  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.data import Random, fetch_data
+from earth2studio.models.px.graphcast_operational import GraphCastOperational
+from earth2studio.models.px.graphcast_small import GraphCastSmall
+from earth2studio.utils import handshake_dim
 
 
 def mocked_chunked_prediction_generator(
@@ -47,7 +42,6 @@ def mocked_chunked_prediction_generator(
     while True:
         yield targets_template.isel(time=[0])
 
-
 def mocked_chunked_prediction(
     predictor_fn,
     rng,
@@ -58,7 +52,6 @@ def mocked_chunked_prediction(
     verbose=None,
 ):
     return targets_template
-
 
 @pytest.fixture
 def mock_GraphCastSmall_model():
@@ -126,7 +119,6 @@ def mock_GraphCastSmall_model():
 
     return p
 
-
 @pytest.mark.parametrize(
     "time",
     [
@@ -165,7 +157,6 @@ def test_graphcast_small_call(time, device, mock_GraphCastSmall_model):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
-
 
 @pytest.mark.parametrize(
     "ensemble",
@@ -218,7 +209,6 @@ def test_graphcast_small_iter(ensemble, device, mock_GraphCastSmall_model):
         if i > 5:
             break
 
-
 @pytest.mark.parametrize(
     "dc",
     [
@@ -242,13 +232,11 @@ def test_graphcast_small_exceptions(dc, device, mock_GraphCastSmall_model):
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
 
-
 @pytest.fixture(scope="function")
 def model() -> GraphCastSmall:
     package = GraphCastSmall.load_default_package()
     p = GraphCastSmall.load_model(package)
     return p
-
 
 @pytest.mark.package
 @pytest.mark.timeout(360)
@@ -288,7 +276,6 @@ def test_graphcast_small_package(model, device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
-
 
 @pytest.fixture
 def mock_GraphCastOperational_model():
@@ -347,7 +334,6 @@ def mock_GraphCastOperational_model():
     p._chunked_prediction_generator = mocked_chunked_prediction_generator
     return p
 
-
 @pytest.mark.parametrize(
     "time",
     [
@@ -385,7 +371,6 @@ def test_graphcast_operational_call(time, device, mock_GraphCastOperational_mode
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
-
 
 @pytest.mark.parametrize(
     "ensemble",
@@ -441,7 +426,6 @@ def test_graphcast_operational_iter(ensemble, device, mock_GraphCastOperational_
         if i > 5:
             break
 
-
 @pytest.mark.parametrize(
     "dc",
     [
@@ -465,13 +449,11 @@ def test_graphcast_operational_exceptions(dc, device, mock_GraphCastOperational_
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
 
-
 @pytest.fixture(scope="function")
 def operational_model() -> GraphCastOperational:
     package = GraphCastOperational.load_default_package()
     p = GraphCastOperational.load_model(package)
     return p
-
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

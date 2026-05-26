@@ -22,16 +22,11 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
+from graphcast import denoiser, graphcast
+from graphcast import gencast as gencast_module
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["gencast"])
-
-from graphcast import denoiser, graphcast  # noqa: E402
-from graphcast import gencast as gencast_module  # noqa: E402
-
-from earth2studio.data import Random, fetch_data  # noqa: E402
-from earth2studio.models.px.gencast_mini import (  # noqa: E402
+from earth2studio.data import Random, fetch_data
+from earth2studio.models.px.gencast_mini import (
     ATMOS_VARIABLES,
     GENERATED_FORCING_VARS,
     INPUT_VARIABLES,
@@ -39,7 +34,7 @@ from earth2studio.models.px.gencast_mini import (  # noqa: E402
     PRESSURE_LEVELS,
     GenCastMini,
 )
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.utils import handshake_dim
 
 # GenCast-specific variable lists (matching graphcast module names)
 GENCAST_TARGET_SURFACE_VARS = (
@@ -70,7 +65,6 @@ GENCAST_TARGET_ATMOS_VARS = (
 
 GENCAST_STATIC_VARS = ("geopotential_at_surface", "land_sea_mask")
 
-
 def mocked_chunked_prediction_generator(
     predictor_fn,
     rng,
@@ -83,7 +77,6 @@ def mocked_chunked_prediction_generator(
     while True:
         yield targets_template.isel(time=[0])
 
-
 def mocked_chunked_prediction(
     predictor_fn,
     rng,
@@ -94,7 +87,6 @@ def mocked_chunked_prediction(
     verbose=None,
 ):
     return targets_template
-
 
 def _build_fake_ckpt(n_lat: int, n_lon: int):
     """Build a fake GenCast checkpoint for testing."""
@@ -148,7 +140,6 @@ def _build_fake_ckpt(n_lat: int, n_lon: int):
 
     return CKPT()
 
-
 def _build_fake_stats(n_levels: int = 13):
     """Build fake normalization stats datasets."""
     pressure_levels = list(graphcast.PRESSURE_LEVELS_WEATHERBENCH_13)
@@ -172,9 +163,7 @@ def _build_fake_stats(n_levels: int = 13):
 
     return diffs_stddev, mean, stddev, min_vals
 
-
 # ===== 1.0-degree (181x360) tests =====
-
 
 @pytest.fixture
 def mock_GenCastMini_model():
@@ -198,7 +187,6 @@ def mock_GenCastMini_model():
     p._chunked_prediction_generator = mocked_chunked_prediction_generator
 
     return p
-
 
 @pytest.mark.parametrize(
     "time",
@@ -237,7 +225,6 @@ def test_gencast_mini_call(time, device, mock_GenCastMini_model):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
-
 
 @pytest.mark.parametrize(
     "ensemble",
@@ -293,7 +280,6 @@ def test_gencast_mini_iter(ensemble, device, mock_GenCastMini_model):
         if i > 5:
             break
 
-
 @pytest.mark.parametrize(
     "dc",
     [
@@ -316,7 +302,6 @@ def test_gencast_mini_exceptions(dc, device, mock_GenCastMini_model):
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
 
-
 def test_gencast_mini_variables():
     """Test that variable lists are consistent."""
     assert len(INPUT_VARIABLES) == 83  # 5 surface + 6*13 atmos
@@ -327,13 +312,11 @@ def test_gencast_mini_variables():
     assert "tp12" not in INPUT_VARIABLES
     assert "tp12" in OUTPUT_VARIABLES
 
-
 @pytest.fixture(scope="function")
 def model() -> GenCastMini:
     package = GenCastMini.load_default_package()
     p = GenCastMini.load_model(package)
     return p
-
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

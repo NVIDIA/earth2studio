@@ -16,11 +16,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["serve"])
-
-from earth2studio.serve.server.health import (  # noqa: E402
+from earth2studio.serve.server.health import (
     HealthResult,
     ServiceStatus,
     check_all_services,
@@ -101,7 +97,6 @@ class TestCheckAllServices:
 
         assert result.rq_workers["inference"].details["queue_depth"] == 42
 
-
 class TestServiceStatus:
     """Tests for the ServiceStatus dataclass."""
 
@@ -110,7 +105,6 @@ class TestServiceStatus:
         assert not s.running
         assert s.pids == []
         assert s.details == {}
-
 
 class TestHealthResult:
     """Tests for the HealthResult dataclass."""

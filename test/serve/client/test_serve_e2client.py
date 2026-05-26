@@ -25,18 +25,14 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["serve"])
-
-from earth2studio.serve.client.e2client import (  # noqa: E402
+from earth2studio.serve.client.e2client import (
     InferenceOutputModel,
     RemoteEarth2Workflow,
     RemoteEarth2WorkflowResult,
     _convert_time_to_lead_time,
 )
-from earth2studio.serve.client.exceptions import Earth2StudioAPIError  # noqa: E402
-from earth2studio.serve.client.models import (  # noqa: E402
+from earth2studio.serve.client.exceptions import Earth2StudioAPIError
+from earth2studio.serve.client.models import (
     InferenceRequestResponse,
     InferenceRequestResults,
     OutputFile,
@@ -96,7 +92,6 @@ class TestRemoteEarth2WorkflowInitialization:
                 max_retries=5,
             )
 
-
 class TestRemoteEarth2WorkflowCall:
     """Test RemoteEarth2Workflow __call__ method"""
 
@@ -137,7 +132,6 @@ class TestRemoteEarth2WorkflowCall:
             assert request.parameters["nsteps"] == 20
             assert request.parameters["model"] == "fcn"
 
-
 class TestRemoteEarth2WorkflowTo:
     """Test RemoteEarth2Workflow to() method"""
 
@@ -159,7 +153,6 @@ class TestRemoteEarth2WorkflowTo:
             device = torch.device("cpu")
             result = workflow.to(device)
             assert workflow.device == device
-
 
 class TestRemoteEarth2WorkflowResult:
     """Test RemoteEarth2WorkflowResult class"""
@@ -319,7 +312,6 @@ class TestRemoteEarth2WorkflowResult:
             model = result.as_model(iter_coord="time")
             assert model.iter_coord == "time"
 
-
 class TestConvertTimeToLeadTime:
     """Test _convert_time_to_lead_time function"""
 
@@ -384,7 +376,6 @@ class TestConvertTimeToLeadTime:
         np.testing.assert_array_equal(coords_new["variable"], coords["variable"])
         np.testing.assert_array_equal(coords_new["lat"], coords["lat"])
         np.testing.assert_array_equal(coords_new["lon"], coords["lon"])
-
 
 class TestInferenceOutputModel:
     """Test InferenceOutputModel class"""
@@ -618,7 +609,6 @@ class TestInferenceOutputModel:
 
             # Verify conversion was called
             mock_convert.assert_called_once()
-
 
 class TestInferenceOutputModelIntegration:
     """Integration tests for InferenceOutputModel"""

@@ -25,11 +25,7 @@ import pytest
 import s3fs
 from fsspec.implementations.http import HTTPFileSystem
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["data"])
-
-from earth2studio.data import HRRR, HRRR_FX  # noqa: E402
+from earth2studio.data import HRRR, HRRR_FX
 
 
 @pytest.mark.slow
@@ -68,7 +64,6 @@ def test_hrrr_fetch(time, variable):
     assert not np.isnan(data.values).any()
     assert HRRR.available(time[0])
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
-
 
 @pytest.mark.slow
 @pytest.mark.xfail
@@ -112,7 +107,6 @@ def test_hrrr_fx_fetch(time, lead_time):
     assert shape[4] == 1799
     assert not np.isnan(data.values).any()
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
-
 
 @pytest.mark.timeout(15)
 def test_hrrr_init():
@@ -163,7 +157,6 @@ def test_hrrr_init():
     with pytest.raises(NotImplementedError):
         HRRR(source="azure")
 
-
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(30)
@@ -208,7 +201,6 @@ def test_hrrr_cache(time, variable, cache):
     except FileNotFoundError:
         pass
 
-
 def test_hrrr_validate_inputs():
     ds = HRRR(cache=False)
 
@@ -229,7 +221,6 @@ def test_hrrr_validate_inputs():
     # Test invalid variable
     with pytest.raises(KeyError):
         ds(datetime(year=2024, month=12, day=25), "invalid variable")
-
 
 @pytest.mark.timeout(15)
 def test_hrrr_fx_validate_leadtime():
@@ -253,7 +244,6 @@ def test_hrrr_fx_validate_leadtime():
     for time0 in times:
         with pytest.raises(ValueError):
             ds._validate_leadtime([time0], [timedelta(hours=19)])
-
 
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize(

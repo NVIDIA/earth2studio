@@ -20,15 +20,11 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["solarradiation-afno"])
-
-from earth2studio.models.dx import (  # noqa: E402
+from earth2studio.models.dx import (
     SolarRadiationAFNO1H,
     SolarRadiationAFNO6H,
 )
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.utils import handshake_dim
 
 
 class PhooAFNOSolarRadiation(torch.nn.Module):
@@ -41,13 +37,11 @@ class PhooAFNOSolarRadiation(torch.nn.Module):
         # We'll return a tensor of the same shape but with only one variable
         return torch.zeros_like(x[:, :1, :, :])
 
-
 @pytest.fixture
 def mock_model():
     """Create a mock model for testing."""
     model = PhooAFNOSolarRadiation()
     return model
-
 
 @pytest.mark.parametrize(
     "x",
@@ -128,7 +122,6 @@ def test_solarradiation_afno(x, device, mock_model, model_class, freq):
     assert torch.all(out >= 0)
     assert torch.all(out <= 1e6)
 
-
 @pytest.mark.parametrize(
     "invalid_coords",
     [
@@ -176,7 +169,6 @@ def test_solarradiation_afno_invalid_coords(
     x = torch.randn((1, 1, 1, len(invalid_coords["variable"]), 721, 1440))
     with pytest.raises(ValueError):
         model(x, invalid_coords)
-
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.parametrize(
@@ -235,7 +227,6 @@ def test_solarradiation_afno_exceptions(device, mock_model, model_class, freq):
     del wrong_coords["lat"]
     with pytest.raises(ValueError):
         model(x, wrong_coords)
-
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

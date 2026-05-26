@@ -17,27 +17,16 @@
 import datetime
 import importlib.util
 
+import cbottle
+import earth2grid  # noqa: F401
 import numpy as np
 import pytest
 import torch
 import xarray as xr
+from cbottle.datasets import base
+from cbottle.inference import MixtureOfExpertsDenoiser  # noqa: F401
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["cbottle"])
-
-try:
-    import cbottle  # noqa: E402
-    import earth2grid  # noqa: E402, F401
-    from cbottle.datasets import base  # noqa: E402
-    from cbottle.inference import MixtureOfExpertsDenoiser  # noqa: E402, F401
-except ImportError:
-    cbottle = None  # type: ignore[assignment]
-    earth2grid = None  # type: ignore[assignment]
-    base = None  # type: ignore[assignment]
-    MixtureOfExpertsDenoiser = None  # type: ignore[assignment, misc]
-
-from earth2studio.data import CBottle3D  # noqa: E402
+from earth2studio.data import CBottle3D
 
 
 @pytest.fixture(scope="class")

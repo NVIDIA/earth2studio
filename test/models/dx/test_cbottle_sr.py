@@ -16,19 +16,14 @@
 
 from collections import OrderedDict
 
+import cbottle  # noqa: F401
 import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["cbottle"])
-
-import cbottle  # noqa: E402, F401
-
-from earth2studio.models.dx import CBottleSR  # noqa: E402
-from earth2studio.models.dx.cbottle_sr import CHANNEL_TO_VARIABLE  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.models.dx import CBottleSR
+from earth2studio.models.dx.cbottle_sr import CHANNEL_TO_VARIABLE
+from earth2studio.utils import handshake_dim
 
 
 @pytest.fixture(scope="class")

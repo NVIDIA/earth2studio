@@ -21,13 +21,9 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["aifs2ens"])
-
-from earth2studio.data import Random, fetch_data  # noqa: E402
-from earth2studio.models.px import AIFS2ENS  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.data import Random, fetch_data
+from earth2studio.models.px import AIFS2ENS
+from earth2studio.utils import handshake_dim
 
 
 def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):
@@ -41,7 +37,6 @@ def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):
     return torch.sparse_csr_tensor(
         crow, col, val, size=(n_rows, n_cols), dtype=torch.float32
     )
-
 
 class DotDict(dict):
     """Minimal DotDict replacement with recursive dot-notation access."""
@@ -58,7 +53,6 @@ class DotDict(dict):
 
     def __delattr__(self, name):
         del self[name]
-
 
 class PhooAIFS2ENSModel(torch.nn.Module):
     """Mock AIFS ENS 2 model for unit testing."""
@@ -600,7 +594,6 @@ class PhooAIFS2ENSModel(torch.nn.Module):
         n_output_vars = len(self.data_indices.data.output.full)
         return torch.ones(x.shape[0], 1, x.shape[2], n_output_vars, device=x.device)
 
-
 @pytest.mark.parametrize(
     "time",
     [
@@ -675,7 +668,6 @@ def test_aifs2ens_call(time, device):
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
 
-
 @pytest.mark.parametrize("ensemble", [1])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs2ens_iter(ensemble, device):
@@ -745,7 +737,6 @@ def test_aifs2ens_iter(ensemble, device):
         if i > 5:
             break
 
-
 @pytest.mark.parametrize(
     "dc",
     [
@@ -794,7 +785,6 @@ def test_aifs2ens_exceptions(dc, device):
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
 
-
 @pytest.fixture(scope="function")
 def model() -> AIFS2ENS:
     """Load real AIFS2ENS model from package, mocking IFS fetch if needed."""
@@ -813,7 +803,6 @@ def model() -> AIFS2ENS:
     ):
         p = AIFS2ENS.load_model(package)
     return p
-
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

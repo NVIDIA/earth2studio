@@ -26,11 +26,7 @@ from unittest.mock import Mock, patch
 import pytest
 import redis
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["serve"])
-
-from earth2studio.serve.server.workflow import WorkflowRegistry  # noqa: E402
+from earth2studio.serve.server.workflow import WorkflowRegistry
 
 
 # Create mock config classes before importing cpu_worker
@@ -47,7 +43,6 @@ class MockRedisConfig:
     decode_responses: bool = True
     retention_ttl: int = 604800  # Redis key retention TTL in seconds (7 days)
 
-
 @dataclass
 class MockQueueConfig:
     """Mock queue configuration"""
@@ -61,10 +56,8 @@ class MockQueueConfig:
     default_timeout: str = "1h"
     job_timeout: str = "2h"
 
-
 # Secure temp dir for mock path defaults (S108)
 _secure_test_dir = tempfile.mkdtemp(prefix="e2s_testing_")
-
 
 @dataclass
 class MockPathsConfig:
@@ -75,14 +68,12 @@ class MockPathsConfig:
     output_format: Literal["zarr", "netcdf4"] = "zarr"
     result_zip_enabled: bool = False
 
-
 @dataclass
 class MockLoggingConfig:
     """Mock logging configuration"""
 
     level: str = "INFO"
     format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
 
 @dataclass
 class MockServerConfig:
@@ -97,7 +88,6 @@ class MockServerConfig:
     docs_url: str = "/docs"
     redoc_url: str = "/redoc"
 
-
 @dataclass
 class MockCORSConfig:
     """Mock CORS configuration"""
@@ -106,7 +96,6 @@ class MockCORSConfig:
     allow_credentials: bool = True
     allow_methods: list = field(default_factory=lambda: ["*"])
     allow_headers: list = field(default_factory=lambda: ["*"])
-
 
 @dataclass
 class MockObjectStorageConfig:
@@ -125,14 +114,12 @@ class MockObjectStorageConfig:
     signed_url_expires_in: int = 3600
     azure_geocatalog_url: str | None = None
 
-
 @dataclass
 class MockWorkflowExposureConfig:
     """Mock workflow exposure configuration"""
 
     exposed_workflows: list = field(default_factory=list)
     warmup_workflows: list = field(default_factory=lambda: ["example_user_workflow"])
-
 
 @dataclass
 class MockAppConfig:
@@ -151,7 +138,6 @@ class MockAppConfig:
         default_factory=MockWorkflowExposureConfig
     )
 
-
 # Create a mock config module
 mock_config_module = Mock()
 mock_config_module.AppConfig = MockAppConfig
@@ -164,7 +150,7 @@ pytest.importorskip("earth2studio.serve.server")
 sys.modules["earth2studio.serve.server.config"] = mock_config_module
 
 # Now import the module under test
-from earth2studio.serve.server.cpu_worker import (  # noqa: E402  # noqa: E402
+from earth2studio.serve.server.cpu_worker import (  # noqa: E402
     FileManifestEntry,
     ResultMetadata,
     build_file_manifest,
@@ -847,7 +833,6 @@ class TestCreateResultsZip:
 
         assert result is None
 
-
 class TestFailWorkflow:
     """Tests for fail_workflow."""
 
@@ -887,7 +872,6 @@ class TestFailWorkflow:
         assert out["success"] is False
         assert out["error"] == "Err"
 
-
 class TestBuildFileManifest:
     """Tests for build_file_manifest."""
 
@@ -926,7 +910,6 @@ class TestBuildFileManifest:
         """Nonexistent path returns empty list."""
         entries = build_file_manifest(tmp_path / "nonexistent")
         assert entries == []
-
 
 class TestResultMetadata:
     """Tests for ResultMetadata factory methods and to_dict."""
@@ -993,7 +976,6 @@ class TestResultMetadata:
         d = meta.to_dict()
         assert d["signed_url"] == "https://s3.example.com/signed"
         assert d["remote_path"] == "outputs/r1/out.nc"
-
 
 class TestProcessResultZip:
     """Tests for process_result_zip RQ worker function."""
@@ -1195,7 +1177,6 @@ class TestProcessResultZip:
         mock_fail.assert_called_once()
         assert "create results zip" in mock_fail.call_args[0][2].lower()
 
-
 class TestProcessFinalizeMetadata:
     """Tests for process_finalize_metadata RQ worker function."""
 
@@ -1350,7 +1331,6 @@ class TestProcessFinalizeMetadata:
         assert data.get("signed_url") == "https://signed.example.com"
         assert data.get("remote_path") == "s3://bucket/prefix"
 
-
 class TestProcessObjectStorageUpload:
     """Tests for process_object_storage_upload RQ worker function."""
 
@@ -1413,7 +1393,6 @@ class TestProcessObjectStorageUpload:
         assert result is not None and result.get("success") is False
         mock_fail.assert_called_once()
         assert "does not exist" in mock_fail.call_args[0][2]
-
 
 class TestProcessObjectStorageUploadEnabled:
     """Tests for process_object_storage_upload when storage is enabled."""
@@ -2117,7 +2096,6 @@ class TestProcessObjectStorageUploadEnabled:
         assert call_kwargs.get("session_token") == "ST789"
         assert call_kwargs.get("endpoint_url") == "https://s3.custom.example.com"
 
-
 class TestProcessFinalizeMetadataEdgeCases:
     """Tests for the exception handler in process_finalize_metadata (lines 1114-1116)."""
 
@@ -2146,7 +2124,6 @@ class TestProcessFinalizeMetadataEdgeCases:
         assert result is not None
         assert result.get("success") is False
         assert "metadata finalization" in result.get("error", "").lower()
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

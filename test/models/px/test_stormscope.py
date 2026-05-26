@@ -21,16 +21,12 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["stormscope"])
-
-from earth2studio.data import Random, fetch_data  # noqa: E402
-from earth2studio.models.px.stormscope import (  # noqa: E402
+from earth2studio.data import Random, fetch_data
+from earth2studio.models.px.stormscope import (
     StormScopeGOES,
     StormScopeMRMS,
 )
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.utils import handshake_dim
 
 
 # Spoof diffusion model with same call signature as EDMPrecond-wrapped models
@@ -47,7 +43,6 @@ class PhooStormScopeDiffusionModel(torch.nn.Module):
 
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
-
 
 def create_spoof_model(
     nvar=8,
@@ -132,7 +127,6 @@ def create_spoof_model(
 
     return model
 
-
 @pytest.mark.parametrize(
     "time",
     [
@@ -186,7 +180,6 @@ def test_stormscope_call(time, device, batch):
     handshake_dim(out_coords, "time", 1)
     handshake_dim(out_coords, "batch", 0)
 
-
 @pytest.mark.parametrize(
     "batch",
     [1, 2],
@@ -235,7 +228,6 @@ def test_stormscope_iter(batch, device):
         if i > 3:
             break
 
-
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormscope_interpolation(device):
     """Test StormScope interpolation methods"""
@@ -279,7 +271,6 @@ def test_stormscope_interpolation(device):
     )
     assert model.conditioning_interp is not None
     assert model.conditioning_valid_mask.shape == torch.Size([h, w])
-
 
 @pytest.mark.parametrize("sliding_window", [False, True])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -341,7 +332,6 @@ def test_stormscope_next_input(sliding_window, device, batch):
         assert torch.allclose(next_x, pred)
         assert next_coords["lead_time"][0] == pred_coords["lead_time"][0]
 
-
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormscope_call_with_conditioning(device):
     """Test StormScope call_with_conditioning method"""
@@ -394,7 +384,6 @@ def test_stormscope_call_with_conditioning(device):
     # Check output shape
     assert out.shape == torch.Size([batch_size, len(time), 1, nvar, h, w])
     assert (out_coords["variable"] == variable).all()
-
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormscope_mrms(device):
@@ -459,7 +448,6 @@ def test_stormscope_mrms(device):
     out, out_coords = model(x, coords)
     assert out.shape == torch.Size([1, 1, 1, h, w])
 
-
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormscope_exceptions(device):
     """Test StormScope exception handling"""
@@ -518,7 +506,6 @@ def test_stormscope_exceptions(device):
             x_test, bad_coords, conditioning_test, conditioning_coords
         )
 
-
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormscope_staged_denoising(device):
     """Test StormScope staged denoising with multiple experts"""
@@ -569,7 +556,6 @@ def test_stormscope_staged_denoising(device):
     t_low = torch.tensor(5.0, device=device)
     expert_low = model._select_expert(t_low)
     assert expert_low == model.stage_models[1]
-
 
 @pytest.mark.package
 def test_stormscope_package_loading():

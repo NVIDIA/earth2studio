@@ -20,12 +20,8 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["corrdiff"])
-
-from earth2studio.models.dx import CorrDiffTaiwan  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.models.dx import CorrDiffTaiwan
+from earth2studio.utils import handshake_dim
 
 
 class PhooCorrDiff(torch.nn.Module):
@@ -53,7 +49,6 @@ class PhooCorrDiff(torch.nn.Module):
 
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
-
 
 @pytest.mark.parametrize(
     "x",
@@ -115,7 +110,6 @@ def test_corrdiff(x, device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "sample", 1)
     handshake_dim(out_coords, "batch", 0)
-
 
 @pytest.mark.parametrize(
     "x",
@@ -183,7 +177,6 @@ def test_corrdiff_exceptions(x, device):
     )
     with pytest.raises(ValueError):
         dx(x, wrong_coords)
-
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

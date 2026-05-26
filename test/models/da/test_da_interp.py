@@ -19,10 +19,6 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["da-interp"])
-
 try:
     import cudf
 except ImportError:
@@ -33,7 +29,7 @@ try:
 except ImportError:
     cp = None
 
-from earth2studio.models.da.interp import InterpEquirectangular  # noqa: E402
+from earth2studio.models.da.interp import InterpEquirectangular
 
 
 @pytest.fixture
@@ -59,7 +55,6 @@ def sample_observations_pandas():
             "variable": ["t2m", "t2m", "u10m", "u10m", "t2m", "t2m", "u10m", "u10m"],
         }
     )
-
 
 @pytest.fixture
 def sample_observations_cudf():
@@ -87,14 +82,12 @@ def sample_observations_cudf():
         }
     )
 
-
 @pytest.fixture
 def small_grid():
     """Create a small lat/lon grid for testing."""
     lat = np.linspace(25.0, 50.0, 11, dtype=np.float32)
     lon = np.linspace(235.0, 295.0, 13, dtype=np.float32)
     return lat, lon
-
 
 @pytest.mark.parametrize(
     "interp_method",
@@ -109,7 +102,6 @@ def test_interp_init(interp_method, small_grid):
 
     with pytest.raises(ValueError, match="interp_method must be one of"):
         InterpEquirectangular(interp_method="invalid")
-
 
 @pytest.mark.parametrize(
     "device",
@@ -165,7 +157,6 @@ def test_interp_call_pandas(
     else:
         assert isinstance(da.data, np.ndarray)
         assert not np.all(np.isnan(da.values))
-
 
 @pytest.mark.parametrize(
     "device",
@@ -228,7 +219,6 @@ def test_interp_call_cudf(sample_observations_cudf, small_grid, device, interp_m
         assert not np.any(np.isnan(t2m_data))
         assert not np.any(np.isnan(u10m_data))
 
-
 def test_interp_multiple_times(sample_observations_pandas, small_grid):
     lat, lon = small_grid
     model = InterpEquirectangular(lat=lat, lon=lon, interp_method="nearest")
@@ -268,7 +258,6 @@ def test_interp_multiple_times(sample_observations_pandas, small_grid):
     if len(time2_data) > 0:
         assert np.min(time2_data) >= 30  # Should be close to min observation (15.0)
         assert np.max(time2_data) <= 40  # Should be close to max observation (25.0)
-
 
 @pytest.mark.parametrize(
     "device",
@@ -321,7 +310,6 @@ def test_interp_tolerance(sample_observations_pandas, small_grid, device):
         assert not cp.all(cp.isnan(da.data))
     else:
         assert not np.all(np.isnan(da.values))
-
 
 @pytest.mark.parametrize(
     "device",

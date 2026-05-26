@@ -23,26 +23,20 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["da-stormcast"])
-
-from earth2studio.data import (  # noqa: E402
+from earth2studio.data import (
     Random,
     RandomDataFrame,
     fetch_data,
     fetch_dataframe,
 )
-from earth2studio.models.da.sda_stormcast import StormCastSDA  # noqa: E402
+from earth2studio.models.da.sda_stormcast import StormCastSDA
 
 try:
     import cupy as cp
 except ImportError:
     cp = None
 
-
 # ---------- Mock neural networks ----------
-
 
 class PhooRegressionModel(torch.nn.Module):
     def __init__(self, out_vars=3):
@@ -52,11 +46,9 @@ class PhooRegressionModel(torch.nn.Module):
     def forward(self, x):
         return x[:, : self.out_vars, :, :]
 
-
 class PhooSDADiffusionModel(torch.nn.Module):
     def forward(self, x, t, condition=None):
         return x
-
 
 # ---------- Constants ----------
 
@@ -75,9 +67,7 @@ SAMPLER_ARGS = {
     "S_noise": 1.0,
 }
 
-
 # ---------- Helpers ----------
-
 
 def _build_model(device="cpu"):
     regression = PhooRegressionModel(out_vars=NVAR)
@@ -118,7 +108,6 @@ def _build_model(device="cpu"):
         sampler_args=SAMPLER_ARGS,
     ).to(device)
 
-
 def _build_input_da(model, time, device="cpu"):
     dc = OrderedDict([("hrrr_y", model.hrrr_y), ("hrrr_x", model.hrrr_x)])
     r = Random(dc)
@@ -134,7 +123,6 @@ def _build_input_da(model, time, device="cpu"):
         lat=(["hrrr_y", "hrrr_x"], model.lat),
         lon=(["hrrr_y", "hrrr_x"], model.lon),
     )
-
 
 def _build_obs_source(model, n_obs=10):
     grid_lat, grid_lon = model.lat, model.lon
@@ -154,13 +142,10 @@ def _build_obs_source(model, n_obs=10):
         field_generators={"lat": lat_gen, "lon": lon_gen},
     )
 
-
 def _mock_forward(x, conditioning, y_obs, mask):
     return torch.zeros_like(x)
 
-
 # ---------- Unit tests: _points_in_polygon ----------
-
 
 def test_points_in_polygon_square():
     polygon = np.array([[0, 0], [0, 1], [1, 1], [1, 0]], dtype=np.float64)
@@ -173,7 +158,6 @@ def test_points_in_polygon_square():
     assert result[:3].all()
     assert not result[3:].any()
 
-
 def test_points_in_polygon_triangle():
     polygon = np.array([[0, 0], [2, 0], [1, 2]], dtype=np.float64)
     inside = np.array([[1, 0.5]], dtype=np.float64)
@@ -185,9 +169,7 @@ def test_points_in_polygon_triangle():
     assert result[0]
     assert not result[1:].any()
 
-
 # ---------- Unit tests: _build_obs_tensors ----------
-
 
 @pytest.mark.parametrize(
     "device",
@@ -216,7 +198,6 @@ def test_build_obs_tensors(device):
     assert y_obs.device == model.device
     assert mask.device == model.device
 
-
 def test_build_obs_tensors_none():
     model = _build_model()
     time = np.array([np.datetime64("2020-01-01T00:00")])
@@ -227,7 +208,6 @@ def test_build_obs_tensors_none():
     assert y_obs.shape == (1, NVAR, ny, nx)
     assert (mask == 0).all()
     assert (y_obs == 0).all()
-
 
 def test_build_obs_tensors_outside_grid():
     model = _build_model()
@@ -246,7 +226,6 @@ def test_build_obs_tensors_outside_grid():
     y_obs, mask = model._build_obs_tensors(obs_df, time[0], model.device)
 
     assert (mask == 0).all()
-
 
 def test_build_obs_tensors_averages_duplicates():
     model = _build_model()
@@ -288,9 +267,7 @@ def test_build_obs_tensors_averages_duplicates():
     assert mask.sum() == 1
     assert torch.isclose(y_obs[mask == 1], torch.tensor(19.5)).all()
 
-
 # ---------- Unit test: _fetch_and_interp_conditioning ----------
-
 
 def test_fetch_and_interp_conditioning():
     model = _build_model(device="cpu")
@@ -304,7 +281,6 @@ def test_fetch_and_interp_conditioning():
     assert "hrrr_y" in c.dims
     assert "hrrr_x" in c.dims
     assert "variable" in c.dims
-
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
 def test_fetch_and_interp_conditioning_gpu():
@@ -368,9 +344,7 @@ def test_fetch_and_interp_conditioning_gpu():
     for v in range(NVAR_COND):
         np.testing.assert_allclose(c_np[0, 0, v], expected, atol=1e-6, rtol=0)
 
-
 # ---------- Test: __call__ ----------
-
 
 @pytest.mark.parametrize(
     "time",
@@ -414,9 +388,7 @@ def test_stormcast_sda_call(time, device):
 
     assert out_none.shape == out.shape
 
-
 # ---------- Test: create_generator ----------
-
 
 @pytest.mark.parametrize(
     "device",
@@ -457,9 +429,7 @@ def test_stormcast_sda_generator(device):
 
         gen.close()
 
-
 # ---------- Test: exceptions ----------
-
 
 def test_stormcast_sda_exceptions():
     ny = Y_END - Y_START
@@ -491,15 +461,12 @@ def test_stormcast_sda_exceptions():
     with pytest.raises(RuntimeError):
         next(gen)
 
-
 # ---------- Test: package loading ----------
-
 
 @pytest.fixture(scope="function")
 def sda_model() -> StormCastSDA:
     package = StormCastSDA.load_default_package()
     return StormCastSDA.load_model(package)
-
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

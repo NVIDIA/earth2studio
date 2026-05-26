@@ -21,12 +21,8 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["orbit"])
-
-from earth2studio.models.dx import OrbitGlobalPrecip  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.models.dx import OrbitGlobalPrecip
+from earth2studio.utils import handshake_dim
 
 
 class PhooORBIT2Precip(torch.nn.Module):
@@ -46,7 +42,6 @@ class PhooORBIT2Precip(torch.nn.Module):
             x.shape[0], len(out_variables), self.lat_out, self.lon_out, device=x.device
         )
         return x_out
-
 
 @pytest.mark.parametrize(
     "x",
@@ -173,7 +168,6 @@ def test_orbit2_precip(x, device):
     handshake_dim(out_coords, "variable", 1)
     handshake_dim(out_coords, "batch", 0)
 
-
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 @pytest.mark.parametrize("model_size", ["9.5m", "126m"])
@@ -199,7 +193,6 @@ def test_orbit2_precip_package(device, model_size):
     handshake_dim(out_coords, "lat", 2)
     handshake_dim(out_coords, "variable", 1)
     handshake_dim(out_coords, "batch", 0)
-
 
 def test_orbit2_precip_exceptions():
     x = torch.randn(1, 20, 720, 1440)

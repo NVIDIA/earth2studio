@@ -22,11 +22,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["serve"])
-
-from earth2studio.serve.server.config import (  # noqa: E402
+from earth2studio.serve.server.config import (
     AppConfig,
     ConfigManager,
     CORSConfig,
@@ -134,7 +130,6 @@ class TestConfigDataclasses:
         assert isinstance(config.cors, CORSConfig)
         assert isinstance(config.object_storage, ObjectStorageConfig)
 
-
 class TestConfigManagerSingleton:
     """Test ConfigManager singleton behavior"""
 
@@ -166,7 +161,6 @@ class TestConfigManagerSingleton:
         manager2 = get_config_manager()
         # Verify reset_config cleared the old instance
         assert old_instance is None or manager1 is not manager2
-
 
 class TestConfigManagerInitialization:
     """Test ConfigManager initialization and fallback behavior"""
@@ -219,7 +213,6 @@ class TestConfigManagerInitialization:
         assert config is not None
         assert isinstance(config, AppConfig)
         assert config.redis.host == "localhost"  # Default value
-
 
 class TestEnvironmentVariableOverrides:
     """Test environment variable overrides"""
@@ -371,7 +364,6 @@ class TestEnvironmentVariableOverrides:
         assert manager.config.queue.max_size == 100
         assert manager.config.logging.level == "WARNING"
 
-
 class TestPathCreation:
     """Test path creation functionality"""
 
@@ -402,7 +394,6 @@ class TestPathCreation:
         manager._ensure_paths_exist()
         # Test passes if no exception is raised
 
-
 class TestGetConfigFunctions:
     """Test get_config and get_config_manager functions"""
 
@@ -425,7 +416,6 @@ class TestGetConfigFunctions:
         manager = get_config_manager()
         config2 = manager.config
         assert config1 is config2
-
 
 class TestGetRedisUrl:
     """Test get_redis_url method"""
@@ -453,7 +443,6 @@ class TestGetRedisUrl:
 
         url = manager.get_redis_url()
         assert url == "redis://:secret123@redis.example.com:6380/1"
-
 
 class TestSetupLogging:
     """Test setup_logging method"""
@@ -485,7 +474,6 @@ class TestSetupLogging:
         assert any(
             type(h).__name__ == handler_cls.__name__ for h in root_logger.handlers
         )
-
 
 class TestGetWorkflowConfig:
     """Test get_workflow_config function"""
@@ -520,7 +508,6 @@ class TestGetWorkflowConfig:
 
         config = get_workflow_config("nonexistent_workflow")
         assert config == {}
-
 
 class TestConfigManagerDictToConfig:
     """Test _dict_to_config method"""
@@ -559,7 +546,6 @@ class TestConfigManagerDictToConfig:
         assert config.redis.host == "test_host"
         # Other configs should have defaults
         assert config.queue.name == "inference"  # Default value
-
 
 class TestObjectStorageEnvOverrides:
     """Test object storage and Azure environment variable overrides"""
@@ -747,7 +733,6 @@ class TestObjectStorageEnvOverrides:
         monkeypatch.setenv("REDIS_PORT", "not_a_number")
         manager._apply_env_overrides()
         assert manager.config.redis.port == original_port
-
 
 class TestResolveServePath:
     """Test the resolve_serve_path helper."""

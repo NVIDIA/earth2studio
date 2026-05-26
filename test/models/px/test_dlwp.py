@@ -21,13 +21,9 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.imports import pytest_require
-
-pytestmark = pytest_require(groups=["dlwp"])
-
-from earth2studio.data import Random, fetch_data  # noqa: E402
-from earth2studio.models.px import DLWP  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.data import Random, fetch_data
+from earth2studio.models.px import DLWP
+from earth2studio.utils import handshake_dim
 
 
 class PhooDLWPModel(torch.nn.Module):
@@ -43,7 +39,6 @@ class PhooDLWPModel(torch.nn.Module):
         x[:, 7:14] = x[:, 8:15] + 2 * self.delta_t
         return x[:, :14].contiguous()
 
-
 @pytest.fixture()
 def dlwp_phoo_cs_transform():
     er_num = 721 * 1440
@@ -53,7 +48,6 @@ def dlwp_phoo_cs_transform():
     return torch.sparse_coo_tensor(
         indices, values, size=(cs_num, er_num), dtype=torch.float
     )
-
 
 @pytest.mark.parametrize(
     "time",
@@ -119,7 +113,6 @@ def test_dlwp_call(time, dlwp_phoo_cs_transform, device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
-
 
 @pytest.mark.parametrize(
     "ensemble",
@@ -197,7 +190,6 @@ def test_dlwp_iter(ensemble, dlwp_phoo_cs_transform, device):
         if i > 5:
             break
 
-
 @pytest.mark.parametrize(
     "dc",
     [
@@ -241,13 +233,11 @@ def test_dlwp_exceptions(dc, dlwp_phoo_cs_transform, device):
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
 
-
 @pytest.fixture(scope="function")
 def model() -> DLWP:
     package = DLWP.load_default_package()
     p = DLWP.load_model(package)
     return p
-
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
