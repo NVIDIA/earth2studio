@@ -20,8 +20,12 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.models.dx import WindgustAFNO
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["windgust-afno"])
+
+from earth2studio.models.dx import WindgustAFNO  # noqa: E402
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 
 class PhooAFNOWindgust(torch.nn.Module):

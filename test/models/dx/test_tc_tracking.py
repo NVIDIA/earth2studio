@@ -18,11 +18,15 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.models.dx import (
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["cyclone"])
+
+from earth2studio.models.dx import (  # noqa: E402
     TCTrackerVitart,
     TCTrackerWuDuan,
 )
-from earth2studio.utils.coords import CoordSystem
+from earth2studio.utils.coords import CoordSystem  # noqa: E402
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

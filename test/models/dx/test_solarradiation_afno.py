@@ -20,8 +20,15 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.models.dx import SolarRadiationAFNO1H, SolarRadiationAFNO6H
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["solarradiation-afno"])
+
+from earth2studio.models.dx import (  # noqa: E402
+    SolarRadiationAFNO1H,
+    SolarRadiationAFNO6H,
+)
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 
 class PhooAFNOSolarRadiation(torch.nn.Module):

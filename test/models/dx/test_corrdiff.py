@@ -26,9 +26,13 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.models.auto import Package
-from earth2studio.models.dx import CorrDiff
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["corrdiff"])
+
+from earth2studio.models.auto import Package  # noqa: E402
+from earth2studio.models.dx import CorrDiff  # noqa: E402
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 
 class MockPhysicsNemoModule(torch.nn.Module):

@@ -22,9 +22,13 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.dx import CorrDiffCMIP6
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import pytest_require
+
+pytestmark = pytest_require(groups=["corrdiff"])
+
+from earth2studio.data import Random, fetch_data  # noqa: E402
+from earth2studio.models.dx import CorrDiffCMIP6  # noqa: E402
+from earth2studio.utils import handshake_dim  # noqa: E402
 
 
 class MockPhysicsNemoModule(torch.nn.Module):
