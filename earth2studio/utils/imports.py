@@ -15,11 +15,15 @@
 # limitations under the License.
 import inspect
 import sys
+import tomllib
 from collections.abc import Callable
-from functools import wraps
+from functools import lru_cache, wraps
+from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
 from types import TracebackType
 from typing import Any, TypeVar, cast
 
+from packaging.requirements import Requirement
 from rich.console import Console
 from rich.table import Table
 from rich.traceback import Traceback
@@ -179,3 +183,170 @@ def check_optional_dependencies(
             return cast(F, _wrapper)
 
     return _decorator
+
+
+def _find_pyproject_toml() -> Path:
+    """Locate pyproject.toml relative to this module.
+
+    Returns
+    -------
+    Path
+        Path to pyproject.toml
+
+    Raises
+    ------
+    FileNotFoundError
+        If pyproject.toml cannot be found within 5 parent directories
+    """
+    current = Path(__file__).resolve().parent
+    for _ in range(5):  # Max 5 levels up
+        candidate = current / "pyproject.toml"
+        if candidate.exists():
+            return candidate
+        current = current.parent
+    raise FileNotFoundError(
+        "Could not locate pyproject.toml from earth2studio/utils/imports.py"
+    )
+
+
+@lru_cache(maxsize=1)
+def _parse_optional_dependencies() -> dict[str, list[str]]:
+    """Parse and cache optional-dependencies from pyproject.toml.
+
+    Returns
+    -------
+    dict[str, list[str]]
+        Mapping of group name to list of package specs
+    """
+    pyproject_path = _find_pyproject_toml()
+    with open(pyproject_path, "rb") as f:
+        data = tomllib.load(f)
+    return data.get("project", {}).get("optional-dependencies", {})
+
+
+def _check_package(spec: str) -> tuple[bool, str | None]:
+    """Check if a package spec is satisfied.
+
+    Parameters
+    ----------
+    spec : str
+        Package specification (e.g., "scipy>=1.15", "torch", "redis>=5.0,<6.0")
+
+    Returns
+    -------
+    tuple[bool, str | None]
+        (True, None) if satisfied, (False, reason) if not satisfied
+    """
+    req = Requirement(spec)
+    try:
+        installed_version = version(req.name)
+    except PackageNotFoundError:
+        return False, f"{req.name} not installed"
+
+    if req.specifier and not req.specifier.contains(installed_version):
+        return False, f"{req.name}=={installed_version} does not satisfy {req.specifier}"
+
+    return True, None
+
+
+def _get_group_packages(group: str, seen: set[str] | None = None) -> list[str]:
+    """Get package specs for a dependency group, recursively expanding earth2studio refs.
+
+    Parameters
+    ----------
+    group : str
+        Group name from pyproject.toml optional-dependencies
+    seen : set[str] | None
+        Groups already visited (prevents infinite recursion)
+
+    Returns
+    -------
+    list[str]
+        Package specs (excluding earth2studio[...] self-references)
+
+    Raises
+    ------
+    ValueError
+        If the group name is not found in pyproject.toml
+    """
+    if seen is None:
+        seen = set()
+    if group in seen:
+        return []
+    seen.add(group)
+
+    optional_deps = _parse_optional_dependencies()
+    if group not in optional_deps:
+        raise ValueError(f"Unknown dependency group: {group!r}")
+
+    packages: list[str] = []
+    for spec in optional_deps[group]:
+        req = Requirement(spec)
+        if req.name == "earth2studio":
+            # Recursively expand earth2studio[extra] references
+            for extra in req.extras:
+                packages.extend(_get_group_packages(extra, seen))
+        else:
+            # Strip markers from spec, just keep package name and version
+            clean_spec = req.name
+            if req.specifier:
+                clean_spec = f"{req.name}{req.specifier}"
+            packages.append(clean_spec)
+
+    return packages
+
+
+def pytest_require(
+    *packages: str,
+    groups: list[str] | None = None,
+) -> Any:
+    """Return a pytest skipif marker if required packages or groups are missing.
+
+    Use this to skip entire test modules when optional dependencies are not installed.
+
+    Parameters
+    ----------
+    *packages : str
+        Package specs, optionally with version constraints (e.g., "scipy>=1.15", "torch").
+    groups : list[str] | None
+        Dependency group names from pyproject.toml (e.g., ["serve", "data"]).
+
+    Returns
+    -------
+    pytest.MarkDecorator
+        A skipif marker that skips if any requirement is not satisfied.
+
+    Examples
+    --------
+    Skip entire module if 'serve' group dependencies are not installed:
+
+    >>> pytestmark = pytest_require(groups=["serve"])
+
+    Skip if specific packages are missing or wrong version:
+
+    >>> pytestmark = pytest_require("fme", "scipy>=1.15")
+
+    Combine packages and groups:
+
+    >>> pytestmark = pytest_require("redis>=5.0", groups=["serve"])
+    """
+    import pytest  # Lazy import - pytest is a dev dependency
+
+    missing: list[str] = []
+
+    # Check explicit packages
+    for spec in packages:
+        ok, reason = _check_package(spec)
+        if not ok:
+            missing.append(reason or spec)
+
+    # Check group packages
+    if groups:
+        for group in groups:
+            for spec in _get_group_packages(group):
+                ok, reason = _check_package(spec)
+                if not ok:
+                    missing.append(f"group '{group}': {reason or spec}")
+
+    reason = f"Missing: {', '.join(missing)}" if missing else ""
+    return pytest.mark.skipif(bool(missing), reason=reason)
