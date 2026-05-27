@@ -150,7 +150,20 @@ look correct.
 
 ---
 
-## Step 6 — Update Documentation Version Switcher
+## Step 6 — Update Install Guide Version Tag
+
+Update `docs/userguide/about/install.md` to reference the new released version tag.
+
+1. Replace all occurrences of the **previous** release tag (e.g., `@0.14.0`) with
+   the **new** release tag (e.g., `@0.15.0`) in the install guide.
+2. Update the Docker container tag (e.g., `nvcr.io/nvidia/pytorch:XX.YY-py3`) to
+   the latest recommended container version if it has changed.
+3. Show a `git diff docs/userguide/about/install.md` summary so the user can
+   verify the changes look correct.
+
+---
+
+## Step 7 — Update Documentation Version Switcher
 
 Update `docs/_static/switcher.json` to include the new released version.
 
@@ -164,7 +177,7 @@ Show the diff to the user for review.
 
 ---
 
-## Step 7 — Update README Latest News
+## Step 8 — Update README Latest News
 
 Update the "Latest News" section in `README.md` with highlights from the
 **released** version's CHANGELOG entry (the section just below the new blank
@@ -190,7 +203,7 @@ proceeding.
 
 ---
 
-## Step 8 — Commit and Push
+## Step 9 — Commit and Push
 
 Stage only the expected files and commit:
 
@@ -200,6 +213,7 @@ git add earth2studio/__init__.py
 git add examples/
 git add README.md
 git add docs/_static/switcher.json
+git add docs/userguide/about/install.md
 git commit -m "Update version to X.(Y+1).0a0"
 ```
 
