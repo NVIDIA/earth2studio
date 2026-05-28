@@ -37,7 +37,7 @@ managing releases.
 
 ### Developer
 
-- `.claude/dev-skills/developer-release-rebase/` — Prepare a new minor
+- `.claude/skills-dev/developer-release-rebase/` — Prepare a new minor
   alpha release (rebase, bump version, changelog, PR). Developer only.
 
 ## Python environment
