@@ -1,5 +1,5 @@
 ---
-name: release-rebase
+name: developer-release-rebase
 version: 0.16.0a0
 license: Apache-2.0
 metadata:
