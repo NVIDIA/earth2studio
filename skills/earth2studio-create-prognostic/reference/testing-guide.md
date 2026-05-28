@@ -1,42 +1,17 @@
----
-name: create-prognostic-tests
-description: Write unit tests for a newly created Earth2Studio prognostic model (px) wrapper including smoke tests, data fetch tests, and pytest unit tests
-argument-hint: Name of the prognostic model wrapper class (e.g., Aurora, StormCast)
----
+# Testing Guide — Prognostic Model Wrapper
 
-# Test Prognostic Model Wrapper
-
-> **Note:** Creating a complete prognostic model wrapper involves three major phases,
-> each with its own skill:
+> **Table of Contents**
 >
-> 1. **`create-prognostic-wrapper`** — Steps 0-8: Implement the wrapper
->    class, dependencies, coordinate system, forward pass, model loading, and
->    registration
-> 2. **`create-prognostic-tests`** (this skill) — Step 9: Write smoke tests, data fetch tests,
->    pytest unit tests (mock + package), and comparison scripts
-> 3. **`validate-prognostic-wrapper`** — Final validation: Run tests with coverage,
->    reference comparison, sanity-check plots, and open a PR with automated review
->
-> Complete all steps in this skill first, then invoke the next skill in sequence.
-
-Write unit tests for a newly created Earth2Studio prognostic model wrapper by following
-every step below in order.
-Each confirmation gate marked by starting with:
-
-```markdown
-### **[CONFIRM — <Title>]**
-```
-
-requires explicit user approval before proceeding.
-
-**Prerequisites:** This skill assumes the prognostic wrapper has already been implemented
-(Steps 0-8 of the `create-prognostic-wrapper` skill are complete).
+> 1. [Smoke Test](#smoke-test)
+> 2. [Data Fetch Test](#data-fetch-test)
+> 3. [Pytest Unit Tests](#pytest-unit-tests)
+> 4. [Running Tests](#running-tests)
 
 ---
 
-## Step 1 — Test Forward Pass with Random Data
+## Smoke Test
 
-Write and run a quick smoke test script:
+Write and run a quick smoke test script to verify basic forward pass:
 
 ```python
 import torch
@@ -44,7 +19,7 @@ import numpy as np
 from earth2studio.models.px import ModelName
 
 # Load model (or construct with dummy weights for testing)
-model = ModelName(...)  # Use dummy/test weights if real ones aren't available
+model = ModelName(...)
 model = model.to("cuda" if torch.cuda.is_available() else "cpu")
 
 # Get input coords
@@ -68,13 +43,11 @@ for i, (step_x, step_coords) in enumerate(iterator):
         break
 ```
 
-Report results to the user.
-
 ---
 
-## Step 2 — Test Data Fetch with Random Source
+## Data Fetch Test
 
-Test that the model's coordinate system works with Earth2Studio's data pipeline:
+Verify the model's coordinate system works with the data pipeline:
 
 ```python
 import numpy as np
@@ -83,10 +56,7 @@ from earth2studio.models.px import ModelName
 
 model = ModelName(...)
 
-# Create time array
 time = np.array([np.datetime64("2024-01-01T00:00")])
-
-# Fetch data using model's input coords
 input_coords = model.input_coords()
 input_coords["time"] = time
 ds = Random(input_coords)
@@ -96,15 +66,13 @@ print(f"Fetched data shape: {x.shape}")
 print(f"Variables: {input_coords['variable']}")
 ```
 
-Report results to the user. This validates the coordinate system is compatible with the data pipeline.
-
 ---
 
-## Step 3 — Write Pytest Unit Tests
+## Pytest Unit Tests
 
-Create `test/models/px/test_<filename>.py` following the existing test patterns.
+Create `test/models/px/test_<filename>.py` following existing test patterns.
 
-### Test file structure
+### Complete test file template
 
 ```python
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
@@ -151,7 +119,6 @@ class PhooModelName(torch.nn.Module):
 def test_package(tmp_path_factory):
     """Create a dummy model package for testing."""
     tmp_path = tmp_path_factory.mktemp("data")
-    # Export dummy model to checkpoint format
     model = PhooModelName()
     torch.save(model, tmp_path / "model.pt")
     return Package(str(tmp_path))
@@ -184,20 +151,16 @@ class TestModelNameMock:
         model = ModelName.load_model(test_package)
         model = model.to(device)
 
-        # Fetch input data
         dc = model.input_coords()
         dc["time"] = time
         ds = Random(dc)
         x, coords = fetch_data(ds, time, dc["variable"], device=device)
 
-        # Run forward
         out, out_coords = model(x, coords)
 
-        # Validate output
         assert out.shape == x.shape
         assert isinstance(out_coords, OrderedDict)
         handshake_dim(out_coords, "variable", 3)
-        # Additional model-specific assertions
 
     @pytest.mark.parametrize("ensemble", [1, 2])
     @pytest.mark.parametrize(
@@ -217,7 +180,6 @@ class TestModelNameMock:
         model = ModelName.load_model(test_package)
         model = model.to(device)
 
-        # Create input
         time = np.array([np.datetime64("2024-01-01T00:00")])
         dc = model.input_coords()
         dc["time"] = time
@@ -229,7 +191,6 @@ class TestModelNameMock:
         coords["ensemble"] = np.arange(ensemble)
         coords.move_to_end("ensemble", last=False)
 
-        # Test iterator
         iterator = model.create_iterator(x, coords)
         assert isinstance(iterator, Iterable)
 
@@ -287,80 +248,59 @@ def test_model_package():
     assert out.shape == x.shape
 ```
 
-Adapt the dummy model (`PhooModelName`) to match the
-actual model's input/output interface so the wrapper's
-reshaping logic is exercised.
+### Key adaptation points
+
+- Adapt `PhooModelName` to match the actual model's input/output interface
+  so the wrapper's reshaping logic is exercised
+- Match the checkpoint format in `test_package` fixture to what `load_model` expects
+- Add model-specific assertions (e.g., lead_time increment, variable count)
 
 ---
 
-## Step 4 — Run Tests
+## Running Tests
 
-### 4a. Run mock tests (no package flag)
-
-First, run the unit tests that use mocked / dummy models.
-These do **not** require downloading real checkpoints and
-should run quickly on any machine:
+### Mock tests (no real checkpoint)
 
 ```bash
 uv run python -m pytest test/models/px/test_<filename>.py \
     -m "not package" -v
 ```
 
-All mock tests must pass before proceeding. Fix any
-failures and re-run until green.
+All mock tests must pass before proceeding.
 
-### 4b. Run the package integration test
-
-Once the mock tests pass, run the `@pytest.mark.package`
-test which exercises `from_pretrained()` with real model
-weights:
+### Package integration test
 
 ```bash
 uv run python -m pytest test/models/px/test_<filename>.py \
     -m "package" -v
 ```
 
-### **[CONFIRM — Package Test]**
+**Warning:** The package test will:
+- Download the model checkpoint (may be several GB)
+- Require GPU compute for CUDA models
+- Take significantly longer than mock tests
 
-Before executing the package test, warn the user:
+### Coverage report
 
-> The package / integration test will:
->
-> - **Download the model checkpoint** (may be several GB)
->   to the local cache
-> - **Require GPU compute** for models that need CUDA
->   (the test will skip on CPU-only machines if
->   `torch.cuda.is_available()` is `False`)
-> - Take significantly longer than the mock tests
->
-> Do you want to proceed with the package test?
-
-Only run the package test after the user confirms. Report
-the results back to the user. If the package test fails,
-debug and fix the wrapper or test, then re-run.
-
----
-
-## Next Step — Validate the Wrapper
-
-Once all tests pass, use the **`validate-prognostic-wrapper`** skill to:
-
-1. Run tests with coverage (>=90% required)
-2. Create reference comparison scripts (third-party vs E2S)
-3. Generate sanity-check plots
-4. Open a PR with automated code review
-
-Invoke the skill:
-
-```text
-/skill validate-prognostic-wrapper <ModelName>
+```bash
+uv run python -m pytest test/models/px/test_<filename>.py -v \
+    --slow --timeout=300 \
+    --cov=earth2studio/models/px/<filename> \
+    --cov-report=term-missing \
+    --cov-fail-under=90
 ```
 
----
+Target: **>= 90% line coverage** on the new model module.
 
-## Reminders
+Common coverage gaps:
+- Error handling in `output_coords` (wrong variable names, wrong dims)
+- Device management paths (CPU vs CUDA)
+- `create_iterator` edge cases (initial condition yield, hook calls)
+- `load_model` and `load_default_package` (needs mock or package test)
+- ONNX / non-PyTorch backend `.to()` logic
 
-- **DO** use `loguru.logger` for logging, never `print()`, inside `earth2studio/`
-- **DO** ensure all public functions have full type hints
-- **DO** run formatting (`make format`) and linting (`make lint`) before finalizing
-- **DO** adapt the dummy model (`PhooModelName`) to match the actual model's interface
+### Full model test suite (optional)
+
+```bash
+make pytest TOX_ENV=test-models
+```
