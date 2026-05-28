@@ -12,15 +12,25 @@ metadata:
     - deployment
     - environment
 description: >
-  Guide a user through installing Earth2Studio, selecting optional model extras,
-  and configuring the environment. Covers uv (recommended) and pip workflows.
-  TRIGGER when user wants to install earth2studio via pip or uv, set up in a new
-  project, add optional model extras, or encounters ImportError from earth2studio.
-  DO NOT TRIGGER when user already has earth2studio installed and is writing
-  inference code, asking which model to use, or asking about PhysicsNeMo.
+  Guide installing Earth2Studio via uv or pip, selecting model extras, and
+  configuring the environment. Do NOT use for writing inference code, choosing
+  models, or PhysicsNeMo questions.
 ---
 
 # Earth2Studio Installation Skill
+
+## Purpose
+
+Help users install Earth2Studio and its optional model dependencies correctly for
+their use case. This skill handles package installation, optional-extra selection,
+environment variable configuration, and install verification.
+
+## Prerequisites
+
+- Python 3.10+ (3.13 recommended)
+- CUDA-capable GPU with compatible drivers for GPU extras
+- uv (recommended) or pip package manager
+- Internet access (packages installed from PyPI and GitHub)
 
 You are helping a user install Earth2Studio and its optional model dependencies. Your only job is to get the package installed correctly for their use case — do not write inference code, do not compose workflows.
 
@@ -34,7 +44,7 @@ https://nvidia.github.io/earth2studio/userguide/about/install.html
 
 Parse the page for the current version tag, available extras, and any special build notes. The workflow below is structural guidance — the specific commands come from the live page.
 
-## Interaction protocol
+## Instructions
 
 ### Step 1. Fetch live docs
 
@@ -116,6 +126,13 @@ Common issues:
 - **ONNX Runtime GPU**: may need version-specific install for their CUDA
 - **ecCodes missing**: required for GRIB data handling; install via `sudo apt-get install libeccodes-dev` (Debian/Ubuntu) or `conda install -c conda-forge eccodes`
 - **Python.h: No such file or directory**: missing Python development headers; install via `sudo apt-get install python3-dev`
+
+## Limitations
+
+- Cannot help with runtime errors unrelated to missing dependencies
+- Does not cover model checkpoint downloads (those happen at first inference)
+- Data source setup beyond the `data` extra is out of scope
+- Cannot write inference or training code, or compose Earth2Studio workflows
 
 ## Ownership and out-of-scope
 
