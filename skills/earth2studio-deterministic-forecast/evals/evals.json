@@ -84,6 +84,24 @@
         "Generated script closely matches the structure in evals/targets/eval_6_target.py"
       ],
       "files": ["evals/targets/eval_6_target.py"]
+    },
+    {
+      "id": 7,
+      "prompt": "I want to build a deterministic forecast workflow from scratch without using earth2studio.run.deterministic. Write a complete script that manually fetches initial conditions, creates the model iterator, steps through it, and writes each step to the IO backend. Use Pangu for a 5-day forecast of z500 and t2m from 2024-03-01 00Z with GFS data and ZarrBackend output.",
+      "expected_output": "Generates a complete script that reimplements the deterministic workflow loop manually: fetches data with fetch_data, sets up IO coordinates, creates the prognostic iterator, loops through steps writing output via split_coords, and uses map_coords for coordinate subsetting. Does NOT call earth2studio.run.deterministic.",
+      "assertions": [
+        "Does NOT import or call earth2studio.run.deterministic",
+        "Uses fetch_data from earth2studio.data to fetch initial conditions onto the device",
+        "Calls prognostic.create_iterator(x, coords) to create the model iterator",
+        "Iterates through the model with a for/while loop, breaking at nsteps",
+        "Uses map_coords to subselect output variables/coordinates at each step",
+        "Uses split_coords before writing to the IO backend",
+        "Correctly sets up IO total_coords with time and lead_time arrays before the loop",
+        "Calls io.add_array to initialize the IO backend before writing",
+        "Correctly calculates nsteps=20 for 5 days with Pangu's 6h time step",
+        "Generated script closely matches the structure in evals/targets/eval_7_target.py"
+      ],
+      "files": ["evals/targets/eval_7_target.py"]
     }
   ]
 }
