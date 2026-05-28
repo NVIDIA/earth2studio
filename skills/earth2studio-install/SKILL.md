@@ -1,9 +1,9 @@
 ---
 name: earth2studio-install
 description: |
-  Guide a user through installing Earth2Studio, selecting optional model extras, and configuring the environment. Covers uv (recommended), pip, and Docker workflows.
+  Guide a user through installing Earth2Studio, selecting optional model extras, and configuring the environment. Covers uv (recommended) and pip workflows.
 
-  TRIGGER when: user wants to install earth2studio via pip or uv; user asks how to set up earth2studio in a new or existing project; user needs to add optional model extras (e.g. "pip install earth2studio[aifs]", "uv add earth2studio --extra graphcast"); user asks about earth2studio environment variables (EARTH2STUDIO_CACHE, EARTH2STUDIO_MODEL_CACHE); user says "get earth2studio running" or "set up earth2studio"; user encounters ImportError or ModuleNotFoundError from earth2studio and needs to install missing extras; user wants the Docker-based setup with NVIDIA PyTorch container.
+  TRIGGER when: user wants to install earth2studio via pip or uv; user asks how to set up earth2studio in a new or existing project; user needs to add optional model extras (e.g. "pip install earth2studio[aifs]", "uv add earth2studio --extra graphcast"); user asks about earth2studio environment variables (EARTH2STUDIO_CACHE, EARTH2STUDIO_MODEL_CACHE); user says "get earth2studio running" or "set up earth2studio"; user encounters ImportError or ModuleNotFoundError from earth2studio and needs to install missing extras.
 
   DO NOT TRIGGER when: user already has earth2studio installed and is writing inference or training code; user is asking which model to use for their task (use earth2studio-discover); user is asking how to fetch data or compose workflows (use earth2studio-data-fetch or earth2studio-deterministic-forecast); user is asking about PhysicsNeMo installation (different product); user has runtime errors unrelated to missing packages.
 ---
@@ -38,7 +38,7 @@ Keep this data in working memory for all subsequent steps.
 Ask (cap at 3 questions, skip what the user already answered):
 
 1. **Package manager** — uv (recommended) or pip? If unsure, recommend uv and link https://docs.astral.sh/uv/getting-started/installation/
-2. **Project context** — new project or adding to existing? Docker container?
+2. **Project context** — new project or adding to existing?
 3. **Python version** — recommend the version from the docs (currently 3.13)
 
 ### Step 3. Base install
@@ -47,7 +47,6 @@ Provide commands from the live docs based on their answers:
 
 - **uv** uses a git source (not PyPI) to handle URL-based transitive dependencies
 - **pip** installs from PyPI but some extras require manual pre-install steps
-- **Docker** uses the NVIDIA PyTorch container + `uv pip install --system`
 
 After the user runs the install, verify:
 
@@ -103,6 +102,8 @@ Common issues:
 - **PyTorch/CUDA mismatch**: verify `torch.cuda.is_available()` first
 - **flash-attention build failure**: CUDA toolkit version must match PyTorch CUDA
 - **ONNX Runtime GPU**: may need version-specific install for their CUDA
+- **ecCodes missing**: required for GRIB data handling; install via `sudo apt-get install libeccodes-dev` (Debian/Ubuntu) or `conda install -c conda-forge eccodes`
+- **Python.h: No such file or directory**: missing Python development headers; install via `sudo apt-get install python3-dev`
 
 ## Ownership and out-of-scope
 

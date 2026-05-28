@@ -1,0 +1,113 @@
+{
+  "skill_name": "earth2studio-data-fetch",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I need global 2m temperature data for January 1, 2024 at 00Z. What data sources can provide this in Earth2Studio? Pick the fastest option and run the fetch script.",
+      "expected_output": "Presents multiple candidate analysis data sources (e.g. GFS, ARCO, WB2ERA5) that support t2m globally, explains tradeoffs, selects one, then generates and runs the script.",
+      "assertions": [
+        "Presents at least two candidate data sources that support t2m",
+        "Explains a tradeoff between the options (speed, coverage, auth, resolution)",
+        "Selects one source and justifies the choice",
+        "Script executes successfully and produces an xarray DataArray",
+        "Execution completes in under 3 minutes"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Fetch 500 hPa geopotential height from ERA5 for 2020-06-15 12Z. I don't have a CDS API key so use a source that doesn't need authentication. Write and run the script.",
+      "expected_output": "Selects ARCO or WB2ERA5 (no auth required) instead of CDS. Generates a fetch script for z500 and runs it to produce an xarray DataArray.",
+      "assertions": [
+        "Selects a no-auth ERA5 source (ARCO or WB2ERA5, not CDS)",
+        "Uses the correct variable name z500 or equivalent",
+        "Calls the source with correct analysis signature: ds(time, variable)",
+        "Script executes successfully and produces an xarray DataArray",
+        "Execution completes in under 3 minutes"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I want high-resolution surface wind data over North America for 2024-03-10 at 18Z. What are my options? Choose one and run the script.",
+      "expected_output": "Identifies sources with NA coverage (e.g. HRRR, GFS) and explains resolution differences. Selects one (likely HRRR for high-res NA) and runs the fetch script for u10m or v10m.",
+      "assertions": [
+        "Presents at least two candidate data sources with North America coverage",
+        "Discusses resolution or regional coverage as a differentiator",
+        "Selects one source and generates a working fetch script",
+        "Script executes successfully and produces an xarray DataArray",
+        "Execution completes in under 3 minutes"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "I need a 48-hour forecast of mean sea level pressure initialized on 2024-01-15 00Z. What forecast sources are available? Select one and run the fetch.",
+      "expected_output": "Presents forecast source options (e.g. GFS_FX, IFS_FX, AIFS_FX), explains tradeoffs, selects one, and runs the script with a 48h lead time.",
+      "assertions": [
+        "Presents at least two candidate forecast data sources",
+        "Explains a tradeoff between the options (resolution, ensemble, availability)",
+        "Selects one source and uses the forecast signature: ds(time, lead_time, variable)",
+        "Script executes successfully and produces an xarray DataArray",
+        "Execution completes in under 3 minutes"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Fetch IFS ensemble forecast for t2m initialized 2024-02-01 00Z at lead times of 24h and 72h. Generate and run the script.",
+      "expected_output": "Generates a script using IFS_ENS_FX forecast source with multiple lead times. Runs it and produces a DataArray with ensemble and lead_time dimensions.",
+      "assertions": [
+        "Uses IFS ensemble forecast source class (IFS_ENS_FX or equivalent)",
+        "Calls the source with forecast signature including multiple lead times",
+        "Specifies lead_time as array with 24h and 72h",
+        "Script executes successfully and produces an xarray DataArray",
+        "Execution completes in under 3 minutes"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "I want ensemble precipitation forecasts 5 days out from 2024-04-01 00Z. What ensemble forecast sources in Earth2Studio support total precipitation? Pick one and run it.",
+      "expected_output": "Identifies ensemble forecast sources that support tp (e.g. GEFS_FX, IFS_ENS_FX). Explains differences, selects one, and runs the fetch with 120h lead time.",
+      "assertions": [
+        "Presents at least two ensemble forecast sources that support precipitation",
+        "Explains a tradeoff between the ensemble options",
+        "Selects one source and uses the forecast signature with 120h lead time",
+        "Script executes successfully and produces an xarray DataArray",
+        "Execution completes in under 3 minutes"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "I want surface weather station temperature observations. What dataframe data sources are available in Earth2Studio for ground station data? Pick one and fetch some data.",
+      "expected_output": "Presents available observational dataframe sources for surface station data, selects one, and runs a fetch script to produce observation data.",
+      "assertions": [
+        "Presents at least one dataframe data source for station observations",
+        "Explains what type of observations the source provides",
+        "Selects a source and generates a working fetch script",
+        "Script executes successfully and produces output data",
+        "Execution completes in under 3 minutes"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Fetch buoy ocean surface temperature observations using a dataframe source in Earth2Studio. Write the script and execute it.",
+      "expected_output": "Identifies and uses an ocean buoy dataframe data source. Generates a fetch script for sea surface temperature observations and runs it.",
+      "assertions": [
+        "Uses a DataFrame data source class for buoy/ocean observations",
+        "Script imports from earth2studio.data",
+        "Fetches ocean or sea surface temperature data",
+        "Script executes successfully and produces output data",
+        "Execution completes in under 3 minutes"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "I need upper-air observations from aircraft. What dataframe sources in Earth2Studio provide AMDAR or aircraft data? Select one and run a fetch for temperature.",
+      "expected_output": "Identifies dataframe sources for aircraft/upper-air observations, selects one, and runs a fetch script to produce observation data.",
+      "assertions": [
+        "Presents at least one dataframe source for aircraft/upper-air observations",
+        "Explains what variables or levels the source provides",
+        "Selects a source and generates a working fetch script",
+        "Script executes successfully and produces output data",
+        "Execution completes in under 3 minutes"
+      ]
+    }
+  ]
+}
