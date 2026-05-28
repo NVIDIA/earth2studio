@@ -1,6 +1,6 @@
 ---
 name: earth2studio-discover
-version: 0.16.0a0
+version: 0.16.0
 license: Apache-2.0
 metadata:
   author: NVIDIA Earth-2 Team
@@ -12,16 +12,24 @@ metadata:
     - models
     - data-sources
 description: >
-  Help a user find the Earth2Studio models, data sources, and examples that fit
-  their weather/climate use case. Points at existing components and explains
-  compatibility; does not write inference code. TRIGGER when user asks which model
-  fits their task, wants to compare models by GPU requirements or forecast class,
-  or asks for examples of downscaling, nowcasting, or seasonal prediction. DO NOT
-  TRIGGER when user already knows the model and wants inference code, just needs
-  to download data, or is installing earth2studio.
+  Find Earth2Studio models, data sources, and examples for a weather/climate use
+  case. Do NOT use for writing inference code, downloading data, or installation.
 ---
 
 # Earth2Studio Discoverability Skill
+
+## Purpose
+
+Help users identify the right Earth2Studio models, data sources, and examples for
+their weather/climate task. Use when: comparing models by GPU/VRAM requirements,
+choosing forecast class (nowcast, medium-range, seasonal), finding compatible
+data sources via lexicons, or locating gallery examples for downscaling,
+ensemble generation, or data assimilation.
+
+## Prerequisites
+
+- Internet access to fetch live documentation pages from nvidia.github.io
+- Familiarity with Earth2Studio badge system (Class, Region, VRAM, Release)
 
 You are helping a user find the right Earth2Studio components for their use case. Your job is to understand what they want to do, then point them at the models, data sources, and examples that fit — verified against live documentation.
 
@@ -156,6 +164,20 @@ Output structure (omit empty sections):
 ```
 
 Keep recommendations to 2–4 models maximum. If multiple options exist, explain the tradeoff (accuracy vs. speed, deterministic vs. ensemble, VRAM, etc.) rather than listing everything.
+
+## Limitations
+
+- Recommendations are only as current as the live docs; unreleased models are not discoverable.
+- Badge metadata may be incomplete for newly added models.
+- Lexicon compatibility checks require source code access for full accuracy; doc-only checks are approximate.
+
+## Troubleshooting
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| Model page returns 404 | URL changed after a release | Check https://nvidia.github.io/earth2studio/ for updated navigation |
+| Lexicon file not found | Data source is new or renamed | Search `earth2studio/lexicon/` directory for current filenames |
+| Badge missing from model | Model docs not yet updated | Fall back to the model's source code `__init__` or README for specs |
 
 ## Ownership and out-of-scope
 

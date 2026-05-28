@@ -1,7 +1,7 @@
 {
   "name": "earth2studio",
   "description": "Earth2Studio skills for weather and climate AI workflows — model discovery, installation, data fetching, deterministic forecasting, and building new model/data source wrappers.",
-  "version": "0.16.0a0",
+  "version": "0.16.0",
   "owner": {
     "name": "NVIDIA"
   },
@@ -14,7 +14,7 @@
         "path": "./skills"
       },
       "description": "Earth2Studio skills for weather and climate AI — discover models, install the package, fetch data, run deterministic forecasts, and create new data source or prognostic model wrappers.",
-      "version": "0.16.0a0",
+      "version": "0.16.0",
       "author": {
         "name": "NVIDIA"
       },

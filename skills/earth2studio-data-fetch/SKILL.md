@@ -1,6 +1,6 @@
 ---
 name: earth2studio-data-fetch
-version: 0.16.0a0
+version: 0.16.0
 license: Apache-2.0
 metadata:
   author: NVIDIA Earth-2 Team
