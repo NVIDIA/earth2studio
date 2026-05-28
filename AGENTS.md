@@ -6,29 +6,6 @@ in **`.agents/rules/`**. Skills are task-specific guides for building
 inference pipelines, integrating data sources, wrapping models, and
 managing releases.
 
-## Project rules
-
-The authoritative coding rules live in `.agents/rules/`. These are for
-**developers contributing to Earth2Studio** (not end users). Read the
-relevant rule file(s) before writing or reviewing code:
-
-| Rule file | Topic |
-|---|---|
-| `e2s-000-python-style-guide.mdc` | Style, formatting, type hints, license header |
-| `e2s-001-dependency-management.mdc` | Adding / updating dependencies |
-| `e2s-002-api-documentation.mdc` | Docstrings and public API docs |
-| `e2s-003-unit-testing.mdc` | Writing and structuring tests |
-| `e2s-004-data-sources.mdc` | Implementing `DataSource` classes |
-| `e2s-005-forecast-sources.mdc` | Implementing `ForecastSource` classes |
-| `e2s-006-dataframe-sources.mdc` | Implementing `DataFrameSource` classes |
-| `e2s-007-forecast-frame-sources.mdc` | Implementing `ForecastFrameSource` classes |
-| `e2s-008-lexicon-usage.mdc` | Variable lexicons and coordinate conventions |
-| `e2s-009-prognostic-models.mdc` | Implementing prognostic models |
-| `e2s-010-diagnostic-models.mdc` | Implementing diagnostic models |
-| `e2s-011-examples.mdc` | Writing gallery examples |
-| `e2s-012-time-tolerance.mdc` | Time tolerance patterns |
-| `e2s-013-assimilation-models.mdc` | Implementing data assimilation models |
-
 ## Skills directory
 
 ### Discovery and installation
@@ -80,6 +57,29 @@ it does not have project dependencies installed.
   `earth2studio/`.
 - **Formatting** — black; run `make format`.
 - **Linting** — ruff + mypy; run `make lint` before opening a PR.
+
+## Developer rules
+
+The authoritative coding rules live in `.agents/rules/`. These are for
+**developers contributing to Earth2Studio** (not end users). Read the
+relevant rule file(s) before writing or reviewing code:
+
+| Rule file | Topic |
+|---|---|
+| `e2s-000-python-style-guide.mdc` | Style, formatting, type hints, license header |
+| `e2s-001-dependency-management.mdc` | Adding / updating dependencies |
+| `e2s-002-api-documentation.mdc` | Docstrings and public API docs |
+| `e2s-003-unit-testing.mdc` | Writing and structuring tests |
+| `e2s-004-data-sources.mdc` | Implementing `DataSource` classes |
+| `e2s-005-forecast-sources.mdc` | Implementing `ForecastSource` classes |
+| `e2s-006-dataframe-sources.mdc` | Implementing `DataFrameSource` classes |
+| `e2s-007-forecast-frame-sources.mdc` | Implementing `ForecastFrameSource` classes |
+| `e2s-008-lexicon-usage.mdc` | Variable lexicons and coordinate conventions |
+| `e2s-009-prognostic-models.mdc` | Implementing prognostic models |
+| `e2s-010-diagnostic-models.mdc` | Implementing diagnostic models |
+| `e2s-011-examples.mdc` | Writing gallery examples |
+| `e2s-012-time-tolerance.mdc` | Time tolerance patterns |
+| `e2s-013-assimilation-models.mdc` | Implementing data assimilation models |
 
 ## Resources
 
