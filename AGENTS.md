@@ -8,7 +8,8 @@ managing releases.
 
 ## Project rules
 
-The authoritative coding rules live in `.agents/rules/`. Read the
+The authoritative coding rules live in `.agents/rules/`. These are for
+**developers contributing to Earth2Studio** (not end users). Read the
 relevant rule file(s) before writing or reviewing code:
 
 | Rule file | Topic |
