@@ -171,7 +171,7 @@ The two escape hatches are top-level config keys:
 Either key accepts any `_target_` pointing at a class that implements
 Earth2Studio's `DataSource` protocol (`__call__(time, variable) -> xr.DataArray`).
 For a new store layout, write a small wrapper — the
-[`create-data-source`](../../.claude/skills/create-data-source/) skill
+[`create-data-source`](../.././skills/create-data-source/) skill
 scaffolds one from a reference script.
 
 ### Configuration matrix

@@ -39,7 +39,7 @@ Alternatively, use the project virtualenv at `.venv/` (e.g. `.venv/bin/python`).
 
 ## Skills
 
-Custom skills live in `.claude/skills/`. Invoke the relevant skill before starting
+Custom skills live in `./skills/`. Invoke the relevant skill before starting
 a matching task:
 
 | Skill | Purpose |
