@@ -3,7 +3,7 @@ name: earth2studio-create-datasource
 version: 0.16.0a0
 license: Apache-2.0
 metadata:
-  author: NVIDIA Earth-2 Team
+  author: NVIDIA Earth-2 Team <earth2-studio@nvidia.com>
   tags:
     - earth2studio
     - earth2
@@ -12,38 +12,52 @@ metadata:
     - cloud-storage
     - integration
 description: >
-  Creates and validates a new Earth2Studio data source wrapper (DataSource,
-  ForecastSource, DataFrameSource, or ForecastFrameSource) from a remote data
-  store end-to-end. Use when adding a data source, weather data API, observation
-  feed, forecast archive, or any new remote/cloud data integration to Earth2Studio.
-  Also trigger when implementing DataSource protocols or connecting to S3/GCS/Azure
-  stores.
+  Create and validate Earth2Studio data source wrappers (DataSource,
+  ForecastSource, DataFrameSource, ForecastFrameSource) from remote stores.
+  Do NOT use for fetching data with existing sources, model inference, or
+  installation tasks.
 argument-hint: URL or description of remote data store (optional)
 ---
 
 # Create and Validate Data Source
 
+## Purpose
+
+End-to-end workflow for implementing a new Earth2Studio data source wrapper
+that connects a remote data store (S3, GCS, Azure, HTTP, HuggingFace) to
+Earth2Studio's async data fetching infrastructure — from analysis through
+implementation, testing, validation, and PR submission.
+
+## Prerequisites
+
+- Earth2Studio dev environment with `uv` (`uv run python` must work)
+- Git configured with fork (`origin`) and upstream (`upstream`) remotes
+- Access to the target remote data store (credentials if private)
+- Python 3.10+
+
+## Instructions
+
 > **Python Environment:** Always use `uv run python` or the local `.venv`.
 > Never use the system Python directly.
 
-Create a new Earth2Studio data source end-to-end. Follow every step in order.
-Each `[CONFIRM]` gate requires explicit user approval before proceeding.
+Follow every step in order. Each `[CONFIRM]` gate requires explicit user
+approval before proceeding.
 
 > **One source type per invocation.** Invoke again for companion types.
 
-## Reference Files
+### Reference Files
 
 Load these on demand during the relevant steps:
 
 | File | Content | Load at |
 |---|---|---|
-| `reference/implementation-guide.md` | Skeleton, async patterns, registration, docs | Steps 3–10 |
-| `reference/testing-guide.md` | Test templates, mock patterns, coverage | Step 11 |
-| `reference/validation-guide.md` | Variable validation, plots, PR, code review | Steps 12–14 |
+| `references/implementation-guide.md` | Skeleton, async patterns, registration, docs | Steps 3–10 |
+| `references/testing-guide.md` | Test templates, mock patterns, coverage | Step 11 |
+| `references/validation-guide.md` | Variable validation, plots, PR, code review | Steps 12–14 |
 
 ---
 
-## Workflow Overview
+### Workflow Overview
 
 ```
 Step 0: Obtain reference → Step 1: Determine type → Step 2: Dependencies
@@ -55,7 +69,7 @@ Step 0: Obtain reference → Step 1: Determine type → Step 2: Dependencies
 
 ---
 
-## Step 0 — Obtain Remote Data Store Reference
+### Step 0 — Obtain Remote Data Store Reference
 
 If `$ARGUMENTS` is provided, use it (URL → WebFetch; file path → read).
 
@@ -67,7 +81,7 @@ If empty, ask:
 
 ---
 
-## Step 1 — Determine Source Type
+### Step 1 — Determine Source Type
 
 | Protocol | Returns | Has `lead_time`? | Use |
 |---|---|---|---|
@@ -78,20 +92,18 @@ If empty, ask:
 
 Key factors: gridded vs sparse → DataArray vs DataFrame; analysis vs forecast → Source vs ForecastSource.
 
-### [CONFIRM — Source Type]
+#### [CONFIRM — Source Type]
 
 Present recommended type with justification. Ask for confirmation.
 
 ---
 
-## Step 2 — Examine Remote Store & Propose Dependencies
+### Step 2 — Examine Remote Store & Propose Dependencies
 
-### Analyze
-
-Identify: storage backend, file format, authentication, access pattern,
+**Analyze:** storage backend, file format, authentication, access pattern,
 temporal/spatial resolution, variable inventory.
 
-### Prefer fsspec
+**Prefer fsspec:**
 
 | Backend | Preferred | Avoid |
 |---|---|---|
@@ -103,21 +115,19 @@ temporal/spatial resolution, variable inventory.
 
 Only fall back to dedicated libraries when fsspec cannot access the store.
 
-### Propose dependencies
-
 Check `pyproject.toml` — only propose packages not already present.
 Core deps include: `s3fs`, `gcsfs`, `fsspec`, `zarr`, `netCDF4`, `h5py`,
 `pygrib`, `huggingface-hub`, `pandas`, `pyarrow`.
 
-### [CONFIRM — Dependencies & Access Pattern]
+#### [CONFIRM — Dependencies & Access Pattern]
 
 Present: backend, fsspec filesystem, new packages (with license), auth method.
 
 ---
 
-## Step 3 — Add Dependencies
+### Step 3 — Add Dependencies
 
-> **Load `reference/implementation-guide.md` from here through Step 10.**
+> **Load `references/implementation-guide.md` from here through Step 10.**
 
 If new packages needed:
 1. `uv add --extra data <package>`
@@ -126,7 +136,7 @@ If new packages needed:
 
 ---
 
-## Step 4 — Create Lexicon Class
+### Step 4 — Create Lexicon Class
 
 Create `earth2studio/lexicon/<source_name>.py` with:
 - `metaclass=LexiconType`
@@ -137,24 +147,24 @@ Create `earth2studio/lexicon/<source_name>.py` with:
 Map remote variables against `E2STUDIO_VOCAB` (282 entries in
 `earth2studio/lexicon/base.py`).
 
-### [CONFIRM — Lexicon & Variable Mapping]
+#### [CONFIRM — Lexicon & Variable Mapping]
 
 Present: class name, key format, full mapping table, modifiers, reference URL.
 
 ---
 
-## Step 5 — Update E2STUDIO_VOCAB / SCHEMA (if needed)
+### Step 5 — Update E2STUDIO_VOCAB / SCHEMA (if needed)
 
 - New vocab: surface = descriptive abbrev; pressure = `{name}{level}`
 - New schema fields: DataFrame sources only, check `E2STUDIO_SCHEMA`
 
-### [CONFIRM — Vocabulary & Schema Updates]
+#### [CONFIRM — Vocabulary & Schema Updates]
 
 Skip if no updates needed.
 
 ---
 
-## Step 6 — Create Skeleton Data Source File
+### Step 6 — Create Skeleton Data Source File
 
 Follow canonical method ordering:
 1. Class constants → 2. SCHEMA → 3. `__init__` → 4. `_async_init` →
@@ -164,13 +174,13 @@ Follow canonical method ordering:
 
 Use async task dataclass pattern for parallel execution.
 
-### [CONFIRM — Skeleton]
+#### [CONFIRM — Skeleton]
 
 Present: class name, file path, skeleton code, task dataclass.
 
 ---
 
-## Step 7 — Implement the Data Source
+### Step 7 — Implement the Data Source
 
 Key patterns (all REQUIRED):
 - **`prep_data_inputs`/`prep_forecast_inputs`** for input normalization
@@ -187,7 +197,7 @@ Constructor params: `cache=True`, `verbose=True`, `async_timeout=600`,
 
 ---
 
-## Step 8 — Register the Source
+### Step 8 — Register the Source
 
 - `earth2studio/data/__init__.py` — alphabetical import
 - `earth2studio/lexicon/__init__.py` — alphabetical import
@@ -195,7 +205,7 @@ Constructor params: `cache=True`, `verbose=True`, `async_timeout=600`,
 
 ---
 
-## Step 9 — Update Documentation
+### Step 9 — Update Documentation
 
 - Add to correct RST file (`datasources_analysis.rst` / `_forecast.rst` / `_dataframe.rst`)
 - Class docstring: Parameters, Warning (download size), Note (reference URLs), Badges (last)
@@ -203,29 +213,26 @@ Constructor params: `cache=True`, `verbose=True`, `async_timeout=600`,
 
 ---
 
-## Step 10 — Update CHANGELOG.md
+### Step 10 — Update CHANGELOG.md
 
-Under current unreleased version:
-```markdown
-### Added
-- Added <SourceName> <source_type> for <description> (`ClassName`)
-```
+Add entry under the current unreleased version. See
+`references/implementation-guide.md` § CHANGELOG for the exact format template.
 
 One line per source. Do NOT add separate lexicon entries.
 
 ---
 
-## Step 11 — Verify Style & Write Tests
+### Step 11 — Verify Style & Write Tests
 
-> **Load `reference/testing-guide.md` for this step.**
+> **Load `references/testing-guide.md` for this step.**
 
-### 11a. Format and lint
+**11a. Format and lint:**
 
 ```bash
 make format && make lint && make license
 ```
 
-### 11b. Write tests
+**11b. Write tests:**
 
 Create `test/data/test_<filename>.py` with canonical test names:
 - `test_<source>_fetch` (slow, xfail)
@@ -236,15 +243,15 @@ Create `test/data/test_<filename>.py` with canonical test names:
 
 Target 90%+ coverage with `--slow`.
 
-### [CONFIRM — Tests]
+#### [CONFIRM — Tests]
 
 Present test file, functions, coverage.
 
 ---
 
-## Step 12 — Validate Variables & Sanity-Check
+### Step 12 — Validate Variables & Sanity-Check
 
-> **Load `reference/validation-guide.md` for Steps 12–14.**
+> **Load `references/validation-guide.md` for Steps 12–14.**
 
 1. Validate all lexicon vars against real data
 2. Remove variables with < 10% valid data
@@ -252,13 +259,13 @@ Present test file, functions, coverage.
 4. Create sanity-check plot (gridded or sparse template)
 5. Run script and verify output
 
-### [CONFIRM — Sanity-Check Plots]
+#### [CONFIRM — Sanity-Check Plots]
 
 User MUST visually inspect plots. Do not proceed without confirmation.
 
 ---
 
-## Step 13 — Branch, Commit & Open PR
+### Step 13 — Branch, Commit & Open PR
 
 1. Create branch `feat/data-source-<name>`
 2. Commit (do NOT add sanity-check script/images)
@@ -266,13 +273,13 @@ User MUST visually inspect plots. Do not proceed without confirmation.
 4. `gh pr create --repo NVIDIA/earth2studio`
 5. Post sanity-check validation as PR comment
 
-### [CONFIRM — Ready to Submit]
+#### [CONFIRM — Ready to Submit]
 
 Verify all steps complete before creating PR.
 
 ---
 
-## Step 14 — Automated Code Review
+### Step 14 — Automated Code Review
 
 1. Poll for Greptile review (5 min timeout)
 2. Categorize feedback (bug/style/perf/docs/suggestion/false-positive)
@@ -281,9 +288,42 @@ Verify all steps complete before creating PR.
 5. Respond to PR comments
 6. Push
 
-### [CONFIRM — Review Triage]
+#### [CONFIRM — Review Triage]
 
 User approves which comments to address.
+
+---
+
+## Examples
+
+Typical invocation:
+
+```
+User: Add a data source for the NOAA GFS analysis on S3
+Agent: [loads skill, proceeds through Steps 0–14]
+```
+
+The skill handles: S3/GCS/Azure/HTTP stores, zarr/netCDF4/GRIB formats,
+gridded and sparse data, analysis and forecast types.
+
+---
+
+## Limitations
+
+- One source type per invocation (DataSource OR ForecastSource, not both)
+- Cannot create sources for local-only data (use `DataArrayFile` instead)
+- Requires network access to the remote store for validation (Step 12)
+- SPDX license headers are required boilerplate in all generated files
+
+## Troubleshooting
+
+| Error | Cause | Solution |
+|---|---|---|
+| `OptionalDependencyFailure` | Missing optional package | `uv add --extra data <pkg>` then `uv lock` |
+| `asyncio.TimeoutError` | Slow remote store | Increase `async_timeout` parameter |
+| `FileNotFoundError` in fetch | Wrong path template | Verify path format against actual store layout |
+| Mock test fails but live works | Mock not matching real API | Update mock to return same structure as real response |
+| `make lint` fails on new file | Missing license header | Run `make license` to add SPDX header |
 
 ---
 
