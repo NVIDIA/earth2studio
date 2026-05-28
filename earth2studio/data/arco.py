@@ -83,7 +83,7 @@ class ARCO:
     ARCO_LAT = np.linspace(90, -90, 721)
     ARCO_LON = np.linspace(0, 359.75, 1440)
     ARCO_PATH = "/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3"
-    ARCO_TIME_STOP = datetime(year=2023, month=11, day=11)
+    ARCO_TIME_STOP = datetime(year=2025, month=12, day=31)
 
     def __init__(
         self,
