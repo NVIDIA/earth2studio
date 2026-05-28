@@ -14,7 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# !/usr/bin/env python
-from setuptools import setup
+#!/usr/bin/env python
+from setuptools import setup, find_packages
 
-setup()
+setup(
+    name="earth2studio",
+    version="0.14.0",
+    packages=find_packages(),
+    extras_require={
+        "fcn3": [
+            "torch>=2.0.0",
+            "torch-harmonics@git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74",
+        ],
+    },
+)
