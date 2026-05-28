@@ -53,7 +53,7 @@ proceeding.
 Confirm:
 
 - `origin` points to the user's **fork** of Earth2Studio.
-- `upstream` points to `git@github.com:NVIDIA/earth2studio.git`.
+- `upstream` points to `https://github.com/NVIDIA/earth2studio.git` (or the SSH equivalent).
 
 If either is wrong, stop and ask the user to fix it.
 
