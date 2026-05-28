@@ -3,7 +3,7 @@ name: earth2studio-create-datasource
 version: 0.16.0a0
 license: Apache-2.0
 metadata:
-  author: NVIDIA Earth-2 Team <earth2-studio@nvidia.com>
+  author: NVIDIA Earth-2 Team
   tags:
     - earth2studio
     - earth2
