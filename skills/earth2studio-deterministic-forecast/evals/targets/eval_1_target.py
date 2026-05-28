@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Target reference for eval 1:
-# 3-day forecast of t2m and u10m from 2024-01-15 00Z on A100 80GB
+# 3-day forecast of t2m and 10m wind speed (u10m + v10m) from 2024-01-15 00Z on A100 80GB
 # Model choice is flexible (AIFS, Pangu, FCN, etc.) — any MR model is valid.
 
 from collections import OrderedDict
@@ -27,7 +27,7 @@ io = ZarrBackend("output_eval1.zarr")
 # 4. Subselect output variables
 output_coords = OrderedDict(
     {
-        "variable": np.array(["t2m", "u10m"]),
+        "variable": np.array(["t2m", "u10m", "v10m"]),
     }
 )
 

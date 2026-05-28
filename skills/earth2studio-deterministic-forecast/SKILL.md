@@ -1,11 +1,24 @@
 ---
 name: earth2studio-deterministic-forecast
-description: |
-  Guide a user through building a deterministic forecast inference script with Earth2Studio. Walks through model selection, data source selection, IO backend choice, and generates the inference script following earth2studio.run.deterministic structure.
-
-  TRIGGER when: user wants to write or run a deterministic (single-member) weather forecast script with earth2studio; user asks how to create an inference script using earth2studio.run.deterministic; user says "run Pangu 10 days out" or "generate a 5-day GFS forecast with FCN" — they already know the model and want code; user wants a custom loop that loads a prognostic model, fetches initial conditions, steps forward, and writes output.
-
-  DO NOT TRIGGER when: user wants ensemble or probabilistic forecasts (different workflow); user wants to run diagnostics or downscaling post-processing; user is only fetching data without running a model (use earth2studio-data-fetch); user is installing earth2studio (use earth2studio-install); user is still deciding which model to use and hasn't committed to writing code yet (use earth2studio-discover).
+version: 0.16.0a0
+license: Apache-2.0
+metadata:
+  author: NVIDIA Earth-2 Team
+  tags:
+    - earth2studio
+    - earth2
+    - python
+    - inference
+    - forecast
+    - deterministic
+description: >
+  Guide a user through building a deterministic forecast inference script with
+  Earth2Studio. Walks through model selection, data source selection, IO backend
+  choice, and generates the inference script following earth2studio.run.deterministic
+  structure. TRIGGER when user wants to write or run a deterministic weather forecast
+  script, or wants a custom loop with a prognostic model. DO NOT TRIGGER when user
+  wants ensemble forecasts, diagnostics, only fetching data, or is still deciding
+  which model to use.
 ---
 
 # Earth2Studio Deterministic Forecast Skill

@@ -26,7 +26,7 @@ from earth2studio.utils.type import TimeArray, VariableArray
 class RandomGaussian:
     """A randomly generated normally distributed data source on a 1-degree global grid.
 
-    Generates random Gaussian data on a 180x360 lat/lon grid. Primarily useful
+    Generates random Gaussian data on a 181x360 lat/lon grid. Primarily useful
     for testing and development.
 
     Parameters
@@ -36,7 +36,7 @@ class RandomGaussian:
     """
 
     def __init__(self, seed: int | None = None):
-        self.lat = np.linspace(-90.0, 90.0, 180)
+        self.lat = np.linspace(-90.0, 90.0, 181)
         self.lon = np.linspace(0.0, 360.0, 360, endpoint=False)
         self.rng = np.random.default_rng(seed)
 

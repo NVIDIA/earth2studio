@@ -1,11 +1,24 @@
 ---
 name: earth2studio-discover
-description: |
-  Help a user find the Earth2Studio models, data sources, and examples that fit their weather/climate use case. Points at existing components and explains compatibility; does not write inference code.
-
-  TRIGGER when: user describes a weather or climate task and asks which Earth2Studio model fits; user asks "what can Earth2Studio do for X" or "which model should I use"; user wants to compare models by GPU requirements, regional coverage, or forecast class (NWC, MR, DS, S2S, DA, CM); user asks which data source is compatible with a given model; user asks for examples of downscaling, nowcasting, medium-range forecasting, seasonal prediction, or data assimilation; user is exploring options before committing to a specific workflow.
-
-  DO NOT TRIGGER when: user is installing earth2studio (use earth2studio-install); user already knows which model they want and is asking for inference code (use earth2studio-deterministic-forecast); user just needs to download data for known variables/times (use earth2studio-data-fetch); user is asking about PhysicsNeMo models (different product); user is asking about extending earth2studio with custom model implementations.
+version: 0.16.0a0
+license: Apache-2.0
+metadata:
+  author: NVIDIA Earth-2 Team
+  tags:
+    - earth2studio
+    - earth2
+    - python
+    - discovery
+    - models
+    - data-sources
+description: >
+  Help a user find the Earth2Studio models, data sources, and examples that fit
+  their weather/climate use case. Points at existing components and explains
+  compatibility; does not write inference code. TRIGGER when user asks which model
+  fits their task, wants to compare models by GPU requirements or forecast class,
+  or asks for examples of downscaling, nowcasting, or seasonal prediction. DO NOT
+  TRIGGER when user already knows the model and wants inference code, just needs
+  to download data, or is installing earth2studio.
 ---
 
 # Earth2Studio Discoverability Skill

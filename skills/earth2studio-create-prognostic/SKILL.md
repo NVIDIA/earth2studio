@@ -1,6 +1,22 @@
 ---
 name: earth2studio-create-prognostic
-description: Creates and validates a new Earth2Studio prognostic model (px) wrapper end-to-end — from analyzing a reference inference script through implementation, testing, reference comparison, and PR submission. Use this skill whenever the user mentions adding a prognostic model, weather/climate forecast model wrapper, implementing PrognosticMixin, or wrapping a PyTorch/ONNX/JAX model for time-stepping inference in Earth2Studio.
+version: 0.16.0a0
+license: Apache-2.0
+metadata:
+  author: NVIDIA Earth-2 Team
+  tags:
+    - earth2studio
+    - earth2
+    - python
+    - prognostic
+    - model-wrapper
+    - pytorch
+description: >
+  Creates and validates a new Earth2Studio prognostic model (px) wrapper end-to-end
+  — from analyzing a reference inference script through implementation, testing,
+  reference comparison, and PR submission. Use when adding a prognostic model,
+  weather/climate forecast model wrapper, implementing PrognosticMixin, or wrapping
+  a PyTorch/ONNX/JAX model for time-stepping inference in Earth2Studio.
 argument-hint: URL or local path to reference inference script/repo (optional)
 ---
 

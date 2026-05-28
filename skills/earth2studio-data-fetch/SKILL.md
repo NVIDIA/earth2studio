@@ -1,11 +1,23 @@
 ---
 name: earth2studio-data-fetch
-description: |
-  Help a user download weather/climate data for specific variables, times, and lead times using Earth2Studio data sources. Identifies compatible sources via the lexicon, then generates a fetch script.
-
-  TRIGGER when: user wants to download or fetch weather/climate data using earth2studio data sources; user asks how to pull ERA5, GFS, HRRR, IFS, CFS, GEFS, or CMIP6 data for specific variables and times; user needs initial conditions for a model but only wants the data step (not the full inference pipeline); user asks which earth2studio data source provides a particular variable like t2m, u10m, z500, or tp; user wants a fetch script that outputs an xarray DataArray or Dataset.
-
-  DO NOT TRIGGER when: user is building a full inference pipeline that includes model stepping (use earth2studio-deterministic-forecast — it handles data fetching as part of the pipeline); user is exploring which model or data source to use at a high level (use earth2studio-discover); user is installing earth2studio (use earth2studio-install); user already has data in local files and wants to load them (DataArrayFile/DataSetFile are self-explanatory); user is asking about PhysicsNeMo data loading.
+version: 0.16.0a0
+license: Apache-2.0
+metadata:
+  author: NVIDIA Earth-2 Team
+  tags:
+    - earth2studio
+    - earth2
+    - python
+    - data-fetch
+    - weather-data
+    - xarray
+description: >
+  Help a user download weather/climate data for specific variables, times, and
+  lead times using Earth2Studio data sources. Identifies compatible sources via
+  the lexicon, then generates a fetch script. TRIGGER when user wants to fetch
+  ERA5, GFS, HRRR, IFS, CFS, GEFS, or CMIP6 data, needs initial conditions, or
+  asks which data source provides a variable. DO NOT TRIGGER when building a full
+  inference pipeline, exploring models at high level, or installing earth2studio.
 ---
 
 # Earth2Studio Data Fetch Skill

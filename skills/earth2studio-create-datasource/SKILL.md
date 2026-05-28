@@ -1,6 +1,23 @@
 ---
 name: earth2studio-create-datasource
-description: Creates and validates a new Earth2Studio data source wrapper (DataSource, ForecastSource, DataFrameSource, or ForecastFrameSource) from a remote data store end-to-end — from analyzing the remote store through implementation, testing, validation, and PR submission. Use this skill whenever the user mentions adding a data source, weather data API, observation feed, forecast archive, or any new remote/cloud data integration to Earth2Studio. Also trigger when the user asks about implementing DataSource, ForecastSource, DataFrameSource, or ForecastFrameSource protocols, connecting to S3/GCS/Azure/FTP stores, or wrapping a new weather/climate dataset.
+version: 0.16.0a0
+license: Apache-2.0
+metadata:
+  author: NVIDIA Earth-2 Team
+  tags:
+    - earth2studio
+    - earth2
+    - python
+    - data-source
+    - cloud-storage
+    - integration
+description: >
+  Creates and validates a new Earth2Studio data source wrapper (DataSource,
+  ForecastSource, DataFrameSource, or ForecastFrameSource) from a remote data
+  store end-to-end. Use when adding a data source, weather data API, observation
+  feed, forecast archive, or any new remote/cloud data integration to Earth2Studio.
+  Also trigger when implementing DataSource protocols or connecting to S3/GCS/Azure
+  stores.
 argument-hint: URL or description of remote data store (optional)
 ---
 

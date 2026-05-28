@@ -1,11 +1,23 @@
 ---
 name: earth2studio-install
-description: |
-  Guide a user through installing Earth2Studio, selecting optional model extras, and configuring the environment. Covers uv (recommended) and pip workflows.
-
-  TRIGGER when: user wants to install earth2studio via pip or uv; user asks how to set up earth2studio in a new or existing project; user needs to add optional model extras (e.g. "pip install earth2studio[aifs]", "uv add earth2studio --extra graphcast"); user asks about earth2studio environment variables (EARTH2STUDIO_CACHE, EARTH2STUDIO_MODEL_CACHE); user says "get earth2studio running" or "set up earth2studio"; user encounters ImportError or ModuleNotFoundError from earth2studio and needs to install missing extras.
-
-  DO NOT TRIGGER when: user already has earth2studio installed and is writing inference or training code; user is asking which model to use for their task (use earth2studio-discover); user is asking how to fetch data or compose workflows (use earth2studio-data-fetch or earth2studio-deterministic-forecast); user is asking about PhysicsNeMo installation (different product); user has runtime errors unrelated to missing packages.
+version: 0.16.0a0
+license: Apache-2.0
+metadata:
+  author: NVIDIA Earth-2 Team
+  tags:
+    - earth2studio
+    - earth2
+    - python
+    - install
+    - deployment
+    - environment
+description: >
+  Guide a user through installing Earth2Studio, selecting optional model extras,
+  and configuring the environment. Covers uv (recommended) and pip workflows.
+  TRIGGER when user wants to install earth2studio via pip or uv, set up in a new
+  project, add optional model extras, or encounters ImportError from earth2studio.
+  DO NOT TRIGGER when user already has earth2studio installed and is writing
+  inference code, asking which model to use, or asking about PhysicsNeMo.
 ---
 
 # Earth2Studio Installation Skill

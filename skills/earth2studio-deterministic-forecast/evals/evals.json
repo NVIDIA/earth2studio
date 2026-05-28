@@ -10,7 +10,7 @@
         "Presents data source options and selects one compatible with the chosen model",
         "Correctly calculates nsteps based on model time step and 3-day horizon",
         "Generated script uses earth2studio.run.deterministic with correct arguments",
-        "Script includes output_coords filtering to t2m and u10m/v10m variables",
+        "Script includes output_coords filtering to t2m, u10m, and v10m variables (both wind components needed for wind speed)",
         "Generated script closely matches the structure in evals/targets/eval_1_target.py"
       ],
       "files": ["evals/targets/eval_1_target.py"]
