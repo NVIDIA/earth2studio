@@ -16,6 +16,7 @@
 
 import datetime as dt
 import math
+import warnings
 from collections import OrderedDict
 from collections.abc import Generator
 from typing import Any
@@ -591,7 +592,18 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             Standardized DataFrame with unified column schema
         """
         stats = self._sensor_stats[sensor]
-        channel_col = "sensor_index" if "sensor_index" in df.columns else "channel_index"
+        if "sensor_index" in df.columns:
+            channel_col = "sensor_index"
+        elif "channel_index" in df.columns:
+            warnings.warn(
+                "HealDA satellite observations should provide 'sensor_index' with "
+                "the physical sensor channel. Falling back to 'channel_index' for "
+                "backward compatibility. For UFSObsSat this is the native GSI "
+                "Channel_Index pointer and may produce incorrect channel mappings."
+            )
+            channel_col = "channel_index"
+        else:
+            raise ValueError("Satellite observations must include 'sensor_index'.")
         raw_ch = df[channel_col].values.astype(int)
         platforms = SENSOR_PLATFORMS.get(sensor, [])
         platform_map = {name: i for i, name in enumerate(platforms)}
@@ -646,23 +658,20 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         if unknown_vars:
             raise ValueError(f"Unknown conventional variable(s): {unknown_vars}")
 
-        # HealDA expects pressure-like values in hPa. Earth2Studio/UFS feeds may
-        # provide Pa or hPa, so convert only values that are clearly in Pa.
-        obs_hpa = df["observation"].values.astype(np.float64)
+        # HealDA v1 was trained with pressure values in hPa, while Earth2Studio
+        # conventional data sources provide pressure-like fields in Pa.
+        obs = df["observation"].values.astype(np.float64)
         is_pres_obs = df["variable"].values == "pres"
-        obs_pa_mask = is_pres_obs & np.isfinite(obs_hpa) & (obs_hpa > 2000.0)
-        obs_hpa[obs_pa_mask] /= 100.0
+        obs[is_pres_obs] /= 100.0  # Pa -> hPa
 
-        pressure_hpa = df["pres"].values.astype(np.float32)
-        pressure_pa_mask = np.isfinite(pressure_hpa) & (pressure_hpa > 2000.0)
-        pressure_hpa[pressure_pa_mask] /= 100.0
+        pressure = df["pres"].values.astype(np.float32) / np.float32(100.0)  # Pa -> hPa
 
         return pd.DataFrame(
             {
                 "lat": df["lat"].values.astype(np.float32),
                 "lon": df["lon"].values.astype(np.float32),
                 "obs_time_ns": df["time"].values.astype("datetime64[ns]"),
-                "observation": obs_hpa,
+                "observation": obs,
                 "local_channel": df["variable"]
                 .map(CONV_VAR_CHANNEL)
                 .values.astype(np.int32),
@@ -670,7 +679,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 "sensor": "conv",
                 "obs_type": df["type"].fillna(0).values.astype(np.int32),
                 "height": df["elev"].values.astype(np.float32),
-                "pressure": pressure_hpa,
+                "pressure": pressure,
                 "scan_angle": np.float32(np.nan),
                 "sat_zenith_angle": np.float32(np.nan),
                 "sol_zenith_angle": np.float32(np.nan),
