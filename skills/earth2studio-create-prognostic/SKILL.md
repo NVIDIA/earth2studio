@@ -12,22 +12,25 @@ metadata:
     - model-wrapper
     - pytorch
 description: >
-  Creates and validates a new Earth2Studio prognostic model (px) wrapper end-to-end
-  — from analyzing a reference inference script through implementation, testing,
-  reference comparison, and PR submission. Use when adding a prognostic model,
-  weather/climate forecast model wrapper, implementing PrognosticMixin, or wrapping
-  a PyTorch/ONNX/JAX model for time-stepping inference in Earth2Studio.
+  Create a new Earth2Studio prognostic model (px) wrapper end-to-end.
+  Do NOT use for diagnostic models, data sources, or non-inference tasks.
 argument-hint: URL or local path to reference inference script/repo (optional)
 ---
 
 # Create and Validate Prognostic Model Wrapper
 
-> **Python Environment:** Always use `uv run python` or the local `.venv`.
-> Never use the system Python directly.
+## Purpose
 
-Create a new Earth2Studio prognostic model (px) wrapper end-to-end. Follow
-every step in order. Each `[CONFIRM]` gate requires explicit user approval
-before proceeding.
+Create a new Earth2Studio prognostic model (px) wrapper end-to-end — from
+analyzing a reference inference script through implementation, testing,
+reference comparison, and PR submission.
+
+## Prerequisites
+
+- Earth2Studio dev environment (`uv sync --all-extras` or `.venv` active)
+- `uv run python` for all Python commands (never system Python)
+- Git repository with write access to a fork of `NVIDIA/earth2studio`
+- Reference inference script or model repository available
 
 ## Reference Files
 
@@ -35,15 +38,20 @@ Load these on demand during the relevant steps:
 
 | File | Content | Load at |
 |---|---|---|
-| `reference/implementation-guide.md` | Skeleton, templates, coordinates, loading, registration | Steps 3–8 |
-| `reference/testing-guide.md` | Smoke tests, pytest patterns, coverage | Steps 9–10 |
-| `reference/validation-guide.md` | Reference comparison, plots, PR, code review | Steps 11–13 |
+| `references/implementation-guide.md` | Skeleton, templates, coordinates, loading | Steps 3–8 |
+| `references/testing-guide.md` | Smoke tests, pytest patterns, coverage | Steps 9–10 |
+| `references/validation-guide.md` | Reference comparison, plots, PR, code review | Steps 11–13 |
 
 ---
 
-## Workflow Overview
+## Instructions
 
-```
+Follow every step in order. Each `[CONFIRM]` gate requires explicit user
+approval before proceeding.
+
+### Workflow Overview
+
+```text
 Step 0: Obtain reference → Step 1: Analyze & propose deps
 → Step 2: Add deps → Step 3: Create skeleton → Step 4: Coordinates
 → Step 5: Forward pass → Step 6: Model loading → Step 7: Register
@@ -73,10 +81,7 @@ shapes, time step, spatial resolution, checkpoint format.
 
 ### 1b. Propose pyproject.toml dependency group
 
-```toml
-model-name = ["package1>=version", "package2"]
-```
-
+Follow the group format in `references/implementation-guide.md § Dependencies`.
 Group name: lowercase-hyphenated. Also add to `all` aggregate (px models line).
 
 ### [CONFIRM — Dependencies]
@@ -96,7 +101,7 @@ Use the optional dependency imports pattern (try/except with
 
 ## Step 3 — Create Skeleton Class File
 
-> **Load `reference/implementation-guide.md` from here through Step 8.**
+> **Load `references/implementation-guide.md` from here through Step 8.**
 
 ### 3a. Determine naming
 
@@ -139,9 +144,10 @@ needs, 4) Time step.
 
 ## Step 5 — Implement Forward Pass
 
-### 5a. Implement __call__
+### 5a. Implement `__call__`
 
 Key notes:
+
 - `@batch_func()` handles batch dimension
 - Input shape: `(batch, time, lead_time, variable, lat, lon)`
 - Reshape to model format → call model → reshape back
@@ -180,7 +186,9 @@ Present: 1) Checkpoint URL, 2) File names/loading logic, 3) `.to()` needed?
 
 ## Step 7 — Register the Model
 
-- `earth2studio/models/px/__init__.py` — add import alphabetically
+See `references/implementation-guide.md § Registration & Documentation` for details.
+
+- Add import alphabetically to `earth2studio/models/px/__init__.py`
 - Verify `pyproject.toml` dependency group
 
 ---
@@ -202,21 +210,14 @@ make format && make lint && make license
 
 ### 8c. CHANGELOG
 
-Under `### Added`:
-```markdown
-- Added <ModelName> prognostic model (`<ClassName>`) with <brief description>
-```
-
-If new dependencies, under `### Dependencies`:
-```markdown
-- Added `<model-name>` optional dependency group for <ModelName> model
-```
+Update `CHANGELOG.md` (see `references/implementation-guide.md § Update CHANGELOG.md`
+for templates).
 
 ---
 
 ## Step 9 — Smoke Tests
 
-> **Load `reference/testing-guide.md` for Steps 9–10.**
+> **Load `references/testing-guide.md` for Steps 9–10.**
 
 Run quick smoke test and data fetch test scripts to verify basic forward pass
 and data pipeline compatibility. Report results.
@@ -228,6 +229,7 @@ and data pipeline compatibility. Report results.
 ### 10a. Write test file
 
 Create `test/models/px/test_<filename>.py` with:
+
 - `PhooModelName` dummy model adapted to actual model interface
 - `TestModelNameMock` class: `test_model_call`, `test_model_iter`, `test_model_exceptions`
 - `test_model_package` integration test (`@pytest.mark.package`)
@@ -261,7 +263,7 @@ Target: >= 90% line coverage.
 
 ## Step 11 — Reference Comparison & Sanity-Check
 
-> **Load `reference/validation-guide.md` for Steps 11–13.**
+> **Load `references/validation-guide.md` for Steps 11–13.**
 
 ### 11a. Create reference scripts (do NOT commit)
 
@@ -295,11 +297,8 @@ Do NOT add reference scripts, comparison scripts, or images.
 
 ### 12b. Push to fork and open PR
 
-```bash
-gh pr create --repo NVIDIA/earth2studio --base main \
-  --head <fork-owner>:feat/prognostic-model-<name> \
-  --title "feat: add <ClassName> prognostic model" --body "..."
-```
+See `references/validation-guide.md § Open PR` for the full `gh pr create`
+command and PR body template.
 
 ### 12c. Post sanity-check validation as PR comment
 
@@ -315,9 +314,39 @@ gh pr create --repo NVIDIA/earth2studio --base main \
 
 User approves which comments to address.
 
-4. Implement accepted fixes
-5. Respond to PR comments
-6. Push
+1. Implement accepted fixes
+2. Respond to PR comments
+3. Push
+
+---
+
+## Examples
+
+Typical invocation:
+
+> "Wrap the Pangu-Weather 24h model as an Earth2Studio prognostic. Here's
+> the reference script: <https://github.com/198808xc/Pangu-Weather/blob/main/inference.py>"
+
+---
+
+## Limitations
+
+- One model per invocation — do not batch multiple models
+- Requires network access for checkpoint download and HuggingFace resolution
+- GPU required for package tests and reference comparison
+- Cannot wrap non-autoregressive models (those are diagnostic, not prognostic)
+
+---
+
+## Troubleshooting
+
+| Error | Cause | Solution |
+|---|---|---|
+| `OptionalDependencyFailure` | Missing model extras | `uv sync --extra <model-name>` |
+| `handshake_dim` assertion | Mismatched dim index | Check dimension order in `output_coords` |
+| Coverage < 90% | Untested branches | Add parametrized edge cases |
+| `load_model` hangs | Large checkpoint, slow network | Increase timeout, verify URL |
+| `create_iterator` wrong shape | Missing batch dim handling | Verify `@batch_func()` decorator |
 
 ---
 

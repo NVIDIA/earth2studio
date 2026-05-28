@@ -33,7 +33,8 @@ import torch
 # ref_model = ...
 
 raise NotImplementedError(
-    "Fill in the reference model loading code above, then remove this line."
+    "VANILLA SCRIPT: Fill in the reference model loading and inference code above, "
+    "then remove this line."
 )
 
 # Prepare input data
@@ -143,7 +144,11 @@ def compare_tensors(ref: torch.Tensor, test: torch.Tensor, name: str) -> dict:
     rel_diff = diff / (ref.abs() + 1e-8)
     max_rel = rel_diff.max().item()
     corr = torch.corrcoef(torch.stack([ref.flatten(), test.flatten()]))[0, 1].item()
-    return {"name": name, "max_abs": max_abs, "mean_abs": mean_abs, "max_rel": max_rel, "correlation": corr}
+    return {
+        "name": name, "max_abs": max_abs,
+        "mean_abs": mean_abs, "max_rel": max_rel,
+        "correlation": corr,
+    }
 
 
 def print_metrics(m: dict):
@@ -158,7 +163,9 @@ def print_metrics(m: dict):
 print("=" * 60)
 print("SINGLE-STEP COMPARISON")
 print("=" * 60)
-single_metrics = compare_tensors(vanilla["single_step"], e2s["single_step"], "Single step")
+single_metrics = compare_tensors(
+    vanilla["single_step"], e2s["single_step"], "Single step"
+)
 print_metrics(single_metrics)
 
 # Multi-step
@@ -181,14 +188,23 @@ TOLERANCE_CORR = 0.9999
 all_pass = True
 
 if single_metrics["max_abs"] > TOLERANCE_ABS:
-    print(f"WARNING: Single-step max_abs {single_metrics['max_abs']:.2e} > {TOLERANCE_ABS}")
+    print(
+        f"WARNING: Single-step max_abs "
+        f"{single_metrics['max_abs']:.2e} > {TOLERANCE_ABS}"
+    )
     all_pass = False
 for m in multi_metrics:
     if m["correlation"] < TOLERANCE_CORR:
-        print(f"WARNING: {m['name']} correlation {m['correlation']:.6f} < {TOLERANCE_CORR}")
+        print(
+            f"WARNING: {m['name']} correlation "
+            f"{m['correlation']:.6f} < {TOLERANCE_CORR}"
+        )
         all_pass = False
 
-print("PASS: All comparisons within tolerance" if all_pass else "FAIL: Review warnings above")
+msg = "PASS: All comparisons within tolerance"
+if not all_pass:
+    msg = "FAIL: Review warnings above"
+print(msg)
 ```
 
 ### Run and verify
@@ -215,8 +231,11 @@ import numpy as np
 import torch
 
 # --- PART 1: Reference model inference (third-party only) ---
-# TODO: Load and run original model
-raise NotImplementedError("Fill in reference model code, then remove this line.")
+# TODO: Load and run original model (see vanilla reference script for pattern)
+raise NotImplementedError(
+    "PLOT SCRIPT: Fill in reference model inference, "
+    "then remove this line."
+)
 
 # --- PART 2: Earth2Studio wrapper inference ---
 from earth2studio.models.px import ModelName
@@ -406,6 +425,7 @@ PASTE FULL WORKING SCRIPT HERE
 ```
 
 Post comment:
+
 ```bash
 gh api -X POST repos/NVIDIA/earth2studio/issues/<PR_NUMBER>/comments \
   -F "body=@/tmp/pr_reference_comment.md" \
@@ -468,18 +488,21 @@ Present triage table to user:
 
 1. Make code changes
 2. Run `make format && make lint`
-3. Run tests: `uv run python -m pytest test/models/px/test_<filename>.py -v --timeout=60`
+3. Run tests:
+   `uv run python -m pytest test/models/px/test_<filename>.py -v`
 4. Commit: `git commit -m "fix: address code review feedback (Greptile)"`
 
 ### Respond to comments
 
 Fixed:
+
 ```bash
 gh api repos/NVIDIA/earth2studio/pulls/<PR_NUMBER>/comments/<COMMENT_ID>/replies \
   -f body="Fixed in <commit_sha>. <brief description>"
 ```
 
 Dismissed:
+
 ```bash
 gh api repos/NVIDIA/earth2studio/pulls/<PR_NUMBER>/comments/<COMMENT_ID>/replies \
   -f body="Won't fix — <brief justification>"

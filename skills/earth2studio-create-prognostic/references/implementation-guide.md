@@ -165,12 +165,16 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     # 9. Batch-decorated generator
     @batch_func()
-    def _default_generator(self, x: torch.Tensor, coords: CoordSystem) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        # TODO: Yield initial condition, then loop
+    def _default_generator(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        # TODO: Single step forward
         pass
 
     # 10. Public iterator entry point
-    def create_iterator(self, x: torch.Tensor, coords: CoordSystem) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    def create_iterator(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
         # TODO: Setup, then yield from self._default_generator(x, coords)
         pass
 ```
@@ -258,7 +262,7 @@ def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
 
 ## Forward Pass
 
-### __call__ template
+### `__call__` template
 
 ```python
 @batch_func()
@@ -294,15 +298,18 @@ def __call__(self, x: torch.Tensor, coords: CoordSystem) -> tuple[torch.Tensor, 
 ```
 
 Key notes:
+
 - `@batch_func()` handles batch dimension
 - Input shape: `(batch, time, lead_time, variable, lat, lon)`
 - Reshape to model format → call model → reshape back
 
-### _default_generator template
+### `_default_generator` template
 
 ```python
 @batch_func()
-def _default_generator(self, x: torch.Tensor, coords: CoordSystem) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+def _default_generator(
+    self, x: torch.Tensor, coords: CoordSystem
+) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
     """Batch-decorated generator for time integration.
 
     Parameters
@@ -339,7 +346,9 @@ def _default_generator(self, x: torch.Tensor, coords: CoordSystem) -> Iterator[t
 ### create_iterator template
 
 ```python
-def create_iterator(self, x: torch.Tensor, coords: CoordSystem) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+def create_iterator(
+    self, x: torch.Tensor, coords: CoordSystem
+) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
     """Create time-integration iterator.
 
     Parameters
@@ -403,12 +412,16 @@ def load_model(cls, package: Package) -> PrognosticModel:
         Loaded model instance
     """
     checkpoint_path = package.resolve("model.pt")
+    # NOTE: weights_only=False is required when loading full model objects (not just
+    # state dicts). Only load checkpoints from trusted, verified sources (e.g.,
+    # HuggingFace repos pinned to a commit hash via load_default_package).
     core_model = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     core_model.eval()
     return cls(core_model)
 ```
 
 Key patterns:
+
 - Use `package.resolve("filename")`
 - Load with `map_location="cpu"`
 - Set `eval()` mode
@@ -441,7 +454,7 @@ def to(self, device: torch.device | str) -> PrognosticModel:
 
 ## Registration & Documentation
 
-### Register in __init__.py
+### Register in `__init__.py`
 
 Edit `earth2studio/models/px/__init__.py` — add import alphabetically.
 
@@ -455,7 +468,7 @@ Add to `docs/userguide/about/install.md` Prognostics section (alphabetically).
 
 #### Basic install template
 
-```markdown
+````markdown
 :::::{tab-item} ModelName
 Notes: <Any special installation notes>
 
@@ -476,11 +489,11 @@ uv add earth2studio --extra model-name
 :::
 ::::
 :::::
-```
+````
 
 #### Template with manual pip packages
 
-```markdown
+````markdown
 :::::{tab-item} ModelName
 Notes: For pip users, [Package](https://github.com/...) needs manual install.
 
@@ -502,16 +515,18 @@ uv add earth2studio --extra model-name
 :::
 ::::
 :::::
-```
+````
 
 ### Update CHANGELOG.md
 
 Under `### Added`:
+
 ```markdown
 - Added <ModelName> prognostic model (`<ClassName>`) with <brief description>
 ```
 
 If new dependencies, under `### Dependencies`:
+
 ```markdown
 - Added `<model-name>` optional dependency group for <ModelName> model
 ```

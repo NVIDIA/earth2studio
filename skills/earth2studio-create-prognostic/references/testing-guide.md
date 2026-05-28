@@ -276,6 +276,7 @@ uv run python -m pytest test/models/px/test_<filename>.py \
 ```
 
 **Warning:** The package test will:
+
 - Download the model checkpoint (may be several GB)
 - Require GPU compute for CUDA models
 - Take significantly longer than mock tests
@@ -293,6 +294,7 @@ uv run python -m pytest test/models/px/test_<filename>.py -v \
 Target: **>= 90% line coverage** on the new model module.
 
 Common coverage gaps:
+
 - Error handling in `output_coords` (wrong variable names, wrong dims)
 - Device management paths (CPU vs CUDA)
 - `create_iterator` edge cases (initial condition yield, hook calls)
