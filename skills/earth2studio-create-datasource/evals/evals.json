@@ -3,14 +3,14 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Create a new Earth2Studio DataSource called `RandomGaussian` that generates random Gaussian data on a 1-degree global lat/lon grid (180x360). It should accept time and variable parameters and return an xr.DataArray with dimensions [time, variable, lat, lon]. Don't connect to any remote store — just generate random data. Implement it end-to-end following Earth2Studio conventions (license header, type hints, prep_data_inputs, etc.). Put it in `earth2studio/data/random_gaussian.py`.",
+      "prompt": "Create a new Earth2Studio DataSource called `RandomGaussian` that generates random Gaussian data on a 1-degree global lat/lon grid. It should accept time and variable parameters and return an xr.DataArray with dimensions [time, variable, lat, lon]. Don't connect to any remote store — just generate random data. Implement it end-to-end following Earth2Studio conventions (license header, type hints, prep_data_inputs, etc.). Put it in `earth2studio/data/random_gaussian.py`.",
       "expected_output": "Creates a DataSource class that generates random Gaussian data on a global 1-degree grid. Follows Earth2Studio conventions including license header, type hints, proper imports, and uses prep_data_inputs for input normalization.",
       "assertions": [
         "File has SPDX Apache-2.0 license header",
         "Class implements DataSource protocol with __call__(time, variable) -> xr.DataArray",
         "Uses prep_data_inputs to normalize time and variable inputs",
         "Returns xr.DataArray with dims [time, variable, lat, lon]",
-        "Lat array is 180 values from -90 to 90, lon array is 360 values from 0 to 360",
+        "Lat array is 181 values from -90 to 90, lon array is 360 values from 0 to 360",
         "Has proper type hints on all parameters and return values",
         "Generated code closely matches the structure in evals/targets/eval_1_target.py"
       ],
