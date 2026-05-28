@@ -19,6 +19,27 @@ description: >
 
 # Earth2Studio Installation Skill
 
+## Never install packages automatically
+
+You **MUST NOT** install, upgrade, or modify packages on the user's
+behalf. Provide the exact command; the user runs it. No exceptions.
+
+**Forbidden:** running `pip install`, `uv pip install`, `uv add`,
+`uv sync`, `conda install`, `apt install`, or any package manager.
+
+**Instead:** give the exact command and ask the user to run it.
+Explain why the package is needed.
+
+When a package is needed:
+
+1. Identify it
+2. Provide the exact command
+3. Explain why it is needed
+4. **Wait for the user to confirm they ran it**
+
+Even if the user says "just install it", give the command and require
+them to execute it themselves.
+
 ## Purpose
 
 Help users install Earth2Studio and its optional model dependencies correctly for
@@ -32,26 +53,35 @@ environment variable configuration, and install verification.
 - uv (recommended) or pip package manager
 - Internet access (packages installed from PyPI and GitHub)
 
-You are helping a user install Earth2Studio and its optional model dependencies. Your only job is to get the package installed correctly for their use case — do not write inference code, do not compose workflows.
+You are helping a user install Earth2Studio and its optional model
+dependencies. Your only job is to get the package installed correctly
+for their use case — do not write inference code, do not compose
+workflows.
 
 ## Core principle: docs are the source of truth
 
-Earth2Studio installation commands, version tags, and extra names change between releases. **Before executing or recommending any install command, fetch the live installation docs:**
+Earth2Studio installation commands, version tags, and extra names change
+between releases. **Before executing or recommending any install command,
+fetch the live installation docs:**
 
-```
+```text
 https://nvidia.github.io/earth2studio/userguide/about/install.html
 ```
 
-Parse the page for the current version tag, available extras, and any special build notes. The workflow below is structural guidance — the specific commands come from the live page.
+Parse the page for the current version tag, available extras, and any
+special build notes. The workflow below is structural guidance — the
+specific commands come from the live page.
 
 ## Instructions
 
 ### Step 1. Fetch live docs
 
 Use WebFetch on the install URL above. Extract:
+
 - Current release version tag (e.g. `@0.14.0`)
 - Available optional extras by category
-- Known build quirks (e.g. `--no-build-isolation` for pip, manual pre-installs)
+- Known build quirks (e.g. `--no-build-isolation` for pip,
+  manual pre-installs)
 
 Keep this data in working memory for all subsequent steps.
 
@@ -59,9 +89,11 @@ Keep this data in working memory for all subsequent steps.
 
 Ask (cap at 3 questions, skip what the user already answered):
 
-1. **Package manager** — uv (recommended) or pip? If unsure, recommend uv and link https://docs.astral.sh/uv/getting-started/installation/
+1. **Package manager** — uv (recommended) or pip? If unsure, recommend
+   uv and link <https://docs.astral.sh/uv/getting-started/installation/>
 2. **Project context** — new project or adding to existing?
-3. **Python version** — recommend the version from the docs (currently 3.13)
+3. **Python version** — recommend the version from the docs
+   (currently 3.13)
 
 ### Step 3. Base install
 
@@ -79,7 +111,9 @@ earth2studio.__version__
 
 ### Step 4. Select models and extras
 
-Present the available extras organized by use case. Ask what the user plans to do — don't dump all options unprompted. Categories from the docs:
+Present the available extras organized by use case. Ask what the user
+plans to do — don't dump all options unprompted. Categories from the
+docs:
 
 | Category | Example extras |
 |----------|---------------|
@@ -91,21 +125,29 @@ Present the available extras organized by use case. Ask what the user plans to d
 The exact list comes from the live docs — cite those, not this table.
 
 Ask:
+
 1. Which models do you plan to use?
-2. Do you need submodule extras (data sources, perturbation methods, statistics)?
+2. Do you need submodule extras (data sources, perturbation methods,
+   statistics)?
 3. Or install everything? (uv only: `--extra all`)
 
 ### Step 5. Install selected extras
 
-Provide the exact commands from the live docs for their selections. Key warnings to surface:
+Provide the exact commands from the live docs for their selections.
+Key warnings to surface:
 
-- **Slow builds**: flash-attention (AIFS variants), natten (Atlas, StormScope), torch-harmonics CUDA extensions (FCN3, SFNO) — can take 10–30+ minutes
-- **pip-specific manual steps**: some models require `--no-build-isolation` or pre-installing packages like earth2grid, torch-harmonics, or makani
+- **Slow builds**: flash-attention (AIFS variants), natten
+  (Atlas, StormScope), torch-harmonics CUDA extensions (FCN3, SFNO)
+  — can take 10-30+ minutes
+- **pip-specific manual steps**: some models require
+  `--no-build-isolation` or pre-installing packages like earth2grid,
+  torch-harmonics, or makani
 - **Data assimilation models**: require CuPy + cuDF (CUDA 12)
 
 ### Step 6. Configuration (offer, don't force)
 
-Mention environment variables the user might want to set — only if relevant (e.g. limited disk, shared filesystem, CI environment):
+Mention environment variables the user might want to set — only if
+relevant (e.g. limited disk, shared filesystem, CI environment):
 
 | Variable | Purpose |
 |----------|---------|
@@ -117,15 +159,21 @@ Mention environment variables the user might want to set — only if relevant (e
 ## Troubleshooting
 
 If installation fails, point the user to:
-- https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html
-- https://nvidia.github.io/earth2studio/userguide/support/faq.html
+
+- <https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html>
+- <https://nvidia.github.io/earth2studio/userguide/support/faq.html>
 
 Common issues:
+
 - **PyTorch/CUDA mismatch**: verify `torch.cuda.is_available()` first
-- **flash-attention build failure**: CUDA toolkit version must match PyTorch CUDA
+- **flash-attention build failure**: CUDA toolkit version must match
+  PyTorch CUDA
 - **ONNX Runtime GPU**: may need version-specific install for their CUDA
-- **ecCodes missing**: required for GRIB data handling; install via `sudo apt-get install libeccodes-dev` (Debian/Ubuntu) or `conda install -c conda-forge eccodes`
-- **Python.h: No such file or directory**: missing Python development headers; install via `sudo apt-get install python3-dev`
+- **ecCodes missing**: required for GRIB data handling; install via
+  `sudo apt-get install libeccodes-dev` (Debian/Ubuntu) or
+  `conda install -c conda-forge eccodes`
+- **Python.h: No such file or directory**: missing Python development
+  headers; install via `sudo apt-get install python3-dev`
 
 ## Limitations
 
@@ -136,6 +184,10 @@ Common issues:
 
 ## Ownership and out-of-scope
 
-**Owns:** package installation, optional-extra selection, environment variable configuration, install verification.
+**Owns:** package installation, optional-extra selection, environment
+variable configuration, install verification.
 
-**Does not own:** writing inference or training code, composing Earth2Studio workflows, data source setup beyond the `data` extra, model checkpoint downloads (those happen at runtime), troubleshooting runtime errors unrelated to missing dependencies.
+**Does not own:** writing inference or training code, composing
+Earth2Studio workflows, data source setup beyond the `data` extra,
+model checkpoint downloads (those happen at runtime), troubleshooting
+runtime errors unrelated to missing dependencies.
