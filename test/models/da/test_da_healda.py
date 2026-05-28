@@ -162,7 +162,7 @@ def _build_raw_sat_df(n_obs=10, request_time=None, sensor="atms"):
             "lon": np.random.uniform(0, 360, n_obs).astype(np.float32),
             "observation": np.random.uniform(200, 300, n_obs).astype(np.float32),
             "variable": sensor,
-            "channel_index": np.ones(n_obs, dtype=np.uint16),
+            "sensor_index": np.ones(n_obs, dtype=np.uint16),
             "satellite": "n20",
             "scan_angle": np.zeros(n_obs, dtype=np.float32),
             "satellite_za": np.full(n_obs, 30.0, dtype=np.float32),
@@ -343,7 +343,7 @@ def test_healda_input_coords():
     assert "time" in sat_schema
     assert "lat" in sat_schema
     assert "observation" in sat_schema
-    assert "channel_index" in sat_schema
+    assert "sensor_index" in sat_schema
 
 
 def test_healda_output_coords():
