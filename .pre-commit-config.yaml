@@ -32,6 +32,7 @@ repos:
             )$
     - id: trailing-whitespace
     - id: end-of-file-fixer
+      exclude: \.sig$
     - id: check-yaml
     - id: debug-statements
       exclude: ^\.claude/
@@ -69,7 +70,7 @@ repos:
     rev: v0.44.0
     hooks:
     - id: markdownlint
-      exclude: ^\.claude/
+      exclude: ^(\.claude/|skills/.*\.md)$
 
 -   repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.14.1  # Use the sha / tag you want to point at
@@ -84,7 +85,8 @@ repos:
                 docs |
                 recipes/.*/test/.* |
                 earth2studio/models/nn |
-                \.claude)
+                \.claude |
+                skills)
         additional_dependencies: ['types-requests']
 
 -   repo: https://github.com/astral-sh/uv-pre-commit

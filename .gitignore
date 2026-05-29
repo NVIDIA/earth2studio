@@ -105,3 +105,6 @@ docs/examples
 
 .claude/agent-memory
 .claude/agents
+
+# Skills
+skills/*/evals/results/
