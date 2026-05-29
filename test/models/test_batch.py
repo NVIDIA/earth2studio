@@ -272,3 +272,43 @@ def test_mismatched_batched_dims_raise(PhooModel, device):
     model = PhooModel().to(device)
     with pytest.raises(ValueError):
         _ = model.add_pairs(x1, coords1, x2, coords2)
+
+
+def test_invalid_output_coords_raise():
+    class BadOutputCoordsModel(torch.nn.Module):
+        def input_coords(self) -> OrderedDict[str, np.ndarray]:
+            return OrderedDict(
+                [
+                    ("batch", np.empty(1)),
+                    ("variable", np.array(["a", "b"])),
+                    ("x", np.ones(1)),
+                ]
+            )
+
+        def output_coords(
+            self, input_coords: OrderedDict[str, np.ndarray]
+        ) -> OrderedDict[str, np.ndarray]:
+            output_coords = input_coords.copy()
+            del output_coords["batch"]
+            return output_coords
+
+        @batch_func()
+        def __call__(
+            self, x: torch.Tensor, coords: OrderedDict[str, np.ndarray]
+        ) -> tuple[torch.Tensor, OrderedDict[str, np.ndarray]]:
+            return x[:, :1], self.output_coords(coords)
+
+    x = torch.randn(2, 2, 1)
+    coords = OrderedDict(
+        [
+            ("batch", np.arange(2)),
+            ("variable", np.array(["a", "b"])),
+            ("x", np.ones(1)),
+        ]
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Model coordinate systems not compatible with batch processing",
+    ):
+        _ = BadOutputCoordsModel()(x, coords)
