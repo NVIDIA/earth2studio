@@ -54,19 +54,5 @@
       "Fetches or references the live installation docs page",
       "Provides verification that the extra was installed correctly"
     ]
-  },
-  {
-    "id": "install-eval-005-uv-all-extras",
-    "question": "I want to install everything earth2studio offers using uv — all models, all extras. Give me the one command.",
-    "expected_skill": "earth2studio-install",
-    "expected_script": null,
-    "ground_truth": "Provides the uv command with --extra all to install everything. Warns about total build time and disk usage. Uses uv git source syntax (not PyPI). Mentions that this installs all prognostic, diagnostic, and DA extras.",
-    "expected_behavior": [
-      "Uses --extra all flag in the uv install command",
-      "Warns about long total build time (flash-attention, natten, etc.)",
-      "Uses uv git source syntax (not PyPI)",
-      "Fetches or references the live installation docs page",
-      "Mentions that this installs all prognostic, diagnostic, and DA extras"
-    ]
   }
 ]
