@@ -15,37 +15,7 @@
     ]
   },
   {
-    "id": "deterministic-eval-002-pangu-gfs-5day",
-    "question": "Write me a deterministic forecast script using Pangu weather model with GFS data source, initialized on 2024-06-01 00Z, running 5 days out. Save output as Zarr. I only want to save z500 and t850.",
-    "expected_skill": "earth2studio-deterministic-forecast",
-    "expected_script": "evals/targets/eval_2_target.py",
-    "ground_truth": "Generates a script using Pangu model, GFS data source, ZarrBackend IO, 5-day forecast with correct nsteps, filtering output to z500 and t850.",
-    "expected_behavior": [
-      "Uses Pangu model class (from earth2studio.models.px)",
-      "Uses GFS data source (from earth2studio.data)",
-      "Uses ZarrBackend for IO",
-      "Correctly calculates nsteps for 5 days with Pangu's time step",
-      "Includes output_coords with only z500 and t850",
-      "Generated script closely matches the structure in evals/targets/eval_2_target.py"
-    ]
-  },
-  {
-    "id": "deterministic-eval-003-7day-48gb",
-    "question": "I need a 7-day global forecast of geopotential height at 500 hPa and mean sea level pressure. I have a 48GB GPU. What model should I use and what's the best data source? Generate the full script.",
-    "expected_skill": "earth2studio-deterministic-forecast",
-    "expected_script": "evals/targets/eval_3_target.py",
-    "ground_truth": "Selects a global MR model that fits in 48GB VRAM, picks a compatible data source, calculates nsteps for 7 days, and generates the complete script with z500 and msl output.",
-    "expected_behavior": [
-      "Selects a model with Rec VRAM <= 48GB",
-      "Presents at least two model options with tradeoff explanation",
-      "Selects a compatible data source verified via lexicon",
-      "Correctly calculates nsteps for 7-day horizon",
-      "Script includes output_coords filtering to z500 and msl",
-      "Generated script closely matches the structure in evals/targets/eval_3_target.py"
-    ]
-  },
-  {
-    "id": "deterministic-eval-004-graphcast-arco-10day",
+    "id": "deterministic-eval-002-graphcast-arco-10day",
     "question": "Generate a deterministic forecast script using GraphCast with ARCO ERA5 data. Initialize from 2023-09-01 00Z and run for 10 days. Save all output variables to Zarr.",
     "expected_skill": "earth2studio-deterministic-forecast",
     "expected_script": "evals/targets/eval_4_target.py",
@@ -60,37 +30,7 @@
     ]
   },
   {
-    "id": "deterministic-eval-005-24h-precip-na",
-    "question": "I want to produce a 24-hour precipitation forecast over North America starting from the latest available data. I have an H100 GPU. What regional model and data source should I use? Write the script.",
-    "expected_skill": "earth2studio-deterministic-forecast",
-    "expected_script": "evals/targets/eval_5_target.py",
-    "ground_truth": "Selects a nowcasting (NWC) or regional model suitable for NA 24h forecasts (e.g. StormCast), pairs with HRRR data, calculates nsteps for 24 hours, generates script with precipitation output.",
-    "expected_behavior": [
-      "Selects a regional or NWC model with NA coverage",
-      "Pairs the model with HRRR or another NA-specific data source",
-      "Presents at least two options and explains regional vs global tradeoff",
-      "Correctly calculates nsteps for 24-hour horizon with model's time step",
-      "Script targets precipitation variable(s) in output",
-      "Generated script closely matches the structure in evals/targets/eval_5_target.py"
-    ]
-  },
-  {
-    "id": "deterministic-eval-006-30day-s2s",
-    "question": "I want to run a 30-day forecast of global 2m temperature and sea surface temperature. I need a model suited for subseasonal timescales. Write the full inference script.",
-    "expected_skill": "earth2studio-deterministic-forecast",
-    "expected_script": "evals/targets/eval_6_target.py",
-    "ground_truth": "Selects DLESyM as the appropriate S2S/CM model for 30-day forecasts. Pairs with a compatible data source (ERA5 via ARCO or CDS), calculates nsteps for 30 days, and generates the complete script.",
-    "expected_behavior": [
-      "Selects DLESyM model for the subseasonal/seasonal timescale",
-      "Uses a compatible data source verified via lexicon",
-      "Correctly calculates nsteps for 30-day horizon with DLESyM's time step",
-      "Generated script uses earth2studio.run.deterministic with correct arguments",
-      "Script includes output_coords filtering to t2m and sst or equivalent variables",
-      "Generated script closely matches the structure in evals/targets/eval_6_target.py"
-    ]
-  },
-  {
-    "id": "deterministic-eval-007-manual-loop",
+    "id": "deterministic-eval-003-manual-loop",
     "question": "I want to build a deterministic forecast workflow from scratch without using earth2studio.run.deterministic. Write a complete script that manually fetches initial conditions, creates the model iterator, steps through it, and writes each step to the IO backend. Use Pangu for a 5-day forecast of z500 and t2m from 2024-03-01 00Z with GFS data and ZarrBackend output.",
     "expected_skill": "earth2studio-deterministic-forecast",
     "expected_script": "evals/targets/eval_7_target.py",

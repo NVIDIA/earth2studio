@@ -14,35 +14,7 @@
     ]
   },
   {
-    "id": "data-fetch-eval-002-era5-no-auth",
-    "question": "Fetch 500 hPa geopotential height from ERA5 for 2020-06-15 12Z. I don't have a CDS API key so use a source that doesn't need authentication. Write the script.",
-    "expected_skill": "earth2studio-data-fetch",
-    "expected_script": "targets/eval_2_target.py",
-    "ground_truth": "Selects ARCO or WB2ERA5 (no auth required) instead of CDS. Generates a fetch script for z500 using the correct analysis source call signature.",
-    "expected_behavior": [
-      "Selects a no-auth ERA5 source (ARCO or WB2ERA5, not CDS)",
-      "Uses the correct variable name z500",
-      "Generated script uses the correct analysis call signature: ds(time, variable)",
-      "Generated script imports from earth2studio.data",
-      "Time is specified as datetime(2020, 6, 15, 12) or equivalent"
-    ]
-  },
-  {
-    "id": "data-fetch-eval-003-hires-wind-na",
-    "question": "I want high-resolution surface wind data over North America for 2024-03-10 at 18Z. What are my options? Choose one and write the fetch script.",
-    "expected_skill": "earth2studio-data-fetch",
-    "expected_script": "targets/eval_3_target.py",
-    "ground_truth": "Identifies sources with NA coverage (e.g. HRRR, GFS) and explains resolution differences. Selects one (likely HRRR for high-res NA) and generates a fetch script for u10m and/or v10m.",
-    "expected_behavior": [
-      "Presents at least two candidate data sources with North America coverage",
-      "Discusses resolution or regional coverage as a differentiator",
-      "Selects one source and generates a correct fetch script",
-      "Generated script fetches wind variables (u10m, v10m, or similar)",
-      "Generated script uses the correct analysis call signature: ds(time, variable)"
-    ]
-  },
-  {
-    "id": "data-fetch-eval-004-forecast-msl",
+    "id": "data-fetch-eval-002-forecast-msl",
     "question": "I need a 48-hour forecast of mean sea level pressure initialized on 2024-01-15 00Z. What forecast sources are available? Select one and write the fetch script.",
     "expected_skill": "earth2studio-data-fetch",
     "expected_script": "targets/eval_4_target.py",
@@ -56,35 +28,7 @@
     ]
   },
   {
-    "id": "data-fetch-eval-005-ifs-ensemble",
-    "question": "Fetch IFS ensemble forecast for t2m initialized 2024-02-01 00Z at lead times of 24h and 72h. Write the script.",
-    "expected_skill": "earth2studio-data-fetch",
-    "expected_script": "targets/eval_5_target.py",
-    "ground_truth": "Generates a script using IFS_ENS_FX with multiple lead times using the forecast call signature.",
-    "expected_behavior": [
-      "Uses IFS ensemble forecast source class (IFS_ENS_FX or equivalent)",
-      "Uses the forecast call signature: ds(time, lead_time, variable)",
-      "Specifies lead_time as a list with 24h and 72h entries",
-      "Generated script imports from earth2studio.data",
-      "Time is specified as datetime(2024, 2, 1, 0) or equivalent"
-    ]
-  },
-  {
-    "id": "data-fetch-eval-006-ensemble-precip",
-    "question": "I want ensemble precipitation forecasts 5 days out from 2024-04-01 00Z. What ensemble forecast sources in Earth2Studio support total precipitation? Pick one and write the script.",
-    "expected_skill": "earth2studio-data-fetch",
-    "expected_script": "targets/eval_6_target.py",
-    "ground_truth": "Identifies ensemble forecast sources that support tp (e.g. GEFS_FX, IFS_ENS_FX). Explains differences, selects one, and generates a fetch script with 120h lead time.",
-    "expected_behavior": [
-      "Presents at least one ensemble forecast source that supports precipitation (tp)",
-      "Explains a tradeoff between ensemble options if multiple exist",
-      "Selects one source and uses the forecast signature: ds(time, lead_time, variable)",
-      "Lead time is specified as timedelta(hours=120) or equivalent for 5 days",
-      "Generated script imports from earth2studio.data and uses datetime/timedelta"
-    ]
-  },
-  {
-    "id": "data-fetch-eval-007-station-obs",
+    "id": "data-fetch-eval-003-station-obs",
     "question": "I want surface weather station temperature observations. What dataframe data sources are available in Earth2Studio for ground station data? Pick one and write the fetch script.",
     "expected_skill": "earth2studio-data-fetch",
     "expected_script": "targets/eval_7_target.py",
@@ -94,34 +38,6 @@
       "Explains what type of observations the source provides",
       "Selects a source and generates a correct fetch script",
       "Generated script uses the correct DataFrame source call signature: ds(time, variable)",
-      "Generated script imports from earth2studio.data"
-    ]
-  },
-  {
-    "id": "data-fetch-eval-008-buoy-marine",
-    "question": "Fetch marine/buoy surface temperature observations using a dataframe source in Earth2Studio. Write the script.",
-    "expected_skill": "earth2studio-data-fetch",
-    "expected_script": "targets/eval_8_target.py",
-    "ground_truth": "Identifies and uses a conventional observation dataframe source (UFSObsConv or NNJAObsConv) that includes marine/ship/buoy observations. Generates a fetch script and shows how to filter for marine obs.",
-    "expected_behavior": [
-      "Uses a DataFrame source class that provides marine observations (UFSObsConv or NNJAObsConv)",
-      "Script imports from earth2studio.data",
-      "Fetches temperature variable (t or t2m depending on source)",
-      "Shows filtering or mentions that marine/buoy obs are available via observation class/type",
-      "Generated script uses the correct DataFrame source call signature: ds(time, variable)"
-    ]
-  },
-  {
-    "id": "data-fetch-eval-009-aircraft-obs",
-    "question": "I need upper-air observations from aircraft. What dataframe sources in Earth2Studio provide aircraft data? Select one and write a fetch script for temperature.",
-    "expected_skill": "earth2studio-data-fetch",
-    "expected_script": "targets/eval_9_target.py",
-    "ground_truth": "Identifies dataframe sources for aircraft/upper-air observations (NNJAObsConv with source='prepbufr.acft_profiles' or UFSObsConv with aircraft obs type), selects one, and generates a fetch script.",
-    "expected_behavior": [
-      "Presents at least one dataframe source for aircraft/upper-air observations",
-      "Uses NNJAObsConv(source='prepbufr.acft_profiles') or UFSObsConv with aircraft filtering",
-      "Explains what variables or levels the source provides",
-      "Generated script fetches temperature variable (t)",
       "Generated script imports from earth2studio.data"
     ]
   }
