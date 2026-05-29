@@ -109,19 +109,30 @@ MNEMONIC_TO_DESCR: dict[str, int] = {
     "VOB": OBS_VOB,
 }
 
-# PrepBUFR section-1 dataCategory -> NCEP message-type class string
-# Ref: NCEP PrepBUFR documentation and embedded DX Table A.
+# PrepBUFR section-1 dataCategory -> NCEP message/subset family.
+# Ref: NCEP PREPBUFR Table 1.a / prepobs_prep.bufrtable Table A.
+# https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/table_1.htm
+# These are PREPBUFR message families, not inner report TYP values.
 PREPBUFR_OBS_TYPES: dict[int, str] = {
-    102: "ADPUPA",  # Upper air: radiosondes, pilot balloons, dropsondes
+    102: "ADPUPA",  # Upper-air: RAOB, PIBAL, RECCO, dropsonde
     103: "AIRCAR",  # Aircraft: MDCRS ACARS
     104: "AIRCFT",  # Aircraft: AIREP, PIREP, AMDAR, TAMDAR
     105: "SATWND",  # Satellite-derived winds
-    107: "VADWND",  # VAD (NEXRAD) winds
-    109: "ADPSFC",  # Surface land: METAR, synoptic
-    110: "SFCSHP",  # Surface marine: ships, buoys, C-MAN
-    112: "GPSIPW",  # GPS precipitable water
+    106: "PROFLR",  # Wind profiler / SODAR reports
+    107: "VADWND",  # VAD/NEXRAD winds
+    108: "SATEMP",  # POES/TOVS sounding/retrieval/radiance data
+    109: "ADPSFC",  # Surface land: SYNOP/METAR
+    110: "SFCSHP",  # Surface marine: ship/buoy/C-MAN/tide gauge
+    111: "SFCBOG",  # Mean sea-level pressure bogus reports
+    112: "SPSSMI",  # DMSP SSM/I retrieval products
     113: "SYNDAT",  # Synthetic bogus data
+    114: "ERS1DA",  # ERS scatterometer winds
+    115: "GOESND",  # GOES sounding/retrieval/radiance data
+    116: "QKSWND",  # QuikSCAT scatterometer winds
+    117: "MSONET",  # Mesonet surface reports
+    118: "GPSIPW",  # GPS integrated precipitable water / zenith delay
     119: "RASSDA",  # RASS virtual temperature
+    120: "WDSATR",  # WindSat scatterometer winds
     121: "ASCATW",  # ASCAT scatterometer winds
 }
 
