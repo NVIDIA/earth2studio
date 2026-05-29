@@ -121,6 +121,27 @@ _GPSRO_SPFH = 13001  # Specific humidity (kg/kg)
 # Descriptor IDs the gpsro decoder pulls out as observations
 _GPSRO_OBS_DESCRS: set[int] = {_GPSRO_BNDA, _GPSRO_TEMP, _GPSRO_SPFH}
 
+_ACFT_PROFILE_UV_TYPE_MAP = {
+    330: 230,
+    430: 230,
+    530: 230,
+    331: 231,
+    431: 231,
+    531: 231,
+    332: 232,
+    432: 232,
+    532: 232,
+    333: 233,
+    433: 233,
+    533: 233,
+    334: 234,
+    434: 234,
+    534: 234,
+    335: 235,
+    435: 235,
+    535: 235,
+}
+
 
 # ── Schemas ─────────────────────────────────────────────────────────
 
@@ -1016,7 +1037,25 @@ class NNJAObsConv(_NNJAObsBase):
     ----------
     source : {"prepbufr", "convbufr", "prepbufr.acft_profiles"}, optional
         Which encoding family of the NNJA conventional archive to read,
-        by default ``"prepbufr"``.
+        by default ``"prepbufr"``. These sources are different stages of the
+        NCEP observation-processing pipeline, not independent replacement
+        datasets:
+
+        - ``"convbufr"`` points at raw dump streams grouped by family, such as
+          ``aircft``/``aircar``/``adpupa``/``adpsfc``. These files preserve
+          source-native schemas and generally require family-specific decoding
+          and QC interpretation before they resemble GSI-ready observations.
+          They are listed here for completeness, but the generic
+          ``NNJAObsConv`` PrepBUFR decoder does not yet implement those raw
+          family schemas.
+        - ``"prepbufr"`` points at the merged PrepBUFR cycle file. This is the
+          preferred source for GSI-like conventional observations because
+          upstream obsproc has already merged dump families, standardized many
+          mnemonics, and attached report types / quality marks.
+        - ``"prepbufr.acft_profiles"`` points at an aircraft-only PrepBUFR
+          profile product. It groups aircraft points into flight-level,
+          ascending, and descending profile report types that GSI remaps back
+          to ordinary aircraft report types during processing.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single
         value (symmetric ± window) or a tuple ``(lower, upper)`` for
@@ -1158,9 +1197,12 @@ class NNJAObsConv(_NNJAObsBase):
         month_key = cycle.strftime("%m")
         date_key = cycle.strftime("%Y%m%d")
         hour_key = f"{cycle.hour:02d}"
+        archive_dir = self._source
+        if self._source == "prepbufr.acft_profiles":
+            archive_dir = "bufr"
         return (
             f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/conv/{self._source}/"
-            f"{year_key}/{month_key}/{self._source}/"
+            f"{year_key}/{month_key}/{archive_dir}/"
             f"gdas.{date_key}.t{hour_key}z.{self._source}.nr"
         )
 
@@ -1342,9 +1384,12 @@ class NNJAObsConv(_NNJAObsBase):
             f"decoded {len(all_rows):,} raw rows in "
             f"{time.perf_counter() - decode_t0:.1f}s"
         )
-        return self._finalize_decoded_df(
+        df = self._finalize_decoded_df(
             all_rows, task.var_plan, convert_pres_mb_to_pa=True
         )
+        if self._source == "prepbufr.acft_profiles" and not df.empty:
+            df.loc[:, "type"] = df["type"].replace(_ACFT_PROFILE_UV_TYPE_MAP)
+        return df
 
     def _decode_gpsro_file(  # pragma: no cover - GPS RO not yet in lexicon
         self, local_path: str, task: _NNJAGpsRoTask
