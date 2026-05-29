@@ -491,7 +491,7 @@ python_version = "3.13"
 packages = ['earth2studio']
 exclude = [
     'examples', 'test', 'docs', 'serve/test', 'recipes/.*/test',
-    'serve/server/example_workflows',
+    'serve/server/example_workflows', 'skills',
 ]
 disallow_untyped_calls = true
 disallow_untyped_defs = true

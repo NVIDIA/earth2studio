@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -140,21 +140,26 @@ class CosineZenith(torch.nn.Module, PrognosticMixin):
         # Valid time from base_time + lead_time
         valid_time = self._base_time + lead_time[-1]
         # Day of year (approximate solar declination)
-        day_of_year = (valid_time - np.datetime64(str(valid_time)[:4], "Y")) / np.timedelta64(1, "D")
+        day_of_year = (
+            valid_time - np.datetime64(str(valid_time)[:4], "Y")
+        ) / np.timedelta64(1, "D")
         # Solar declination (radians)
-        declination = -23.45 * np.pi / 180.0 * np.cos(2.0 * np.pi * (day_of_year + 10.0) / 365.0)
+        declination = (
+            -23.45 * np.pi / 180.0 * np.cos(2.0 * np.pi * (day_of_year + 10.0) / 365.0)
+        )
         # Hour of day
-        hour = (valid_time - valid_time.astype("datetime64[D]")) / np.timedelta64(1, "h")
+        hour = (valid_time - valid_time.astype("datetime64[D]")) / np.timedelta64(
+            1, "h"
+        )
         # Hour angle for each longitude
         hour_angle = (hour / 24.0 * 360.0 + lon - 180.0) * np.pi / 180.0  # [lon]
         # Latitude in radians
         lat_rad = lat * np.pi / 180.0  # [lat]
 
         # cos(zenith) = sin(lat)*sin(dec) + cos(lat)*cos(dec)*cos(hour_angle)
-        cos_z = (
-            np.sin(lat_rad[:, None]) * np.sin(declination)
-            + np.cos(lat_rad[:, None]) * np.cos(declination) * np.cos(hour_angle[None, :])
-        )
+        cos_z = np.sin(lat_rad[:, None]) * np.sin(declination) + np.cos(
+            lat_rad[:, None]
+        ) * np.cos(declination) * np.cos(hour_angle[None, :])
         # Clamp to [0, 1] (negative = night)
         cos_z = np.clip(cos_z, 0.0, 1.0)
 
