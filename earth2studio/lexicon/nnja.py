@@ -21,10 +21,13 @@ import pandas as pd
 
 from .base import LexiconType
 
-
 _PRESSURE_REPORT_TYPES = frozenset([120, 180, 181, 187])
 _PRESSURE_CLASSES = frozenset(["ADPUPA", "ADPSFC", "SFCSHP"])
 _PRESSURE_MIN_HPA = 500.0
+# Match GSI's PrepBUFR pressure-observation path rather than treating every POB
+# as a pressure observation. In GSI, read_prepbufr.F90 handles obstype="ps" by
+# selecting convinfo pressure report types, requiring CAT == 0, and rejecting
+# POB below 500 hPa before setupps.f90 writes conv_ps diagnostics.
 
 
 class NNJAObsConvLexicon(metaclass=LexiconType):
