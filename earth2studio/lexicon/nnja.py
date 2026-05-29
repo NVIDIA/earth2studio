@@ -131,7 +131,11 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
                         & obs_type.isin(_PRESSURE_REPORT_TYPES)
                         & df["class"].isin(_PRESSURE_CLASSES)
                         & level_cat.eq(0)
-                        & (quality.isna() | ((quality >= 0) & (quality <= 15)))
+                        # Match GSI's read-stage guard:
+                        # if(qm > 15 .or. qm < 0) cycle
+                        # This keeps valid PrepBUFR quality marks, not only
+                        # marks later used by the assimilation.
+                        & quality.between(0, 15)
                     )
                     df = df.loc[pressure_obs].copy()
                 df["observation"] = np.float32(df["observation"] * 100.0)
