@@ -1,52 +1,52 @@
-{
-  "skill_name": "earth2studio-create-datasource",
-  "evals": [
-    {
-      "id": 1,
-      "prompt": "Create a new Earth2Studio DataSource called `RandomGaussian` that generates random Gaussian data on a 1-degree global lat/lon grid. It should accept time and variable parameters and return an xr.DataArray with dimensions [time, variable, lat, lon]. Don't connect to any remote store — just generate random data. Implement it end-to-end following Earth2Studio conventions (license header, type hints, prep_data_inputs, etc.). Put it in `earth2studio/data/random_gaussian.py`.",
-      "expected_output": "Creates a DataSource class that generates random Gaussian data on a global 1-degree grid. Follows Earth2Studio conventions including license header, type hints, proper imports, and uses prep_data_inputs for input normalization.",
-      "assertions": [
-        "File has SPDX Apache-2.0 license header",
-        "Class implements DataSource protocol with __call__(time, variable) -> xr.DataArray",
-        "Uses prep_data_inputs to normalize time and variable inputs",
-        "Returns xr.DataArray with dims [time, variable, lat, lon]",
-        "Lat array is 181 values from -90 to 90, lon array is 360 values from 0 to 360",
-        "Has proper type hints on all parameters and return values",
-        "Generated code closely matches the structure in evals/targets/eval_1_target.py"
-      ],
-      "files": ["evals/targets/eval_1_target.py"]
-    },
-    {
-      "id": 2,
-      "prompt": "Create a new Earth2Studio ForecastSource called `RandomForecast` that generates random uniform [0, 1] forecast data on a 2.5-degree global grid (73x144). It should accept time, lead_time, and variable parameters and return an xr.DataArray with dimensions [time, lead_time, variable, lat, lon]. No remote connection — just random data. Put it in `earth2studio/data/random_forecast.py` following all Earth2Studio conventions.",
-      "expected_output": "Creates a ForecastSource class that generates random uniform forecast data on a global 2.5-degree grid. Follows Earth2Studio conventions including license header, type hints, uses prep_forecast_inputs.",
-      "assertions": [
-        "File has SPDX Apache-2.0 license header",
-        "Class implements ForecastSource protocol with __call__(time, lead_time, variable) -> xr.DataArray",
-        "Uses prep_forecast_inputs to normalize time, lead_time, and variable inputs",
-        "Returns xr.DataArray with dims [time, lead_time, variable, lat, lon]",
-        "Lat array is 73 values from -90 to 90, lon array is 144 values from 0 to 360",
-        "Uses numpy uniform [0, 1] distribution instead of gaussian",
-        "Has proper type hints on all parameters and return values",
-        "Generated code closely matches the structure in evals/targets/eval_2_target.py"
-      ],
-      "files": ["evals/targets/eval_2_target.py"]
-    },
-    {
-      "id": 3,
-      "prompt": "Create a new Earth2Studio DataFrameSource called `RandomStations` that generates random weather station observations. It should produce 50 random stations per time/variable combination with columns: time, lat, lon, elevation, observation, variable. Use a pyarrow SCHEMA class attribute. Implement `__call__(time, variable, fields)` returning a pd.DataFrame. No remote connection — just random data. Put it in `earth2studio/data/random_stations.py` following all Earth2Studio conventions.",
-      "expected_output": "Creates a DataFrameSource class with SCHEMA attribute and __call__ returning pd.DataFrame. Generates 50 random station observations per time/variable with proper schema validation.",
-      "assertions": [
-        "File has SPDX Apache-2.0 license header",
-        "Class has a SCHEMA class attribute defined as a pyarrow schema",
-        "SCHEMA includes fields: time, lat, lon, elevation, observation, variable",
-        "Class implements __call__(time, variable, fields) -> pd.DataFrame",
-        "Uses prep_data_inputs to normalize time and variable inputs",
-        "Generates 50 observations per time/variable combination",
-        "Has proper type hints on all parameters and return values",
-        "Generated code closely matches the structure in evals/targets/eval_3_target.py"
-      ],
-      "files": ["evals/targets/eval_3_target.py"]
-    }
-  ]
-}
+[
+  {
+    "id": "create-datasource-eval-001-random-gaussian",
+    "question": "Create a new Earth2Studio DataSource called `RandomGaussian` that generates random Gaussian data on a 1-degree global lat/lon grid. It should accept time and variable parameters and return an xr.DataArray with dimensions [time, variable, lat, lon]. Don't connect to any remote store — just generate random data. Implement it end-to-end following Earth2Studio conventions (license header, type hints, prep_data_inputs, etc.). Put it in `earth2studio/data/random_gaussian.py`.",
+    "expected_skill": "earth2studio-create-datasource",
+    "expected_script": "evals/targets/eval_1_target.py",
+    "ground_truth": "Creates a DataSource class that generates random Gaussian data on a global 1-degree grid. Follows Earth2Studio conventions including license header, type hints, proper imports, and uses prep_data_inputs for input normalization.",
+    "expected_behavior": [
+      "File has SPDX Apache-2.0 license header",
+      "Class implements DataSource protocol with __call__(time, variable) -> xr.DataArray",
+      "Uses prep_data_inputs to normalize time and variable inputs",
+      "Returns xr.DataArray with dims [time, variable, lat, lon]",
+      "Lat array is 181 values from -90 to 90, lon array is 360 values from 0 to 360",
+      "Has proper type hints on all parameters and return values",
+      "Generated code closely matches the structure in evals/targets/eval_1_target.py"
+    ]
+  },
+  {
+    "id": "create-datasource-eval-002-random-forecast",
+    "question": "Create a new Earth2Studio ForecastSource called `RandomForecast` that generates random uniform [0, 1] forecast data on a 2.5-degree global grid (73x144). It should accept time, lead_time, and variable parameters and return an xr.DataArray with dimensions [time, lead_time, variable, lat, lon]. No remote connection — just random data. Put it in `earth2studio/data/random_forecast.py` following all Earth2Studio conventions.",
+    "expected_skill": "earth2studio-create-datasource",
+    "expected_script": "evals/targets/eval_2_target.py",
+    "ground_truth": "Creates a ForecastSource class that generates random uniform forecast data on a global 2.5-degree grid. Follows Earth2Studio conventions including license header, type hints, uses prep_forecast_inputs.",
+    "expected_behavior": [
+      "File has SPDX Apache-2.0 license header",
+      "Class implements ForecastSource protocol with __call__(time, lead_time, variable) -> xr.DataArray",
+      "Uses prep_forecast_inputs to normalize time, lead_time, and variable inputs",
+      "Returns xr.DataArray with dims [time, lead_time, variable, lat, lon]",
+      "Lat array is 73 values from -90 to 90, lon array is 144 values from 0 to 360",
+      "Uses numpy uniform [0, 1] distribution instead of gaussian",
+      "Has proper type hints on all parameters and return values",
+      "Generated code closely matches the structure in evals/targets/eval_2_target.py"
+    ]
+  },
+  {
+    "id": "create-datasource-eval-003-random-stations",
+    "question": "Create a new Earth2Studio DataFrameSource called `RandomStations` that generates random weather station observations. It should produce 50 random stations per time/variable combination with columns: time, lat, lon, elevation, observation, variable. Use a pyarrow SCHEMA class attribute. Implement `__call__(time, variable, fields)` returning a pd.DataFrame. No remote connection — just random data. Put it in `earth2studio/data/random_stations.py` following all Earth2Studio conventions.",
+    "expected_skill": "earth2studio-create-datasource",
+    "expected_script": "evals/targets/eval_3_target.py",
+    "ground_truth": "Creates a DataFrameSource class with SCHEMA attribute and __call__ returning pd.DataFrame. Generates 50 random station observations per time/variable with proper schema validation.",
+    "expected_behavior": [
+      "File has SPDX Apache-2.0 license header",
+      "Class has a SCHEMA class attribute defined as a pyarrow schema",
+      "SCHEMA includes fields: time, lat, lon, elevation, observation, variable",
+      "Class implements __call__(time, variable, fields) -> pd.DataFrame",
+      "Uses prep_data_inputs to normalize time and variable inputs",
+      "Generates 50 observations per time/variable combination",
+      "Has proper type hints on all parameters and return values",
+      "Generated code closely matches the structure in evals/targets/eval_3_target.py"
+    ]
+  }
+]

@@ -1,37 +1,36 @@
-{
-  "skill_name": "earth2studio-create-prognostic",
-  "evals": [
-    {
-      "id": 1,
-      "prompt": "Create a prognostic model wrapper called `CosineZenith` in earth2studio/models/px/cosine_zenith.py. This model takes a single variable 't2m' on a 1-degree global grid (181 lat x 360 lon) with a 6-hour time step. Instead of running a neural network, the forward pass computes the cosine of the solar zenith angle for each grid point at the current forecast valid time (using lead_time to determine the valid time). The output variable should be 'cos_zenith'. It does not need load_default_package or load_model — just the core prognostic interface (input_coords, output_coords, __call__, create_iterator). Follow all Earth2Studio conventions.",
-      "expected_output": "Creates a prognostic model wrapper that inherits from torch.nn.Module + PrognosticMixin, implements the full prognostic interface, and computes cosine zenith angle in the forward pass based on the current valid time.",
-      "assertions": [
-        "File has SPDX Apache-2.0 license header",
-        "Class inherits from torch.nn.Module and PrognosticMixin",
-        "input_coords returns OrderedDict with batch, lead_time, variable, lat, lon",
-        "output_coords validates input with handshake_dim/handshake_coords and increments lead_time by 6h",
-        "__call__ is decorated with @batch_func()",
-        "create_iterator yields initial condition first then loops with front_hook/rear_hook",
-        "Forward pass computes cosine zenith angle using lead_time to determine valid time",
-        "Generated code closely matches the structure in evals/targets/eval_1_target.py"
-      ],
-      "files": ["evals/targets/eval_1_target.py"]
-    },
-    {
-      "id": 2,
-      "prompt": "Create a prognostic model wrapper called `ConstantModel` in earth2studio/models/px/constant_model.py. This model takes variables ['t2m', 'u10m', 'v10m'] on a 0.25-degree global grid (721 lat x 1440 lon) with a 6-hour time step. The forward pass simply returns a constant value of 273.15 for all grid points and all variables at every time step (ignoring the input entirely). It does not need load_default_package or load_model. Follow all Earth2Studio conventions.",
-      "expected_output": "Creates a prognostic model wrapper that inherits from torch.nn.Module + PrognosticMixin, implements the full prognostic interface, and returns a constant tensor of 273.15 at each step.",
-      "assertions": [
-        "File has SPDX Apache-2.0 license header",
-        "Class inherits from torch.nn.Module and PrognosticMixin",
-        "input_coords returns OrderedDict with batch, lead_time, variable=['t2m','u10m','v10m'], lat (721), lon (1440)",
-        "output_coords validates input with handshake_dim/handshake_coords and increments lead_time by 6h",
-        "__call__ is decorated with @batch_func()",
-        "create_iterator yields initial condition first then loops with front_hook/rear_hook",
-        "Forward pass returns a constant tensor filled with 273.15",
-        "Generated code closely matches the structure in evals/targets/eval_2_target.py"
-      ],
-      "files": ["evals/targets/eval_2_target.py"]
-    }
-  ]
-}
+[
+  {
+    "id": "create-prognostic-eval-001-cosine-zenith",
+    "question": "Create a prognostic model wrapper called `CosineZenith` in earth2studio/models/px/cosine_zenith.py. This model takes a single variable 't2m' on a 1-degree global grid (181 lat x 360 lon) with a 6-hour time step. Instead of running a neural network, the forward pass computes the cosine of the solar zenith angle for each grid point at the current forecast valid time (using lead_time to determine the valid time). The output variable should be 'cos_zenith'. It does not need load_default_package or load_model — just the core prognostic interface (input_coords, output_coords, __call__, create_iterator). Follow all Earth2Studio conventions.",
+    "expected_skill": "earth2studio-create-prognostic",
+    "expected_script": "evals/targets/eval_1_target.py",
+    "ground_truth": "Creates a prognostic model wrapper that inherits from torch.nn.Module + PrognosticMixin, implements the full prognostic interface, and computes cosine zenith angle in the forward pass based on the current valid time.",
+    "expected_behavior": [
+      "File has SPDX Apache-2.0 license header",
+      "Class inherits from torch.nn.Module and PrognosticMixin",
+      "input_coords returns OrderedDict with batch, lead_time, variable, lat, lon",
+      "output_coords validates input with handshake_dim/handshake_coords and increments lead_time by 6h",
+      "__call__ is decorated with @batch_func()",
+      "create_iterator yields initial condition first then loops with front_hook/rear_hook",
+      "Forward pass computes cosine zenith angle using lead_time to determine valid time",
+      "Generated code closely matches the structure in evals/targets/eval_1_target.py"
+    ]
+  },
+  {
+    "id": "create-prognostic-eval-002-constant-model",
+    "question": "Create a prognostic model wrapper called `ConstantModel` in earth2studio/models/px/constant_model.py. This model takes variables ['t2m', 'u10m', 'v10m'] on a 0.25-degree global grid (721 lat x 1440 lon) with a 6-hour time step. The forward pass simply returns a constant value of 273.15 for all grid points and all variables at every time step (ignoring the input entirely). It does not need load_default_package or load_model. Follow all Earth2Studio conventions.",
+    "expected_skill": "earth2studio-create-prognostic",
+    "expected_script": "evals/targets/eval_2_target.py",
+    "ground_truth": "Creates a prognostic model wrapper that inherits from torch.nn.Module + PrognosticMixin, implements the full prognostic interface, and returns a constant tensor of 273.15 at each step.",
+    "expected_behavior": [
+      "File has SPDX Apache-2.0 license header",
+      "Class inherits from torch.nn.Module and PrognosticMixin",
+      "input_coords returns OrderedDict with batch, lead_time, variable=['t2m','u10m','v10m'], lat (721), lon (1440)",
+      "output_coords validates input with handshake_dim/handshake_coords and increments lead_time by 6h",
+      "__call__ is decorated with @batch_func()",
+      "create_iterator yields initial condition first then loops with front_hook/rear_hook",
+      "Forward pass returns a constant tensor filled with 273.15",
+      "Generated code closely matches the structure in evals/targets/eval_2_target.py"
+    ]
+  }
+]
