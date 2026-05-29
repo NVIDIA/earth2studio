@@ -22,6 +22,11 @@ import pandas as pd
 from .base import LexiconType
 
 
+_PRESSURE_REPORT_TYPES = frozenset([120, 180, 181, 187])
+_PRESSURE_CLASSES = frozenset(["ADPUPA", "ADPSFC", "SFCSHP"])
+_PRESSURE_MIN_HPA = 500.0
+
+
 class NNJAObsConvLexicon(metaclass=LexiconType):
     """NOAA-NASA Joint Archive (NNJA) lexicon for conventional (in-situ
     and GPS RO) observations.
@@ -113,6 +118,19 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
         elif val == "pres":
 
             def mod(df: pd.DataFrame) -> pd.DataFrame:
+                if {"type", "class", "level_cat"}.issubset(df.columns):
+                    obs = pd.to_numeric(df["observation"], errors="coerce")
+                    obs_type = pd.to_numeric(df["type"], errors="coerce")
+                    level_cat = pd.to_numeric(df["level_cat"], errors="coerce")
+                    quality = pd.to_numeric(df.get("quality"), errors="coerce")
+                    pressure_obs = (
+                        obs.ge(_PRESSURE_MIN_HPA)
+                        & obs_type.isin(_PRESSURE_REPORT_TYPES)
+                        & df["class"].isin(_PRESSURE_CLASSES)
+                        & level_cat.eq(0)
+                        & (quality.isna() | ((quality >= 0) & (quality <= 15)))
+                    )
+                    df = df.loc[pressure_obs].copy()
                 df["observation"] = np.float32(df["observation"] * 100.0)
                 return df
 

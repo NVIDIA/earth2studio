@@ -131,6 +131,7 @@ _NNJA_CONV_SCHEMA = pa.schema(
         E2STUDIO_SCHEMA.field("elev"),
         # NNJA stores PrepBUFR report-type code as uint16 (numeric)
         pa.field("type", pa.uint16(), nullable=True),
+        pa.field("level_cat", pa.uint16(), nullable=True),
         E2STUDIO_SCHEMA.field("class"),
         E2STUDIO_SCHEMA.field("lat"),
         E2STUDIO_SCHEMA.field("lon"),
@@ -657,17 +658,24 @@ def _extract_subset(
         "quality": None,
     }
 
-    # Walk observation levels: a new POB starts a level
+    # Walk observation levels: CAT/POB identify one level. CAT is needed to
+    # distinguish station pressure from pressure used only as a level coordinate.
     current: dict[int, Any] = {}
+    pending_cat = None
     in_obs = False
     for d, v in zip(descs, vals):
         did = d.id
-        if did == OBS_POB:
+        if did == OBS_CAT:
+            pending_cat = v
+        elif did == OBS_POB:
             if in_obs and current:
                 _emit_level_rows(
                     rows, current, base_row, needed_ids, need_wind, var_keys
                 )
             current = {OBS_POB: v}
+            if pending_cat is not None:
+                current[OBS_CAT] = pending_cat
+                pending_cat = None
             in_obs = True
         elif in_obs and did in OBSERVATION_DESCR_IDS:
             if did not in current:
@@ -846,6 +854,8 @@ def _emit_level_rows(
 
     common = base_row.copy()
     common["pres"] = pres_val
+    level_cat = level.get(OBS_CAT)
+    common["level_cat"] = np.uint16(int(level_cat)) if level_cat is not None else None
 
     # Non-wind variables
     for var_name, desc_id in needed_ids.items():
