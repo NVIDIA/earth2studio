@@ -84,7 +84,8 @@ repos:
                 docs |
                 recipes/.*/test/.* |
                 earth2studio/models/nn |
-                \.claude)
+                \.claude |
+                skills)
         additional_dependencies: ['types-requests']
 
 -   repo: https://github.com/astral-sh/uv-pre-commit

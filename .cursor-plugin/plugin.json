@@ -1,0 +1,24 @@
+{
+  "name": "nvidia-earth2studio-skills",
+  "description": "Agent skills for NVIDIA Earth2Studio: weather/climate forecasting, data sources, prognostic model wrappers, installation, and release management. Use when building inference pipelines or integrating weather data with Earth2Studio.",
+  "version": "0.16.0",
+  "author": {
+    "name": "NVIDIA"
+  },
+  "homepage": "https://github.com/NVIDIA/earth2studio",
+  "repository": "https://github.com/NVIDIA/earth2studio",
+  "license": "Apache-2.0",
+  "skills": "skills",
+  "rules": ".agents/rules",
+  "keywords": [
+    "nvidia",
+    "earth2studio",
+    "weather",
+    "climate",
+    "forecast",
+    "inference",
+    "data-source",
+    "prognostic",
+    "python"
+  ]
+}
