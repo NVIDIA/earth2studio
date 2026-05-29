@@ -512,7 +512,7 @@ prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
 ```bash
 pip install hatchling
 pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
-pip install --no-build-isolation "cbottle @ git+https://github.com/NVlabs/cBottle.git@8b8b358466e6b2f50d1779009790002ceb596e72"
+pip install --no-build-isolation "cbottle @ git+https://github.com/NickGeneva/cBottle.git@e48c7eb518d49d4a92b2a1397d683e765c02c354"
 pip install earth2studio[cbottle]
 ```
 
@@ -621,6 +621,28 @@ pip install earth2studio[derived]
 
 ```bash
 uv add earth2studio --extra derived
+```
+
+:::
+::::
+:::::
+:::::{tab-item} ORBIT-2
+Notes: The ORBIT-2 diagnostic model requires the climate-learn package. This needs to be
+installed manually for pip users.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install "climate-learn @ git+https://github.com/NickGeneva/ORBIT-2@5b2d80a8ba4dc95029211ef2b8530d3663f65d39"
+pip install earth2studio[orbit]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra orbit
 ```
 
 :::
