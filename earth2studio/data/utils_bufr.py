@@ -113,6 +113,7 @@ MNEMONIC_TO_DESCR: dict[str, int] = {
 # Ref: NCEP PrepBUFR documentation and embedded DX Table A.
 PREPBUFR_OBS_TYPES: dict[int, str] = {
     102: "ADPUPA",  # Upper air: radiosondes, pilot balloons, dropsondes
+    103: "AIRCAR",  # Aircraft: MDCRS ACARS
     104: "AIRCFT",  # Aircraft: AIREP, PIREP, AMDAR, TAMDAR
     105: "SATWND",  # Satellite-derived winds
     107: "VADWND",  # VAD (NEXRAD) winds
