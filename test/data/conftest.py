@@ -22,13 +22,16 @@ threads block on queues and event loops, preventing the test process from
 exiting cleanly within CI time limits.
 
 Strategy:
-- Per-test: reset fsspec's global IO loop (daemon thread, recreated lazily).
-- Session-end: daemonize any remaining non-daemon threads that are still alive
-  so Python's interpreter shutdown doesn't block waiting for them.
+- Session-end: shut down all ThreadPoolExecutor instances and force process
+  exit if non-daemon threads remain stuck.
 
-We intentionally do NOT shut down ThreadPoolExecutor instances during individual
-test teardown because libraries like dask, zarr, and asyncio lazily create
-module-level singleton executors that are reused across tests.
+We intentionally do NOT shut down ThreadPoolExecutor instances or the fsspec
+IO loop during individual test teardown because:
+- Libraries like dask, zarr, and asyncio lazily create module-level singleton
+  executors that are reused across tests.
+- fsspec-based filesystem instances (s3fs, etc.) cache a reference to the
+  global IO loop at construction time; closing the loop mid-session breaks
+  any module-level filesystem objects.
 """
 
 from __future__ import annotations
@@ -36,54 +39,6 @@ from __future__ import annotations
 import threading
 
 import pytest
-
-
-@pytest.fixture(autouse=True)
-def _reset_fsspec_loop():
-    """Reset fsspec's global IO loop after each test.
-
-    Data source tests use fsspec for HTTP access which creates a global
-    ``fsspecIO`` daemon thread running an asyncio event loop.  Resetting it
-    after each test ensures a clean state for the next test and prevents
-    accumulation of stale connections / callbacks.
-
-    The fsspecIO thread is a daemon thread, so stopping it does not affect
-    process exit.  The loop is recreated lazily by the next fsspec call.
-    """
-    yield
-
-    try:
-        import fsspec.asyn
-    except ImportError:
-        return
-
-    loop = fsspec.asyn.loop[0]
-    iothread = fsspec.asyn.iothread[0]
-
-    if loop is None:
-        return
-
-    # Stop the event loop (must be scheduled from within its own thread)
-    try:
-        loop.call_soon_threadsafe(loop.stop)
-    except RuntimeError:
-        # Loop already closed or not running
-        pass
-
-    # Wait for the IO thread to finish
-    if iothread is not None and iothread.is_alive():
-        iothread.join(timeout=2.0)
-
-    # Close the loop to release resources
-    if not loop.is_closed():
-        try:
-            loop.close()
-        except RuntimeError:
-            pass
-
-    # Reset global state so the next test gets a fresh loop
-    fsspec.asyn.loop[0] = None
-    fsspec.asyn.iothread[0] = None
 
 
 @pytest.fixture(autouse=True, scope="session")
