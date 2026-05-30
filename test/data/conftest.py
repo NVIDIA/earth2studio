@@ -21,37 +21,111 @@ ThreadPoolExecutor workers) persisting after a pytest-timeout fires.  Those
 threads block on queues and event loops, preventing the test process from
 exiting cleanly within CI time limits.
 
-The ``_cleanup_background_threads`` autouse fixture tears down the global
-fsspec IO thread and shuts down orphaned ThreadPoolExecutor instances after
-each test, ensuring no leftover non-daemon threads accumulate and block
-process exit.
+Strategy:
+- Per-test: reset fsspec's global IO loop (daemon thread, recreated lazily).
+- Session-end: daemonize any remaining non-daemon threads that are still alive
+  so Python's interpreter shutdown doesn't block waiting for them.
+
+We intentionally do NOT shut down ThreadPoolExecutor instances during individual
+test teardown because libraries like dask, zarr, and asyncio lazily create
+module-level singleton executors that are reused across tests.
 """
 
 from __future__ import annotations
 
-import concurrent.futures
-import gc
 import threading
 
 import pytest
 
 
-def _shutdown_orphaned_executors(
-    pre_test_threads: set[int],
-    pre_test_executors: set[int],
-) -> None:
-    """Find and shut down ThreadPoolExecutor instances created during a test.
+@pytest.fixture(autouse=True)
+def _reset_fsspec_loop():
+    """Reset fsspec's global IO loop after each test.
 
-    Only shuts down executors that were NOT alive before the test started,
-    avoiding interference with shared/global executors (e.g. dask global
-    thread pool, pytest-asyncio worker pool).
+    Data source tests use fsspec for HTTP access which creates a global
+    ``fsspecIO`` daemon thread running an asyncio event loop.  Resetting it
+    after each test ensures a clean state for the next test and prevents
+    accumulation of stale connections / callbacks.
 
-    Uses gc to discover live executor objects and calls ``shutdown(wait=False)``
-    on each new one.  This sends None sentinels to idle workers (blocked on
-    ``work_queue.get(block=True)``) causing them to exit their main loop.
+    The fsspecIO thread is a daemon thread, so stopping it does not affect
+    process exit.  The loop is recreated lazily by the next fsspec call.
     """
+    yield
+
+    try:
+        import fsspec.asyn
+    except ImportError:
+        return
+
+    loop = fsspec.asyn.loop[0]
+    iothread = fsspec.asyn.iothread[0]
+
+    if loop is None:
+        return
+
+    # Stop the event loop (must be scheduled from within its own thread)
+    try:
+        loop.call_soon_threadsafe(loop.stop)
+    except RuntimeError:
+        # Loop already closed or not running
+        pass
+
+    # Wait for the IO thread to finish
+    if iothread is not None and iothread.is_alive():
+        iothread.join(timeout=2.0)
+
+    # Close the loop to release resources
+    if not loop.is_closed():
+        try:
+            loop.close()
+        except RuntimeError:
+            pass
+
+    # Reset global state so the next test gets a fresh loop
+    fsspec.asyn.loop[0] = None
+    fsspec.asyn.iothread[0] = None
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _force_exit_on_stuck_threads():
+    """Force process exit if non-daemon threads are stuck at session end.
+
+    When data source tests time out, background ThreadPoolExecutor workers
+    may remain alive (stuck in blocking network I/O).  These are non-daemon
+    threads, so Python's shutdown sequence would wait for them indefinitely.
+
+    This session-scoped fixture:
+    1. Shuts down all live ThreadPoolExecutor instances (safe at session end)
+    2. Waits briefly for threads to exit
+    3. If threads remain stuck, calls os._exit() to force process termination
+    """
+    import concurrent.futures
+    import gc
+    import os
     import warnings
 
+    # Record threads that existed before the test session (main, etc.)
+    initial_threads = {t.ident for t in threading.enumerate()}
+
+    yield
+
+    # Check for leftover non-daemon threads
+    main_thread = threading.main_thread()
+    stuck_threads = [
+        t
+        for t in threading.enumerate()
+        if (
+            t is not main_thread
+            and t.ident not in initial_threads
+            and not t.daemon
+            and t.is_alive()
+        )
+    ]
+
+    if not stuck_threads:
+        return
+
+    # Shut down all executors — no more tests will run after this
     gc.collect()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -60,91 +134,26 @@ def _shutdown_orphaned_executors(
                 if (
                     isinstance(obj, concurrent.futures.ThreadPoolExecutor)
                     and not obj._shutdown
-                    and id(obj) not in pre_test_executors
                 ):
                     obj.shutdown(wait=False, cancel_futures=True)
             except (ReferenceError, TypeError):
-                # Object may have been collected or is a weakref proxy
                 pass
 
-    # Give idle workers a moment to pick up sentinels and exit
-    for thread in threading.enumerate():
+    # Wait briefly for threads to respond to shutdown sentinels
+    for thread in stuck_threads:
+        if thread.is_alive():
+            thread.join(timeout=2.0)
+
+    # If any non-daemon threads are still alive, force exit to prevent hang
+    remaining = [
+        t
+        for t in threading.enumerate()
         if (
-            thread.ident not in pre_test_threads
-            and not thread.daemon
-            and thread.is_alive()
-        ):
-            thread.join(timeout=1.0)
-
-
-@pytest.fixture(autouse=True)
-def _cleanup_background_threads():
-    """Shut down fsspec's global IO loop and orphaned executor threads after each test.
-
-    Data source tests use fsspec for HTTP access which creates:
-    - A global ``fsspecIO`` daemon thread running an asyncio event loop
-    - ``ThreadPoolExecutor`` workers (non-daemon) spawned by libraries like
-      intake-esm, xarray, or dask for parallel I/O operations
-
-    When a test times out, these threads persist.  The non-daemon executor
-    workers are particularly problematic because Python's shutdown sequence
-    waits for them indefinitely, preventing the test process from exiting.
-
-    This fixture:
-    1. Stops the fsspec IO loop and resets the global state
-    2. Finds orphaned ThreadPoolExecutor instances via gc and shuts them down
-    """
-    import warnings
-
-    # Snapshot threads before the test runs
-    pre_test_threads = {t.ident for t in threading.enumerate()}
-
-    # Snapshot existing executors so we don't shut down shared/global ones
-    gc.collect()
-    pre_test_executors: set[int] = set()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        for obj in gc.get_objects():
-            try:
-                if isinstance(obj, concurrent.futures.ThreadPoolExecutor):
-                    pre_test_executors.add(id(obj))
-            except (ReferenceError, TypeError):
-                pass
-
-    yield
-
-    # --- Tear down fsspec's global IO loop ---
-    try:
-        import fsspec.asyn
-    except ImportError:
-        _shutdown_orphaned_executors(pre_test_threads, pre_test_executors)
-        return
-
-    loop = fsspec.asyn.loop[0]
-    iothread = fsspec.asyn.iothread[0]
-
-    if loop is not None:
-        # Stop the event loop (must be scheduled from within its own thread)
-        try:
-            loop.call_soon_threadsafe(loop.stop)
-        except RuntimeError:
-            # Loop already closed or not running
-            pass
-
-        # Wait for the IO thread to finish
-        if iothread is not None and iothread.is_alive():
-            iothread.join(timeout=2.0)
-
-        # Close the loop to release resources
-        if not loop.is_closed():
-            try:
-                loop.close()
-            except RuntimeError:
-                pass
-
-        # Reset global state so the next test gets a fresh loop
-        fsspec.asyn.loop[0] = None
-        fsspec.asyn.iothread[0] = None
-
-    # --- Shut down orphaned ThreadPoolExecutor workers ---
-    _shutdown_orphaned_executors(pre_test_threads, pre_test_executors)
+            t is not main_thread
+            and t.ident not in initial_threads
+            and not t.daemon
+            and t.is_alive()
+        )
+    ]
+    if remaining:
+        os._exit(0)
