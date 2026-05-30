@@ -36,11 +36,18 @@ import threading
 import pytest
 
 
-def _shutdown_orphaned_executors(pre_test_threads: set[int]) -> None:
-    """Find and shut down any ThreadPoolExecutor instances created during a test.
+def _shutdown_orphaned_executors(
+    pre_test_threads: set[int],
+    pre_test_executors: set[int],
+) -> None:
+    """Find and shut down ThreadPoolExecutor instances created during a test.
+
+    Only shuts down executors that were NOT alive before the test started,
+    avoiding interference with shared/global executors (e.g. dask global
+    thread pool, pytest-asyncio worker pool).
 
     Uses gc to discover live executor objects and calls ``shutdown(wait=False)``
-    on each.  This sends None sentinels to idle workers (blocked on
+    on each new one.  This sends None sentinels to idle workers (blocked on
     ``work_queue.get(block=True)``) causing them to exit their main loop.
     """
     import warnings
@@ -53,6 +60,7 @@ def _shutdown_orphaned_executors(pre_test_threads: set[int]) -> None:
                 if (
                     isinstance(obj, concurrent.futures.ThreadPoolExecutor)
                     and not obj._shutdown
+                    and id(obj) not in pre_test_executors
                 ):
                     obj.shutdown(wait=False, cancel_futures=True)
             except (ReferenceError, TypeError):
@@ -86,8 +94,22 @@ def _cleanup_background_threads():
     1. Stops the fsspec IO loop and resets the global state
     2. Finds orphaned ThreadPoolExecutor instances via gc and shuts them down
     """
+    import warnings
+
     # Snapshot threads before the test runs
     pre_test_threads = {t.ident for t in threading.enumerate()}
+
+    # Snapshot existing executors so we don't shut down shared/global ones
+    gc.collect()
+    pre_test_executors: set[int] = set()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for obj in gc.get_objects():
+            try:
+                if isinstance(obj, concurrent.futures.ThreadPoolExecutor):
+                    pre_test_executors.add(id(obj))
+            except (ReferenceError, TypeError):
+                pass
 
     yield
 
@@ -95,7 +117,7 @@ def _cleanup_background_threads():
     try:
         import fsspec.asyn
     except ImportError:
-        _shutdown_orphaned_executors(pre_test_threads)
+        _shutdown_orphaned_executors(pre_test_threads, pre_test_executors)
         return
 
     loop = fsspec.asyn.loop[0]
@@ -125,4 +147,4 @@ def _cleanup_background_threads():
         fsspec.asyn.iothread[0] = None
 
     # --- Shut down orphaned ThreadPoolExecutor workers ---
-    _shutdown_orphaned_executors(pre_test_threads)
+    _shutdown_orphaned_executors(pre_test_threads, pre_test_executors)
