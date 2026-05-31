@@ -59,6 +59,11 @@ HDR_ELV = 10199  # Station elevation (m)
 HDR_TYP = 55007  # Report type code
 HDR_T29 = 55008  # Data dump report type code
 
+# Profile-level drift descriptors (per-level, used by GSI diagnostics).
+OBS_XDR = 6241  # Profile level longitude (degrees east)
+OBS_YDR = 5241  # Profile level latitude (degrees north)
+OBS_HRDR = 4218  # Profile level time minus cycle time (hours)
+
 # Observation field descriptors
 OBS_CAT = 8193  # Observation category code
 OBS_POB = 7245  # Pressure observation (MB)
@@ -87,6 +92,9 @@ HEADER_DESCR_IDS: set[int] = {
 
 # Set of core observation-level descriptor IDs (obs + quality marks)
 OBSERVATION_DESCR_IDS: set[int] = {
+    OBS_XDR,
+    OBS_YDR,
+    OBS_HRDR,
     OBS_POB,
     OBS_PQM,
     OBS_ZOB,
