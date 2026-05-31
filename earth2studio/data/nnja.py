@@ -726,13 +726,13 @@ def _extract_gpsro_subset(
     wanted_descrs: dict[int, str],
     dt_min: datetime,
     dt_max: datetime,
-) -> list[dict[str, Any]]:  # pragma: no cover - GPS RO not yet in lexicon
+) -> list[dict[str, Any]]:
     """Extract observation rows from one GPS RO occultation subset.
 
     ``wanted_descrs`` maps BUFR descriptor id -> Earth2Studio variable
-    name (e.g. ``{15037: "gps", 12001: "gps_t", 13001: "gps_q"}``). For
-    each non-missing value of a wanted descriptor encountered in the
-    subset's flat (descriptor, value) stream we emit one row.
+    name (e.g. ``{15037: "gps"}``). For each non-missing value of a wanted
+    descriptor encountered in the subset's flat (descriptor, value) stream
+    we emit one row.
 
     The NCEP gpsro encoding lays out the per-level data sequentially as
     three sub-profiles in this order:
@@ -1006,7 +1006,7 @@ def _decode_gpsro_message_worker(
     wanted_descrs: dict[int, str],
     dt_min: datetime,
     dt_max: datetime,
-) -> list[dict[str, Any]]:  # pragma: no cover - GPS RO not yet in lexicon
+) -> list[dict[str, Any]]:  # pragma: no cover
     """Decode a single GPS RO BUFR message in a worker process.
 
     Uses the decoder created by :func:`_init_decode_worker`.
@@ -1175,7 +1175,7 @@ class NNJAObsConv(_NNJAObsBase):
             route, _, rest = source_key.partition("::")
             if route == "prepbufr":
                 prepbufr_plan[v] = (rest, modifier)
-            elif route == "gpsro":  # pragma: no cover - GPS RO not yet in lexicon
+            elif route == "gpsro":
                 try:
                     desc_id = int(rest)
                 except ValueError as exc:
@@ -1206,7 +1206,7 @@ class NNJAObsConv(_NNJAObsBase):
                         var_plan=prepbufr_plan,
                     )
                 )
-            if gpsro_plan:  # pragma: no cover - GPS RO not yet in lexicon
+            if gpsro_plan:
                 tasks.append(
                     _NNJAGpsRoTask(
                         s3_uri=self._build_gpsro_uri(cycle_dt),
@@ -1418,9 +1418,7 @@ class NNJAObsConv(_NNJAObsBase):
             df.loc[:, "type"] = df["type"].replace(_ACFT_PROFILE_UV_TYPE_MAP)
         return df
 
-    def _decode_gpsro_file(  # pragma: no cover - GPS RO not yet in lexicon
-        self, local_path: str, task: _NNJAGpsRoTask
-    ) -> pd.DataFrame:
+    def _decode_gpsro_file(self, local_path: str, task: _NNJAGpsRoTask) -> pd.DataFrame:
         """Decode a single NNJA gps/gpsro cycle BUFR file into a DataFrame.
 
         Messages are decoded in parallel using a process pool when
