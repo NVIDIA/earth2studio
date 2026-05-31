@@ -24,10 +24,12 @@ from .base import LexiconType
 _PRESSURE_REPORT_TYPES = frozenset([120, 180, 181, 187])
 _PRESSURE_CLASSES = frozenset(["ADPUPA", "ADPSFC", "SFCSHP"])
 _PRESSURE_MIN_HPA = 500.0
-# Match GSI's PrepBUFR pressure-observation path rather than treating every POB
-# as a pressure observation. In GSI, read_prepbufr.F90 handles obstype="ps" by
-# selecting convinfo pressure report types, requiring CAT == 0, and rejecting
-# POB below 500 hPa before setupps.f90 writes conv_ps diagnostics.
+# ``POB`` appears on ordinary PrepBUFR levels as the vertical pressure
+# coordinate for t/q/u/v. The Earth2Studio ``pres`` variable is narrower: it
+# represents the GSI-style pressure-observation / ``ps`` diagnostic population,
+# not every level coordinate. Match that read path by selecting pressure-capable
+# report types, requiring CAT == 0, and rejecting POB below 500 hPa before unit
+# conversion to Pa.
 
 
 class NNJAObsConvLexicon(metaclass=LexiconType):
@@ -56,7 +58,9 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
 
     - ``t``: TOB (DEG C) -> Kelvin (+273.15)
     - ``q``: QOB (mg/kg) -> kg kg-1 (/1e6)
-    - ``pres``: POB (hPa / MB) -> Pa (*100)
+    - ``pres``: pressure-observation subset of POB (hPa / MB) -> Pa (*100).
+      Not every POB coordinate is emitted as ``pres``; ordinary POB level
+      coordinates remain in the schema-level ``pres`` column for t/q/u/v rows.
     - ``u``, ``v``: UOB/VOB already in m s-1 (no conversion)
     - ``gps``, ``gps_t``, ``gps_q``: already in SI (rad, K, kg/kg)
 
