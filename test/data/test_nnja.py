@@ -71,6 +71,7 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
             "station": ["72469", "72469"],
             "station_elev": [1000.0, 1000.0],
             "quality": [2, 2],
+            "pressure_quality": [2, 2],
             "observation": [273.15, 280.0],
             "variable": ["t", "t"],
         }
@@ -220,6 +221,7 @@ def test_nnja_obs_conv_mock_fetch():
             "station": ["72469", "72469"],
             "station_elev": [1000.0, 1000.0],
             "quality": [2, 2],
+            "pressure_quality": [2, 2],
             "observation": [273.15, 280.0],
             "variable": ["t", "t"],
         }
@@ -611,6 +613,51 @@ def test_nnja_extract_gpsro_subset_bending_angle_rows_and_metadata():
     assert row["variable"] == "gps"
 
 
+def test_nnja_extract_subset_prefers_profile_drift_metadata():
+    subset_stream = [
+        (nnja.HDR_SID, b"72469   "),
+        (nnja.HDR_XOB, 250.0),
+        (nnja.HDR_YOB, 40.0),
+        (nnja.HDR_DHR, 0.25),
+        (nnja.HDR_ELV, 1000.0),
+        (nnja.HDR_TYP, 120),
+        (nnja.OBS_CAT, 0),
+        (nnja.OBS_POB, 850.0),
+        (nnja.OBS_XDR, 251.25),
+        (nnja.OBS_YDR, 41.5),
+        (nnja.OBS_HRDR, 0.50001),
+        (nnja.OBS_ZOB, 1500.0),
+        (nnja.OBS_PQM, 3),
+        (nnja.MNEMONIC_TO_DESCR["TOB"], 10.0),
+        (nnja.OBS_QUALITY_MAP[nnja.MNEMONIC_TO_DESCR["TOB"]], 2),
+    ]
+    descs = [SimpleNamespace(id=descriptor_id) for descriptor_id, _ in subset_stream]
+    values = [value for _, value in subset_stream]
+
+    rows = nnja._extract_subset(
+        descs,
+        values,
+        datetime(2024, 1, 1, 0),
+        "ADPUPA",
+        [("t", "TOB")],
+        datetime(2024, 1, 1, 0),
+        datetime(2024, 1, 1, 1),
+    )
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["time"] == datetime(2024, 1, 1, 0, 30, 0, 36000)
+    assert row["lat"] == pytest.approx(np.float32(41.5))
+    assert row["lon"] == pytest.approx(np.float32(251.25))
+    assert row["elev"] == pytest.approx(np.float32(1500.0))
+    assert row["pres"] == pytest.approx(np.float32(850.0))
+    assert row["level_cat"] == np.uint16(0)
+    assert row["pressure_quality"] == np.uint16(3)
+    assert row["quality"] == np.uint16(2)
+    assert row["observation"] == pytest.approx(np.float32(10.0))
+    assert row["variable"] == "t"
+
+
 def test_nnja_obs_conv_finalize_decoded_df():
     """Test _finalize_decoded_df with various inputs."""
     ds = NNJAObsConv(cache=False, verbose=False)
@@ -810,3 +857,5 @@ def test_nnja_obs_conv_finalize_adds_missing_columns():
     assert pd.isna(result["elev"].iloc[0])
     assert result["station"].iloc[0] is None
     assert pd.isna(result["station_elev"].iloc[0])
+    assert result["level_cat"].dtype == pd.ArrowDtype(pa.uint16())
+    assert result["pressure_quality"].dtype == pd.ArrowDtype(pa.uint16())
