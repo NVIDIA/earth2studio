@@ -272,3 +272,40 @@ def test_mismatched_batched_dims_raise(PhooModel, device):
     model = PhooModel().to(device)
     with pytest.raises(ValueError):
         _ = model.add_pairs(x1, coords1, x2, coords2)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_invalid_output_coords_raises(device):
+    # A model whose input_coords start with "batch" but whose output_coords do
+    # not must be rejected early with a clear ValueError, rather than slipping
+    # through the compatibility guard and crashing later in _decompress_batch
+    # with KeyError("batch").
+    class BadOutputModel(torch.nn.Module):
+        def input_coords(self) -> OrderedDict:
+            return OrderedDict(
+                [
+                    ("batch", np.empty(1)),
+                    ("variable", np.array(["a"])),
+                    ("x", np.ones(1)),
+                ]
+            )
+
+        def output_coords(self, input_coords: OrderedDict) -> OrderedDict:
+            # Intentionally missing the leading "batch" dimension
+            return OrderedDict([("variable", np.array(["a"])), ("x", np.ones(1))])
+
+        @batch_func()
+        def __call__(self, x: torch.Tensor, coords: OrderedDict) -> tuple:
+            return x[:, :1], self.output_coords(coords)
+
+    coords = OrderedDict(
+        [
+            ("batch", np.arange(2)),
+            ("variable", np.array(["a"])),
+            ("x", np.ones(1)),
+        ]
+    )
+    x = torch.ones(2, 1, 1, device=device)
+    model = BadOutputModel().to(device)
+    with pytest.raises(ValueError):
+        _ = model(x, coords)
