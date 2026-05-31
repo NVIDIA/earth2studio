@@ -84,9 +84,8 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
         "q": "prepbufr::QOB",
         "t": "prepbufr::TOB",
         "pres": "prepbufr::POB",
-        # GPS Radio Occultation, from gps/gpsro/ archive
-        # Removing these for now, consistency issues with UFS
-        # "gps": "gpsro::15037",
+        # GPS Radio Occultation bending angle, from gps/gpsro/ archive.
+        "gps": "gpsro::15037",
         # "gps_t": "gpsro::12001",
         # "gps_q": "gpsro::13001",
     }

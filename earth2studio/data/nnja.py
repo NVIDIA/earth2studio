@@ -95,10 +95,23 @@ NNJA_PREFIX = "observations/reanalysis"
 
 
 # ── GPS RO BUFR descriptor IDs (NCEP gpsro encoding) ─────────────────
+#
+# GPSRO is not a PrepBUFR conventional report, so the usual conventional
+# semantics do not apply:
+#
+# - There is no PrepBUFR TYP report type. GSI/UFS diagnostics use the GPSRO
+#   receiver satellite identifier (SAID) in the observation-type slot, so the
+#   decoder stores SAID in the common ``type`` column for GPSRO rows.
+# - There is no conventional 0-15 PrepBUFR quality mark (TQM/QQM/WQM/PQM).
+#   GPSRO carries QFRO, a WMO/NCEP radio-occultation flag table. The decoder
+#   stores QFRO in the common ``quality`` column only so downstream GSI-like
+#   filters can test GPSRO flag bits; it must not be interpreted as ordinary
+#   conventional QM.
 # Header descriptors (per-occultation, scalar)
-_GPSRO_SAID = 1007  # Satellite identifier (receiver)
+_GPSRO_SAID = 1007  # Satellite identifier (receiver); not PrepBUFR report type.
 _GPSRO_PTID = 1050  # Platform transmitter ID (GPS satellite)
-_GPSRO_QFRO = 33039  # Quality flags for radio occultation
+_GPSRO_QFRO = 33039  # GPSRO flag table; not PrepBUFR 0-15 quality mark.
+_GPSRO_ELRC = 10035  # Earth local radius of curvature (m)
 _GPSRO_LAT = 5001  # Latitude (deg)
 _GPSRO_LON = 6001  # Longitude (deg)
 _GPSRO_YEAR = 4001
@@ -737,6 +750,7 @@ def _extract_gpsro_subset(
     sat_id: Any = None
     tx_id: Any = None
     qf: Any = None
+    roc: float | None = None
     lat: float | None = None
     lon: float | None = None
     yyyy = mm = dd = hh = mi = None
@@ -749,6 +763,11 @@ def _extract_gpsro_subset(
             tx_id = v
         elif did == _GPSRO_QFRO:
             qf = v
+        elif did == _GPSRO_ELRC and v is not None:
+            try:
+                roc = float(v)
+            except (TypeError, ValueError):
+                roc = None
         elif did == _GPSRO_LAT and v is not None:
             lat = float(v)
         elif did == _GPSRO_LON and v is not None:
@@ -835,7 +854,10 @@ def _extract_gpsro_subset(
         var_name = wanted_descrs[did]
         if did == _GPSRO_BNDA:
             pres_val = None
-            elev_val = np.float32(cur_impp) if cur_impp is not None else None
+            # GSI carries the raw impact parameter and local radius of curvature
+            # separately, then uses impact - roc as impact height downstream.
+            impact_height = cur_impp - roc if cur_impp is not None and roc is not None else None
+            elev_val = np.float32(impact_height) if impact_height is not None else None
         else:
             pres_val = np.float32(cur_pres) if cur_pres is not None else None
             elev_val = np.float32(cur_height) if cur_height is not None else None
@@ -847,10 +869,15 @@ def _extract_gpsro_subset(
                 "lon": np.float32(lon_360),
                 "pres": pres_val,
                 "elev": elev_val,
-                "type": np.uint16(int(qf)) if qf is not None else None,
+                # For GPSRO, ``type`` intentionally follows GSI/UFS diagnostics:
+                # it is SAID (receiver satellite id), not a PrepBUFR report type.
+                "type": np.uint16(int(sat_id)) if sat_id is not None else None,
                 "class": "GPSRO",
                 "station": station_id,
                 "station_elev": None,
+                # QFRO is a GPSRO flag table. It is stored in ``quality`` for a
+                # uniform schema, but it is not the conventional 0-15 QM scale.
+                "quality": np.uint16(int(qf)) if qf is not None else None,
                 "observation": np.float32(obs_val),
                 "variable": var_name,
             }
