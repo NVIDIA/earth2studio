@@ -196,6 +196,7 @@ class PhooAnalysis:
             await gather_with_concurrency(
                 coros,
                 max_workers=self._async_workers,
+                task_timeout=60.0,
                 desc="Fetching Phoo data",
                 verbose=(not self._verbose),
             )
