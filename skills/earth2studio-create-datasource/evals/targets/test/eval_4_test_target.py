@@ -87,7 +87,7 @@ def test_phoo_call_mock(tmp_path):
     fake_nc_path = tmp_path / "fake.nc"
     fake_ds.to_netcdf(fake_nc_path)
 
-    async def _fake_fetch_remote_file(self, path):
+    async def _fake_fetch_remote_file(*args, **kwargs):
         return str(fake_nc_path)
 
     ds = PhooAnalysis(cache=True, verbose=False)

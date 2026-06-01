@@ -288,7 +288,7 @@ class SourceName:
                 max_workers=self._async_workers,
                 task_timeout=60.0,
                 desc="Fetching SourceName data",  # FILL: source name
-                disable=(not self._verbose),
+                verbose=(not self._verbose),
             )
 
         return xr_array

@@ -268,11 +268,10 @@ class PhooAnalysis:
         """
         logger.debug(f"Fetching Phoo file: {s3_uri}")
         cache_path = await self._fetch_remote_file(s3_uri)
-        ds = xr.open_dataset(cache_path)
-        # Assume single variable in file, extract first data variable
-        var_name = list(ds.data_vars)[0]
-        values = modifier(ds[var_name].values)
-        ds.close()
+        with xr.open_dataset(cache_path) as ds:
+            # Assume single variable in file, extract first data variable
+            var_name = list(ds.data_vars)[0]
+            values = modifier(ds[var_name].values)
         return values
 
     @classmethod
