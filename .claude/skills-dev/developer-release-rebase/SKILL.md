@@ -1,6 +1,22 @@
 ---
-name: release-rebase
-description: Prepare a new minor alpha release of Earth2Studio by rebasing the release candidate branch onto main, bumping the version, updating the changelog, updating the README latest-news highlights, stripping example version tags, and pushing for PR. Use this skill whenever the user mentions releasing, cutting a release, preparing a release branch, rebasing a release, bumping the version for a new development cycle, or running the release process. Also trigger when the user references "release-rebase" or asks about the release workflow.
+name: developer-release-rebase
+version: 0.16.0
+license: Apache-2.0
+metadata:
+  author: NVIDIA Earth-2 Team
+  tags:
+    - earth2studio
+    - earth2
+    - python
+    - release
+    - versioning
+    - changelog
+description: >
+  Prepare a new minor alpha release of Earth2Studio by rebasing the release
+  candidate branch onto main, bumping the version, updating the changelog,
+  updating the README latest-news highlights, stripping example version tags, and
+  pushing for PR. Use when releasing, cutting a release, preparing a release
+  branch, rebasing a release, or bumping the version for a new development cycle.
 ---
 
 # Release Rebase — Prepare New Minor Alpha Release
@@ -37,7 +53,7 @@ proceeding.
 Confirm:
 
 - `origin` points to the user's **fork** of Earth2Studio.
-- `upstream` points to `git@github.com:NVIDIA/earth2studio.git`.
+- `upstream` points to `https://github.com/NVIDIA/earth2studio.git` (or the SSH equivalent).
 
 If either is wrong, stop and ask the user to fix it.
 
@@ -150,7 +166,34 @@ look correct.
 
 ---
 
-## Step 6 — Update README Latest News
+## Step 6 — Update Install Guide Version Tag
+
+Update `docs/userguide/about/install.md` to reference the new released version tag.
+
+1. Replace all occurrences of the **previous** release tag (e.g., `@0.14.0`) with
+   the **new** release tag (e.g., `@0.15.0`) in the install guide.
+2. Update the Docker container tag (e.g., `nvcr.io/nvidia/pytorch:XX.YY-py3`) to
+   the latest recommended container version if it has changed.
+3. Show a `git diff docs/userguide/about/install.md` summary so the user can
+   verify the changes look correct.
+
+---
+
+## Step 7 — Update Documentation Version Switcher
+
+Update `docs/_static/switcher.json` to include the new released version.
+
+1. Read `docs/_static/switcher.json`.
+2. Add a new entry for the released version (e.g., `X.Y.0`) immediately after
+   the `main` entry (which should remain at the top with `"preferred": true`).
+3. The new version entry should **not** have `"preferred": true` — only `main`
+   should be preferred.
+
+Show the diff to the user for review.
+
+---
+
+## Step 8 — Update README Latest News
 
 Update the "Latest News" section in `README.md` with highlights from the
 **released** version's CHANGELOG entry (the section just below the new blank
@@ -176,7 +219,20 @@ proceeding.
 
 ---
 
-## Step 7 — Commit and Push
+## Step 9 — Update Skill Versions
+
+Update the `version` field in every skill's `SKILL.md` frontmatter to match the
+new released version **without** the alpha/beta/rc suffix.
+
+1. Glob for all `skills/*/SKILL.md` files (covers `skills/`,
+   `.opencode/skills/`, and `.claude/skills/` — they are hard-linked).
+2. For each file, replace the current `version:` value with `X.(Y+1).0`
+   (the clean release version, e.g. `0.16.0` — no `a0`, `b1`, or `rcN`).
+3. Show a summary of the changes to the user.
+
+---
+
+## Step 10 — Commit and Push
 
 Stage only the expected files and commit:
 
@@ -185,6 +241,9 @@ git add CHANGELOG.md
 git add earth2studio/__init__.py
 git add examples/
 git add README.md
+git add docs/_static/switcher.json
+git add docs/userguide/about/install.md
+git add skills/
 git commit -m "Update version to X.(Y+1).0a0"
 ```
 

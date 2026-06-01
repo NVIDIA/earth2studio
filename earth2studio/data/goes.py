@@ -20,6 +20,7 @@ import hashlib
 import os
 import pathlib
 import shutil
+import uuid
 from datetime import datetime, timezone
 
 import numpy as np
@@ -200,6 +201,7 @@ class GOES:
         self._cache = cache
         self._verbose = verbose
         self._async_timeout = async_timeout
+        self._tmp_cache_hash: str | None = None
 
         # Stash the grid coords so they can be added to data arrays
         self._lat, self._lon = GOES.grid(satellite=satellite, scan_mode=scan_mode)
@@ -474,7 +476,12 @@ class GOES:
         """Return appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "goes")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_goes")
+            if self._tmp_cache_hash is None:
+                # First access for temp cache: create a random suffix to avoid collisions
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            cache_location = os.path.join(
+                cache_location, f"tmp_goes_{self._tmp_cache_hash}"
+            )
         return cache_location
 
     @staticmethod

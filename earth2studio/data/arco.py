@@ -20,6 +20,7 @@ import os
 import pathlib
 import re
 import shutil
+import uuid
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import datetime
@@ -82,7 +83,7 @@ class ARCO:
     ARCO_LAT = np.linspace(90, -90, 721)
     ARCO_LON = np.linspace(0, 359.75, 1440)
     ARCO_PATH = "/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3"
-    ARCO_TIME_STOP = datetime(year=2023, month=11, day=11)
+    ARCO_TIME_STOP = datetime(year=2025, month=12, day=31)
 
     def __init__(
         self,
@@ -93,6 +94,7 @@ class ARCO:
 
         self._cache = cache
         self._verbose = verbose
+        self._tmp_cache_hash: str | None = None
 
         self.zarr_group: zarr.core.group.AsyncGroup | None = None
         self.level_coords = None
@@ -387,7 +389,12 @@ class ARCO:
         """Get the appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "arco")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_arco")
+            if self._tmp_cache_hash is None:
+                # First access for temp cache: create a random suffix to avoid collisions
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            cache_location = os.path.join(
+                cache_location, f"tmp_arco_{self._tmp_cache_hash}"
+            )
         return cache_location
 
     @classmethod

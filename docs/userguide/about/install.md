@@ -31,7 +31,7 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.13
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.14.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
 ```
 
 :::{dropdown} uv Install
@@ -150,6 +150,52 @@ pip install earth2studio[aifsens] --no-build-isolation
 
 ```bash
 uv add earth2studio --extra aifsens
+```
+
+:::
+::::
+:::::
+:::::{tab-item} AIFS2
+Notes: This model depends on
+[flash-attention](https://github.com/Dao-AILab/flash-attention), which can take a long
+time to compile. See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+for compilation tips.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[aifs2] --no-build-isolation
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra aifs2
+```
+
+:::
+::::
+:::::
+:::::{tab-item} AIFS2 Ensemble
+Notes: This model depends on
+[flash-attention](https://github.com/Dao-AILab/flash-attention), which can take a long
+time to compile. See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+for compilation tips.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[aifs2ens] --no-build-isolation
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra aifs2ens
 ```
 
 :::
@@ -466,7 +512,7 @@ prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
 ```bash
 pip install hatchling
 pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
-pip install --no-build-isolation "cbottle @ git+https://github.com/NVlabs/cBottle.git@8b8b358466e6b2f50d1779009790002ceb596e72"
+pip install --no-build-isolation "cbottle @ git+https://github.com/NickGeneva/cBottle.git@e48c7eb518d49d4a92b2a1397d683e765c02c354"
 pip install earth2studio[cbottle]
 ```
 
@@ -575,6 +621,28 @@ pip install earth2studio[derived]
 
 ```bash
 uv add earth2studio --extra derived
+```
+
+:::
+::::
+:::::
+:::::{tab-item} ORBIT-2
+Notes: The ORBIT-2 diagnostic model requires the climate-learn package. This needs to be
+installed manually for pip users.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install "climate-learn @ git+https://github.com/NickGeneva/ORBIT-2@5b2d80a8ba4dc95029211ef2b8530d3663f65d39"
+pip install earth2studio[orbit]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra orbit
 ```
 
 :::
@@ -839,14 +907,14 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.13
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.14.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.13
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.14.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
 ```
 
 (pytorch_container_environment)=
@@ -863,13 +931,13 @@ It is recommended to use the following commands to install using the container's
 interpreter:
 
 ```bash
-docker run -it -t nvcr.io/nvidia/pytorch:25.12-py3
+docker run -it -t nvcr.io/nvidia/pytorch:26.04-py3
 
 >>> apt-get update && apt-get install -y git make curl cmake python3-dev \
     libeccodes-tools libeccodes-dev
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.14.0"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -882,7 +950,7 @@ do with pip, for example:
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.14.0"
+    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
 ```
 
 :::
@@ -911,7 +979,7 @@ package tooling.
 conda create -n earth2studio python=3.13
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.14.0"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
 ```
 
 # System Recommendations
