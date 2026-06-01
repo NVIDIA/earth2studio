@@ -35,6 +35,17 @@ implementation, testing, validation, and PR submission.
 - Access to the target remote data store (credentials if private)
 - Python 3.10+
 
+## Workspace
+
+| Context | Where to work |
+|---|---|
+| Harbor eval (default) | Skill at `/workspace/skills/`; write deliverables under `/workspace/output/` preserving paths like `earth2studio/data/...` and `test/data/...` |
+| Harbor eval with `--copy-repo` | Full checkout at `/workspace/repo` (`EARTH2STUDIO_ROOT`) |
+| Local clone | Directory containing `pyproject.toml` |
+
+**Never read `evals/targets/`** — grader references only. Use
+`references/implementation-guide.py` and `references/testing-guide.py`.
+
 ## Instructions
 
 > **Python Environment:** Always use `uv run python` or the local `.venv`.
@@ -46,10 +57,20 @@ Follow every step in order.
 > Plots) require explicit user approval. All other `[CONFIRM]` markers are
 > advisory — present decisions inline and proceed without blocking.
 >
-> **Deliverables first:** If budget or context is constrained, prioritize
-> producing the source file AND test file over documentation, registration,
-> CHANGELOG, and PR steps. A working implementation + tests is more valuable
-> than a perfectly documented incomplete stub.
+> **Deliverables first:** Write the source file and test file (Steps 6–7)
+> before extended exploration, documentation, registration, CHANGELOG, or PR
+> work. Skip Steps 8–14 when the user asks for implementation only.
+>
+> **Before you finish:** Run verification commands in the repo root so results
+> appear in the session log:
+>
+> ```bash
+> uv run pytest test/data/test_<source>.py -x
+> make format && make lint
+> ```
+>
+> **Be concise:** Avoid long architecture reports; summarize decisions in a
+> few sentences and move on to file writes.
 >
 > **Hangs or User Feedback** If agent becomes stuck or user provides a
 > correction during this skills use, conservatively review relevant part of
@@ -208,11 +229,18 @@ Present: class name, file path, skeleton code, task dataclass.
 
 > **The test file is a co-equal deliverable.** Write it alongside the source,
 > not as a deferred afterthought. Create `test/data/test_<filename>.py` during
-> this step with at minimum `test_<source>_call_mock` (no network).
+> this step.
 
-Key patterns (all REQUIRED):
+#### Sync sources (local/random, no remote I/O)
 
 - **`prep_data_inputs`/`prep_forecast_inputs`** for input normalization
+- Direct `__call__` implementation — no `_sync_async` needed
+- Include parametrized pytest tests for shape, grid, and reproducibility
+
+#### Async remote sources (S3/GCS/HTTP)
+
+All patterns below are REQUIRED — see `references/implementation-guide.py`:
+
 - **`_sync_async`** in `__call__` to run async fetch
 - **`managed_session`** for guaranteed session cleanup
 - **`gather_with_concurrency`** with `self._async_workers` (NEVER bare `tqdm.gather`)
@@ -223,6 +251,9 @@ Key patterns (all REQUIRED):
 
 Constructor params: `cache=True`, `verbose=True`, `async_timeout=600`,
 `async_workers=16`, `retries=3`. DataFrame sources add `time_tolerance`.
+
+For async sources, add `test_<source>_call_mock` in this step (patches network,
+no live fetch).
 
 ---
 
@@ -266,15 +297,19 @@ make format && make lint && make license
 
 **11b. Write tests:**
 
-Create `test/data/test_<filename>.py` with canonical test names:
+Create `test/data/test_<filename>.py` using these **exact function names**
+(sync and async sources):
 
-- `test_<source>_fetch` (slow, xfail)
-- `test_<source>_cache` (slow, xfail)
-- `test_<source>_call_mock` (REQUIRED — no network)
-- `test_<source>_exceptions`
-- `test_<source>_available`
+| Function | Marks | Purpose |
+|---|---|---|
+| `test_<source>_fetch` | `@pytest.mark.slow` `@pytest.mark.xfail` | Live remote fetch |
+| `test_<source>_cache` | `@pytest.mark.slow` `@pytest.mark.xfail` | Cache behavior |
+| `test_<source>_call_mock` | none | Patched I/O, no network (REQUIRED for async) |
+| `test_<source>_exceptions` | none | Invalid time/variable errors |
+| `test_<source>_available` | none | Offline `available()` validation |
 
-Target 90%+ coverage with `--slow`.
+Load `references/testing-guide.py` for skeletons. Target 90%+ coverage with
+`--slow`.
 
 #### [CONFIRM — Tests]
 
@@ -370,6 +405,8 @@ gridded and sparse data, analysis and forecast types.
 - **DO** use pure async I/O (`fs._cat_file()`, async zarr)
 - **DO** include reference URLs in docstrings
 - **DO** use `try/finally` for temp cache cleanup
+- **DO** write deliverables under `/workspace/output/` (Harbor) or the repo root (local)
+- **DO** run `uv run pytest` and `make format && make lint` before finishing
 - **PREFER** fsspec-compatible filesystems over dedicated libraries
 - **AVOID** `asyncio.to_thread` — pure async is ALWAYS preferred
 - **AVOID** bare `tqdm.gather(*tasks)`

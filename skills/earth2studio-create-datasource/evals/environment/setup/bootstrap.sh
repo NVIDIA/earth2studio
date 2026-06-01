@@ -2,17 +2,16 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Harbor pre_agent_setup: create uv venv (Python 3.13) and sync Earth2Studio dev deps.
-# Requires the repo at /workspace/repo (pass --copy-repo to astra-skill-eval evaluate).
+# Harbor pre_agent_setup / healthcheck: uv sync when a repo checkout is present.
+# Default ACES runs stage only the skill; pass --copy-repo to populate /workspace/repo.
 
 set -euo pipefail
 
 REPO_ROOT="${EARTH2STUDIO_ROOT:-/workspace/repo}"
 
 if [[ ! -f "${REPO_ROOT}/pyproject.toml" ]]; then
-    echo "e2s-eval-bootstrap: missing ${REPO_ROOT}/pyproject.toml" >&2
-    echo "Re-run with: astra-skill-eval evaluate <skill> --copy-repo ..." >&2
-    exit 1
+    echo "e2s-eval-bootstrap: no repo at ${REPO_ROOT}; skipping uv sync (skill-only eval mode)" >&2
+    exit 0
 fi
 
 cd "${REPO_ROOT}"
