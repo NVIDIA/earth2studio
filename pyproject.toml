@@ -416,8 +416,7 @@ exclude = [".claude"]
 "recipes/**/*_notebook.py" = ["E402"]
 # Ignore `S101` (assertions) in all `test` files.
 "test/*.py" = ["S101"]
-"skills/*/evals/targets/test/*.py" = ["S101"]
-"skills/**/*.py" = ["F401", "E731", "I001"]
+"skills/**/*.py" = ["F401", "E731", "I001", "S101"]
 "serve/server/test/*.py" = ["S101"]
 "recipes/**/test/*.py" = ["S101"]
 
