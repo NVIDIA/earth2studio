@@ -35,6 +35,7 @@ def PhooModel():
             return OrderedDict(
                 [
                     ("batch", np.empty(1)),
+                    ("lead_time", np.zeros(1)),
                     ("variable", np.array(["a", "b"])),
                     ("x", np.ones(1)),
                 ]
