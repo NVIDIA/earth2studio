@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 ENV UV_LINK_MODE=copy
 ENV UV_PYTHON=3.13
+# NV-ACES default repo location
 ENV EARTH2STUDIO_ROOT=/workspace/repo
 
 RUN mkdir -p /workspace/skills /workspace/input /workspace/output \
