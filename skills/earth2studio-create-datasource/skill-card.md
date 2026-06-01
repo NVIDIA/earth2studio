@@ -7,9 +7,9 @@ This skill is ready for commercial/non-commercial use. <br>
 NVIDIA <br>
 
 ### License/Terms of Use: <br>
-Apache 2.0 <br>
+Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers building new data source integrations for the Earth2Studio weather and climate AI platform, connecting remote stores (S3, GCS, Azure, HTTP, HuggingFace) to Earth2Studio's async data fetching infrastructure. <br>
+Developers and engineers building new data source integrations for the Earth2Studio weather and climate AI framework, connecting remote data stores (S3, GCS, Azure, HTTP, HuggingFace) to Earth2Studio's async data fetching infrastructure. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>
@@ -22,17 +22,13 @@ Mitigation: Review and scan skill before deployment. <br>
 - [Implementation Guide](references/implementation-guide.py) <br>
 - [Testing Guide](references/testing-guide.py) <br>
 - [Validation Guide](references/validation-guide.md) <br>
-- [Earth2Studio Documentation](https://github.com/NVIDIA/earth2studio) <br>
 
 
 ## Skill Output: <br>
 **Output Type(s):** [Code, Shell commands, Configuration instructions] <br>
-**Output Format:** [Python source files, pytest test files, and Markdown with inline bash code blocks] <br>
+**Output Format:** [Markdown with inline Python and bash code blocks] <br>
 **Output Parameters:** [1D] <br>
 **Other Properties Related to Output:** [None] <br>
-
-## Evaluation Tasks: <br>
-NVSkills-Eval 3-Tier Evaluation (profile: external). Tier 1 ran 9 static validation checks; Tier 2 ran 2 deduplication checks. Overall verdict: PASS. <br>
 
 ## Evaluation Metrics Used: <br>
 Reported benchmark dimensions: <br>

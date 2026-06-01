@@ -45,7 +45,7 @@ Tier 1 validation passed with observations. NVSkills-Eval ran 9 checks and found
 Top findings:
 
 - LOW QUALITY/quality_discoverability: Description very long (232 chars, recommend 50-150) (`skills/earth2studio-create-datasource/SKILL.md`)
-- LOW QUALITY/quality_efficiency: Non-doc file in references/: implementation-guide.py (`skills/earth2studio-create-datasource/SKILL.md`)
+- LOW QUALITY/quality_efficiency: Non-doc file in references/: testing-guide.py (`skills/earth2studio-create-datasource/SKILL.md`)
 
 ## Tier 2: Deduplication Summary
 
