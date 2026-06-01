@@ -102,6 +102,8 @@ Create a standalone script (do NOT commit).
 
 ```python
 """Sanity-check plot for <SourceName>."""
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 import numpy as np
 from earth2studio.data import SourceName
@@ -111,13 +113,24 @@ time = ...
 variables = ["t2m", "msl", "u10m"]
 data = ds(time, variables)
 
-fig, axes = plt.subplots(1, len(variables), figsize=(6 * len(variables), 5))
+fig, axes = plt.subplots(
+    1, len(variables), figsize=(6 * len(variables), 5),
+    subplot_kw={"projection": ccrs.PlateCarree()},
+)
 if len(variables) == 1:
     axes = [axes]
 
 for ax, var in zip(axes, variables):
-    data.sel(variable=var).isel(time=0).plot(ax=ax, cmap="turbo")
+    arr = data.sel(variable=var).isel(time=0)
+    ax.set_global()
+    ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
+    ax.add_feature(cfeature.BORDERS, linewidth=0.3, linestyle=":")
+    im = ax.pcolormesh(
+        arr.lon, arr.lat, arr.values,
+        cmap="turbo", transform=ccrs.PlateCarree(),
+    )
     ax.set_title(f"{var}")
+    plt.colorbar(im, ax=ax, shrink=0.6, orientation="horizontal", pad=0.05)
 
 plt.suptitle(f"<SourceName> — {time}", y=1.02)
 plt.tight_layout()

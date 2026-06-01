@@ -242,36 +242,33 @@ class PhooAnalysis:
         """Wrapper to download and insert array data into the output."""
         out = await async_retry(
             self.fetch_array,
-            task.s3_uri,
-            task.modifier,
+            task,
             retries=self._retries,
             backoff=1.0,
             task_timeout=120.0,
             exceptions=(OSError, IOError, TimeoutError, ConnectionError),
         )
-        xr_array[task.time_index, task.variable_index] = out
+        xr_array[task.time_index, task.variable_index] = task.modifier(out)
 
-    async def fetch_array(self, s3_uri: str, modifier: Callable) -> np.ndarray:
+    async def fetch_array(self, task: PhooAsyncTask) -> np.ndarray:
         """Fetch a single NetCDF variable array from S3.
 
         Parameters
         ----------
-        s3_uri : str
-            S3 URI to the NetCDF file.
-        modifier : Callable
-            Function to apply to raw data array.
+        task : PhooAsyncTask
+            Async task containing S3 URI and modifier.
 
         Returns
         -------
         np.ndarray
             2D array of shape (181, 360).
         """
-        logger.debug(f"Fetching Phoo file: {s3_uri}")
-        cache_path = await self._fetch_remote_file(s3_uri)
+        logger.debug(f"Fetching Phoo file: {task.s3_uri}")
+        cache_path = await self._fetch_remote_file(task.s3_uri)
         with xr.open_dataset(cache_path) as ds:
             # Assume single variable in file, extract first data variable
             var_name = list(ds.data_vars)[0]
-            values = modifier(ds[var_name].values)
+            values = ds[var_name].values
         return values
 
     @classmethod

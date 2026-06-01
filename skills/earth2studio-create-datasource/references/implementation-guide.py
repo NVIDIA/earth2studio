@@ -53,6 +53,8 @@ from earth2studio.data.utils import (
     gather_with_concurrency,
     managed_session,
     prep_data_inputs,
+    # FILL: Use prep_forecast_inputs instead if ForecastSource
+    # prep_forecast_inputs,
 )
 
 # FILL: Import your lexicon class
@@ -65,8 +67,6 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 
-# FILL: Use prep_forecast_inputs instead if ForecastSource
-# prep_forecast_inputs,
 from earth2studio.utils.type import TimeArray, VariableArray
 
 try:
