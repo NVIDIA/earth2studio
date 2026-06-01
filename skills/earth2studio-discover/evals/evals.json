@@ -68,47 +68,5 @@
       "Identifies what observation variables or formats are supported",
       "Points to at least one data assimilation example from the gallery"
     ]
-  },
-  {
-    "id": "discover-eval-006-era5-data",
-    "question": "I need ERA5 reanalysis data — temperature, wind, and geopotential at multiple pressure levels for the year 2020. What are my options in Earth2Studio for accessing this?",
-    "expected_skill": "earth2studio-discover",
-    "expected_script": null,
-    "ground_truth": "Suggests multiple ERA5-backed data sources: ARCO (cloud-native, no auth), CDS (official Copernicus API, requires key), and WeatherBench2. Explains tradeoffs between them (access speed, authentication, variable coverage, temporal range).",
-    "expected_behavior": [
-      "Mentions at least two different data sources that serve ERA5 data",
-      "Identifies ARCO as a cloud-native option that does not require API keys",
-      "Mentions CDS as the official Copernicus data source requiring authentication",
-      "Discusses tradeoffs between the sources (speed, auth, coverage, or format)",
-      "Cites the analysis data sources documentation page"
-    ]
-  },
-  {
-    "id": "discover-eval-007-europe-regional",
-    "question": "I'm working on a project focused on Europe — I need high-resolution data over the European domain for validating a regional model. What data sources in Earth2Studio cover Europe specifically?",
-    "expected_skill": "earth2studio-discover",
-    "expected_script": null,
-    "ground_truth": "Identifies data sources with European coverage. Suggests Europe-specific sources like MTG (Meteosat Third Generation satellite data) alongside global sources (GFS, ERA5/ARCO/CDS, IFS) that cover Europe. Notes resolution differences and recommends sources suitable for European regional validation.",
-    "expected_behavior": [
-      "Mentions MTG or another Europe-specific data source",
-      "Identifies at least one global data source that also covers Europe",
-      "Discusses spatial resolution of the suggested sources",
-      "Explains the difference between Europe-specific and global sources for the user's needs",
-      "Cites a link to the data sources documentation"
-    ]
-  },
-  {
-    "id": "discover-eval-008-station-observations",
-    "question": "I have a network of ground-based weather stations measuring temperature, humidity, and wind speed. How can I get this observational data into Earth2Studio for comparison or assimilation?",
-    "expected_skill": "earth2studio-discover",
-    "expected_script": null,
-    "ground_truth": "Points to dataframe data sources for station/observation data. Explains the DataFrameSource protocol for tabular observation data. Mentions available observational sources or how to bring custom station data in. Discusses the tabular format expected for point observations.",
-    "expected_behavior": [
-      "Mentions the dataframe data sources category for observational data",
-      "Explains that station data uses the DataFrameSource protocol",
-      "Identifies at least one available observational data source or explains how to ingest custom data",
-      "Discusses the tabular format expected for point observations",
-      "Cites the dataframe data sources documentation page"
-    ]
   }
 ]
