@@ -122,6 +122,7 @@ _GPSRO_MIN = 4005
 _GPSRO_SEC = 4006
 
 # Per-level descriptors
+_GPSRO_MEFR = 2121  # Mean frequency (Hz); GSI keeps only frequency == 0
 _GPSRO_IMPP = 7040  # Impact parameter (m), bending-angle level marker
 _GPSRO_BNDA = 15037  # Bending angle (rad)
 _GPSRO_HEIT = 7007  # Height (m), refractivity level marker
@@ -738,9 +739,13 @@ def _extract_gpsro_subset(
     three sub-profiles in this order:
 
     1. Bending-angle profile keyed on ``IMPP`` (descriptor 7040), with
-       observation in ``BNDA`` (15037).
+       observation in ``BNDA`` (15037). GSI ``read_gps.f90`` reads ROSEQ1
+       as per-level lat/lon followed by frequency replications and keeps
+       only the ionosphere-corrected replication where ``nint(MEFR) == 0``:
+       ``MEFR`` -> ``IMPP`` -> observed ``BNDA`` -> uncertainty ``BNDA``.
     2. Refractivity profile keyed on ``HEIT`` (7007), observation in
-       ``ARFR`` (15036).
+       ``ARFR`` (15036). The descriptor is documented here but not emitted
+       until a public Earth2Studio variable mapping is added.
     3. 1D-Var retrieval profile keyed on ``GPHTST`` (7009), with
        ``PRES`` / ``TMDBST`` / ``SPFH`` (10004 / 12001 / 13001).
     """
@@ -793,15 +798,16 @@ def _extract_gpsro_subset(
     if lat is None or lon is None or yyyy is None or mm is None or dd is None:
         return rows
     try:
-        obs_time = datetime(yyyy, mm, dd, hh or 0, mi or 0, int(sec))
+        # Preserve BUFR SECO in Earth2Studio output. GSI GPSRO diagnostics use
+        # minute-resolution time, so GSI-parity comparisons should drop seconds.
+        obs_time = datetime(yyyy, mm, dd, hh or 0, mi or 0) + timedelta(seconds=sec)
     except (ValueError, OverflowError):
         return rows
     if obs_time < dt_min or obs_time > dt_max:
         return rows
 
-    lon_360 = lon % 360.0
     station_id = (
-        f"{int(sat_id)}_{int(tx_id)}"
+        f"{int(sat_id):04d}{int(tx_id):04d}"
         if sat_id is not None and tx_id is not None
         else None
     )
@@ -810,12 +816,29 @@ def _extract_gpsro_subset(
     cur_pres: float | None = None
     cur_height: float | None = None
     cur_impp: float | None = None
+    cur_freq: float | None = None
+    cur_lat: float | None = lat
+    cur_lon: float | None = lon
+    cur_bnda_index_for_freq = 0
 
     for d, v in zip(descs, vals):
         did = d.id
+        if did == _GPSRO_BNDA:
+            # BNDA appears twice within each MEFR replication: first the
+            # bending-angle observation, then the uncertainty/RMSE field. Count
+            # even missing BNDA values so a missing observation cannot make the
+            # following RMSE look like an observation.
+            cur_bnda_index_for_freq += 1
         if v is None:
-            if did == _GPSRO_IMPP:
+            if did == _GPSRO_LAT:
+                cur_lat = None
+            elif did == _GPSRO_LON:
+                cur_lon = None
+            elif did == _GPSRO_IMPP:
                 cur_impp = None
+            elif did == _GPSRO_MEFR:
+                cur_freq = None
+                cur_bnda_index_for_freq = 0
             elif did == _GPSRO_GPHTST or did == _GPSRO_HEIT:
                 cur_height = None
                 cur_pres = None
@@ -823,6 +846,25 @@ def _extract_gpsro_subset(
                 cur_pres = None
             continue
 
+        if did == _GPSRO_LAT:
+            try:
+                cur_lat = float(v)
+            except (TypeError, ValueError):
+                cur_lat = None
+            continue
+        if did == _GPSRO_LON:
+            try:
+                cur_lon = float(v)
+            except (TypeError, ValueError):
+                cur_lon = None
+            continue
+        if did == _GPSRO_MEFR:
+            try:
+                cur_freq = float(v)
+            except (TypeError, ValueError):
+                cur_freq = None
+            cur_bnda_index_for_freq = 0
+            continue
         if did == _GPSRO_IMPP:
             try:
                 cur_impp = float(v)
@@ -853,20 +895,39 @@ def _extract_gpsro_subset(
 
         var_name = wanted_descrs[did]
         if did == _GPSRO_BNDA:
+            if cur_freq is None or round(cur_freq) != 0:
+                continue
+            # ROSEQ1 frequency triplets look like:
+            #   MEFR=1.5e9 -> IMPP -> BNDA(obs) -> BNDA(error)
+            #   MEFR=1.2e9 -> IMPP -> BNDA(obs) -> BNDA(error)
+            #   MEFR=0.0   -> IMPP -> BNDA(obs) -> BNDA(error)
+            # GSI read_gps.f90 cycles past non-zero MEFR and uses only the first
+            # BNDA after IMPP as the bending-angle observation.
+            if cur_bnda_index_for_freq != 1:
+                continue
+            if obs_val <= 0 or cur_impp is None or roc is None or cur_impp < roc:
+                continue
+            if cur_lat is None or cur_lon is None:
+                continue
+            if not np.isfinite(cur_lat) or cur_lat < -90.0 or cur_lat > 90.0:
+                continue
             pres_val = None
             # GSI carries the raw impact parameter and local radius of curvature
             # separately, then uses impact - roc as impact height downstream.
-            impact_height = cur_impp - roc if cur_impp is not None and roc is not None else None
-            elev_val = np.float32(impact_height) if impact_height is not None else None
+            elev_val = np.float32(cur_impp - roc)
+            row_lat = cur_lat
+            row_lon = cur_lon
         else:
             pres_val = np.float32(cur_pres) if cur_pres is not None else None
             elev_val = np.float32(cur_height) if cur_height is not None else None
+            row_lat = lat
+            row_lon = lon
 
         rows.append(
             {
                 "time": obs_time,
-                "lat": np.float32(lat),
-                "lon": np.float32(lon_360),
+                "lat": np.float32(row_lat),
+                "lon": np.float32(float(row_lon) % 360.0),
                 "pres": pres_val,
                 "elev": elev_val,
                 # For GPSRO, ``type`` intentionally follows GSI/UFS diagnostics:

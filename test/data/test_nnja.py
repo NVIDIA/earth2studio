@@ -581,9 +581,17 @@ def test_nnja_extract_gpsro_subset_bending_angle_rows_and_metadata():
         (nnja._GPSRO_DAY, 1),
         (nnja._GPSRO_HOUR, 0),
         (nnja._GPSRO_MIN, 30),
-        (nnja._GPSRO_SEC, 15.0),
+        (nnja._GPSRO_SEC, 15.25),
+        (nnja._GPSRO_LAT, -9.75),
+        (nnja._GPSRO_LON, -69.5),
+        (nnja._GPSRO_MEFR, 1_500_000_000.0),
+        (nnja._GPSRO_IMPP, 6_373_000.0),
+        (nnja._GPSRO_BNDA, 0.00999),
+        (nnja._GPSRO_BNDA, 0.00888),
+        (nnja._GPSRO_MEFR, 0.0),
         (nnja._GPSRO_IMPP, 6_373_000.0),
         (nnja._GPSRO_BNDA, 0.00123),
+        (nnja._GPSRO_BNDA, 0.00045),
     ]
     descs = [SimpleNamespace(id=descriptor_id) for descriptor_id, _ in subset_stream]
     values = [value for _, value in subset_stream]
@@ -598,17 +606,94 @@ def test_nnja_extract_gpsro_subset_bending_angle_rows_and_metadata():
 
     assert len(rows) == 1
     row = rows[0]
-    assert row["time"] == datetime(2024, 1, 1, 0, 30, 15)
-    assert row["lat"] == pytest.approx(np.float32(-10.5))
-    assert row["lon"] == pytest.approx(np.float32(289.75))
+    assert row["time"] == datetime(2024, 1, 1, 0, 30, 15, 250000)
+    assert row["lat"] == pytest.approx(np.float32(-9.75))
+    assert row["lon"] == pytest.approx(np.float32(290.5))
     assert row["pres"] is None
     assert row["elev"] == pytest.approx(np.float32(2_000.0))
     assert row["type"] == np.uint16(3)
     assert row["class"] == "GPSRO"
-    assert row["station"] == "3_27"
+    assert row["station"] == "00030027"
     assert row["quality"] == np.uint16(12)
     assert row["observation"] == pytest.approx(np.float32(0.00123))
     assert row["variable"] == "gps"
+
+
+def test_nnja_extract_gpsro_subset_missing_bending_angle_does_not_emit_error():
+    subset_stream = [
+        (nnja._GPSRO_SAID, 3),
+        (nnja._GPSRO_PTID, 27),
+        (nnja._GPSRO_QFRO, 12),
+        (nnja._GPSRO_ELRC, 6_371_000.0),
+        (nnja._GPSRO_LAT, -10.5),
+        (nnja._GPSRO_LON, -70.25),
+        (nnja._GPSRO_YEAR, 2024),
+        (nnja._GPSRO_MONTH, 1),
+        (nnja._GPSRO_DAY, 1),
+        (nnja._GPSRO_HOUR, 0),
+        (nnja._GPSRO_MIN, 30),
+        (nnja._GPSRO_SEC, 15.25),
+        (nnja._GPSRO_MEFR, 0.0),
+        (nnja._GPSRO_IMPP, 6_373_000.0),
+        (nnja._GPSRO_BNDA, None),
+        (nnja._GPSRO_BNDA, 0.006),
+    ]
+    descs = [SimpleNamespace(id=descriptor_id) for descriptor_id, _ in subset_stream]
+    values = [value for _, value in subset_stream]
+
+    rows = nnja._extract_gpsro_subset(
+        descs,
+        values,
+        {nnja._GPSRO_BNDA: "gps"},
+        datetime(2024, 1, 1, 0),
+        datetime(2024, 1, 1, 1),
+    )
+
+    assert rows == []
+
+
+def test_nnja_extract_gpsro_subset_missing_level_lat_lon_does_not_reuse_stale_values():
+    subset_stream = [
+        (nnja._GPSRO_SAID, 3),
+        (nnja._GPSRO_PTID, 27),
+        (nnja._GPSRO_QFRO, 12),
+        (nnja._GPSRO_ELRC, 6_371_000.0),
+        (nnja._GPSRO_LAT, -10.5),
+        (nnja._GPSRO_LON, -70.25),
+        (nnja._GPSRO_YEAR, 2024),
+        (nnja._GPSRO_MONTH, 1),
+        (nnja._GPSRO_DAY, 1),
+        (nnja._GPSRO_HOUR, 0),
+        (nnja._GPSRO_MIN, 30),
+        (nnja._GPSRO_SEC, 15.25),
+        (nnja._GPSRO_LAT, -9.75),
+        (nnja._GPSRO_LON, -69.5),
+        (nnja._GPSRO_MEFR, 0.0),
+        (nnja._GPSRO_IMPP, 6_373_000.0),
+        (nnja._GPSRO_BNDA, 0.00123),
+        (nnja._GPSRO_BNDA, 0.00045),
+        (nnja._GPSRO_LAT, None),
+        (nnja._GPSRO_LON, -68.5),
+        (nnja._GPSRO_MEFR, 0.0),
+        (nnja._GPSRO_IMPP, 6_374_000.0),
+        (nnja._GPSRO_BNDA, 0.00234),
+        (nnja._GPSRO_BNDA, 0.00056),
+    ]
+    descs = [SimpleNamespace(id=descriptor_id) for descriptor_id, _ in subset_stream]
+    values = [value for _, value in subset_stream]
+
+    rows = nnja._extract_gpsro_subset(
+        descs,
+        values,
+        {nnja._GPSRO_BNDA: "gps"},
+        datetime(2024, 1, 1, 0),
+        datetime(2024, 1, 1, 1),
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["lat"] == pytest.approx(np.float32(-9.75))
+    assert rows[0]["lon"] == pytest.approx(np.float32(290.5))
+    assert rows[0]["observation"] == pytest.approx(np.float32(0.00123))
 
 
 def test_nnja_obs_conv_finalize_decoded_df():
