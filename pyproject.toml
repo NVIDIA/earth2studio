@@ -416,6 +416,8 @@ exclude = [".claude"]
 "recipes/**/*_notebook.py" = ["E402"]
 # Ignore `S101` (assertions) in all `test` files.
 "test/*.py" = ["S101"]
+"skills/*/evals/targets/test/*.py" = ["S101"]
+"skills/**/*.py" = ["F401", "E731", "I001"]
 "serve/server/test/*.py" = ["S101"]
 "recipes/**/test/*.py" = ["S101"]
 
@@ -481,7 +483,7 @@ fail-under = 95
 color = true
 omit-covered-files = false
 verbose = 2
-exclude = ["setup.py", "test/*", "docs", "build"]
+exclude = ["setup.py", "test/*", "skills/*", "docs", "build"]
 ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
 
 # ==== MyPy configuration ====

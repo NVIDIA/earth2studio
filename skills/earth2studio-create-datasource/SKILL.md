@@ -3,13 +3,13 @@ name: earth2studio-create-datasource
 version: 0.16.0
 license: Apache-2.0
 metadata:
-  author: NVIDIA Earth-2 Team
+  author: NVIDIA Earth-2 Team <agent-skills@nvidia.com>
   tags:
     - earth2studio
     - earth2
     - python
     - data-source
-    - cloud-storage
+    - forecast-source
     - integration
 description: >
   Create and validate Earth2Studio data source wrappers (DataSource,
@@ -40,9 +40,21 @@ implementation, testing, validation, and PR submission.
 > **Python Environment:** Always use `uv run python` or the local `.venv`.
 > Never use the system Python directly.
 
-Follow every step in order. Each `[CONFIRM]` gate requires explicit user
-approval before proceeding.
+Follow every step in order.
 
+> **[CONFIRM] gates:** Only Step 1 (Source Type) and Step 12 (Sanity-Check
+> Plots) require explicit user approval. All other `[CONFIRM]` markers are
+> advisory — present decisions inline and proceed without blocking.
+>
+> **Deliverables first:** If budget or context is constrained, prioritize
+> producing the source file AND test file over documentation, registration,
+> CHANGELOG, and PR steps. A working implementation + tests is more valuable
+> than a perfectly documented incomplete stub.
+>
+> **Hangs or User Feedback** If agent becomes stuck or user provides a
+> correction during this skills use, conservatively review relevant part of
+> the skill and improve. Be concise.
+>
 > **One source type per invocation.** Invoke again for companion types.
 
 ### Reference Files
@@ -51,15 +63,15 @@ Load these on demand during the relevant steps:
 
 | File | Content | Load at |
 |---|---|---|
-| `references/implementation-guide.md` | Skeleton, async patterns, registration, docs | Steps 3–10 |
-| `references/testing-guide.md` | Test templates, mock patterns, coverage | Step 11 |
+| `references/implementation-guide.py` | Skeleton source with FILL comments | Steps 3–10 |
+| `references/testing-guide.py` | Test skeleton with FILL comments | Step 11 |
 | `references/validation-guide.md` | Variable validation, plots, PR, code review | Steps 12–14 |
 
 ---
 
 ### Workflow Overview
 
-```
+```text
 Step 0: Obtain reference → Step 1: Determine type → Step 2: Dependencies
 → Step 3: Add deps → Step 4: Create lexicon → Step 5: Update vocab/schema
 → Step 6: Create skeleton → Step 7: Implement source → Step 8: Register
@@ -127,9 +139,10 @@ Present: backend, fsspec filesystem, new packages (with license), auth method.
 
 ### Step 3 — Add Dependencies
 
-> **Load `references/implementation-guide.md` from here through Step 10.**
+> **Load `references/implementation-guide.py` from here through Step 10.**
 
 If new packages needed:
+
 1. `uv add --extra data <package>`
 2. `uv lock`
 3. Add optional dependency imports using `OptionalDependencyFailure` pattern
@@ -139,6 +152,7 @@ If new packages needed:
 ### Step 4 — Create Lexicon Class
 
 Create `earth2studio/lexicon/<source_name>.py` with:
+
 - `metaclass=LexiconType`
 - `VOCAB: dict[str, str]` mapping E2S names → remote keys
 - `get_item(cls, val)` returning `tuple[str, Callable]`
@@ -167,10 +181,20 @@ Skip if no updates needed.
 ### Step 6 — Create Skeleton Data Source File
 
 Follow canonical method ordering:
-1. Class constants → 2. SCHEMA → 3. `__init__` → 4. `_async_init` →
-5. `__call__` → 6. `fetch` → 7. `_create_tasks` → 8. `fetch_wrapper` →
-9. `fetch_array` → 10. `_validate_time` → 11. Helpers →
-12. `cache` property → 13. `available` classmethod
+
+1. Class constants
+2. SCHEMA
+3. `__init__`
+4. `_async_init`
+5. `__call__`
+6. `fetch`
+7. `_create_tasks`
+8. `fetch_wrapper`
+9. `fetch_array`
+10. `_validate_time`
+11. Helpers
+12. `cache` property
+13. `available` classmethod
 
 Use async task dataclass pattern for parallel execution.
 
@@ -180,9 +204,14 @@ Present: class name, file path, skeleton code, task dataclass.
 
 ---
 
-### Step 7 — Implement the Data Source
+### Step 7 — Implement the Data Source & Tests
+
+> **The test file is a co-equal deliverable.** Write it alongside the source,
+> not as a deferred afterthought. Create `test/data/test_<filename>.py` during
+> this step with at minimum `test_<source>_call_mock` (no network).
 
 Key patterns (all REQUIRED):
+
 - **`prep_data_inputs`/`prep_forecast_inputs`** for input normalization
 - **`_sync_async`** in `__call__` to run async fetch
 - **`managed_session`** for guaranteed session cleanup
@@ -216,15 +245,18 @@ Constructor params: `cache=True`, `verbose=True`, `async_timeout=600`,
 ### Step 10 — Update CHANGELOG.md
 
 Add entry under the current unreleased version. See
-`references/implementation-guide.md` § CHANGELOG for the exact format template.
+`references/implementation-guide.py` REGISTRATION CHECKLIST for the format.
 
 One line per source. Do NOT add separate lexicon entries.
 
 ---
 
-### Step 11 — Verify Style & Write Tests
+### Step 11 — Verify Style & Expand Tests
 
-> **Load `references/testing-guide.md` for this step.**
+> **Load `references/testing-guide.py` for this step.**
+>
+> The mock test (`test_<source>_call_mock`) should already exist from Step 7.
+> This step adds the remaining test functions and runs linting.
 
 **11a. Format and lint:**
 
@@ -235,6 +267,7 @@ make format && make lint && make license
 **11b. Write tests:**
 
 Create `test/data/test_<filename>.py` with canonical test names:
+
 - `test_<source>_fetch` (slow, xfail)
 - `test_<source>_cache` (slow, xfail)
 - `test_<source>_call_mock` (REQUIRED — no network)
@@ -298,7 +331,7 @@ User approves which comments to address.
 
 Typical invocation:
 
-```
+```text
 User: Add a data source for the NOAA GFS analysis on S3
 Agent: [loads skill, proceeds through Steps 0–14]
 ```
@@ -319,11 +352,11 @@ gridded and sparse data, analysis and forecast types.
 
 | Error | Cause | Solution |
 |---|---|---|
-| `OptionalDependencyFailure` | Missing optional package | `uv add --extra data <pkg>` then `uv lock` |
-| `asyncio.TimeoutError` | Slow remote store | Increase `async_timeout` parameter |
-| `FileNotFoundError` in fetch | Wrong path template | Verify path format against actual store layout |
-| Mock test fails but live works | Mock not matching real API | Update mock to return same structure as real response |
-| `make lint` fails on new file | Missing license header | Run `make license` to add SPDX header |
+| `OptionalDependencyFailure` | Missing optional pkg | `uv add --extra data <pkg>` |
+| `asyncio.TimeoutError` | Slow remote store | Increase `async_timeout` |
+| `FileNotFoundError` in fetch | Wrong path template | Check actual store layout |
+| Mock fails but live works | Mock ≠ real API | Match mock to real response |
+| `make lint` fails | Missing license | Run `make license` |
 
 ---
 
@@ -342,6 +375,7 @@ gridded and sparse data, analysis and forecast types.
 - **AVOID** bare `tqdm.gather(*tasks)`
 - **AVOID** xarray for loading data — prefer direct file I/O
 - **AVOID** downloading full files — use byte-range/slicing
+- **AVOID** making lint exceptions - fix the source of the error
 - **NEVER** call `loop.set_default_executor()`
 - **NEVER** commit API keys, secrets, or credentials
 - **NEVER** commit sanity-check scripts or images

@@ -1,10 +1,11 @@
 [
   {
     "id": "create-datasource-eval-001-random-gaussian",
-    "question": "Create a new Earth2Studio DataSource called `RandomGaussian` that generates random Gaussian data on a 1-degree global lat/lon grid. It should accept time and variable parameters and return an xr.DataArray with dimensions [time, variable, lat, lon]. Don't connect to any remote store — just generate random data. Implement it end-to-end following Earth2Studio conventions (license header, type hints, prep_data_inputs, etc.). Put it in `earth2studio/data/random_gaussian.py`.",
+    "question": "Implement a new Earth2Studio DataSource called `RandomGaussian` that generates random Gaussian data on a 1-degree global lat/lon grid. It should accept time and variable parameters and return an xr.DataArray. Don't connect to any remote store — just generate random data using the create datasource skill.",
     "expected_skill": "earth2studio-create-datasource",
     "expected_script": "evals/targets/eval_1_target.py",
-    "ground_truth": "Creates a DataSource class that generates random Gaussian data on a global 1-degree grid. Follows Earth2Studio conventions including license header, type hints, proper imports, and uses prep_data_inputs for input normalization.",
+    "expected_test": "evals/targets/test/eval_1_test_target.py",
+    "ground_truth": "Creates a DataSource class that generates random Gaussian data on a global 1-degree grid. Follows Earth2Studio conventions including license header, type hints, proper imports, and uses prep_data_inputs for input normalization. Includes a test file with parametrized tests for shape, grid, and reproducibility.",
     "expected_behavior": [
       "File has SPDX Apache-2.0 license header",
       "Class implements DataSource protocol with __call__(time, variable) -> xr.DataArray",
@@ -12,15 +13,20 @@
       "Returns xr.DataArray with dims [time, variable, lat, lon]",
       "Lat array is 181 values from -90 to 90, lon array is 360 values from 0 to 360",
       "Has proper type hints on all parameters and return values",
-      "Generated code closely matches the structure in evals/targets/eval_1_target.py"
+      "Generated code closely matches the structure in evals/targets/eval_1_target.py",
+      "Test file created at test/data/test_random_gaussian.py",
+      "Tests verify output shape, dimensions, grid values, and reproducibility with seed",
+      "Test file has SPDX Apache-2.0 license header",
+      "Tests use pytest parametrize for time and variable inputs"
     ]
   },
   {
     "id": "create-datasource-eval-002-random-forecast",
-    "question": "Create a new Earth2Studio ForecastSource called `RandomForecast` that generates random uniform [0, 1] forecast data on a 2.5-degree global grid (73x144). It should accept time, lead_time, and variable parameters and return an xr.DataArray with dimensions [time, lead_time, variable, lat, lon]. No remote connection — just random data. Put it in `earth2studio/data/random_forecast.py` following all Earth2Studio conventions.",
+    "question": "Implement a new Earth2Studio ForecastSource called `RandomForecast` that generates random uniform [0, 1] forecast data on a 2.5-degree global grid (73x144). It should accept time, lead_time, and variable parameters. No remote connection — just random data. Use the create datasource skill.",
     "expected_skill": "earth2studio-create-datasource",
     "expected_script": "evals/targets/eval_2_target.py",
-    "ground_truth": "Creates a ForecastSource class that generates random uniform forecast data on a global 2.5-degree grid. Follows Earth2Studio conventions including license header, type hints, uses prep_forecast_inputs.",
+    "expected_test": "evals/targets/test/eval_2_test_target.py",
+    "ground_truth": "Creates a ForecastSource class that generates random uniform forecast data on a global 2.5-degree grid. Follows Earth2Studio conventions including license header, type hints, uses prep_forecast_inputs. Includes a test file with parametrized tests for shape, grid, value range, and reproducibility.",
     "expected_behavior": [
       "File has SPDX Apache-2.0 license header",
       "Class implements ForecastSource protocol with __call__(time, lead_time, variable) -> xr.DataArray",
@@ -29,15 +35,20 @@
       "Lat array is 73 values from -90 to 90, lon array is 144 values from 0 to 360",
       "Uses numpy uniform [0, 1] distribution instead of gaussian",
       "Has proper type hints on all parameters and return values",
-      "Generated code closely matches the structure in evals/targets/eval_2_target.py"
+      "Generated code closely matches the structure in evals/targets/eval_2_target.py",
+      "Test file created at test/data/test_random_forecast.py",
+      "Tests verify output shape, dimensions, grid values, uniform range [0,1], and reproducibility",
+      "Test file has SPDX Apache-2.0 license header",
+      "Tests use pytest parametrize for time, lead_time, and variable inputs"
     ]
   },
   {
     "id": "create-datasource-eval-003-random-stations",
-    "question": "Create a new Earth2Studio DataFrameSource called `RandomStations` that generates random weather station observations. It should produce 50 random stations per time/variable combination with columns: time, lat, lon, elevation, observation, variable. Use a pyarrow SCHEMA class attribute. Implement `__call__(time, variable, fields)` returning a pd.DataFrame. No remote connection — just random data. Put it in `earth2studio/data/random_stations.py` following all Earth2Studio conventions.",
+    "question": "Implement a new Earth2Studio DataFrameSource called `RandomStations` that generates random weather station observations. It should produce 50 random stations per time/variable combination with columns like time, lat, lon, elevation, observation, variable. No remote connection — just random data. Use the create datasource skill.",
     "expected_skill": "earth2studio-create-datasource",
     "expected_script": "evals/targets/eval_3_target.py",
-    "ground_truth": "Creates a DataFrameSource class with SCHEMA attribute and __call__ returning pd.DataFrame. Generates 50 random station observations per time/variable with proper schema validation.",
+    "expected_test": "evals/targets/test/eval_3_test_target.py",
+    "ground_truth": "Creates a DataFrameSource class with SCHEMA attribute and __call__ returning pd.DataFrame. Generates 50 random station observations per time/variable with proper schema validation. Includes a test file verifying schema, row counts, field filtering, and reproducibility.",
     "expected_behavior": [
       "File has SPDX Apache-2.0 license header",
       "Class has a SCHEMA class attribute defined as a pyarrow schema",
@@ -46,7 +57,41 @@
       "Uses prep_data_inputs to normalize time and variable inputs",
       "Generates 50 observations per time/variable combination",
       "Has proper type hints on all parameters and return values",
-      "Generated code closely matches the structure in evals/targets/eval_3_target.py"
+      "Generated code closely matches the structure in evals/targets/eval_3_target.py",
+      "Test file created at test/data/test_random_stations.py",
+      "Tests verify SCHEMA attribute, row counts, field filtering, coordinate ranges, and reproducibility",
+      "Test file has SPDX Apache-2.0 license header",
+      "Tests use pytest parametrize for time and variable inputs"
+    ]
+  },
+  {
+    "id": "create-datasource-eval-004-phoo-s3-async",
+    "question": "Implement a new Earth2Studio DataSource called `PhooAnalysis` that fetches global analysis data from an S3 bucket `s3://phoo-weather-data`. The bucket stores NetCDF files at path `analysis/{YYYY}/{MM}/{DD}/{HH}z/{variable}.nc` on a 1-degree global grid (181x360). Data is available at 6-hour intervals from 2020-01-01 to present. Create a lexicon with at least t2m, msl, u10m, v10m mappings. Use the create datasource skill.",
+    "expected_skill": "earth2studio-create-datasource",
+    "expected_script": "evals/targets/eval_4_target.py",
+    "expected_test": "evals/targets/test/eval_4_test_target.py",
+    "ground_truth": "Creates a full async DataSource with S3 backend using all modern Earth2Studio async patterns: _sync_async, managed_session, gather_with_concurrency, async_retry, pure async I/O. Includes task dataclass, lexicon, proper cache property, _validate_time, and available classmethod. Test file includes both live (slow/xfail) tests and a mock test that patches _async_init and _fetch_remote_file to avoid network access.",
+    "expected_behavior": [
+      "File has SPDX Apache-2.0 license header",
+      "Uses _sync_async in __call__ to invoke async fetch with timeout",
+      "Uses managed_session context manager around S3 operations in fetch()",
+      "Uses gather_with_concurrency with self._async_workers for bounded concurrency",
+      "Uses async_retry wrapping fetch_array or _fetch_remote_file with retries/backoff/task_timeout",
+      "Uses pure async I/O via fs._cat_file() (not asyncio.to_thread)",
+      "Creates s3fs.S3FileSystem with anon=True, asynchronous=True, skip_instance_cache=True in _async_init",
+      "Has task dataclass for parallel download units",
+      "Constructor has cache, verbose, async_timeout, async_workers, retries parameters",
+      "Has try/finally in __call__ to clean up cache when cache=False",
+      "Has cache property with uuid temp suffix for cache=False",
+      "Has _validate_time classmethod checking 6-hour alignment and MIN_DATE",
+      "Has available classmethod for offline time validation",
+      "Lexicon class created with variable mappings for t2m, msl, u10m, v10m",
+      "Test file includes @pytest.mark.slow @pytest.mark.xfail live fetch test",
+      "Test file includes test_phoo_call_mock that patches _async_init and _fetch_remote_file",
+      "Mock test verifies output shape and dims without network access",
+      "Test file includes test_phoo_exceptions for invalid time/variable",
+      "Test file includes test_phoo_available for offline validation",
+      "Test file has SPDX Apache-2.0 license header"
     ]
   }
 ]
