@@ -1,0 +1,27 @@
+# Harbor execution policy for earth2studio-create-datasource live evals.
+#
+# Local run (full Earth2Studio tree required for implementation tasks):
+#   astra-skill-eval evaluate ./skills/earth2studio-create-datasource \
+#     --copy-repo --agent-eval -a codex
+#
+# Validate before committing:
+#   astra-skill-eval validate ./skills/earth2studio-create-datasource
+
+schema_version: 1
+
+harbor:
+  custom_dockerfile_mode: preserve
+  base_image_mode: disabled
+  n_attempts: 2
+  pass_threshold: 0.60
+  stop_on_pass: false
+  n_concurrent: 4
+  timeout_multiplier: 4.0
+  pre_agent_setup:
+    - /usr/local/bin/e2s-eval-bootstrap
+
+skill_workspace:
+  mode: isolated
+
+grading:
+  mode: aces_default
