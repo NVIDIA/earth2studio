@@ -65,6 +65,13 @@ This approach has several benefits:
 When adding new tests that require optional dependencies, add an entry to the
 `_TEST_DEPENDENCIES` dict in `test/conftest.py`:
 
+```python
+_TEST_DEPENDENCIES: dict[str, list[str]] = {
+    # ...existing entries...
+    "test/models/px/test_newmodel.py": ["newmodel-group"],
+}
+```
+
 ### Running Tests with Tox
 
 The recommended way to run tests is using the Makefile with a specific `TOX_ENV`:
