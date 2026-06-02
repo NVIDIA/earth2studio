@@ -21,10 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`CFS_Reforecast_FX`, `CFS_Reforecast_FX_Flux`), covering 1981-12-12
   through 2011-03-27 with cycles every 5 days, served from the NCEI HTTPS
   archive
-- Added automatic test skipping for optional dependencies via `pytest_ignore_collect`
-  hook in `test/conftest.py`
 
 ### Changed
+
+- Automatic test skipping for missing optional dependencies via
+  `pytest_ignore_collect` hook in `test/conftest.py`
 
 ### Deprecated
 
