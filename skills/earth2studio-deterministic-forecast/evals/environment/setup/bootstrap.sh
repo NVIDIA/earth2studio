@@ -20,7 +20,7 @@ export UV_LINK_MODE=copy
 export UV_PYTHON=3.13
 
 uv venv --python 3.13
-uv sync --group dev --extra data
+uv sync --group dev
 uv run pre-commit install --install-hooks
 
 cat >/etc/profile.d/e2s-eval.sh <<EOF
