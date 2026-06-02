@@ -37,14 +37,8 @@ implementation, testing, validation, and PR submission.
 
 ## Workspace
 
-| Context | Where to work |
-|---|---|
-| Harbor eval (default) | Skill at `/workspace/skills/`; write deliverables under `/workspace/output/` preserving paths like `earth2studio/data/...` and `test/data/...` |
-| Harbor eval with `--copy-repo` | Full checkout at `/workspace/repo` (`EARTH2STUDIO_ROOT`) |
-| Local clone | Directory containing `pyproject.toml` |
-
-**Never read `evals/targets/`** — grader references only. Use
-`references/implementation-guide.py` and `references/testing-guide.py`.
+Use the directory containing `pyproject.toml`. For Harbor evals, write to
+`/workspace/output/` preserving paths. Never read `evals/targets/`.
 
 ## Instructions
 
@@ -86,7 +80,7 @@ Load these on demand during the relevant steps:
 |---|---|---|
 | `references/implementation-guide.py` | Skeleton source with FILL comments | Steps 3–10 |
 | `references/testing-guide.py` | Test skeleton with FILL comments | Step 11 |
-| `references/validation-guide.md` | Variable validation, plots, PR, code review | Steps 12–14 |
+| `references/validation-guide.md` | Plot templates, PR body template, Greptile handling | Steps 12–14 (optional, for templates) |
 
 ---
 
@@ -97,7 +91,8 @@ Step 0: Obtain reference → Step 1: Determine type → Step 2: Dependencies
 → Step 3: Add deps → Step 4: Create lexicon → Step 5: Update vocab/schema
 → Step 6: Create skeleton → Step 7: Implement source → Step 8: Register
 → Step 9: Documentation → Step 10: CHANGELOG → Step 11: Tests
-→ Step 12: Validate & plots → Step 13: PR → Step 14: Code review
+→ Step 12: Validate & plots (user confirms) → Step 13: PR + sanity comment
+→ Step 14: Greptile review
 ```
 
 ---
@@ -227,33 +222,16 @@ Present: class name, file path, skeleton code, task dataclass.
 
 ### Step 7 — Implement the Data Source & Tests
 
-> **The test file is a co-equal deliverable.** Write it alongside the source,
-> not as a deferred afterthought. Create `test/data/test_<filename>.py` during
-> this step.
+> **The test file is a co-equal deliverable.** Create `test/data/test_<filename>.py`
+> alongside the source. Add `test_<source>_call_mock` for async sources.
 
-#### Sync sources (local/random, no remote I/O)
+**Sync sources:** Use `prep_data_inputs`/`prep_forecast_inputs`, direct `__call__`.
 
-- **`prep_data_inputs`/`prep_forecast_inputs`** for input normalization
-- Direct `__call__` implementation — no `_sync_async` needed
-- Include parametrized pytest tests for shape, grid, and reproducibility
-
-#### Async remote sources (S3/GCS/HTTP)
-
-All patterns below are REQUIRED — see `references/implementation-guide.py`:
-
-- **`_sync_async`** in `__call__` to run async fetch
-- **`managed_session`** for guaranteed session cleanup
-- **`gather_with_concurrency`** with `self._async_workers` (NEVER bare `tqdm.gather`)
-- **`async_retry`** wrapping `fetch_array` in `fetch_wrapper`
-- **Pure async I/O** (`fs._cat_file()`) — avoid `asyncio.to_thread`
-- **`try/finally`** in `__call__` for temp cache cleanup when `cache=False`
-- **`skip_instance_cache=True`** for s3fs
-
-Constructor params: `cache=True`, `verbose=True`, `async_timeout=600`,
-`async_workers=16`, `retries=3`. DataFrame sources add `time_tolerance`.
-
-For async sources, add `test_<source>_call_mock` in this step (patches network,
-no live fetch).
+**Async sources:** See `references/implementation-guide.py` for required patterns:
+`_sync_async`, `managed_session`, `gather_with_concurrency`, `async_retry`,
+pure async I/O, `try/finally` cleanup. Constructor params: `cache=True`,
+`verbose=True`, `async_timeout=600`, `async_workers=16`, `retries=3`.
+DataFrame sources add `time_tolerance`.
 
 ---
 
@@ -284,32 +262,9 @@ One line per source. Do NOT add separate lexicon entries.
 
 ### Step 11 — Verify Style & Expand Tests
 
-> **Load `references/testing-guide.py` for this step.**
->
-> The mock test (`test_<source>_call_mock`) should already exist from Step 7.
-> This step adds the remaining test functions and runs linting.
-
-**11a. Format and lint:**
-
-```bash
-make format && make lint && make license
-```
-
-**11b. Write tests:**
-
-Create `test/data/test_<filename>.py` using these **exact function names**
-(sync and async sources):
-
-| Function | Marks | Purpose |
-|---|---|---|
-| `test_<source>_fetch` | `@pytest.mark.slow` `@pytest.mark.xfail` | Live remote fetch |
-| `test_<source>_cache` | `@pytest.mark.slow` `@pytest.mark.xfail` | Cache behavior |
-| `test_<source>_call_mock` | none | Patched I/O, no network (REQUIRED for async) |
-| `test_<source>_exceptions` | none | Invalid time/variable errors |
-| `test_<source>_available` | none | Offline `available()` validation |
-
-Load `references/testing-guide.py` for skeletons. Target 90%+ coverage with
-`--slow`.
+Run `make format && make lint && make license`. Load `references/testing-guide.py`
+for test skeletons. Required tests: `test_<source>_fetch` (slow), `_cache` (slow),
+`_call_mock`, `_exceptions`, `_available`. Target 90%+ coverage with `--slow`.
 
 #### [CONFIRM — Tests]
 
@@ -319,13 +274,10 @@ Present test file, functions, coverage.
 
 ### Step 12 — Validate Variables & Sanity-Check
 
-> **Load `references/validation-guide.md` for Steps 12–14.**
-
-1. Validate all lexicon vars against real data
+1. Validate all lexicon vars against real data (run script, do NOT commit)
 2. Remove variables with < 10% valid data
-3. Summarize variables and time range to user
-4. Create sanity-check plot (gridded or sparse template)
-5. Run script and verify output
+3. Create sanity-check plot (gridded or sparse template)
+4. Tell user the plot path and ask for visual confirmation
 
 #### [CONFIRM — Sanity-Check Plots]
 
@@ -339,7 +291,12 @@ User MUST visually inspect plots. Do not proceed without confirmation.
 2. Commit (do NOT add sanity-check script/images)
 3. Push to fork
 4. `gh pr create --repo NVIDIA/earth2studio`
-5. Post sanity-check validation as PR comment
+5. **Immediately post sanity-check validation as PR comment** with:
+   - Variable coverage table (name, count, range, unit)
+   - Data validation summary (regions, storms/stations, time range)
+   - Key findings (physically reasonable values, conversions verified)
+   - Full validation script in `<details>` block
+   - Image placeholder: `<!-- Drag and drop sanity-check image here -->`
 
 #### [CONFIRM — Ready to Submit]
 
@@ -364,55 +321,27 @@ User approves which comments to address.
 
 ## Examples
 
-Typical invocation:
-
 ```text
 User: Add a data source for the NOAA GFS analysis on S3
 Agent: [loads skill, proceeds through Steps 0–14]
 ```
 
-The skill handles: S3/GCS/Azure/HTTP stores, zarr/netCDF4/GRIB formats,
-gridded and sparse data, analysis and forecast types.
-
 ---
 
 ## Limitations
 
-- One source type per invocation (DataSource OR ForecastSource, not both)
-- Cannot create sources for local-only data (use `DataArrayFile` instead)
-- Requires network access to the remote store for validation (Step 12)
-- SPDX license headers are required boilerplate in all generated files
-
-## Troubleshooting
-
-| Error | Cause | Solution |
-|---|---|---|
-| `OptionalDependencyFailure` | Missing optional pkg | `uv add --extra data <pkg>` |
-| `asyncio.TimeoutError` | Slow remote store | Increase `async_timeout` |
-| `FileNotFoundError` in fetch | Wrong path template | Check actual store layout |
-| Mock fails but live works | Mock ≠ real API | Match mock to real response |
-| `make lint` fails | Missing license | Run `make license` |
+- One source type per invocation
+- Requires network access for validation (Step 12)
+- SPDX license headers required in all files
 
 ---
 
 ## Reminders
 
-- **DO** use `uv run python` for all Python commands
-- **DO** use `loguru.logger`, never `print()`
-- **DO** maintain alphabetical order in `__init__.py`, RST, CHANGELOG
-- **DO** follow canonical method ordering
-- **DO** use async utilities: `managed_session`, `gather_with_concurrency`, `async_retry`
-- **DO** use pure async I/O (`fs._cat_file()`, async zarr)
-- **DO** include reference URLs in docstrings
-- **DO** use `try/finally` for temp cache cleanup
-- **DO** write deliverables under `/workspace/output/` (Harbor) or the repo root (local)
-- **DO** run `uv run pytest` and `make format && make lint` before finishing
-- **PREFER** fsspec-compatible filesystems over dedicated libraries
-- **AVOID** `asyncio.to_thread` — pure async is ALWAYS preferred
-- **AVOID** bare `tqdm.gather(*tasks)`
-- **AVOID** xarray for loading data — prefer direct file I/O
-- **AVOID** downloading full files — use byte-range/slicing
-- **AVOID** making lint exceptions - fix the source of the error
-- **NEVER** call `loop.set_default_executor()`
-- **NEVER** commit API keys, secrets, or credentials
-- **NEVER** commit sanity-check scripts or images
+**DO:** `uv run python`, `loguru.logger`, alphabetical order in `__init__.py`/RST/CHANGELOG,
+canonical method ordering, async utilities (`managed_session`, `gather_with_concurrency`,
+`async_retry`), pure async I/O, reference URLs in docstrings, `try/finally` cleanup.
+
+**AVOID:** `asyncio.to_thread`, bare `tqdm.gather`, xarray for loading, full file downloads.
+
+**NEVER:** `loop.set_default_executor()`, commit secrets, commit sanity-check scripts/images.
