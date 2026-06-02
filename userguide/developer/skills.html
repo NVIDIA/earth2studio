@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Developer Guide &#8212; Earth2Studio</title>
+    <title>AI Agent Skills &#8212; Earth2Studio</title>
   
   
   
@@ -61,7 +61,7 @@
     <script src="../../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/developer/index';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/developer/skills';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -74,8 +74,8 @@
 
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Overview" href="overview.html" />
-    <link rel="prev" title="Lexicon" href="../advanced/lexicon.html" />
+    <link rel="next" title="Support" href="../support/index.html" />
+    <link rel="prev" title="Recipe Guide" href="recipes.html" />
 
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -280,6 +280,10 @@
   
 
   
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
 </div>
 
     </header>
@@ -390,7 +394,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../advanced/lexicon.html">Lexicon</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">Developer Guide</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Developer Guide</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="overview.html">Overview</a></li>
 <li class="toctree-l3"><a class="reference internal" href="dependency.html">Dependency Management</a></li>
 <li class="toctree-l3"><a class="reference internal" href="style.html">Style Guide</a></li>
@@ -398,7 +402,7 @@
 <li class="toctree-l3"><a class="reference internal" href="testing.html">Testing Guide</a></li>
 <li class="toctree-l3"><a class="reference internal" href="build.html">Build Process</a></li>
 <li class="toctree-l3"><a class="reference internal" href="recipes.html">Recipe Guide</a></li>
-<li class="toctree-l3"><a class="reference internal" href="skills.html">AI Agent Skills</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">AI Agent Skills</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../support/index.html">Support</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -690,7 +694,10 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Developer Guide</span></li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Developer Guide</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">AI Agent Skills</span></li>
   </ul>
 </nav>
 </div>
@@ -707,20 +714,78 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="developer-guide">
-<h1>Developer Guide<a class="headerlink" href="#developer-guide" title="Link to this heading">#</a></h1>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="dependency.html">Dependency Management</a></li>
-<li class="toctree-l1"><a class="reference internal" href="style.html">Style Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="documentation.html">Documentation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="testing.html">Testing Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="build.html">Build Process</a></li>
-<li class="toctree-l1"><a class="reference internal" href="recipes.html">Recipe Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="skills.html">AI Agent Skills</a></li>
+  <!-- markdownlint-disable MD025 -->
+<section id="ai-agent-skills">
+<span id="developer-skills"></span><h1>AI Agent Skills<a class="headerlink" href="#ai-agent-skills" title="Link to this heading">#</a></h1>
+<p>Earth2Studio includes AI agent skills that provide specialized guidance for AI coding
+assistants (Claude Code, Codex, etc.) when working with Earth2Studio. These skills help
+agents build inference pipelines, select models, and generate correct code.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>Skills are located in the <code class="docutils literal notranslate"><span class="pre">skills/</span></code> directory at the repository root. Each skill
+contains:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">SKILL.md</span></code> - Instructions and workflow for the AI agent</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">evals/evals.json</span></code> - Evaluation tasks for testing skill effectiveness</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">evals/targets/</span></code> - Reference outputs for evaluation grading</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">references/</span></code> - Supporting documentation (optional)</p></li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Skill development is currently internal to NVIDIA. External contributions to skills
+are not accepted at this time.</p>
 </div>
+</section>
+<section id="skill-validation">
+<h2>Skill Validation<a class="headerlink" href="#skill-validation" title="Link to this heading">#</a></h2>
+<p>Skills are validated using the harbor agent evaluation framework via <code class="docutils literal notranslate"><span class="pre">nv-base</span></code>. To run
+skill evaluations locally:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>nv-base<span class="w"> </span>agent-eval<span class="w"> </span>&lt;path-to-skill&gt;<span class="w"> </span>-a<span class="w"> </span>claude-code,codex<span class="w"> </span>-r<span class="w"> </span>cli,html,json<span class="w"> </span>-o<span class="w"> </span>./eval-results/
+</pre></div>
+</div>
+<p>For example, to evaluate the deterministic forecast skill:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>nv-base<span class="w"> </span>agent-eval<span class="w"> </span>skills/earth2studio-deterministic-forecast<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-a<span class="w"> </span>claude-code,codex<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-r<span class="w"> </span>cli,html,json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-o<span class="w"> </span>./eval-results/
+</pre></div>
+</div>
+<p>This produces:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cli</span></code> - Console output with pass/fail summary</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">html</span></code> - Interactive HTML report for detailed analysis</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">json</span></code> - Machine-readable results for CI integration</p></li>
+</ul>
+</section>
+<section id="evaluation-metrics">
+<h2>Evaluation Metrics<a class="headerlink" href="#evaluation-metrics" title="Link to this heading">#</a></h2>
+<p>Skills are evaluated across five dimensions:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Dimension</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Security</p></td>
+<td><p>Avoids unsafe operations, secret leakage, unauthorized access</p></td>
+</tr>
+<tr class="row-odd"><td><p>Correctness</p></td>
+<td><p>Agent follows expected workflow and produces correct output</p></td>
+</tr>
+<tr class="row-even"><td><p>Discoverability</p></td>
+<td><p>Agent loads skill when relevant, avoids when irrelevant</p></td>
+</tr>
+<tr class="row-odd"><td><p>Effectiveness</p></td>
+<td><p>Agent performs better with skill than without</p></td>
+</tr>
+<tr class="row-even"><td><p>Efficiency</p></td>
+<td><p>Agent uses fewer tokens and avoids redundant work</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
 </section>
 
 
@@ -734,20 +799,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../advanced/lexicon.html"
+       href="recipes.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Lexicon</p>
+        <p class="prev-next-title">Recipe Guide</p>
       </div>
     </a>
     <a class="right-next"
-       href="overview.html"
+       href="../support/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Overview</p>
+        <p class="prev-next-title">Support</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -758,9 +823,27 @@
             
             
 
-<div class="bd-sidebar-secondary"></div>
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
 
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#skill-validation">Skill Validation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluation-metrics">Evaluation Metrics</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
               
             
 
