@@ -9,7 +9,7 @@ This benchmark summarizes 3-Tier Evaluation from NVSkills-Eval results for the s
 - Skill: `earth2studio-deterministic-forecast`
 - Evaluation date: 2026-06-02
 - NVSkills-Eval profile: `external`
-- Overall verdict: FAIL
+- Overall verdict: PASS
 - Tier 3 live agent evaluation: not available in this report
 
 ## Agents Used
@@ -40,23 +40,25 @@ Tier 3 dimension rollup was not available in this report.
 
 ## Tier 1: Static Validation Summary
 
-Tier 1 validation passed with observations. NVSkills-Eval ran 9 checks and found 2 total findings.
+Tier 1 validation passed with observations. NVSkills-Eval ran 9 checks and found 7 total findings.
 
 Top findings:
 
-- LOW QUALITY/quality_efficiency: Instructions not in list format (`skills/earth2studio-deterministic-forecast/SKILL.md`)
-- LOW SCHEMA/author_format: Author must be of the form 'Name <email@host>' (`skills/earth2studio-deterministic-forecast/SKILL.md`)
+- MEDIUM SCHEMA/body_recommended_section: Missing recommended section: '## Instructions' (`skills/earth2studio-deterministic-forecast/SKILL.md`)
+- MEDIUM SCHEMA/body_recommended_section: Missing recommended section: '## Examples' (`skills/earth2studio-deterministic-forecast/SKILL.md`)
+- MEDIUM SECURITY/Unknown (SDI-2): The script appends to /etc/environment without sanitizing the REPO_ROOT variable, which could allow path injection if RE (`evals/environment/setup/bootstrap.sh:27`)
+- MEDIUM SECURITY/Unknown (SQP-2): Writing to /etc/environment modifies system-wide environment configuration for all users and processes in the container  (`evals/environment/setup/bootstrap.sh:27`)
+- LOW QUALITY/quality_discoverability: No '## Purpose' section (`skills/earth2studio-deterministic-forecast/SKILL.md`)
 
 ## Tier 2: Deduplication Summary
 
-Tier 2 validation reported findings. NVSkills-Eval ran 2 checks and found 1 total findings.
+Tier 2 validation passed. NVSkills-Eval ran 2 checks and found 0 total findings.
 
-Top findings:
+Notable observations:
 
-- HIGH DUPLICATE/duplicate: Duplicate content found within SKILL.md:
-  "## Purpose" in SKILL.md (lines 3-9)
-  vs "## Instructions" in SKILL.md (lines 17-24) (`SKILL.md:3`)
+- Context Deduplication: Collected 2 file(s)
+- Inter-Skill Deduplication: Parsed skill 'earth2studio-deterministic-forecast': 158 char description
 
 ## Publication Recommendation
 
-The skill should be reviewed before NVSkills-Eval publication. Skill owners should address the findings above and rerun NVSkills-Eval to refresh this benchmark.
+The skill is suitable to proceed toward NVSkills-Eval publication based on this benchmark. Skill owners should keep this file with the skill and refresh it when the evaluation dataset, skill behavior, or target agents materially change.

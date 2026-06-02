@@ -7,9 +7,9 @@ This skill is ready for commercial/non-commercial use. <br>
 NVIDIA <br>
 
 ### License/Terms of Use: <br>
-Apache 2.0 <br>
+Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers building deterministic (single-member) weather forecast inference scripts using Earth2Studio's prognostic models, data sources, and IO backends. <br>
+Developers and engineers building deterministic single-member weather forecast inference scripts using Earth2Studio prognostic models. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>
@@ -19,11 +19,12 @@ Risk: Review before execution as proposals could introduce incorrect or misleadi
 Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
-- [Earth2Studio Prognostic Models](https://nvidia.github.io/earth2studio/modules/models_px.html) <br>
-- [Earth2Studio Data Sources (Analysis)](https://nvidia.github.io/earth2studio/modules/datasources_analysis.html) <br>
-- [Earth2Studio Data Sources (Forecast)](https://nvidia.github.io/earth2studio/modules/datasources_forecast.html) <br>
-- [Earth2Studio IO Backends](https://nvidia.github.io/earth2studio/modules/io.html) <br>
-- [earth2studio.run.deterministic source](https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/run.py) <br>
+- [Prognostic Models](https://nvidia.github.io/earth2studio/modules/models_px.html) <br>
+- [Data Sources (Analysis)](https://nvidia.github.io/earth2studio/modules/datasources_analysis.html) <br>
+- [Data Sources (Forecast)](https://nvidia.github.io/earth2studio/modules/datasources_forecast.html) <br>
+- [IO Backends](https://nvidia.github.io/earth2studio/modules/io.html) <br>
+- [run.deterministic source](https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/run.py) <br>
+- [Troubleshooting Guide](references/troubleshooting.md) <br>
 
 
 ## Skill Output: <br>
