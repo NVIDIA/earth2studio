@@ -33,6 +33,25 @@ Rules:
 - Target 90%+ line coverage with --slow
 - Run: pytest test/data/test_<source_name>.py -v
 
+Automatic Test Skipping:
+------------------------
+If your data source requires optional dependencies (e.g., special decoders,
+API clients), register your test file in test/conftest.py's _TEST_DEPENDENCIES
+mapping. This ensures pytest skips the file during collection when dependencies
+are missing, preventing ImportError before tests even run.
+
+Example in test/conftest.py:
+
+    _TEST_DEPENDENCIES: dict[str, list[str]] = {
+        # ...existing entries...
+        "test/data/test_newsource.py": ["data"],           # use pyproject.toml group
+        "test/data/test_special.py": ["special_decoder"],  # or individual package
+    }
+
+This replaces the need for pytest.importorskip() at module level for skipping
+the entire file. Use pytest.importorskip() only when you need to skip specific
+tests within a file that otherwise runs without optional deps.
+
 See real examples:
 - Gridded ForecastSource: test/data/test_cfs.py
 - DataFrame DataFrameSource: test/data/test_nnja.py
