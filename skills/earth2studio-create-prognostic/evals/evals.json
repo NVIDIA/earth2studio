@@ -1,0 +1,78 @@
+[
+  {
+    "id": "create-prognostic-eval-001-simple-identity",
+    "question": "Implement a new Earth2Studio prognostic model called `IdentityModel` that simply returns its input unchanged (identity function). It should have a 6-hour time step, work on a 1-degree global grid (181x360), and support 4 variables: t2m, u10m, v10m, msl.\n\nWrite the model at `earth2studio/models/px/identity.py`, a full test file at `test/models/px/test_identity.py`, then run pytest and lint.",
+    "expected_skill": "earth2studio-create-prognostic",
+    "expected_script": "evals/targets/eval_1_target.py",
+    "expected_test": "evals/targets/test/eval_1_test_target.py",
+    "ground_truth": "Creates a prognostic model with triple inheritance (torch.nn.Module + AutoModelMixin + PrognosticMixin), canonical method ordering, SPDX header, type hints. Model returns input unchanged but increments lead_time by 6h. Test file includes mock tests for call, iter, and exceptions.",
+    "expected_behavior": [
+      "Activates earth2studio-create-prognostic before implementing",
+      "Writes earth2studio/models/px/identity.py with SPDX Apache-2.0 license header",
+      "Implements PrognosticModel with triple inheritance",
+      "Follows canonical method ordering: __init__, input_coords, output_coords, load_default_package, load_model, __call__, _default_generator, create_iterator",
+      "Writes test/models/px/test_identity.py with PhooIdentityModel mock",
+      "Runs uv run pytest on the new test file",
+      "Runs make format && make lint before finishing",
+      "Does not read evals/targets/ ground-truth files"
+    ]
+  },
+  {
+    "id": "create-prognostic-eval-002-persistence-model",
+    "question": "Implement a new Earth2Studio prognostic model called `PersistenceModel` that predicts the future by returning the current state (persistence forecast). It should have a 24-hour time step, work on a 0.25-degree global grid (721x1440), and support variables: t2m, msl, z500, t850, u500, v500.\n\nWrite the model at `earth2studio/models/px/persistence.py`, a full test file at `test/models/px/test_persistence.py`, then run pytest and lint.",
+    "expected_skill": "earth2studio-create-prognostic",
+    "expected_script": "evals/targets/eval_2_target.py",
+    "expected_test": "evals/targets/test/eval_2_test_target.py",
+    "ground_truth": "Creates a persistence prognostic model on 721x1440 grid with 24h time step. Uses handshake_dim for coordinate validation, yields initial condition first in create_iterator, uses front_hook/rear_hook in _default_generator.",
+    "expected_behavior": [
+      "Activates earth2studio-create-prognostic before implementing",
+      "Writes earth2studio/models/px/persistence.py with SPDX Apache-2.0 license header",
+      "Implements input_coords with 721x1440 grid and 6 variables",
+      "Implements output_coords with handshake_dim validation at correct indices",
+      "create_iterator yields initial condition first (step 0)",
+      "_default_generator uses self.front_hook and self.rear_hook",
+      "Writes test/models/px/test_persistence.py with parametrized tests",
+      "Runs uv run pytest on the new test file",
+      "Runs make format && make lint before finishing",
+      "Does not read evals/targets/ ground-truth files"
+    ]
+  },
+  {
+    "id": "create-prognostic-eval-003-additive-model",
+    "question": "Implement a new Earth2Studio prognostic model called `AdditiveModel` that adds a small constant (0.01) to each variable at each time step. It should have a 6-hour time step and work on a 0.5-degree global grid (361x720). Include normalization buffers (center and scale) loaded from the package.\n\nWrite the model at `earth2studio/models/px/additive.py`, a full test file at `test/models/px/test_additive.py`, then run pytest and lint.",
+    "expected_skill": "earth2studio-create-prognostic",
+    "expected_script": "evals/targets/eval_3_target.py",
+    "expected_test": "evals/targets/test/eval_3_test_target.py",
+    "ground_truth": "Creates an additive prognostic model with register_buffer for center/scale, 361x720 grid. load_model resolves center.npy and scale.npy from package. Test fixture creates dummy package with model.pt, center.npy, scale.npy.",
+    "expected_behavior": [
+      "Activates earth2studio-create-prognostic before implementing",
+      "Writes earth2studio/models/px/additive.py with SPDX Apache-2.0 license header",
+      "Uses register_buffer for center, scale, and device_buffer",
+      "load_model resolves model.pt, center.npy, scale.npy from package",
+      "Test fixture creates package with all required files",
+      "Writes test/models/px/test_additive.py with PhooAdditiveModel mock",
+      "Runs uv run pytest on the new test file",
+      "Runs make format && make lint before finishing",
+      "Does not read evals/targets/ ground-truth files"
+    ]
+  },
+  {
+    "id": "create-prognostic-eval-004-history-model",
+    "question": "Implement a new Earth2Studio prognostic model called `HistoryModel` that requires two time steps of history (-6h and 0h) as input. It should average the two input states to produce the forecast. Use a 6-hour time step on a 1-degree grid (181x360).\n\nWrite the model at `earth2studio/models/px/history.py`, a full test file at `test/models/px/test_history.py`, then run pytest and lint.",
+    "expected_skill": "earth2studio-create-prognostic",
+    "expected_script": "evals/targets/eval_4_target.py",
+    "expected_test": "evals/targets/test/eval_4_test_target.py",
+    "ground_truth": "Creates a history-aware prognostic model with lead_time = [-6h, 0h] in input_coords. __call__ averages the two lead_time slices. output_coords validates lead_time dimension at index 2.",
+    "expected_behavior": [
+      "Activates earth2studio-create-prognostic before implementing",
+      "Writes earth2studio/models/px/history.py with SPDX Apache-2.0 license header",
+      "input_coords has lead_time = [np.timedelta64(-6, 'h'), np.timedelta64(0, 'h')]",
+      "__call__ handles input with shape including 2 lead_time steps",
+      "output_coords validates and increments lead_time correctly",
+      "Writes test/models/px/test_history.py with tests for history handling",
+      "Runs uv run pytest on the new test file",
+      "Runs make format && make lint before finishing",
+      "Does not read evals/targets/ ground-truth files"
+    ]
+  }
+]
