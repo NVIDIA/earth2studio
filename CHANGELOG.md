@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Automatic test skipping for missing optional dependencies via
+  `pytest_ignore_collect` hook in `test/conftest.py`
+
 ### Deprecated
 
 ### Removed
