@@ -162,6 +162,11 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     performs autoregressive timestepping using a full-resolution physical state
     and an internal low-resolution latent state.
 
+    Note
+    ----
+    For best inference performance, set the environment variable `TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1`.
+    This is on by default in NGC containers, but other environments may need to set it manually.
+
     Badges
     ------
     region:global class:mrf product:wind product:precip product:temp product:atmos year:2026

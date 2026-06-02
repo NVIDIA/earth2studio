@@ -96,20 +96,18 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > [!NOTE]
 > As of version `0.14.0`, Earth2Studio TOML default installs now target CUDA 13.
 
-- [**GenCast Mini**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.GenCastMini.html),
-    Google DeepMind's 1-degree ensemble diffusion weather model, is now available as a
-    prognostic model.
-- [**CAMS Global Forecast**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.CAMS_FX.html#earth2studio.data.CAMS_FX),
-    Copernicus Atmosphere Monitoring Service global atmospheric composition forecasts
-    are now accessible via the new `CAMS_FX` forecast data source.
-- **Satellite Level-1 Data Sources**, six new satellite brightness-temperature and
-    radiance data sources added: MetOp AMSU-A, MetOp AVHRR, JPSS ATMS, JPSS CrIS,
-    MetOp IASI, and [Meteosat FCI](https://nvidia.github.io/earth2studio/modules/datasources_dataframe.html).
-- [**NClimGrid Daily**](https://nvidia.github.io/earth2studio/modules/datasources_analysis.html),
-    NOAA daily gridded climate observations for the contiguous US now available as a
-    data source.
-- **Data Assimilation Models**, a new model class for data assimilation including
-    equirectangular interpolation and [HealDA](https://nvidia.github.io/earth2studio/examples/05_data_assimilation/02_healda.html).
+- [**Himawari AHI**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.HimawariAHI.html),
+    Himawari-8/9 AHI ISatSS L2 Full Disk satellite data source is now available for
+    geostationary satellite observations over the Western Pacific.
+- [**GHCN-Daily**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.GHCNDaily.html),
+    Global Historical Climatology Network daily station observation data frame source
+    providing access to global surface observations.
+- [**Orbit-2**](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.OrbitGlobalPrecip.html#earth2studio.models.dx.OrbitGlobalPrecip),
+    precipitation downscaling diagnostic model added for high-resolution precipitation
+    estimates.
+- **Conventional Observation Sources**, new data sources for in-situ observations
+    including [NNJA conventional obs](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.NNJAObsConv.html)
+    and real-time [GDAS conventional obs](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.NomadsGDASObsConv.html).
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 

@@ -33,20 +33,16 @@ dependencies = [
 ]
 
 classifiers = [
-    "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
-    'Programming Language :: Python',
-    'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.11',
-    'Programming Language :: Python :: 3.12',
-    'Programming Language :: Python :: 3.13',
-    'Programming Language :: Python :: 3.14',
-    'Programming Language :: Python :: 3 :: Only',
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Intended Audience :: Science/Research",
     "Environment :: GPU",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    'Typing :: Typed',
+    "Typing :: Typed",
 ]
 dynamic = ["version"]
 
@@ -420,6 +416,7 @@ exclude = [".claude"]
 "recipes/**/*_notebook.py" = ["E402"]
 # Ignore `S101` (assertions) in all `test` files.
 "test/*.py" = ["S101"]
+"skills/**/*.py" = ["F401", "E731", "I001", "S101"]
 "serve/server/test/*.py" = ["S101"]
 "recipes/**/test/*.py" = ["S101"]
 
@@ -485,7 +482,7 @@ fail-under = 95
 color = true
 omit-covered-files = false
 verbose = 2
-exclude = ["setup.py", "test/*", "docs", "build"]
+exclude = ["setup.py", "test/*", "skills/*", "docs", "build"]
 ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
 
 # ==== MyPy configuration ====
@@ -495,7 +492,7 @@ python_version = "3.13"
 packages = ['earth2studio']
 exclude = [
     'examples', 'test', 'docs', 'serve/test', 'recipes/.*/test',
-    'serve/server/example_workflows',
+    'serve/server/example_workflows', 'skills',
 ]
 disallow_untyped_calls = true
 disallow_untyped_defs = true
