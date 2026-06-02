@@ -83,6 +83,14 @@ E2STUDIO_VOCAB = {
     "tc_lon": "tropical cyclone center longitude position",
     "tc_msl": "tropical cyclone center min mean sea level pressure (Pa)",
     "tc_w10m": "tropical cyclone center max wind speed at 10m (m s-1)",
+    "tcwnd": "tropical cyclone maximum sustained wind speed (m s-1)",
+    "tcustm": "tropical cyclone translation u-component (m s-1)",
+    "tcvstm": "tropical cyclone translation v-component (m s-1)",
+    "tcr34": "tropical cyclone 34-kt wind radius (km)",
+    "tcr50": "tropical cyclone 50-kt wind radius (km)",
+    "tcr64": "tropical cyclone 64-kt wind radius (km)",
+    "tcsshs": "tropical cyclone Saffir-Simpson Hurricane Scale category (-5 to 5)",
+    "tcd2l": "tropical cyclone distance to land (km)",
     "lsm": "land-sea mask",
     "z": "geopotential at surface (orography) (m2 s-2)",
     "uvcossza": "cosine of solar zenith angle",
@@ -473,6 +481,31 @@ E2STUDIO_SCHEMA = pa.schema(
             pa.float64(),
             nullable=True,
             metadata={"description": "Channel wavenumber (cm^-1)"},
+        ),
+        # Tropical cyclone track fields
+        pa.field(
+            "track_id",
+            pa.string(),
+            nullable=True,
+            metadata={"description": "Tropical cyclone track serial ID"},
+        ),
+        pa.field(
+            "storm_name",
+            pa.string(),
+            nullable=True,
+            metadata={"description": "Tropical cyclone name"},
+        ),
+        pa.field(
+            "basin",
+            pa.string(),
+            nullable=True,
+            metadata={"description": "Tropical cyclone basin code (NA, EP, WP, etc.)"},
+        ),
+        pa.field(
+            "season",
+            pa.int32(),
+            nullable=True,
+            metadata={"description": "Tropical cyclone season year"},
         ),
     ]
 )
