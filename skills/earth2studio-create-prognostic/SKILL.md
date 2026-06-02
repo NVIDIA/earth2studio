@@ -11,9 +11,9 @@ metadata:
     - prognostic-model
     - integration
 description: >
-  Create and validate Earth2Studio prognostic model (px) wrappers from reference
-  inference scripts or repositories. Covers implementation, testing, validation,
-  and PR submission. Do NOT use for diagnostic models, data sources, or installation.
+  Create Earth2Studio prognostic (time-stepping forecast) model wrappers from
+  reference scripts. Covers implementation, testing, validation, and PR.
+  Do NOT use for diagnostic models, data sources, or installation.
 argument-hint: URL or local path to reference inference script/repo (optional)
 ---
 
@@ -25,6 +25,12 @@ End-to-end workflow for implementing a new Earth2Studio prognostic model wrapper
 that connects a third-party ML weather model to Earth2Studio's inference
 infrastructure — from analysis through implementation, testing, validation, and
 PR submission.
+
+> **What is a prognostic model?** Prognostic models are forecast models that
+> time-integrate forward — given an initial state, they predict future states
+> by stepping through time (e.g., 6-hour increments). Examples include Pangu,
+> GraphCast, FourCastNet, and Aurora. In contrast, diagnostic models compute
+> derived quantities from a single time step without time integration.
 
 ## Prerequisites
 
