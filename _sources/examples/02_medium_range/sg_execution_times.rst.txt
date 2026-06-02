@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:00.000** total execution time for 5 files **from examples/02_medium_range**:
+**00:00.000** total execution time for 6 files **from examples/02_medium_range**:
 
 .. container::
 
@@ -45,5 +45,8 @@ Computation times
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_02_medium_range_05_cyclone_tracking.py` (``05_cyclone_tracking.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_02_medium_range_06_atlas_inference.py` (``06_atlas_inference.py``)
      - 00:00.000
      - 0.0
