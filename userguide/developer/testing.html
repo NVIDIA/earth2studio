@@ -748,6 +748,40 @@ were <strong>xfail</strong> (expected failure).</p>
 <li><p><strong><code class="docutils literal notranslate"><span class="pre">test-serve</span></code></strong> - Serve/API tests (requires <code class="docutils literal notranslate"><span class="pre">serve</span></code> extra)</p></li>
 </ul>
 </section>
+<section id="automatic-test-skipping">
+<h3>Automatic Test Skipping<a class="headerlink" href="#automatic-test-skipping" title="Link to this heading">#</a></h3>
+<p>Test files that require optional dependencies are automatically skipped during pytest
+collection when those dependencies are not installed. This is handled by a
+<code class="docutils literal notranslate"><span class="pre">pytest_ignore_collect</span></code> hook in <code class="docutils literal notranslate"><span class="pre">test/conftest.py</span></code> that checks dependency availability
+before Python imports the test module.</p>
+<p>The hook uses a <code class="docutils literal notranslate"><span class="pre">_TEST_DEPENDENCIES</span></code> mapping that associates test file paths with their
+required dependency groups (from <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>) or individual packages. For example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">_TEST_DEPENDENCIES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;test/models/px/test_aifs.py&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;aifs&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;test/statistics/test_crps.py&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;statistics&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;test/data/test_nnja.py&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;pybufrkit&quot;</span><span class="p">],</span>
+    <span class="c1"># ...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>This approach has several benefits:</p>
+<ol class="arabic simple">
+<li><p><strong>No import errors during collection</strong> - Files are skipped before Python tries to
+import unavailable packages</p></li>
+<li><p><strong>Version-aware checking</strong> - Version constraints from <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> are respected
+(e.g., <code class="docutils literal notranslate"><span class="pre">anemoi-models==0.5.1</span></code> for AIFS vs <code class="docutils literal notranslate"><span class="pre">anemoi-models&gt;=0.9.3,&lt;0.9.5</span></code> for AIFS2)</p></li>
+<li><p><strong>Centralized configuration</strong> - All dependency mappings are in one place (<code class="docutils literal notranslate"><span class="pre">conftest.py</span></code>)</p></li>
+<li><p><strong>Clean test output</strong> - Skipped files don’t appear as errors or warnings</p></li>
+</ol>
+<p>When adding new tests that require optional dependencies, add an entry to the
+<code class="docutils literal notranslate"><span class="pre">_TEST_DEPENDENCIES</span></code> dict in <code class="docutils literal notranslate"><span class="pre">test/conftest.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">_TEST_DEPENDENCIES</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># ...existing entries...</span>
+    <span class="s2">&quot;test/models/px/test_newmodel.py&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;newmodel-group&quot;</span><span class="p">],</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
 <section id="running-tests-with-tox">
 <h3>Running Tests with Tox<a class="headerlink" href="#running-tests-with-tox" title="Link to this heading">#</a></h3>
 <p>The recommended way to run tests is using the Makefile with a specific <code class="docutils literal notranslate"><span class="pre">TOX_ENV</span></code>:</p>
@@ -891,6 +925,7 @@ properly integrate it into the CI pipeline.</p>
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pytest">pytest</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#test-environments">Test Environments</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#automatic-test-skipping">Automatic Test Skipping</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#running-tests-with-tox">Running Tests with Tox</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#running-tests-directly-with-pytest">Running Tests Directly with pytest</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ci-pipeline-structure">CI Pipeline Structure</a></li>
