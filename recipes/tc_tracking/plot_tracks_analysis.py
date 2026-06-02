@@ -39,7 +39,7 @@
 # - Ensemble of predicted TC tracks (CSV files from tracking algorithm)
 # - Reference track from ERA5 or IBTrACS observations (CSV file)
 #
-# Both can be produced by configuring a `tc_hunt.py` run with cyclone tracking
+# Both can be produced by configuring a `main.py` run with cyclone tracking
 # enabled. The ensemble of predicted tracks can, for example, be produced with
 # the config `cfg/helene.yaml`. Reference tracks can be extracted using
 # `cfg/extract_era5.yaml`.
@@ -78,9 +78,9 @@
 
 # %%
 import numpy as np
-from analyse_n_plot import load_tracks
-from data_handling import compute_averages_of_errors_over_lead_time
-from plotting_helpers import (
+from src.plt.analyse_n_plot import load_tracks
+from src.plt.data_handling import compute_averages_of_errors_over_lead_time
+from src.plt.plotting_helpers import (
     plot_errors_over_lead_time,
     plot_extreme_extremes_histograms,
     plot_ib_era5,

@@ -24,10 +24,10 @@ import pandas as pd
 from loguru import logger
 
 # Make ``src/`` importable when the plotting modules are run from
-# ``recipes/tc_tracking/plotting/`` (the conventional working directory for
-# the notebooks).  Mirrors how ``tc_hunt.py`` exposes ``src`` to the rest of
+# ``recipes/tc_tracking/`` (the conventional working directory for
+# the notebooks).  Mirrors how ``main.py`` exposes ``src`` to the rest of
 # the recipe.
-_RECIPE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_RECIPE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if _RECIPE_ROOT not in sys.path:
     sys.path.insert(0, _RECIPE_ROOT)
 

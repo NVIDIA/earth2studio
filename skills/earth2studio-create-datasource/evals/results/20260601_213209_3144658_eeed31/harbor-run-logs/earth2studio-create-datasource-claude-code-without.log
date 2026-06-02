@@ -1,0 +1,201 @@
+job_name: earth2studio-create-datasource-claude-code-without
+returncode: 1
+command: /localhome/local-ngeneva/.local/share/astra-skill-eval/venv/bin/harbor run --job-name earth2studio-create-datasource-claude-code-without --n-attempts 2 --n-concurrent 4 -a claude-code -p /localhome/local-ngeneva/earth2studio/skills/earth2studio-create-datasource/evals/results/20260601_213209_3144658_eeed31/_harbor-tasks-baseline --jobs-dir /localhome/local-ngeneva/earth2studio/skills/earth2studio-create-datasource/evals/results/20260601_213209_3144658_eeed31/_harbor-jobs --model aws/anthropic/bedrock-claude-opus-4-6 --timeout-multiplier 4.0 --ae ANTHROPIC_BASE_URL=https://inference-api.nvidia.com --ae OPENAI_BASE_URL=https://inference-api.nvidia.com/v1 --ae ANTHROPIC_MODEL=aws/anthropic/bedrock-claude-opus-4-6 --ae CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1 --ak version=2.1.133 --ak allowed_tools=Bash,Read,Write,Edit,MultiEdit,Glob,Grep,LS,WebFetch,WebSearch --yes
+
+stdout:
+⠋ 7/8 Mean: 0.585 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━      0:21:54 -:--:--
+⠋ 0:11:41 create-datasource-eval-004-phoo__HhPg3Rk: running verifier...
+
+stderr:
+[92m21:33:11 - LiteLLM:WARNING[0m: common_utils.py:979 - litellm: could not pre-load bedrock-runtime response stream shape — Bedrock event-stream decoding will be unavailable. Error: No module named 'botocore'
+[92m21:33:11 - LiteLLM:WARNING[0m: common_utils.py:24 - litellm: could not pre-load sagemaker-runtime response stream shape — SageMaker event-stream decoding will be unavailable. Error: No module named 'botocore'
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /localhome/local-ngeneva/.local/share/astra-skill-eval/venv/lib/python3.12/s │
+│ ite-packages/harbor/cli/jobs.py:1336 in start                                │
+│                                                                              │
+│   1333 │   # `_run_job` itself prints the summary + invokes the upload       │
+│        finalize                                                              │
+│   1334 │   # (when --upload is set) so everything stays on one event loop.   │
+│        See                                                                   │
+│   1335 │   # the long comment in `_run_harbor_hub_upload` for why this       │
+│        matters.                                                              │
+│ ❱ 1336 │   job, job_result = run_async(_run_job())                           │
+│   1337 │                                                                     │
+│   1338 │   if export_traces:                                                 │
+│   1339 │   │   from harbor.utils.traces_utils import export_traces as        │
+│        _export_traces                                                        │
+│                                                                              │
+│ /localhome/local-ngeneva/.local/share/astra-skill-eval/venv/lib/python3.12/s │
+│ ite-packages/harbor/cli/utils.py:19 in run_async                             │
+│                                                                              │
+│   16 │   """                                                                 │
+│   17 │   if sys.platform == "win32":                                         │
+│   18 │   │   return asyncio.run(coro,                                        │
+│      loop_factory=asyncio.ProactorEventLoop)                                 │
+│ ❱ 19 │   return asyncio.run(coro)                                            │
+│   20                                                                         │
+│   21                                                                         │
+│   22 def parse_kwargs(kwargs_list: list[str] | None) -> dict[str, Any]:      │
+│                                                                              │
+│ /usr/lib/python3.12/asyncio/runners.py:194 in run                            │
+│                                                                              │
+│   191 │   │   │   "asyncio.run() cannot be called from a running event       │
+│       loop")                                                                 │
+│   192 │                                                                      │
+│   193 │   with Runner(debug=debug, loop_factory=loop_factory) as runner:     │
+│ ❱ 194 │   │   return runner.run(main)                                        │
+│   195                                                                        │
+│   196                                                                        │
+│   197 def _cancel_all_tasks(loop):                                           │
+│                                                                              │
+│ /usr/lib/python3.12/asyncio/runners.py:118 in run                            │
+│                                                                              │
+│   115 │   │                                                                  │
+│   116 │   │   self._interrupt_count = 0                                      │
+│   117 │   │   try:                                                           │
+│ ❱ 118 │   │   │   return self._loop.run_until_complete(task)                 │
+│   119 │   │   except exceptions.CancelledError:                              │
+│   120 │   │   │   if self._interrupt_count > 0:                              │
+│   121 │   │   │   │   uncancel = getattr(task, "uncancel", None)             │
+│                                                                              │
+│ /usr/lib/python3.12/asyncio/base_events.py:687 in run_until_complete         │
+│                                                                              │
+│    684 │   │   if not future.done():                                         │
+│    685 │   │   │   raise RuntimeError('Event loop stopped before Future      │
+│        completed.')                                                          │
+│    686 │   │                                                                 │
+│ ❱  687 │   │   return future.result()                                        │
+│    688 │                                                                     │
+│    689 │   def stop(self):                                                   │
+│    690 │   │   """Stop running the event loop.                               │
+│                                                                              │
+│ /localhome/local-ngeneva/.local/share/astra-skill-eval/venv/lib/python3.12/s │
+│ ite-packages/harbor/cli/jobs.py:1284 in _run_job                             │
+│                                                                              │
+│   1281 │   │   │   │   share_users=requested_share_users,                    │
+│   1282 │   │   │   │   confirm_non_member_orgs=confirm_non_member_orgs,      │
+│   1283 │   │   │   )                                                         │
+│ ❱ 1284 │   │   job_result = await job.run()                                  │
+│   1285 │   │                                                                 │
+│   1286 │   │   # Print the run summary BEFORE finalize so users see results  │
+│        even                                                                  │
+│   1287 │   │   # if the upload retries / takes a moment.                     │
+│                                                                              │
+│ /localhome/local-ngeneva/.local/share/astra-skill-eval/venv/lib/python3.12/s │
+│ ite-packages/harbor/job.py:506 in run                                        │
+│                                                                              │
+│   503 │   │   │   │   │   │   completed=n_existing,                          │
+│   504 │   │   │   │   │   )                                                  │
+│   505 │   │   │   │   │                                                      │
+│ ❱ 506 │   │   │   │   │   trial_results = await self._run_trials_with_queue( │
+│   507 │   │   │   │   │   │   loading_progress, progress_task,               │
+│       running_progress                                                       │
+│   508 │   │   │   │   │   )                                                  │
+│   509                                                                        │
+│                                                                              │
+│ /localhome/local-ngeneva/.local/share/astra-skill-eval/venv/lib/python3.12/s │
+│ ite-packages/harbor/job.py:641 in _run_trials_with_queue                     │
+│                                                                              │
+│   638 │   │                                                                  │
+│   639 │   │   coros =                                                        │
+│       self._trial_queue.submit_batch(self._remaining_trial_configs)          │
+│   640 │   │                                                                  │
+│ ❱ 641 │   │   async with asyncio.TaskGroup() as tg:                          │
+│   642 │   │   │   tasks = [tg.create_task(coro) for coro in coros]           │
+│   643 │   │                                                                  │
+│   644 │   │   return [t.result() for t in tasks]                             │
+│                                                                              │
+│ /usr/lib/python3.12/asyncio/taskgroups.py:145 in __aexit__                   │
+│                                                                              │
+│   142 │   │   │   # a bunch of them.                                         │
+│   143 │   │   │   try:                                                       │
+│   144 │   │   │   │   me = BaseExceptionGroup('unhandled errors in a         │
+│       TaskGroup', self._errors)                                              │
+│ ❱ 145 │   │   │   │   raise me from None                                     │
+│   146 │   │   │   finally:                                                   │
+│   147 │   │   │   │   self._errors = None                                    │
+│   148                                                                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+
+╭────────────────────────────── Sub-exception #1 ──────────────────────────────╮
+│ ╭─────────────────── Traceback (most recent call last) ────────────────────╮ │
+│ │ /localhome/local-ngeneva/.local/share/astra-skill-eval/venv/lib/python3. │ │
+│ │ 12/site-packages/harbor/trial/queue.py:153 in _run_trial                 │ │
+│ │                                                                          │ │
+│ │   150 │   async def _run_trial(self, trial_config: TrialConfig) ->       │ │
+│ │       TrialResult:                                                       │ │
+│ │   151 │   │   """Execute a single trial, acquiring the semaphore for     │ │
+│ │       concurrency control."""                                            │ │
+│ │   152 │   │   async with self._semaphore:                                │ │
+│ │ ❱ 153 │   │   │   return await                                           │ │
+│ │       self._execute_trial_with_retries(trial_config)                     │ │
+│ │   154 │                                                                  │ │
+│ │   155 │   def submit(self, trial_config: TrialConfig) -> Coroutine[Any,  │ │
+│ │       Any, TrialResult]:                                                 │ │
+│ │   156 │   │   """                                                        │ │
+│ │                                                                          │ │
+│ │ /localhome/local-ngeneva/.local/share/astra-skill-eval/venv/lib/python3. │ │
+│ │ 12/site-packages/harbor/trial/queue.py:114 in                            │ │
+│ │ _execute_trial_with_retries                                              │ │
+│ │                                                                          │ │
+│ │   111 │   │   for attempt in range(self._retry_config.max_retries + 1):  │ │
+│ │   112 │   │   │   trial = await Trial.create(trial_config)               │ │
+│ │   113 │   │   │   self._setup_hooks(trial)                               │ │
+│ │ ❱ 114 │   │   │   result = await trial.run()                             │ │
+│ │   115 │   │   │                                                          │ │
+│ │   116 │   │   │   if result.exception_info is None:                      │ │
+│ │   117 │   │   │   │   return result                                      │ │
+│ │                                                                          │ │
+│ │ /localhome/local-ngeneva/.local/share/astra-skill-eval/venv/lib/python3. │ │
+│ │ 12/site-packages/harbor/trial/trial.py:1032 in run                       │ │
+│ │                                                                          │ │
+│ │   1029 │   │   │   │   await self._download_artifacts()                  │ │
+│ │   1030 │   │                                                             │ │
+│ │   1031 │   │   finally:                                                  │ │
+│ │ ❱ 1032 │   │   │   await self._cleanup_and_finalize()                    │ │
+│ │   1033 │   │   │   self._close_logger_handler()                          │ │
+│ │   1034 │   │                                                             │ │
+│ │   1035 │   │   return self.result                                        │ │
+│ │                                                                          │ │
+│ │ /localhome/local-ngeneva/.local/share/astra-skill-eval/venv/lib/python3. │ │
+│ │ 12/site-packages/harbor/trial/trial.py:440 in _cleanup_and_finalize      │ │
+│ │                                                                          │ │
+│ │    437 │   │                                                             │ │
+│ │    438 │   │   self.result.finished_at = datetime.now(timezone.utc)      │ │
+│ │    439 │   │                                                             │ │
+│ │ ❱  440 │   │                                                             │ │
+│ │        self._trial_paths.result_path.write_text(self.result.model_dump_j │ │
+│ │        son(indent=4))                                                    │ │
+│ │    441 │   │                                                             │ │
+│ │    442 │   │   await self._invoke_hooks(TrialEvent.END)                  │ │
+│ │    443                                                                   │ │
+│ │                                                                          │ │
+│ │ /usr/lib/python3.12/pathlib.py:1049 in write_text                        │ │
+│ │                                                                          │ │
+│ │   1046 │   │   │   raise TypeError('data must be str, not %s' %          │ │
+│ │   1047 │   │   │   │   │   │   │   data.__class__.__name__)              │ │
+│ │   1048 │   │   encoding = io.text_encoding(encoding)                     │ │
+│ │ ❱ 1049 │   │   with self.open(mode='w', encoding=encoding,               │ │
+│ │        errors=errors, newline=newline) as f:                             │ │
+│ │   1050 │   │   │   return f.write(data)                                  │ │
+│ │   1051 │                                                                 │ │
+│ │   1052 │   def iterdir(self):                                            │ │
+│ │                                                                          │ │
+│ │ /usr/lib/python3.12/pathlib.py:1015 in open                              │ │
+│ │                                                                          │ │
+│ │   1012 │   │   """                                                       │ │
+│ │   1013 │   │   if "b" not in mode:                                       │ │
+│ │   1014 │   │   │   encoding = io.text_encoding(encoding)                 │ │
+│ │ ❱ 1015 │   │   return io.open(self, mode, buffering, encoding, errors,   │ │
+│ │        newline)                                                          │ │
+│ │   1016 │                                                                 │ │
+│ │   1017 │   def read_bytes(self):                                         │ │
+│ │   1018 │   │   """                                                       │ │
+│ ╰──────────────────────────────────────────────────────────────────────────╯ │
+│ FileNotFoundError: [Errno 2] No such file or directory:                      │
+│ '/localhome/local-ngeneva/earth2studio/skills/earth2studio-create-datasource │
+│ /evals/results/20260601_213209_3144658_eeed31/_harbor-jobs/earth2studio-crea │
+│ te-datasource-claude-code-without/create-datasource-eval-004-phoo__HhPg3Rk/r │
+│ esult.json'                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯

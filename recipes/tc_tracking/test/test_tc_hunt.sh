@@ -10,7 +10,7 @@ echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 echo " >>> running baseline. might take a couple of minutes..."
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo ""
-python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=baseline_helene.yaml
+python ../main.py --config-path=$(pwd)/cfg --config-name=baseline_helene.yaml
 
 # Verify that track files were produced
 track_count=$(ls "$baseline_dir"/tracks_*.csv 2>/dev/null | wc -l)
@@ -41,7 +41,7 @@ echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 echo " >>> reproducing members 2, 3 and 4. might take a couple of minutes..."
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo ""
-python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml \
+python ../main.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml \
     "reproduce_members.0.2=${seed_mem3}" \
     "reproduce_members.1.2=${seed_mem4}"
 

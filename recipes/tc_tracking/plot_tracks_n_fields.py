@@ -97,17 +97,17 @@ except KeyError as exc:
 # - Compute min/max values for consistent colour map across all timesteps
 
 # %%
-import os
-import warnings
+import os  # noqa: E402
+import warnings  # noqa: E402
 
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-import matplotlib.animation as animation
-import matplotlib.pyplot as plt
-import numpy as np
-import xarray as xr
-from cartopy.mpl.ticker import LatitudeFormatter, LongitudeFormatter
-from loguru import logger
+import cartopy.crs as ccrs  # noqa: E402
+import cartopy.feature as cfeature  # noqa: E402
+import matplotlib.animation as animation  # noqa: E402
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import xarray as xr  # noqa: E402
+from cartopy.mpl.ticker import LatitudeFormatter, LongitudeFormatter  # noqa: E402
+from loguru import logger  # noqa: E402
 
 # fall back to ``print`` when not running inside an IPython kernel so that
 # ``display(...)`` calls work both as a plain script and after
@@ -115,7 +115,11 @@ from loguru import logger
 try:
     from IPython.display import display
 except ImportError:
-    display = print
+
+    def display(obj: object) -> None:  # type: ignore[misc]
+        """Fallback display using print with xarray-friendly repr."""
+        print(obj)
+
 
 base_name = field_data.split("/")[-1].split(".")[0]
 out_dir = f"outputs_{base_name}"
@@ -154,7 +158,7 @@ display(ds)
 # frame-by-frame plotting without index errors.
 
 # %%
-from data_handling import extract_tracks_from_file
+from src.plt.data_handling import extract_tracks_from_file  # noqa: E402
 
 track_dir = os.path.abspath(track_dir)
 
