@@ -577,6 +577,8 @@ class IBTrACS:
         """
         # Handle computed variables (storm translation components)
         if source_key == "storm_speed::u":
+            if "storm_speed" not in ds.variables or "storm_dir" not in ds.variables:
+                return None
             speed = ds.variables["storm_speed"][storm_idx, time_idx]
             direction = ds.variables["storm_dir"][storm_idx, time_idx]
             if np.ma.is_masked(speed) or np.ma.is_masked(direction):
@@ -589,6 +591,8 @@ class IBTrACS:
             return speed_ms * np.sin(dir_rad)
 
         elif source_key == "storm_speed::v":
+            if "storm_speed" not in ds.variables or "storm_dir" not in ds.variables:
+                return None
             speed = ds.variables["storm_speed"][storm_idx, time_idx]
             direction = ds.variables["storm_dir"][storm_idx, time_idx]
             if np.ma.is_masked(speed) or np.ma.is_masked(direction):
