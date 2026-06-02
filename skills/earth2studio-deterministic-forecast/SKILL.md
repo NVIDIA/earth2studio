@@ -135,3 +135,14 @@ model training.
 ## Troubleshooting
 
 See `references/troubleshooting.md` for common errors and solutions.
+
+## Reminders
+
+- **Always fetch live docs** before recommending models or data sources - APIs change between releases
+- **Verify lexicon compatibility** - Model input variables must exist in data source's VOCAB
+- **Use `load_default_package()`** - This is the standard pattern for loading model weights
+- **Time format is ISO 8601** - Use `"YYYY-MM-DDTHH:MM:SS"` format for the `time` argument
+- **Wind speed needs both components** - If user asks for "wind speed", include both `u10m` and `v10m`
+- **nsteps is integer division** - `nsteps = total_hours // model_step_hours`
+- **ZarrBackend is the default** - Only suggest alternatives if user has specific requirements
+- **GPU is required** - All prognostic models require CUDA; CPU inference is not supported
