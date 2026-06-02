@@ -19,6 +19,21 @@ argument-hint: URL or local path to reference inference script/repo (optional)
 
 # Create and Validate Prognostic Model Wrapper
 
+## Quick Start Checklist
+
+For agents and developers — follow this order:
+
+1. **Read this SKILL.md first** (you're doing it now)
+2. **Load `references/skeleton-template.py`** — copy and adapt
+3. **Write `earth2studio/models/px/<model>.py`** with triple inheritance
+4. **Write `test/models/px/test_<model>.py`** with Phoo mock
+5. **Run `uv run pytest test/models/px/test_<model>.py -v`**
+6. **Run `make format && make lint`**
+
+Skip Steps 8-12 (registration, docs, PR) unless explicitly requested.
+
+---
+
 ## Purpose
 
 End-to-end workflow for implementing a new Earth2Studio prognostic model wrapper
@@ -275,8 +290,13 @@ User MUST visually inspect plots. Do not proceed without confirmation.
 1. Create branch `feat/prognostic-model-<name>`
 2. Commit (do NOT add comparison scripts/images)
 3. Push to fork
-4. `gh pr create --repo NVIDIA/earth2studio`
-5. Post reference comparison as PR comment
+4. Create PR with template from `references/validation-guide.md` — include:
+   - Model details (architecture, time step, resolution)
+   - **License information** (model weights, code, training data)
+   - Dependencies added with licenses
+   - Reference comparison results
+5. `gh pr create --repo NVIDIA/earth2studio --body-file pr-body.md`
+6. Post reference comparison as PR comment
 
 ---
 
@@ -292,11 +312,40 @@ User MUST visually inspect plots. Do not proceed without confirmation.
 
 ## Examples
 
-Typical invocation:
+### Example 1: Pangu-Weather
 
 ```text
 User: Add a prognostic model wrapper for Pangu-Weather
-Agent: [loads skill, proceeds through Steps 0–12]
+      - Paper: https://arxiv.org/abs/2211.02556
+      - GitHub: https://github.com/198808xc/Pangu-Weather
+      - Inference script: https://github.com/198808xc/Pangu-Weather/blob/main/inference.py
+      - Call it Pangu24 (24-hour model)
+
+Agent: [loads skill, reads inference.py, creates earth2studio/models/px/pangu.py
+        with class Pangu24, writes tests, runs pytest and lint]
+```
+
+### Example 2: GraphCast
+
+```text
+User: Wrap GraphCast for Earth2Studio
+      - Paper: https://arxiv.org/abs/2212.12794
+      - GitHub: https://github.com/google-deepmind/graphcast
+      - Checkpoint: HuggingFace deepmind/graphcast
+      - Name: GraphCast
+
+Agent: [loads skill, analyzes graphcast repo, creates earth2studio/models/px/graphcast.py,
+        handles JAX->PyTorch conversion if needed, writes tests]
+```
+
+### Example 3: Simple test model
+
+```text
+User: Create an IdentityModel that returns input unchanged, 6h step, 181x360 grid,
+      variables t2m, u10m, v10m, msl
+
+Agent: [loads skill, skips Step 0-1 (no external deps), writes identity.py and
+        test_identity.py, runs pytest and lint]
 ```
 
 ---

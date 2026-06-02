@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
-# Lightweight Earth2Studio dev sandbox for Harbor skill evals (Python 3.13 + uv).
+# Earth2Studio dev sandbox for Harbor skill evals (Python 3.13 + uv).
 RUN apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
     bash \

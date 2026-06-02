@@ -32,6 +32,8 @@ managing releases.
 - `skills/earth2studio-create-datasource/` — Create a new data source
   wrapper (DataSource, ForecastSource, DataFrameSource, or
   ForecastFrameSource) end-to-end
+- `skills/earth2studio-create-prognostic/` — Create a new prognostic
+  (time-stepping forecast) model wrapper end-to-end
 
 ### Developer
 

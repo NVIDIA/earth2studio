@@ -1,7 +1,7 @@
 [
   {
     "id": "create-prognostic-eval-001-simple-identity",
-    "question": "Implement a new Earth2Studio prognostic model called `IdentityModel` that simply returns its input unchanged (identity function). It should have a 6-hour time step, work on a 1-degree global grid (181x360), and support 4 variables: t2m, u10m, v10m, msl.\n\nWrite the model at `earth2studio/models/px/identity.py`, a full test file at `test/models/px/test_identity.py`, then run pytest and lint.",
+    "question": "Use the earth2studio-create-prognostic skill to implement a new Earth2Studio prognostic model called `IdentityModel` that simply returns its input unchanged (identity function). It should have a 6-hour time step, work on a 1-degree global grid (181x360), and support 4 variables: t2m, u10m, v10m, msl.\n\nWrite the model at `earth2studio/models/px/identity.py`, a full test file at `test/models/px/test_identity.py`, then run pytest and lint.",
     "expected_skill": "earth2studio-create-prognostic",
     "expected_script": "evals/targets/eval_1_target.py",
     "expected_test": "evals/targets/test/eval_1_test_target.py",
@@ -19,7 +19,7 @@
   },
   {
     "id": "create-prognostic-eval-002-persistence-model",
-    "question": "Implement a new Earth2Studio prognostic model called `PersistenceModel` that predicts the future by returning the current state (persistence forecast). It should have a 24-hour time step, work on a 0.25-degree global grid (721x1440), and support variables: t2m, msl, z500, t850, u500, v500.\n\nWrite the model at `earth2studio/models/px/persistence.py`, a full test file at `test/models/px/test_persistence.py`, then run pytest and lint.",
+    "question": "Use the earth2studio-create-prognostic skill to implement a new Earth2Studio prognostic model called `PersistenceModel` that predicts the future by returning the current state (persistence forecast). It should have a 24-hour time step, work on a 0.25-degree global grid (721x1440), and support variables: t2m, msl, z500, t850, u500, v500.\n\nWrite the model at `earth2studio/models/px/persistence.py`, a full test file at `test/models/px/test_persistence.py`, then run pytest and lint.",
     "expected_skill": "earth2studio-create-prognostic",
     "expected_script": "evals/targets/eval_2_target.py",
     "expected_test": "evals/targets/test/eval_2_test_target.py",
@@ -39,7 +39,7 @@
   },
   {
     "id": "create-prognostic-eval-003-additive-model",
-    "question": "Implement a new Earth2Studio prognostic model called `AdditiveModel` that adds a small constant (0.01) to each variable at each time step. It should have a 6-hour time step and work on a 0.5-degree global grid (361x720). Include normalization buffers (center and scale) loaded from the package.\n\nWrite the model at `earth2studio/models/px/additive.py`, a full test file at `test/models/px/test_additive.py`, then run pytest and lint.",
+    "question": "Use the earth2studio-create-prognostic skill to implement a new Earth2Studio prognostic model called `AdditiveModel` that adds a small constant (0.01) to each variable at each time step. It should have a 6-hour time step and work on a 0.5-degree global grid (361x720). Include normalization buffers (center and scale) loaded from the package.\n\nWrite the model at `earth2studio/models/px/additive.py`, a full test file at `test/models/px/test_additive.py`, then run pytest and lint.",
     "expected_skill": "earth2studio-create-prognostic",
     "expected_script": "evals/targets/eval_3_target.py",
     "expected_test": "evals/targets/test/eval_3_test_target.py",
@@ -58,7 +58,7 @@
   },
   {
     "id": "create-prognostic-eval-004-history-model",
-    "question": "Implement a new Earth2Studio prognostic model called `HistoryModel` that requires two time steps of history (-6h and 0h) as input. It should average the two input states to produce the forecast. Use a 6-hour time step on a 1-degree grid (181x360).\n\nWrite the model at `earth2studio/models/px/history.py`, a full test file at `test/models/px/test_history.py`, then run pytest and lint.",
+    "question": "Use the earth2studio-create-prognostic skill to implement a new Earth2Studio prognostic model called `HistoryModel` that requires two time steps of history (-6h and 0h) as input. It should average the two input states to produce the forecast. Use a 6-hour time step on a 1-degree grid (181x360).\n\nWrite the model at `earth2studio/models/px/history.py`, a full test file at `test/models/px/test_history.py`, then run pytest and lint.",
     "expected_skill": "earth2studio-create-prognostic",
     "expected_script": "evals/targets/eval_4_target.py",
     "expected_test": "evals/targets/test/eval_4_test_target.py",

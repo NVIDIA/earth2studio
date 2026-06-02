@@ -92,8 +92,8 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Parameters
     ----------
-    core_model : torch.nn.Module
-        Core model instance.
+    core_model : torch.nn.Module, optional
+        Core model instance. None for simple models without external weights.
     center : torch.Tensor, optional
         Normalization center values.
     scale : torch.Tensor, optional
@@ -113,7 +113,7 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     # =========================================================================
     def __init__(
         self,
-        core_model: torch.nn.Module,
+        core_model: torch.nn.Module | None = None,
         center: torch.Tensor | None = None,
         scale: torch.Tensor | None = None,
     ) -> None:

@@ -237,6 +237,8 @@ gh pr create \
 
 ### PR Body Template
 
+Create `pr-body.md` with this template:
+
 ```markdown
 ## Description
 
@@ -251,14 +253,25 @@ Add `ClassName` prognostic model for BRIEF_DESCRIPTION.
 | **Input variables** | N variables |
 | **Spatial resolution** | X° x Y° |
 | **Checkpoint source** | NGC / HuggingFace / S3 |
-| **Checkpoint license** | LICENSE_NAME |
-| **Reference** | PAPER_URL |
+| **Reference** | [Paper title](PAPER_URL) |
+| **GitHub** | [repo/name](REPO_URL) |
+
+### License information
+
+| Component | License | Notes |
+|---|---|---|
+| **Model weights** | LICENSE_NAME (e.g., CC-BY-NC-4.0, Apache-2.0) | Link to license file |
+| **Model code** | LICENSE_NAME | Original repo license |
+| **Training data** | LICENSE_NAME or N/A | ERA5, etc. |
+
+> ⚠️ If model weights are non-commercial (e.g., CC-BY-NC), note this in the
+> wrapper docstring and Earth2Studio docs.
 
 ### Dependencies added
 
 | Package | Version | License |
 |---|---|---|
-| `package` | `>=X.Y` | MIT |
+| `package` | `>=X.Y` | MIT / Apache-2.0 / BSD-3 |
 
 ### Reference comparison
 
@@ -267,9 +280,10 @@ Add `ClassName` prognostic model for BRIEF_DESCRIPTION.
 
 ## Checklist
 
-- [x] Tests cover these changes
-- [x] Documentation updated
-- [x] CHANGELOG.md updated
+- [ ] Tests cover these changes
+- [ ] Documentation updated
+- [ ] CHANGELOG.md updated
+- [ ] License information verified and documented
 ```
 
 ### 11f. Post Reference Comparison Comment
