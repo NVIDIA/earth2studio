@@ -27,6 +27,8 @@ from physicsnemo.distributed import DistributedManager
 
 from earth2studio.utils.time import to_time_array
 
+EARTH_RADIUS_M = 6371000
+
 
 def set_initial_times(cfg: DictConfig) -> np.ndarray:
     """Build array of initial conditions.
@@ -342,28 +344,34 @@ class InstabilityDetection:
 
 
 def great_circle_distance(
-    lat1: float, lon1: float, lat2: float, lon2: float, radius: float = 6371000
-) -> float:
+    lat1: float | np.ndarray,
+    lon1: float | np.ndarray,
+    lat2: float | np.ndarray,
+    lon2: float | np.ndarray,
+    radius: float = EARTH_RADIUS_M,
+) -> float | np.ndarray:
     """Compute the great-circle distance between two points on a sphere.
 
-    Uses the Haversine formula on the sphere, the radius of which is
-    defautlting to Earth's mean radius of 6371 km.
+    Uses the Haversine formula on the sphere, the radius of which defaults
+    to Earth's mean radius of 6371 km.
 
     Parameters
     ----------
-    lat1 : float
-        Latitude of the first point in degrees.
-    lon1 : float
-        Longitude of the first point in degrees.
-    lat2 : float
-        Latitude of the second point in degrees.
-    lon2 : float
-        Longitude of the second point in degrees.
+    lat1 : float or np.ndarray
+        Latitude(s) of the first point in degrees.
+    lon1 : float or np.ndarray
+        Longitude(s) of the first point in degrees.
+    lat2 : float or np.ndarray
+        Latitude(s) of the second point in degrees.
+    lon2 : float or np.ndarray
+        Longitude(s) of the second point in degrees.
+    radius : float, optional
+        Sphere radius in metres, by default ``EARTH_RADIUS_M`` (6 371 km).
 
     Returns
     -------
-    float
-        Distance in metres.
+    float or np.ndarray
+        Distance(s) in metres.
     """
     lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
     dlon = lon2 - lon1

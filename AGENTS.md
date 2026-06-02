@@ -27,6 +27,17 @@ managing releases.
   specific variables, times, and lead times using Earth2Studio data
   sources
 
+### Implementation (new components)
+
+- `skills/earth2studio-create-datasource/` — Create a new data source
+  wrapper (DataSource, ForecastSource, DataFrameSource, or
+  ForecastFrameSource) end-to-end
+
+### Developer
+
+- `.claude/skills-dev/developer-release-rebase/` — Prepare a new minor
+  alpha release (rebase, bump version, changelog, PR). Developer only.
+
 ## Python environment
 
 Always use `uv run` to execute Python commands (e.g. `uv run pytest`,
