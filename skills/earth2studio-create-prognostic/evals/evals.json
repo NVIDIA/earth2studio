@@ -20,7 +20,7 @@
     "expected_skill": "earth2studio-create-prognostic",
     "expected_script": "evals/targets/eval_2_target.py",
     "expected_test": "evals/targets/test/eval_2_test_target.py",
-    "ground_truth": "Creates an additive prognostic model with register_buffer for center/scale, 361x720 grid. load_model resolves center.npy and scale.npy from package. Test fixture creates dummy package with model.pt, center.npy, scale.npy.",
+    "ground_truth": "Creates an additive prognostic model with register_buffer for center/scale, 361x720 grid (0.5 degree), 6h time step. load_model resolves center.npy and scale.npy from package. Test fixture creates dummy package with model.pt, center.npy, scale.npy. Test verifies accumulating additions.",
     "expected_behavior": [
       "Reads /workspace/skills/earth2studio-create-prognostic/SKILL.md before implementing",
       "Writes earth2studio/models/px/additive.py",
