@@ -7,13 +7,10 @@
     "expected_test": "evals/targets/test/eval_1_test_target.py",
     "ground_truth": "Creates a prognostic model with triple inheritance (torch.nn.Module + AutoModelMixin + PrognosticMixin), canonical method ordering, SPDX header, type hints. Model returns input unchanged but increments lead_time by 6h. Test file includes mock tests for call, iter, and exceptions.",
     "expected_behavior": [
-      "Reads /workspace/skills/earth2studio-create-prognostic/SKILL.md first",
-      "Writes earth2studio/models/px/identity.py with SPDX Apache-2.0 license header",
-      "Implements PrognosticModel with triple inheritance",
-      "Follows canonical method ordering: __init__, input_coords, output_coords, load_default_package, load_model, __call__, _default_generator, create_iterator",
-      "Writes test/models/px/test_identity.py with PhooIdentityModel mock",
-      "Runs uv run pytest on the new test file",
-      "Runs make format && make lint before finishing",
+      "Reads /workspace/skills/earth2studio-create-prognostic/SKILL.md before implementing",
+      "Writes earth2studio/models/px/identity.py",
+      "Writes test/models/px/test_identity.py",
+      "Runs pytest on the new test file",
       "Does not read evals/targets/ ground-truth files"
     ]
   },
@@ -25,14 +22,10 @@
     "expected_test": "evals/targets/test/eval_2_test_target.py",
     "ground_truth": "Creates an additive prognostic model with register_buffer for center/scale, 361x720 grid. load_model resolves center.npy and scale.npy from package. Test fixture creates dummy package with model.pt, center.npy, scale.npy.",
     "expected_behavior": [
-      "Reads /workspace/skills/earth2studio-create-prognostic/SKILL.md first",
-      "Writes earth2studio/models/px/additive.py with SPDX Apache-2.0 license header",
-      "Uses register_buffer for center, scale, and device_buffer",
-      "load_model resolves model.pt, center.npy, scale.npy from package",
-      "Test fixture creates package with all required files",
-      "Writes test/models/px/test_additive.py with PhooAdditiveModel mock",
-      "Runs uv run pytest on the new test file",
-      "Runs make format && make lint before finishing",
+      "Reads /workspace/skills/earth2studio-create-prognostic/SKILL.md before implementing",
+      "Writes earth2studio/models/px/additive.py",
+      "Writes test/models/px/test_additive.py",
+      "Runs pytest on the new test file",
       "Does not read evals/targets/ ground-truth files"
     ]
   }
