@@ -22,7 +22,9 @@ RUN mkdir -p /workspace/skills /workspace/input /workspace/output \
     /logs/verifier /logs/agent
 
 # Clone earth2studio repo (depth 1, no history) and pre-install dependencies
+# Remove skills/ from clone to avoid confusion with /workspace/skills/ staged by Harbor
 RUN git clone --depth 1 https://github.com/NVIDIA/earth2studio.git /workspace/repo && \
+    rm -rf /workspace/repo/skills /workspace/repo/.opencode && \
     cd /workspace/repo && \
     uv venv --python 3.13 && \
     uv sync --group dev --extra data
