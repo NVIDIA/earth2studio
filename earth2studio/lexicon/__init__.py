@@ -30,6 +30,7 @@ from .goes import GOESLexicon
 from .goes_glm import GOESGLMLexicon
 from .himawari_ahi import HimawariAHILexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
+from .ibtracs import IBTrACSLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSATMSLexicon, JPSSCrISLexicon, JPSSLexicon
 from .meteosat import MeteosatFCILexicon
