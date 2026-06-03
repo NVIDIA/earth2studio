@@ -6,6 +6,23 @@ in **`.agents/rules/`**. Skills are task-specific guides for building
 inference pipelines, integrating data sources, wrapping models, and
 managing releases.
 
+## IMPORTANT: Skill Activation
+
+**Before implementing any new model, data source, or running inference,
+check if a matching skill exists and activate it first.** Skills contain
+tested workflows, templates, and validation steps that ensure correct
+implementation.
+
+To activate a skill:
+
+1. Use the `Skill` tool (Claude Code) or `skill` tool (OpenCode/Codex)
+2. Read the SKILL.md file in the skill directory
+3. Follow the workflow steps exactly
+
+If the user asks to "create a prognostic model" → activate
+`earth2studio-create-prognostic` first. If they ask to "fetch data" →
+activate `earth2studio-data-fetch` first.
+
 ## Skills directory
 
 ### Discovery and installation
