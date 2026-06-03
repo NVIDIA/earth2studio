@@ -32,11 +32,11 @@ For agents and developers — follow this order:
 
 Skip Steps 8-12 (registration, docs, PR) unless explicitly requested.
 
-> **DO NOT explore the codebase.** The templates in `references/` contain
-> everything you need. Do not launch subagents, search existing models, or
-> read other files in `earth2studio/models/px/` or `test/models/px/`. Copy
-> `skeleton-template.py` and `testing-guide.py`, adapt them to the task
-> requirements, and proceed directly to writing code.
+> **Minimize exploration.** The templates in `references/` contain the key
+> patterns. Read `skeleton-template.py` and `testing-guide.py` first. If you
+> need clarification on imports or coordinate systems, briefly check
+> `earth2studio/models/px/__init__.py` or one existing model — but do not
+> launch subagents or read multiple model files.
 
 ---
 
