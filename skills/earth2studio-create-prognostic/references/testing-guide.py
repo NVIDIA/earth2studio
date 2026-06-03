@@ -30,6 +30,8 @@ Required tests:
 See real examples:
 - test/models/px/test_pangu.py
 - test/models/px/test_aurora.py
+
+Use `uv run pytest` to execute tests
 """
 
 import gc
@@ -293,7 +295,7 @@ def test_model_package():
     3. Validates output shape and coordinates
 
     Marked with @pytest.mark.package to skip in normal test runs.
-    Run with: pytest -m package
+    Run with: uv run pytest -m package
     """
     # Load real model
     model = ModelName.load_model(ModelName.load_default_package())

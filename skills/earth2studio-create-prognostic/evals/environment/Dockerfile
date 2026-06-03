@@ -21,6 +21,10 @@ ENV EARTH2STUDIO_ROOT=/workspace/repo
 RUN mkdir -p /workspace/skills /workspace/input /workspace/output \
     /logs/verifier /logs/agent
 
+# Install pytest globally as fallback (agents should use `uv run pytest` but this
+# prevents failures if they accidentally use system Python)
+RUN pip install --no-cache-dir pytest pytest-cov pytest-timeout
+
 # Clone earth2studio repo (depth 1, no history) and pre-install dependencies
 # Remove skills/, .opencode/, .agents/, .claude/ to avoid confusion with staged skill
 RUN git clone --depth 1 https://github.com/NVIDIA/earth2studio.git /workspace/repo && \

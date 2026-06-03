@@ -1,7 +1,7 @@
 [
   {
     "id": "create-prognostic-eval-001-simple-identity",
-    "question": "Implement a new Earth2Studio prognostic model called `IdentityModel` that simply returns its input unchanged (identity function). It should have a 6-hour time step, work on a 1-degree global grid (181x360), and support 4 variables: t2m, u10m, v10m, msl.",
+    "question": "Using the skill at /workspace/skills/earth2studio-create-prognostic/SKILL.md, implement a new Earth2Studio prognostic model called `IdentityModel` that simply returns its input unchanged (identity function). It should have a 6-hour time step, work on a 1-degree global grid (181x360), and support 4 variables: t2m, u10m, v10m, msl.",
     "expected_skill": "earth2studio-create-prognostic",
     "expected_script": "evals/targets/eval_1_target.py",
     "expected_test": "evals/targets/test/eval_1_test_target.py",
@@ -16,7 +16,7 @@
   },
   {
     "id": "create-prognostic-eval-002-additive-model",
-    "question": "Implement a new Earth2Studio prognostic model called `AdditiveModel` that adds a small constant (0.01) to each variable at each time step. It should have a 6-hour time step and work on a 0.5-degree global grid (361x720). Include normalization buffers (center and scale) loaded from the package.",
+    "question": "Using the skill at /workspace/skills/earth2studio-create-prognostic/SKILL.md, implement a new Earth2Studio prognostic model called `AdditiveModel` that adds a small constant (0.01) to each variable at each time step. It should have a 6-hour time step and work on a 0.5-degree global grid (361x720). Include normalization buffers (center and scale) loaded from the package.",
     "expected_skill": "earth2studio-create-prognostic",
     "expected_script": "evals/targets/eval_2_target.py",
     "expected_test": "evals/targets/test/eval_2_test_target.py",

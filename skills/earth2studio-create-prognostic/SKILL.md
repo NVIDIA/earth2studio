@@ -1,391 +1,276 @@
 ---
 name: earth2studio-create-prognostic
-version: 0.16.0
+version: 0.17.0
 license: Apache-2.0
 metadata:
   author: NVIDIA Earth-2 Team <agent-skills@nvidia.com>
-  tags:
-    - earth2studio
-    - earth2
-    - python
-    - prognostic-model
-    - integration
+  tags: [earth2studio, prognostic-model, python]
 description: >
-  Create Earth2Studio prognostic (time-stepping forecast) model wrappers from
-  reference scripts. Covers implementation, testing, validation, and PR.
+  Create Earth2Studio prognostic (time-stepping forecast) model wrappers.
   Do NOT use for diagnostic models, data sources, or installation.
-argument-hint: URL or local path to reference inference script/repo (optional)
+argument-hint: URL or local path to reference inference script (optional)
 ---
-
-# Create and Validate Prognostic Model Wrapper
 
 ## Quick Start Checklist
 
-For agents and developers — follow this order:
+**Do these steps IN ORDER. Do not skip any step.**
 
-1. **Read this SKILL.md first** (you're doing it now)
-2. **Load `references/skeleton-template.py`** — copy and adapt
-3. **Write `earth2studio/models/px/<model>.py`** with triple inheritance
-4. **Write `test/models/px/test_<model>.py`** with Phoo mock
-5. **Run `uv run pytest test/models/px/test_<model>.py -v`**
-6. **Run `make format && make lint`**
+- [ ] Read this SKILL.md completely first
+- [ ] Get reference script (Step 0)
+- [ ] Create `earth2studio/models/px/<name>.py` with triple inheritance
+- [ ] Create `test/models/px/test_<name>.py` with mock tests
+- [ ] Run: `uv run pytest test/models/px/test_<name>.py -v`
+- [ ] Run: `make format && make lint`
 
-Skip Steps 8-12 (registration, docs, PR) unless explicitly requested.
-
-> **Minimize exploration.** The templates in `references/` contain the key
-> patterns. Read `skeleton-template.py` and `testing-guide.py` first. If you
-> need clarification on imports or coordinate systems, briefly check
-> `earth2studio/models/px/__init__.py` or one existing model — but do not
-> launch subagents or read multiple model files.
-
----
+> **⚠️ CRITICAL:** Always use `uv run` for Python commands:
+> - ✅ `uv run pytest ...` / `uv run python ...`
+> - ❌ `pytest ...` / `python ...` (missing dependencies)
+>
+> **Stuck or wrong output:** Do not keep retrying the same fix. Follow
+> [Self-Improvement](#self-improvement) to patch this skill before continuing.
 
 ## Purpose
 
-End-to-end workflow for implementing a new Earth2Studio prognostic model wrapper
-that connects a third-party ML weather model to Earth2Studio's inference
-infrastructure — from analysis through implementation, testing, validation, and
-PR submission.
-
-> **What is a prognostic model?** Prognostic models are forecast models that
-> time-integrate forward — given an initial state, they predict future states
-> by stepping through time (e.g., 6-hour increments). Examples include Pangu,
-> GraphCast, FourCastNet, and Aurora. In contrast, diagnostic models compute
-> derived quantities from a single time step without time integration.
-
-## Prerequisites
-
-- Earth2Studio dev environment with `uv` (`uv run python` must work)
-- Git configured with fork (`origin`) and upstream (`upstream`) remotes
-- Access to the model checkpoint (HuggingFace, NGC, S3, or local)
-- Python 3.10+
+Implement a prognostic model wrapper connecting third-party ML weather models
+to Earth2Studio. Prognostic models time-integrate forward—given initial state,
+they predict future states by stepping through time (e.g., 6-hour increments).
 
 ## Workspace
 
-| Context | Where to work |
-|---|---|
-| Harbor eval (default) | Skill at `/workspace/skills/`; write deliverables under `/workspace/output/` preserving paths like `earth2studio/models/px/...` and `test/models/px/...` |
-| Harbor eval with `--copy-repo` | Full checkout at `/workspace/repo` (`EARTH2STUDIO_ROOT`) |
-| Local clone | Directory containing `pyproject.toml` |
+| Context | Location |
+|---------|----------|
+| Harbor eval | Write to `/workspace/output/earth2studio/models/px/...` |
+| Harbor + `--copy-repo` | Full checkout at `/workspace/repo` |
+| Local clone | Directory with `pyproject.toml` |
 
-**Never read `evals/targets/`** — grader references only. Use
-`references/skeleton-template.py`, `references/method-templates.py`, and
-`references/testing-guide.py`.
-
-## Instructions
-
-> **Python Environment:** Always use `uv run python` or the local `.venv`.
-> Never use the system Python directly.
-
-Follow every step in order.
-
-> **[CONFIRM] gates:** Only Step 1 (Dependencies) and Step 10 (Sanity-Check
-> Plots) require explicit user approval. All other steps summarize decisions
-> inline and proceed without blocking.
->
-> **Deliverables first:** Write the model file and test file (Steps 3–7)
-> before extended exploration, documentation, registration, CHANGELOG, or PR
-> work. Skip Steps 8–12 when the user asks for implementation only.
->
-> **Before you finish:** Run verification commands in the repo root so results
-> appear in the session log:
->
-> ```bash
-> uv run pytest test/models/px/test_<model>.py -x
-> make format && make lint
-> ```
->
-> **Be concise:** Avoid long architecture reports; summarize decisions in a
-> few sentences and move on to file writes.
+**Never read `evals/targets/`** — grader references only.
 
 ### Reference Files
 
-Load these on demand during the relevant steps:
+Load on demand during the matching step:
 
 | File | Content | Load at |
-|---|---|---|
-| `references/skeleton-template.py` | Skeleton model class with canonical method ordering | Steps 3–5 |
-| `references/method-templates.py` | Method implementation templates with docstrings | Steps 3–5 |
-| `references/testing-guide.py` | Test skeleton with mock and package tests | Step 7 |
-| `references/validation-guide.md` | Reference comparison, plots, PR, code review | Steps 10–12 |
+|------|---------|---------|
+| `references/skeleton-template.py` | Full model skeleton with FILL comments | Steps 3–6 |
+| `references/method-templates.py` | Canonical method implementations | Steps 4–6 |
+| `references/testing-guide.py` | Test skeleton and mock patterns | Step 7 |
+| `references/validation-guide.md` | Comparison scripts, PR, code review | Steps 10–11 |
 
 ---
 
-### Workflow Overview
+## Workflow Steps
 
-```text
-Step 0: Obtain reference → Step 1: Dependencies → Step 2: Add deps
-→ Step 3: Create skeleton → Step 4: Coordinates → Step 5: Forward pass
-→ Step 6: Model loading → Step 7: Tests → Step 8: Register
-→ Step 9: Documentation → Step 10: Validate & plots
-→ Step 11: PR → Step 12: Code review
-```
+### Step 0 — Get Reference Script
 
----
+If `$ARGUMENTS` provided, use it. Otherwise ask:
+> Please provide a reference inference script URL/path.
 
-### Step 0 — Obtain Reference Script / Repository
+### Step 1 — Analyze & Propose Dependencies
 
-If `$ARGUMENTS` is provided, use it (URL → WebFetch; file path → read).
+Analyze: packages, architecture, I/O shapes, time step, resolution, checkpoint.
 
-If empty, ask:
-
-> Please provide a reference inference script or repository URL/path that
-> demonstrates how this model runs inference.
-
----
-
-### Step 1 — Examine Reference & Propose Dependencies
-
-**Analyze:** Python packages, model architecture (PyTorch/ONNX/JAX), input/output
-shapes, time step, spatial resolution, checkpoint format.
-
-**Propose pyproject.toml group:**
-
+Propose `pyproject.toml` group (alphabetical, add to `all`):
 ```toml
 model-name = ["package1>=version", "package2"]
 ```
 
-Group name: lowercase-hyphenated. Also add to `all` aggregate (px models line).
+**[CONFIRM]** Present dependencies and ask user to approve.
 
-#### [CONFIRM — Dependencies]
+### Step 2 — Add Dependencies
 
-Present: 1) Group name, 2) Package list with licenses, 3) Ask if correct.
+Edit `pyproject.toml`: add group alphabetically, update `all` aggregate.
 
----
+### Step 3 — Create Model File
 
-### Step 2 — Add Dependencies to pyproject.toml
+**File:** `earth2studio/models/px/<lowercase>.py`
 
-Edit `pyproject.toml`: add group alphabetically, add to `all` aggregate.
+**Required inheritance (all three):**
+```python
+class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+```
 
----
+**Required imports:**
+```python
+import numpy as np
+import torch
+from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.px.base import PrognosticMixin
+from earth2studio.models.utils import create_coords_from_lat_lon, handshake_dim
+from earth2studio.lexicon import E2STUDIO_VOCAB
+from earth2studio.utils import check_optional_dependencies
+from loguru import logger
+```
 
-### Step 3 — Create Skeleton Class File
+**SPDX header (required at top of every .py file):**
+```python
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: Apache-2.0
+```
 
-> **Load `references/skeleton-template.py` and `references/method-templates.py`
-> from here through Step 6.**
-
-**Naming:**
-- Class: PascalCase (e.g., `Pangu24`, `Aurora`)
-- File: `earth2studio/models/px/<lowercase>.py`
-
-**Canonical method ordering:**
+**Canonical method order:**
 1. `__init__` 2. `input_coords` 3. `output_coords` (@batch_coords)
 4. `load_default_package` 5. `load_model` 6. `to` (optional)
 7. Private methods 8. `__call__` (@batch_func) 9. `_default_generator`
 10. `create_iterator`
 
-Every `.py` file MUST start with the SPDX Apache-2.0 license header.
-
-Summarize: class name, file path — then proceed.
-
----
-
-### Step 4 — Implement Coordinate System
-
-**Map variables to E2STUDIO_VOCAB** (282 entries in `earth2studio/lexicon/base.py`).
-Pressure levels: 50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000.
-Flag missing variables for discussion.
+### Step 4 — Implement Coordinates
 
 **input_coords rules:**
-- `batch` first with `np.empty(0)`
-- `time` is `np.empty(0)` (dynamic)
-- `lead_time` starts at `np.timedelta64(0, "h")`
+- `batch`: `np.empty(0)`
+- `time`: `np.empty(0)` (dynamic)
+- `lead_time`: starts at `np.timedelta64(0, "h")`
 - `lat`: 90 to -90 (north to south)
 - `lon`: 0 to 360
+- Map variables to `E2STUDIO_VOCAB` (282 entries in `earth2studio/lexicon/base.py`)
 
-**output_coords:** Validate with `handshake_dim`/`handshake_coords`, increment
-`lead_time` by time step.
-
-Summarize: variable list, grid size, time step — then proceed.
-
----
+**output_coords:** Use `handshake_dim`/`handshake_coords`, increment `lead_time`.
 
 ### Step 5 — Implement Forward Pass
 
-**`__call__`:** @batch_func decorated, input shape (batch, time, lead_time,
-variable, lat, lon). Reshape to model format → call model → reshape back.
+**`__call__`:** @batch_func decorated, shape (batch, time, lead_time, var, lat, lon).
+Reshape to model format → call model → reshape back.
 
-**`create_iterator`:** MUST yield initial condition first (step 0). Use
-`front_hook`/`rear_hook` for perturbation injection.
-
-Summarize: reshape logic, special considerations — then proceed.
-
----
+**`create_iterator`:** MUST yield initial condition first (step 0).
+Use `front_hook`/`rear_hook` for perturbation injection.
 
 ### Step 6 — Implement Model Loading
 
-**`load_default_package`:** Lock HuggingFace URLs to commit: `hf://org/repo@commit`.
+**`load_default_package`:** Lock HuggingFace URLs: `hf://org/repo@commit`
 
-**`load_model`:** Use `package.resolve()`, load with `map_location="cpu"`,
-set `eval()` mode, use `@check_optional_dependencies()`.
-
-**`.to()`:** Only override for non-PyTorch state (ONNX, JAX).
-
-Summarize: checkpoint URL, file names — then proceed.
-
----
+**`load_model`:** Use `package.resolve()`, `map_location="cpu"`, `eval()` mode,
+decorate with `@check_optional_dependencies()`.
 
 ### Step 7 — Write Tests
 
-> **Load `references/testing-guide.py` for this step.**
+**File:** `test/models/px/test_<name>.py`
 
-Create `test/models/px/test_<filename>.py` with:
+**Required tests:**
+| Function | Purpose |
+|----------|---------|
+| `test_<model>_call` | Single forward pass (parametrize device/time) |
+| `test_<model>_iter` | Iterator produces sequence |
+| `test_<model>_exceptions` | Invalid coords raise errors |
+| `test_<model>_package` | Real weights (`@pytest.mark.package`) |
 
-| Function | Marks | Purpose |
-|---|---|---|
-| `test_<model>_call` | parametrized device/time | Single forward pass |
-| `test_<model>_iter` | parametrized device/ensemble | Iterator produces sequence |
-| `test_<model>_exceptions` | none | Invalid coords raise errors |
-| `test_<model>_package` | `@pytest.mark.package` | Real weights integration |
-
-Create `PhooModelName` dummy that matches model interface for mock tests.
+Create `PhooModelName` dummy matching interface for mock tests.
 
 **Run tests:**
-
 ```bash
-uv run pytest test/models/px/test_<filename>.py -m "not package" -v
+uv run pytest test/models/px/test_<name>.py -m "not package" -v
 ```
 
-**Note:** Package test downloads checkpoint and needs GPU — skip if not requested.
+### Step 8 — Register Model (if requested)
 
----
+- Add to `earth2studio/models/px/__init__.py` (alphabetical)
+- Verify deps in pyproject.toml
 
-### Step 8 — Register the Model
-
-- `earth2studio/models/px/__init__.py` — alphabetical import
-- Verify pyproject.toml deps exist
-
----
-
-### Step 9 — Update Documentation & CHANGELOG
+### Step 9 — Documentation
 
 - Add to `docs/modules/models_px.rst` (alphabetical)
-- Add to `docs/userguide/about/install.md` Prognostics section
-- Update CHANGELOG.md under `### Added`:
-  ```markdown
-  - Added <ModelName> prognostic model (`<ClassName>`) with <brief description>
-  ```
+- Add to `docs/userguide/about/install.md` (alphabetical, tab)
+- Update `CHANGELOG.md` under `### Added`
 
 **Format and lint:**
-
 ```bash
 make format && make lint && make license
 ```
 
----
+### Step 10 — Validation (if requested)
 
-### Step 10 — Reference Comparison & Validation
-
-> **Load `references/validation-guide.md` for Steps 10–12.**
-
-Create three scripts (do NOT commit):
-1. `reference_<model>_vanilla.py` — third-party only inference
+Create comparison scripts (do NOT commit):
+1. `reference_<model>_vanilla.py` — third-party inference
 2. `reference_<model>_e2s.py` — E2S wrapper inference
 3. `reference_<model>_compare.py` — numerical comparison
 
-Run and verify single-step and multi-step (8 steps) match within tolerance.
+**[CONFIRM]** User must visually inspect plots before proceeding.
 
-#### [CONFIRM — Sanity-Check Plots]
+### Step 11 — PR (if requested)
 
-User MUST visually inspect plots. Do not proceed without confirmation.
-
----
-
-### Step 11 — Branch, Commit & Open PR
-
-1. Create branch `feat/prognostic-model-<name>`
-2. Commit (do NOT add comparison scripts/images)
-3. Push to fork
-4. Create PR with template from `references/validation-guide.md` — include:
-   - Model details (architecture, time step, resolution)
-   - **License information** (model weights, code, training data)
-   - Dependencies added with licenses
-   - Reference comparison results
-5. `gh pr create --repo NVIDIA/earth2studio --body-file pr-body.md`
-6. Post reference comparison as PR comment
-
----
-
-### Step 12 — Automated Code Review
-
-1. Poll for Greptile review (5 min timeout)
-2. Categorize feedback (bug/style/perf/docs/suggestion/false-positive)
-3. Present triage table — implement obvious fixes, ask only for ambiguous items
-4. Respond to PR comments
-5. Push
+1. Branch: `feat/prognostic-model-<name>`
+2. Commit (exclude comparison scripts)
+3. `gh pr create --repo NVIDIA/earth2studio`
 
 ---
 
 ## Examples
 
-### Example 1: Pangu-Weather
-
+### Simple Identity Model
 ```text
-User: Add a prognostic model wrapper for Pangu-Weather
-      - Paper: https://arxiv.org/abs/2211.02556
-      - GitHub: https://github.com/198808xc/Pangu-Weather
-      - Inference script: https://github.com/198808xc/Pangu-Weather/blob/main/inference.py
-      - Call it Pangu24 (24-hour model)
+User: Create IdentityModel - returns input unchanged, 6h step, 181x360, vars: t2m, u10m, v10m, msl
 
-Agent: [loads skill, reads inference.py, creates earth2studio/models/px/pangu.py
-        with class Pangu24, writes tests, runs pytest and lint]
+Agent: [reads SKILL.md, creates identity.py with triple inheritance,
+        creates test_identity.py, runs pytest, runs make format && lint]
 ```
 
-### Example 2: GraphCast
-
+### External Model (Pangu)
 ```text
-User: Wrap GraphCast for Earth2Studio
-      - Paper: https://arxiv.org/abs/2212.12794
-      - GitHub: https://github.com/google-deepmind/graphcast
-      - Checkpoint: HuggingFace deepmind/graphcast
-      - Name: GraphCast
+User: Add Pangu-Weather wrapper
+      GitHub: https://github.com/198808xc/Pangu-Weather
 
-Agent: [loads skill, analyzes graphcast repo, creates earth2studio/models/px/graphcast.py,
-        handles JAX->PyTorch conversion if needed, writes tests]
-```
-
-### Example 3: Simple test model
-
-```text
-User: Create an IdentityModel that returns input unchanged, 6h step, 181x360 grid,
-      variables t2m, u10m, v10m, msl
-
-Agent: [loads skill, skips Step 0-1 (no external deps), writes identity.py and
-        test_identity.py, runs pytest and lint]
+Agent: [reads SKILL.md, fetches inference.py, creates pangu.py,
+        creates test_pangu.py, runs pytest]
 ```
 
 ---
 
-## Limitations
+## Key Patterns
 
-- One model per invocation
-- Cannot create diagnostic models (use different skill)
-- Requires checkpoint access for validation (Step 10)
-- SPDX license headers are required in all generated files
+### Coordinate Template
+```python
+@property
+def input_coords(self) -> CoordSystem:
+    return CoordSystem({
+        "batch": np.empty(0),
+        "time": np.empty(0),
+        "lead_time": np.array([np.timedelta64(0, "h")]),
+        "variable": np.array(["t2m", "u10m", ...]),
+        "lat": np.linspace(90, -90, 181),
+        "lon": np.linspace(0, 359, 360),
+    })
+
+@batch_coords()
+def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    output = input_coords.copy()
+    output["lead_time"] = input_coords["lead_time"] + np.timedelta64(6, "h")
+    return output
+```
+
+### Iterator Template
+```python
+def create_iterator(self, x, coords):
+    yield x, coords  # Initial condition (step 0)
+    while True:
+        x, coords = self.front_hook(x, coords)
+        x, coords = self(x, coords)
+        x, coords = self.rear_hook(x, coords)
+        yield x, coords
+```
+
+---
 
 ## Troubleshooting
 
-| Error | Cause | Solution |
-|---|---|---|
-| `OptionalDependencyFailure` | Missing optional pkg | `uv add --optional <group> <pkg>` |
-| Coordinate handshake fails | Wrong dim order/values | Check `handshake_dim` indices |
-| Iterator yields wrong shapes | Reshape logic error | Debug with random input |
-| Package test fails | Checkpoint issue | Verify URL and format |
+| Error | Solution |
+|-------|----------|
+| `OptionalDependencyFailure` | `uv add --optional <group> <pkg>` |
+| Coordinate handshake fails | Check `handshake_dim` indices match dim position |
+| Iterator wrong shapes | Debug reshape logic with random input |
+| `ModuleNotFoundError: pytest` | Use `uv run pytest` not `pytest` |
 
 ---
 
 ## Reminders
 
-- **DO** use `uv run python` for all Python commands
-- **DO** use `loguru.logger`, never `print()`
-- **DO** maintain alphabetical order in `__init__.py`, RST, CHANGELOG
-- **DO** follow canonical method ordering
-- **DO** yield initial condition first in `create_iterator`
-- **DO** use `front_hook()`/`rear_hook()` in `_default_generator`
-- **DO** include reference URLs in class docstrings
-- **DO** inherit `torch.nn.Module + AutoModelMixin + PrognosticMixin`
-- **DO** use `handshake_dim` indices matching dim position in CoordSystem
-- **DO NOT** make a general base class for reuse across models
-- **DO NOT** over-populate `load_model()` API
-- **NEVER** commit API keys, secrets, or credentials
-- **NEVER** commit comparison scripts or images
+**DO:**
+- Use `uv run python` for ALL Python commands
+- Use `loguru.logger`, never `print()`
+- Inherit `torch.nn.Module + AutoModelMixin + PrognosticMixin`
+- Yield initial condition first in `create_iterator`
+- Use `front_hook()`/`rear_hook()` in `_default_generator`
+- Include SPDX header in every .py file
+
+**DON'T:**
+- Create general base classes for reuse
+- Commit API keys or comparison scripts
+- Read from `evals/targets/`
