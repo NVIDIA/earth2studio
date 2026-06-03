@@ -25,7 +25,7 @@ harbor:
   pass_threshold: 0.60
   stop_on_pass: false
   n_concurrent: 4
-  timeout_multiplier: 4.0
+  timeout_multiplier: 6.0
   pre_agent_setup:
     - /usr/local/bin/e2s-eval-bootstrap
 

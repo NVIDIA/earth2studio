@@ -32,6 +32,11 @@ For agents and developers — follow this order:
 
 Skip Steps 8-12 (registration, docs, PR) unless explicitly requested.
 
+> **DO NOT explore the codebase.** The templates in `references/` contain
+> everything you need. Do not launch subagents, search existing models, or
+> read other `px/*.py` files. Copy `skeleton-template.py`, adapt it to the
+> task requirements, and proceed directly to writing code.
+
 ---
 
 ## Purpose
