@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import json
+import os
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
 from datetime import datetime, timezone
@@ -42,33 +43,19 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.interp import NearestNeighborInterpolator
+from earth2studio.utils.interp import (
+    LatLonInterpolation,
+    NearestNeighborInterpolator,
+)
 from earth2studio.utils.type import CoordSystem
 
 try:
-    from physicsnemo.models import DiT
+    from physicsnemo import Module
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 except ImportError:
     OptionalDependencyFailure("stormscope")
-    DiT = None  # type: ignore[assignment]
+    Module = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
-
-from earth2studio.models.nn.stormscope_util import (
-    DropInDiT,
-    EDMPrecond,
-)
-
-
-def model_wrap(model: DiT) -> nn.Module:
-    """Wrap a physicsnemo Module so it is compatible with the preconditioning
-    and sampler used by StormScope.
-    TODO: Remove once core EDMPrecond architecture is fully upstreamed
-    """
-    return EDMPrecond(
-        model=DropInDiT(
-            pnm=model,
-        ),
-    )
 
 
 @check_optional_dependencies()
@@ -127,6 +114,14 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         X coordinates of the grid, expected shape [H, W]. Default is None, in which
         case the model uses the enumerated indices inferred from the latitude and
         longitude grid shapes.
+    glm_mask : torch.Tensor | None, optional
+        Boolean mask of shape [C] over the state channels, True where a channel is
+        normalized with log1p/expm1 (GLM-style) rather than mean/std. Default is
+        None, in which case all channels use mean/std.
+    conditioning_glm_mask : torch.Tensor | None, optional
+        Boolean mask of shape [C_cond] over the conditioning channels, True where a
+        channel is log1p-normalized. Default is None (all conditioning channels use
+        mean/std).
     input_interp_max_dist_km : float, optional
         Maximum distance in kilometers for nearest neighbor interpolation of input data.
         Points beyond this distance are masked as invalid. Default is 12.0.
@@ -150,6 +145,12 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     # Constant to fill invalid gridpoints in the input after normalization
     _INPUT_INVALID_FILL_CONSTANT = 0.0
 
+    # Observation-stacking conventions this loader can assemble. The current
+    # time-major `_stack_lead_times` implements "time_interleaved"; the reserved
+    # "source_blocks_var_major" token is intentionally unsupported until a
+    # checkpoint needs it (see STORMSCOPE_PACKAGE_LAYOUT.md).
+    _SUPPORTED_OBS_LAYOUTS = ("time_interleaved",)
+
     def __init__(
         self,
         model_spec: list[dict[str, Any]],
@@ -162,6 +163,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.ndarray | None = None,
         conditioning_data_source: Any | None = None,
+        glm_mask: torch.Tensor | None = None,
+        conditioning_glm_mask: torch.Tensor | None = None,
+        topo: torch.Tensor | None = None,
+        nexrad_proximity: torch.Tensor | None = None,
         sampler_args: dict[str, Any] | None = {"num_steps": 100, "S_churn": 10},
         input_times: np.ndarray = np.array([np.timedelta64(0, "h")]),
         output_times: np.ndarray = np.array([np.timedelta64(1, "h")]),
@@ -223,10 +228,30 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("stds", stds)
         self.variables = variables
 
+        # Per-channel mask marking log1p/expm1 (GLM-style) channels. Defaults to
+        # all-False (every channel uses mean/std), so callers that do not use GLM
+        # need not supply it.
+        if glm_mask is None:
+            glm_mask = torch.zeros(means.shape[1], dtype=torch.bool)
+        self.register_buffer("glm_mask", glm_mask)
+
         if conditioning_means is not None:
             self.register_buffer("conditioning_means", conditioning_means)
         if conditioning_stds is not None:
             self.register_buffer("conditioning_stds", conditioning_stds)
+        if conditioning_glm_mask is None and conditioning_variables is not None:
+            conditioning_glm_mask = torch.zeros(
+                len(conditioning_variables), dtype=torch.bool
+            )
+        if conditioning_glm_mask is not None:
+            self.register_buffer("conditioning_glm_mask", conditioning_glm_mask)
+
+        # Static invariant channels (appended to the conditioning input). Present
+        # only for variants whose registry entry sets the corresponding flag.
+        if topo is not None:
+            self.register_buffer("topo", topo)
+        if nexrad_proximity is not None:
+            self.register_buffer("nexrad_proximity", nexrad_proximity)
 
         self.conditioning_variables = conditioning_variables
         self.conditioning_data_source = conditioning_data_source
@@ -235,17 +260,356 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.input_interp = None
         self.conditioning_interp = None
 
+    # Top-level key in registry.json that holds this model's variants. Set by
+    # subclasses (e.g. "goes", "mrms") so a single shared registry can describe
+    # every StormScope model without name collisions.
+    _REGISTRY_KEY: str | None = None
+
+    # Hugging Face package to fall back on once the checkpoints are public.
+    # TODO(public-release): update the commit hash to the released nowcasting
+    # checkpoints and restore this as the default in load_default_package.
+    _HF_PACKAGE = "hf://nvidia/stormscope-goes-mrms@6ee31e07afe3decb012740f3be17531207c3db5e"
+
     @classmethod
     def load_default_package(cls) -> Package:
-        """Load a default local package for StormScope models."""
-        package = Package(
-            "hf://nvidia/stormscope-goes-mrms@6ee31e07afe3decb012740f3be17531207c3db5e",
-            cache_options={
-                "cache_storage": Package.default_cache("stormscope"),
-                "same_names": True,
-            },
+        """Load the default package for StormScope models.
+
+        While the updated CONUS nowcasting checkpoints are shared under NDA ahead
+        of public release, they are not yet hosted on the public Hugging Face
+        repo. Point the ``STORMSCOPE_MODEL_PKG`` environment variable at the
+        shared package (e.g. a local directory or an ``s3://`` URL) to load them::
+
+            export STORMSCOPE_MODEL_PKG=/path/to/stormscope-package
+
+        Once the checkpoints are public this will default back to Hugging Face.
+        """
+        pkg_root = os.environ.get("STORMSCOPE_MODEL_PKG")
+        if pkg_root is not None:
+            return Package(
+                pkg_root,
+                cache_options={
+                    "cache_storage": Package.default_cache("stormscope"),
+                    "same_names": True,
+                },
+            )
+        # TODO(public-release): drop this error and return the Hugging Face
+        # package below once the nowcasting checkpoints are published.
+        raise RuntimeError(
+            "StormScope checkpoints are currently distributed under NDA ahead of "
+            "their public release and are not yet available on Hugging Face. Set "
+            "the STORMSCOPE_MODEL_PKG environment variable to the location of the "
+            "shared model package to load them, e.g. "
+            "`export STORMSCOPE_MODEL_PKG=/path/to/stormscope-package`."
         )
-        return package
+
+    @staticmethod
+    def _load_registry(package: Package) -> dict[str, Any]:
+        """Load and parse the package ``registry.json``."""
+        with open(package.resolve("registry.json")) as f:
+            return json.load(f)
+
+    @classmethod
+    def _check_obs_layout(cls, pkg: dict[str, Any]) -> None:
+        """Raise if a variant's observation-stacking layout is unsupported.
+
+        Defaults to ``"time_interleaved"`` for packages predating the
+        ``obs_layout`` field (the layout all current checkpoints use).
+        """
+        layout = pkg.get("obs_layout", "time_interleaved")
+        if layout not in cls._SUPPORTED_OBS_LAYOUTS:
+            raise NotImplementedError(
+                f"StormScope variant declares obs_layout='{layout}', which this "
+                f"Earth2Studio version does not support (supported: "
+                f"{', '.join(cls._SUPPORTED_OBS_LAYOUTS)})."
+            )
+
+    @classmethod
+    def _resolve_model_entry(
+        cls, package: Package, model_name: str
+    ) -> tuple[str, dict[str, Any]]:
+        """Resolve a (possibly aliased) ``model_name`` to its registry entry.
+
+        The package ``registry.json`` is structured by source::
+
+            {
+              "normalization": {<group>: {"file_prefix": ..., "order": [...]}, ...},
+              "<source>": {
+                "models": {"<canonical name>": {<variant spec>}, ...},
+                "aliases": {"<alias>": "<canonical name>", ...}
+              }
+            }
+
+        where ``<source>`` is the subclass's ``_REGISTRY_KEY``. Aliases (including
+        legacy training names) are resolved to their canonical entry.
+
+        Parameters
+        ----------
+        package : Package
+            Package to load the registry from.
+        model_name : str
+            Canonical variant name or an alias.
+
+        Returns
+        -------
+        tuple[str, dict[str, Any]]
+            The resolved canonical name and its variant specification.
+        """
+        if cls._REGISTRY_KEY is None:
+            raise NotImplementedError(
+                "StormScope subclasses must set _REGISTRY_KEY to select a "
+                "section of registry.json."
+            )
+
+        registry = cls._load_registry(package)
+
+        if cls._REGISTRY_KEY not in registry:
+            raise KeyError(
+                f"registry.json has no '{cls._REGISTRY_KEY}' section for {cls.__name__}."
+            )
+        section = registry[cls._REGISTRY_KEY]
+        models = section["models"]
+        aliases = section.get("aliases", {})
+
+        resolved = aliases.get(model_name, model_name)
+
+        if resolved not in models:
+            available = ", ".join(sorted(models))
+            raise KeyError(
+                f"Unknown StormScope '{cls._REGISTRY_KEY}' model '{model_name}'. "
+                f"Available variants: {available}. "
+                f"Use {cls.__name__}.list_available_models() to inspect them."
+            )
+
+        entry = models[resolved]
+        if entry.get("deprecated", False):
+            logger.warning(
+                f"StormScope '{resolved}' is a legacy (nearcasting) checkpoint kept "
+                "for backwards compatibility; the supported defaults are the CONUS "
+                "nowcasting variants. See list_available_models() for alternatives."
+            )
+        return resolved, entry
+
+    @classmethod
+    def list_available_models(
+        cls, package: Package | None = None
+    ) -> dict[str, dict[str, Any]]:
+        """List the model variants available in a package for this model.
+
+        Parameters
+        ----------
+        package : Package | None, optional
+            Package to inspect. If None, the default package is loaded.
+
+        Returns
+        -------
+        dict[str, dict[str, Any]]
+            Mapping of canonical variant name to a metadata dict with
+            ``description`` and ``deprecated`` keys.
+        """
+        if package is None:
+            package = cls.load_default_package()
+        registry = cls._load_registry(package)
+        section = registry[cls._REGISTRY_KEY]
+        return {
+            name: {
+                "description": spec.get("description", ""),
+                "deprecated": spec.get("deprecated", False),
+            }
+            for name, spec in section["models"].items()
+        }
+
+    @classmethod
+    def _build_normalization(
+        cls, package: Package, registry: dict[str, Any], names: np.ndarray
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Build per-channel normalization stats for a list of variable ``names``.
+
+        Channels are selected **by name** from the package's canonical-order
+        normalization arrays (the top-level ``normalization`` block of
+        ``registry.json``), not by position — a variant's ``variables`` /
+        ``conditioning_vars`` may be any subset, in any order, and may span
+        multiple normalization groups (e.g. MRMS ``refc``/``refc_base`` plus a GLM
+        channel).
+
+        GLM channels (a group with ``transform: "log1p"`` and no ``file_prefix``)
+        carry no mean/std; they are flagged in the returned mask and handled by the
+        ``log1p`` / ``expm1`` transform in the (de)normalization path. Their
+        placeholder mean/std are 0/1 so the affine path is a no-op if ever applied.
+
+        Parameters
+        ----------
+        package : Package
+            Package to resolve the ``*_means.npy`` / ``*_stds.npy`` arrays from.
+        registry : dict[str, Any]
+            Parsed ``registry.json`` (must contain the ``normalization`` block).
+        names : np.ndarray
+            Variable names in the desired channel order.
+
+        Returns
+        -------
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            ``means`` and ``stds`` of shape ``[1, C, 1, 1]`` and a boolean
+            ``glm_mask`` of shape ``[C]`` (True where the channel is log1p GLM).
+        """
+        if "normalization" not in registry:
+            raise KeyError(
+                "registry.json is missing the top-level 'normalization' block "
+                "required to select normalization channels by name."
+            )
+        norm = registry["normalization"]
+
+        # Map every known channel name to its (group, index) in canonical order.
+        name_to_loc: dict[str, tuple[str, int]] = {}
+        for gkey, group in norm.items():
+            for idx, nm in enumerate(group["order"]):
+                name_to_loc[nm] = (gkey, idx)
+
+        n = len(names)
+        means = np.zeros(n, dtype=np.float32)
+        stds = np.ones(n, dtype=np.float32)
+        glm_mask = np.zeros(n, dtype=bool)
+
+        array_cache: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+        for j, name in enumerate(names):
+            if name not in name_to_loc:
+                raise KeyError(
+                    f"Variable '{name}' is not present in any registry "
+                    f"'normalization' group; cannot determine its normalization."
+                )
+            gkey, idx = name_to_loc[name]
+            group = norm[gkey]
+            # GLM-style groups use a parameter-free transform (log1p/expm1) and
+            # have no stats array; leave placeholder mean/std and flag the channel.
+            if group.get("file_prefix") is None or group.get("transform") == "log1p":
+                glm_mask[j] = True
+                continue
+            if gkey not in array_cache:
+                prefix = group["file_prefix"]
+                m = np.atleast_1d(np.load(package.resolve(f"{prefix}_means.npy")))
+                s = np.atleast_1d(np.load(package.resolve(f"{prefix}_stds.npy")))
+                array_cache[gkey] = (m, s)
+            m, s = array_cache[gkey]
+            means[j] = m[idx]
+            stds[j] = s[idx]
+
+        means_t = torch.from_numpy(means)[None, :, None, None]
+        stds_t = torch.from_numpy(stds)[None, :, None, None]
+        glm_mask_t = torch.from_numpy(glm_mask)
+        return means_t, stds_t, glm_mask_t
+
+    @staticmethod
+    def _crop_invariant(
+        arr: torch.Tensor, image_size: list[int], spatial_downsample: int
+    ) -> torch.Tensor:
+        """Center-crop a full-HRRR-grid 2D array to ``image_size`` then stride by
+        ``spatial_downsample`` — the same transform applied to ``lat``/``lon`` and
+        the static ``topo`` / ``nexrad_proximity`` invariants."""
+        full_y, full_x = arr.shape[0], arr.shape[1]
+        anchor_y = int((full_y - image_size[0]) / 2)
+        anchor_x = int((full_x - image_size[1]) / 2)
+        arr = arr[
+            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
+        ]
+        return arr[::spatial_downsample, ::spatial_downsample]
+
+    @classmethod
+    def _load_invariant(
+        cls, package: Package, filename: str, pkg: dict[str, Any]
+    ) -> torch.Tensor:
+        """Load a static 2D invariant (e.g. ``topo.npy``) from the package and
+        crop/stride it onto the variant's model grid."""
+        arr = torch.from_numpy(np.load(package.resolve(filename))).to(
+            dtype=torch.float32
+        )
+        return cls._crop_invariant(
+            arr, pkg["image_size"], pkg["spatial_downsample"]
+        )
+
+    @staticmethod
+    def _build_grid_and_times(
+        package: Package, pkg: dict[str, Any]
+    ) -> tuple[
+        torch.Tensor, torch.Tensor, np.ndarray, np.ndarray, np.ndarray, np.ndarray, int
+    ]:
+        """Build the model grid and input/output timesteps from a registry entry.
+
+        Crops (and optionally downsamples) a subregion of the HRRR grid according
+        to the variant's ``image_size`` and ``spatial_downsample``, and derives the
+        input/output lead times from its ``step_interval`` / sliding-window config.
+
+        Parameters
+        ----------
+        package : Package
+            Package to resolve grid files (``lat.npy``, ``lon.npy``) from.
+        pkg : dict[str, Any]
+            Resolved registry entry for the variant.
+
+        Returns
+        -------
+        tuple
+            ``(latitudes, longitudes, y, x, input_times, output_times, spatial_downsample)``.
+        """
+        # Grid coordinates: crop a subregion from the HRRR grid
+        image_size = pkg["image_size"]
+        spatial_downsample = pkg["spatial_downsample"]
+        latitudes = torch.from_numpy(np.load(package.resolve("lat.npy")))
+        longitudes = (
+            torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0
+        ) % 360.0
+        hrrr_y, hrrr_x = HRRR.HRRR_Y, HRRR.HRRR_X
+        full_y, full_x = latitudes.shape[0], longitudes.shape[1]
+        anchor_y = int((full_y - image_size[0]) / 2)
+        anchor_x = int((full_x - image_size[1]) / 2)
+        latitudes = StormScopeBase._crop_invariant(
+            latitudes, image_size, spatial_downsample
+        )
+        longitudes = StormScopeBase._crop_invariant(
+            longitudes, image_size, spatial_downsample
+        )
+        y = hrrr_y[anchor_y : anchor_y + image_size[0]][::spatial_downsample]
+        x = hrrr_x[anchor_x : anchor_x + image_size[1]][::spatial_downsample]
+
+        # Input/output timesteps configuration
+        if pkg["sliding_window"]:
+            # N input timesteps, 1 output timestep, with resolution step_interval
+            n_steps, step_interval = pkg["n_steps"], pkg["step_interval"]
+            input_times = np.arange(-n_steps + 1, 1) * np.timedelta64(step_interval, "m")
+            output_times = np.array([np.timedelta64(step_interval, "m")])
+        else:
+            # 1 input, 1 output, with resolution step_interval
+            input_times = np.array([np.timedelta64(0, "m")])
+            output_times = np.array([np.timedelta64(pkg["step_interval"], "m")])
+
+        return (
+            latitudes,
+            longitudes,
+            y,
+            x,
+            input_times,
+            output_times,
+            spatial_downsample,
+        )
+
+    @classmethod
+    def _load_checkpoints(
+        cls, package: Package, pkg: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Load the staged-denoising experts for a variant from its registry entry.
+
+        Each ``.mdlus`` is a complete ``EDMPreconditioner(ConcatConditionWrapper(DiT))``
+        and is loaded directly with ``physicsnemo.Module.from_checkpoint``.
+        """
+        model_spec = []
+        for m in pkg["checkpoints"]:
+            model = Module.from_checkpoint(package.resolve(m["path"]))
+            model_spec.append(
+                {
+                    "model": model,
+                    "sigma_min": float(m["sigma_min"]),
+                    "sigma_max": float(m["sigma_max"]),
+                }
+            )
+        return model_spec
 
     @classmethod
     def load_model(
@@ -401,15 +765,24 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def normalize_conditioning(
         self, conditioning: torch.Tensor | None
     ) -> torch.Tensor | None:
-        """Normalize external conditioning with stored stats if available."""
+        """Normalize external conditioning with stored stats if available.
+
+        Channels flagged in ``conditioning_glm_mask`` are normalized with
+        ``log1p`` instead of mean/std; all others use the affine ``(x-mean)/std``.
+        """
         if conditioning is None:
             return None
-        x = conditioning
+        affine = conditioning
         if "conditioning_means" in self._buffers:
-            x = x - self.conditioning_means
+            affine = affine - self.conditioning_means
         if "conditioning_stds" in self._buffers:
-            x = x / self.conditioning_stds
-        return x
+            affine = affine / self.conditioning_stds
+
+        mask = self._buffers.get("conditioning_glm_mask", None)
+        if mask is None or not bool(mask.any()):
+            return affine
+        glm_view = mask.view(1, -1, 1, 1)
+        return torch.where(glm_view, torch.log1p(conditioning), affine)
 
     def _stack_lead_times(
         self, x: torch.Tensor, coords: CoordSystem
@@ -467,9 +840,28 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Conditioning tensor to pass to the diffusion sampler.
         """
 
+        # Split the state into its main (mean/std) channels and any GLM (log1p)
+        # channels, so each becomes its own contiguous, separately-stacked obs
+        # block (mrms_obs | glm_obs) rather than interleaving GLM into the state.
+        if bool(self.glm_mask.any()):
+            main_sel = (~self.glm_mask).nonzero(as_tuple=True)[0]
+            glm_sel = self.glm_mask.nonzero(as_tuple=True)[0]
+            var = np.asarray(coords["variable"])
+            x_main = x[:, :, :, main_sel, :, :]
+            main_coords = coords.copy()
+            main_coords["variable"] = var[main_sel.cpu().numpy()]
+            x_glm = x[:, :, :, glm_sel, :, :]
+            glm_coords = coords.copy()
+            glm_coords["variable"] = var[glm_sel.cpu().numpy()]
+        else:
+            x_main, main_coords = x, coords
+            x_glm, glm_coords = None, None
+
         if self.sliding_window:
-            # Reshape input/conditioning to (..., 1, n_lt * n_vars, y, x)
-            x, coords = self._stack_lead_times(x, coords)
+            # Reshape each block to (..., 1, n_lt * n_vars, y, x)
+            x_main, main_coords = self._stack_lead_times(x_main, main_coords)
+            if x_glm is not None:
+                x_glm, glm_coords = self._stack_lead_times(x_glm, glm_coords)
             if conditioning is not None:
                 if conditioning_coords is None:
                     raise ValueError(
@@ -480,19 +872,29 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 )
 
         # Fold batch/time/lead_time dimensions
-        b, t, lt, _, _, _ = x.shape
+        b, t, lt, _, _, _ = x_main.shape
         if lt != 1:
             raise ValueError(f"Expected 1 lead time in prepared input data, got {lt}")
-        x = x.reshape(b * t * lt, *x.shape[3:])
+        coords = main_coords  # used below for cos-zenith times
+        x_main = x_main.reshape(b * t * lt, *x_main.shape[3:])
+        if x_glm is not None:
+            x_glm = x_glm.reshape(b * t * lt, *x_glm.shape[3:])
         if conditioning is not None:
             conditioning = conditioning.reshape(b * t * lt, *conditioning.shape[3:])
 
-        parts = [x]
-        if conditioning is not None:
-            if self._STATE_FIRST:
-                parts.append(conditioning)
-            else:
-                parts.insert(0, conditioning)
+        # Assemble the obs blocks in canonical order:
+        #   [ goes_obs(conditioning) | mrms_obs(x_main) | glm_obs(x_glm) ]
+        # _STATE_FIRST places the state ahead of the external conditioning (GOES
+        # model); for the MRMS model conditioning (GOES) leads.
+        parts = []
+        if conditioning is not None and not self._STATE_FIRST:
+            parts.append(conditioning)
+        parts.append(x_main)
+        if x_glm is not None:
+            parts.append(x_glm)
+        if conditioning is not None and self._STATE_FIRST:
+            parts.append(conditioning)
+
         if self.latitudes is not None and self.longitudes is not None:
             normed_lat = (self.latitudes - self._CENTRAL_LAT_CONSTANT) / self._LAT_SCALE
             normed_lon = (
@@ -553,6 +955,19 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ]
         )
 
+        # Static invariants, in the documented trailing order: nexrad_proximity
+        # then topo. Each is [H, W]; broadcast to [B*T, 1, H, W] like lat/lon.
+        for invariant in (
+            self._buffers.get("nexrad_proximity", None),
+            self._buffers.get("topo", None),
+        ):
+            if invariant is not None:
+                parts.append(
+                    invariant.to(device=x.device, dtype=x.dtype)[None, None].repeat(
+                        b * t, 1, 1, 1
+                    )
+                )
+
         return torch.cat(parts, dim=1)
 
     @torch.inference_mode()
@@ -590,9 +1005,19 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         b, t, lt, _, _, _ = x.shape
 
-        # Scale input and fill invalid gridpoints
-        x_norm = (x - self.means) / self.stds
-        x_norm = torch.where(self.valid_mask, x_norm, self._INPUT_INVALID_FILL_CONSTANT)
+        # Scale input and fill invalid gridpoints. GLM-style channels use log1p;
+        # all others use the affine (x-mean)/std. The invalid-gridpoint fill is
+        # per-channel: the class background constant for mean/std channels, and
+        # log1p(0)=0 for GLM channels.
+        x_norm = self._normalize_state(x)
+        fill = torch.where(
+            self.glm_mask.view(1, -1, 1, 1),
+            torch.zeros((), dtype=x_norm.dtype, device=x_norm.device),
+            torch.full(
+                (), self._INPUT_INVALID_FILL_CONSTANT, dtype=x_norm.dtype, device=x_norm.device
+            ),
+        )
+        x_norm = torch.where(self.valid_mask, x_norm, fill)
         output_dtype = x_norm.dtype
 
         # Scale conditioning and zero-fill invalid gridpoints
@@ -627,14 +1052,31 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out = out.reshape(b, t, len(self.output_times), *out.shape[1:])
 
         out = torch.where(self.valid_mask, out, torch.nan)
-        out = out * self.stds + self.means
+        out = self._denormalize_state(out)
         return out
+
+    def _normalize_state(self, x: torch.Tensor) -> torch.Tensor:
+        """Normalize state channels: log1p for GLM channels, affine otherwise."""
+        affine = (x - self.means) / self.stds
+        if not bool(self.glm_mask.any()):
+            return affine
+        glm_view = self.glm_mask.view(1, -1, 1, 1)
+        return torch.where(glm_view, torch.log1p(x), affine)
+
+    def _denormalize_state(self, out: torch.Tensor) -> torch.Tensor:
+        """Invert :meth:`_normalize_state`: expm1 (clamped >=0) for GLM channels,
+        affine otherwise. NaNs (invalid gridpoints) propagate unchanged."""
+        affine = out * self.stds + self.means
+        if not bool(self.glm_mask.any()):
+            return affine
+        glm_view = self.glm_mask.view(1, -1, 1, 1)
+        glm = torch.clamp(torch.expm1(out), min=0.0)
+        return torch.where(glm_view, glm, affine)
 
     def _edm_sampler(
         self,
         latents: torch.Tensor,
         condition: torch.Tensor | None = None,
-        class_labels: torch.Tensor | None = None,
         randn_like: Callable[[torch.Tensor], torch.Tensor] = torch.randn_like,
         num_steps: int = 18,
         sigma_max: float = 500,
@@ -676,13 +1118,13 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 if S_min <= t_cur <= S_max
                 else 0
             )
-            t_hat = active_net.round_sigma(t_cur + gamma * t_cur)
+            t_hat = torch.as_tensor(t_cur + gamma * t_cur)
             x_hat = x_cur + (t_hat**2 - t_cur**2).sqrt() * S_noise * randn_like(x_cur)
 
             # Euler step.
-            denoised = active_net(
-                x_hat, t_hat, class_labels=class_labels, condition=condition
-            ).to(self._SAMPLER_DTYPE)
+            denoised = active_net(x_hat, t_hat, condition=condition).to(
+                self._SAMPLER_DTYPE
+            )
             d_cur = (x_hat - denoised) / t_hat
             x_next = x_hat + (t_next - t_hat) * d_cur
 
@@ -691,9 +1133,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 # Select the active network for the next step
                 active_net_prime = self._select_expert(t_next)
 
-                denoised = active_net_prime(
-                    x_next, t_next, class_labels=class_labels, condition=condition
-                ).to(self._SAMPLER_DTYPE)
+                denoised = active_net_prime(x_next, t_next, condition=condition).to(
+                    self._SAMPLER_DTYPE
+                )
                 d_prime = (x_next - denoised) / t_next
                 x_next = x_hat + (t_next - t_hat) * (0.5 * d_cur + 0.5 * d_prime)
 
@@ -964,18 +1406,24 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 class StormScopeGOES(StormScopeBase):
     """StormScope model forecasting GOES data on the HRRR grid.
 
-    This model supports multiple variants at different spatiotemporal resolutions:
+    This model supports multiple variants at different spatiotemporal resolutions,
+    selected by passing ``model_name`` to ``load_model`` (default: ``"3km_10min"``).
+    The primary focus is CONUS nowcasting at 3km resolution; coarser 6km
+    nearcasting variants are retained as
+    legacy checkpoints. Variant names are semantic (``<resolution>_<cadence>``):
 
-      - 6km resolution, 60 minute timestep
-      - 6km resolution, 10 minute timestep
-      - 3km resolution, 10 minute timestep
+      - ``3km_10min``  : 3km resolution, 10 minute timestep (CONUS nowcasting)
+      - ``6km_10min``  : 6km resolution, 10 minute timestep, sliding window of 6 inputs
+      - ``6km_10min_single`` : 6km resolution, 10 minute timestep, single input timestep
+      - ``6km_1hr``    : 6km resolution, 60 minute timestep (legacy nearcasting)
 
-    Selection between these can be made by passing the ``model_name argument`` to this
-    class's ``load_model`` method.
+    Use :py:meth:`list_available_models` to inspect the variants in a given package
+    (including any added after this release). Legacy training-style names are still
+    accepted as aliases.
 
-    The 6km/10min model uses a sliding window of 6 input timesteps and predicts one
-    output timestep; other models use a single input timestep and predict one output
-    timestep.
+    Variants whose input cadence is finer than their output cadence use a sliding
+    window of input timesteps and predict one output timestep; others use a single
+    input timestep and predict one output timestep.
 
     Parameters
     ----------
@@ -1033,6 +1481,8 @@ class StormScopeGOES(StormScopeBase):
     region:na class:nwc product:sat year:2026 gpu:80gb
     """
 
+    _REGISTRY_KEY = "goes"
+
     def __init__(
         self,
         model_spec: list[dict[str, Any]],
@@ -1056,6 +1506,10 @@ class StormScopeGOES(StormScopeBase):
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         conditioning_data_source: Any | None = None,
+        glm_mask: torch.Tensor | None = None,
+        conditioning_glm_mask: torch.Tensor | None = None,
+        topo: torch.Tensor | None = None,
+        nexrad_proximity: torch.Tensor | None = None,
         sampler_args: dict[str, float | int] | None = {"num_steps": 100, "S_churn": 10},
         input_times: np.ndarray = np.array([np.timedelta64(0, "h")]),
         output_times: np.ndarray = np.array([np.timedelta64(1, "h")]),
@@ -1076,6 +1530,10 @@ class StormScopeGOES(StormScopeBase):
             conditioning_variables=conditioning_variables,
             conditioning_stds=conditioning_stds,
             conditioning_data_source=conditioning_data_source,
+            glm_mask=glm_mask,
+            conditioning_glm_mask=conditioning_glm_mask,
+            topo=topo,
+            nexrad_proximity=nexrad_proximity,
             sampler_args=sampler_args,
             input_times=input_times,
             output_times=output_times,
@@ -1084,8 +1542,6 @@ class StormScopeGOES(StormScopeBase):
             input_interp_max_dist_km=input_interp_max_dist_km,
             conditioning_interp_max_dist_km=conditioning_interp_max_dist_km,
         )
-        self.means: torch.Tensor = self.means[:, -len(self.variables) :, :, :]
-        self.stds: torch.Tensor = self.stds[:, -len(self.variables) :, :, :]
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system"""
@@ -1171,7 +1627,7 @@ class StormScopeGOES(StormScopeBase):
     def load_model(
         cls,
         package: Package,
-        model_name: str = "6km_60min_natten_cos_zenith_input_eoe_v2",
+        model_name: str = "3km_10min",
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
     ) -> PrognosticModel:
         """Load model from package.
@@ -1181,11 +1637,16 @@ class StormScopeGOES(StormScopeBase):
         package : Package
             Package to load model from
         model_name : str, optional
-            Model name to load; allows for selection between different variants of the model:
-            - "6km_60min_natten_cos_zenith_input_eoe_v2": 6km resolution, 60 minute timestep
-            - "6km_10min_natten_pure_obs_zenith_6steps": 6km resolution, 10 minute timestep, sliding window of 6 input timesteps
-            - "6km_10min_natten_pure_obs_zenith_eoe": 6km resolution, 10 minute timestep, single input timestep
-            - "3km_10min_natten_pure_obs_cos_zenith_input_eoe": 3km resolution, 10 minute timestep
+            Variant to load, by default ``"3km_10min"`` (the recommended CONUS
+            nowcasting variant). Available variants (see
+            :py:meth:`list_available_models`):
+
+            - ``"3km_10min"``: 3km resolution, 10 minute timestep (CONUS nowcasting)
+            - ``"6km_10min"``: 6km resolution, 10 minute timestep, sliding window of 6 inputs
+            - ``"6km_10min_single"``: 6km resolution, 10 minute timestep, single input timestep
+            - ``"6km_1hr"``: 6km resolution, 60 minute timestep (legacy nearcasting)
+
+            Legacy training-style names are accepted as aliases.
         conditioning_data_source : DataSource | ForecastSource | None, optional
             Data source to use for conditioning, by default None.
 
@@ -1199,91 +1660,58 @@ class StormScopeGOES(StormScopeBase):
         except FileNotFoundError:
             pass
 
-        with open(package.resolve("registry.json")) as f:
-            registry = json.load(f)
-            pkg = registry[model_name]
+        registry = cls._load_registry(package)
+        _, pkg = cls._resolve_model_entry(package, model_name)
+        cls._check_obs_layout(pkg)
+        model_spec = cls._load_checkpoints(package, pkg)
+        (
+            latitudes,
+            longitudes,
+            y,
+            x,
+            input_times,
+            output_times,
+            spatial_downsample,
+        ) = cls._build_grid_and_times(package, pkg)
 
-        model_spec = []
-        for m in pkg["checkpoints"]:
-            model = DiT.from_checkpoint(package.resolve(m["path"]))
-            model_spec.append(
-                {
-                    "model": model_wrap(model),
-                    "sigma_min": float(m["sigma_min"]),
-                    "sigma_max": float(m["sigma_max"]),
-                }
-            )
-
-        # Grid coordinates: crop a subregion from the HRRR grid
-        image_size = pkg["image_size"]
-        spatial_downsample = pkg["spatial_downsample"]
-        latitudes = torch.from_numpy(np.load(package.resolve("lat.npy")))
-        longitudes = (
-            torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0
-        ) % 360.0
-        hrrr_y, hrrr_x = HRRR.HRRR_Y, HRRR.HRRR_X
-        full_y, full_x = latitudes.shape[0], longitudes.shape[1]
-        anchor_y = int((full_y - image_size[0]) / 2)
-        anchor_x = int((full_x - image_size[1]) / 2)
-        latitudes = latitudes[
-            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
-        ]
-        longitudes = longitudes[
-            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
-        ]
-        y = hrrr_y[anchor_y : anchor_y + image_size[0]]
-        x = hrrr_x[anchor_x : anchor_x + image_size[1]]
-
-        # Spatial downsample
-        y = y[::spatial_downsample]
-        x = x[::spatial_downsample]
-        latitudes = latitudes[::spatial_downsample, ::spatial_downsample]
-        longitudes = longitudes[::spatial_downsample, ::spatial_downsample]
-
-        # Input/output timesteps configuration
-        if pkg["sliding_window"]:
-            # N input timesteps, 1 output timestep, with resolution step_interval
-            n_steps, step_interval = pkg["n_steps"], pkg["step_interval"]
-            input_times = np.arange(-n_steps + 1, 1) * np.timedelta64(
-                step_interval, "m"
-            )
-            output_times = np.array([np.timedelta64(step_interval, "m")])
-        else:
-            # 1 input, 1 output, with resolution step_interval
-            input_times = np.array([np.timedelta64(0, "m")])
-            output_times = np.array([np.timedelta64(pkg["step_interval"], "m")])
-
-        # Conditioning variables
+        # State variables and conditioning variables (from the registry entry)
+        variables = np.array(pkg["variables"])
         conditioning_variables = np.array(pkg["conditioning_vars"])
 
-        # Normalization constants
-        means = torch.from_numpy(np.load(package.resolve("goes_means.npy")))[
-            None, :, None, None
-        ]
-        stds = torch.from_numpy(np.load(package.resolve("goes_stds.npy")))[
-            None, :, None, None
-        ]
+        # Normalization constants, selected by name from the canonical-order arrays
+        means, stds, glm_mask = cls._build_normalization(package, registry, variables)
         if len(conditioning_variables) > 0:
-            conditioning_means = torch.from_numpy(
-                np.expand_dims(np.load(package.resolve("era5_means.npy")), 0)
-            )[None, :, None, None]
-            conditioning_stds = torch.from_numpy(
-                np.expand_dims(np.load(package.resolve("era5_stds.npy")), 0)
-            )[None, :, None, None]
+            conditioning_means, conditioning_stds, conditioning_glm_mask = (
+                cls._build_normalization(package, registry, conditioning_variables)
+            )
         else:
             conditioning_means = torch.empty(0)
             conditioning_stds = torch.empty(0)
+            conditioning_glm_mask = None
+
+        # Static invariant channels (loaded only when the variant requests them)
+        topo = cls._load_invariant(package, "topo.npy", pkg) if pkg.get("topo") else None
+        nexrad_proximity = (
+            cls._load_invariant(package, "nexrad_proximity.npy", pkg)
+            if pkg.get("nexrad_proximity")
+            else None
+        )
 
         return cls(
             model_spec=model_spec,
             means=means.to(dtype=torch.float32),
             stds=stds.to(dtype=torch.float32),
+            variables=variables,
             latitudes=latitudes.to(dtype=torch.float32),
             longitudes=longitudes.to(dtype=torch.float32),
             conditioning_means=conditioning_means.to(dtype=torch.float32),
             conditioning_stds=conditioning_stds.to(dtype=torch.float32),
             conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
+            glm_mask=glm_mask,
+            conditioning_glm_mask=conditioning_glm_mask,
+            topo=topo,
+            nexrad_proximity=nexrad_proximity,
             input_times=input_times,
             output_times=output_times,
             y_coords=y,
@@ -1295,15 +1723,19 @@ class StormScopeGOES(StormScopeBase):
 class StormScopeMRMS(StormScopeBase):
     """StormScope model forecasting MRMS data on the HRRR grid.
 
-    This model supports multiple variants at different temporal resolutions:
-      - 6km resolution, 60 minute timestep
-      - 6km resolution, 10 minute timestep
-    Selection between these can be made by passing the ``model_name argument`` to this
-    class's ``load_model`` method.
+    This model supports multiple variants at different temporal resolutions,
+    selected by passing ``model_name`` to ``load_model`` (default: ``"6km_10min"``).
+    Variant names are semantic (``<resolution>_<cadence>``):
 
-    The 6km/10min model uses a sliding window of 6 input timesteps and predicts one
-    output timestep; other models use a single input timestep and predict one output
-    timestep. All StormScopeMRMS models by default expect GOES-East data as
+      - ``6km_10min``: 6km resolution, 10 minute timestep, sliding window of 6 inputs
+      - ``6km_1hr``: 6km resolution, 60 minute timestep (legacy nearcasting)
+
+    Use :py:meth:`list_available_models` to inspect the variants in a given package.
+    Legacy training-style names are still accepted as aliases.
+
+    Variants whose input cadence is finer than their output cadence use a sliding
+    window of input timesteps and predict one output timestep; others use a single
+    input timestep and predict one output timestep. All StormScopeMRMS models by default expect GOES-East data as
     conditioning; typically in a forecasting run this can be provided by passing the
     predictions from a StormScopeGOES model to this model's ``call_with_conditioning``
     method. Otherwise, the user must provide a conditioning data source for the model
@@ -1365,6 +1797,7 @@ class StormScopeMRMS(StormScopeBase):
     region:na class:nwc product:radar year:2026 gpu:80gb
     """
 
+    _REGISTRY_KEY = "mrms"
     _STATE_FIRST = False
     _INPUT_INVALID_FILL_CONSTANT = (
         -0.25285158
@@ -1393,6 +1826,11 @@ class StormScopeMRMS(StormScopeBase):
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         conditioning_data_source: Any | None = None,
+        glm_mask: torch.Tensor | None = None,
+        conditioning_glm_mask: torch.Tensor | None = None,
+        topo: torch.Tensor | None = None,
+        nexrad_proximity: torch.Tensor | None = None,
+        glm_data_source: Any | None = None,
         sampler_args: dict[str, float | int] | None = {"num_steps": 100, "S_churn": 10},
         y_coords: np.ndarray | None = None,
         x_coords: np.ndarray | None = None,
@@ -1400,6 +1838,7 @@ class StormScopeMRMS(StormScopeBase):
         output_times: np.ndarray = np.array([np.timedelta64(1, "h")]),
         input_interp_max_dist_km: float = 12.0,
         conditioning_interp_max_dist_km: float = 12.0,
+        glm_interp_max_dist_km: float = 14.0,
     ):
 
         super().__init__(
@@ -1413,6 +1852,10 @@ class StormScopeMRMS(StormScopeBase):
             conditioning_variables=conditioning_variables,
             conditioning_stds=conditioning_stds,
             conditioning_data_source=conditioning_data_source,
+            glm_mask=glm_mask,
+            conditioning_glm_mask=conditioning_glm_mask,
+            topo=topo,
+            nexrad_proximity=nexrad_proximity,
             sampler_args=sampler_args,
             y_coords=y_coords,
             x_coords=x_coords,
@@ -1421,8 +1864,110 @@ class StormScopeMRMS(StormScopeBase):
             input_interp_max_dist_km=input_interp_max_dist_km,
             conditioning_interp_max_dist_km=conditioning_interp_max_dist_km,
         )
-        self.means: torch.Tensor = self.means[:, -len(self.variables) :, :, :]
-        self.stds: torch.Tensor = self.stds[:, -len(self.variables) :, :, :]
+        # GLM is a state channel (`glm_density`) normalized with log1p/expm1; it is
+        # fetched from its own 0.1-degree gridded source and bilinearly regridded to
+        # the model grid via `build_glm_interpolator`. ``n_glm_channels`` counts the
+        # log1p (GLM) channels among `variables`.
+        self.n_glm_channels = int(self.glm_mask.sum().item())
+        # Names of the GLM (log1p) state channels, in `variables` order.
+        self.glm_variables = np.asarray(self.variables)[
+            self.glm_mask.cpu().numpy()
+        ]
+        self.glm_data_source = glm_data_source
+        self.glm_interp: nn.Module | None = None
+        self._glm_interp_max_dist_km = glm_interp_max_dist_km
+
+    def build_glm_interpolator(
+        self,
+        glm_lats: torch.Tensor | ArrayLike,
+        glm_lons: torch.Tensor | ArrayLike,
+        max_dist_km: float | None = None,
+    ) -> None:
+        """Build a **bilinear** interpolator mapping the GLM source's native
+        0.1-degree grid onto the model grid (training used bilinear regridding for
+        GLM; the nearest-neighbor path used for radar/satellite inputs is not
+        appropriate for the sparse count field).
+
+        Parameters
+        ----------
+        glm_lats, glm_lons : torch.Tensor | ArrayLike
+            Latitudes/longitudes of the GLM source grid. Either 2D meshgrids or
+            1D coordinate vectors (as returned by :py:class:`GOESGLMGrid`).
+        max_dist_km : float | None, optional
+            Unused placeholder for API symmetry with the nearest-neighbor
+            interpolators; bilinear interpolation does not threshold by distance.
+        """
+        glm_lats = np.asarray(glm_lats)
+        glm_lons = np.asarray(glm_lons)
+        if glm_lats.ndim == 1 and glm_lons.ndim == 1:
+            glm_lats, glm_lons = np.meshgrid(glm_lats, glm_lons, indexing="ij")
+        self.glm_interp = LatLonInterpolation(
+            lat_in=glm_lats,
+            lon_in=glm_lons,
+            lat_out=self._lat_cpu_copy,
+            lon_out=self._lon_cpu_copy,
+        ).to(self.latitudes.device)
+
+    def interpolate_glm(self, glm: torch.Tensor) -> torch.Tensor:
+        """Bilinearly regrid a GLM field (event counts on the source 0.1-degree
+        grid) onto the model grid. Points outside the GLM grid are filled with 0.
+        Returns physical counts (apply no normalization here; the model applies
+        log1p internally). Requires :meth:`build_glm_interpolator` first."""
+        if self.glm_interp is None:
+            raise ValueError(
+                "GLM interpolator not built; call build_glm_interpolator first."
+            )
+        out = self.glm_interp(glm)
+        return torch.nan_to_num(out, nan=0.0)
+
+    def fetch_glm(
+        self, coords: CoordSystem, device: torch.device
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Fetch the GLM observation window from ``glm_data_source`` and bilinearly
+        regrid it onto the model grid, ready to be stacked as the ``glm_density``
+        channel(s) of the state ``x``.
+
+        The GLM interpolator is built lazily from the source grid on first call.
+        Returned values are **physical event counts** (the model applies ``log1p``
+        internally); their channel order matches :py:attr:`glm_variables`, and the
+        returned coords use the model's ``y``/``x`` grid so they align with the
+        regridded MRMS state.
+
+        Parameters
+        ----------
+        coords : CoordSystem
+            Coordinates providing ``time`` and the input ``lead_time`` window.
+        device : torch.device
+            Device for the fetched/regridded tensor.
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            ``(glm, glm_coords)`` with ``glm`` shaped ``[time, lead_time, n_glm, H, W]``.
+        """
+        if self.glm_data_source is None:
+            raise RuntimeError(
+                "StormScopeMRMS.fetch_glm called without a glm_data_source; pass "
+                "one to load_model (e.g. earth2studio.data.GOESGLMGrid)."
+            )
+        glm, glm_coords = fetch_data(
+            self.glm_data_source,
+            time=coords["time"],
+            variable=np.asarray(self.glm_variables),
+            lead_time=coords["lead_time"],
+            device=device,
+        )
+        if self.glm_interp is None:
+            self.build_glm_interpolator(glm_coords["lat"], glm_coords["lon"])
+        glm = self.interpolate_glm(glm)
+
+        # Swap the source lat/lon spatial coords for the model y/x grid.
+        new_coords = OrderedDict(
+            (k, v) for k, v in glm_coords.items() if k not in ("lat", "lon")
+        )
+        new_coords["y"] = self.y
+        new_coords["x"] = self.x
+        return glm, new_coords
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system"""
@@ -1523,8 +2068,9 @@ class StormScopeMRMS(StormScopeBase):
     def load_model(
         cls,
         package: Package,
-        model_name: str = "6km_60min_natten_cos_zenith_input_mrms_eoe",
+        model_name: str = "6km_10min",
         conditioning_data_source: DataSource | ForecastSource | None = None,
+        glm_data_source: DataSource | None = None,
     ) -> PrognosticModel:
         """Load model from package.
 
@@ -1533,11 +2079,21 @@ class StormScopeMRMS(StormScopeBase):
         package : Package
             Package to load model from
         model_name : str, optional
-            Model name to load; allows for selection between different variants of the model:
-              - "6km_60min_natten_cos_zenith_input_mrms_eoe": 6km resolution, 60 minute timestep
-              - "6km_10min_natten_pure_obs_mrms_obs_6steps": 6km resolution, 10 minute timestep
+            Variant to load, by default ``"6km_10min"``. Available variants (see
+            :py:meth:`list_available_models`):
+
+            - ``"3km_10min"``: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting
+            - ``"6km_10min"``: 6km resolution, 10 minute timestep, sliding window of 6 inputs
+            - ``"6km_1hr"``: 6km resolution, 60 minute timestep (legacy nearcasting)
+
+            Legacy training-style names are accepted as aliases.
         conditioning_data_source : DataSource | ForecastSource | None, optional
-            Data source to use for conditioning, by default None.
+            Data source to use for conditioning (GOES), by default None.
+        glm_data_source : DataSource | None, optional
+            Gridded GLM source (e.g. :py:class:`earth2studio.data.GOESGLMGrid`) used
+            for variants with a ``glm_density`` channel. The model bilinearly
+            regrids it to the model grid (see :py:meth:`build_glm_interpolator` /
+            :py:meth:`interpolate_glm`). By default None.
 
         Returns
         -------
@@ -1549,91 +2105,59 @@ class StormScopeMRMS(StormScopeBase):
         except FileNotFoundError:
             pass
 
-        with open(package.resolve("registry.json")) as f:
-            registry = json.load(f)
-            pkg = registry[model_name]
+        registry = cls._load_registry(package)
+        _, pkg = cls._resolve_model_entry(package, model_name)
+        cls._check_obs_layout(pkg)
+        model_spec = cls._load_checkpoints(package, pkg)
+        (
+            latitudes,
+            longitudes,
+            y,
+            x,
+            input_times,
+            output_times,
+            spatial_downsample,
+        ) = cls._build_grid_and_times(package, pkg)
 
-        model_spec = []
-        for m in pkg["checkpoints"]:
-            model = DiT.from_checkpoint(package.resolve(m["path"]))
-            model_spec.append(
-                {
-                    "model": model_wrap(model),
-                    "sigma_min": float(m["sigma_min"]),
-                    "sigma_max": float(m["sigma_max"]),
-                }
-            )
-
-        # Grid coordinates: crop a subregion from the HRRR grid
-        image_size = pkg["image_size"]
-        spatial_downsample = pkg["spatial_downsample"]
-        latitudes = torch.from_numpy(np.load(package.resolve("lat.npy")))
-        longitudes = (
-            torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0
-        ) % 360.0
-        hrrr_y, hrrr_x = HRRR.HRRR_Y, HRRR.HRRR_X
-        full_y, full_x = latitudes.shape[0], longitudes.shape[1]
-        anchor_y = int((full_y - image_size[0]) / 2)
-        anchor_x = int((full_x - image_size[1]) / 2)
-        latitudes = latitudes[
-            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
-        ]
-        longitudes = longitudes[
-            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
-        ]
-        y = hrrr_y[anchor_y : anchor_y + image_size[0]]
-        x = hrrr_x[anchor_x : anchor_x + image_size[1]]
-
-        # Spatial downsample
-        y = y[::spatial_downsample]
-        x = x[::spatial_downsample]
-        latitudes = latitudes[::spatial_downsample, ::spatial_downsample]
-        longitudes = longitudes[::spatial_downsample, ::spatial_downsample]
-
-        # Input/output timesteps configuration
-        if pkg["sliding_window"]:
-            # N input timesteps, 1 output timestep, with resolution step_interval
-            n_steps, step_interval = pkg["n_steps"], pkg["step_interval"]
-            input_times = np.arange(-n_steps + 1, 1) * np.timedelta64(
-                step_interval, "m"
-            )
-            output_times = np.array([np.timedelta64(step_interval, "m")])
-        else:
-            # 1 input, 1 output, with resolution step_interval
-            input_times = np.array([np.timedelta64(0, "m")])
-            output_times = np.array([np.timedelta64(pkg["step_interval"], "m")])
-
-        # Conditioning variables
+        # State variables and conditioning variables (from the registry entry)
+        variables = np.array(pkg["variables"])
         conditioning_variables = np.array(pkg["conditioning_vars"])
 
-        # Normalization constants
-        means = torch.from_numpy(np.load(package.resolve("mrms_means.npy")))[
-            None, :, None, None
-        ]
-        stds = torch.from_numpy(np.load(package.resolve("mrms_stds.npy")))[
-            None, :, None, None
-        ]
+        # Normalization constants, selected by name from the canonical-order arrays
+        means, stds, glm_mask = cls._build_normalization(package, registry, variables)
         if len(conditioning_variables) > 0:
-            conditioning_means = torch.from_numpy(
-                np.load(package.resolve("goes_means.npy"))
-            )[None, :, None, None]
-            conditioning_stds = torch.from_numpy(
-                np.load(package.resolve("goes_stds.npy"))
-            )[None, :, None, None]
+            conditioning_means, conditioning_stds, conditioning_glm_mask = (
+                cls._build_normalization(package, registry, conditioning_variables)
+            )
         else:
             conditioning_means = torch.empty(0)
             conditioning_stds = torch.empty(0)
+            conditioning_glm_mask = None
+
+        # Static invariant channels (loaded only when the variant requests them)
+        topo = cls._load_invariant(package, "topo.npy", pkg) if pkg.get("topo") else None
+        nexrad_proximity = (
+            cls._load_invariant(package, "nexrad_proximity.npy", pkg)
+            if pkg.get("nexrad_proximity")
+            else None
+        )
 
         return cls(
             model_spec=model_spec,
             means=means.to(dtype=torch.float32),
             stds=stds.to(dtype=torch.float32),
+            variables=variables,
             latitudes=latitudes.to(dtype=torch.float32),
             longitudes=longitudes.to(dtype=torch.float32),
             conditioning_means=conditioning_means.to(dtype=torch.float32),
             conditioning_stds=conditioning_stds.to(dtype=torch.float32),
             conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
+            glm_mask=glm_mask,
+            conditioning_glm_mask=conditioning_glm_mask,
+            topo=topo,
+            nexrad_proximity=nexrad_proximity,
+            glm_data_source=glm_data_source,
             y_coords=y,
             x_coords=x,
             input_times=input_times,

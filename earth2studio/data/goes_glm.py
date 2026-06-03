@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import s3fs
+import xarray as xr
 from loguru import logger
 
 from earth2studio.data.utils import (
@@ -721,3 +722,160 @@ def _normalize_lat_lon_bbox(
                 f"into two boxes. Got {lat_lon_bbox}."
             )
     return (lat_min, lon_min, lat_max, lon_max)
+
+
+@check_optional_dependencies()
+class GOESGLMGrid:
+    """Gridded GOES GLM lightning product for StormScope.
+
+    Wraps :py:class:`GOESGLM` (a per-event LCFA source) and turns the event
+    point cloud into a regular **0.1-degree** lat/lon grid by 5-minute temporal
+    binning and 2D histogramming, matching the GLM product the StormScope
+    MRMS+GLM nowcast model was trained on. Unlike :py:class:`GOESGLM` (which
+    returns a :py:class:`pandas.DataFrame` of events), this source returns a
+    gridded :py:class:`xarray.DataArray` consumable by
+    :py:func:`earth2studio.data.fetch_data`.
+
+    For each requested (5-minute-aligned) time ``t`` the events whose timestamps
+    fall in ``[t, t + 5 min)`` are accumulated and histogrammed:
+
+    - ``glm_density``        : raw **event count** per cell (the "density" name is
+      historical; it is an unweighted count, matching training).
+    - ``glm_energy_density`` : summed **event energy** (J) per cell.
+
+    The field is **not** mean/std normalized; downstream the StormScope model
+    applies ``log1p`` (and ``expm1`` on output). This source emits raw counts/sums
+    on the 0.1-degree grid; the model bilinearly regrids to its own grid.
+
+    Parameters
+    ----------
+    satellite : str, optional
+        GOES platform selector passed to :py:class:`GOESGLM` (``"east"`` default).
+    cache : bool, optional
+        Cache downloaded NetCDFs, by default True.
+    verbose : bool, optional
+        Show progress, by default True.
+    **goes_glm_kwargs : Any
+        Additional keyword arguments forwarded to the underlying
+        :py:class:`GOESGLM` (e.g. ``async_workers``, ``retries``).
+
+    Note
+    ----
+    Grid geometry (must match training): regular 0.1-degree grid over
+    lat ``[20, 55]`` / lon ``[-130, -60]`` (350 x 700 cells), with cell centres at
+    ``edge + 0.5 * resolution``. Output longitudes are returned in the Earth2Studio
+    ``[0, 360)`` convention. The accumulation window is fixed at 5 minutes,
+    bin-start labeled (the training cadence); do not substitute a 10-minute window.
+
+    Badges
+    ------
+    region:na dataclass:observation product:sat
+    """
+
+    # Accumulation window (minutes), bin-start labeled. Fixed to match training.
+    BIN_MINUTES = 5
+    # Regular 0.1-degree CONUS grid (degrees, [-180, 180) longitude internally).
+    _RES = 0.1
+    _LAT_MIN, _LAT_MAX = 20.0, 55.0
+    _LON_MIN, _LON_MAX = -130.0, -60.0
+    # CONUS parse-time bounding box (lat_min, lon_min, lat_max, lon_max).
+    _CONUS_BBOX = (24.5, -125.0, 49.5, -66.0)
+    # E2S variable -> underlying GOESGLM event variable.
+    _VARIABLE_MAP = {"glm_density": "flashc", "glm_energy_density": "flashe"}
+
+    def __init__(
+        self,
+        satellite: str = "east",
+        cache: bool = True,
+        verbose: bool = True,
+        **goes_glm_kwargs: object,
+    ) -> None:
+        self._events = GOESGLM(
+            satellite=satellite,
+            lat_lon_bbox=self._CONUS_BBOX,
+            time_tolerance=(
+                np.timedelta64(0, "m"),
+                np.timedelta64(self.BIN_MINUTES, "m"),
+            ),
+            cache=cache,
+            verbose=verbose,
+            **goes_glm_kwargs,  # type: ignore[arg-type]
+        )
+
+        # Bin edges and centres. arange end padded by a small epsilon so the final
+        # edge is included; centres sit at edge + 0.5 * resolution.
+        self._lat_edges = np.arange(self._LAT_MIN, self._LAT_MAX + 1e-9, self._RES)
+        self._lon_edges = np.arange(self._LON_MIN, self._LON_MAX + 1e-9, self._RES)
+        self._lat_centres = 0.5 * (self._lat_edges[:-1] + self._lat_edges[1:])
+        lon_centres = 0.5 * (self._lon_edges[:-1] + self._lon_edges[1:])
+        # Return longitudes in the Earth2Studio [0, 360) convention.
+        self._lon_centres = (lon_centres + 360.0) % 360.0
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Fetch the gridded GLM product for the requested times and variables.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            5-minute-aligned timestamps (UTC). Each labels a ``[t, t+5min)`` bin.
+        variable : str | list[str] | VariableArray
+            One or more of ``"glm_density"`` / ``"glm_energy_density"``.
+
+        Returns
+        -------
+        xr.DataArray
+            Array with dims ``[time, variable, lat, lon]`` on the 0.1-degree grid.
+        """
+        time_list, variable_list = prep_data_inputs(time, variable)
+        for v in variable_list:
+            if v not in self._VARIABLE_MAP:
+                raise KeyError(
+                    f"Variable id {v!r} not supported by GOESGLMGrid. "
+                    f"Available: {list(self._VARIABLE_MAP)}"
+                )
+
+        ny, nx = self._lat_centres.size, self._lon_centres.size
+        out = np.zeros((len(time_list), len(variable_list), ny, nx), dtype=np.float32)
+
+        underlying = sorted({self._VARIABLE_MAP[v] for v in variable_list})
+        for ti, t in enumerate(time_list):
+            df = self._events(t, underlying)
+            for vi, v in enumerate(variable_list):
+                uvar = self._VARIABLE_MAP[v]
+                sub = df[df["variable"] == uvar]
+                if len(sub) == 0:
+                    continue
+                # Events use [0, 360) longitude; convert to the grid's [-180, 180).
+                ev_lon = ((sub["lon"].to_numpy() + 180.0) % 360.0) - 180.0
+                hist, _, _ = np.histogram2d(
+                    sub["lat"].to_numpy(),
+                    ev_lon,
+                    bins=[self._lat_edges, self._lon_edges],
+                    weights=sub["observation"].to_numpy(),
+                )
+                out[ti, vi] = hist.astype(np.float32)
+
+        return xr.DataArray(
+            data=out,
+            dims=["time", "variable", "lat", "lon"],
+            coords={
+                "time": np.asarray(time_list, dtype="datetime64[ns]"),
+                "variable": np.asarray(variable_list),
+                "lat": self._lat_centres,
+                "lon": self._lon_centres,
+            },
+        )
+
+    @property
+    def lat(self) -> np.ndarray:
+        """1D array of grid-cell-centre latitudes."""
+        return self._lat_centres
+
+    @property
+    def lon(self) -> np.ndarray:
+        """1D array of grid-cell-centre longitudes ([0, 360) convention)."""
+        return self._lon_centres
