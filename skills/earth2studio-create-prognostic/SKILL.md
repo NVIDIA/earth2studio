@@ -34,8 +34,9 @@ Skip Steps 8-12 (registration, docs, PR) unless explicitly requested.
 
 > **DO NOT explore the codebase.** The templates in `references/` contain
 > everything you need. Do not launch subagents, search existing models, or
-> read other `px/*.py` files. Copy `skeleton-template.py`, adapt it to the
-> task requirements, and proceed directly to writing code.
+> read other files in `earth2studio/models/px/` or `test/models/px/`. Copy
+> `skeleton-template.py` and `testing-guide.py`, adapt them to the task
+> requirements, and proceed directly to writing code.
 
 ---
 
