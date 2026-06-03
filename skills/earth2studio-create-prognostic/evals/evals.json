@@ -1,13 +1,13 @@
 [
   {
     "id": "create-prognostic-eval-001-simple-identity",
-    "question": "IMPORTANT: First activate and read the 'earth2studio-create-prognostic' skill, then follow its workflow exactly. Implement a new Earth2Studio prognostic model called `IdentityModel` that simply returns its input unchanged (identity function). It should have a 6-hour time step, work on a 1-degree global grid (181x360), and support 4 variables: t2m, u10m, v10m, msl.",
+    "question": "FIRST: Read the skill file at /workspace/skills/earth2studio-create-prognostic/SKILL.md and follow its workflow exactly.\n\nTASK: Implement a new Earth2Studio prognostic model called `IdentityModel` that simply returns its input unchanged (identity function). It should have a 6-hour time step, work on a 1-degree global grid (181x360), and support 4 variables: t2m, u10m, v10m, msl.",
     "expected_skill": "earth2studio-create-prognostic",
     "expected_script": "evals/targets/eval_1_target.py",
     "expected_test": "evals/targets/test/eval_1_test_target.py",
     "ground_truth": "Creates a prognostic model with triple inheritance (torch.nn.Module + AutoModelMixin + PrognosticMixin), canonical method ordering, SPDX header, type hints. Model returns input unchanged but increments lead_time by 6h. Test file includes mock tests for call, iter, and exceptions.",
     "expected_behavior": [
-      "Activates earth2studio-create-prognostic before implementing",
+      "Reads /workspace/skills/earth2studio-create-prognostic/SKILL.md first",
       "Writes earth2studio/models/px/identity.py with SPDX Apache-2.0 license header",
       "Implements PrognosticModel with triple inheritance",
       "Follows canonical method ordering: __init__, input_coords, output_coords, load_default_package, load_model, __call__, _default_generator, create_iterator",
@@ -19,13 +19,13 @@
   },
   {
     "id": "create-prognostic-eval-002-additive-model",
-    "question": "IMPORTANT: First activate and read the 'earth2studio-create-prognostic' skill, then follow its workflow exactly. Implement a new Earth2Studio prognostic model called `AdditiveModel` that adds a small constant (0.01) to each variable at each time step. It should have a 6-hour time step and work on a 0.5-degree global grid (361x720). Include normalization buffers (center and scale) loaded from the package.",
+    "question": "FIRST: Read the skill file at /workspace/skills/earth2studio-create-prognostic/SKILL.md and follow its workflow exactly.\n\nTASK: Implement a new Earth2Studio prognostic model called `AdditiveModel` that adds a small constant (0.01) to each variable at each time step. It should have a 6-hour time step and work on a 0.5-degree global grid (361x720). Include normalization buffers (center and scale) loaded from the package.",
     "expected_skill": "earth2studio-create-prognostic",
     "expected_script": "evals/targets/eval_2_target.py",
     "expected_test": "evals/targets/test/eval_2_test_target.py",
     "ground_truth": "Creates an additive prognostic model with register_buffer for center/scale, 361x720 grid. load_model resolves center.npy and scale.npy from package. Test fixture creates dummy package with model.pt, center.npy, scale.npy.",
     "expected_behavior": [
-      "Activates earth2studio-create-prognostic before implementing",
+      "Reads /workspace/skills/earth2studio-create-prognostic/SKILL.md first",
       "Writes earth2studio/models/px/additive.py with SPDX Apache-2.0 license header",
       "Uses register_buffer for center, scale, and device_buffer",
       "load_model resolves model.pt, center.npy, scale.npy from package",
