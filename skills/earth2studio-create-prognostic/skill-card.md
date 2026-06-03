@@ -1,5 +1,5 @@
 ## Description: <br>
-Create and validate Earth2Studio prognostic model (px) wrappers from reference inference scripts or repositories. <br>
+Create Earth2Studio prognostic (time-stepping forecast) model wrappers. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 
@@ -8,9 +8,8 @@ NVIDIA <br>
 
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
-
 ## Use Case: <br>
-Developers and engineers building new prognostic model integrations for the Earth2Studio weather and climate AI framework, wrapping third-party ML weather models (PyTorch, ONNX, JAX) for use in Earth2Studio's inference infrastructure. <br>
+Developers and engineers who need to integrate third-party ML weather and climate models into the Earth2Studio framework as prognostic (time-stepping) model wrappers. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>
@@ -20,15 +19,16 @@ Risk: Review before execution as proposals could introduce incorrect or misleadi
 Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
-- [Skeleton Template](references/skeleton-template.py) <br>
-- [Method Templates](references/method-templates.py) <br>
-- [Testing Guide](references/testing-guide.py) <br>
-- [Validation Guide](references/validation-guide.md) <br>
+- [NVIDIA Earth2Studio GitHub Repository](https://github.com/NVIDIA/earth2studio) <br>
+- [skeleton-template.py](references/skeleton-template.py) <br>
+- [method-templates.py](references/method-templates.py) <br>
+- [testing-guide.py](references/testing-guide.py) <br>
+- [validation-guide.md](references/validation-guide.md) <br>
 
 
 ## Skill Output: <br>
-**Output Type(s):** [Code, Shell commands, Configuration instructions] <br>
-**Output Format:** [Markdown with inline Python and bash code blocks] <br>
+**Output Type(s):** [Code, Shell commands] <br>
+**Output Format:** [Python source files and pytest commands] <br>
 **Output Parameters:** [1D] <br>
 **Other Properties Related to Output:** [None] <br>
 
@@ -43,7 +43,7 @@ Reported benchmark dimensions: <br>
 
 
 ## Skill Version(s): <br>
-0.16.0 (source: frontmatter) <br>
+0.17.0 (source: frontmatter) <br>
 
 ## Ethical Considerations: <br>
 NVIDIA believes Trustworthy AI is a shared responsibility and we have established policies and practices to enable development for a wide array of AI applications. When downloaded or used in accordance with our terms of service, developers should work with their internal team to ensure this skill meets requirements for the relevant industry and use case and addresses unforeseen product misuse. <br>
