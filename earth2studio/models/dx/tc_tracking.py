@@ -69,7 +69,7 @@ VARIABLES_TCV = [
     "t200",
 ]
 VARIABLES_TCWD = ["u10m", "v10m", "msl", "u850", "v850"]
-OUT_VARIABLES = ["tc_lat", "tc_lon", "tc_msl", "tc_w10m"]
+OUT_VARIABLES = ["tclat", "tclon", "tcmsl", "tcw10m"]
 
 
 class _TCTrackerBase:
