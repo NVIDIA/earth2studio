@@ -303,6 +303,14 @@ def load_default_package_template(cls) -> Package:
     - s3:// - AWS S3
     - gs:// - Google Cloud Storage
     - Local paths
+
+    Warning
+    -------
+    NEVER commit credentials, API keys, or secrets to this file.
+    If authentication is required, use environment variables:
+    - HF_TOKEN for HuggingFace
+    - NGC_API_KEY for NVIDIA NGC
+    - AWS credentials via standard AWS environment variables
     """
     return Package(
         "hf://organization/model-name@commit_hash",

@@ -206,6 +206,14 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         -------
         Package
             Model package with checkpoint files.
+
+        Warning
+        -------
+        NEVER commit credentials, API keys, or secrets to this file.
+        If authentication is required, use environment variables:
+        - HF_TOKEN for HuggingFace
+        - NGC_API_KEY for NVIDIA NGC
+        - AWS credentials via standard AWS environment variables
         """
         # TODO: Replace with actual checkpoint URL
         # Lock HuggingFace URLs to specific commit: hf://org/repo@commit
