@@ -176,7 +176,8 @@ class TestModelNameMock:
 
         # Validate output coordinates
         assert isinstance(out_coords, OrderedDict)
-        handshake_dim(out_coords, "variable", 3)
+        # Standard models: time=0, lead_time=1, variable=2, lat=3, lon=4
+        handshake_dim(out_coords, "variable", 2)
 
         # Validate lead_time was incremented
         # TODO: Adjust time step check for your model
@@ -332,7 +333,8 @@ def test_model_package():
     # Validate output
     assert out.shape == x.shape
     assert isinstance(out_coords, OrderedDict)
-    handshake_dim(out_coords, "variable", 3)
+    # Standard models: time=0, lead_time=1, variable=2, lat=3, lon=4
+    handshake_dim(out_coords, "variable", 2)
 
 
 # =============================================================================

@@ -91,7 +91,8 @@ class TestIdentityModelMock:
 
         assert out.shape == x.shape
         assert isinstance(out_coords, OrderedDict)
-        handshake_dim(out_coords, "variable", 3)
+        # output coords order: time, lead_time, variable, lat, lon
+        handshake_dim(out_coords, "variable", 2)
 
         expected_lead = coords["lead_time"] + np.timedelta64(6, "h")
         np.testing.assert_array_equal(out_coords["lead_time"], expected_lead)

@@ -87,7 +87,8 @@ class TestAdditiveModelMock:
 
         assert out.shape == x.shape
         assert isinstance(out_coords, OrderedDict)
-        handshake_dim(out_coords, "variable", 3)
+        # output coords order: time, lead_time, variable, lat, lon
+        handshake_dim(out_coords, "variable", 2)
 
         # Check that output is input + 0.01
         torch.testing.assert_close(out, x + 0.01)

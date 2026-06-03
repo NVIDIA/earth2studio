@@ -69,7 +69,6 @@ class IdentityModel(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return OrderedDict(
             {
                 "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(VARIABLES),
                 "lat": np.linspace(90, -90, 181, endpoint=True),
@@ -93,10 +92,10 @@ class IdentityModel(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         target_input_coords = self.input_coords()
 
-        handshake_dim(input_coords, "lead_time", 2)
-        handshake_dim(input_coords, "variable", 3)
-        handshake_dim(input_coords, "lat", 4)
-        handshake_dim(input_coords, "lon", 5)
+        handshake_dim(input_coords, "lead_time", 1)
+        handshake_dim(input_coords, "variable", 2)
+        handshake_dim(input_coords, "lat", 3)
+        handshake_dim(input_coords, "lon", 4)
 
         handshake_coords(input_coords, target_input_coords, "variable")
         handshake_coords(input_coords, target_input_coords, "lat")
@@ -157,7 +156,7 @@ class IdentityModel(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         target_input_coords = self.input_coords()
         handshake_coords(coords, target_input_coords, "variable")
-        handshake_dim(coords, "variable", 3)
+        handshake_dim(coords, "variable", 2)
 
         device = self.device_buffer.device
         x = x.to(device)
