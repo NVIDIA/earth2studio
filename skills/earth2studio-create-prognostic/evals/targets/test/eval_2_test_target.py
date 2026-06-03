@@ -74,10 +74,14 @@ class TestAdditiveModelMock:
         model = model.to(device)
 
         dc = model.input_coords()
-        dc["time"] = time
+        del dc["batch"]
+        del dc["lead_time"]
+        del dc["variable"]
 
         ds = Random(dc)
-        x, coords = fetch_data(ds, time, dc["variable"], device=device)
+        lead_time = model.input_coords()["lead_time"]
+        variable = model.input_coords()["variable"]
+        x, coords = fetch_data(ds, time, variable, lead_time, device=device)
 
         out, out_coords = model(x, coords)
 
@@ -111,9 +115,13 @@ class TestAdditiveModelMock:
 
         time = np.array([np.datetime64("2024-01-01T00:00")])
         dc = model.input_coords()
-        dc["time"] = time
+        del dc["batch"]
+        del dc["lead_time"]
+        del dc["variable"]
         ds = Random(dc)
-        x, coords = fetch_data(ds, time, dc["variable"], device=device)
+        lead_time = model.input_coords()["lead_time"]
+        variable = model.input_coords()["variable"]
+        x, coords = fetch_data(ds, time, variable, lead_time, device=device)
 
         x = x.unsqueeze(0).repeat(ensemble, *([1] * x.ndim))
         coords["ensemble"] = np.arange(ensemble)

@@ -156,13 +156,17 @@ class TestModelNameMock:
         model = ModelName.load_model(test_package)
         model = model.to(device)
 
-        # Get input coordinates
+        # Get input coordinates - Random only needs spatial coords (lat, lon)
         dc = model.input_coords()
-        dc["time"] = time
+        del dc["batch"]
+        del dc["lead_time"]
+        del dc["variable"]
 
         # Fetch random input data
         ds = Random(dc)
-        x, coords = fetch_data(ds, time, dc["variable"], device=device)
+        lead_time = model.input_coords()["lead_time"]
+        variable = model.input_coords()["variable"]
+        x, coords = fetch_data(ds, time, variable, lead_time, device=device)
 
         # Run forward pass
         out, out_coords = model(x, coords)
@@ -204,12 +208,16 @@ class TestModelNameMock:
         model = ModelName.load_model(test_package)
         model = model.to(device)
 
-        # Create input
+        # Create input - Random only needs spatial coords (lat, lon)
         time = np.array([np.datetime64("2024-01-01T00:00")])
         dc = model.input_coords()
-        dc["time"] = time
+        del dc["batch"]
+        del dc["lead_time"]
+        del dc["variable"]
         ds = Random(dc)
-        x, coords = fetch_data(ds, time, dc["variable"], device=device)
+        lead_time = model.input_coords()["lead_time"]
+        variable = model.input_coords()["variable"]
+        x, coords = fetch_data(ds, time, variable, lead_time, device=device)
 
         # Add ensemble dimension
         x = x.unsqueeze(0).repeat(ensemble, *([1] * x.ndim))
@@ -300,14 +308,18 @@ def test_model_package():
     # Load real model
     model = ModelName.load_model(ModelName.load_default_package())
 
-    # Get input coordinates
-    input_coords = model.input_coords()
+    # Get input coordinates - Random only needs spatial coords (lat, lon)
     time = np.array([np.datetime64("2024-01-01T00:00")])
-    input_coords["time"] = time
+    dc = model.input_coords()
+    del dc["batch"]
+    del dc["lead_time"]
+    del dc["variable"]
 
     # Fetch random data
-    ds = Random(input_coords)
-    x, coords = fetch_data(ds, time, input_coords["variable"])
+    ds = Random(dc)
+    lead_time = model.input_coords()["lead_time"]
+    variable = model.input_coords()["variable"]
+    x, coords = fetch_data(ds, time, variable, lead_time)
 
     # Move to GPU if available
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -334,12 +346,17 @@ class TestModelNameAdditional:
     def test_model_dtype(self, test_package):
         """Test model preserves dtype."""
         model = ModelName.load_model(test_package)
+        time = np.array([np.datetime64("2024-01-01T00:00")])
         dc = model.input_coords()
-        dc["time"] = np.array([np.datetime64("2024-01-01T00:00")])
+        del dc["batch"]
+        del dc["lead_time"]
+        del dc["variable"]
 
         for dtype in [torch.float32, torch.float16]:
             ds = Random(dc)
-            x, coords = fetch_data(ds, dc["time"], dc["variable"])
+            lead_time = model.input_coords()["lead_time"]
+            variable = model.input_coords()["variable"]
+            x, coords = fetch_data(ds, time, variable, lead_time)
             x = x.to(dtype)
             out, _ = model(x, coords)
             assert out.dtype == dtype
@@ -347,10 +364,15 @@ class TestModelNameAdditional:
     def test_model_deterministic(self, test_package):
         """Test model produces deterministic output."""
         model = ModelName.load_model(test_package)
+        time = np.array([np.datetime64("2024-01-01T00:00")])
         dc = model.input_coords()
-        dc["time"] = np.array([np.datetime64("2024-01-01T00:00")])
+        del dc["batch"]
+        del dc["lead_time"]
+        del dc["variable"]
         ds = Random(dc)
-        x, coords = fetch_data(ds, dc["time"], dc["variable"])
+        lead_time = model.input_coords()["lead_time"]
+        variable = model.input_coords()["variable"]
+        x, coords = fetch_data(ds, time, variable, lead_time)
 
         out1, _ = model(x, coords)
         out2, _ = model(x, coords)
