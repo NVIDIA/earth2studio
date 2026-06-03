@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers who need to integrate third-party ML weather and climate models into the Earth2Studio framework as prognostic (time-stepping) model wrappers. <br>
+Developers and engineers implementing prognostic model wrappers that connect third-party ML weather models to Earth2Studio for time-stepping weather forecasts. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>
@@ -19,7 +19,6 @@ Risk: Review before execution as proposals could introduce incorrect or misleadi
 Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
-- [NVIDIA Earth2Studio GitHub Repository](https://github.com/NVIDIA/earth2studio) <br>
 - [skeleton-template.py](references/skeleton-template.py) <br>
 - [method-templates.py](references/method-templates.py) <br>
 - [testing-guide.py](references/testing-guide.py) <br>

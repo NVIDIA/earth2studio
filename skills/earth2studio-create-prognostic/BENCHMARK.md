@@ -47,7 +47,7 @@ Top findings:
 - MEDIUM SCHEMA/body_recommended_section: Missing recommended section: '## Instructions' (`skills/earth2studio-create-prognostic/SKILL.md`)
 - LOW QUALITY/quality_reliability: No prerequisites/requirements documented (`skills/earth2studio-create-prognostic/SKILL.md`)
 - LOW QUALITY/quality_reliability: No limitations documented (`skills/earth2studio-create-prognostic/SKILL.md`)
-- LOW QUALITY/quality_efficiency: Non-doc file in references/: method-templates.py (`skills/earth2studio-create-prognostic/SKILL.md`)
+- LOW QUALITY/quality_efficiency: Non-doc file in references/: testing-guide.py (`skills/earth2studio-create-prognostic/SKILL.md`)
 - LOW UNICODE/isolated_invisible_char: Isolated invisible character(s) (1): VARIATION SELECTOR-16 (`SKILL.md:25`)
 
 ## Tier 2: Deduplication Summary
@@ -62,17 +62,17 @@ Top findings:
 - HIGH DUPLICATE/duplicate: Duplicate content found across references/method-templates.py and references/skeleton-template.py:
   "default_generator_template()" in references/method-templates.py (lines 215-255)
   vs "create_iterator_template()" in references/method-templates.py (lines 258-277)
-  vs "_default_generator()" in references/skeleton-template.py (lines 349-384)
-  vs "create_iterator()" in references/skeleton-template.py (lines 389-408) (`references/method-templates.py:215`)
+  vs "_default_generator()" in references/skeleton-template.py (lines 357-392)
+  vs "create_iterator()" in references/skeleton-template.py (lines 397-416) (`references/method-templates.py:215`)
+- HIGH DUPLICATE/duplicate: Duplicate content found across references/method-templates.py and references/skeleton-template.py:
+  "load_default_package_template()" in references/method-templates.py (lines 286-321)
+  vs "load_default_package()" in references/skeleton-template.py (lines 202-226) (`references/method-templates.py:286`)
 - HIGH DUPLICATE/duplicate: Duplicate content found across references/method-templates.py and references/skeleton-template.py:
   "call_template()" in references/method-templates.py (lines 157-211)
-  vs "__call__()" in references/skeleton-template.py (lines 295-343) (`references/method-templates.py:157`)
+  vs "__call__()" in references/skeleton-template.py (lines 303-351) (`references/method-templates.py:157`)
 - HIGH DUPLICATE/duplicate: Duplicate content found across references/method-templates.py and references/skeleton-template.py:
-  "load_model_template()" in references/method-templates.py (lines 318-357)
-  vs "load_model()" in references/skeleton-template.py (lines 225-254) (`references/method-templates.py:318`)
-- HIGH DUPLICATE/duplicate: Duplicate content found across references/method-templates.py and references/skeleton-template.py:
-  "load_default_package_template()" in references/method-templates.py (lines 286-313)
-  vs "load_default_package()" in references/skeleton-template.py (lines 202-218) (`references/method-templates.py:286`)
+  "load_model_template()" in references/method-templates.py (lines 326-365)
+  vs "load_model()" in references/skeleton-template.py (lines 233-262) (`references/method-templates.py:326`)
 
 ## Publication Recommendation
 
