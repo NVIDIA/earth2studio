@@ -121,6 +121,27 @@ _GPSRO_SPFH = 13001  # Specific humidity (kg/kg)
 # Descriptor IDs the gpsro decoder pulls out as observations
 _GPSRO_OBS_DESCRS: set[int] = {_GPSRO_BNDA, _GPSRO_TEMP, _GPSRO_SPFH}
 
+_ACFT_PROFILE_UV_TYPE_MAP = {
+    330: 230,
+    430: 230,
+    530: 230,
+    331: 231,
+    431: 231,
+    531: 231,
+    332: 232,
+    432: 232,
+    532: 232,
+    333: 233,
+    433: 233,
+    533: 233,
+    334: 234,
+    434: 234,
+    534: 234,
+    335: 235,
+    435: 235,
+    535: 235,
+}
+
 
 # ── Schemas ─────────────────────────────────────────────────────────
 
@@ -131,6 +152,13 @@ _NNJA_CONV_SCHEMA = pa.schema(
         E2STUDIO_SCHEMA.field("elev"),
         # NNJA stores PrepBUFR report-type code as uint16 (numeric)
         pa.field("type", pa.uint16(), nullable=True),
+        # PrepBUFR CAT is NCEP's data-level category mnemonic
+        # (local BUFR descriptor 0-08-193):
+        # https://emc.ncep.noaa.gov/emc/pages/infrastructure/bufrlib/tables/CodeFlag_0_STDv35_LOC7.html
+        # 0=surface, 1=mandatory, 2=sig-temp, 3=wind-by-pressure,
+        # 4=wind-by-height, 5=tropopause, 6=single-level/other, 7=interpolated.
+        # The ``pres`` modifier uses CAT == 0 to select station-pressure rows.
+        pa.field("level_cat", pa.uint16(), nullable=True),
         E2STUDIO_SCHEMA.field("class"),
         E2STUDIO_SCHEMA.field("lat"),
         E2STUDIO_SCHEMA.field("lon"),
@@ -657,17 +685,24 @@ def _extract_subset(
         "quality": None,
     }
 
-    # Walk observation levels: a new POB starts a level
+    # Walk observation levels: CAT/POB identify one level. CAT is needed to
+    # distinguish station pressure from pressure used only as a level coordinate.
     current: dict[int, Any] = {}
+    pending_cat = None
     in_obs = False
     for d, v in zip(descs, vals):
         did = d.id
-        if did == OBS_POB:
+        if did == OBS_CAT:
+            pending_cat = v
+        elif did == OBS_POB:
             if in_obs and current:
                 _emit_level_rows(
                     rows, current, base_row, needed_ids, need_wind, var_keys
                 )
             current = {OBS_POB: v}
+            if pending_cat is not None:
+                current[OBS_CAT] = pending_cat
+                pending_cat = None
             in_obs = True
         elif in_obs and did in OBSERVATION_DESCR_IDS:
             if did not in current:
@@ -846,6 +881,8 @@ def _emit_level_rows(
 
     common = base_row.copy()
     common["pres"] = pres_val
+    level_cat = level.get(OBS_CAT)
+    common["level_cat"] = np.uint16(int(level_cat)) if level_cat is not None else None
 
     # Non-wind variables
     for var_name, desc_id in needed_ids.items():
@@ -1006,7 +1043,25 @@ class NNJAObsConv(_NNJAObsBase):
     ----------
     source : {"prepbufr", "convbufr", "prepbufr.acft_profiles"}, optional
         Which encoding family of the NNJA conventional archive to read,
-        by default ``"prepbufr"``.
+        by default ``"prepbufr"``. These sources are different stages of the
+        NCEP observation-processing pipeline, not independent replacement
+        datasets:
+
+        - ``"convbufr"`` points at raw dump streams grouped by family, such as
+          ``aircft``/``aircar``/``adpupa``/``adpsfc``. These files preserve
+          source-native schemas and generally require family-specific decoding
+          and QC interpretation before they resemble GSI-ready observations.
+          They are listed here for completeness, but the generic
+          ``NNJAObsConv`` PrepBUFR decoder does not yet implement those raw
+          family schemas.
+        - ``"prepbufr"`` points at the merged PrepBUFR cycle file. This is the
+          preferred source for GSI-like conventional observations because
+          upstream obsproc has already merged dump families, standardized many
+          mnemonics, and attached report types / quality marks.
+        - ``"prepbufr.acft_profiles"`` points at an aircraft-only PrepBUFR
+          profile product. It groups aircraft points into flight-level,
+          ascending, and descending profile report types that GSI remaps back
+          to ordinary aircraft report types during processing.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single
         value (symmetric ± window) or a tuple ``(lower, upper)`` for
@@ -1038,7 +1093,7 @@ class NNJAObsConv(_NNJAObsBase):
 
     - https://www.brightband.com/data/nnja-ai/
     - https://psl.noaa.gov/data/nnja_obs/
-    - https://registry.opendata.aws/noaa-reanalyses-obs/
+    - https://registry.opendata.aws/noaa-reanalyses-pds/
     - https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/document.htm
 
     Badges
@@ -1068,6 +1123,10 @@ class NNJAObsConv(_NNJAObsBase):
                 f"Invalid source '{source}'. Valid sources: {sorted(self.VALID_SOURCES)}"
             )
         self._source = source
+        # Internal switch for the special aircraft-profile product. Default
+        # output maps profile-stage 33x/43x/53x report codes to the standard
+        # GSI/PREPBUFR aircraft 23x codes in ``type``
+        self._map_acft_profile_report_types = True
         super().__init__(
             time_tolerance=time_tolerance,
             cache=cache,
@@ -1148,9 +1207,12 @@ class NNJAObsConv(_NNJAObsBase):
         month_key = cycle.strftime("%m")
         date_key = cycle.strftime("%Y%m%d")
         hour_key = f"{cycle.hour:02d}"
+        archive_dir = self._source
+        if self._source == "prepbufr.acft_profiles":
+            archive_dir = "bufr"
         return (
             f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/conv/{self._source}/"
-            f"{year_key}/{month_key}/{self._source}/"
+            f"{year_key}/{month_key}/{archive_dir}/"
             f"gdas.{date_key}.t{hour_key}z.{self._source}.nr"
         )
 
@@ -1332,9 +1394,16 @@ class NNJAObsConv(_NNJAObsBase):
             f"decoded {len(all_rows):,} raw rows in "
             f"{time.perf_counter() - decode_t0:.1f}s"
         )
-        return self._finalize_decoded_df(
+        df = self._finalize_decoded_df(
             all_rows, task.var_plan, convert_pres_mb_to_pa=True
         )
+        if (
+            self._source == "prepbufr.acft_profiles"
+            and self._map_acft_profile_report_types
+            and not df.empty
+        ):
+            df.loc[:, "type"] = df["type"].replace(_ACFT_PROFILE_UV_TYPE_MAP)
+        return df
 
     def _decode_gpsro_file(  # pragma: no cover - GPS RO not yet in lexicon
         self, local_path: str, task: _NNJAGpsRoTask
