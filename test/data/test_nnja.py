@@ -211,6 +211,7 @@ def test_nnja_obs_conv_mock_fetch():
             "pres": [85000.0, 92500.0],
             "elev": [100.0, 50.0],
             "type": [120, 120],
+            "level_cat": [0, 0],
             "class": ["ADPUPA", "ADPUPA"],
             "lat": [40.0, 41.0],
             "lon": [250.0, 251.0],
