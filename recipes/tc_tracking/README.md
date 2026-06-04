@@ -43,13 +43,12 @@ process.
    - [2.1 Generate Ensemble](#21-generate-ensemble)
    - [2.2 Reproduce Individual Ensemble Members](#22-reproduce-individual-ensemble-members)
    - [2.3 Extract Reference Tracks from ERA5](#23-extract-reference-tracks-from-era5)
-3. [Visualisation](#3-visualisation) *(coming soon)*
+3. [Visualisation](#3-visualisation)
 4. [TempestExtremes Integration](#4-tempestextremes-integration)
 5. [Example Workflow](#5-example-workflow)
    - [5.1 Extract Baseline](#51-extract-baseline-optional)
    - [5.2 Produce Ensemble Forecasts](#52-produce-ensemble-forecasts)
    - [5.3 Analyse Tracks](#53-analyse-tracks)
-     *(coming soon)*
    - [5.4 Reproduce Interesting Members](#54-reproduce-interesting-members-to-extract-fields)
 
 ## 1. Setting up the Environment
@@ -139,7 +138,7 @@ Runs are configured through YAML files located in
 `tc_tracking/cfg`. To execute the pipeline:
 
 ```bash
-python tc_hunt.py --config-name=config.yaml
+python main.py --config-name=config.yaml
 ```
 
 The pipeline has three operational modes:
@@ -162,7 +161,7 @@ The two GPU-bound modes (`generate_ensemble` and
 settings using Slurm, MPI, or torchrun, e.g.
 
 ```bash
-torchrun --nproc-per-node=2 tc_hunt.py --config-name=config.yaml
+torchrun --nproc-per-node=2 main.py --config-name=config.yaml
 ```
 
 The pipeline has three operational modes:
@@ -182,7 +181,7 @@ The pipeline has three operational modes:
   storms are distributed across CPU worker processes via the
   ``num_workers`` configuration entry (see
   [Section 2.3](#23-extract-reference-tracks-from-era5)),
-  so a plain ``python tc_hunt.py ...`` invocation suffices.
+  so a plain ``python main.py ...`` invocation suffices.
 
 In the following we will explain how to configure the yaml
 files for those three modes. You can find example configs
@@ -570,29 +569,33 @@ and a warning is logged.
 
 ## 3. Visualisation
 
-> [!Note]
-> Visualisation tools will be available in a future update.
+Two [JupyText](https://jupytext.readthedocs.io/) notebook scripts are
+provided in the recipe root for analysing and visualising tropical cyclone
+tracking results:
 
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
-
-Two Jupyter notebooks are provided in `./plotting` for
-analysing and visualising tropical cyclone tracking results:
-
-- **`tracks_slayground.ipynb`**: Ensemble track analysis
+- **`plot_tracks_analysis.py`**: Ensemble track analysis
   including spaghetti plots (trajectory visualisation),
   absolute and relative intensity metrics (wind speed,
   MSLP), comparisons against ERA5 reference tracks and
   IBTrACS observations, extreme value statistics, and
   error moment analysis over lead time.
 
-- **`plot_tracks_n_fields.ipynb`**: Create animated
+- **`plot_tracks_n_fields.py`**: Create animated
   visualisations of storm tracks overlaid on atmospheric
   field data.
 
-</details>
-<!-- markdownlint-enable MD033 -->
+Both scripts can be run as plain Python files or converted to Jupyter
+notebooks via JupyText. From the recipe root:
+
+```bash
+jupytext --to notebook plot_tracks_analysis.py
+jupytext --to notebook plot_tracks_n_fields.py
+jupyter notebook plot_tracks_analysis.ipynb
+```
+
+The recipe root must be the working directory so that `src.plt.*` imports
+resolve correctly. Helper modules (`analyse_n_plot.py`, `data_handling.py`,
+`plotting_helpers.py`) live in `src/plt/`.
 
 ## 4. TempestExtremes Integration
 
@@ -682,7 +685,7 @@ needed; storms are spread across `num_workers` CPU worker
 processes as configured in the YAML):
 
 ```bash
-python tc_hunt.py --config-name=extract_era5.yaml
+python main.py --config-name=extract_era5.yaml
 ```
 
 This should produce a folder called
@@ -698,8 +701,8 @@ Run the forecast loop for Helene using FCN3 and for Hato
 using AIFS-ENS:
 
 ```bash
-python tc_hunt.py --config-name=helene.yaml
-python tc_hunt.py --config-name=hato.yaml
+python main.py --config-name=helene.yaml
+python main.py --config-name=hato.yaml
 ```
 
 This should produce two output folders: `outputs_helene` and
@@ -708,15 +711,8 @@ trajectories.
 
 ### 5.3 Analyse Tracks
 
-> [!Note]
-> Visualisation tools will be available in a future update.
-
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
-
 Visualise the results using the notebook
-`plotting/tracks_slayground.ipynb`.
+`plot_tracks_analysis.py` (or convert to `.ipynb` via jupytext).
 
 **For Helene**, configure the first cell of the notebook
 with:
@@ -739,9 +735,6 @@ tru_track_dir = '/path/to/outputs_reference_tracks'
 # tru_track_dir = '/path/to/test/aux_data'
 ```
 
-</details>
-<!-- markdownlint-enable MD033 -->
-
 ### 5.4 Reproduce Interesting Members to Extract Fields
 
 Suppose that after conducting the above analysis you want
@@ -762,7 +755,7 @@ atmospheric fields for detailed analysis.
 3. Execute the pipeline:
 
    ```bash
-   python tc_hunt.py --config-name=reproduce_helene.yaml
+   python main.py --config-name=reproduce_helene.yaml
    ```
 
 4. This should produce a folder `outputs_reproduce_helene`
@@ -772,7 +765,7 @@ atmospheric fields for detailed analysis.
 
 **Visualise Tracks and Fields**:
 
-Use the notebook `plotting/plot_tracks_n_fields.ipynb` to
+Use the notebook `plot_tracks_n_fields.py` to
 create animated visualisations:
 
 1. Configure the file paths:

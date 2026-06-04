@@ -2255,22 +2255,24 @@ requires-dist = [
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'atlas'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'stormscope'" },
     { name = "netcdf4", specifier = ">=1.6.4,<1.7.3" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'all'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'atlas'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'da-healda'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'da-stormcast'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno-v2'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'solarradiation-afno'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'stormscope'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.3.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'atlas'", specifier = ">=1.3.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'da-healda'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'da-stormcast'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno-v2'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'solarradiation-afno'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormscope'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", specifier = ">=1.0.1" },
     { name = "nvtx", marker = "extra == 'all'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'da-stormcast'", specifier = ">=0.2.11" },
@@ -2972,14 +2974,14 @@ wheels = [
 
 [[package]]
 name = "gitpython"
-version = "3.1.46"
+version = "3.1.50"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "gitdb" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/df/b5/59d16470a1f0dfe8c793f9ef56fd3826093fc52b3bd96d6b9d6c26c7e27b/gitpython-3.1.46.tar.gz", hash = "sha256:400124c7d0ef4ea03f7310ac2fbf7151e09ff97f2a3288d64a440c584a29c37f", size = 215371, upload-time = "2026-01-01T15:37:32.073Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/f6/354ae6491228b5eb40e10d89c4d13c651fe1cf7556e35ebdded50cff57ce/gitpython-3.1.50.tar.gz", hash = "sha256:80da2d12504d52e1f998772dc5baf6e553f8d2fcfe1fcc226c9d9a2ee3372dcc", size = 219798, upload-time = "2026-05-06T04:01:26.571Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6a/09/e21df6aef1e1ffc0c816f0522ddc3f6dcded766c3261813131c78a704470/gitpython-3.1.46-py3-none-any.whl", hash = "sha256:79812ed143d9d25b6d176a10bb511de0f9c67b1fa641d82097b0ab90398a2058", size = 208620, upload-time = "2026-01-01T15:37:30.574Z" },
+    { url = "https://files.pythonhosted.org/packages/20/7a/1c6e3562dfd8950adbb11ffbc65d21e7c89d01a6e4f137fa981056de25c5/gitpython-3.1.50-py3-none-any.whl", hash = "sha256:d352abe2908d07355014abdd21ddf798c2a961469239afec4962e9da884858f9", size = 212507, upload-time = "2026-05-06T04:01:23.799Z" },
 ]
 
 [[package]]
@@ -5472,8 +5474,8 @@ wheels = [
 
 [[package]]
 name = "nvidia-physicsnemo"
-version = "2.1.0a0"
-source = { git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429#369a15782b9922d7694d49a00bfaf8960b9be429" }
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cftime" },
     { name = "einops" },
@@ -5497,7 +5499,11 @@ dependencies = [
     { name = "torchvision" },
     { name = "tqdm" },
     { name = "treelib" },
+    { name = "urllib3" },
     { name = "warp-lang" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/90/26/2c0d5df540cc844434d03509de160f3361cf0cdb4d59b6ab3eb1ed209a85/nvidia_physicsnemo-2.1.0-py3-none-any.whl", hash = "sha256:2e05dab3d3b4ff4427f37ff2d6802d9817c3f5200b22a8031098d84ff9d6702c", size = 2127192, upload-time = "2026-05-26T22:42:33.986Z" },
 ]
 
 [[package]]
@@ -8890,11 +8896,11 @@ wheels = [
 
 [[package]]
 name = "urllib3"
-version = "2.6.3"
+version = "2.7.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c7/24/5f1b3bdffd70275f6661c76461e25f024d5a38a46f04aaca912426a2b1d3/urllib3-2.6.3.tar.gz", hash = "sha256:1b62b6884944a57dbe321509ab94fd4d3b307075e0c2eae991ac71ee15ad38ed", size = 435556, upload-time = "2026-01-07T16:24:43.925Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/39/08/aaaad47bc4e9dc8c725e68f9d04865dbcb2052843ff09c97b08904852d84/urllib3-2.6.3-py3-none-any.whl", hash = "sha256:bf272323e553dfb2e87d9bfd225ca7b0f467b919d7bbd355436d3fd37cb0acd4", size = 131584, upload-time = "2026-01-07T16:24:42.685Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
 ]
 
 [[package]]
@@ -9063,16 +9069,16 @@ media = [
 
 [[package]]
 name = "warp-lang"
-version = "1.11.1"
+version = "1.14.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d5/86/507cb6e0534422ff8437f71d676f6366ec907031db54751ad371f07c0b7f/warp_lang-1.11.1-py3-none-macosx_11_0_arm64.whl", hash = "sha256:1ad11f1fa775269e991a3d55039152c8a504baf86701c849b485cb8e66c49d15", size = 24056749, upload-time = "2026-02-03T21:18:51.64Z" },
-    { url = "https://files.pythonhosted.org/packages/c2/bb/21e9396a963d50171f539f4a4c9411435e7bb9c5131f4480f882d5e51dc6/warp_lang-1.11.1-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:8b098f41e71d421d80ee7562e38aa8380ff6b0d3b4c6ee866cfbdef733ac5bdc", size = 134843847, upload-time = "2026-02-03T21:19:14.318Z" },
-    { url = "https://files.pythonhosted.org/packages/5b/ff/9ced2d69dc9db6cb6b1d3b80a3d2a81590e11ae368a7864aa5d6089fd820/warp_lang-1.11.1-py3-none-manylinux_2_34_aarch64.whl", hash = "sha256:5d0904b0eefcc81f39ba65375427a3de99006088aa43e24a9011263f07d0cd07", size = 136139429, upload-time = "2026-02-03T21:18:45.854Z" },
-    { url = "https://files.pythonhosted.org/packages/25/2f/2713f29bba5800b59835d97e136fa75d65a58b89734ae01de5a5f8f26482/warp_lang-1.11.1-py3-none-win_amd64.whl", hash = "sha256:15dc10aa51fb0fdbe1ca16d52e5fadca35a47ffd9d0c636826506f96bb2e7c41", size = 118951410, upload-time = "2026-02-03T21:19:02.038Z" },
+    { url = "https://files.pythonhosted.org/packages/83/0f/28ba3c563a87adb85884fb59f5f281446f99a338c907e2b3f0b9f2f4a76c/warp_lang-1.14.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:12656050545cc77bf9b9b155399496c1a6279b5b6c59e407507d6858a2beb4a2", size = 24755239, upload-time = "2026-06-01T15:15:53.395Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/32/784829665b0cc6fadada337f103c811b7bf92a951a69c08f7e3cd6ab2580/warp_lang-1.14.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:70cd127d0e9109417099649fedf9d00f39f1307ccb7a6e9fb87661337868d7de", size = 138666257, upload-time = "2026-06-01T15:15:59.163Z" },
+    { url = "https://files.pythonhosted.org/packages/6f/e1/1f882dfbf4b2528093722423b389984eb65433ac5ebe53f94a1f9a72c262/warp_lang-1.14.0-py3-none-manylinux_2_34_aarch64.whl", hash = "sha256:f482787e8da9c9ef045601fde99095e16d604fbcc3cbb4a1e0cef0769388b316", size = 140159761, upload-time = "2026-06-01T15:16:04.039Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/6a/f530a27d627c19302d40d100ad986b7d1722237866fe178a0c5233a4717e/warp_lang-1.14.0-py3-none-win_amd64.whl", hash = "sha256:936b49ec78237f9760e58cbe9c46ee6f4244aefbd62071c4fa9fd3b313dfa878", size = 121919902, upload-time = "2026-06-01T15:16:05.777Z" },
 ]
 
 [[package]]

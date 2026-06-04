@@ -101,7 +101,7 @@ class batch_func:
         input_coords = model.input_coords()
         if (
             next(iter(input_coords)) != "batch"
-            and next(iter(model.output_coords(input_coords))) != "batch"
+            or next(iter(model.output_coords(input_coords))) != "batch"
         ):
             raise ValueError(
                 "Model coordinate systems not compatible with batch processing"
