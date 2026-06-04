@@ -59,6 +59,11 @@ HDR_ELV = 10199  # Station elevation (m)
 HDR_TYP = 55007  # Report type code
 HDR_T29 = 55008  # Data dump report type code
 
+# Profile-level drift descriptors (per-level, used by GSI diagnostics).
+OBS_XDR = 6241  # Profile level longitude (degrees east)
+OBS_YDR = 5241  # Profile level latitude (degrees north)
+OBS_HRDR = 4218  # Profile level time minus cycle time (hours)
+
 # Observation field descriptors
 OBS_CAT = 8193  # Observation category code
 OBS_POB = 7245  # Pressure observation (MB)
@@ -87,6 +92,9 @@ HEADER_DESCR_IDS: set[int] = {
 
 # Set of core observation-level descriptor IDs (obs + quality marks)
 OBSERVATION_DESCR_IDS: set[int] = {
+    OBS_XDR,
+    OBS_YDR,
+    OBS_HRDR,
     OBS_POB,
     OBS_PQM,
     OBS_ZOB,
@@ -109,18 +117,30 @@ MNEMONIC_TO_DESCR: dict[str, int] = {
     "VOB": OBS_VOB,
 }
 
-# PrepBUFR section-1 dataCategory -> NCEP message-type class string
-# Ref: NCEP PrepBUFR documentation and embedded DX Table A.
+# PrepBUFR section-1 dataCategory -> NCEP message/subset family.
+# Ref: NCEP PREPBUFR Table 1.a / prepobs_prep.bufrtable Table A.
+# https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/table_1.htm
+# These are PREPBUFR message families, not inner report TYP values.
 PREPBUFR_OBS_TYPES: dict[int, str] = {
-    102: "ADPUPA",  # Upper air: radiosondes, pilot balloons, dropsondes
+    102: "ADPUPA",  # Upper-air: RAOB, PIBAL, RECCO, dropsonde
+    103: "AIRCAR",  # Aircraft: MDCRS ACARS
     104: "AIRCFT",  # Aircraft: AIREP, PIREP, AMDAR, TAMDAR
     105: "SATWND",  # Satellite-derived winds
-    107: "VADWND",  # VAD (NEXRAD) winds
-    109: "ADPSFC",  # Surface land: METAR, synoptic
-    110: "SFCSHP",  # Surface marine: ships, buoys, C-MAN
-    112: "GPSIPW",  # GPS precipitable water
+    106: "PROFLR",  # Wind profiler / SODAR reports
+    107: "VADWND",  # VAD/NEXRAD winds
+    108: "SATEMP",  # POES/TOVS sounding/retrieval/radiance data
+    109: "ADPSFC",  # Surface land: SYNOP/METAR
+    110: "SFCSHP",  # Surface marine: ship/buoy/C-MAN/tide gauge
+    111: "SFCBOG",  # Mean sea-level pressure bogus reports
+    112: "SPSSMI",  # DMSP SSM/I retrieval products
     113: "SYNDAT",  # Synthetic bogus data
+    114: "ERS1DA",  # ERS scatterometer winds
+    115: "GOESND",  # GOES sounding/retrieval/radiance data
+    116: "QKSWND",  # QuikSCAT scatterometer winds
+    117: "MSONET",  # Mesonet surface reports
+    118: "GPSIPW",  # GPS integrated precipitable water / zenith delay
     119: "RASSDA",  # RASS virtual temperature
+    120: "WDSATR",  # WindSat scatterometer winds
     121: "ASCATW",  # ASCAT scatterometer winds
 }
 

@@ -57,11 +57,16 @@ from earth2studio.data.utils_bufr import (
     HDR_YOB,
     MNEMONIC_TO_DESCR,
     OBS_CAT,
+    OBS_HRDR,
     OBS_POB,
+    OBS_PQM,
     OBS_QUALITY_MAP,
     OBS_UOB,
     OBS_VOB,
     OBS_WQM,
+    OBS_XDR,
+    OBS_YDR,
+    OBS_ZOB,
     OBSERVATION_DESCR_IDS,
     PREPBUFR_OBS_TYPES,
 )
@@ -95,10 +100,23 @@ NNJA_PREFIX = "observations/reanalysis"
 
 
 # ── GPS RO BUFR descriptor IDs (NCEP gpsro encoding) ─────────────────
+#
+# GPSRO is not a PrepBUFR conventional report, so the usual conventional
+# semantics do not apply:
+#
+# - There is no PrepBUFR TYP report type. GSI/UFS diagnostics use the GPSRO
+#   receiver satellite identifier (SAID) in the observation-type slot, so the
+#   decoder stores SAID in the common ``type`` column for GPSRO rows.
+# - There is no conventional 0-15 PrepBUFR quality mark (TQM/QQM/WQM/PQM).
+#   GPSRO carries QFRO, a WMO/NCEP radio-occultation flag table. The decoder
+#   stores QFRO in the common ``quality`` column only so downstream GSI-like
+#   filters can test GPSRO flag bits; it must not be interpreted as ordinary
+#   conventional QM.
 # Header descriptors (per-occultation, scalar)
-_GPSRO_SAID = 1007  # Satellite identifier (receiver)
+_GPSRO_SAID = 1007  # Satellite identifier (receiver); not PrepBUFR report type.
 _GPSRO_PTID = 1050  # Platform transmitter ID (GPS satellite)
-_GPSRO_QFRO = 33039  # Quality flags for radio occultation
+_GPSRO_QFRO = 33039  # GPSRO flag table; not PrepBUFR 0-15 quality mark.
+_GPSRO_ELRC = 10035  # Earth local radius of curvature (m)
 _GPSRO_LAT = 5001  # Latitude (deg)
 _GPSRO_LON = 6001  # Longitude (deg)
 _GPSRO_YEAR = 4001
@@ -121,6 +139,27 @@ _GPSRO_SPFH = 13001  # Specific humidity (kg/kg)
 # Descriptor IDs the gpsro decoder pulls out as observations
 _GPSRO_OBS_DESCRS: set[int] = {_GPSRO_BNDA, _GPSRO_TEMP, _GPSRO_SPFH}
 
+_ACFT_PROFILE_UV_TYPE_MAP = {
+    330: 230,
+    430: 230,
+    530: 230,
+    331: 231,
+    431: 231,
+    531: 231,
+    332: 232,
+    432: 232,
+    532: 232,
+    333: 233,
+    433: 233,
+    533: 233,
+    334: 234,
+    434: 234,
+    534: 234,
+    335: 235,
+    435: 235,
+    535: 235,
+}
+
 
 # ── Schemas ─────────────────────────────────────────────────────────
 
@@ -131,12 +170,14 @@ _NNJA_CONV_SCHEMA = pa.schema(
         E2STUDIO_SCHEMA.field("elev"),
         # NNJA stores PrepBUFR report-type code as uint16 (numeric)
         pa.field("type", pa.uint16(), nullable=True),
+        pa.field("level_cat", pa.uint16(), nullable=True),
         E2STUDIO_SCHEMA.field("class"),
         E2STUDIO_SCHEMA.field("lat"),
         E2STUDIO_SCHEMA.field("lon"),
         E2STUDIO_SCHEMA.field("station"),
         E2STUDIO_SCHEMA.field("station_elev"),
         E2STUDIO_SCHEMA.field("quality"),
+        pa.field("pressure_quality", pa.uint16(), nullable=True),
         E2STUDIO_SCHEMA.field("observation"),
         E2STUDIO_SCHEMA.field("variable"),
     ]
@@ -569,6 +610,30 @@ def _decode_message(
     return rows
 
 
+def _prepbufr_time_from_offset(
+    base_time: datetime, offset_hours: Any, scale: int
+) -> datetime | None:
+    """Convert PrepBUFR hour offset to datetime using descriptor scale.
+
+    Conventional HEADR ``DHR`` is encoded to hundredths of an hour, while
+    profile-level ``HRDR`` is encoded to 1e-5 hour precision in the embedded
+    PrepBUFR DX tables.
+    """
+    if offset_hours is None:
+        return None
+
+    ticks_per_hour = 10**scale
+    tick_ms = 3_600_000 // ticks_per_hour
+    try:
+        offset = float(offset_hours)
+        if not np.isfinite(offset):
+            return None
+        tick = round(offset * ticks_per_hour)
+        return base_time + timedelta(milliseconds=tick * tick_ms)
+    except (OverflowError, TypeError, ValueError):
+        return None
+
+
 def _extract_subset(
     descs: list[Any],
     vals: list[Any],
@@ -584,7 +649,9 @@ def _extract_subset(
     walk the header (SID/XOB/YOB/DHR/ELV/TYP) and then iterate over the
     repeated CAT/POB level blocks, emitting one row per (level,
     requested variable) where the variable's descriptor has a
-    non-missing value.
+    non-missing value. Profile reports can carry drifted per-level
+    location/time (XDR/YDR/HRDR); those are preferred over the header
+    coordinates when present because GSI diagnostics are level based.
     """
     rows: list[dict[str, Any]] = []
 
@@ -617,21 +684,10 @@ def _extract_subset(
         elif did == OBS_CAT:
             break
 
-    lat = header["yob"]
-    lon = header["xob"]
-    if lat is None or lon is None:
-        return rows
-    if lat < -90.0 or lat > 90.0:
-        return rows
-
-    try:
-        obs_time = base_time + timedelta(hours=float(header["dhr"]))
-    except (ValueError, OverflowError, TypeError):
-        obs_time = base_time
-    if obs_time < dt_min or obs_time > dt_max:
-        return rows
-
-    lon_360 = float(lon) % 360.0
+    header_time = _prepbufr_time_from_offset(base_time, header["dhr"], scale=2)
+    if header_time is None:
+        # Missing DHR means the message timestamp is the best available time.
+        header_time = base_time
 
     # Build the per-variable descriptor lookup once
     needed_ids: dict[str, int] = {}
@@ -643,9 +699,15 @@ def _extract_subset(
             needed_ids[var_name] = MNEMONIC_TO_DESCR[key]
 
     base_row: dict[str, Any] = {
-        "time": obs_time,
-        "lat": np.float32(lat),
-        "lon": np.float32(lon_360),
+        "time": header_time,
+        # HEADR values are the fallback for reports/levels without drift
+        # descriptors; rows with no header or level location are dropped below.
+        "lat": np.float32(header["yob"]) if header["yob"] is not None else None,
+        "lon": (
+            np.float32(float(header["xob"]) % 360.0)
+            if header["xob"] is not None
+            else None
+        ),
         "pres": None,
         "elev": None,
         "type": np.uint16(int(header["typ"])) if header["typ"] is not None else None,
@@ -655,25 +717,51 @@ def _extract_subset(
             np.float32(header["elv"]) if header["elv"] is not None else None
         ),
         "quality": None,
+        "pressure_quality": None,
     }
 
-    # Walk observation levels: a new POB starts a level
+    # Walk observation levels: CAT/POB identify one level. CAT is needed to
+    # distinguish station pressure from pressure used only as a level coordinate.
     current: dict[int, Any] = {}
+    pending_cat = None
     in_obs = False
     for d, v in zip(descs, vals):
         did = d.id
-        if did == OBS_POB:
+        if did == OBS_CAT:
+            pending_cat = v
+        elif did == OBS_POB:
             if in_obs and current:
                 _emit_level_rows(
-                    rows, current, base_row, needed_ids, need_wind, var_keys
+                    rows,
+                    current,
+                    base_row,
+                    base_time,
+                    dt_min,
+                    dt_max,
+                    needed_ids,
+                    need_wind,
+                    var_keys,
                 )
             current = {OBS_POB: v}
+            if pending_cat is not None:
+                current[OBS_CAT] = pending_cat
+                pending_cat = None
             in_obs = True
         elif in_obs and did in OBSERVATION_DESCR_IDS:
             if did not in current:
                 current[did] = v
     if in_obs and current:
-        _emit_level_rows(rows, current, base_row, needed_ids, need_wind, var_keys)
+        _emit_level_rows(
+            rows,
+            current,
+            base_row,
+            base_time,
+            dt_min,
+            dt_max,
+            needed_ids,
+            need_wind,
+            var_keys,
+        )
 
     return rows
 
@@ -684,13 +772,13 @@ def _extract_gpsro_subset(
     wanted_descrs: dict[int, str],
     dt_min: datetime,
     dt_max: datetime,
-) -> list[dict[str, Any]]:  # pragma: no cover - GPS RO not yet in lexicon
+) -> list[dict[str, Any]]:
     """Extract observation rows from one GPS RO occultation subset.
 
     ``wanted_descrs`` maps BUFR descriptor id -> Earth2Studio variable
-    name (e.g. ``{15037: "gps", 12001: "gps_t", 13001: "gps_q"}``). For
-    each non-missing value of a wanted descriptor encountered in the
-    subset's flat (descriptor, value) stream we emit one row.
+    name (e.g. ``{15037: "gps"}``). For each non-missing value of a wanted
+    descriptor encountered in the subset's flat (descriptor, value) stream
+    we emit one row.
 
     The NCEP gpsro encoding lays out the per-level data sequentially as
     three sub-profiles in this order:
@@ -708,6 +796,7 @@ def _extract_gpsro_subset(
     sat_id: Any = None
     tx_id: Any = None
     qf: Any = None
+    roc: float | None = None
     lat: float | None = None
     lon: float | None = None
     yyyy = mm = dd = hh = mi = None
@@ -720,6 +809,11 @@ def _extract_gpsro_subset(
             tx_id = v
         elif did == _GPSRO_QFRO:
             qf = v
+        elif did == _GPSRO_ELRC and v is not None:
+            try:
+                roc = float(v)
+            except (TypeError, ValueError):
+                roc = None
         elif did == _GPSRO_LAT and v is not None:
             lat = float(v)
         elif did == _GPSRO_LON and v is not None:
@@ -806,7 +900,12 @@ def _extract_gpsro_subset(
         var_name = wanted_descrs[did]
         if did == _GPSRO_BNDA:
             pres_val = None
-            elev_val = np.float32(cur_impp) if cur_impp is not None else None
+            # GSI carries the raw impact parameter and local radius of curvature
+            # separately, then uses impact - roc as impact height downstream.
+            impact_height = (
+                cur_impp - roc if cur_impp is not None and roc is not None else None
+            )
+            elev_val = np.float32(impact_height) if impact_height is not None else None
         else:
             pres_val = np.float32(cur_pres) if cur_pres is not None else None
             elev_val = np.float32(cur_height) if cur_height is not None else None
@@ -818,10 +917,15 @@ def _extract_gpsro_subset(
                 "lon": np.float32(lon_360),
                 "pres": pres_val,
                 "elev": elev_val,
-                "type": np.uint16(int(qf)) if qf is not None else None,
+                # For GPSRO, ``type`` intentionally follows GSI/UFS diagnostics:
+                # it is SAID (receiver satellite id), not a PrepBUFR report type.
+                "type": np.uint16(int(sat_id)) if sat_id is not None else None,
                 "class": "GPSRO",
                 "station": station_id,
                 "station_elev": None,
+                # QFRO is a GPSRO flag table. It is stored in ``quality`` for a
+                # uniform schema, but it is not the conventional 0-15 QM scale.
+                "quality": np.uint16(int(qf)) if qf is not None else None,
                 "observation": np.float32(obs_val),
                 "variable": var_name,
             }
@@ -834,6 +938,9 @@ def _emit_level_rows(
     rows: list[dict[str, Any]],
     level: dict[int, Any],
     base_row: dict[str, Any],
+    base_time: datetime,
+    dt_min: datetime,
+    dt_max: datetime,
     needed_ids: dict[str, int],
     need_wind: bool,
     var_keys: list[tuple[str, str]],
@@ -845,7 +952,31 @@ def _emit_level_rows(
     )  # PrepBUFR mb (lexicon mod converts to Pa for `pres`)
 
     common = base_row.copy()
+    hrdr_time = _prepbufr_time_from_offset(base_time, level.get(OBS_HRDR), scale=5)
+    if hrdr_time is not None:
+        common["time"] = hrdr_time
+    if common["time"] < dt_min or common["time"] > dt_max:
+        return
+
+    lat = level.get(OBS_YDR)
+    lon = level.get(OBS_XDR)
+    if lat is not None:
+        common["lat"] = np.float32(lat)
+    if lon is not None:
+        common["lon"] = np.float32(float(lon) % 360.0)
+    if common["lat"] is None or common["lon"] is None:
+        return
+    lat_value = float(common["lat"])
+    if not np.isfinite(lat_value) or lat_value < -90.0 or lat_value > 90.0:
+        return
+
     common["pres"] = pres_val
+    zob = level.get(OBS_ZOB)
+    common["elev"] = np.float32(zob) if zob is not None else base_row.get("elev")
+    pqm = level.get(OBS_PQM)
+    common["pressure_quality"] = np.uint16(int(pqm)) if pqm is not None else None
+    level_cat = level.get(OBS_CAT)
+    common["level_cat"] = np.uint16(int(level_cat)) if level_cat is not None else None
 
     # Non-wind variables
     for var_name, desc_id in needed_ids.items():
@@ -948,7 +1079,7 @@ def _decode_gpsro_message_worker(
     wanted_descrs: dict[int, str],
     dt_min: datetime,
     dt_max: datetime,
-) -> list[dict[str, Any]]:  # pragma: no cover - GPS RO not yet in lexicon
+) -> list[dict[str, Any]]:  # pragma: no cover
     """Decode a single GPS RO BUFR message in a worker process.
 
     Uses the decoder created by :func:`_init_decode_worker`.
@@ -1006,7 +1137,25 @@ class NNJAObsConv(_NNJAObsBase):
     ----------
     source : {"prepbufr", "convbufr", "prepbufr.acft_profiles"}, optional
         Which encoding family of the NNJA conventional archive to read,
-        by default ``"prepbufr"``.
+        by default ``"prepbufr"``. These sources are different stages of the
+        NCEP observation-processing pipeline, not independent replacement
+        datasets:
+
+        - ``"convbufr"`` points at raw dump streams grouped by family, such as
+          ``aircft``/``aircar``/``adpupa``/``adpsfc``. These files preserve
+          source-native schemas and generally require family-specific decoding
+          and QC interpretation before they resemble GSI-ready observations.
+          They are listed here for completeness, but the generic
+          ``NNJAObsConv`` PrepBUFR decoder does not yet implement those raw
+          family schemas.
+        - ``"prepbufr"`` points at the merged PrepBUFR cycle file. This is the
+          preferred source for GSI-like conventional observations because
+          upstream obsproc has already merged dump families, standardized many
+          mnemonics, and attached report types / quality marks.
+        - ``"prepbufr.acft_profiles"`` points at an aircraft-only PrepBUFR
+          profile product. It groups aircraft points into flight-level,
+          ascending, and descending profile report types that GSI remaps back
+          to ordinary aircraft report types during processing.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single
         value (symmetric ± window) or a tuple ``(lower, upper)`` for
@@ -1099,7 +1248,7 @@ class NNJAObsConv(_NNJAObsBase):
             route, _, rest = source_key.partition("::")
             if route == "prepbufr":
                 prepbufr_plan[v] = (rest, modifier)
-            elif route == "gpsro":  # pragma: no cover - GPS RO not yet in lexicon
+            elif route == "gpsro":
                 try:
                     desc_id = int(rest)
                 except ValueError as exc:
@@ -1130,7 +1279,7 @@ class NNJAObsConv(_NNJAObsBase):
                         var_plan=prepbufr_plan,
                     )
                 )
-            if gpsro_plan:  # pragma: no cover - GPS RO not yet in lexicon
+            if gpsro_plan:
                 tasks.append(
                     _NNJAGpsRoTask(
                         s3_uri=self._build_gpsro_uri(cycle_dt),
@@ -1148,9 +1297,12 @@ class NNJAObsConv(_NNJAObsBase):
         month_key = cycle.strftime("%m")
         date_key = cycle.strftime("%Y%m%d")
         hour_key = f"{cycle.hour:02d}"
+        archive_dir = self._source
+        if self._source == "prepbufr.acft_profiles":
+            archive_dir = "bufr"
         return (
             f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/conv/{self._source}/"
-            f"{year_key}/{month_key}/{self._source}/"
+            f"{year_key}/{month_key}/{archive_dir}/"
             f"gdas.{date_key}.t{hour_key}z.{self._source}.nr"
         )
 
@@ -1170,19 +1322,16 @@ class NNJAObsConv(_NNJAObsBase):
     def _build_uri(self, cycle: datetime) -> str:
         return self._build_prepbufr_uri(cycle)
 
-    # PyArrow-type → numpy/pandas dtype for the always-nullable
-    # numeric columns we add when a frame is missing them. Using a
-    # typed empty column (instead of object-dtype ``None``) keeps
-    # ``pd.concat`` from emitting "all-NA columns" FutureWarnings
-    # when frames from different sub-archives are concatenated.
-    _NULL_COLUMN_DTYPES: dict[str, type] = {
-        "pres": np.float32,
-        "elev": np.float32,
-        "station_elev": np.float32,
-        "lat": np.float32,
-        "lon": np.float32,
-        "observation": np.float32,
-    }
+    @staticmethod
+    def _null_series_for_field(field: pa.Field, index: pd.Index) -> pd.Series:
+        """Create an all-null DataFrame column matching the Arrow schema field."""
+        if pa.types.is_float32(field.type):
+            return pd.Series(np.full(len(index), np.nan, dtype=np.float32), index=index)
+        if pa.types.is_float64(field.type):
+            return pd.Series(np.full(len(index), np.nan, dtype=np.float64), index=index)
+        if pa.types.is_uint16(field.type):
+            return pd.Series(pd.NA, index=index, dtype=pd.ArrowDtype(field.type))
+        return pd.Series([None] * len(index), index=index, dtype=object)
 
     def _finalize_decoded_df(
         self,
@@ -1213,14 +1362,20 @@ class NNJAObsConv(_NNJAObsBase):
             df["pres"] = (df["pres"].astype(np.float32) * 100.0).astype(np.float32)
 
         df["time"] = pd.to_datetime(df["time"])
-        for name in self.SCHEMA.names:
+        for field in self.SCHEMA:
+            name = field.name
             if name in df.columns:
                 continue
-            null_dtype = self._NULL_COLUMN_DTYPES.get(name)
-            if null_dtype is not None:
-                df[name] = np.full(len(df), np.nan, dtype=null_dtype)
-            else:
-                df[name] = pd.Series([None] * len(df), dtype=object)
+            df[name] = self._null_series_for_field(field, df.index)
+        for field in self.SCHEMA:
+            name = field.name
+            if name in df.columns and pa.types.is_uint16(field.type):
+                # Pandas/NumPy uint16 cannot represent nulls. Keep nullable
+                # integer metadata aligned with the Arrow schema instead of
+                # letting pandas upcast missing values to float/object.
+                df[name] = pd.to_numeric(df[name], errors="coerce").astype(
+                    pd.ArrowDtype(field.type)
+                )
         return df[list(self.SCHEMA.names)]
 
     def _handle_missing_file(self, path: str) -> None:
@@ -1332,13 +1487,14 @@ class NNJAObsConv(_NNJAObsBase):
             f"decoded {len(all_rows):,} raw rows in "
             f"{time.perf_counter() - decode_t0:.1f}s"
         )
-        return self._finalize_decoded_df(
+        df = self._finalize_decoded_df(
             all_rows, task.var_plan, convert_pres_mb_to_pa=True
         )
+        if self._source == "prepbufr.acft_profiles" and not df.empty:
+            df.loc[:, "type"] = df["type"].replace(_ACFT_PROFILE_UV_TYPE_MAP)
+        return df
 
-    def _decode_gpsro_file(  # pragma: no cover - GPS RO not yet in lexicon
-        self, local_path: str, task: _NNJAGpsRoTask
-    ) -> pd.DataFrame:
+    def _decode_gpsro_file(self, local_path: str, task: _NNJAGpsRoTask) -> pd.DataFrame:
         """Decode a single NNJA gps/gpsro cycle BUFR file into a DataFrame.
 
         Messages are decoded in parallel using a process pool when
