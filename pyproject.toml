@@ -337,8 +337,7 @@ torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
 ]
-# Remove once update release with torch 2.11 fixable
-nvidia-physicsnemo = { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "369a15782b9922d7694d49a00bfaf8960b9be429" }
+
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
 
 
@@ -416,6 +415,7 @@ exclude = [".claude"]
 "recipes/**/*_notebook.py" = ["E402"]
 # Ignore `S101` (assertions) in all `test` files.
 "test/*.py" = ["S101"]
+"skills/**/*.py" = ["F401", "E731", "I001", "S101"]
 "serve/server/test/*.py" = ["S101"]
 "recipes/**/test/*.py" = ["S101"]
 
@@ -481,7 +481,7 @@ fail-under = 95
 color = true
 omit-covered-files = false
 verbose = 2
-exclude = ["setup.py", "test/*", "docs", "build"]
+exclude = ["setup.py", "test/*", "skills/*", "docs", "build"]
 ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
 
 # ==== MyPy configuration ====

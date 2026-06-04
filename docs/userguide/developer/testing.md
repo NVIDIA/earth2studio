@@ -34,6 +34,44 @@ Earth2Studio organizes tests into separate tox environments based on functionali
 - **`test-da-models`** - Data assimilation model tests (requires `all` extra)
 - **`test-serve`** - Serve/API tests (requires `serve` extra)
 
+### Automatic Test Skipping
+
+Test files that require optional dependencies are automatically skipped during pytest
+collection when those dependencies are not installed. This is handled by a
+`pytest_ignore_collect` hook in `test/conftest.py` that checks dependency availability
+before Python imports the test module.
+
+The hook uses a `_TEST_DEPENDENCIES` mapping that associates test file paths with their
+required dependency groups (from `pyproject.toml`) or individual packages. For example:
+
+```python
+_TEST_DEPENDENCIES = {
+    "test/models/px/test_aifs.py": ["aifs"],
+    "test/statistics/test_crps.py": ["statistics"],
+    "test/data/test_nnja.py": ["pybufrkit"],
+    # ...
+}
+```
+
+This approach has several benefits:
+
+1. **No import errors during collection** - Files are skipped before Python tries to
+   import unavailable packages
+2. **Version-aware checking** - Version constraints from `pyproject.toml` are respected
+   (e.g., `anemoi-models==0.5.1` for AIFS vs `anemoi-models>=0.9.3,<0.9.5` for AIFS2)
+3. **Centralized configuration** - All dependency mappings are in one place (`conftest.py`)
+4. **Clean test output** - Skipped files don't appear as errors or warnings
+
+When adding new tests that require optional dependencies, add an entry to the
+`_TEST_DEPENDENCIES` dict in `test/conftest.py`:
+
+```python
+_TEST_DEPENDENCIES: dict[str, list[str]] = {
+    # ...existing entries...
+    "test/models/px/test_newmodel.py": ["newmodel-group"],
+}
+```
+
 ### Running Tests with Tox
 
 The recommended way to run tests is using the Makefile with a specific `TOX_ENV`:

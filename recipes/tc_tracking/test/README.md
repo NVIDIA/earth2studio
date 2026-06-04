@@ -18,7 +18,7 @@ First, let us produce a five member ensemble of a 90h prediction of Hurricane He
 
 ```bash
 cd earth2studio/recipes/tc_tracking/test
-python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=baseline_helene.yaml
+python ../main.py --config-path=$(pwd)/cfg --config-name=baseline_helene.yaml
 ```
 
 ### Expected Result: Generate Ensemble
@@ -40,7 +40,7 @@ Having made sure that the configurations for reproducing the ensemble members
 is correct, let us now reproduce members three and four of the previous run:
 
 ```bash
-python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml
+python ../main.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml
 ```
 
 Note that the baseline run was produced with batch size two. For reproducibility,
@@ -88,13 +88,13 @@ and does not use `torchrun`; the two storms are processed in parallel via a
 
 ```bash
 cd earth2studio/recipes/tc_tracking/test
-python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=extract_era5.yaml
+python ../main.py --config-path=$(pwd)/cfg --config-name=extract_era5.yaml
 ```
 
 To exercise the serial fallback, override the worker count from the command line:
 
 ```bash
-python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=extract_era5.yaml \
+python ../main.py --config-path=$(pwd)/cfg --config-name=extract_era5.yaml \
     num_workers=1
 ```
 

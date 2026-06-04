@@ -135,7 +135,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         self.seed = seed
         self.dataset_modality = DatasetModality(dataset_modality)
         self._core_model = core_model  # Needed to move model to device
-        self.core_model = CBottle3d(core_model)
+        self.core_model = CBottle3d(core_model, device="cpu")
 
         self._cache = cache
         self._verbose = verbose
@@ -198,7 +198,9 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             varidx.append(idx[0])
         varidx = np.array(varidx)
 
-        device = self.device_buffer.device
+        # Use core model's parameter device since cbottle generates latents
+        # and runs inference on the device where model parameters reside
+        device = self.core_model.device
         condition = input["condition"].to(device)
         labels = input["labels"].to(device)
         images = input["target"].to(device)
