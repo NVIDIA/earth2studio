@@ -152,6 +152,8 @@ _NNJA_CONV_SCHEMA = pa.schema(
         E2STUDIO_SCHEMA.field("elev"),
         # NNJA stores PrepBUFR report-type code as uint16 (numeric)
         pa.field("type", pa.uint16(), nullable=True),
+        # PrepBUFR CAT (level category); CAT == 0 identifies station-level
+        # pressure rows used by the ``pres`` lexicon modifier.
         pa.field("level_cat", pa.uint16(), nullable=True),
         E2STUDIO_SCHEMA.field("class"),
         E2STUDIO_SCHEMA.field("lat"),
@@ -1087,7 +1089,7 @@ class NNJAObsConv(_NNJAObsBase):
 
     - https://www.brightband.com/data/nnja-ai/
     - https://psl.noaa.gov/data/nnja_obs/
-    - https://registry.opendata.aws/noaa-reanalyses-obs/
+    - https://registry.opendata.aws/noaa-reanalyses-pds/
     - https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/document.htm
 
     Badges
