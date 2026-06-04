@@ -152,8 +152,12 @@ _NNJA_CONV_SCHEMA = pa.schema(
         E2STUDIO_SCHEMA.field("elev"),
         # NNJA stores PrepBUFR report-type code as uint16 (numeric)
         pa.field("type", pa.uint16(), nullable=True),
-        # PrepBUFR CAT (level category); CAT == 0 identifies station-level
-        # pressure rows used by the ``pres`` lexicon modifier.
+        # PrepBUFR CAT is NCEP's data-level category mnemonic
+        # (local BUFR descriptor 0-08-193):
+        # https://emc.ncep.noaa.gov/emc/pages/infrastructure/bufrlib/tables/CodeFlag_0_STDv35_LOC7.html
+        # 0=surface, 1=mandatory, 2=sig-temp, 3=wind-by-pressure,
+        # 4=wind-by-height, 5=tropopause, 6=single-level/other, 7=interpolated.
+        # The ``pres`` modifier uses CAT == 0 to select station-pressure rows.
         pa.field("level_cat", pa.uint16(), nullable=True),
         E2STUDIO_SCHEMA.field("class"),
         E2STUDIO_SCHEMA.field("lat"),
@@ -1119,6 +1123,10 @@ class NNJAObsConv(_NNJAObsBase):
                 f"Invalid source '{source}'. Valid sources: {sorted(self.VALID_SOURCES)}"
             )
         self._source = source
+        # Internal switch for the special aircraft-profile product. Default
+        # output maps profile-stage 33x/43x/53x report codes to the standard
+        # GSI/PREPBUFR aircraft 23x codes in ``type``
+        self._map_acft_profile_report_types = True
         super().__init__(
             time_tolerance=time_tolerance,
             cache=cache,
@@ -1389,7 +1397,11 @@ class NNJAObsConv(_NNJAObsBase):
         df = self._finalize_decoded_df(
             all_rows, task.var_plan, convert_pres_mb_to_pa=True
         )
-        if self._source == "prepbufr.acft_profiles" and not df.empty:
+        if (
+            self._source == "prepbufr.acft_profiles"
+            and self._map_acft_profile_report_types
+            and not df.empty
+        ):
             df.loc[:, "type"] = df["type"].replace(_ACFT_PROFILE_UV_TYPE_MAP)
         return df
 
