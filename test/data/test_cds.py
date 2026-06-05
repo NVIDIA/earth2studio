@@ -15,11 +15,14 @@
 # limitations under the License.
 
 import datetime
+import hashlib
 import pathlib
 import shutil
+from unittest.mock import patch
 
 import numpy as np
 import pytest
+import xarray as xr
 
 from earth2studio.data import CDS
 
@@ -148,3 +151,118 @@ def test_cds_available(time, variable):
     with pytest.raises(ValueError):
         ds = CDS()
         ds(time, variable)
+
+
+# ======================== Lazy client init tests ========================
+
+
+def _compute_cache_filename(dataset_name: str, variable: str, level: list[str], time):
+    """Compute the SHA-256 cache filename matching CDS._download_cds_grib_cached."""
+    sha = hashlib.sha256(f"{dataset_name}_{variable}_{'_'.join(level)}_{time}".encode())
+    return sha.hexdigest()
+
+
+@patch("earth2studio.data.cds.cdsapi")
+def test_cds_lazy_client_no_init(mock_cdsapi, tmp_path, monkeypatch):
+    """Test that CDS() does not create a cdsapi.Client during __init__."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    ds = CDS()
+    # Client should not be created yet
+    assert ds._cds_client is None
+    mock_cdsapi.Client.assert_not_called()
+
+
+@patch("earth2studio.data.cds.cdsapi")
+def test_cds_lazy_client_cache_hit_no_client(mock_cdsapi, tmp_path, monkeypatch):
+    """Test that cache hits do not trigger cdsapi.Client creation."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    # Create the cache directory structure
+    cache_dir = tmp_path / "cds"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    time = datetime.datetime(year=2024, month=1, day=1, hour=0)
+
+    # t2m maps to reanalysis-era5-single-levels::2m_temperature::
+    dataset_name = "reanalysis-era5-single-levels"
+    cds_variable = "2m_temperature"
+    level = [""]
+
+    # Create a fake cached file with valid data
+    lat = np.linspace(90, -90, 721)
+    lon = np.linspace(0, 359.75, 1440)
+    data = np.random.randn(721, 1440).astype(np.float32)
+    da = xr.DataArray(
+        data=data,
+        dims=["latitude", "longitude"],
+        coords={"latitude": lat, "longitude": lon},
+    )
+
+    # Write to cache path with the correct hash filename
+    filename = _compute_cache_filename(dataset_name, cds_variable, level, time)
+    cache_path = cache_dir / filename
+    da.to_netcdf(str(cache_path))
+
+    ds = CDS()
+
+    # Mock xr.open_dataarray since we saved as netcdf, not grib
+    with patch("xarray.open_dataarray") as mock_open:
+        mock_open.return_value = da
+        result = ds(time, "t2m")
+
+    # Client should never have been created
+    assert ds._cds_client is None
+    mock_cdsapi.Client.assert_not_called()
+
+    assert result.shape == (1, 1, 721, 1440)
+    assert result.coords["variable"].values[0] == "t2m"
+
+
+@patch("earth2studio.data.cds.cdsapi")
+def test_cds_lazy_client_cache_miss_creates_client(mock_cdsapi, tmp_path, monkeypatch):
+    """Test that cache miss triggers lazy cdsapi.Client creation."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    # Set up mock client and its retrieve method
+    mock_reply = {"request_id": "test-123", "state": "completed"}
+    mock_result = mock_cdsapi.Client.return_value.retrieve.return_value
+    mock_result.update.return_value = None
+    mock_result.reply = mock_reply
+    mock_result.download.return_value = None
+
+    ds = CDS()
+
+    # Client not yet created
+    assert ds._cds_client is None
+
+    time = datetime.datetime(year=2024, month=1, day=1, hour=0)
+
+    # Create cache dir so the code can run
+    cache_dir = tmp_path / "cds"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    # t2m is not cached, so accessing it should trigger client creation
+    # The download will "succeed" via mock, but open_dataarray will be called
+    # on the (empty) downloaded file. We mock that too.
+    lat = np.linspace(90, -90, 721)
+    lon = np.linspace(0, 359.75, 1440)
+    data = np.random.randn(721, 1440).astype(np.float32)
+    da = xr.DataArray(
+        data=data,
+        dims=["latitude", "longitude"],
+        coords={"latitude": lat, "longitude": lon},
+    )
+
+    def fake_download(path):
+        """Create a file at path to simulate download."""
+        da.to_netcdf(path)
+
+    mock_result.download.side_effect = fake_download
+
+    with patch("xarray.open_dataarray") as mock_open:
+        mock_open.return_value = da
+        ds(time, "t2m")
+
+    # Client should now be created
+    mock_cdsapi.Client.assert_called_once()
+    assert ds._cds_client is not None

@@ -98,9 +98,21 @@ class CDS:
     def __init__(self, cache: bool = True, verbose: bool = True):
         self._cache = cache
         self._verbose = verbose
-        self.cds_client = cdsapi.Client(
-            debug=False, quiet=True, wait_until_complete=False
-        )
+        self._cds_client: Any | None = None
+
+    @property
+    def cds_client(self) -> Any:
+        """Lazily initialize the CDS API client on first access.
+
+        This allows cache hits to succeed without requiring CDS API credentials
+        or network access, enabling use in air-gapped environments with
+        pre-populated caches.
+        """
+        if self._cds_client is None:
+            self._cds_client = cdsapi.Client(
+                debug=False, quiet=True, wait_until_complete=False
+            )
+        return self._cds_client
 
     def __call__(
         self,
