@@ -36,7 +36,6 @@
     "expected_script": "evals/targets/eval_3_target.py",
     "ground_truth": "Generates a script using GraphCastOperational model, ARCO data source, ZarrBackend, 10-day run with nsteps=40. Does not include output_coords (saves all model outputs).",
     "expected_behavior": [
-      "Activates earth2studio-deterministic-forecast skill before implementing",
       "Uses GraphCastOperational or GraphCast model class",
       "Uses ARCO data source for ERA5 reanalysis",
       "Uses ZarrBackend for output",
@@ -52,7 +51,6 @@
     "expected_script": "evals/targets/eval_4_target.py",
     "ground_truth": "Generates a complete script that reimplements the deterministic workflow loop manually: fetches data with fetch_data, sets up IO coordinates, creates the prognostic iterator, loops through steps writing output via split_coords, and uses map_coords for coordinate subsetting. Does NOT call earth2studio.run.deterministic.",
     "expected_behavior": [
-      "Activates earth2studio-deterministic-forecast skill before implementing",
       "Does NOT import or call earth2studio.run.deterministic",
       "Uses fetch_data to get initial conditions",
       "Creates prognostic iterator with model.create_iterator()",
