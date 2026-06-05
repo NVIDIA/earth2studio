@@ -779,7 +779,7 @@ def test_nnja_obs_conv_finalize_gpsro_preserves_pressure_and_elevation_units():
             "elev": 2_000.0,
             "type": 3,
             "class": "GPSRO",
-            "station": "3_27",
+            "station": "00030027",
             "station_elev": None,
             "quality": 12,
             "observation": 0.00123,
