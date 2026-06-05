@@ -14,7 +14,7 @@ OUT_DIR = ROOT / "outputs" / "earth2studio-readme-graphics-css"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 W, H = 1600, 400
-ASSET_VERSION = "dark-v66"
+ASSET_VERSION = "green-blue-v76"
 EXPORT_SCALE = 2
 
 CHROME_CANDIDATES = [
@@ -23,7 +23,6 @@ CHROME_CANDIDATES = [
     Path("C:/Program Files/Microsoft/Edge/Application/msedge.exe"),
     Path("C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"),
 ]
-
 
 CSS = r"""
 :root {
@@ -41,6 +40,17 @@ CSS = r"""
   --secondary-foreground: #f4f7ef;
   --muted: #1b2118;
   --muted-foreground: #a5ae9e;
+  --artboard-surface: rgba(8, 18, 9, .92);
+  --artboard-surface-strong: rgba(19, 38, 12, .96);
+  --card-glass: rgba(19, 23, 17, .86);
+  --secondary-glass: rgba(29, 36, 26, .78);
+  --muted-glass: rgba(27, 33, 24, .76);
+  --box-border: color-mix(in srgb, var(--signal-green) 60%, var(--border));
+  --box-border-soft: color-mix(in srgb, var(--signal-green) 44%, rgba(41, 48, 36, .7));
+  --box-glow: inset 0 0 0 1px rgba(118, 185, 0, .18), 0 10px 28px rgba(118, 185, 0, .08);
+  --box-glow-soft: inset 0 0 0 1px rgba(118, 185, 0, .12), 0 7px 18px rgba(118, 185, 0, .055);
+  --radius-artboard: 18px;
+  --radius-card: 12px;
   --accent: #2d3a23;
   --accent-foreground: #e8f7c1;
   --destructive: #ef4444;
@@ -82,24 +92,25 @@ body {
   height: 400px;
   margin: 0;
   overflow: hidden;
-  background: var(--background);
+  background: transparent;
   font-family: var(--font-sans);
   color: var(--foreground);
 }
 
 .artboard {
   position: relative;
-  width: 1600px;
-  height: 400px;
+  width: calc(100% - 8px);
+  height: calc(100% - 8px);
+  margin: 4px;
   overflow: hidden;
-  padding: 30px 48px;
+  padding: 26px 44px;
   background:
-    radial-gradient(circle at 10% 8%, var(--green-wash), transparent 34%),
-    radial-gradient(circle at 82% 16%, var(--cyan-wash), transparent 30%),
-    var(--background);
-  border: 1px solid color-mix(in srgb, var(--signal-green) 28%, var(--border));
-  border-radius: 8px;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, .16);
+    radial-gradient(circle at 0% 0%, rgba(14, 165, 164, .32), rgba(91, 191, 121, .22) 22%, transparent 48%),
+    radial-gradient(circle at 22% 8%, rgba(118, 185, 0, .16), transparent 38%),
+    linear-gradient(135deg, rgba(16, 58, 42, .97) 0%, rgba(8, 42, 33, .95) 42%, rgba(5, 23, 19, .93) 72%, rgba(3, 11, 8, .92) 100%);
+  border: 1px solid var(--box-border);
+  border-radius: var(--radius-artboard);
+  box-shadow: inset 0 0 0 1px rgba(118, 185, 0, .12);
 }
 
 .artboard::before {
@@ -112,6 +123,11 @@ body {
     linear-gradient(90deg, color-mix(in srgb, var(--border) 62%, transparent) 1px, transparent 1px);
   background-size: 28px 28px;
   mask-image: linear-gradient(rgba(0, 0, 0, .48), transparent 78%);
+}
+
+.artboard,
+.artboard * {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .68);
 }
 
 .artboard > * { position: relative; z-index: 1; }
@@ -161,13 +177,14 @@ body {
   align-items: center;
   justify-content: center;
   padding: 0 20px;
-  border: 1px solid var(--signal-green);
+  border: 1px solid var(--box-border);
   border-radius: 999px;
-  background: var(--secondary);
+  background: var(--secondary-glass);
   color: var(--ink-soft);
   font-size: 14px;
   line-height: 1;
   font-weight: 700;
+  box-shadow: var(--box-glow-soft);
 }
 
 .arch-grid {
@@ -184,12 +201,13 @@ body {
   min-width: 0;
   min-height: 168px;
   padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border: 1px solid var(--box-border-soft);
   border-top: 4px solid var(--accent, var(--signal-green));
   border-radius: 8px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--accent, var(--signal-green)) 7%, transparent), transparent 42%),
-    var(--card);
+    var(--card-glass);
+  box-shadow: var(--box-glow-soft);
 }
 
 .zone h3 {
@@ -218,9 +236,10 @@ body {
 .component {
   min-width: 0;
   padding: 9px 10px;
-  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border: 1px solid var(--box-border-soft);
   border-radius: 8px;
-  background: var(--muted);
+  background: var(--muted-glass);
+  box-shadow: var(--box-glow-soft);
 }
 
 .component strong,
@@ -259,13 +278,14 @@ body {
   gap: 9px;
   height: 30px;
   padding: 0 13px;
-  border: 1px solid var(--accent, var(--signal-green));
+  border: 1px solid color-mix(in srgb, var(--accent, var(--signal-green)) 72%, var(--box-border));
   border-radius: 999px;
-  background: var(--secondary);
+  background: var(--secondary-glass);
   color: var(--muted-foreground);
   font-size: 12px;
   line-height: 1;
   font-weight: 720;
+  box-shadow: var(--box-glow-soft);
 }
 
 .pill::before {
@@ -290,9 +310,10 @@ body {
   align-content: center;
   justify-items: center;
   padding: 9px 10px;
-  border: 1px solid var(--accent, var(--signal-green));
+  border: 1px solid color-mix(in srgb, var(--accent, var(--signal-green)) 72%, var(--box-border));
   border-radius: 8px;
-  background: color-mix(in srgb, var(--card) 88%, var(--accent, var(--signal-green)) 12%);
+  background: color-mix(in srgb, var(--card-glass) 88%, var(--accent, var(--signal-green)) 12%);
+  box-shadow: var(--box-glow-soft);
 }
 
 .node strong,
@@ -330,13 +351,14 @@ body {
   display: grid;
   place-items: center;
   padding: 0 14px;
-  border: 1px solid var(--accent, var(--signal-green));
+  border: 1px solid color-mix(in srgb, var(--accent, var(--signal-green)) 72%, var(--box-border));
   border-radius: 999px;
-  background: var(--secondary);
+  background: var(--secondary-glass);
   color: var(--muted-foreground);
   font-size: 13px;
   line-height: 1;
   font-weight: 720;
+  box-shadow: var(--box-glow-soft);
 }
 
 .workflow-stack {
@@ -357,12 +379,13 @@ body {
   display: grid;
   align-content: center;
   padding: 8px 12px;
-  border: 1px solid color-mix(in srgb, var(--signal-green) 56%, var(--border));
+  border: 1px solid var(--box-border);
   border-left: 4px solid var(--signal-green);
   border-radius: 8px;
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--signal-green) 12%, transparent), transparent 72%),
-    var(--secondary);
+    var(--secondary-glass);
+  box-shadow: var(--box-glow-soft);
 }
 
 .workflow-run strong,
@@ -406,11 +429,12 @@ body {
   display: grid;
   align-content: center;
   padding: 8px 14px;
-  border: 1px solid color-mix(in srgb, var(--accent, var(--signal-green)) 58%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--accent, var(--signal-green)) 58%, var(--box-border));
   border-radius: 8px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--accent, var(--signal-green)) 10%, transparent), transparent 62%),
-    color-mix(in srgb, var(--card) 86%, var(--accent, var(--signal-green)) 14%);
+    color-mix(in srgb, var(--card-glass) 86%, var(--accent, var(--signal-green)) 14%);
+  box-shadow: var(--box-glow-soft);
 }
 
 .workflow-link {
@@ -472,12 +496,13 @@ body {
   min-width: 0;
   min-height: 150px;
   padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border: 1px solid var(--box-border-soft);
   border-top: 4px solid var(--accent, var(--signal-green));
   border-radius: 8px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--accent, var(--signal-green)) 8%, transparent), transparent 44%),
-    var(--card);
+    var(--card-glass);
+  box-shadow: var(--box-glow);
 }
 
 .core-card h3 {
@@ -505,7 +530,7 @@ body {
   padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--accent, var(--signal-green)) 42%, var(--border));
   border-radius: 999px;
-  background: var(--secondary);
+  background: var(--secondary-glass);
   color: var(--muted-foreground);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -552,17 +577,22 @@ body {
   border-radius: 50% 50% 0 0 / 100% 100% 0 0;
   background:
     radial-gradient(ellipse at 32% 8%, rgba(118, 185, 0, .24), transparent 34%),
-    linear-gradient(90deg, #102522 0 42%, #162914 42% 100%);
+    linear-gradient(90deg, rgba(16, 37, 34, .74) 0 42%, rgba(22, 41, 20, .74) 42% 100%);
   overflow: hidden;
 }
 
 .earth-horizon::before {
   content: "";
   position: absolute;
-  inset: 36px 0 auto 0;
-  height: 1px;
-  background: color-mix(in srgb, var(--signal-green) 48%, transparent);
-  transform: rotate(-2deg);
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 112%, transparent 30%, rgba(14, 165, 164, .22) 30.4%, transparent 31%),
+    radial-gradient(ellipse at 50% 112%, transparent 48%, rgba(90, 191, 101, .18) 48.4%, transparent 49%),
+    radial-gradient(ellipse at 50% 112%, transparent 64%, rgba(14, 165, 164, .14) 64.4%, transparent 65%),
+    radial-gradient(ellipse at 18% 112%, transparent 42%, rgba(14, 165, 164, .12) 42.4%, transparent 43%),
+    radial-gradient(ellipse at 82% 112%, transparent 42%, rgba(14, 165, 164, .12) 42.4%, transparent 43%);
+  opacity: .72;
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, .7), rgba(0, 0, 0, .35) 58%, transparent 96%);
 }
 
 .earth-horizon::after {
@@ -572,7 +602,7 @@ body {
   right: -2%;
   top: 56px;
   height: 70px;
-  background: #162914;
+  background: rgba(22, 41, 20, .72);
   clip-path: polygon(0 64%, 9% 48%, 18% 52%, 28% 34%, 39% 45%, 50% 26%, 61% 42%, 72% 32%, 86% 48%, 100% 38%, 100% 100%, 0 100%);
 }
 
@@ -635,7 +665,8 @@ body {
   border: 1px solid var(--signal-green);
   border-top-width: 4px;
   border-radius: 8px;
-  background: var(--card);
+  background: var(--card-glass);
+  box-shadow: var(--box-glow);
 }
 
 .data-api strong {
@@ -660,9 +691,10 @@ body {
 .source-lane {
   min-width: 0;
   padding: 8px 10px;
-  border: 1px dashed color-mix(in srgb, var(--accent, var(--signal-green)) 42%, var(--border));
+  border: 1px dashed color-mix(in srgb, var(--accent, var(--signal-green)) 56%, var(--box-border));
   border-radius: 8px;
-  background: color-mix(in srgb, var(--muted) 78%, transparent);
+  background: color-mix(in srgb, var(--muted-glass) 78%, transparent);
+  box-shadow: var(--box-glow-soft);
 }
 
 .source-lane strong {
@@ -691,49 +723,64 @@ body {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  margin-bottom: 0;
 }
 
 .model-section {
   min-width: 0;
-  min-height: 190px;
-  padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  min-height: 166px;
+  padding: 11px;
+  border: 1px solid var(--box-border-soft);
   border-top: 4px solid var(--accent);
   border-radius: 8px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 44%),
-    var(--card);
+    var(--card-glass);
+  box-shadow: var(--box-glow);
 }
 
 .model-section h3 {
-  margin: 8px 0 0;
+  margin: 7px 0 0;
   font-size: 18px;
   line-height: 1.15;
 }
 
 .model-section p {
-  height: 31px;
-  margin: 7px 0 0;
+  height: 26px;
+  margin: 5px 0 0;
   color: var(--muted-foreground);
-  font-size: 12px;
-  line-height: 1.38;
+  font-size: 11.5px;
+  line-height: 1.32;
 }
 
 .model-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 9px;
+  gap: 7px;
+  margin-top: 6px;
+}
+
+.model-list .component {
+  padding: 6px 10px;
+}
+
+.model-list .component small {
+  margin-top: 4px;
 }
 
 .footer-axis {
-  margin-top: 15px;
+  position: absolute;
+  left: 48px;
+  right: 48px;
+  bottom: 18px;
+  margin-top: 0;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 16px;
   color: var(--muted-foreground);
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1;
   font-weight: 700;
 }
 
@@ -757,6 +804,18 @@ body {
 .icon ellipse,
 .icon polygon {
   vector-effect: non-scaling-stroke;
+}
+
+.zone,
+.component,
+.node,
+.workflow-run,
+.workflow-step,
+.core-card,
+.data-api,
+.source-lane,
+.model-section {
+  border-radius: var(--radius-card);
 }
 """
 
@@ -933,7 +992,7 @@ def datasource() -> str:
       </div>
       <div class="data-api">
         <strong>Earth2Studio Data API</strong>
-        <small>fetch · cache · consume</small>
+        <small>fetch Â· cache Â· consume</small>
       </div>
     </section>
     <section class="source-lanes">
@@ -989,8 +1048,7 @@ def model_zoo() -> str:
         + f"""
     <section class="model-zoo">
       {cards}
-    </section>
-    <div class="footer-axis">one model interface across forecast, derived-field, and observation-constrained workflows</div>""",
+    </section>""",
     )
 
 
@@ -1057,7 +1115,7 @@ def composability() -> str:
             "Composability",
             "Connect data and models into inference workflows",
             "Start with built-in workflows, compose custom pipelines, or let agents assemble reusable recipes.",
-            "built-in · custom · agent-built",
+            "built-in Â· custom Â· agent-built",
         )
         + f"""
     <section class="workflow-stack">
@@ -1078,7 +1136,6 @@ PAGES = {
     "earth2studio-readme-composability": composability,
 }
 
-
 def find_browser() -> Path:
     for candidate in CHROME_CANDIDATES:
         if candidate.exists():
@@ -1097,6 +1154,7 @@ def export_pngs() -> None:
                 "--headless=new",
                 "--disable-gpu",
                 "--hide-scrollbars",
+                "--default-background-color=00000000",
                 f"--force-device-scale-factor={EXPORT_SCALE}",
                 f"--window-size={W},{H}",
                 f"--screenshot={png_path}",
@@ -1115,7 +1173,6 @@ def write_png_bundle() -> None:
             if png_path.exists():
                 bundle.write(png_path, png_path.name)
 
-
 def write_review() -> None:
     cards = []
     for slug in PAGES:
@@ -1127,22 +1184,38 @@ def write_review() -> None:
       </section>"""
         )
     review_css = """
-    :root { color-scheme: dark; --bg:#0c0f0b; --panel:#10140f; --card:#131711; --text:#f4f7ef; --muted:#a5ae9e; --border:#293024; --green:#76b900; --secondary:#1d241a; }
+    :root { color-scheme: dark; --green:#76b900; --link:#9cff2e; }
+    body[data-preview-theme="dark"] { color-scheme: dark; --bg:#0c0f0b; --panel:#10140f; --card:#131711; --text:#f4f7ef; --muted:#a5ae9e; --border:#293024; --secondary:#1d241a; --preview-bg:#0c0f0b; --preview-grid:rgba(244,247,239,.045); --shadow:rgba(0,0,0,.28); }
+    body[data-preview-theme="light"] { color-scheme: light; --bg:#f4f7ef; --panel:#e8eee0; --card:#ffffff; --text:#10140d; --muted:#53604b; --border:#cdd8c2; --secondary:#e8eee0; --preview-bg:#f4f7ef; --preview-grid:rgba(41,48,36,.12); --shadow:rgba(16,20,13,.16); }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text); font-family: "NVIDIA Sans", Arial, Helvetica, sans-serif; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: "NVIDIA Sans", Arial, Helvetica, sans-serif; transition: background .18s ease, color .18s ease; }
     main { width: min(1660px, calc(100vw - 48px)); margin: 32px auto 56px; }
     h1 { margin: 0 0 8px; font-size: 30px; line-height: 1.1; }
     p { margin: 0 0 26px; color: var(--muted); }
     .top-row { display: flex; align-items: flex-end; gap: 18px; margin: 0 0 26px; }
     .intro { flex: 1; min-width: 0; }
     .intro p { margin: 0; }
+    .controls { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; }
+    .theme-toggle { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--secondary); }
+    .theme-toggle button { min-width: 72px; height: 32px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 700 13px/1 "NVIDIA Sans", Arial, Helvetica, sans-serif; cursor: pointer; }
+    .theme-toggle button[aria-pressed="true"] { background: var(--green); color: #10140d; }
     .download-all { flex: 0 0 auto; padding: 9px 14px; border: 1px solid var(--green); border-radius: 999px; background: var(--secondary); }
-    section { margin: 0 0 28px; padding: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 18px 42px rgba(0,0,0,.28); }
+    section { margin: 0 0 28px; padding: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 18px 42px var(--shadow); }
     header { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
     h2 { flex: 1; margin: 0; font-size: 18px; font-weight: 700; }
-    a { color: #9cff2e; text-decoration: none; font-weight: 700; font-size: 13px; }
-    .viewport { width: 100%; overflow: auto; border-radius: 8px; background: var(--panel); }
-    iframe { width: 1600px; height: 400px; display: block; border: 0; background: var(--panel); }
+    a { color: var(--link); text-decoration: none; font-weight: 700; font-size: 13px; }
+    body[data-preview-theme="light"] a { color: #4f8500; }
+    .viewport {
+      width: 100%;
+      overflow: auto;
+      border-radius: 8px;
+      background-color: var(--preview-bg);
+      background-image:
+        linear-gradient(var(--preview-grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--preview-grid) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    iframe { width: 1600px; height: 400px; display: block; border: 0; background: var(--preview-bg); }
     """
     (OUT_DIR / "review.html").write_text(
         f"""<!doctype html>
@@ -1153,23 +1226,38 @@ def write_review() -> None:
   <title>Earth2Studio README Graphics Review</title>
   <style>{review_css}</style>
 </head>
-<body>
+<body data-preview-theme="dark">
   <main>
     <div class="top-row">
       <div class="intro">
         <h1>Earth2Studio README Graphics</h1>
         <p>CSS-structured 1600x400 artboards based on the NVIDIA docs arch-product-diagram style.</p>
       </div>
-      <a class="download-all" href="./earth2studio-readme-graphics-png.zip?v={ASSET_VERSION}" download="earth2studio-readme-graphics-png.zip">Download PNG bundle</a>
+      <div class="controls">
+        <div class="theme-toggle" role="group" aria-label="Preview theme">
+          <button type="button" data-theme="dark" aria-pressed="true">Dark</button>
+          <button type="button" data-theme="light" aria-pressed="false">Light</button>
+        </div>
+        <a class="download-all" href="./earth2studio-readme-graphics-png.zip?v={ASSET_VERSION}" download="earth2studio-readme-graphics-png.zip">Download PNG bundle</a>
+      </div>
     </div>
 {''.join(cards)}
   </main>
+  <script>
+    const buttons = Array.from(document.querySelectorAll("[data-theme]"));
+    const setTheme = (theme) => {{
+      document.body.dataset.previewTheme = theme;
+      buttons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.theme === theme)));
+      localStorage.setItem("earth2studio-readme-preview-theme", theme);
+    }};
+    buttons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.theme)));
+    setTheme(localStorage.getItem("earth2studio-readme-preview-theme") || "dark");
+  </script>
 </body>
 </html>
 """,
         encoding="utf-8",
     )
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build Earth2Studio README graphics.")
