@@ -140,7 +140,6 @@ In addition to the largest model zoo of weather/climate AI models, Earth2Studio 
 packed with useful functionality such as optimized data access to cloud data stores,
 statistical operations and more to accelerate your pipelines.
 
-
 ### Earth-2 Open Models
 
 Access state of the art Nvidia open models for climate and weather: [Earth-2 Open Models](https://huggingface.co/collections/nvidia/earth-2).
