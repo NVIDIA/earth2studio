@@ -119,6 +119,7 @@ architectures, data sources and SciML tooling while providing a unified API.
 
 <div align="center">
 
+![Earth2Studio model zoo](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/earth2studio-readme-model-zoo.png)
 ![Earth2Studio data sources](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/earth2studio-readme-data-sources.png)
 
 </div>
@@ -139,11 +140,6 @@ In addition to the largest model zoo of weather/climate AI models, Earth2Studio 
 packed with useful functionality such as optimized data access to cloud data stores,
 statistical operations and more to accelerate your pipelines.
 
-<div align="center">
-
-![Earth2Studio model zoo](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/earth2studio-readme-model-zoo.png)
-
-</div>
 
 ### Earth-2 Open Models
 
