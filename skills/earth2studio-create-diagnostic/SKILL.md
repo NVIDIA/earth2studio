@@ -6,11 +6,8 @@ metadata:
   author: NVIDIA Earth-2 Team <agent-skills@nvidia.com>
   tags: [earth2studio, diagnostic-model, python]
 description: >
-  Create Earth2Studio diagnostic (single-step transformation) model wrappers.
-  Use when wrapping models that transform data at a single time point without
-  time integration. Covers deterministic, automodel-based, and generative
-  (diffusion) diagnostics like CorrDiff. Do NOT use for prognostic models,
-  data sources, or installation tasks.
+  Create Earth2Studio diagnostic model wrappers for single-step data
+  transformations (deterministic, automodel, or generative/diffusion).
 argument-hint: URL or local path to reference inference script (optional)
 ---
 
@@ -37,6 +34,20 @@ argument-hint: URL or local path to reference inference script (optional)
 Implement a diagnostic model wrapper connecting third-party ML models to
 Earth2Studio. Diagnostic models transform physical data at a single time point
 (no time integration)—input fields in, output fields out, no time stepping.
+
+## Prerequisites
+
+- Earth2Studio installed via `uv` with dev dependencies (`uv sync --all-extras`)
+- Python 3.10+ environment
+- Reference inference script or model documentation for the target model
+- `uv run` available for executing Python commands
+
+## Limitations
+
+- Only handles single-step transformations (no time stepping)
+- Does not support prognostic/iterative models (use `earth2studio-create-prognostic` instead)
+- Generative model testing requires GPU for realistic validation
+- Real weight integration tests (`@pytest.mark.package`) require network access to NGC/HuggingFace
 
 **Key difference from prognostic models:**
 - NO `create_iterator` method
@@ -68,11 +79,13 @@ Load on demand during the matching step:
 | File | Content | Load at |
 |------|---------|---------|
 | `references/skeleton-template.py` | Full model skeleton with FILL comments | Steps 3–5 |
-| `references/testing-guide.py` | Test skeleton and mock patterns | Step 6 |
+| `scripts/testing-guide.py` | Test skeleton and mock patterns | Step 6 |
 
 ---
 
-## Workflow Steps
+## Instructions
+
+Follow the workflow steps below in order. Each step builds on the previous.
 
 ### Step 0 — Get Reference Script
 

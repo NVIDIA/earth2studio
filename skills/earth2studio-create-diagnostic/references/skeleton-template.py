@@ -256,7 +256,7 @@ class DeterministicDiagnostic(torch.nn.Module, AutoModelMixin):
     # 7. PRIVATE/SUPPORT METHODS
     # =========================================================================
     def _normalize(self, x: torch.Tensor) -> torch.Tensor:
-        """Normalize input tensor."""
+        """Normalize input tensor using single center/scale pair."""
         return (x - self.center) / self.scale
 
     # =========================================================================
@@ -446,11 +446,23 @@ class GenerativeDiagnostic(torch.nn.Module, AutoModelMixin):
 
     # =========================================================================
     # 4. LOAD DEFAULT PACKAGE
+    # (Same pattern as DeterministicDiagnostic but with generative model URL)
     # =========================================================================
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default pre-trained model package."""
-        # TODO: Replace with actual checkpoint URL
+        """Default pre-trained generative model package on NGC.
+
+        Returns
+        -------
+        Package
+            Model package with diffusion/VAE checkpoint files.
+
+        Note
+        ----
+        Generative models typically have larger checkpoints and may include
+        both a regression model and a residual/diffusion model.
+        """
+        # TODO: Replace with actual generative model checkpoint URL
         return Package(
             "ngc://models/nvidia/modulus/generative_model@v1.0",
             cache_options={
@@ -497,11 +509,11 @@ class GenerativeDiagnostic(torch.nn.Module, AutoModelMixin):
     # 7. PRIVATE/SUPPORT METHODS
     # =========================================================================
     def _normalize_input(self, x: torch.Tensor) -> torch.Tensor:
-        """Normalize input tensor."""
+        """Normalize input tensor using separate input center/scale (generative pattern)."""
         return (x - self.in_center) / self.in_scale
 
     def _denormalize_output(self, x: torch.Tensor) -> torch.Tensor:
-        """Denormalize output tensor."""
+        """Denormalize output tensor using separate output center/scale (generative pattern)."""
         return x * self.out_scale + self.out_center
 
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
