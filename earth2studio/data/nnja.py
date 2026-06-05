@@ -889,11 +889,9 @@ def _extract_gpsro_subset(
                 continue
             if cur_bnda_index_for_freq != 1:
                 continue
-            if obs_val <= 0 or cur_impp is None or roc is None or cur_impp < roc:
+            if cur_impp is None or roc is None:
                 continue
             if cur_lat is None or cur_lon is None:
-                continue
-            if not np.isfinite(cur_lat) or cur_lat < -90.0 or cur_lat > 90.0:
                 continue
             pres_val = None
             # GSI carries the raw impact parameter and local radius of curvature
