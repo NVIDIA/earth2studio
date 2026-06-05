@@ -52,7 +52,7 @@ OUT_DIR = ROOT / "outputs" / "earth2studio-readme-graphics-css"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 W, H = 1600, 460
-ASSET_VERSION = "data-horizon-v94"
+ASSET_VERSION = "typography-v96"
 EXPORT_SCALE = 2
 
 # Browser executable names to search on PATH (cross-platform)
@@ -227,14 +227,20 @@ body {
   margin: 7px 0 0;
   max-width: 1040px;
   color: var(--ink-soft);
-  font-size: 17px;
-  line-height: 1.45;
+  font-size: 20px;
+  line-height: 1.34;
+}
+
+.kicker {
+  font-size: 16px;
+  line-height: 1.05;
+  font-weight: 860;
 }
 
 .header-pill {
   display: inline-grid;
-  min-width: 250px;
-  height: 40px;
+  min-width: 270px;
+  height: 44px;
   align-items: center;
   justify-content: center;
   padding: 0 20px;
@@ -242,9 +248,9 @@ body {
   border-radius: 999px;
   background: var(--secondary-glass);
   color: var(--ink-soft);
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1;
-  font-weight: 700;
+  font-weight: 860;
   box-shadow: var(--box-glow-soft);
 }
 
@@ -1464,7 +1470,7 @@ def model_zoo() -> str:
         header(
             "Model zoo",
             "Largest model zoo across the Earth system AI community",
-            "NVIDIA and community models for forecasting, diagnostics, and data simulation.",
+            "NVIDIA and community models for forecasting, diagnostics, and data assimilation.",
             "pre-trained models",
         )
         + f"""
