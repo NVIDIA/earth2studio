@@ -262,7 +262,6 @@ class DeterministicDiagnostic(torch.nn.Module, AutoModelMixin):
     # =========================================================================
     # 8. SINGLE-STEP FORWARD
     # =========================================================================
-    @torch.inference_mode()
     @batch_func()
     def __call__(
         self,
@@ -285,15 +284,16 @@ class DeterministicDiagnostic(torch.nn.Module, AutoModelMixin):
         """
         output_coords = self.output_coords(coords)
 
-        # Move to device
-        device = next(self.parameters()).device
-        x = x.to(device)
+        with torch.no_grad():
+            # Move to device
+            device = next(self.parameters()).device
+            x = x.to(device)
 
-        # Normalize
-        x = self._normalize(x)
+            # Normalize
+            x = self._normalize(x)
 
-        # Run forward pass
-        out = self.core_model(x)
+            # Run forward pass
+            out = self.core_model(x)
 
         return out, output_coords
 
@@ -562,16 +562,17 @@ class GenerativeDiagnostic(torch.nn.Module, AutoModelMixin):
         """
         output_coords = self.output_coords(coords)
 
-        # Allocate output tensor
-        out = torch.zeros(
-            [len(v) for v in output_coords.values()],
-            device=x.device,
-            dtype=torch.float32,
-        )
+        with torch.no_grad():
+            # Allocate output tensor
+            out = torch.zeros(
+                [len(v) for v in output_coords.values()],
+                device=x.device,
+                dtype=torch.float32,
+            )
 
-        # Generate samples for each batch element
-        for i in range(out.shape[0]):
-            out[i] = self._forward(x[i])
+            # Generate samples for each batch element
+            for i in range(out.shape[0]):
+                out[i] = self._forward(x[i])
 
         return out, output_coords
 
@@ -617,7 +618,6 @@ class SimpleDiagnostic(torch.nn.Module):
         output_coords["variable"] = np.array(["ws10m"])  # Wind speed
         return output_coords
 
-    @torch.inference_mode()
     @batch_func()
     def __call__(
         self,
@@ -627,9 +627,10 @@ class SimpleDiagnostic(torch.nn.Module):
         """Compute wind speed from u/v components."""
         output_coords = self.output_coords(coords)
 
-        # x shape: (batch, 2, lat, lon) where variable=["u10m", "v10m"]
-        u = x[:, 0:1, :, :]
-        v = x[:, 1:2, :, :]
-        ws = torch.sqrt(u**2 + v**2)
+        with torch.no_grad():
+            # x shape: (batch, 2, lat, lon) where variable=["u10m", "v10m"]
+            u = x[:, 0:1, :, :]
+            v = x[:, 1:2, :, :]
+            ws = torch.sqrt(u**2 + v**2)
 
         return ws, output_coords

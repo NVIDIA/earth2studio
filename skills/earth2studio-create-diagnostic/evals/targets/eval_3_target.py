@@ -282,15 +282,16 @@ class SuperResolution(torch.nn.Module, AutoModelMixin):
         """
         output_coords = self.output_coords(coords)
 
-        # Allocate output tensor
-        out = torch.zeros(
-            [len(v) for v in output_coords.values()],
-            device=x.device,
-            dtype=torch.float32,
-        )
+        with torch.no_grad():
+            # Allocate output tensor
+            out = torch.zeros(
+                [len(v) for v in output_coords.values()],
+                device=x.device,
+                dtype=torch.float32,
+            )
 
-        # Generate samples for each batch element
-        for i in range(out.shape[0]):
-            out[i] = self._forward(x[i])
+            # Generate samples for each batch element
+            for i in range(out.shape[0]):
+                out[i] = self._forward(x[i])
 
         return out, output_coords

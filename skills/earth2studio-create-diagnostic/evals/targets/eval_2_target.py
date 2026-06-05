@@ -161,7 +161,6 @@ class PrecipEstimator(torch.nn.Module, AutoModelMixin):
 
         return cls(core_model, center=center, scale=scale)
 
-    @torch.inference_mode()
     @batch_func()
     def __call__(
         self,
@@ -184,14 +183,15 @@ class PrecipEstimator(torch.nn.Module, AutoModelMixin):
         """
         output_coords = self.output_coords(coords)
 
-        # Move to device
-        device = next(self.parameters()).device
-        x = x.to(device)
+        with torch.no_grad():
+            # Move to device
+            device = next(self.parameters()).device
+            x = x.to(device)
 
-        # Normalize
-        x = (x - self.center) / self.scale
+            # Normalize
+            x = (x - self.center) / self.scale
 
-        # Forward pass
-        out = self.core_model(x)
+            # Forward pass
+            out = self.core_model(x)
 
         return out, output_coords

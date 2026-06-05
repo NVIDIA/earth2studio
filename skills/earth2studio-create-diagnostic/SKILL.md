@@ -36,21 +36,20 @@ argument-hint: URL or local path to reference inference script (optional)
 
 Implement a diagnostic model wrapper connecting third-party ML models to
 Earth2Studio. Diagnostic models transform physical data at a single time point
-(no time integration)—they take input fields and produce output fields without
-stepping through time.
+(no time integration)—input fields in, output fields out, no time stepping.
 
 **Key difference from prognostic models:**
-- NO `create_iterator` method (diagnostics don't time-integrate)
-- NO `PrognosticMixin` (not needed without iterator hooks)
-- NO `lead_time` coordinate (single point-in-time transformation)
+- NO `create_iterator` method
+- NO `PrognosticMixin`
+- NO `lead_time` coordinate
 
 ## Diagnostic Model Types
 
-| Type | Description | Inheritance | Example |
-|------|-------------|-------------|---------|
-| **Simple** | Basic transformation, no AutoModel | `torch.nn.Module` only | `Identity` |
-| **AutoModel** | Loads from package (NGC/HuggingFace) | `torch.nn.Module + AutoModelMixin` | `PrecipitationAFNO` |
-| **Generative** | Produces samples (diffusion, VAE) | `torch.nn.Module + AutoModelMixin` | `CorrDiff` |
+| Type | Inheritance | Example |
+|------|-------------|---------|
+| **Simple** | `torch.nn.Module` only | `Identity` |
+| **AutoModel** | `torch.nn.Module + AutoModelMixin` | `PrecipitationAFNO` |
+| **Generative** | `torch.nn.Module + AutoModelMixin` | `CorrDiff` |
 
 ## Workspace
 
@@ -82,14 +81,7 @@ If `$ARGUMENTS` provided, use it. Otherwise ask:
 
 ### Step 1 — Analyze & Classify Model Type
 
-Analyze the reference script to determine:
-- **Model type**: Simple, AutoModel, or Generative
-- **Input/output variables**: What fields are consumed and produced
-- **Grid resolution**: Lat/lon dimensions
-- **Dependencies**: Required packages (e.g., `physicsnemo` for CorrDiff)
-- **Normalization**: Center/scale parameters
-
-**Classification criteria:**
+Analyze: input/output variables, grid resolution, dependencies, normalization.
 
 | If the model... | Then use... |
 |-----------------|-------------|
@@ -99,7 +91,7 @@ Analyze the reference script to determine:
 
 ### Step 2 — Propose Dependencies (if needed)
 
-For AutoModel and Generative types, propose `pyproject.toml` group:
+Propose `pyproject.toml` group (alphabetical):
 ```toml
 model-name = ["package1>=version", "package2"]
 ```
@@ -110,33 +102,15 @@ model-name = ["package1>=version", "package2"]
 
 **File:** `earth2studio/models/dx/<lowercase>.py`
 
-**Required inheritance by type:**
-
-```python
-# Simple (no checkpoint loading)
-class ModelName(torch.nn.Module):
-
-# AutoModel (loads from package)
-class ModelName(torch.nn.Module, AutoModelMixin):
-
-# Generative (diffusion models with samples)
-class ModelName(torch.nn.Module, AutoModelMixin):
-```
-
-**Note:** Diagnostic models do NOT inherit from `PrognosticMixin`.
-
 **Required imports:**
 ```python
 from collections import OrderedDict
-
 import numpy as np
 import torch
-
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.imports import check_optional_dependencies
 from earth2studio.utils.type import CoordSystem
 ```
 
@@ -147,63 +121,24 @@ from earth2studio.utils.type import CoordSystem
 ```
 
 **Canonical method order:**
-1. `__init__` — constructor
-2. `input_coords` — input coordinate system
-3. `output_coords` — output coordinate system (@batch_coords)
-4. `load_default_package` — classmethod returning default Package (AutoModel only)
-5. `load_model` — classmethod loading model from package (AutoModel only)
-6. `to` — device management (optional)
-7. Private methods (e.g., `_normalize`, `_forward`)
-8. `__call__` — single-step forward (@batch_func)
+1. `__init__` 2. `input_coords` 3. `output_coords` (@batch_coords)
+4. `load_default_package` 5. `load_model` 6. `to` (optional)
+7. Private methods 8. `__call__` (@batch_func)
 
 ### Step 4 — Implement Coordinates
 
 **input_coords rules:**
 - `batch`: `np.empty(0)` — MUST be first
 - `variable`: Input variable names (map to `E2STUDIO_VOCAB`)
-- `lat`: 90 to -90 (north to south) for global grids
-- `lon`: 0 to 360 (typically)
+- `lat`: 90 to -90 (north to south)
+- `lon`: 0 to 360
 - NO `lead_time` dimension (unlike prognostic models)
 
 **output_coords:** Use `handshake_dim`/`handshake_coords`, update `variable`.
 
+For Generative models, add `sample` dimension:
 ```python
-def input_coords(self) -> CoordSystem:
-    return OrderedDict({
-        "batch": np.empty(0),
-        "variable": np.array(INPUT_VARIABLES),
-        "lat": np.linspace(90, -90, 720, endpoint=False),
-        "lon": np.linspace(0, 360, 1440, endpoint=False),
-    })
-
-@batch_coords()
-def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-    target = self.input_coords()
-    handshake_dim(input_coords, "variable", 1)
-    handshake_dim(input_coords, "lat", 2)
-    handshake_dim(input_coords, "lon", 3)
-    handshake_coords(input_coords, target, "variable")
-    handshake_coords(input_coords, target, "lat")
-    handshake_coords(input_coords, target, "lon")
-
-    output_coords = input_coords.copy()
-    output_coords["variable"] = np.array(OUTPUT_VARIABLES)
-    return output_coords
-```
-
-**For Generative models with samples:**
-```python
-@batch_coords()
-def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-    # ... handshake validation ...
-    output_coords = OrderedDict({
-        "batch": input_coords["batch"],
-        "sample": np.arange(self.number_of_samples),  # NEW: sample dimension
-        "variable": np.array(OUTPUT_VARIABLES),
-        "lat": self.lat_output,
-        "lon": self.lon_output,
-    })
-    return output_coords
+"sample": np.arange(self.number_of_samples),
 ```
 
 ### Step 5 — Implement Forward Pass
@@ -211,84 +146,24 @@ def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
 **`__call__`:** @batch_func decorated, single transformation.
 
 ```python
-@torch.inference_mode()
 @batch_func()
-def __call__(
-    self,
-    x: torch.Tensor,
-    coords: CoordSystem,
-) -> tuple[torch.Tensor, CoordSystem]:
-    """Forward pass of diagnostic model."""
+def __call__(self, x, coords):
     output_coords = self.output_coords(coords)
-
-    # Move to device
-    device = next(self.parameters()).device
-    x = x.to(device)
-
-    # Normalize → forward → denormalize
-    x = self._normalize(x)
-    out = self.core_model(x)
-    out = self._denormalize(out)
-
+    with torch.no_grad():
+        x = (x - self.center) / self.scale
+        out = self.core_model(x)
     return out, output_coords
 ```
 
-**For Generative models (CorrDiff pattern):**
-```python
-@batch_func()
-def __call__(
-    self,
-    x: torch.Tensor,
-    coords: CoordSystem,
-) -> tuple[torch.Tensor, CoordSystem]:
-    output_coords = self.output_coords(coords)
-
-    # Generate samples
-    out = torch.zeros(
-        [len(v) for v in output_coords.values()],
-        device=x.device,
-        dtype=torch.float32,
-    )
-
-    for i in range(out.shape[0]):  # batch
-        out[i] = self._forward(x[i])  # produces [samples, var, lat, lon]
-
-    return out, output_coords
-```
+**Generative pattern:** Loop over batch, generate samples per item.
 
 ### Step 6 — Implement Model Loading (AutoModel only)
 
 **`load_default_package`:** Lock HuggingFace/NGC URLs.
 
-```python
-@classmethod
-def load_default_package(cls) -> Package:
-    return Package(
-        "ngc://models/org/model@version",
-        cache_options={
-            "cache_storage": Package.default_cache("model_name"),
-            "same_names": True,
-        },
-    )
-```
-
-**`load_model`:** Use `package.resolve()`, `map_location="cpu"`, `eval()` mode.
-
-```python
-@classmethod
-@check_optional_dependencies()
-def load_model(cls, package: Package) -> DiagnosticModel:
-    checkpoint_path = package.resolve("model.pt")
-    core_model = torch.load(checkpoint_path, map_location="cpu")
-    core_model.eval()
-    core_model.requires_grad_(False)
-
-    # Load normalization
-    center = torch.from_numpy(np.load(package.resolve("center.npy")))
-    scale = torch.from_numpy(np.load(package.resolve("scale.npy")))
-
-    return cls(core_model, center=center, scale=scale)
-```
+**`load_model`:** Use `package.resolve()`, `map_location="cpu"`, `eval()` mode,
+decorate with `@check_optional_dependencies()`.
+Use `weights_only=False` in `torch.load`.
 
 ### Step 7 — Write Tests
 
@@ -301,11 +176,7 @@ def load_model(cls, package: Package) -> DiagnosticModel:
 | `test_<model>_exceptions` | Invalid coords raise errors |
 | `test_<model>_package` | Real weights (`@pytest.mark.package`) |
 
-**For Generative models, add:**
-| Function | Purpose |
-|----------|---------|
-| `test_<model>_samples` | Correct number of samples produced |
-| `test_<model>_deterministic_seed` | Reproducibility with seed |
+For Generative, add: `test_<model>_samples`, `test_<model>_deterministic_seed`.
 
 Create `Phoo<ModelName>` dummy matching interface for mock tests.
 
@@ -379,7 +250,7 @@ Agent: [reads SKILL.md, classifies as Generative, creates sr_diffusion.py
 
 ## Key Patterns
 
-### Deterministic Diagnostic Template
+### Deterministic Diagnostic
 ```python
 class MyDiagnostic(torch.nn.Module, AutoModelMixin):
     def __init__(self, core_model, center, scale):
@@ -403,32 +274,29 @@ class MyDiagnostic(torch.nn.Module, AutoModelMixin):
         handshake_dim(input_coords, "lat", 2)
         handshake_dim(input_coords, "lon", 3)
         handshake_coords(input_coords, target, "variable")
-
         output_coords = input_coords.copy()
         output_coords["variable"] = np.array(OUTPUT_VARS)
         return output_coords
 
-    @torch.inference_mode()
     @batch_func()
     def __call__(self, x, coords):
         output_coords = self.output_coords(coords)
-        x = (x - self.center) / self.scale
-        out = self.core_model(x)
+        with torch.no_grad():
+            x = (x - self.center) / self.scale
+            out = self.core_model(x)
         return out, output_coords
 ```
 
-### Generative Diagnostic Template (CorrDiff pattern)
+### Generative Diagnostic (CorrDiff pattern)
 ```python
 class MyGenerative(torch.nn.Module, AutoModelMixin):
     def __init__(self, ..., number_of_samples=1, seed=None):
         super().__init__()
         self.number_of_samples = number_of_samples
         self.seed = seed
-        # ... register models and buffers
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        # ... validation ...
         return OrderedDict({
             "batch": input_coords["batch"],
             "sample": np.arange(self.number_of_samples),
@@ -440,18 +308,11 @@ class MyGenerative(torch.nn.Module, AutoModelMixin):
     @batch_func()
     def __call__(self, x, coords):
         output_coords = self.output_coords(coords)
-        out = torch.zeros([len(v) for v in output_coords.values()], ...)
-
-        for batch_idx in range(out.shape[0]):
-            out[batch_idx] = self._forward(x[batch_idx])
-
+        with torch.no_grad():
+            out = torch.zeros([len(v) for v in output_coords.values()], ...)
+            for batch_idx in range(out.shape[0]):
+                out[batch_idx] = self._forward(x[batch_idx])
         return out, output_coords
-
-    def _forward(self, x):
-        # Generate number_of_samples using diffusion/VAE
-        samples = torch.concat([self._generate_sample(x, i)
-                                for i in range(self.number_of_samples)], dim=0)
-        return samples
 ```
 
 ---

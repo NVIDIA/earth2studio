@@ -95,7 +95,6 @@ class WindSpeed(torch.nn.Module):
         output_coords["variable"] = np.array(OUTPUT_VARIABLES)
         return output_coords
 
-    @torch.inference_mode()
     @batch_func()
     def __call__(
         self,
@@ -119,12 +118,13 @@ class WindSpeed(torch.nn.Module):
         """
         output_coords = self.output_coords(coords)
 
-        # Extract u and v components
-        # x shape: (batch, 2, lat, lon) where variable=["u10m", "v10m"]
-        u = x[:, 0:1, :, :]
-        v = x[:, 1:2, :, :]
+        with torch.no_grad():
+            # Extract u and v components
+            # x shape: (batch, 2, lat, lon) where variable=["u10m", "v10m"]
+            u = x[:, 0:1, :, :]
+            v = x[:, 1:2, :, :]
 
-        # Compute wind speed
-        ws = torch.sqrt(u**2 + v**2)
+            # Compute wind speed
+            ws = torch.sqrt(u**2 + v**2)
 
         return ws, output_coords
