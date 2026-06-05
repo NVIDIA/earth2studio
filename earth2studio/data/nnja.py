@@ -826,13 +826,10 @@ def _extract_gpsro_subset(
     for d, v in zip(descs, vals):
         did = d.id
         if did == _GPSRO_BNDA:
-            # Count even missing BNDA so a dropped obs can't shift the
-            # following error field into the observation slot (see selection
-            # of index 1 below).
+            # Count slots, not values: BNDA #1 is obs, BNDA #2 is error.
             cur_bnda_index_for_freq += 1
         if v is None:
-            # Missing per-level fields clear state; otherwise later rows could
-            # inherit coordinates or level metadata from the previous block.
+            # Missing per-level fields must not leak state to later rows.
             if did == _GPSRO_LAT:
                 cur_lat = None
             elif did == _GPSRO_LON:
@@ -880,11 +877,10 @@ def _extract_gpsro_subset(
 
         var_name = wanted_descrs[did]
         if did == _GPSRO_BNDA:
-            # ROSEQ1 gives one bending angle per frequency, laid out as
-            # MEFR -> IMPP -> BNDA(obs) -> BNDA(error). We pick the
-            # ionosphere-corrected angle (MEFR == 0), not the raw L1/L2
-            # channel values. Of the two BNDA per frequency, only the
-            # first (after IMPP) is the observation.
+            # Each frequency block is laid out as MEFR -> IMPP ->
+            # BNDA(obs) -> BNDA(error). We pick the ionosphere-corrected
+            # angle (MEFR == 0), not the raw L1/L2 channel values. Of the
+            # two BNDA per frequency, only the first is the observation.
             if cur_freq is None or round(cur_freq) != 0:
                 continue
             if cur_bnda_index_for_freq != 1:
@@ -894,8 +890,7 @@ def _extract_gpsro_subset(
             if cur_lat is None or cur_lon is None:
                 continue
             pres_val = None
-            # GSI carries the raw impact parameter and local radius of curvature
-            # separately, then uses impact - roc as impact height downstream.
+            # Impact height is impact parameter minus local radius of curvature.
             elev_val = np.float32(cur_impp - roc)
             row_lat = cur_lat
             row_lon = cur_lon
@@ -912,8 +907,8 @@ def _extract_gpsro_subset(
                 "lon": np.float32(float(row_lon) % 360.0),
                 "pres": pres_val,
                 "elev": elev_val,
-                # For GPSRO, ``type`` intentionally follows GSI/UFS diagnostics:
-                # it is SAID (receiver satellite id), not a PrepBUFR report type.
+                # GPSRO has no conventional TYP; use receiver SAID in this
+                # shared numeric type column.
                 "type": np.uint16(int(sat_id)) if sat_id is not None else None,
                 "class": "GPSRO",
                 "station": station_id,
@@ -1461,7 +1456,6 @@ class NNJAObsConv(_NNJAObsBase):
         df = self._finalize_decoded_df(
             all_rows, task.var_plan, convert_pres_mb_to_pa=True
         )
-
         if (
             self._source == "prepbufr.acft_profiles"
             and self._map_acft_profile_report_types
