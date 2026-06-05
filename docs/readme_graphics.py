@@ -1217,7 +1217,7 @@ def datasource() -> str:
       </div>
       <div class="data-api">
         <strong>Earth2Studio Data API</strong>
-        <small>fetch Ã‚Â· cache Ã‚Â· consume</small>
+        <small>fetch · cache · consume</small>
       </div>
     </section>
     <section class="source-lanes">
