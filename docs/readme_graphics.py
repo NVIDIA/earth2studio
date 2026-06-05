@@ -51,8 +51,8 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "outputs" / "earth2studio-readme-graphics-css"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-W, H = 1600, 400
-ASSET_VERSION = "green-blue-v89"
+W, H = 1600, 460
+ASSET_VERSION = "quickstart-subtitle-v92"
 EXPORT_SCALE = 2
 
 # Browser executable names to search on PATH (cross-platform)
@@ -150,7 +150,7 @@ CSS = r"""
 html,
 body {
   width: 1600px;
-  height: 400px;
+  height: 460px;
   margin: 0;
   overflow: hidden;
   background: transparent;
@@ -164,7 +164,7 @@ body {
   height: calc(100% - 8px);
   margin: 4px;
   overflow: hidden;
-  padding: 26px 44px;
+  padding: 30px 44px;
   background:
     radial-gradient(circle at 0% 0%, rgba(14, 165, 164, .32), rgba(91, 191, 121, .22) 22%, transparent 48%),
     radial-gradient(circle at 22% 8%, rgba(118, 185, 0, .16), transparent 38%),
@@ -198,8 +198,8 @@ body {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   column-gap: 32px;
-  margin-bottom: 16px;
-  padding-bottom: 10px;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
 }
 
@@ -209,7 +209,7 @@ body {
 .lane-label {
   color: var(--signal-green);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.1;
   font-weight: 820;
   letter-spacing: 0;
@@ -218,23 +218,23 @@ body {
 
 .graphic-title {
   margin: 7px 0 0;
-  font-size: 32px;
+  font-size: 38px;
   line-height: 1.04;
   font-weight: 800;
 }
 
 .graphic-subtitle {
   margin: 7px 0 0;
-  max-width: 760px;
+  max-width: 1040px;
   color: var(--ink-soft);
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.45;
 }
 
 .header-pill {
   display: inline-grid;
   min-width: 250px;
-  height: 36px;
+  height: 40px;
   align-items: center;
   justify-content: center;
   padding: 0 20px;
@@ -242,7 +242,7 @@ body {
   border-radius: 999px;
   background: var(--secondary-glass);
   color: var(--ink-soft);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1;
   font-weight: 700;
   box-shadow: var(--box-glow-soft);
@@ -260,8 +260,8 @@ body {
 
 .zone {
   min-width: 0;
-  min-height: 168px;
-  padding: 14px;
+  min-height: 184px;
+  padding: 16px;
   border: 1px solid var(--box-border-soft);
   border-top: 4px solid var(--accent, var(--signal-green));
   border-radius: 8px;
@@ -274,7 +274,7 @@ body {
 .zone h3 {
   margin: 9px 0 0;
   color: var(--foreground);
-  font-size: 18px;
+  font-size: 21px;
   line-height: 1.15;
   font-weight: 760;
 }
@@ -282,7 +282,7 @@ body {
 .zone p {
   margin: 8px 0 0;
   color: var(--muted-foreground);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.35;
 }
 
@@ -296,7 +296,7 @@ body {
 
 .component {
   min-width: 0;
-  padding: 9px 10px;
+  padding: 10px 12px;
   border: 1px solid var(--box-border-soft);
   border-radius: 8px;
   background: var(--muted-glass);
@@ -313,7 +313,7 @@ body {
 
 .component strong {
   color: var(--foreground);
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.25;
   font-weight: 740;
 }
@@ -321,7 +321,7 @@ body {
 .component small {
   margin-top: 5px;
   color: var(--muted-foreground);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.25;
   font-weight: 620;
 }
@@ -343,7 +343,7 @@ body {
   border-radius: 999px;
   background: var(--secondary-glass);
   color: var(--muted-foreground);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1;
   font-weight: 720;
   box-shadow: var(--box-glow-soft);
@@ -388,7 +388,7 @@ body {
 }
 
 .node strong {
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.15;
   font-weight: 780;
 }
@@ -396,7 +396,7 @@ body {
 .node small {
   margin-top: 6px;
   color: var(--muted-foreground);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -436,7 +436,7 @@ body {
 }
 
 .workflow-run {
-  height: 55px;
+  height: 64px;
   display: grid;
   align-content: center;
   padding: 8px 12px;
@@ -462,7 +462,7 @@ body {
 .workflow-run strong {
   color: var(--foreground);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.1;
   font-weight: 820;
 }
@@ -470,7 +470,7 @@ body {
 .workflow-run small {
   margin-top: 5px;
   color: var(--muted-foreground);
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 1.1;
   font-weight: 650;
 }
@@ -485,7 +485,7 @@ body {
 .workflow-step {
   position: relative;
   min-width: 0;
-  height: 55px;
+  height: 64px;
   flex: 1 1 0;
   display: grid;
   align-content: center;
@@ -520,7 +520,7 @@ body {
 
 .workflow-step strong {
   color: var(--foreground);
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.15;
   font-weight: 800;
 }
@@ -528,7 +528,7 @@ body {
 .workflow-step small {
   margin-top: 5px;
   color: var(--muted-foreground);
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 1.15;
   font-weight: 650;
 }
@@ -555,8 +555,8 @@ body {
 
 .core-card {
   min-width: 0;
-  min-height: 150px;
-  padding: 14px;
+  min-height: 168px;
+  padding: 16px;
   border: 1px solid var(--box-border-soft);
   border-top: 4px solid var(--accent, var(--signal-green));
   border-radius: 8px;
@@ -569,7 +569,7 @@ body {
 .core-card h3 {
   margin: 9px 0 0;
   color: var(--foreground);
-  font-size: 18px;
+  font-size: 22px;
   line-height: 1.08;
   font-weight: 800;
 }
@@ -578,7 +578,7 @@ body {
   margin: 8px 0 0;
   min-height: 30px;
   color: var(--muted-foreground);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.38;
   font-weight: 650;
 }
@@ -594,7 +594,7 @@ body {
   background: var(--secondary-glass);
   color: var(--muted-foreground);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
   font-weight: 760;
   white-space: nowrap;
@@ -627,7 +627,7 @@ body {
   grid-template-columns: 1fr 52px 1fr 52px 1fr 34px 280px;
   gap: 14px;
   align-items: stretch;
-  margin-top: 12px;
+  margin-top: 18px;
 }
 
 .quick-spacer {
@@ -637,7 +637,7 @@ body {
 .quick-node,
 .quick-video {
   min-width: 0;
-  min-height: 186px;
+  min-height: 220px;
   border: 1px solid color-mix(in srgb, var(--accent, var(--signal-green)) 68%, var(--box-border));
   border-top: 4px solid var(--accent, var(--signal-green));
   border-radius: var(--radius-card);
@@ -649,15 +649,15 @@ body {
 
 .quick-node {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 86px minmax(0, 1fr);
   gap: 16px;
   align-items: center;
-  padding: 19px;
+  padding: 22px;
 }
 
 .quick-node .icon {
-  width: 82px;
-  height: 82px;
+  width: 78px;
+  height: 78px;
   color: var(--accent, var(--signal-green));
   filter: drop-shadow(0 8px 18px color-mix(in srgb, var(--accent, var(--signal-green)) 30%, transparent));
 }
@@ -669,17 +669,21 @@ body {
 .quick-copy h3 {
   margin: 9px 0 0;
   color: var(--foreground);
-  font-size: 27px;
-  line-height: 1.04;
+  font-size: 28px;
+  line-height: 1.06;
   font-weight: 820;
+  white-space: nowrap;
 }
 
 .quick-copy p {
   margin: 8px 0 0;
   color: var(--muted-foreground);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.35;
   font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .quick-chip {
@@ -693,7 +697,7 @@ body {
   background: var(--secondary-glass);
   color: var(--muted-foreground);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 1;
   font-weight: 780;
   white-space: nowrap;
@@ -723,7 +727,7 @@ body {
   display: grid;
   align-content: center;
   justify-items: start;
-  padding: 20px;
+  padding: 22px;
   border-color: color-mix(in srgb, var(--signal-green) 48%, var(--box-border));
   border-top-color: color-mix(in srgb, var(--signal-green) 58%, var(--box-border));
   background:
@@ -735,17 +739,17 @@ body {
 .play-lockup {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 13px;
   color: var(--ink-soft);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 820;
   text-transform: uppercase;
 }
 
 .play-button {
-  width: 44px;
-  height: 44px;
+  width: 50px;
+  height: 50px;
   display: grid;
   place-items: center;
   border: 1px solid color-mix(in srgb, var(--signal-green) 54%, var(--box-border));
@@ -755,8 +759,8 @@ body {
 }
 
 .play-button svg {
-  width: 20px;
-  height: 20px;
+  width: 23px;
+  height: 23px;
   margin-left: 2px;
 }
 
@@ -764,7 +768,7 @@ body {
   display: block;
   margin-top: 18px;
   color: var(--foreground);
-  font-size: 23px;
+  font-size: 27px;
   line-height: 1.08;
   font-weight: 840;
 }
@@ -773,7 +777,7 @@ body {
   display: block;
   margin-top: 10px;
   color: var(--muted-foreground);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.35;
   font-weight: 650;
 }
@@ -796,7 +800,7 @@ body {
 
 .observing-system {
   position: relative;
-  height: 154px;
+  height: 184px;
   margin-top: -5px;
 }
 
@@ -844,7 +848,7 @@ body {
   inset: 6px 0 0;
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
-  grid-template-rows: 70px 78px;
+  grid-template-rows: 78px 92px;
   gap: 8px 10px;
 }
 
@@ -866,7 +870,7 @@ body {
   margin-top: 1px;
   color: var(--accent, var(--signal-green));
   text-align: center;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.15;
 }
 
@@ -875,7 +879,7 @@ body {
   margin-top: 2px;
   color: var(--muted-foreground);
   text-align: center;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.2;
   font-weight: 650;
 }
@@ -903,14 +907,14 @@ body {
 }
 
 .data-api strong {
-  font-size: 17px;
+  font-size: 20px;
   line-height: 1.1;
 }
 
 .data-api small {
   margin-top: 5px;
   color: var(--muted-foreground);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -923,7 +927,7 @@ body {
 
 .source-lane {
   min-width: 0;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border: 1px dashed color-mix(in srgb, var(--accent, var(--signal-green)) 56%, var(--box-border));
   border-radius: 8px;
   background: color-mix(in srgb, var(--muted-glass) 78%, transparent);
@@ -935,7 +939,7 @@ body {
   margin-top: 5px;
   overflow: hidden;
   color: var(--foreground);
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.1;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -946,7 +950,7 @@ body {
   margin-top: 4px;
   overflow: hidden;
   color: var(--muted-foreground);
-  font-size: 9.5px;
+  font-size: 11px;
   line-height: 1.25;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -961,8 +965,8 @@ body {
 
 .model-section {
   min-width: 0;
-  min-height: 166px;
-  padding: 11px;
+  min-height: 198px;
+  padding: 14px;
   border: 1px solid var(--box-border-soft);
   border-top: 4px solid var(--accent);
   border-radius: 8px;
@@ -974,27 +978,27 @@ body {
 
 .model-section h3 {
   margin: 7px 0 0;
-  font-size: 18px;
+  font-size: 22px;
   line-height: 1.15;
 }
 
 .model-section p {
-  height: 26px;
+  height: 36px;
   margin: 5px 0 0;
   color: var(--muted-foreground);
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.32;
 }
 
 .model-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
-  margin-top: 6px;
+  gap: 9px;
+  margin-top: 8px;
 }
 
 .model-list .component {
-  padding: 6px 10px;
+  padding: 9px 12px;
 }
 
 .model-list .component small {
@@ -1012,7 +1016,7 @@ body {
   align-items: center;
   gap: 16px;
   color: var(--muted-foreground);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1;
   font-weight: 700;
 }
@@ -1148,7 +1152,7 @@ def hero() -> str:
         ),
         (
             "Data",
-            "AI-ready remote data sources",
+            "AI-ready data sources",
             "PyData-native loaders for weather, climate, and observations.",
             "phase: fetch",
         ),
@@ -1667,7 +1671,7 @@ def write_review() -> None:
         linear-gradient(90deg, var(--preview-grid) 1px, transparent 1px);
       background-size: 40px 40px;
     }
-    iframe { width: 1600px; height: 400px; display: block; border: 0; background: var(--preview-bg); }
+    iframe { width: 1600px; height: 460px; display: block; border: 0; background: var(--preview-bg); }
     """
     (OUT_DIR / "review.html").write_text(
         f"""<!doctype html>
@@ -1683,7 +1687,7 @@ def write_review() -> None:
     <div class="top-row">
       <div class="intro">
         <h1>Earth2Studio README Graphics</h1>
-        <p>CSS-structured 1600x400 artboards based on the NVIDIA docs arch-product-diagram style.</p>
+        <p>CSS-structured 1600x460 artboards based on the NVIDIA docs arch-product-diagram style.</p>
       </div>
       <div class="controls">
         <div class="theme-toggle" role="group" aria-label="Preview theme">
@@ -1729,7 +1733,7 @@ def main() -> None:
     manifest = {
         "project": "Earth2Studio README graphics",
         "createdAt": datetime.now(timezone.utc).isoformat(),
-        "dimensions": {"width": W, "height": H, "aspectRatio": "16:4"},
+        "dimensions": {"width": W, "height": H, "aspectRatio": "1600:460"},
         "pngExportScale": EXPORT_SCALE,
         "pngDimensions": {"width": W * EXPORT_SCALE, "height": H * EXPORT_SCALE},
         "source": "CSS structured HTML artboards",
