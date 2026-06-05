@@ -12,12 +12,6 @@ RUN apt-get -o Acquire::Retries=3 update && \
     make \
     ripgrep
 
-# Install eccodes
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libeccodes-tools \
-    libeccodes-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 ENV UV_LINK_MODE=copy
 ENV UV_PYTHON=3.13
 # NV-ACES default repo location

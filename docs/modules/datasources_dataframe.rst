@@ -22,6 +22,7 @@ Data sources that provide tabular data as DataFrames.
 
       data.GHCNDaily
       data.GOESGLM
+      data.IBTrACS
       data.ISD
       data.JPSS_ATMS
       data.JPSS_CRIS

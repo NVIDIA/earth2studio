@@ -234,6 +234,9 @@ gh pr create \
 
 ### PR body template
 
+**You MUST include all sections below.** The PR body is the primary record of
+data licensing and dependency changes for legal review.
+
 ````markdown
 ## Description
 
@@ -246,18 +249,21 @@ Add `<ClassName>` <source_type> for <brief description>.
 | **Source type** | DataSource / ForecastSource / DataFrameSource / ForecastFrameSource |
 | **Remote store** | <URL> |
 | **Format** | GRIB2 / NetCDF / Zarr / etc. |
-| **Spatial resolution** | X deg x Y deg |
+| **Spatial resolution** | X deg x Y deg (or "Point observations" for sparse) |
 | **Temporal resolution** | Hourly / 6-hourly / daily |
 | **Date range** | YYYY-MM-DD to present |
 | **Authentication** | Anonymous / API key |
 
 ### Data licensing
 
-> **License**: <Name>
-> **URL**: <Link>
+> **License**: <Name> (e.g., Public Domain, CC-BY-4.0, Apache-2.0)
+> **URL**: <Link to license or data policy page>
+>
 > <Brief summary of permissions/restrictions>
 
 ### Dependencies added
+
+<!-- If no new dependencies, write: "No new dependencies required. Uses existing `<pkg1>` and `<pkg2>`." -->
 
 | Package | Version | License | License URL | Reason |
 |---|---|---|---|---|
@@ -273,15 +279,25 @@ Add `<ClassName>` <source_type> for <brief description>.
 
 ### Post sanity-check as PR comment
 
-Write comment body to temp file, then post:
+Post immediately after creating PR (before Greptile review). Use `gh pr comment`:
 
 ```bash
-gh api -X POST repos/NVIDIA/earth2studio/issues/<PR_NUMBER>/comments \
-  -F "body=@/tmp/pr_comment_body.md" --jq '.html_url'
+gh pr comment <PR_NUMBER> --repo NVIDIA/earth2studio --body "..."
 ```
 
-Include validation table, key findings, full script in `<details>` block, and
-placeholder for image (user must drag-and-drop in browser).
+**Required content:**
+
+1. **Variable coverage table** — name, obs count, value range, unit
+2. **Data validation summary** — regions/stations, time range, key statistics
+3. **Key findings** — physically reasonable values, unit conversions verified
+4. **Full validation script** in `<details>` block
+5. **Image placeholder** for user to drag-and-drop:
+
+```markdown
+### Sanity-Check Plot
+
+<!-- Drag and drop sanity-check image here -->
+```
 
 ---
 

@@ -20,13 +20,10 @@ export UV_LINK_MODE=copy
 export UV_PYTHON=3.13
 
 uv venv --python 3.13
-uv sync --group dev --extra data
-uv run pre-commit install --install-hooks
+uv sync --group dev
 
-cat >/etc/profile.d/e2s-eval.sh <<EOF
-export EARTH2STUDIO_ROOT=${REPO_ROOT}
-export PATH="${REPO_ROOT}/.venv/bin:\${PATH}"
-cd ${REPO_ROOT}
-EOF
+# Export PATH to /etc/environment for non-login shells (docker exec, subprocesses)
+# This ensures agents can find venv binaries without requiring login shell
+echo "PATH=${REPO_ROOT}/.venv/bin:\${PATH}" >> /etc/environment
 
 echo "e2s-eval-bootstrap: ready at ${REPO_ROOT} ($(uv run python --version))"
