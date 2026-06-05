@@ -27,10 +27,11 @@ from datetime import datetime, timedelta
 
 import h5netcdf
 import numpy as np
+import obstore as obs
 import pandas as pd
 import pyarrow as pa
-import s3fs
 from loguru import logger
+from obstore.store import S3Store
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import _sync_async, datasource_cache_root, prep_data_inputs
@@ -78,17 +79,26 @@ class _UFSObsBase:
         self._max_workers = max_workers
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
-        self.fs: s3fs.S3FileSystem | None = None
+        # Anonymous obstore S3 stores, cached per bucket (created lazily).
+        self._stores: dict[str, S3Store] = {}
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
         self._tolerance_upper = pd.to_timedelta(upper).to_pytimedelta()
 
-    async def _async_init(self) -> None:
-        """Async initialization of S3 filesystem"""
-        self.fs = s3fs.S3FileSystem(
-            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
-        )
+    # NOAA UFS GEFSv13 replay archive is a public bucket in us-east-1.
+    _region = "us-east-1"
+
+    def _store(self, bucket: str) -> S3Store:
+        """Return a cached anonymous obstore S3Store for ``bucket``."""
+        if bucket not in self._stores:
+            self._stores[bucket] = S3Store(
+                bucket,
+                region=self._region,
+                skip_signature=True,
+                client_options={"pool_max_idle_per_host": str(self._max_workers)},
+            )
+        return self._stores[bucket]
 
     def __call__(
         self,
@@ -124,11 +134,7 @@ class _UFSObsBase:
         fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
         """Async function to get data."""
-        if self.fs is None:
-            await self._async_init()
-
-        session = await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
-
+        # obstore S3 stores are created lazily per bucket in _fetch_remote_file.
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
         schema = self.resolve_fields(fields)
@@ -140,9 +146,6 @@ class _UFSObsBase:
         await tqdm.gather(
             *fetch_jobs, desc="Fetching GSI files", disable=(not self._verbose)
         )
-
-        if session:
-            await session.close()
 
         df = self._compile_dataframe(async_tasks, variable_list, schema)
 
@@ -171,19 +174,33 @@ class _UFSObsBase:
         byte_length : int | None, optional
             Number of bytes to read, by default None (read all)
         """
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
-
         cache_path = self.cache_path(path, byte_offset, byte_length)
-        if not pathlib.Path(cache_path).is_file():
+        if pathlib.Path(cache_path).is_file():
+            return
+
+        # path is an S3 URI ("bucket/key" or "s3://bucket/key"); split into
+        # bucket + key for the per-bucket obstore store.
+        key = path[5:] if path.startswith("s3://") else path
+        bucket, _, object_key = key.partition("/")
+        store = self._store(bucket)
+        try:
             if byte_length:
-                byte_length = int(byte_offset + byte_length)
-            try:
-                data = await self.fs._cat_file(path, start=byte_offset, end=byte_length)
-                with open(cache_path, "wb") as file:
-                    file.write(data)
-            except FileNotFoundError:
+                result = await obs.get_range_async(
+                    store, object_key, start=byte_offset, end=byte_offset + byte_length
+                )
+            else:
+                response = await obs.get_async(store, object_key)
+                result = await response.bytes_async()
+            data = result.to_bytes() if hasattr(result, "to_bytes") else bytes(result)
+            with open(cache_path, "wb") as file:
+                file.write(data)
+        except FileNotFoundError:
+            self._handle_missing_file(path)
+        except Exception as err:  # obstore raises its own error type for 404s
+            if "not found" in str(err).lower() or "nosuchkey" in str(err).lower():
                 self._handle_missing_file(path)
+            else:
+                raise
 
     def _handle_missing_file(self, path: str) -> None:
         """Handle missing file during fetch. Can be overridden by subclasses."""
