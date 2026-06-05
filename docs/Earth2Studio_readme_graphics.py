@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import argparse
 import html
 import json
+import subprocess
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,7 +14,15 @@ OUT_DIR = ROOT / "outputs" / "earth2studio-readme-graphics-css"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 W, H = 1600, 400
-ASSET_VERSION = "dark-v65"
+ASSET_VERSION = "dark-v66"
+EXPORT_SCALE = 2
+
+CHROME_CANDIDATES = [
+    Path("C:/Program Files/Google/Chrome/Application/chrome.exe"),
+    Path("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe"),
+    Path("C:/Program Files/Microsoft/Edge/Application/msedge.exe"),
+    Path("C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"),
+]
 
 
 CSS = r"""
@@ -1068,6 +1079,43 @@ PAGES = {
 }
 
 
+def find_browser() -> Path:
+    for candidate in CHROME_CANDIDATES:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError("Could not find Chrome or Edge for HTML artboard export.")
+
+
+def export_pngs() -> None:
+    browser = find_browser()
+    for slug in PAGES:
+        html_path = OUT_DIR / f"{slug}.html"
+        png_path = OUT_DIR / f"{slug}.png"
+        subprocess.run(
+            [
+                str(browser),
+                "--headless=new",
+                "--disable-gpu",
+                "--hide-scrollbars",
+                f"--force-device-scale-factor={EXPORT_SCALE}",
+                f"--window-size={W},{H}",
+                f"--screenshot={png_path}",
+                html_path.resolve().as_uri(),
+            ],
+            check=True,
+            cwd=ROOT,
+        )
+
+
+def write_png_bundle() -> None:
+    bundle_path = OUT_DIR / "earth2studio-readme-graphics-png.zip"
+    with zipfile.ZipFile(bundle_path, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+        for slug in PAGES:
+            png_path = OUT_DIR / f"{slug}.png"
+            if png_path.exists():
+                bundle.write(png_path, png_path.name)
+
+
 def write_review() -> None:
     cards = []
     for slug in PAGES:
@@ -1124,6 +1172,14 @@ def write_review() -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Build Earth2Studio README graphics.")
+    parser.add_argument(
+        "--export-png",
+        action="store_true",
+        help="Export PNGs at 2x resolution and create the PNG bundle.",
+    )
+    args = parser.parse_args()
+
     (OUT_DIR / "earth2studio-graphics.css").write_text(CSS, encoding="utf-8")
     for slug, builder in PAGES.items():
         (OUT_DIR / f"{slug}.html").write_text(builder(), encoding="utf-8")
@@ -1132,6 +1188,8 @@ def main() -> None:
         "project": "Earth2Studio README graphics",
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "dimensions": {"width": W, "height": H, "aspectRatio": "16:4"},
+        "pngExportScale": EXPORT_SCALE,
+        "pngDimensions": {"width": W * EXPORT_SCALE, "height": H * EXPORT_SCALE},
         "source": "CSS structured HTML artboards",
         "styleReference": "NVIDIA docs arch-product-diagram",
         "assets": [
@@ -1149,6 +1207,10 @@ def main() -> None:
         ],
     }
     (OUT_DIR / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    if args.export_png:
+        export_pngs()
+        write_png_bundle()
 
 
 if __name__ == "__main__":
