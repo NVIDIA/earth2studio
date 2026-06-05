@@ -1340,7 +1340,7 @@ def composability() -> str:
             "Composability",
             "Connect data and models into inference workflows",
             "Start with built-in workflows, compose custom pipelines, or let agents assemble reusable recipes.",
-            "built-in Ã‚Â· custom Ã‚Â· agent-built",
+            "built-in · custom · agent-built",
         )
         + f"""
     <section class="workflow-stack">
