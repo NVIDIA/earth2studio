@@ -1,13 +1,51 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Generate CSS-based HTML artboard graphics for the Earth2Studio README.
+
+This script produces a set of HTML artboards (hero banner, quickstart video,
+data sources diagram, model zoo overview, and composability pipeline graphic)
+along with a shared CSS stylesheet, a review page, and a JSON manifest.
+
+Optionally, it can export high-resolution PNG screenshots of each artboard
+using a headless Chromium-based browser (Chrome, Chromium, or Edge).
+
+Usage
+-----
+Generate HTML artboards only (no browser required)::
+
+    python docs/readme_graphics.py
+
+Generate HTML artboards and export 2x PNG screenshots::
+
+    python docs/readme_graphics.py --export-png
+
+Output directory: ``outputs/earth2studio-readme-graphics-css/``
+"""
+
 from __future__ import annotations
 
 import argparse
 import html
 import json
+import shutil
 import subprocess
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "outputs" / "earth2studio-readme-graphics-css"
@@ -17,7 +55,29 @@ W, H = 1600, 400
 ASSET_VERSION = "green-blue-v89"
 EXPORT_SCALE = 2
 
+# Browser executable names to search on PATH (cross-platform)
+BROWSER_PATH_NAMES = [
+    "google-chrome",
+    "google-chrome-stable",
+    "chromium-browser",
+    "chromium",
+    "chrome",
+    "msedge",
+]
+
+# Platform-specific browser install paths
 CHROME_CANDIDATES = [
+    # Linux
+    Path("/usr/bin/google-chrome"),
+    Path("/usr/bin/google-chrome-stable"),
+    Path("/usr/bin/chromium-browser"),
+    Path("/usr/bin/chromium"),
+    Path("/snap/bin/chromium"),
+    # macOS
+    Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+    Path("/Applications/Chromium.app/Contents/MacOS/Chromium"),
+    Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
+    # Windows
     Path("C:/Program Files/Google/Chrome/Application/chrome.exe"),
     Path("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe"),
     Path("C:/Program Files/Microsoft/Edge/Application/msedge.exe"),
@@ -1010,18 +1070,29 @@ ICONS = {
 
 
 def esc(value: str) -> str:
+    """HTML-escape a string for safe embedding in HTML attributes and content."""
     return html.escape(value, quote=True)
 
 
 def icon(name: str) -> str:
+    """Return the SVG markup for a named icon from the ICONS dictionary."""
     return ICONS[name]
 
 
 def component(name: str, sub: str) -> str:
+    """Render a component card with a bold name and subtitle."""
     return f'<div class="component"><strong>{esc(name)}</strong><small>{esc(sub)}</small></div>'
 
 
-def zone(kicker: str, title: str, body: str, items: list[tuple[str, str]], accent: str, two: bool = False) -> str:
+def zone(
+    kicker: str,
+    title: str,
+    body: str,
+    items: list[tuple[str, str]],
+    accent: str,
+    two: bool = False,
+) -> str:
+    """Render a themed zone section with kicker, title, body, and a component grid."""
     grid_class = "component-grid two" if two else "component-grid"
     return f"""
       <section class="zone" style="--accent: var({accent});">
@@ -1029,12 +1100,13 @@ def zone(kicker: str, title: str, body: str, items: list[tuple[str, str]], accen
         <h3>{esc(title)}</h3>
         <p>{esc(body)}</p>
         <div class="{grid_class}">
-          {''.join(component(a, b) for a, b in items)}
+          {"".join(component(a, b) for a, b in items)}
         </div>
       </section>"""
 
 
 def header(kicker: str, title: str, subtitle: str, pill: str) -> str:
+    """Render the graphic header with kicker, title, subtitle, and a pill badge."""
     return f"""
     <header class="graphic-header">
       <div>
@@ -1047,6 +1119,7 @@ def header(kicker: str, title: str, subtitle: str, pill: str) -> str:
 
 
 def layout_page(title: str, body: str) -> str:
+    """Wrap body content in a full HTML page with the shared artboard stylesheet."""
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -1065,14 +1138,46 @@ def layout_page(title: str, body: str) -> str:
 
 
 def hero() -> str:
+    """Build the hero banner artboard showcasing Earth2Studio core capabilities."""
     core = [
-        ("Models", "Pre-trained model zoo", "Forecast, diagnose, and assimilate with built-in AI models.", "phase: model"),
-        ("Data", "AI-ready remote data sources", "PyData-native loaders for weather, climate, and observations.", "phase: fetch"),
-        ("APIs", "Composable APIs", "Chain data, models, perturbations, statistics, and IO.", "phase: compose"),
-        ("Compute", "GPU accelerated", "Run inference and evaluation on NVIDIA-optimized workflows.", "phase: run"),
-        ("Agents", "Agent ready", "Structured interfaces for recipes, skills, automation, and AI assistants.", "phase: automate"),
+        (
+            "Models",
+            "Pre-trained model zoo",
+            "Forecast, diagnose, and assimilate with built-in AI models.",
+            "phase: model",
+        ),
+        (
+            "Data",
+            "AI-ready remote data sources",
+            "PyData-native loaders for weather, climate, and observations.",
+            "phase: fetch",
+        ),
+        (
+            "APIs",
+            "Composable APIs",
+            "Chain data, models, perturbations, statistics, and IO.",
+            "phase: compose",
+        ),
+        (
+            "Compute",
+            "GPU accelerated",
+            "Run inference and evaluation on NVIDIA-optimized workflows.",
+            "phase: run",
+        ),
+        (
+            "Agents",
+            "Agent ready",
+            "Structured interfaces for recipes, skills, automation, and AI assistants.",
+            "phase: automate",
+        ),
     ]
-    accents = ["--signal-green", "--signal-cyan", "--signal-gold", "--signal-blue", "--signal-purple"]
+    accents = [
+        "--signal-green",
+        "--signal-cyan",
+        "--signal-gold",
+        "--signal-blue",
+        "--signal-purple",
+    ]
     cards = "\n".join(
         f"""
       <section class="core-card" style="--accent: var({accent});">
@@ -1085,7 +1190,12 @@ def hero() -> str:
     )
     return layout_page(
         "Earth2Studio README hero",
-        header("NVIDIA", "Earth2Studio", "A Python package for building, researching, and exploring AI-driven Earth system models.", "Earth-2")
+        header(
+            "NVIDIA",
+            "Earth2Studio",
+            "A Python package for building, researching, and exploring AI-driven Earth system models.",
+            "Earth-2",
+        )
         + f"""
     <section class="core-strip">
       {cards}
@@ -1101,14 +1211,23 @@ def hero() -> str:
 
 
 def quickstart_video() -> str:
+    """Build the quickstart video artboard showing a simple forecast workflow."""
     steps = [
         ("globe", "Data Source", "GFS", "initialization data", "fetch"),
-        ("network", "Prognostic Model", "FourCastNet3", "AI medium-range model", "model"),
+        (
+            "network",
+            "Prognostic Model",
+            "FourCastNet3",
+            "AI medium-range model",
+            "model",
+        ),
         ("zarr", "IO Backend", "Zarr store", "chunked output", "write"),
     ]
     accents = ["--signal-green", "--signal-cyan", "--signal-gold"]
     nodes = []
-    for index, ((icon_name, kicker, title, body, chip), accent) in enumerate(zip(steps, accents)):
+    for index, ((icon_name, kicker, title, body, chip), accent) in enumerate(
+        zip(steps, accents)
+    ):
         nodes.append(
             f"""
       <section class="quick-node" style="--accent: var({accent});">
@@ -1134,7 +1253,7 @@ def quickstart_video() -> str:
         )
         + f"""
     <section class="quickstart-flow">
-      {''.join(nodes)}
+      {"".join(nodes)}
       <div class="quick-spacer"></div>
       <aside class="quick-video">
         <div class="play-lockup">
@@ -1149,10 +1268,26 @@ def quickstart_video() -> str:
 
 
 def datasource() -> str:
+    """Build the data sources artboard illustrating observing systems and data APIs."""
     source_lanes = [
-        ("Data sources", "ARCO, CDS, CMIP6, GOES, MRMS", "GFS, HRRR, IFS, JPSS, WB2ERA5", "--signal-green"),
-        ("Forecast sources", "AIFS_FX, GFS_FX, GEFS_FX", "HRRR_FX, IFS_FX, CFS_FX, CAMS_FX", "--signal-cyan"),
-        ("DataFrame sources", "UFS, NNJA, JPSS, MetOp", "GHCNDaily, GOESGLM, ISD, IBTrACS", "--signal-gold"),
+        (
+            "Data sources",
+            "ARCO, CDS, CMIP6, GOES, MRMS",
+            "GFS, HRRR, IFS, JPSS, WB2ERA5",
+            "--signal-green",
+        ),
+        (
+            "Forecast sources",
+            "AIFS_FX, GFS_FX, GEFS_FX",
+            "HRRR_FX, IFS_FX, CFS_FX, CAMS_FX",
+            "--signal-cyan",
+        ),
+        (
+            "DataFrame sources",
+            "UFS, NNJA, JPSS, MetOp",
+            "GHCNDaily, GOESGLM, ISD, IBTrACS",
+            "--signal-gold",
+        ),
     ]
     lanes = "\n".join(
         f"""<div class="source-lane" style="--accent: var({accent});">
@@ -1163,14 +1298,62 @@ def datasource() -> str:
         for kicker, title, sub, accent in source_lanes
     )
     sensors = [
-        ("satellite", "Low-Earth Orbit", "JPSS / MetOp", "--data-spectrum-c3", "grid-column: 3; grid-row: 1;"),
-        ("reanalysis", "Re-analysis systems", "ERA5 CDS / ARCO / NCAR", "--data-spectrum-c5", "grid-column: 5; grid-row: 1;"),
-        ("satellite", "Geostationary", "GOES / Himawari / MTG", "--data-spectrum-c6", "grid-column: 6; grid-row: 1;"),
-        ("aircraft", "Aircraft", "NNJA / GDAS", "--data-spectrum-c1", "grid-column: 1; grid-row: 1; align-self:end;"),
-        ("balloon", "Weather balloon", "NNJA / GDAS", "--data-spectrum-c2", "grid-column: 2; grid-row: 2; transform: translate(-24px, -12px);"),
-        ("buoy", "Ocean buoy", "NNJA / GDAS", "--data-spectrum-buoy", "grid-column: 3; grid-row: 2; transform: translateX(-68px);"),
-        ("radar", "Weather radar", "MRMS", "--data-spectrum-c7", "grid-column: 7; grid-row: 2;"),
-        ("supercomputer", "Forecast systems", "GFS / IFS / AIFS", "--data-spectrum-c8", "grid-column: 8; grid-row: 2; transform: translateY(-24px);"),
+        (
+            "satellite",
+            "Low-Earth Orbit",
+            "JPSS / MetOp",
+            "--data-spectrum-c3",
+            "grid-column: 3; grid-row: 1;",
+        ),
+        (
+            "reanalysis",
+            "Re-analysis systems",
+            "ERA5 CDS / ARCO / NCAR",
+            "--data-spectrum-c5",
+            "grid-column: 5; grid-row: 1;",
+        ),
+        (
+            "satellite",
+            "Geostationary",
+            "GOES / Himawari / MTG",
+            "--data-spectrum-c6",
+            "grid-column: 6; grid-row: 1;",
+        ),
+        (
+            "aircraft",
+            "Aircraft",
+            "NNJA / GDAS",
+            "--data-spectrum-c1",
+            "grid-column: 1; grid-row: 1; align-self:end;",
+        ),
+        (
+            "balloon",
+            "Weather balloon",
+            "NNJA / GDAS",
+            "--data-spectrum-c2",
+            "grid-column: 2; grid-row: 2; transform: translate(-24px, -12px);",
+        ),
+        (
+            "buoy",
+            "Ocean buoy",
+            "NNJA / GDAS",
+            "--data-spectrum-buoy",
+            "grid-column: 3; grid-row: 2; transform: translateX(-68px);",
+        ),
+        (
+            "radar",
+            "Weather radar",
+            "MRMS",
+            "--data-spectrum-c7",
+            "grid-column: 7; grid-row: 2;",
+        ),
+        (
+            "supercomputer",
+            "Forecast systems",
+            "GFS / IFS / AIFS",
+            "--data-spectrum-c8",
+            "grid-column: 8; grid-row: 2; transform: translateY(-24px);",
+        ),
     ]
     sensor_html = "\n".join(
         f"""<div class="sensor" style="{style} --accent: var({accent});">
@@ -1227,19 +1410,30 @@ def datasource() -> str:
 
 
 def model_zoo() -> str:
+    """Build the model zoo artboard showing prognostic, diagnostic, and DA models."""
     sections = [
         (
             "earth2studio.models.px",
             "Prognostics",
             "Time-series forecasting models grouped by forecast horizon, from nowcasting to climate.",
-            [("FCN3 / Atlas / StormScope", "NVIDIA"), ("AIFS2 / AIFS2-ENS", "ECMWF"), ("GraphCast / GenCast", "Google"), ("ACE2 / Pangu / Aurora", "third-party models")],
+            [
+                ("FCN3 / Atlas / StormScope", "NVIDIA"),
+                ("AIFS2 / AIFS2-ENS", "ECMWF"),
+                ("GraphCast / GenCast", "Google"),
+                ("ACE2 / Pangu / Aurora", "third-party models"),
+            ],
             "--signal-green",
         ),
         (
             "earth2studio.models.dx",
             "Diagnostics",
             "Instantaneous models for derived quantities, downscaling, precipitation, hazards, and analysis fields.",
-            [("CorrDiff / Orbit2", "downscaling"), ("CBottle", "climate modeling"), ("Precip / Solar Variables", "downstream product fields"), ("Tropical Cyclone Utils", "TC trackers / CBottle guidance")],
+            [
+                ("CorrDiff / Orbit2", "downscaling"),
+                ("CBottle", "climate modeling"),
+                ("Precip / Solar Variables", "downstream product fields"),
+                ("Tropical Cyclone Utils", "TC trackers / CBottle guidance"),
+            ],
             "--signal-cyan",
         ),
         (
@@ -1257,7 +1451,7 @@ def model_zoo() -> str:
         <h3>{esc(title)}</h3>
         <p>{esc(desc)}</p>
         <div class="model-list">
-          {''.join(component(a, b) for a, b in items)}
+          {"".join(component(a, b) for a, b in items)}
         </div>
       </section>"""
         for kicker, title, desc, items, accent in sections
@@ -1278,6 +1472,7 @@ def model_zoo() -> str:
 
 
 def composability() -> str:
+    """Build the composability artboard showing built-in, custom, and agent workflows."""
     workflows = [
         (
             "Built-in workflow",
@@ -1320,7 +1515,9 @@ def composability() -> str:
           </div>"""
             )
             if index < len(nodes) - 1:
-                parts.append(f"""          <div class="workflow-link" style="--accent: var({accent});"></div>""")
+                parts.append(
+                    f"""          <div class="workflow-link" style="--accent: var({accent});"></div>"""
+                )
         steps = "\n".join(parts)
         return f"""      <section class="workflow-row">
         <div class="workflow-run">
@@ -1362,19 +1559,45 @@ PAGES = {
     "earth2studio-readme-composability": composability,
 }
 
+
 def find_browser() -> Path:
+    """Locate a Chromium-based browser for headless PNG export.
+
+    Searches PATH first using ``shutil.which``, then falls back to
+    platform-specific install paths for Chrome, Chromium, and Edge.
+
+    Returns
+    -------
+    Path
+        Resolved path to the browser executable.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no supported browser is found.
+    """
+    # First, try to find browser on PATH (most reliable cross-platform)
+    for name in BROWSER_PATH_NAMES:
+        found = shutil.which(name)
+        if found:
+            return Path(found)
+    # Fall back to platform-specific install paths
     for candidate in CHROME_CANDIDATES:
         if candidate.exists():
             return candidate
-    raise FileNotFoundError("Could not find Chrome or Edge for HTML artboard export.")
+    raise FileNotFoundError(
+        "Could not find Chrome, Chromium, or Edge for HTML artboard export. "
+        "Install one of: google-chrome, chromium-browser, chromium, or msedge."
+    )
 
 
 def export_pngs() -> None:
+    """Export each HTML artboard to a 2x PNG screenshot using a headless browser."""
     browser = find_browser()
     for slug in PAGES:
         html_path = OUT_DIR / f"{slug}.html"
         png_path = OUT_DIR / f"{slug}.png"
-        subprocess.run(
+        subprocess.run(  # noqa: S603
             [
                 str(browser),
                 "--headless=new",
@@ -1392,6 +1615,7 @@ def export_pngs() -> None:
 
 
 def write_png_bundle() -> None:
+    """Package all exported PNG screenshots into a ZIP archive."""
     bundle_path = OUT_DIR / "earth2studio-readme-graphics-png.zip"
     with zipfile.ZipFile(bundle_path, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
         for slug in PAGES:
@@ -1399,7 +1623,9 @@ def write_png_bundle() -> None:
             if png_path.exists():
                 bundle.write(png_path, png_path.name)
 
+
 def write_review() -> None:
+    """Generate an HTML review page with side-by-side iframe previews of all artboards."""
     cards = []
     for slug in PAGES:
         title = slug.replace("earth2studio-readme-", "").replace("-", " ").title()
@@ -1467,7 +1693,7 @@ def write_review() -> None:
         <a class="download-all" href="./earth2studio-readme-graphics-png.zip?v={ASSET_VERSION}" download="earth2studio-readme-graphics-png.zip">Download PNG bundle</a>
       </div>
     </div>
-{''.join(cards)}
+{"".join(cards)}
   </main>
   <script>
     const buttons = Array.from(document.querySelectorAll("[data-theme]"));
@@ -1485,7 +1711,9 @@ def write_review() -> None:
         encoding="utf-8",
     )
 
+
 def main() -> None:
+    """CLI entry point: build HTML artboards and optionally export PNGs."""
     parser = argparse.ArgumentParser(description="Build Earth2Studio README graphics.")
     parser.add_argument(
         "--export-png",
@@ -1507,7 +1735,13 @@ def main() -> None:
         "source": "CSS structured HTML artboards",
         "styleReference": "NVIDIA docs arch-product-diagram",
         "assets": [
-            {"title": slug.replace("earth2studio-readme-", "").replace("-", " ").title(), "html": f"{slug}.html", "png": f"{slug}.png"}
+            {
+                "title": slug.replace("earth2studio-readme-", "")
+                .replace("-", " ")
+                .title(),
+                "html": f"{slug}.html",
+                "png": f"{slug}.png",
+            }
             for slug in PAGES
         ],
         "references": [
@@ -1520,7 +1754,9 @@ def main() -> None:
             "https://nvidia.github.io/earth2studio/modules/models_da.html",
         ],
     }
-    (OUT_DIR / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    (OUT_DIR / "manifest.json").write_text(
+        json.dumps(manifest, indent=2), encoding="utf-8"
+    )
 
     if args.export_png:
         export_pngs()
