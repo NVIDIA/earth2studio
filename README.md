@@ -23,7 +23,7 @@ climate science.
 [Install][e2studio_install_url] | [User-Guide][e2studio_userguide_url] |
 [Examples][e2studio_examples_url] | [API][e2studio_api_url]
 
-![Earth2Studio README hero](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-hero.png?v1)
+![Earth2Studio README hero](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-hero.png?v2)
 
 </div>
 
@@ -89,7 +89,7 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > Links to the original license and source are often provided in the API docs for each
 > model/data source.
 
-[![Earth2Studio Tutorial](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-quickstart-video.png?v1)](https://www.youtube.com/watch?v=Sog6aCapZeA)
+[![Earth2Studio Tutorial](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-quickstart-video.png?v2)](https://www.youtube.com/watch?v=Sog6aCapZeA)
 
 ## Latest News
 
@@ -119,8 +119,8 @@ architectures, data sources and SciML tooling while providing a unified API.
 
 <div align="center">
 
-![Earth2Studio model zoo](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-model-zoo.png?v1)
-![Earth2Studio data sources](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-data-sources.png?v1)
+![Earth2Studio model zoo](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-model-zoo.png?v2)
+![Earth2Studio data sources](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-data-sources.png?v2)
 
 </div>
 
@@ -130,7 +130,7 @@ data sources, AI models and other modules together.
 
 <div align="center">
 
-![Earth2Studio composable pipelines](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-composability.png?v1)
+![Earth2Studio composable pipelines](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-composability.png?v2)
 
 </div>
 
