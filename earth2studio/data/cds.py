@@ -109,10 +109,20 @@ class CDS:
         pre-populated caches.
         """
         if self._cds_client is None:
+            if cdsapi is None:
+                raise ImportError(
+                    "cdsapi is required for CDS. "
+                    "Install with: pip install 'earth2studio[data]'"
+                )
             self._cds_client = cdsapi.Client(
                 debug=False, quiet=True, wait_until_complete=False
             )
         return self._cds_client
+
+    @cds_client.setter
+    def cds_client(self, value: Any) -> None:
+        """Allow setting a custom CDS API client for testing or injection."""
+        self._cds_client = value
 
     def __call__(
         self,
