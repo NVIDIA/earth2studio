@@ -606,7 +606,7 @@ def test_nnja_extract_gpsro_subset_bending_angle_rows_and_metadata():
 
     assert len(rows) == 1
     row = rows[0]
-    assert row["time"] == datetime(2024, 1, 1, 0, 30, 15, 250000)
+    assert row["time"] == datetime(2024, 1, 1, 0, 30, 15)
     assert row["lat"] == pytest.approx(np.float32(-9.75))
     assert row["lon"] == pytest.approx(np.float32(290.5))
     assert row["pres"] is None
@@ -672,6 +672,8 @@ def test_nnja_extract_gpsro_subset_missing_level_lat_lon_does_not_reuse_stale_va
         (nnja._GPSRO_IMPP, 6_373_000.0),
         (nnja._GPSRO_BNDA, 0.00123),
         (nnja._GPSRO_BNDA, 0.00045),
+        # A missing per-level latitude must clear state so the next observation
+        # does not reuse -9.75 from the previous bending-angle block.
         (nnja._GPSRO_LAT, None),
         (nnja._GPSRO_LON, -68.5),
         (nnja._GPSRO_MEFR, 0.0),

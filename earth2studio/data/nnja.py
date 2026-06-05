@@ -122,7 +122,7 @@ _GPSRO_MIN = 4005
 _GPSRO_SEC = 4006
 
 # Per-level descriptors
-_GPSRO_MEFR = 2121  # Mean frequency (Hz); GSI keeps only frequency == 0
+_GPSRO_MEFR = 2121  # Mean frequency (Hz)
 _GPSRO_IMPP = 7040  # Impact parameter (m), bending-angle level marker
 _GPSRO_BNDA = 15037  # Bending angle (rad)
 _GPSRO_HEIT = 7007  # Height (m), refractivity level marker
@@ -164,9 +164,7 @@ _NNJA_CONV_SCHEMA = pa.schema(
         E2STUDIO_SCHEMA.field("time"),
         E2STUDIO_SCHEMA.field("pres"),
         E2STUDIO_SCHEMA.field("elev"),
-        # NNJA stores PrepBUFR report-type code as uint16 (numeric)
         pa.field("type", pa.uint16(), nullable=True),
-
         # PrepBUFR CAT is NCEP's data-level category mnemonic
         # (local BUFR descriptor 0-08-193):
         # https://emc.ncep.noaa.gov/emc/pages/infrastructure/bufrlib/tables/CodeFlag_0_STDv35_LOC7.html
@@ -742,17 +740,17 @@ def _extract_gpsro_subset(
     descriptor encountered in the subset's flat (descriptor, value) stream
     we emit one row.
 
-    The NCEP gpsro encoding lays out the per-level data sequentially as
-    three sub-profiles in this order:
+    The NCEP gpsro encoding lays out per-level data sequentially as three
+    sub-profiles:
 
     1. Bending-angle profile keyed on ``IMPP`` (descriptor 7040), with
-       observation in ``BNDA`` (15037). GSI ``read_gps.f90`` reads ROSEQ1
-       as per-level lat/lon followed by frequency replications and keeps
-       only the ionosphere-corrected replication where ``nint(MEFR) == 0``:
-       ``MEFR`` -> ``IMPP`` -> observed ``BNDA`` -> uncertainty ``BNDA``.
+       observation in ``BNDA`` (15037). Each level contains frequency
+       replications laid out as ``MEFR`` -> ``IMPP`` -> observed ``BNDA`` ->
+       uncertainty ``BNDA``. The assimilated bending-angle value is generally
+       the ionosphere-corrected replication where ``MEFR`` is 0 (matching GSI
+       ``read_gps.f90``).
     2. Refractivity profile keyed on ``HEIT`` (7007), observation in
-       ``ARFR`` (15036). The descriptor is documented here but not emitted
-       until a public Earth2Studio variable mapping is added.
+       ``ARFR`` (15036).
     3. 1D-Var retrieval profile keyed on ``GPHTST`` (7009), with
        ``PRES`` / ``TMDBST`` / ``SPFH`` (10004 / 12001 / 13001).
     """
@@ -776,10 +774,7 @@ def _extract_gpsro_subset(
         elif did == _GPSRO_QFRO:
             qf = v
         elif did == _GPSRO_ELRC and v is not None:
-            try:
-                roc = float(v)
-            except (TypeError, ValueError):
-                roc = None
+            roc = float(v)
         elif did == _GPSRO_LAT and v is not None:
             lat = float(v)
         elif did == _GPSRO_LON and v is not None:
@@ -805,14 +800,14 @@ def _extract_gpsro_subset(
     if lat is None or lon is None or yyyy is None or mm is None or dd is None:
         return rows
     try:
-        # Preserve BUFR SECO in Earth2Studio output. GSI GPSRO diagnostics use
-        # minute-resolution time, so GSI-parity comparisons should drop seconds.
-        obs_time = datetime(yyyy, mm, dd, hh or 0, mi or 0) + timedelta(seconds=sec)
+        obs_time = datetime(yyyy, mm, dd, hh or 0, mi or 0, int(sec))
     except (ValueError, OverflowError):
         return rows
     if obs_time < dt_min or obs_time > dt_max:
         return rows
 
+    # GSI setupref.f90 writes the GPSRO diagnostic station id as
+    # ``(2(i4.4))``: zero-padded receiver SAID followed by transmitter PTID.
     station_id = (
         f"{int(sat_id):04d}{int(tx_id):04d}"
         if sat_id is not None and tx_id is not None
@@ -831,12 +826,13 @@ def _extract_gpsro_subset(
     for d, v in zip(descs, vals):
         did = d.id
         if did == _GPSRO_BNDA:
-            # BNDA appears twice within each MEFR replication: first the
-            # bending-angle observation, then the uncertainty/RMSE field. Count
-            # even missing BNDA values so a missing observation cannot make the
-            # following RMSE look like an observation.
+            # Count even missing BNDA so a dropped obs can't shift the
+            # following error field into the observation slot (see selection
+            # of index 1 below).
             cur_bnda_index_for_freq += 1
         if v is None:
+            # Missing per-level fields clear state; otherwise later rows could
+            # inherit coordinates or level metadata from the previous block.
             if did == _GPSRO_LAT:
                 cur_lat = None
             elif did == _GPSRO_LON:
@@ -854,41 +850,23 @@ def _extract_gpsro_subset(
             continue
 
         if did == _GPSRO_LAT:
-            try:
-                cur_lat = float(v)
-            except (TypeError, ValueError):
-                cur_lat = None
+            cur_lat = float(v)
             continue
         if did == _GPSRO_LON:
-            try:
-                cur_lon = float(v)
-            except (TypeError, ValueError):
-                cur_lon = None
+            cur_lon = float(v)
             continue
         if did == _GPSRO_MEFR:
-            try:
-                cur_freq = float(v)
-            except (TypeError, ValueError):
-                cur_freq = None
+            cur_freq = float(v)
             cur_bnda_index_for_freq = 0
             continue
         if did == _GPSRO_IMPP:
-            try:
-                cur_impp = float(v)
-            except (TypeError, ValueError):
-                cur_impp = None
+            cur_impp = float(v)
             continue
         if did == _GPSRO_GPHTST or did == _GPSRO_HEIT:
-            try:
-                cur_height = float(v)
-            except (TypeError, ValueError):
-                cur_height = None
+            cur_height = float(v)
             continue
         if did == _GPSRO_PRES:
-            try:
-                cur_pres = float(v)
-            except (TypeError, ValueError):
-                cur_pres = None
+            cur_pres = float(v)
             continue
 
         if did not in wanted_descrs or did not in _GPSRO_OBS_DESCRS:
@@ -902,14 +880,13 @@ def _extract_gpsro_subset(
 
         var_name = wanted_descrs[did]
         if did == _GPSRO_BNDA:
+            # ROSEQ1 gives one bending angle per frequency, laid out as
+            # MEFR -> IMPP -> BNDA(obs) -> BNDA(error). We pick the
+            # ionosphere-corrected angle (MEFR == 0), not the raw L1/L2
+            # channel values. Of the two BNDA per frequency, only the
+            # first (after IMPP) is the observation.
             if cur_freq is None or round(cur_freq) != 0:
                 continue
-            # ROSEQ1 frequency triplets look like:
-            #   MEFR=1.5e9 -> IMPP -> BNDA(obs) -> BNDA(error)
-            #   MEFR=1.2e9 -> IMPP -> BNDA(obs) -> BNDA(error)
-            #   MEFR=0.0   -> IMPP -> BNDA(obs) -> BNDA(error)
-            # GSI read_gps.f90 cycles past non-zero MEFR and uses only the first
-            # BNDA after IMPP as the bending-angle observation.
             if cur_bnda_index_for_freq != 1:
                 continue
             if obs_val <= 0 or cur_impp is None or roc is None or cur_impp < roc:
@@ -1074,7 +1051,7 @@ def _decode_gpsro_message_worker(
     wanted_descrs: dict[int, str],
     dt_min: datetime,
     dt_max: datetime,
-) -> list[dict[str, Any]]:  # pragma: no cover
+) -> list[dict[str, Any]]:
     """Decode a single GPS RO BUFR message in a worker process.
 
     Uses the decoder created by :func:`_init_decode_worker`.
