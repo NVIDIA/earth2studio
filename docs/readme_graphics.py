@@ -52,7 +52,7 @@ OUT_DIR = ROOT / "outputs" / "earth2studio-readme-graphics-css"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 W, H = 1600, 460
-ASSET_VERSION = "quickstart-subtitle-v92"
+ASSET_VERSION = "data-horizon-v94"
 EXPORT_SCALE = 2
 
 # Browser executable names to search on PATH (cross-platform)
@@ -808,8 +808,8 @@ body {
   position: absolute;
   left: 34px;
   right: 34px;
-  bottom: -92px;
-  height: 168px;
+  bottom: -164px;
+  height: 242px;
   border: 1px solid color-mix(in srgb, var(--signal-cyan) 46%, var(--border));
   border-radius: 50% 50% 0 0 / 100% 100% 0 0;
   background:
@@ -1265,7 +1265,6 @@ def quickstart_video() -> str:
           <span>click to watch</span>
         </div>
         <strong>Forecast workflow tutorial</strong>
-        <small>Open the video to build the same GFS to FourCastNet3 to Zarr store.</small>
       </aside>
     </section>""",
     )
