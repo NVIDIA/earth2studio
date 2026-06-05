@@ -23,7 +23,7 @@ climate science.
 [Install][e2studio_install_url] | [User-Guide][e2studio_userguide_url] |
 [Examples][e2studio_examples_url] | [API][e2studio_api_url]
 
-![Earth2Studio Banner](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio_feature_banner.png?id=1)
+![Earth2Studio README hero](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-hero.png?v2)
 
 </div>
 
@@ -89,7 +89,7 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > Links to the original license and source are often provided in the API docs for each
 > model/data source.
 
-[![Watch the video](https://img.youtube.com/vi/Sog6aCapZeA/hqdefault.jpg)](https://www.youtube.com/watch?v=Sog6aCapZeA)
+[![Earth2Studio Tutorial](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-quickstart-video.png?v2)](https://www.youtube.com/watch?v=Sog6aCapZeA)
 
 ## Latest News
 
@@ -119,7 +119,8 @@ architectures, data sources and SciML tooling while providing a unified API.
 
 <div align="center">
 
-![Earth2Studio Overview 1](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio-readme-overview-1.png?id=1)
+![Earth2Studio model zoo](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-model-zoo.png?v3)
+![Earth2Studio data sources](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-data-sources.png?v3)
 
 </div>
 
@@ -129,7 +130,7 @@ data sources, AI models and other modules together.
 
 <div align="center">
 
-![Earth2Studio Overview 1](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio-readme-overview-2.png?id=1)
+![Earth2Studio composable pipelines](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-composability.png?v2)
 
 </div>
 
@@ -138,12 +139,6 @@ swap out components for alternatives.
 In addition to the largest model zoo of weather/climate AI models, Earth2Studio is
 packed with useful functionality such as optimized data access to cloud data stores,
 statistical operations and more to accelerate your pipelines.
-
-<div align="center">
-
-![Earth2Studio Overview 1](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio-readme-overview-3.webp?id=1)
-
-</div>
 
 ### Earth-2 Open Models
 
