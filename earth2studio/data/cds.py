@@ -72,6 +72,11 @@ class CDS:
         Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
+    offline : bool, optional
+        When True, only read from cache and never connect to the CDS server.
+        Useful for environments without internet access where the cache has been
+        pre-populated. Raises FileNotFoundError if requested data is not in cache.
+        By default False.
 
     Warning
     -------
@@ -95,12 +100,22 @@ class CDS:
     CDS_LAT = np.linspace(90, -90, 721)
     CDS_LON = np.linspace(0, 359.75, 1440)
 
-    def __init__(self, cache: bool = True, verbose: bool = True):
+    def __init__(self, cache: bool = True, verbose: bool = True, offline: bool = False):
         self._cache = cache
         self._verbose = verbose
-        self.cds_client = cdsapi.Client(
-            debug=False, quiet=True, wait_until_complete=False
-        )
+        self._offline = offline
+        if offline and not cache:
+            logger.warning(
+                "CDS offline mode requires cache=True to retain data. "
+                "Setting cache=True."
+            )
+            self._cache = True
+        if offline:
+            self.cds_client = None
+        else:
+            self.cds_client = cdsapi.Client(
+                debug=False, quiet=True, wait_until_complete=False
+            )
 
     def __call__(
         self,
@@ -297,6 +312,15 @@ class CDS:
         cache_path = os.path.join(self.cache, filename)
 
         if not pathlib.Path(cache_path).is_file():
+            if self._offline:
+                raise FileNotFoundError(
+                    f"CDS offline mode: cached data not found for "
+                    f"dataset={dataset_name}, variable={variable}, "
+                    f"level={level}, time={time}. "
+                    f"Expected cache file: {cache_path}. "
+                    f"Run with offline=False and internet access to "
+                    f"populate the cache first."
+                )
             if variable == "total_precipitation_06":
                 # tp06 is a special case, its not in CDS but used by several models
                 # so this specific case handle for this one variable, so intercept this
@@ -317,6 +341,11 @@ class CDS:
                 }
                 if dataset_name == "reanalysis-era5-pressure-levels":
                     rbody["pressure_level"] = level
+                if self.cds_client is None:  # pragma: no cover
+                    raise RuntimeError(
+                        "CDS client is not initialized. "
+                        "Cannot download data in offline mode."
+                    )
                 r = self.cds_client.retrieve(dataset_name, rbody)
                 # Queue request
                 while True:

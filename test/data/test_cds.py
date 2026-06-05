@@ -15,11 +15,15 @@
 # limitations under the License.
 
 import datetime
+import hashlib
+import os
 import pathlib
 import shutil
+from unittest.mock import patch
 
 import numpy as np
 import pytest
+import xarray as xr
 
 from earth2studio.data import CDS
 
@@ -148,3 +152,123 @@ def test_cds_available(time, variable):
     with pytest.raises(ValueError):
         ds = CDS()
         ds(time, variable)
+
+
+# ======================== Offline mode tests ========================
+
+
+def _compute_cache_filename(dataset_name: str, variable: str, level: list[str], time):
+    """Compute the SHA-256 cache filename matching CDS._download_cds_grib_cached."""
+    sha = hashlib.sha256(f"{dataset_name}_{variable}_{'_'.join(level)}_{time}".encode())
+    return sha.hexdigest()
+
+
+def _create_fake_grib_cache(cache_dir, dataset_name, variable, level, time):
+    """Create a fake grib file in cache for testing offline mode."""
+    filename = _compute_cache_filename(dataset_name, variable, level, time)
+    cache_path = os.path.join(cache_dir, filename)
+    # Create a minimal grib-like file (just needs to exist for cache hit check)
+    pathlib.Path(cache_path).touch()
+    return cache_path
+
+
+@patch("earth2studio.data.cds.cdsapi")
+def test_cds_offline_init(mock_cdsapi, tmp_path, monkeypatch):
+    """Test that offline mode does not create a cdsapi Client."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    ds = CDS(offline=True)
+    assert ds._offline is True
+    assert ds.cds_client is None
+    mock_cdsapi.Client.assert_not_called()
+
+
+@patch("earth2studio.data.cds.cdsapi")
+def test_cds_offline_cache_override(mock_cdsapi, tmp_path, monkeypatch):
+    """Test that offline=True with cache=False auto-corrects to cache=True."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    ds = CDS(cache=False, offline=True)
+    assert ds._cache is True
+    assert ds._offline is True
+
+
+@patch("earth2studio.data.cds.cdsapi")
+def test_cds_offline_cache_miss_raises(mock_cdsapi, tmp_path, monkeypatch):
+    """Test that offline mode raises FileNotFoundError on cache miss."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    ds = CDS(offline=True)
+
+    time = datetime.datetime(year=2024, month=1, day=1, hour=0)
+    with pytest.raises(FileNotFoundError, match="CDS offline mode"):
+        ds(time, "t2m")
+
+
+@patch("earth2studio.data.cds.cdsapi")
+def test_cds_offline_cache_hit(mock_cdsapi, tmp_path, monkeypatch):
+    """Test that offline mode successfully reads from pre-populated cache."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    # Create the cache directory structure
+    cache_dir = tmp_path / "cds"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    time = datetime.datetime(year=2024, month=1, day=1, hour=0)
+
+    # t2m maps to reanalysis-era5-single-levels::2m_temperature::
+    dataset_name = "reanalysis-era5-single-levels"
+    cds_variable = "2m_temperature"
+    level = [""]
+
+    # Create a proper grib-like file with xarray data
+    lat = np.linspace(90, -90, 721)
+    lon = np.linspace(0, 359.75, 1440)
+    data = np.random.randn(721, 1440).astype(np.float32)
+    da = xr.DataArray(
+        data=data,
+        dims=["latitude", "longitude"],
+        coords={"latitude": lat, "longitude": lon},
+    )
+
+    # Write to cache path with the correct hash filename
+    filename = _compute_cache_filename(dataset_name, cds_variable, level, time)
+    cache_path = cache_dir / filename
+
+    # Save as netcdf since we'll mock cfgrib opening
+    da.to_netcdf(str(cache_path))
+
+    ds = CDS(offline=True)
+
+    # We need to mock xr.open_dataarray for cfgrib engine since we saved as netcdf
+    with patch("xarray.open_dataarray") as mock_open:
+        mock_open.return_value = da
+        result = ds(time, "t2m")
+
+    assert result.shape == (1, 1, 721, 1440)
+    assert result.coords["variable"].values[0] == "t2m"
+
+
+@patch("earth2studio.data.cds.cdsapi")
+def test_cds_offline_multiple_variables_partial_miss(
+    mock_cdsapi, tmp_path, monkeypatch
+):
+    """Test offline mode raises error when some variables are not cached."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    # Create the cache directory structure
+    cache_dir = tmp_path / "cds"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    time = datetime.datetime(year=2024, month=1, day=1, hour=0)
+
+    # Pre-populate cache for t2m but NOT for sp
+    dataset_name = "reanalysis-era5-single-levels"
+    cds_variable = "2m_temperature"
+    level = [""]
+    filename = _compute_cache_filename(dataset_name, cds_variable, level, time)
+    (cache_dir / filename).touch()
+
+    ds = CDS(offline=True)
+
+    # sp maps to reanalysis-era5-single-levels::surface_pressure::
+    # Since sp is not cached, this should raise FileNotFoundError
+    with pytest.raises(FileNotFoundError, match="CDS offline mode"):
+        ds(time, ["t2m", "sp"])
