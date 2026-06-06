@@ -410,7 +410,7 @@ exclude = [".claude"]
 [tool.ruff.per-file-ignores]
 # Ignore `F401` (import violations) in all `__init__.py` files, and in `docs/*.py`.
 "__init__.py" = ["F401"]
-"docs/*.py" = ["F401"]
+"docs/*.py" = ["F401", "S603"]
 "examples/*.py" = ["E402"]
 "recipes/**/*_notebook.py" = ["E402"]
 # Ignore `S101` (assertions) in all `test` files.
