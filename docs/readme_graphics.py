@@ -53,7 +53,7 @@ OUT_DIR = ROOT / "outputs" / "earth2studio-readme-graphics-css"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 W, H = 1600, 460
-ASSET_VERSION = "agent-setup-v97"
+ASSET_VERSION = "agent-setup-v98"
 EXPORT_SCALE = 2
 
 # Browser executable names to search on PATH (cross-platform)
@@ -1464,10 +1464,10 @@ def agent_setup() -> str:
         )
 
     return layout_page(
-        "Earth2Studio agentic quick start",
+        "Earth2Studio agentic setup",
         header(
             "Agent setup",
-            "Agentic Earth2Studio quick start",
+            "Agentic Earth2Studio setup",
             "Use NVIDIA skills to automate setup, discover workflows, and launch a first forecast.",
             "agent-ready setup",
         )

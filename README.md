@@ -38,13 +38,17 @@ Running AI weather prediction can be done with just a few lines of code.
 - Swap out [data sources][e2studio_data_api] or [models][e2studio_px_api] depending on
     your use case!
 
-### Agentic Earth2Studio quick start
+### Watch the first forecast tutorial
+
+[![Earth2Studio Tutorial](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-quickstart-video.png?v1)](https://www.youtube.com/watch?v=Sog6aCapZeA)
+
+### Agent-assisted setup
 
 Automate setup with your preferred coding agent using NVIDIA Earth2Studio skills.
 Install the Earth2Studio skill set, then ask your agent to discover a workflow,
 configure the environment, or run a first deterministic forecast.
 
-![Earth2Studio agentic quick start](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-agent-setup.png?v1)
+![Earth2Studio agentic setup](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-agent-setup.png?v1)
 
 ```bash
 npx skills add NVIDIA/skills --skill earth2studio-install
@@ -56,7 +60,7 @@ npx skills add NVIDIA/skills --skill earth2studio-deterministic-forecast
 Example agent prompts:
 
 ```text
-Use the Earth2Studio discover skill to recommend a quick-start forecast workflow.
+Use the Earth2Studio discover skill to recommend a starter forecast workflow.
 Use the Earth2Studio install skill to set up my environment for FourCastNet3 inference.
 Run a deterministic forecast workflow with GFS, FourCastNet3, and a Zarr output store.
 ```
@@ -111,8 +115,6 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > model and dataset.
 > Links to the original license and source are often provided in the API docs for each
 > model/data source.
-
-[![Earth2Studio Tutorial](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-quickstart-video.png?v1)](https://www.youtube.com/watch?v=Sog6aCapZeA)
 
 ## Latest News
 
