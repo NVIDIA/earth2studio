@@ -38,7 +38,7 @@ Running AI weather prediction can be done with just a few lines of code.
 - Swap out [data sources][e2studio_data_api] or [models][e2studio_px_api] depending on
     your use case!
 
-### Watch the first forecast tutorial
+### Tutorial
 
 [![Earth2Studio Tutorial](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-quickstart-video.png?v1)](https://www.youtube.com/watch?v=Sog6aCapZeA)
 
