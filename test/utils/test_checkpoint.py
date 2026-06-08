@@ -382,7 +382,7 @@ def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
         variables,
     )
     checkpoint = Checkpoint(
-        "deterministic", path=tmp_path, mode="overwrite", flush_interval=1
+        "deterministic", path=tmp_path, mode="append", flush_interval=1
     )
 
     with checkpoint.select(time=to_time_array(["2024-01-01"])) as ckpt:
@@ -400,7 +400,7 @@ def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
         )
     assert checkpoint.select(-1).lead_time == np.timedelta64(6, "h")
 
-    with checkpoint.select(time=to_time_array(["2024-01-01"])) as ckpt:
+    with checkpoint.select(-1) as ckpt:
         data = Random(domain_coords=coords)
         model = Persistence(variables, coords)
         run.deterministic(

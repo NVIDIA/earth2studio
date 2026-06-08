@@ -126,13 +126,14 @@ io.add_array(coords, var_names)
 # :py:meth:`earth2studio.run.deterministic`. We construct the data source and
 # model inside the selected checkpoint context, which is the pattern to use when
 # components bind restart state during construction. The workflow records a
-# checkpoint after each successful IO write because ``flush_interval=1``.
+# checkpoint row after each successful IO write because ``flush_interval=1``
+# and ``mode="append"`` keeps each row in the printed catalog.
 
 # %%
 checkpoint = Checkpoint(
     "restart-demo",
     path=checkpoint_store,
-    mode="overwrite",
+    mode="append",
     flush_interval=1,
 )
 
@@ -156,15 +157,15 @@ print(checkpoint)
 # %%
 # Resume
 # ------
-# In a new process, re-open the same IO store and checkpoint catalog. Calling the
-# deterministic workflow with the final horizon and the latest selected checkpoint
-# will read the last completed lead time from IO and continue from there.
+# In a new process, re-open the same IO store and checkpoint catalog. The
+# printout above shows the available row ids. Select ``-1`` to resume from the
+# latest row, read the last completed lead time from IO, and continue from there.
 
 # %%
 io = ZarrBackend(str(forecast_store))
-checkpoint = Checkpoint("restart-demo", path=checkpoint_store)
+checkpoint = Checkpoint("restart-demo", path=checkpoint_store, mode="append")
 
-with checkpoint.select(time=to_time_array(time)) as ckpt:
+with checkpoint.select(-1) as ckpt:
     data = Random(domain_coords=domain_coords)
     model = Persistence(variables, domain_coords)
     run.deterministic(
@@ -183,9 +184,9 @@ print(checkpoint)
 print(io.root.tree())
 
 # %%
-# The latest checkpoint now points at the final completed lead time. If the second
-# process stopped too, running the same resume block again would continue from the
-# new latest row.
+# The latest checkpoint row now points at the final completed lead time. If the
+# second process stopped too, selecting ``-1`` again would continue from the new
+# latest row.
 
 # %%
 latest = checkpoint.select(-1)
