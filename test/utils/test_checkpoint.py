@@ -36,6 +36,7 @@ from earth2studio.utils.checkpoint import (
     bind_checkpoint_state,
     default_checkpoint_path,
 )
+from earth2studio.utils.time import to_time_array
 
 
 @dataclass
@@ -367,8 +368,6 @@ def test_deterministic_workflow_records_checkpoint(tmp_path):
 def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
     coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
     variables = ["u10m", "v10m"]
-    data = Random(domain_coords=coords)
-    model = Persistence(variables, coords)
     io = ZarrBackend()
     io.add_array(
         OrderedDict(
@@ -386,28 +385,34 @@ def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
         "deterministic", path=tmp_path, mode="overwrite", flush_interval=1
     )
 
-    run.deterministic(
-        ["2024-01-01"],
-        1,
-        model,
-        data,
-        io,
-        device=torch.device("cpu"),
-        verbose=False,
-        checkpoint=checkpoint,
-    )
+    with checkpoint.select(time=to_time_array(["2024-01-01"])) as ckpt:
+        data = Random(domain_coords=coords)
+        model = Persistence(variables, coords)
+        run.deterministic(
+            ["2024-01-01"],
+            1,
+            model,
+            data,
+            io,
+            device=torch.device("cpu"),
+            verbose=False,
+            checkpoint=ckpt,
+        )
     assert checkpoint.select(-1).lead_time == np.timedelta64(6, "h")
 
-    run.deterministic(
-        ["2024-01-01"],
-        3,
-        model,
-        data,
-        io,
-        device=torch.device("cpu"),
-        verbose=False,
-        checkpoint=checkpoint,
-    )
+    with checkpoint.select(time=to_time_array(["2024-01-01"])) as ckpt:
+        data = Random(domain_coords=coords)
+        model = Persistence(variables, coords)
+        run.deterministic(
+            ["2024-01-01"],
+            3,
+            model,
+            data,
+            io,
+            device=torch.device("cpu"),
+            verbose=False,
+            checkpoint=ckpt,
+        )
 
     selected = checkpoint.select(-1)
     assert selected.lead_time == np.timedelta64(18, "h")

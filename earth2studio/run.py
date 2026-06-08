@@ -30,7 +30,7 @@ from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.checkpoint import Checkpoint
+from earth2studio.utils.checkpoint import Checkpoint, CheckpointSelection
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
@@ -48,7 +48,7 @@ def deterministic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint | None = None,
+    checkpoint: Checkpoint | CheckpointSelection | None = None,
 ) -> IOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
@@ -73,7 +73,9 @@ def deterministic(
     verbose : bool, optional
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
-        Checkpoint catalog used to record and resume workflow progress, by default None
+        Checkpoint catalog or selected checkpoint context used to record and resume
+        workflow progress, by default None. Pass a selected context when components
+        need to bind checkpoint state during construction.
 
     Returns
     -------
@@ -117,9 +119,12 @@ def deterministic(
     var_names = total_coords.pop("variable")
     _add_output_array_if_needed(io, total_coords, var_names)
 
-    checkpoint_context = (
-        checkpoint.select(time=time) if checkpoint is not None else nullcontext(None)
-    )
+    if isinstance(checkpoint, CheckpointSelection):
+        checkpoint_context = checkpoint
+    elif checkpoint is not None:
+        checkpoint_context = checkpoint.select(time=time)
+    else:
+        checkpoint_context = nullcontext(None)
 
     with checkpoint_context as ckpt:
         restart_step = None

@@ -305,7 +305,7 @@ class CheckpointSelection:
         self.write_count = entry.write_count if entry is not None else 0
         self._pending_coords: CoordSystem | Mapping[str, Any] | None = None
         self._pending_artifacts: Mapping[str, Any] | None = None
-        self._token: Token[CheckpointSelection | None] | None = None
+        self._tokens: list[Token[CheckpointSelection | None]] = []
         self._loaded_states = self._load_selected_states()
 
     @property
@@ -384,13 +384,12 @@ class CheckpointSelection:
         return self.checkpoint._commit(self, coords, artifacts)
 
     def __enter__(self) -> CheckpointSelection:
-        self._token = _ACTIVE_SELECTION.set(self)
+        self._tokens.append(_ACTIVE_SELECTION.set(self))
         return self
 
     def __exit__(self, *args: Any) -> None:
-        if self._token is not None:
-            _ACTIVE_SELECTION.reset(self._token)
-            self._token = None
+        if self._tokens:
+            _ACTIVE_SELECTION.reset(self._tokens.pop())
 
     def __bool__(self) -> bool:
         return self.exists
