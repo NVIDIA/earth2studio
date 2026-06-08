@@ -26,7 +26,9 @@ import torch
 import earth2studio.run as run
 from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
+from earth2studio.models.dx import Identity
 from earth2studio.models.px import Persistence
+from earth2studio.perturbation import Zero
 from earth2studio.utils.checkpoint import (
     Checkpoint,
     CheckpointError,
@@ -418,3 +420,120 @@ def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
     assert selected.lead_time == np.timedelta64(18, "h")
     assert selected.write_count == 4
     assert io["u10m"].shape[1] == 4
+
+
+
+def test_diagnostic_workflow_resumes_from_checkpoint(tmp_path):
+    coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
+    variables = ["u10m", "v10m"]
+    io = ZarrBackend()
+    io.add_array(
+        OrderedDict(
+            {
+                "time": np.asarray(["2024-01-01T00"], dtype="datetime64[ns]"),
+                "lead_time": np.asarray(
+                    [np.timedelta64(6 * i, "h") for i in range(4)]
+                ),
+                **coords,
+            }
+        ),
+        variables,
+    )
+    checkpoint = Checkpoint(
+        "diagnostic", path=tmp_path, mode="append", flush_interval=1
+    )
+
+    with checkpoint.select(time=to_time_array(["2024-01-01"])) as ckpt:
+        data = Random(domain_coords=coords)
+        model = Persistence(variables, coords)
+        diagnostic = Identity()
+        run.diagnostic(
+            ["2024-01-01"],
+            1,
+            model,
+            diagnostic,
+            data,
+            io,
+            device=torch.device("cpu"),
+            verbose=False,
+            checkpoint=ckpt,
+        )
+    assert checkpoint.select(-1).lead_time == np.timedelta64(6, "h")
+
+    with checkpoint.select(-1) as ckpt:
+        data = Random(domain_coords=coords)
+        model = Persistence(variables, coords)
+        diagnostic = Identity()
+        run.diagnostic(
+            ["2024-01-01"],
+            3,
+            model,
+            diagnostic,
+            data,
+            io,
+            device=torch.device("cpu"),
+            verbose=False,
+            checkpoint=ckpt,
+        )
+
+    selected = checkpoint.select(-1)
+    assert selected.lead_time == np.timedelta64(18, "h")
+    assert selected.write_count == 4
+    assert io["u10m"].shape[1] == 4
+
+
+def test_ensemble_workflow_resumes_each_batch_from_checkpoint(tmp_path):
+    coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
+    variables = ["u10m", "v10m"]
+    nensemble = 2
+    io = ZarrBackend()
+    io.add_array(
+        OrderedDict(
+            {
+                "ensemble": np.arange(nensemble),
+                "time": np.asarray(["2024-01-01T00"], dtype="datetime64[ns]"),
+                "lead_time": np.asarray(
+                    [np.timedelta64(6 * i, "h") for i in range(4)]
+                ),
+                **coords,
+            }
+        ),
+        variables,
+    )
+    checkpoint = Checkpoint("ensemble", path=tmp_path, mode="append", flush_interval=1)
+
+    run.ensemble(
+        ["2024-01-01"],
+        1,
+        nensemble,
+        Persistence(variables, coords),
+        Random(domain_coords=coords),
+        io,
+        Zero(),
+        batch_size=1,
+        device=torch.device("cpu"),
+        verbose=False,
+        checkpoint=checkpoint,
+    )
+
+    run.ensemble(
+        ["2024-01-01"],
+        3,
+        nensemble,
+        Persistence(variables, coords),
+        Random(domain_coords=coords),
+        io,
+        Zero(),
+        batch_size=1,
+        device=torch.device("cpu"),
+        verbose=False,
+        checkpoint=checkpoint,
+    )
+
+    time = to_time_array(["2024-01-01"])
+    for batch_id in range(nensemble):
+        selected = checkpoint.select(time=time, ensemble_batch=batch_id)
+        assert selected.lead_time == np.timedelta64(18, "h")
+        assert selected.write_count == 4
+    assert len(checkpoint.catalog) == 8
+    assert io["u10m"].shape[:3] == (nensemble, 1, 4)

@@ -30,10 +30,12 @@ deterministic(
 )
 ```
 
-The built-in deterministic workflow writes checkpoint rows after successful IO
-writes. `flush_interval` controls durable writes to disk. The workflow can call
-`Checkpoint.write` every iteration while the checkpoint object decides whether a
-real disk commit is due.
+The built-in deterministic, diagnostic, and ensemble workflows write checkpoint
+rows after successful IO writes. `flush_interval` controls durable writes to
+disk. The workflow can call `Checkpoint.write` every iteration while the
+checkpoint object decides whether a real disk commit is due. Ensemble workflow
+rows are tracked independently by `ensemble_batch` when a checkpoint catalog is
+provided.
 
 Use `flush_interval=1` for every write call to commit immediately, or
 `flush_interval=None` to keep updates pending until `flush` is called. The
@@ -87,6 +89,18 @@ arguments are intentionally not accepted so checkpoint payloads remain explicit.
 
 `mode="overwrite"` keeps only the latest row for a label set. `mode="append"`
 keeps a history, and `keep_last` can cap that history.
+
+## Workflow Resume
+
+The built-in deterministic workflow can resume from forecast fields already
+written to the IO backend. The diagnostic workflow can also resume when the IO
+backend contains the prognostic variables needed for the next forecast step.
+The ensemble workflow stores progress per mini-batch using an `ensemble_batch`
+label, allowing completed batches to be skipped and partially completed batches
+to continue from their latest saved lead time.
+
+For custom loops, print the checkpoint catalog and select the desired row by
+index, for example `checkpoint.select(-1)` for the latest row.
 
 ## Component State
 
