@@ -63,7 +63,7 @@ Example agent prompts:
 ```text
 Use the Earth2Studio discover skill to recommend a starter forecast workflow.
 Use the Earth2Studio install skill to set up my environment for FourCastNet3 inference.
-Run a deterministic forecast workflow with GFS, FourCastNet3, and a Zarr output store.
+Create a deterministic forecast workflow with GFS, FourCastNet3, and a Zarr output store.
 ```
 
 ### NVIDIA FourCastNet3
