@@ -46,7 +46,7 @@ Running AI weather prediction can be done with just a few lines of code.
 
 Automate setup with your preferred coding agent using NVIDIA Earth2Studio skills.
 Install the Earth2Studio skill set, then ask your favorite agent (Claude, Codex, OpenCode, etc) to
-recommend a model, configure the environment, or run a first deterministic forecast.
+recommend a model, configure an environment, or run a first deterministic forecast.
 Find more Earth2Studio skills in the [NVIDIA Skills catalog](https://build.nvidia.com/skills?q=earth2studio).
 
 ![Earth2Studio agentic setup](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-agent-setup.png?v1)
