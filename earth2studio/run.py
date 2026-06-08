@@ -15,8 +15,10 @@
 # limitations under the License.
 
 from collections import OrderedDict
+from contextlib import nullcontext
 from datetime import datetime
 from math import ceil
+from typing import Any
 
 import numpy as np
 import torch
@@ -28,6 +30,7 @@ from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
+from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
@@ -45,6 +48,7 @@ def deterministic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
+    checkpoint: Checkpoint | None = None,
 ) -> IOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
@@ -68,6 +72,8 @@ def deterministic(
         Device to run inference on, by default None
     verbose : bool, optional
         Print inference progress, by default True
+    checkpoint : Checkpoint, optional
+        Checkpoint catalog used to record and resume workflow progress, by default None
 
     Returns
     -------
@@ -89,26 +95,6 @@ def deterministic(
     prognostic_ic = prognostic.input_coords()
     time = to_time_array(time)
 
-    if hasattr(prognostic, "interp_method"):
-        interp_to = prognostic_ic
-        interp_method = prognostic.interp_method
-    else:
-        interp_to = None
-        interp_method = "nearest"
-
-    x, coords = fetch_data(
-        source=data,
-        time=time,
-        variable=prognostic_ic["variable"],
-        lead_time=prognostic_ic["lead_time"],
-        device=device,
-        interp_to=interp_to,
-        interp_method=interp_method,
-    )
-
-    logger.success(f"Fetched data from {data.__class__.__name__}")
-    # sphinx - fetch data end
-
     # Set up IO backend
     total_coords = prognostic.output_coords(prognostic.input_coords()).copy()
     for key, value in prognostic.output_coords(
@@ -129,27 +115,133 @@ def deterministic(
     for key, value in total_coords.items():
         total_coords[key] = output_coords.get(key, value)
     var_names = total_coords.pop("variable")
-    io.add_array(total_coords, var_names)
+    _add_output_array_if_needed(io, total_coords, var_names)
 
-    # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic.input_coords())
-    # Create prognostic iterator
-    model = prognostic.create_iterator(x, coords)
+    checkpoint_context = (
+        checkpoint.select(time=time) if checkpoint is not None else nullcontext(None)
+    )
 
-    logger.info("Inference starting!")
-    with tqdm(
-        total=nsteps + 1, desc="Running inference", position=1, disable=(not verbose)
-    ) as pbar:
-        for step, (x, coords) in enumerate(model):
-            # Subselect domain/variables as indicated in output_coords
-            x, coords = map_coords(x, coords, output_coords)
-            io.write(*split_coords(x, coords))
-            pbar.update(1)
-            if step == nsteps:
-                break
+    with checkpoint_context as ckpt:
+        restart_step = None
+        if ckpt is not None and ckpt.exists:
+            restart_step = _lead_time_index(total_coords["lead_time"], ckpt.lead_time)
+            if restart_step >= nsteps:
+                logger.success("\nInference complete")
+                return io
+            x, coords = _read_restart_from_io(
+                io, prognostic_ic, time, ckpt.lead_time, device
+            )
+        else:
+            if hasattr(prognostic, "interp_method"):
+                interp_to = prognostic_ic
+                interp_method = prognostic.interp_method
+            else:
+                interp_to = None
+                interp_method = "nearest"
+
+            x, coords = fetch_data(
+                source=data,
+                time=time,
+                variable=prognostic_ic["variable"],
+                lead_time=prognostic_ic["lead_time"],
+                device=device,
+                interp_to=interp_to,
+                interp_method=interp_method,
+            )
+
+            logger.success(f"Fetched data from {data.__class__.__name__}")
+            # sphinx - fetch data end
+
+        # Map lat and lon if needed
+        x, coords = map_coords(x, coords, prognostic.input_coords())
+        # Create prognostic iterator
+        model = prognostic.create_iterator(x, coords)
+
+        logger.info("Inference starting!")
+        initial_progress = 0 if restart_step is None else restart_step + 1
+        last_checkpoint_entry = None
+        last_coords = coords
+        with tqdm(
+            total=nsteps + 1,
+            initial=initial_progress,
+            desc="Running inference",
+            position=1,
+            disable=(not verbose),
+        ) as pbar:
+            for local_step, (x, coords) in enumerate(model):
+                step = local_step if restart_step is None else restart_step + local_step
+                if restart_step is not None and local_step == 0:
+                    continue
+
+                last_coords = coords
+                # Subselect domain/variables as indicated in output_coords
+                x, coords = map_coords(x, coords, output_coords)
+                io.write(*split_coords(x, coords))
+                if ckpt is not None:
+                    last_checkpoint_entry = ckpt.write(coords=last_coords)
+                pbar.update(1)
+                if step == nsteps:
+                    break
+
+        if ckpt is not None and last_checkpoint_entry is None:
+            ckpt.flush(coords=last_coords)
 
     logger.success("\nInference complete")
     return io
+
+
+def _add_output_array_if_needed(
+    io: IOBackend, coords: CoordSystem, var_names: np.ndarray
+) -> None:
+    missing = list(var_names)
+    try:
+        missing = [name for name in var_names if name not in io]
+    except TypeError:
+        pass
+    if missing:
+        io.add_array(coords, missing)
+
+
+def _lead_time_index(lead_times: np.ndarray, lead_time: Any) -> int:
+    value = np.asarray(lead_time).reshape(-1)[0]
+    index = np.where(lead_times == value)[0]
+    if index.shape[0] == 0:
+        raise ValueError(
+            f"Checkpoint lead_time {lead_time} is not in workflow lead_time coordinates."
+        )
+    return int(index[0])
+
+
+def _read_restart_from_io(
+    io: IOBackend,
+    prognostic_coords: CoordSystem,
+    time: np.ndarray,
+    lead_time: Any,
+    device: torch.device,
+) -> tuple[torch.Tensor, CoordSystem]:
+    if not hasattr(io, "read"):
+        raise RuntimeError(
+            "Checkpoint resume requires an IO backend with read(coords, array_name, device)."
+        )
+
+    read_coords = prognostic_coords.copy()
+    variable = read_coords.pop("variable")
+    read_coords["time"] = time
+    read_coords["lead_time"] = np.asarray([lead_time])
+    read_coords.move_to_end("lead_time", last=False)
+    read_coords.move_to_end("time", last=False)
+
+    xs = []
+    for name in variable:
+        x, _ = io.read(read_coords, str(name), device=device)
+        xs.append(x)
+
+    variable_index = list(prognostic_coords).index("variable")
+    x = torch.stack(xs, dim=variable_index)
+    coords = prognostic_coords.copy()
+    coords["time"] = time
+    coords["lead_time"] = np.asarray([lead_time])
+    return x, coords
 
 
 # sphinx - diagnostic start
