@@ -63,6 +63,7 @@ Example agent prompts:
 ```text
 Use the Earth2Studio discover skill to recommend a starter forecast workflow.
 Use the Earth2Studio install skill to set up my environment for FourCastNet3 inference.
+Create a script to fetch ERA5 surface winds data March 2024.
 Create a deterministic forecast workflow with GFS, FourCastNet3, and a Zarr output store.
 ```
 
