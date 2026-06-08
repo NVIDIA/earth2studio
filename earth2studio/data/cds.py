@@ -98,9 +98,31 @@ class CDS:
     def __init__(self, cache: bool = True, verbose: bool = True):
         self._cache = cache
         self._verbose = verbose
-        self.cds_client = cdsapi.Client(
-            debug=False, quiet=True, wait_until_complete=False
-        )
+        self._cds_client: Any | None = None
+
+    @property
+    def cds_client(self) -> Any:
+        """Lazily initialize the CDS API client on first access.
+
+        This allows cache hits to succeed without requiring CDS API credentials
+        or network access, enabling use in air-gapped environments with
+        pre-populated caches.
+        """
+        if self._cds_client is None:
+            if cdsapi is None:
+                raise ImportError(
+                    "cdsapi is required for CDS. "
+                    "Install with: pip install 'earth2studio[data]'"
+                )
+            self._cds_client = cdsapi.Client(
+                debug=False, quiet=True, wait_until_complete=False
+            )
+        return self._cds_client
+
+    @cds_client.setter
+    def cds_client(self, value: Any) -> None:
+        """Allow setting a custom CDS API client for testing or injection."""
+        self._cds_client = value
 
     def __call__(
         self,
