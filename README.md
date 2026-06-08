@@ -38,6 +38,35 @@ Running AI weather prediction can be done with just a few lines of code.
 - Swap out [data sources][e2studio_data_api] or [models][e2studio_px_api] depending on
     your use case!
 
+### Tutorial
+
+[![Earth2Studio Tutorial](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-quickstart-video.png?v1)](https://www.youtube.com/watch?v=Sog6aCapZeA)
+
+### Agent-assisted setup
+
+Automate setup with your preferred coding agent using NVIDIA Earth2Studio skills.
+Install the Earth2Studio skill set, then ask your favorite agent (Claude, Codex, OpenCode, etc) to
+recommend a model, configure an environment, or run a first deterministic forecast.
+Find more Earth2Studio skills in the [NVIDIA Skills catalog](https://build.nvidia.com/skills?q=earth2studio).
+
+![Earth2Studio agentic setup](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-agent-setup.png?v1)
+
+```bash
+npx skills add NVIDIA/skills --skill earth2studio-install
+npx skills add NVIDIA/skills --skill earth2studio-discover
+npx skills add NVIDIA/skills --skill earth2studio-data-fetch
+npx skills add NVIDIA/skills --skill earth2studio-deterministic-forecast
+```
+
+Example agent prompts:
+
+```text
+Use the Earth2Studio discover skill to recommend a starter forecast workflow.
+Use the Earth2Studio install skill to set up my environment for FourCastNet3 inference.
+Create a script to fetch ERA5 surface winds data for March 2024.
+Create a deterministic forecast workflow with GFS, FourCastNet3, and a Zarr output store.
+```
+
 ### NVIDIA FourCastNet3
 
 ```python
@@ -88,8 +117,6 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > model and dataset.
 > Links to the original license and source are often provided in the API docs for each
 > model/data source.
-
-[![Earth2Studio Tutorial](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-quickstart-video.png?v2)](https://www.youtube.com/watch?v=Sog6aCapZeA)
 
 ## Latest News
 
