@@ -362,3 +362,54 @@ def test_deterministic_workflow_records_checkpoint(tmp_path):
     assert selected.exists
     assert selected.lead_time == np.timedelta64(18, "h")
     assert selected.write_count == 4
+
+
+def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
+    coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
+    variables = ["u10m", "v10m"]
+    data = Random(domain_coords=coords)
+    model = Persistence(variables, coords)
+    io = ZarrBackend()
+    io.add_array(
+        OrderedDict(
+            {
+                "time": np.asarray(["2024-01-01T00"], dtype="datetime64[ns]"),
+                "lead_time": np.asarray(
+                    [np.timedelta64(6 * i, "h") for i in range(4)]
+                ),
+                **coords,
+            }
+        ),
+        variables,
+    )
+    checkpoint = Checkpoint(
+        "deterministic", path=tmp_path, mode="overwrite", flush_interval=1
+    )
+
+    run.deterministic(
+        ["2024-01-01"],
+        1,
+        model,
+        data,
+        io,
+        device=torch.device("cpu"),
+        verbose=False,
+        checkpoint=checkpoint,
+    )
+    assert checkpoint.select(-1).lead_time == np.timedelta64(6, "h")
+
+    run.deterministic(
+        ["2024-01-01"],
+        3,
+        model,
+        data,
+        io,
+        device=torch.device("cpu"),
+        verbose=False,
+        checkpoint=checkpoint,
+    )
+
+    selected = checkpoint.select(-1)
+    assert selected.lead_time == np.timedelta64(18, "h")
+    assert selected.write_count == 4
+    assert io["u10m"].shape[1] == 4

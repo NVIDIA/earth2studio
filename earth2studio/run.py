@@ -224,24 +224,44 @@ def _read_restart_from_io(
             "Checkpoint resume requires an IO backend with read(coords, array_name, device)."
         )
 
-    read_coords = prognostic_coords.copy()
-    variable = read_coords.pop("variable")
-    read_coords["time"] = time
-    read_coords["lead_time"] = np.asarray([lead_time])
-    read_coords.move_to_end("lead_time", last=False)
-    read_coords.move_to_end("time", last=False)
+    variable = prognostic_coords["variable"]
+    restart_lead_time = _restart_lead_time(
+        prognostic_coords["lead_time"], lead_time
+    )
+
+    read_coords = OrderedDict(
+        {
+            "time": time,
+            "lead_time": restart_lead_time,
+        }
+    )
+    for key, value in prognostic_coords.items():
+        if key in ("batch", "lead_time", "variable"):
+            continue
+        if value.shape == (0,):
+            continue
+        read_coords[key] = value
+
+    coords = OrderedDict(
+        {"time": time, "lead_time": restart_lead_time, "variable": variable}
+    )
+    for key, value in read_coords.items():
+        if key not in coords:
+            coords[key] = value
 
     xs = []
     for name in variable:
         x, _ = io.read(read_coords, str(name), device=device)
         xs.append(x)
 
-    variable_index = list(prognostic_coords).index("variable")
+    variable_index = list(coords).index("variable")
     x = torch.stack(xs, dim=variable_index)
-    coords = prognostic_coords.copy()
-    coords["time"] = time
-    coords["lead_time"] = np.asarray([lead_time])
     return x, coords
+
+
+def _restart_lead_time(input_lead_time: np.ndarray, lead_time: Any) -> np.ndarray:
+    base_lead_time = np.asarray(lead_time).reshape(-1)[0]
+    return np.asarray(input_lead_time) + base_lead_time
 
 
 # sphinx - diagnostic start
