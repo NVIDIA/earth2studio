@@ -209,7 +209,7 @@ def deterministic(
                     break
 
         if last_checkpoint_entry is None:
-            ckpt.flush(lead_time=_lead_time_from_coords(last_coords))
+            ckpt.flush()
 
     logger.success("\nInference complete")
     return io
@@ -496,7 +496,7 @@ def diagnostic(
                     break
 
         if last_checkpoint_entry is None:
-            ckpt.flush(lead_time=_lead_time_from_coords(last_coords))
+            ckpt.flush()
 
     logger.success("\nInference complete")
     return io
@@ -679,7 +679,7 @@ def ensemble(
                         break
 
             if last_checkpoint_entry is None:
-                ckpt.flush(lead_time=_lead_time_from_coords(last_coords))
+                ckpt.flush()
 
     logger.success("\nInference complete")
     return io
