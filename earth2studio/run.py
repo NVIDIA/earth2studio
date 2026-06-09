@@ -16,7 +16,6 @@
 
 from collections import OrderedDict
 from collections.abc import Mapping
-from contextlib import nullcontext
 from datetime import datetime
 from math import ceil
 from typing import Any
@@ -31,34 +30,17 @@ from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.checkpoint import Checkpoint, CheckpointSession
+from earth2studio.utils.checkpoint import (
+    NO_CHECKPOINT,
+    Checkpoint,
+    CheckpointSession,
+    NullCheckpointSession,
+)
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-
-
-class _NullCheckpointSession:
-    exists = False
-    lead_time = None
-
-    def write(
-        self,
-        lead_time: Any | None = None,
-        artifacts: Mapping[str, Any] | None = None,
-    ) -> None:
-        return None
-
-    def flush(
-        self,
-        lead_time: Any | None = None,
-        artifacts: Mapping[str, Any] | None = None,
-    ) -> None:
-        return None
-
-
-_NULL_CHECKPOINT = _NullCheckpointSession()
 
 
 # sphinx - deterministic start
@@ -71,7 +53,10 @@ def deterministic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint | CheckpointSession | None = None,
+    checkpoint: Checkpoint
+    | CheckpointSession
+    | NullCheckpointSession
+    | None = NO_CHECKPOINT,
 ) -> IOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
@@ -97,7 +82,7 @@ def deterministic(
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
         Checkpoint manager or checkpoint session used to record and resume workflow
-        progress, by default None. If a checkpoint has an active session, the
+        progress, by default no checkpoint. If a checkpoint has an active session, the
         workflow uses that session; otherwise it selects the latest matching row
         or starts a new labeled row.
 
@@ -143,9 +128,13 @@ def deterministic(
     var_names = total_coords.pop("variable")
     _add_output_array_if_needed(io, total_coords, var_names)
 
-    checkpoint_context = _checkpoint_context(checkpoint, time=time)
+    if checkpoint is None:
+        checkpoint = NO_CHECKPOINT
+    if isinstance(checkpoint, Checkpoint):
+        active = checkpoint.active
+        checkpoint = active if active is not None else checkpoint.select(time=time)
 
-    with checkpoint_context as ckpt:
+    with checkpoint as ckpt:
         restart_step = None
         if ckpt.exists:
             restart_step = _lead_time_index(total_coords["lead_time"], ckpt.lead_time)
@@ -183,7 +172,6 @@ def deterministic(
 
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
-        last_checkpoint_entry = None
         last_coords = coords
         with tqdm(
             total=nsteps + 1,
@@ -201,34 +189,15 @@ def deterministic(
                 # Subselect domain/variables as indicated in output_coords
                 x, coords = map_coords(x, coords, output_coords)
                 io.write(*split_coords(x, coords))
-                last_checkpoint_entry = ckpt.write(
-                    lead_time=_lead_time_from_coords(last_coords)
-                )
+                ckpt.write(lead_time=_lead_time_from_coords(last_coords))
                 pbar.update(1)
                 if step == nsteps:
                     break
 
-        if last_checkpoint_entry is None:
-            ckpt.flush()
+        ckpt.flush()
 
     logger.success("\nInference complete")
     return io
-
-
-def _checkpoint_context(
-    checkpoint: Checkpoint | CheckpointSession | None, **labels: Any
-):
-    if checkpoint is None:
-        return nullcontext(_NULL_CHECKPOINT)
-    if isinstance(checkpoint, CheckpointSession):
-        if checkpoint.is_active:
-            return nullcontext(checkpoint)
-        return checkpoint
-
-    active_session = checkpoint.active
-    if active_session is not None:
-        return nullcontext(active_session)
-    return checkpoint.select(**labels)
 
 
 def _add_output_array_if_needed(
@@ -360,7 +329,10 @@ def diagnostic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint | CheckpointSession | None = None,
+    checkpoint: Checkpoint
+    | CheckpointSession
+    | NullCheckpointSession
+    | None = NO_CHECKPOINT,
 ) -> IOBackend:
     """Built in diagnostic workflow.
     This workflow creates a determinstic inference pipeline that couples a prognostic
@@ -388,7 +360,7 @@ def diagnostic(
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
         Checkpoint manager or checkpoint session used to record and resume workflow
-        progress, by default None. Resume requires the IO backend to contain the
+        progress, by default no checkpoint. Resume requires the IO backend to contain the
         prognostic variables needed for the next forecast step.
 
     Returns
@@ -434,8 +406,13 @@ def diagnostic(
     var_names = total_coords.pop("variable")
     _add_output_array_if_needed(io, total_coords, var_names)
 
-    checkpoint_context = _checkpoint_context(checkpoint, time=time)
-    with checkpoint_context as ckpt:
+    if checkpoint is None:
+        checkpoint = NO_CHECKPOINT
+    if isinstance(checkpoint, Checkpoint):
+        active = checkpoint.active
+        checkpoint = active if active is not None else checkpoint.select(time=time)
+
+    with checkpoint as ckpt:
         restart_step = None
         if ckpt.exists:
             restart_step = _lead_time_index(total_coords["lead_time"], ckpt.lead_time)
@@ -469,7 +446,6 @@ def diagnostic(
 
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
-        last_checkpoint_entry = None
         last_coords = coords
         with tqdm(
             total=nsteps + 1,
@@ -488,15 +464,12 @@ def diagnostic(
                 x, coords = diagnostic(x, coords)
                 x, coords = map_coords(x, coords, output_coords)
                 io.write(*split_coords(x, coords))
-                last_checkpoint_entry = ckpt.write(
-                    lead_time=_lead_time_from_coords(last_coords)
-                )
+                ckpt.write(lead_time=_lead_time_from_coords(last_coords))
                 pbar.update(1)
                 if step == nsteps:
                     break
 
-        if last_checkpoint_entry is None:
-            ckpt.flush()
+        ckpt.flush()
 
     logger.success("\nInference complete")
     return io
@@ -515,7 +488,10 @@ def ensemble(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint | CheckpointSession | None = None,
+    checkpoint: Checkpoint
+    | CheckpointSession
+    | NullCheckpointSession
+    | None = NO_CHECKPOINT,
 ) -> IOBackend:
     """Built in ensemble workflow.
 
@@ -546,7 +522,7 @@ def ensemble(
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
         Checkpoint manager or checkpoint session used to record and resume workflow
-        progress, by default None. When a checkpoint manager is provided, rows are tracked
+        progress, by default no checkpoint. When a checkpoint manager is provided, rows are tracked
         independently for each ensemble batch.
 
     Returns
@@ -622,11 +598,16 @@ def ensemble(
     ):
         mini_batch_size = min(batch_size, nensemble - batch_id)
         ensemble_coords = np.arange(batch_id, batch_id + mini_batch_size)
-        checkpoint_context = _checkpoint_context(
-            checkpoint, time=time, ensemble_batch=batch_id
-        )
+        batch_checkpoint = NO_CHECKPOINT if checkpoint is None else checkpoint
+        if isinstance(batch_checkpoint, Checkpoint):
+            active = batch_checkpoint.active
+            batch_checkpoint = (
+                active
+                if active is not None
+                else batch_checkpoint.select(time=time, ensemble_batch=batch_id)
+            )
 
-        with checkpoint_context as ckpt:
+        with batch_checkpoint as ckpt:
             restart_step = None
             if ckpt.exists:
                 restart_step = _lead_time_index(
@@ -649,7 +630,6 @@ def ensemble(
 
             model = prognostic.create_iterator(x, coords)
             initial_progress = 0 if restart_step is None else restart_step + 1
-            last_checkpoint_entry = None
             last_coords = coords
             with tqdm(
                 total=nsteps + 1,
@@ -671,15 +651,12 @@ def ensemble(
                     last_coords = coords
                     x, coords = map_coords(x, coords, output_coords)
                     io.write(*split_coords(x, coords))
-                    last_checkpoint_entry = ckpt.write(
-                        lead_time=_lead_time_from_coords(last_coords)
-                    )
+                    ckpt.write(lead_time=_lead_time_from_coords(last_coords))
                     pbar.update(1)
                     if step == nsteps:
                         break
 
-            if last_checkpoint_entry is None:
-                ckpt.flush()
+            ckpt.flush()
 
     logger.success("\nInference complete")
     return io

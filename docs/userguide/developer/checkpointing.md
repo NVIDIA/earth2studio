@@ -39,7 +39,9 @@ checkpoint is provided.
 
 Use `flush_interval=1` for every write call to commit immediately, or
 `flush_interval=None` to keep updates pending until `flush` is called. The
-workflow flushes the final pending state before returning.
+workflow flushes the final pending state before returning. When checkpointing is
+omitted, built-in workflows use a no-op checkpoint session with the same
+`write` and `flush` methods.
 
 ## Selecting Restart Points
 
@@ -80,13 +82,15 @@ with checkpoint.select(time=time, ensemble=member) as ckpt:
             artifacts={"last_complete_lead_time": lead_time},
         )
 
-    ckpt.flush(lead_time=lead_time)
+    ckpt.flush()
 ```
 
 `write` accepts explicit `lead_time` and `artifacts` keyword arguments.
 `lead_time` records the latest completed forecast position. `artifacts` is for
-small user-provided restart metadata. Arbitrary keyword
-arguments are intentionally not accepted so checkpoint payloads remain explicit.
+small user-provided restart metadata. `flush()` with no arguments commits the
+latest pending `write`; if there is nothing pending, it is a no-op. Arbitrary
+keyword arguments are intentionally not accepted so checkpoint payloads remain
+explicit.
 
 `mode="overwrite"` keeps only the latest row for a label set. `mode="append"`
 keeps a history, and `keep_last` can cap that history.
@@ -101,7 +105,8 @@ allowing completed batches to be skipped and partially completed batches to
 continue from their latest saved lead time.
 
 For custom loops, print the checkpoint and select the desired row by index, for
-example `checkpoint.select(-1)` for the latest row. Built-in workflows accept
+example `checkpoint.select(-1)` for the latest row. `Checkpoint` and
+`CheckpointSession` both support context-manager use. Built-in workflows accept
 either the checkpoint manager or a selected `CheckpointSession`. Passing the
 manager while a session is active uses that active session; passing a manager
 with no active session chooses the latest matching workflow row, or starts a new

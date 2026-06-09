@@ -63,6 +63,7 @@ components during a selected checkpoint session.
 
    utils.checkpoint.Checkpoint
    utils.checkpoint.CheckpointSession
+   utils.checkpoint.NullCheckpointSession
 
 .. autosummary::
    :toctree: generated/utils/

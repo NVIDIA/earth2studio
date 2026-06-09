@@ -30,6 +30,7 @@ from earth2studio.models.dx import Identity
 from earth2studio.models.px import Persistence
 from earth2studio.perturbation import Zero
 from earth2studio.utils.checkpoint import (
+    NO_CHECKPOINT,
     Checkpoint,
     CheckpointError,
     CheckpointSerializationError,
@@ -82,6 +83,24 @@ class BadState:
 @dataclass
 class RequiredState:
     value: int
+
+
+def test_checkpoint_contexts_and_no_checkpoint_session(tmp_path):
+    with NO_CHECKPOINT as ckpt:
+        assert not ckpt
+        assert not ckpt.exists
+        assert not ckpt.is_active
+        assert ckpt.write(lead_time=_lead_time(0)) is None
+        assert ckpt.flush() is None
+
+    checkpoint = Checkpoint("forecast", path=tmp_path, mode="append", flush_interval=1)
+    with checkpoint.select(time="2024-01-01") as selected:
+        with checkpoint as active:
+            assert active is selected
+            assert active.write(lead_time=_lead_time(0)) is not None
+            assert active.flush() is None
+
+    assert len(checkpoint.catalog) == 1
 
 
 class DroppingLeadTimeDiagnostic(torch.nn.Module):
@@ -311,7 +330,8 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
             ckpt.flush(artifacts={"bad": {1: 2}})
         bind_checkpoint_state(RequiredState(1))
         ckpt.flush(lead_time=torch.tensor([6]))
-        ckpt.flush()
+        assert ckpt.flush() is None
+        ckpt.write(lead_time=torch.tensor([7]))
 
     meta_checkpoint = Checkpoint("metadata", path=tmp_path / "metadata")
     with meta_checkpoint.select(

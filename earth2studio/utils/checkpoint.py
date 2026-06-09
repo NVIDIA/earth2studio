@@ -86,6 +86,56 @@ class CheckpointEntry:
     artifacts: tuple[str, ...]
 
 
+class NullCheckpointSession:
+    """No-op checkpoint session used when checkpointing is disabled."""
+
+    exists = False
+    lead_time = None
+
+    @property
+    def labels(self) -> Mapping[str, Any]:
+        """Labels for the no-op session."""
+        return {}
+
+    @property
+    def write_count(self) -> int:
+        """Number of checkpoint writes accepted by the no-op session."""
+        return 0
+
+    @property
+    def is_active(self) -> bool:
+        """Whether this checkpoint session is active in the current context."""
+        return False
+
+    def write(
+        self,
+        lead_time: Any | None = None,
+        artifacts: Mapping[str, Any] | None = None,
+    ) -> None:
+        """Accept a checkpoint boundary without committing anything."""
+        return None
+
+    def flush(
+        self,
+        lead_time: Any | None = None,
+        artifacts: Mapping[str, Any] | None = None,
+    ) -> None:
+        """Accept a flush request without committing anything."""
+        return None
+
+    def __enter__(self) -> NullCheckpointSession:
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        return None
+
+    def __bool__(self) -> bool:
+        return False
+
+
+NO_CHECKPOINT = NullCheckpointSession()
+
+
 def default_checkpoint_path(name: str) -> Path:
     """Return the default path for a named checkpoint store."""
     base = Path(
@@ -147,6 +197,7 @@ class Checkpoint:
         self.rank = detected_rank if rank is None else rank
         self.world_size = detected_world_size if world_size is None else world_size
         self._catalog: list[CheckpointEntry] | None = None
+        self._context_sessions: list[CheckpointSession] = []
         _CURRENT_CHECKPOINT.set(self)
 
     @property
@@ -205,6 +256,16 @@ class Checkpoint:
             selected_entry = entries[-1]
 
         return CheckpointSession(self, encoded_labels, selected_entry)
+
+    def __enter__(self) -> CheckpointSession:
+        active = self.active
+        session = active if active is not None else self.select()
+        self._context_sessions.append(session)
+        return session.__enter__()
+
+    def __exit__(self, *args: Any) -> None:
+        if self._context_sessions:
+            self._context_sessions.pop().__exit__(*args)
 
     def __repr__(self) -> str:
         entries = self.catalog
@@ -336,6 +397,7 @@ class CheckpointSession:
         self.write_count = entry.write_count if entry is not None else 0
         self._pending_lead_time: Any | None = None
         self._pending_artifacts: Mapping[str, Any] | None = None
+        self._pending_dirty = False
         self._tokens: list[Token[CheckpointSession | None]] = []
         self._pending_adopted = False
         self._loaded_states = self._load_selected_states()
@@ -431,22 +493,33 @@ class CheckpointSession:
         self.write_count += 1
         self._pending_lead_time = _normalize_lead_time(lead_time)
         self._pending_artifacts = artifacts
+        self._pending_dirty = True
         interval = self.catalog.flush_interval
         if interval is not None and self.write_count % interval == 0:
-            return self.flush(lead_time=lead_time, artifacts=artifacts)
+            return self.flush()
         return None
 
     def flush(
         self,
         lead_time: Any | None = None,
         artifacts: Mapping[str, Any] | None = None,
-    ) -> CheckpointEntry:
+    ) -> CheckpointEntry | None:
         """Force an atomic checkpoint commit for the current session."""
-        if lead_time is None:
-            lead_time = self._pending_lead_time
-        if artifacts is None:
-            artifacts = self._pending_artifacts
-        return self.catalog._commit(self, lead_time, artifacts)
+        has_updates = lead_time is not None or artifacts is not None
+        commit_lead_time = (
+            self._pending_lead_time
+            if lead_time is None
+            else _normalize_lead_time(lead_time)
+        )
+        commit_artifacts = self._pending_artifacts if artifacts is None else artifacts
+        if not self._pending_dirty and not has_updates:
+            return None
+
+        entry = self.catalog._commit(self, commit_lead_time, commit_artifacts)
+        self._pending_lead_time = commit_lead_time
+        self._pending_artifacts = commit_artifacts
+        self._pending_dirty = False
+        return entry
 
     def __enter__(self) -> CheckpointSession:
         if not self._pending_adopted:
