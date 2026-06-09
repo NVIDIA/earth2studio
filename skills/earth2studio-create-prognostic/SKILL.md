@@ -177,20 +177,22 @@ uv run pytest test/models/px/test_<name>.py -m "not package" -v
 make format && make lint && make license
 ```
 
-### Step 10 — Validation (if requested)
+### Step 10 - Validation (if requested)
 
-Create comparison scripts (do NOT commit):
-1. `reference_<model>_vanilla.py` — third-party inference
-2. `reference_<model>_e2s.py` — E2S wrapper inference
-3. `reference_<model>_compare.py` — numerical comparison
+Follow `references/validation-guide.md`. Create uncommitted vanilla, E2S,
+comparison, and sanity-check scripts; do not commit generated outputs or images.
+Use PR-safe placeholders for plots so the user can upload images manually.
 
 **[CONFIRM]** User must visually inspect plots before proceeding.
 
-### Step 11 — PR (if requested)
+### Step 11 - PR (if requested)
 
-1. Branch: `feat/prognostic-model-<name>`
-2. Commit (exclude comparison scripts)
-3. `gh pr create --repo NVIDIA/earth2studio`
+Follow `references/validation-guide.md` and use:
+- `references/pr-body-template.md`
+- `references/pr-comment-template.md`
+
+Do not include machine names, absolute paths, device inventory, or uploaded image
+links in PR text. Use plot placeholders instead.
 
 ---
 

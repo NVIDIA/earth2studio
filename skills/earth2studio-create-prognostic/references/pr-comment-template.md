@@ -1,0 +1,65 @@
+## Reference Comparison Validation
+
+**Model:** `ClassName`
+**Comparison date:** YYYY-MM-DDTHH:MM:SS
+**Environment:** GPU / CPU validation run (do not include machine names, hostnames, absolute paths, or device inventory)
+
+### Results Summary
+
+| Metric | Step 1 (+Xh) | Step N (+Yh) |
+|---|---:|---:|
+| Max absolute difference | VALUE | VALUE |
+| Mean absolute difference | VALUE | VALUE |
+| Correlation | VALUE | VALUE |
+| Finite fraction | VALUE | VALUE |
+
+**Key findings:**
+- BULLET_SINGLE_STEP_AGREEMENT
+- BULLET_MULTISTEP_OR_AUTOREGRESSIVE_BEHAVIOR
+- BULLET_SPATIAL_PATTERN_QUALITY
+
+### Reference Plots
+
+Do not upload or attach images from the automation. Leave placeholders for the
+PR author to upload images manually in the browser.
+
+> TODO: Upload `PLOT_NAME_1` here.
+>
+> TODO: Upload `PLOT_NAME_2` here.
+>
+> TODO: Upload `PLOT_NAME_3` here.
+
+---
+
+### Validation Scripts
+
+The validation scripts are for review only and must not be committed. Include
+copy-pasteable scripts or concise script summaries here, but remove machine
+names, absolute paths, cache paths, hostnames, and environment-specific details.
+
+<details>
+<summary>Vanilla reference script</summary>
+
+```python
+PASTE THE FULL WORKING VANILLA SCRIPT HERE OR A REVIEW-SAFE SUMMARY.
+```
+
+</details>
+
+<details>
+<summary>Earth2Studio reference script</summary>
+
+```python
+PASTE THE FULL WORKING E2S SCRIPT HERE OR A REVIEW-SAFE SUMMARY.
+```
+
+</details>
+
+<details>
+<summary>Comparison script</summary>
+
+```python
+PASTE THE FULL WORKING COMPARISON SCRIPT HERE OR A REVIEW-SAFE SUMMARY.
+```
+
+</details>
