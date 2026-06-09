@@ -41,6 +41,9 @@ cache paths, hostnames, and environment-specific details.
 <summary>Vanilla reference script</summary>
 
 ```python
+# Before running this vanilla reference script, clone the original U-CAST
+# repository (Rose-STL-Lab/u-cast), then set UCAST_REFERENCE_REPO to that
+# checkout or run from a directory containing ./u-cast.
 PASTE THE FULL WORKING VANILLA SCRIPT HERE.
 ```
 
