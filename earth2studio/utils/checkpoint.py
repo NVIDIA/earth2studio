@@ -36,7 +36,7 @@ from earth2studio.utils.type import CoordSystem
 T = TypeVar("T")
 
 _CHECKPOINT_VERSION = 1
-_ACTIVE_SELECTION: ContextVar[CheckpointSelection | None] = ContextVar(
+_ACTIVE_SELECTION: ContextVar[Checkpoint | None] = ContextVar(
     "earth2studio_checkpoint_selection", default=None
 )
 
@@ -96,7 +96,7 @@ def bind_checkpoint_state(state: T) -> T:
     return selection.bind(state)
 
 
-class Checkpoint:
+class CheckpointCatalog:
     """Catalog of restart checkpoints for a named inference run.
 
     Checkpoints store small restart metadata, optional artifacts, and dataclass state
@@ -141,11 +141,19 @@ class Checkpoint:
         self.refresh()
         return tuple(self._catalog or [])
 
+    @property
+    def active(self) -> Checkpoint | None:
+        """Active checkpoint selected from this catalog, if one is in scope."""
+        selected = _ACTIVE_SELECTION.get()
+        if selected is not None and selected.catalog is self:
+            return selected
+        return None
+
     def refresh(self) -> None:
         """Refresh the checkpoint catalog from disk."""
         self._catalog = _read_catalog(self.rank_path)
 
-    def select(self, row: int | None = None, **labels: Any) -> CheckpointSelection:
+    def select(self, row: int | None = None, **labels: Any) -> Checkpoint:
         """Select a checkpoint row or label set.
 
         A positional integer selects a catalog row, with negative indexing supported.
@@ -177,12 +185,12 @@ class Checkpoint:
         elif entries:
             selected_entry = entries[-1]
 
-        return CheckpointSelection(self, encoded_labels, selected_entry)
+        return Checkpoint(self, encoded_labels, selected_entry)
 
     def __repr__(self) -> str:
         entries = self.catalog
         lines = [
-            f'Checkpoint("{self.name}")',
+            f'CheckpointCatalog("{self.name}")',
             f"path: {self.path}",
             f"mode: {self.mode}",
             f"rank: {self.rank}/{self.world_size}",
@@ -217,7 +225,7 @@ class Checkpoint:
 
     def _commit(
         self,
-        selection: CheckpointSelection,
+        selection: Checkpoint,
         coords: CoordSystem | Mapping[str, Any] | None,
         artifacts: Mapping[str, Any] | None,
     ) -> CheckpointEntry:
@@ -289,29 +297,34 @@ class Checkpoint:
         _prune_commits(self.rank_path, {item.commit_id for item in entries})
 
 
-class CheckpointSelection:
+class Checkpoint:
     """Selected checkpoint catalog row or future label set."""
 
     def __init__(
         self,
-        checkpoint: Checkpoint,
+        catalog: CheckpointCatalog,
         labels: dict[str, Any],
         entry: CheckpointEntry | None,
     ) -> None:
-        self.checkpoint = checkpoint
+        self.catalog = catalog
         self.labels = labels
         self._entry = entry
         self.bound_states: dict[str, Any] = {}
         self.write_count = entry.write_count if entry is not None else 0
         self._pending_coords: CoordSystem | Mapping[str, Any] | None = None
         self._pending_artifacts: Mapping[str, Any] | None = None
-        self._tokens: list[Token[CheckpointSelection | None]] = []
+        self._tokens: list[Token[Checkpoint | None]] = []
         self._loaded_states = self._load_selected_states()
 
     @property
     def exists(self) -> bool:
         """Whether this selection resolves to an existing checkpoint row."""
         return self._entry is not None
+
+    @property
+    def is_active(self) -> bool:
+        """Whether this checkpoint is active in the current context."""
+        return _ACTIVE_SELECTION.get() is self
 
     @property
     def commit_id(self) -> str | None:
@@ -366,7 +379,7 @@ class CheckpointSelection:
         self.write_count += 1
         self._pending_coords = coords
         self._pending_artifacts = artifacts
-        interval = self.checkpoint.flush_interval
+        interval = self.catalog.flush_interval
         if interval is not None and self.write_count % interval == 0:
             return self.flush(coords=coords, artifacts=artifacts)
         return None
@@ -381,9 +394,9 @@ class CheckpointSelection:
             coords = self._pending_coords
         if artifacts is None:
             artifacts = self._pending_artifacts
-        return self.checkpoint._commit(self, coords, artifacts)
+        return self.catalog._commit(self, coords, artifacts)
 
-    def __enter__(self) -> CheckpointSelection:
+    def __enter__(self) -> Checkpoint:
         self._tokens.append(_ACTIVE_SELECTION.set(self))
         return self
 
@@ -398,7 +411,7 @@ class CheckpointSelection:
     def _commit_path(self) -> Path:
         if self._entry is None:
             raise CheckpointError("This checkpoint selection does not exist.")
-        return self.checkpoint.rank_path / "commits" / self._entry.commit_id
+        return self.catalog.rank_path / "commits" / self._entry.commit_id
 
     def _read_manifest(self) -> dict[str, Any]:
         return _read_json(self._commit_path / "manifest.json")

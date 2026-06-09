@@ -2,23 +2,23 @@
 
 Earth2Studio checkpointing is designed for long-running inference jobs that need
 to restart without asking every model, perturbation, or custom loop to adopt a
-new component API. A checkpoint is a small catalog of saved restart points. Each
-row is selected by labels such as `time`, `ensemble`, or a user-defined scenario
+new component API. A checkpoint catalog is a small collection of saved restart
+points. Each row is selected by labels such as `time`, `ensemble`, or a user-defined scenario
 name, and each row can contain small workflow artifacts plus dataclass state from
 components that opt in.
 
-The checkpoint does not store model weights or duplicate data already written by
-an IO backend. Forecast fields should continue to be written to the selected IO
-backend. The checkpoint stores the position and small state needed to decide
-where to restart.
+The checkpoint catalog does not store model weights or duplicate data already
+written by an IO backend. Forecast fields should continue to be written to the selected IO
+backend. The checkpoint catalog stores the position and small state needed to
+decide where to restart.
 
 ## Basic Use
 
 ```python
 from earth2studio.run import deterministic
-from earth2studio.utils.checkpoint import Checkpoint
+from earth2studio.utils.checkpoint import CheckpointCatalog
 
-checkpoint = Checkpoint("my-forecast", flush_interval=6)
+checkpoint = CheckpointCatalog("my-forecast", flush_interval=6)
 
 deterministic(
     time=["2024-01-01"],
@@ -32,8 +32,8 @@ deterministic(
 
 The built-in deterministic, diagnostic, and ensemble workflows write checkpoint
 rows after successful IO writes. `flush_interval` controls durable writes to
-disk. The workflow can call `Checkpoint.write` every iteration while the
-checkpoint object decides whether a real disk commit is due. Ensemble workflow
+disk. The workflow can call `write` on the selected checkpoint every iteration
+while the catalog decides whether a real disk commit is due. Ensemble workflow
 rows are tracked independently by `ensemble_batch` when a checkpoint catalog is
 provided.
 
@@ -43,11 +43,11 @@ workflow flushes the final pending state before returning.
 
 ## Selecting Restart Points
 
-`Checkpoint.select` behaves like a small catalog selection. The selected labels
-also become the labels for future writes in that context.
+`CheckpointCatalog.select` chooses a saved checkpoint row or a future label
+set. The selected labels also become the labels for future writes in that context.
 
 ```python
-checkpoint = Checkpoint("my-forecast")
+checkpoint = CheckpointCatalog("my-forecast")
 
 print(checkpoint)
 
@@ -67,7 +67,7 @@ Custom workflows can call `write` after a safe iteration boundary, usually after
 the forecast fields for that iteration have been written to the IO backend.
 
 ```python
-checkpoint = Checkpoint("ensemble-forecast", mode="append", keep_last=8)
+checkpoint = CheckpointCatalog("ensemble-forecast", mode="append", keep_last=8)
 
 with checkpoint.select(time=time, ensemble=member) as ckpt:
     for lead_time in lead_times:
@@ -100,7 +100,11 @@ label, allowing completed batches to be skipped and partially completed batches
 to continue from their latest saved lead time.
 
 For custom loops, print the checkpoint catalog and select the desired row by
-index, for example `checkpoint.select(-1)` for the latest row.
+index, for example `checkpoint.select(-1)` for the latest row. Built-in workflows
+accept either the catalog or the selected checkpoint. Passing the catalog while a
+selection is active uses that active checkpoint; passing a catalog with no active
+selection chooses the latest matching workflow row, or starts a new row when no
+matching checkpoint exists.
 
 ## Component State
 
@@ -151,10 +155,10 @@ Components that bind state in `__init__` should be constructed inside the
 selected checkpoint context when restart hydration is required:
 
 ```python
-with checkpoint.select(time=time, ensemble=member) as ckpt:
+with checkpoint.select(time=time, ensemble=member):
     model = MyRestartableModel(...)
     perturbation = NoisePerturbation(generator)
-    run_custom_loop(model, perturbation, ckpt)
+    deterministic(..., checkpoint=checkpoint)
 ```
 
 Components that bind lazily during `__call__` or iterator creation only need that
@@ -162,8 +166,8 @@ call to happen inside the context.
 
 ## Serialization Rules
 
-Checkpoint state is intentionally pickle-free. Supported values include JSON-like
-scalars and containers, dataclasses, `datetime`, `date`, `timedelta`,
+Checkpoint catalog state is intentionally pickle-free. Supported values include
+JSON-like scalars and containers, dataclasses, `datetime`, `date`, `timedelta`,
 `numpy.datetime64`, `numpy.timedelta64`, `numpy.dtype`, NumPy scalars,
 `torch.device`, `torch.dtype`, `torch.Tensor`, and `numpy.ndarray` with
 non-object dtype. Tensors and arrays are stored as separate `.npy` files with

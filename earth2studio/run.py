@@ -30,7 +30,7 @@ from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.checkpoint import Checkpoint, CheckpointSelection
+from earth2studio.utils.checkpoint import Checkpoint, CheckpointCatalog
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
@@ -48,7 +48,7 @@ def deterministic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint | CheckpointSelection | None = None,
+    checkpoint: Checkpoint | CheckpointCatalog | None = None,
 ) -> IOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
@@ -73,9 +73,10 @@ def deterministic(
     verbose : bool, optional
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
-        Checkpoint catalog or selected checkpoint context used to record and resume
-        workflow progress, by default None. Pass a selected context when components
-        need to bind checkpoint state during construction.
+        Checkpoint catalog or selected checkpoint used to record and resume workflow
+        progress, by default None. If a catalog has an active selection, the
+        workflow uses that checkpoint; otherwise it selects the latest matching row
+        or starts a new labeled row.
 
     Returns
     -------
@@ -191,13 +192,19 @@ def deterministic(
 
 
 def _checkpoint_context(
-    checkpoint: Checkpoint | CheckpointSelection | None, **labels: Any
+    checkpoint: Checkpoint | CheckpointCatalog | None, **labels: Any
 ):
-    if isinstance(checkpoint, CheckpointSelection):
+    if checkpoint is None:
+        return nullcontext(None)
+    if isinstance(checkpoint, Checkpoint):
+        if checkpoint.is_active:
+            return nullcontext(checkpoint)
         return checkpoint
-    if checkpoint is not None:
-        return checkpoint.select(**labels)
-    return nullcontext(None)
+
+    active_checkpoint = checkpoint.active
+    if active_checkpoint is not None:
+        return nullcontext(active_checkpoint)
+    return checkpoint.select(**labels)
 
 
 def _add_output_array_if_needed(
@@ -318,7 +325,7 @@ def diagnostic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint | CheckpointSelection | None = None,
+    checkpoint: Checkpoint | CheckpointCatalog | None = None,
 ) -> IOBackend:
     """Built in diagnostic workflow.
     This workflow creates a determinstic inference pipeline that couples a prognostic
@@ -345,9 +352,9 @@ def diagnostic(
     verbose : bool, optional
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
-        Checkpoint catalog or selected checkpoint context used to record and resume
-        workflow progress, by default None. Resume requires the IO backend to contain
-        the prognostic variables needed for the next forecast step.
+        Checkpoint catalog or selected checkpoint used to record and resume workflow
+        progress, by default None. Resume requires the IO backend to contain the
+        prognostic variables needed for the next forecast step.
 
     Returns
     -------
@@ -472,7 +479,7 @@ def ensemble(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint | CheckpointSelection | None = None,
+    checkpoint: Checkpoint | CheckpointCatalog | None = None,
 ) -> IOBackend:
     """Built in ensemble workflow.
 
@@ -502,9 +509,9 @@ def ensemble(
     verbose : bool, optional
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
-        Checkpoint catalog or selected checkpoint context used to record and resume
-        workflow progress, by default None. When a catalog is provided, rows are
-        tracked independently for each ensemble batch.
+        Checkpoint catalog or selected checkpoint used to record and resume workflow
+        progress, by default None. When a catalog is provided, rows are tracked
+        independently for each ensemble batch.
 
     Returns
     -------

@@ -61,6 +61,7 @@ components during a selected checkpoint context.
    :toctree: generated/utils/
    :template: class.rst
 
+   utils.checkpoint.CheckpointCatalog
    utils.checkpoint.Checkpoint
 
 .. autosummary::

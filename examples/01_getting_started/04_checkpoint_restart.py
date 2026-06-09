@@ -19,7 +19,7 @@
 Restarting a Deterministic Forecast
 ===================================
 
-This example shows how to use :py:class:`earth2studio.utils.checkpoint.Checkpoint`
+This example shows how to use :py:class:`earth2studio.utils.checkpoint.CheckpointCatalog`
 to restart a deterministic forecast after it stops partway through a run.
 
 The example uses :py:class:`earth2studio.data.Random` and
@@ -45,8 +45,9 @@ In this example you will learn:
 # ------
 # A restartable forecast needs two persistent locations: one for forecast fields
 # and one for the checkpoint catalog. The IO backend owns the forecast arrays.
-# The checkpoint owns small restart metadata, such as the latest completed lead
-# time. Model weights and forecast fields are not copied into the checkpoint.
+# The checkpoint catalog owns small restart metadata, such as the latest
+# completed lead time. Model weights and forecast fields are not copied into the
+# checkpoint catalog.
 
 # %%
 import os
@@ -61,7 +62,7 @@ import earth2studio.run as run
 from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
-from earth2studio.utils.checkpoint import Checkpoint
+from earth2studio.utils.checkpoint import CheckpointCatalog
 from earth2studio.utils.time import to_time_array
 
 os.makedirs("outputs", exist_ok=True)
@@ -130,7 +131,7 @@ io.add_array(coords, var_names)
 # checkpoint contexts are only needed when resuming from an existing row.
 
 # %%
-checkpoint = Checkpoint(
+checkpoint = CheckpointCatalog(
     "restart-demo",
     path=checkpoint_store,
     mode="append",
@@ -163,15 +164,16 @@ print(checkpoint)
 # The selected checkpoint is used as a context manager so that the chosen row is
 # the active restart state while components are constructed and while the
 # workflow runs. If a component opts into checkpoint state, it can hydrate its
-# small dataclass from this selected row during construction. In this lightweight
-# example, the workflow uses the selection to read the last completed lead time
-# from IO and continue from there.
+# small dataclass from this selected row during construction. The workflow accepts
+# the catalog and uses the active selected checkpoint from the surrounding context.
+# In this lightweight example, that selection tells the workflow which lead time
+# to read from IO before continuing.
 
 # %%
 io = ZarrBackend(str(forecast_store))
-checkpoint = Checkpoint("restart-demo", path=checkpoint_store, mode="append")
+checkpoint = CheckpointCatalog("restart-demo", path=checkpoint_store, mode="append")
 
-with checkpoint.select(-1) as ckpt:
+with checkpoint.select(-1):
     data = Random(domain_coords=domain_coords)
     model = Persistence(variables, domain_coords)
     run.deterministic(
@@ -182,7 +184,7 @@ with checkpoint.select(-1) as ckpt:
         io=io,
         device=torch.device("cpu"),
         verbose=False,
-        checkpoint=ckpt,
+        checkpoint=checkpoint,
     )
 
 print("Checkpoint after resume:")
