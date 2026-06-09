@@ -123,11 +123,11 @@ io.add_array(coords, var_names)
 # First Attempt
 # -------------
 # The first attempt uses the same checkpoint object passed into
-# :py:meth:`earth2studio.run.deterministic`. We construct the data source and
-# model inside the selected checkpoint context, which is the pattern to use when
-# components bind restart state during construction. The workflow records a
-# checkpoint row after each successful IO write because ``flush_interval=1``
-# and ``mode="append"`` keeps each row in the printed catalog.
+# :py:meth:`earth2studio.run.deterministic`. There is no row to select yet, so
+# a new forecast can pass the checkpoint catalog directly. The workflow records
+# a checkpoint row after each successful IO write because ``flush_interval=1``
+# and ``mode="append"`` keeps each row in the printed catalog. Selected
+# checkpoint contexts are only needed when resuming from an existing row.
 
 # %%
 checkpoint = Checkpoint(
@@ -137,19 +137,18 @@ checkpoint = Checkpoint(
     flush_interval=1,
 )
 
-with checkpoint.select(time=to_time_array(time)) as ckpt:
-    data = Random(domain_coords=domain_coords)
-    model = Persistence(variables, domain_coords)
-    run.deterministic(
-        time=time,
-        nsteps=first_attempt_nsteps,
-        prognostic=model,
-        data=data,
-        io=io,
-        device=torch.device("cpu"),
-        verbose=False,
-        checkpoint=ckpt,
-    )
+data = Random(domain_coords=domain_coords)
+model = Persistence(variables, domain_coords)
+run.deterministic(
+    time=time,
+    nsteps=first_attempt_nsteps,
+    prognostic=model,
+    data=data,
+    io=io,
+    device=torch.device("cpu"),
+    verbose=False,
+    checkpoint=checkpoint,
+)
 
 print("Checkpoint after the stopped run:")
 print(checkpoint)

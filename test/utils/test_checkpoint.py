@@ -387,19 +387,18 @@ def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
         "deterministic", path=tmp_path, mode="append", flush_interval=1
     )
 
-    with checkpoint.select(time=to_time_array(["2024-01-01"])) as ckpt:
-        data = Random(domain_coords=coords)
-        model = Persistence(variables, coords)
-        run.deterministic(
-            ["2024-01-01"],
-            1,
-            model,
-            data,
-            io,
-            device=torch.device("cpu"),
-            verbose=False,
-            checkpoint=ckpt,
-        )
+    data = Random(domain_coords=coords)
+    model = Persistence(variables, coords)
+    run.deterministic(
+        ["2024-01-01"],
+        1,
+        model,
+        data,
+        io,
+        device=torch.device("cpu"),
+        verbose=False,
+        checkpoint=checkpoint,
+    )
     assert checkpoint.select(-1).lead_time == np.timedelta64(6, "h")
 
     with checkpoint.select(-1) as ckpt:
