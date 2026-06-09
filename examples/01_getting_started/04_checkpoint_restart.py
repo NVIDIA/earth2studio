@@ -158,7 +158,14 @@ print(checkpoint)
 # ------
 # In a new process, re-open the same IO store and checkpoint catalog. The
 # printout above shows the available row ids. Select ``-1`` to resume from the
-# latest row, read the last completed lead time from IO, and continue from there.
+# latest row.
+#
+# The selected checkpoint is used as a context manager so that the chosen row is
+# the active restart state while components are constructed and while the
+# workflow runs. If a component opts into checkpoint state, it can hydrate its
+# small dataclass from this selected row during construction. In this lightweight
+# example, the workflow uses the selection to read the last completed lead time
+# from IO and continue from there.
 
 # %%
 io = ZarrBackend(str(forecast_store))
