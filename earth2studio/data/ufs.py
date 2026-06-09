@@ -16,7 +16,10 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import hashlib
+import math
+import multiprocessing
 import os
 import pathlib
 import shutil
@@ -52,6 +55,37 @@ class _GSIAsyncTask:
     gsi_obs_name: str
     e2s_obs_name: str
     satellite: str | None = None
+
+
+# Transient context for the parallel-decode worker pool. Set just before the
+# ProcessPoolExecutor runs and cleared after; forked workers inherit it via
+# copy-on-write (which also carries the otherwise-unpicklable lexicon closures).
+_DECODE_CTX: dict = {}
+
+# Cap for automatic decode-worker selection. Decode throughput plateaus once it
+# drops below the network floor (~16 workers in practice), and more workers than
+# files is wasted; this bounds the "auto" setting.
+_DECODE_WORKERS_CAP = 16
+
+
+def _cuda_initialized() -> bool:
+    """True if a CUDA context already exists in this process.
+
+    Forking after CUDA init is unsafe, so parallel (fork-based) decode falls
+    back to serial when this is True.
+    """
+    try:
+        import torch
+
+        return torch.cuda.is_initialized()
+    except Exception:
+        return False
+
+
+def _decode_chunk_idx(i: int) -> pd.DataFrame | None:
+    """Worker entry point: decode the i-th task chunk in a forked process."""
+    self, chunks, variables, schema = _DECODE_CTX["args"]
+    return self._compile_chunk(chunks[i], variables, schema)
 
 
 class _UFSObsBase:
@@ -204,13 +238,84 @@ class _UFSObsBase:
         logger.error(f"File {path} not found")
         raise FileNotFoundError(f"File {path} not found")
 
+    def _resolve_decode_workers(self, n_tasks: int) -> int:
+        """Automatically choose the NetCDF->DataFrame decode worker count.
+
+        Picks ``min(available_cpus, cap, n_tasks)`` -- decode throughput plateaus
+        once it drops below the network floor (cap ``_DECODE_WORKERS_CAP``) and
+        never needs more workers than files.
+
+        Safety guard: parallel decode uses the ``fork`` start method (so workers
+        inherit the unpicklable GSI lexicon closures via copy-on-write). Forking
+        after a CUDA context exists is unsafe, so if CUDA is already initialized
+        this falls back to serial decode.
+        """
+        try:
+            avail = len(os.sched_getaffinity(0))  # CPUs available to process
+        except AttributeError:  # not available on this platform
+            avail = os.cpu_count() or 1
+        workers = max(1, min(_DECODE_WORKERS_CAP, avail, n_tasks))
+        if workers > 1 and (
+            "fork" not in multiprocessing.get_all_start_methods()
+            or _cuda_initialized()
+        ):
+            # Parallel decode requires the 'fork' start method (not available on
+            # Windows; unsafe on macOS). Also unsafe once CUDA is initialized.
+            # In either case fall back to serial decode.
+            workers = 1
+        return workers
+
     def _compile_dataframe(
         self,
         async_tasks: list[_GSIAsyncTask],
         variables: list[str],
         schema: pa.Schema,
     ) -> pd.DataFrame:
-        """Compile fetched data into a DataFrame."""
+        """Compile fetched GSI files into a DataFrame.
+
+        Each file's HDF5->pandas decode is CPU- and GIL-bound, so the files are
+        decoded across forked worker processes when more than one is selected
+        (the count is chosen automatically; see :meth:`_resolve_decode_workers`).
+        Falls back to serial when CUDA is already initialized, since the 'fork'
+        start method (used to inherit the unpicklable lexicon closures) is unsafe
+        after CUDA init.
+        """
+        workers = self._resolve_decode_workers(len(async_tasks))
+        if workers <= 1:
+            result = self._compile_chunk(async_tasks, variables, schema)
+            return result if result is not None else pd.DataFrame()
+
+        size = math.ceil(len(async_tasks) / workers)
+        chunks = [
+            c
+            for c in (
+                async_tasks[i * size : (i + 1) * size] for i in range(workers)
+            )
+            if c
+        ]
+        _DECODE_CTX["args"] = (self, chunks, variables, schema)
+        try:
+            with concurrent.futures.ProcessPoolExecutor(
+                max_workers=len(chunks),
+                mp_context=multiprocessing.get_context("fork"),
+            ) as executor:
+                parts = list(executor.map(_decode_chunk_idx, range(len(chunks))))
+        finally:
+            _DECODE_CTX.clear()
+
+        frames = [p for p in parts if p is not None and len(p)]
+        if not frames:  # all chunks empty (e.g. all files missing) -> match serial
+            return pd.DataFrame()
+        result = pd.concat(frames, ignore_index=True)
+        return result[[name for name in schema.names if name in result.columns]]
+
+    def _compile_chunk(
+        self,
+        async_tasks: list[_GSIAsyncTask],
+        variables: list[str],
+        schema: pa.Schema,
+    ) -> pd.DataFrame | None:
+        """Decode one set of GSI files into a DataFrame (the per-process unit)."""
         # Identify schema fields that are per-channel (need Channel_Index lookup)
         channel_indexed_fields: dict[str, str] = {}
         for field in schema:
@@ -287,6 +392,8 @@ class _UFSObsBase:
             df = df.loc[mask]
             frames.append(task.gsi_modifier(df))
 
+        if not frames:
+            return None
         result = pd.concat(frames, ignore_index=True)
         return result[[name for name in schema.names if name in result.columns]]
 
