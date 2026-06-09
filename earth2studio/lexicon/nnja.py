@@ -50,8 +50,17 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
       descriptor of the per-level field to emit:
 
       - ``15037`` -- bending angle (rad), at impact-parameter levels.
+        ``15037`` is the generic BUFR bending-angle descriptor; it
+        occurs once per frequency in each occultation. The source emits
+        only the ionosphere-corrected (frequency-combined, MEFR == 0)
+        instance, selected during decode, not the raw L1/L2 channels.
       - ``12001`` -- 1D-Var retrieval temperature (K), at retrieval levels.
       - ``13001`` -- 1D-Var retrieval specific humidity (kg/kg).
+
+      Of these, NNJA currently enables only the ``gps`` bending-angle
+      variable (mapped to ``gpsro::15037``). The ``gps_t``/``gps_q``
+      retrieval temperature/humidity are disabled due to consistency issues
+      with UFS.
 
     Modifier functions convert raw PrepBUFR observation values to
     Earth2Studio standard units:
@@ -84,11 +93,9 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
         "q": "prepbufr::QOB",
         "t": "prepbufr::TOB",
         "pres": "prepbufr::POB",
-        # GPS Radio Occultation, from gps/gpsro/ archive
-        # Removing these for now, consistency issues with UFS
-        # "gps": "gpsro::15037",
-        # "gps_t": "gpsro::12001",
-        # "gps_q": "gpsro::13001",
+        # GPS RO ionosphere-corrected bending angle from gps/gpsro/.
+        "gps": "gpsro::15037",
+        # gps_t/gps_q are omitted for now (see docstring).
     }
 
     @classmethod
