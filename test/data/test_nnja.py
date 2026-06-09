@@ -16,6 +16,7 @@
 
 import shutil
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -23,6 +24,7 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
+import earth2studio.data.nnja as nnja
 from earth2studio.data import NNJAObsConv
 
 pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
@@ -541,6 +543,161 @@ def test_nnja_obs_conv_create_tasks():
     assert len(tasks_times) == 2  # Two different cycles
 
 
+def test_nnja_obs_conv_create_tasks_gpsro_route():
+    ds = NNJAObsConv(time_tolerance=timedelta(0), cache=False, verbose=False)
+
+    tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["gps"])
+
+    assert len(tasks) == 1
+    assert isinstance(tasks[0], nnja._NNJAGpsRoTask)
+    assert "gpsro" in tasks[0].s3_uri
+    assert tasks[0].datetime_file == datetime(2024, 1, 1, 0)
+    assert tasks[0].var_plan["gps"][0] == nnja._GPSRO_BNDA
+
+
+def test_nnja_obs_conv_create_tasks_mixed_prepbufr_and_gpsro():
+    ds = NNJAObsConv(time_tolerance=timedelta(0), cache=False, verbose=False)
+
+    tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["gps", "t"])
+
+    assert len(tasks) == 2
+    conv_task = next(task for task in tasks if isinstance(task, nnja._NNJAConvTask))
+    gpsro_task = next(task for task in tasks if isinstance(task, nnja._NNJAGpsRoTask))
+    assert set(conv_task.var_plan) == {"t"}
+    assert set(gpsro_task.var_plan) == {"gps"}
+    assert gpsro_task.var_plan["gps"][0] == nnja._GPSRO_BNDA
+
+
+def test_nnja_extract_gpsro_subset_bending_angle_rows_and_metadata():
+    subset_stream = [
+        (nnja._GPSRO_SAID, 3),
+        (nnja._GPSRO_PTID, 27),
+        (nnja._GPSRO_QFRO, 12),
+        (nnja._GPSRO_ELRC, 6_371_000.0),
+        (nnja._GPSRO_LAT, -10.5),
+        (nnja._GPSRO_LON, -70.25),
+        (nnja._GPSRO_YEAR, 2024),
+        (nnja._GPSRO_MONTH, 1),
+        (nnja._GPSRO_DAY, 1),
+        (nnja._GPSRO_HOUR, 0),
+        (nnja._GPSRO_MIN, 30),
+        (nnja._GPSRO_SEC, 15.25),
+        (nnja._GPSRO_LAT, -9.75),
+        (nnja._GPSRO_LON, -69.5),
+        (nnja._GPSRO_MEFR, 1_500_000_000.0),
+        (nnja._GPSRO_IMPP, 6_373_000.0),
+        (nnja._GPSRO_BNDA, 0.00999),
+        (nnja._GPSRO_BNDA, 0.00888),
+        (nnja._GPSRO_MEFR, 0.0),
+        (nnja._GPSRO_IMPP, 6_373_000.0),
+        (nnja._GPSRO_BNDA, 0.00123),
+        (nnja._GPSRO_BNDA, 0.00045),
+    ]
+    descs = [SimpleNamespace(id=descriptor_id) for descriptor_id, _ in subset_stream]
+    values = [value for _, value in subset_stream]
+
+    rows = nnja._extract_gpsro_subset(
+        descs,
+        values,
+        {nnja._GPSRO_BNDA: "gps"},
+        datetime(2024, 1, 1, 0),
+        datetime(2024, 1, 1, 1),
+    )
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["time"] == datetime(2024, 1, 1, 0, 30, 15)
+    assert row["lat"] == pytest.approx(np.float32(-9.75))
+    assert row["lon"] == pytest.approx(np.float32(290.5))
+    assert row["pres"] is None
+    assert row["elev"] == pytest.approx(np.float32(2_000.0))
+    assert row["type"] == np.uint16(3)
+    assert row["class"] == "GPSRO"
+    assert row["station"] == "00030027"
+    assert row["quality"] == np.uint16(12)
+    assert row["observation"] == pytest.approx(np.float32(0.00123))
+    assert row["variable"] == "gps"
+
+
+def test_nnja_extract_gpsro_subset_missing_bending_angle_does_not_emit_error():
+    subset_stream = [
+        (nnja._GPSRO_SAID, 3),
+        (nnja._GPSRO_PTID, 27),
+        (nnja._GPSRO_QFRO, 12),
+        (nnja._GPSRO_ELRC, 6_371_000.0),
+        (nnja._GPSRO_LAT, -10.5),
+        (nnja._GPSRO_LON, -70.25),
+        (nnja._GPSRO_YEAR, 2024),
+        (nnja._GPSRO_MONTH, 1),
+        (nnja._GPSRO_DAY, 1),
+        (nnja._GPSRO_HOUR, 0),
+        (nnja._GPSRO_MIN, 30),
+        (nnja._GPSRO_SEC, 15.25),
+        (nnja._GPSRO_MEFR, 0.0),
+        (nnja._GPSRO_IMPP, 6_373_000.0),
+        (nnja._GPSRO_BNDA, None),
+        (nnja._GPSRO_BNDA, 0.006),
+    ]
+    descs = [SimpleNamespace(id=descriptor_id) for descriptor_id, _ in subset_stream]
+    values = [value for _, value in subset_stream]
+
+    rows = nnja._extract_gpsro_subset(
+        descs,
+        values,
+        {nnja._GPSRO_BNDA: "gps"},
+        datetime(2024, 1, 1, 0),
+        datetime(2024, 1, 1, 1),
+    )
+
+    assert rows == []
+
+
+def test_nnja_extract_gpsro_subset_missing_level_lat_lon_does_not_reuse_stale_values():
+    subset_stream = [
+        (nnja._GPSRO_SAID, 3),
+        (nnja._GPSRO_PTID, 27),
+        (nnja._GPSRO_QFRO, 12),
+        (nnja._GPSRO_ELRC, 6_371_000.0),
+        (nnja._GPSRO_LAT, -10.5),
+        (nnja._GPSRO_LON, -70.25),
+        (nnja._GPSRO_YEAR, 2024),
+        (nnja._GPSRO_MONTH, 1),
+        (nnja._GPSRO_DAY, 1),
+        (nnja._GPSRO_HOUR, 0),
+        (nnja._GPSRO_MIN, 30),
+        (nnja._GPSRO_SEC, 15.25),
+        (nnja._GPSRO_LAT, -9.75),
+        (nnja._GPSRO_LON, -69.5),
+        (nnja._GPSRO_MEFR, 0.0),
+        (nnja._GPSRO_IMPP, 6_373_000.0),
+        (nnja._GPSRO_BNDA, 0.00123),
+        (nnja._GPSRO_BNDA, 0.00045),
+        # A missing per-level latitude must clear state so the next observation
+        # does not reuse -9.75 from the previous bending-angle block.
+        (nnja._GPSRO_LAT, None),
+        (nnja._GPSRO_LON, -68.5),
+        (nnja._GPSRO_MEFR, 0.0),
+        (nnja._GPSRO_IMPP, 6_374_000.0),
+        (nnja._GPSRO_BNDA, 0.00234),
+        (nnja._GPSRO_BNDA, 0.00056),
+    ]
+    descs = [SimpleNamespace(id=descriptor_id) for descriptor_id, _ in subset_stream]
+    values = [value for _, value in subset_stream]
+
+    rows = nnja._extract_gpsro_subset(
+        descs,
+        values,
+        {nnja._GPSRO_BNDA: "gps"},
+        datetime(2024, 1, 1, 0),
+        datetime(2024, 1, 1, 1),
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["lat"] == pytest.approx(np.float32(-9.75))
+    assert rows[0]["lon"] == pytest.approx(np.float32(290.5))
+    assert rows[0]["observation"] == pytest.approx(np.float32(0.00123))
+
+
 def test_nnja_obs_conv_finalize_decoded_df():
     """Test _finalize_decoded_df with various inputs."""
     ds = NNJAObsConv(cache=False, verbose=False)
@@ -605,6 +762,43 @@ def test_nnja_obs_conv_finalize_decoded_df():
         rows_match, {"t": ("TOB", modifier)}, convert_pres_mb_to_pa=False
     )
     assert result_no_conv["pres"].iloc[0] == pytest.approx(850.0)
+
+
+def test_nnja_obs_conv_finalize_gpsro_preserves_pressure_and_elevation_units():
+    ds = NNJAObsConv(cache=False, verbose=False)
+
+    from earth2studio.lexicon import NNJAObsConvLexicon
+
+    _, modifier = NNJAObsConvLexicon["gps"]
+    rows = [
+        {
+            "time": datetime(2024, 1, 1, 0),
+            "lat": 40.0,
+            "lon": 250.0,
+            "pres": 25_000.0,
+            "elev": 2_000.0,
+            "type": 3,
+            "class": "GPSRO",
+            "station": "00030027",
+            "station_elev": None,
+            "quality": 12,
+            "observation": 0.00123,
+            "variable": "gps",
+        }
+    ]
+
+    result = ds._finalize_decoded_df(
+        rows, {"gps": (nnja._GPSRO_BNDA, modifier)}, convert_pres_mb_to_pa=False
+    )
+
+    assert list(result.columns) == list(ds.SCHEMA.names)
+    assert len(result) == 1
+    assert result["pres"].iloc[0] == pytest.approx(25_000.0)
+    assert result["elev"].iloc[0] == pytest.approx(2_000.0)
+    assert result["type"].iloc[0] == 3
+    assert result["quality"].iloc[0] == 12
+    assert result["observation"].iloc[0] == pytest.approx(0.00123)
+    assert result["variable"].iloc[0] == "gps"
 
 
 def test_nnja_obs_conv_pres_modifier_keeps_station_pressure_only():
