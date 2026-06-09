@@ -128,8 +128,8 @@ class RecordingIO:
         self.writes.append((x, coords, array_name))
 
 
-def _coords(hours: int):
-    return OrderedDict({"lead_time": np.asarray([np.timedelta64(hours, "h")])})
+def _lead_time(hours: int):
+    return np.timedelta64(hours, "h")
 
 
 def test_bind_round_trip_hydrates_dataclass_and_catalog(tmp_path):
@@ -144,7 +144,7 @@ def test_bind_round_trip_hydrates_dataclass_and_catalog(tmp_path):
         state.delta = np.timedelta64(6, "h")
         state.nested.count = 2
         state.loose = NestedState(count=5)
-        ckpt.write(coords=_coords(6), artifacts={"sample": 3})
+        ckpt.write(lead_time=_lead_time(6), artifacts={"sample": 3})
 
     checkpoint = Checkpoint("forecast", path=tmp_path)
     with checkpoint.select(time=time, ensemble=0) as ckpt:
@@ -185,12 +185,12 @@ def test_duplicate_state_type_errors_but_different_selections_are_independent(tm
         bind_checkpoint_state(ToyState())
         with pytest.raises(CheckpointStateCollision):
             bind_checkpoint_state(ToyState())
-        ckpt.flush(coords=_coords(0))
+        ckpt.flush(lead_time=_lead_time(0))
 
     with checkpoint.select(time="2024-01-02") as ckpt:
         state = bind_checkpoint_state(ToyState())
         state.calls = 2
-        ckpt.flush(coords=_coords(6))
+        ckpt.flush(lead_time=_lead_time(6))
 
     assert len(checkpoint.catalog) == 2
 
@@ -203,14 +203,14 @@ def test_write_interval_overwrite_and_manual_flush_prune_old_commits(tmp_path):
     with checkpoint.select(time="2024-01-01") as ckpt:
         state = bind_checkpoint_state(ToyState())
         state.calls = 1
-        assert ckpt.write(coords=_coords(6)) is None
+        assert ckpt.write(lead_time=_lead_time(6)) is None
 
         state.calls = 2
-        first = ckpt.write(coords=_coords(12))
+        first = ckpt.write(lead_time=_lead_time(12))
         assert first is not None
 
         state.calls = 3
-        assert ckpt.write(coords=_coords(18)) is None
+        assert ckpt.write(lead_time=_lead_time(18)) is None
         final = ckpt.flush()
 
     assert final.write_count == 3
@@ -232,7 +232,7 @@ def test_append_keep_last_and_positional_selection(tmp_path):
     for hours in (6, 12, 18):
         with checkpoint.select(time="2024-01-01", ensemble=0) as ckpt:
             bind_checkpoint_state(ToyState()).calls = hours
-            ckpt.write(coords=_coords(hours))
+            ckpt.write(lead_time=_lead_time(hours))
 
     assert len(checkpoint.catalog) == 2
     assert checkpoint.select(-1).lead_time == np.timedelta64(18, "h")
@@ -250,7 +250,7 @@ def test_bind_before_new_session_is_adopted_on_enter(tmp_path):
 
     with checkpoint.select(time="2024-01-01") as ckpt:
         assert list(ckpt.bound_states.values()) == [state]
-        ckpt.flush(coords=_coords(6))
+        ckpt.flush(lead_time=_lead_time(6))
 
     with Checkpoint("forecast", path=tmp_path).select(time="2024-01-01"):
         restored = bind_checkpoint_state(ToyState())
@@ -263,7 +263,7 @@ def test_bind_before_existing_session_warns_and_hydrates_late(tmp_path):
     with checkpoint.select(time="2024-01-01") as ckpt:
         state = bind_checkpoint_state(ToyState())
         state.calls = 9
-        ckpt.flush(coords=_coords(6))
+        ckpt.flush(lead_time=_lead_time(6))
 
     checkpoint = Checkpoint("forecast", path=tmp_path)
     state = bind_checkpoint_state(ToyState())
@@ -310,8 +310,8 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
         with pytest.raises(CheckpointSerializationError):
             ckpt.flush(artifacts={"bad": {1: 2}})
         bind_checkpoint_state(RequiredState(1))
-        ckpt.flush(coords={"lead_time": torch.tensor([6])})
-        ckpt.flush(coords={})
+        ckpt.flush(lead_time=torch.tensor([6]))
+        ckpt.flush()
 
     meta_checkpoint = Checkpoint("metadata", path=tmp_path / "metadata")
     with meta_checkpoint.select(
@@ -323,7 +323,7 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
         values=[np.int64(1)],
         meta={"ok": np.float32(1.0)},
     ) as ckpt:
-        ckpt.flush(coords={"lead_time": np.asarray([1, 2])})
+        ckpt.flush(lead_time=np.asarray([1, 2]))
     assert Checkpoint("metadata", path=tmp_path / "metadata").select(-1).exists
 
     assert len(checkpoint.catalog) == 2
@@ -342,7 +342,7 @@ def test_artifacts_round_trip_and_unsupported_objects_reject(tmp_path):
 
     with checkpoint.select(time="2024-01-01") as ckpt:
         ckpt.write(
-            coords=_coords(6),
+            lead_time=_lead_time(6),
             artifacts={
                 "mask": torch.tensor([True, False]),
                 "scores": np.asarray([1.0, 2.0], dtype=np.float32),
@@ -362,7 +362,7 @@ def test_artifacts_round_trip_and_unsupported_objects_reject(tmp_path):
     with checkpoint.select(time="bad") as ckpt:
         bind_checkpoint_state(BadState())
         with pytest.raises(CheckpointSerializationError):
-            ckpt.flush(coords=_coords(0))
+            ckpt.flush(lead_time=_lead_time(0))
 
     with checkpoint.select(time="bad-array") as ckpt:
         with pytest.raises(CheckpointSerializationError):
@@ -375,7 +375,7 @@ def test_schema_mismatch_errors_before_hydration(tmp_path):
     with checkpoint.select(time="2024-01-01") as ckpt:
         state = bind_checkpoint_state(ToyState())
         state.calls = 4
-        ckpt.flush(coords=_coords(6))
+        ckpt.flush(lead_time=_lead_time(6))
 
     metadata_path = next(
         (checkpoint.rank_path / "commits").glob("*/states/*/metadata.json")
@@ -414,7 +414,7 @@ def test_default_path_and_rank_directory_detection(tmp_path, monkeypatch):
 
     checkpoint = Checkpoint("forecast")
     with checkpoint.select(time="2024-01-01") as ckpt:
-        ckpt.flush(coords=_coords(0))
+        ckpt.flush(lead_time=_lead_time(0))
 
     assert checkpoint.rank == 2
     assert checkpoint.world_size == 4

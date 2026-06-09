@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
+from collections.abc import Mapping
 from contextlib import nullcontext
 from datetime import datetime
 from math import ceil
@@ -36,6 +37,28 @@ from earth2studio.utils.time import to_time_array
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
+
+
+class _NullCheckpointSession:
+    exists = False
+    lead_time = None
+
+    def write(
+        self,
+        lead_time: Any | None = None,
+        artifacts: Mapping[str, Any] | None = None,
+    ) -> None:
+        return None
+
+    def flush(
+        self,
+        lead_time: Any | None = None,
+        artifacts: Mapping[str, Any] | None = None,
+    ) -> None:
+        return None
+
+
+_NULL_CHECKPOINT = _NullCheckpointSession()
 
 
 # sphinx - deterministic start
@@ -124,7 +147,7 @@ def deterministic(
 
     with checkpoint_context as ckpt:
         restart_step = None
-        if ckpt is not None and ckpt.exists:
+        if ckpt.exists:
             restart_step = _lead_time_index(total_coords["lead_time"], ckpt.lead_time)
             if restart_step >= nsteps:
                 logger.success("\nInference complete")
@@ -178,14 +201,15 @@ def deterministic(
                 # Subselect domain/variables as indicated in output_coords
                 x, coords = map_coords(x, coords, output_coords)
                 io.write(*split_coords(x, coords))
-                if ckpt is not None:
-                    last_checkpoint_entry = ckpt.write(coords=last_coords)
+                last_checkpoint_entry = ckpt.write(
+                    lead_time=_lead_time_from_coords(last_coords)
+                )
                 pbar.update(1)
                 if step == nsteps:
                     break
 
-        if ckpt is not None and last_checkpoint_entry is None:
-            ckpt.flush(coords=last_coords)
+        if last_checkpoint_entry is None:
+            ckpt.flush(lead_time=_lead_time_from_coords(last_coords))
 
     logger.success("\nInference complete")
     return io
@@ -195,7 +219,7 @@ def _checkpoint_context(
     checkpoint: Checkpoint | CheckpointSession | None, **labels: Any
 ):
     if checkpoint is None:
-        return nullcontext(None)
+        return nullcontext(_NULL_CHECKPOINT)
     if isinstance(checkpoint, CheckpointSession):
         if checkpoint.is_active:
             return nullcontext(checkpoint)
@@ -217,6 +241,17 @@ def _add_output_array_if_needed(
         pass
     if missing:
         io.add_array(coords, missing)
+
+
+def _lead_time_from_coords(coords: Mapping[str, Any]) -> Any | None:
+    if "lead_time" not in coords:
+        return None
+    value = coords["lead_time"]
+    if isinstance(value, np.ndarray) and value.size == 1:
+        return value.reshape(-1)[0]
+    if isinstance(value, torch.Tensor) and value.numel() == 1:
+        return value.detach().cpu().reshape(-1)[0].item()
+    return value
 
 
 def _lead_time_index(lead_times: np.ndarray, lead_time: Any) -> int:
@@ -402,7 +437,7 @@ def diagnostic(
     checkpoint_context = _checkpoint_context(checkpoint, time=time)
     with checkpoint_context as ckpt:
         restart_step = None
-        if ckpt is not None and ckpt.exists:
+        if ckpt.exists:
             restart_step = _lead_time_index(total_coords["lead_time"], ckpt.lead_time)
             if restart_step >= nsteps:
                 logger.success("\nInference complete")
@@ -453,14 +488,15 @@ def diagnostic(
                 x, coords = diagnostic(x, coords)
                 x, coords = map_coords(x, coords, output_coords)
                 io.write(*split_coords(x, coords))
-                if ckpt is not None:
-                    last_checkpoint_entry = ckpt.write(coords=last_coords)
+                last_checkpoint_entry = ckpt.write(
+                    lead_time=_lead_time_from_coords(last_coords)
+                )
                 pbar.update(1)
                 if step == nsteps:
                     break
 
-        if ckpt is not None and last_checkpoint_entry is None:
-            ckpt.flush(coords=last_coords)
+        if last_checkpoint_entry is None:
+            ckpt.flush(lead_time=_lead_time_from_coords(last_coords))
 
     logger.success("\nInference complete")
     return io
@@ -592,7 +628,7 @@ def ensemble(
 
         with checkpoint_context as ckpt:
             restart_step = None
-            if ckpt is not None and ckpt.exists:
+            if ckpt.exists:
                 restart_step = _lead_time_index(
                     total_coords["lead_time"], ckpt.lead_time
                 )
@@ -635,14 +671,15 @@ def ensemble(
                     last_coords = coords
                     x, coords = map_coords(x, coords, output_coords)
                     io.write(*split_coords(x, coords))
-                    if ckpt is not None:
-                        last_checkpoint_entry = ckpt.write(coords=last_coords)
+                    last_checkpoint_entry = ckpt.write(
+                        lead_time=_lead_time_from_coords(last_coords)
+                    )
                     pbar.update(1)
                     if step == nsteps:
                         break
 
-            if ckpt is not None and last_checkpoint_entry is None:
-                ckpt.flush(coords=last_coords)
+            if last_checkpoint_entry is None:
+                ckpt.flush(lead_time=_lead_time_from_coords(last_coords))
 
     logger.success("\nInference complete")
     return io

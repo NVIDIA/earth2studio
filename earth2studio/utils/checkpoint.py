@@ -32,8 +32,6 @@ from typing import Any, Literal, TypeVar
 import numpy as np
 import torch
 
-from earth2studio.utils.type import CoordSystem
-
 T = TypeVar("T")
 
 _CHECKPOINT_VERSION = 1
@@ -247,7 +245,7 @@ class Checkpoint:
     def _commit(
         self,
         session: CheckpointSession,
-        coords: CoordSystem | Mapping[str, Any] | None,
+        lead_time: Any | None,
         artifacts: Mapping[str, Any] | None,
     ) -> CheckpointEntry:
         self.rank_path.mkdir(parents=True, exist_ok=True)
@@ -269,7 +267,7 @@ class Checkpoint:
             "rank": self.rank,
             "world_size": self.world_size,
             "labels": session.labels,
-            "lead_time": _encode_json_value(_extract_lead_time(coords)),
+            "lead_time": _encode_json_value(_normalize_lead_time(lead_time)),
             "write_count": session.write_count,
             "saved_at": datetime.now(timezone.utc).isoformat(),
             "states": {},
@@ -336,7 +334,7 @@ class CheckpointSession:
         self._entry = entry
         self.bound_states: dict[str, Any] = {}
         self.write_count = entry.write_count if entry is not None else 0
-        self._pending_coords: CoordSystem | Mapping[str, Any] | None = None
+        self._pending_lead_time: Any | None = None
         self._pending_artifacts: Mapping[str, Any] | None = None
         self._tokens: list[Token[CheckpointSession | None]] = []
         self._pending_adopted = False
@@ -426,29 +424,29 @@ class CheckpointSession:
 
     def write(
         self,
-        coords: CoordSystem | Mapping[str, Any] | None = None,
+        lead_time: Any | None = None,
         artifacts: Mapping[str, Any] | None = None,
     ) -> CheckpointEntry | None:
         """Record a safe checkpoint boundary and flush if due."""
         self.write_count += 1
-        self._pending_coords = coords
+        self._pending_lead_time = _normalize_lead_time(lead_time)
         self._pending_artifacts = artifacts
         interval = self.catalog.flush_interval
         if interval is not None and self.write_count % interval == 0:
-            return self.flush(coords=coords, artifacts=artifacts)
+            return self.flush(lead_time=lead_time, artifacts=artifacts)
         return None
 
     def flush(
         self,
-        coords: CoordSystem | Mapping[str, Any] | None = None,
+        lead_time: Any | None = None,
         artifacts: Mapping[str, Any] | None = None,
     ) -> CheckpointEntry:
         """Force an atomic checkpoint commit for the current session."""
-        if coords is None:
-            coords = self._pending_coords
+        if lead_time is None:
+            lead_time = self._pending_lead_time
         if artifacts is None:
             artifacts = self._pending_artifacts
-        return self.catalog._commit(self, coords, artifacts)
+        return self.catalog._commit(self, lead_time, artifacts)
 
     def __enter__(self) -> CheckpointSession:
         if not self._pending_adopted:
@@ -994,10 +992,7 @@ def _encode_np_timedelta(value: np.timedelta64) -> dict[str, Any]:
     }
 
 
-def _extract_lead_time(coords: CoordSystem | Mapping[str, Any] | None) -> Any | None:
-    if coords is None or "lead_time" not in coords:
-        return None
-    value = coords["lead_time"]
+def _normalize_lead_time(value: Any | None) -> Any | None:
     if isinstance(value, np.ndarray) and value.size == 1:
         return value.reshape(-1)[0]
     if isinstance(value, torch.Tensor) and value.numel() == 1:

@@ -76,16 +76,16 @@ with checkpoint.select(time=time, ensemble=member) as ckpt:
         io.write(coords, array)
 
         ckpt.write(
-            coords=coords,
+            lead_time=lead_time,
             artifacts={"last_complete_lead_time": lead_time},
         )
 
-    ckpt.flush(coords=coords)
+    ckpt.flush(lead_time=lead_time)
 ```
 
-`write` accepts explicit `coords` and `artifacts` keyword arguments. `coords` are
-used to record the latest workflow position, including `lead_time` when present.
-`artifacts` is for small user-provided restart metadata. Arbitrary keyword
+`write` accepts explicit `lead_time` and `artifacts` keyword arguments.
+`lead_time` records the latest completed forecast position. `artifacts` is for
+small user-provided restart metadata. Arbitrary keyword
 arguments are intentionally not accepted so checkpoint payloads remain explicit.
 
 `mode="overwrite"` keeps only the latest row for a label set. `mode="append"`
