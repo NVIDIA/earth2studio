@@ -194,13 +194,10 @@ class _UFSObsBase:
             data = result.to_bytes() if hasattr(result, "to_bytes") else bytes(result)
             with open(cache_path, "wb") as file:
                 file.write(data)
-        except FileNotFoundError:
+        except (FileNotFoundError, obs.exceptions.NotFoundError):
             self._handle_missing_file(path)
-        except Exception as err:  # obstore raises its own error type for 404s
-            if "not found" in str(err).lower() or "nosuchkey" in str(err).lower():
-                self._handle_missing_file(path)
-            else:
-                raise
+        except Exception as err:
+            raise
 
     def _handle_missing_file(self, path: str) -> None:
         """Handle missing file during fetch. Can be overridden by subclasses."""
