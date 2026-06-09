@@ -19,7 +19,7 @@
 Restarting a Deterministic Forecast
 ===================================
 
-This example shows how to use :py:class:`earth2studio.utils.checkpoint.CheckpointCatalog`
+This example shows how to use :py:class:`earth2studio.utils.checkpoint.Checkpoint`
 to restart a deterministic forecast after it stops partway through a run.
 
 The example uses :py:class:`earth2studio.data.Random` and
@@ -29,9 +29,9 @@ to larger prognostic models.
 
 In this example you will learn:
 
-- Creating a persistent checkpoint catalog
+- Creating a persistent checkpoint
 - Running a forecast that stops before the requested final horizon
-- Re-opening the IO backend and checkpoint catalog
+- Re-opening the IO backend and checkpoint
 - Resuming the deterministic workflow from the latest completed lead time
 """
 # /// script
@@ -44,10 +44,10 @@ In this example you will learn:
 # Set Up
 # ------
 # A restartable forecast needs two persistent locations: one for forecast fields
-# and one for the checkpoint catalog. The IO backend owns the forecast arrays.
-# The checkpoint catalog owns small restart metadata, such as the latest
+# and one for the checkpoint. The IO backend owns the forecast arrays.
+# The checkpoint owns small restart metadata, such as the latest
 # completed lead time. Model weights and forecast fields are not copied into the
-# checkpoint catalog.
+# checkpoint.
 
 # %%
 import os
@@ -62,7 +62,7 @@ import earth2studio.run as run
 from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
-from earth2studio.utils.checkpoint import CheckpointCatalog
+from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.time import to_time_array
 
 os.makedirs("outputs", exist_ok=True)
@@ -99,6 +99,7 @@ prealloc_model = Persistence(variables, domain_coords)
 
 # %%
 
+
 def deterministic_output_coords(model, time, nsteps):
     input_coords = model.input_coords()
     output_coords = model.output_coords(input_coords).copy()
@@ -125,13 +126,13 @@ io.add_array(coords, var_names)
 # -------------
 # The first attempt uses the same checkpoint object passed into
 # :py:meth:`earth2studio.run.deterministic`. There is no row to select yet, so
-# a new forecast can pass the checkpoint catalog directly. The workflow records
+# a new forecast can pass the checkpoint directly. The workflow records
 # a checkpoint row after each successful IO write because ``flush_interval=1``
-# and ``mode="append"`` keeps each row in the printed catalog. Selected
-# checkpoint contexts are only needed when resuming from an existing row.
+# and ``mode="append"`` keeps each row in the printed checkpoint table. Selected
+# checkpoint sessions are only needed when resuming from an existing row.
 
 # %%
-checkpoint = CheckpointCatalog(
+checkpoint = Checkpoint(
     "restart-demo",
     path=checkpoint_store,
     mode="append",
@@ -157,21 +158,21 @@ print(checkpoint)
 # %%
 # Resume
 # ------
-# In a new process, re-open the same IO store and checkpoint catalog. The
+# In a new process, re-open the same IO store and checkpoint. The
 # printout above shows the available row ids. Select ``-1`` to resume from the
 # latest row.
 #
-# The selected checkpoint is used as a context manager so that the chosen row is
+# The selected checkpoint session is used as a context manager so the chosen row is
 # the active restart state while components are constructed and while the
 # workflow runs. If a component opts into checkpoint state, it can hydrate its
-# small dataclass from this selected row during construction. The workflow accepts
-# the catalog and uses the active selected checkpoint from the surrounding context.
+# small dataclass from this row during construction. The workflow accepts
+# the checkpoint manager and uses the active session from the surrounding context.
 # In this lightweight example, that selection tells the workflow which lead time
 # to read from IO before continuing.
 
 # %%
 io = ZarrBackend(str(forecast_store))
-checkpoint = CheckpointCatalog("restart-demo", path=checkpoint_store, mode="append")
+checkpoint = Checkpoint("restart-demo", path=checkpoint_store, mode="append")
 
 with checkpoint.select(-1):
     data = Random(domain_coords=domain_coords)

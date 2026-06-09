@@ -20,6 +20,7 @@ import json
 import os
 import shutil
 import uuid
+import warnings
 from collections.abc import Mapping
 from contextvars import ContextVar, Token
 from dataclasses import MISSING, dataclass, fields, is_dataclass
@@ -36,8 +37,14 @@ from earth2studio.utils.type import CoordSystem
 T = TypeVar("T")
 
 _CHECKPOINT_VERSION = 1
-_ACTIVE_SELECTION: ContextVar[Checkpoint | None] = ContextVar(
-    "earth2studio_checkpoint_selection", default=None
+_ACTIVE_SESSION: ContextVar[CheckpointSession | None] = ContextVar(
+    "earth2studio_checkpoint_session", default=None
+)
+_CURRENT_CHECKPOINT: ContextVar[Checkpoint | None] = ContextVar(
+    "earth2studio_checkpoint", default=None
+)
+_PENDING_STATES: ContextVar[tuple[PendingCheckpointState, ...]] = ContextVar(
+    "earth2studio_checkpoint_pending_states", default=()
 )
 
 
@@ -58,6 +65,15 @@ class CheckpointStateSchemaError(CheckpointError):
 
 
 @dataclass(frozen=True)
+class PendingCheckpointState:
+    """Dataclass state bound before a checkpoint session is active."""
+
+    checkpoint: Checkpoint
+    state_id: str
+    state: Any
+
+
+@dataclass(frozen=True)
 class CheckpointEntry:
     """A committed checkpoint catalog row."""
 
@@ -75,28 +91,32 @@ class CheckpointEntry:
 def default_checkpoint_path(name: str) -> Path:
     """Return the default path for a named checkpoint store."""
     base = Path(
-        os.environ.get(
-            "EARTH2STUDIO_CACHE", Path.home() / ".cache" / "earth2studio"
-        )
+        os.environ.get("EARTH2STUDIO_CACHE", Path.home() / ".cache" / "earth2studio")
     )
     return base / "checkpoints" / name
 
 
 def bind_checkpoint_state(state: T) -> T:
-    """Bind a dataclass instance to the active checkpoint selection.
+    """Bind a dataclass instance to the active checkpoint session.
 
-    When no checkpoint selection is active, the dataclass is returned unchanged.
+    When no checkpoint session is active, state is buffered for the most recently
+    instantiated :class:`Checkpoint` in this context. If no checkpoint has been
+    instantiated, the dataclass is returned unchanged.
     """
     if not is_dataclass(state) or isinstance(state, type):
         raise TypeError("bind_checkpoint_state requires a dataclass instance.")
 
-    selection = _ACTIVE_SELECTION.get()
-    if selection is None:
-        return state
-    return selection.bind(state)
+    session = _ACTIVE_SESSION.get()
+    if session is not None:
+        return session.bind(state)
+
+    checkpoint = _CURRENT_CHECKPOINT.get()
+    if checkpoint is not None:
+        _buffer_pending_state(checkpoint, state)
+    return state
 
 
-class CheckpointCatalog:
+class Checkpoint:
     """Catalog of restart checkpoints for a named inference run.
 
     Checkpoints store small restart metadata, optional artifacts, and dataclass state
@@ -129,6 +149,7 @@ class CheckpointCatalog:
         self.rank = detected_rank if rank is None else rank
         self.world_size = detected_world_size if world_size is None else world_size
         self._catalog: list[CheckpointEntry] | None = None
+        _CURRENT_CHECKPOINT.set(self)
 
     @property
     def rank_path(self) -> Path:
@@ -142,9 +163,9 @@ class CheckpointCatalog:
         return tuple(self._catalog or [])
 
     @property
-    def active(self) -> Checkpoint | None:
+    def active(self) -> CheckpointSession | None:
         """Active checkpoint selected from this catalog, if one is in scope."""
-        selected = _ACTIVE_SELECTION.get()
+        selected = _ACTIVE_SESSION.get()
         if selected is not None and selected.catalog is self:
             return selected
         return None
@@ -153,7 +174,7 @@ class CheckpointCatalog:
         """Refresh the checkpoint catalog from disk."""
         self._catalog = _read_catalog(self.rank_path)
 
-    def select(self, row: int | None = None, **labels: Any) -> Checkpoint:
+    def select(self, row: int | None = None, **labels: Any) -> CheckpointSession:
         """Select a checkpoint row or label set.
 
         A positional integer selects a catalog row, with negative indexing supported.
@@ -185,12 +206,12 @@ class CheckpointCatalog:
         elif entries:
             selected_entry = entries[-1]
 
-        return Checkpoint(self, encoded_labels, selected_entry)
+        return CheckpointSession(self, encoded_labels, selected_entry)
 
     def __repr__(self) -> str:
         entries = self.catalog
         lines = [
-            f'CheckpointCatalog("{self.name}")',
+            f'Checkpoint("{self.name}")',
             f"path: {self.path}",
             f"mode: {self.mode}",
             f"rank: {self.rank}/{self.world_size}",
@@ -225,7 +246,7 @@ class CheckpointCatalog:
 
     def _commit(
         self,
-        selection: Checkpoint,
+        session: CheckpointSession,
         coords: CoordSystem | Mapping[str, Any] | None,
         artifacts: Mapping[str, Any] | None,
     ) -> CheckpointEntry:
@@ -233,7 +254,7 @@ class CheckpointCatalog:
         commits_path = self.rank_path / "commits"
         commits_path.mkdir(parents=True, exist_ok=True)
 
-        commit_id = f"commit_{selection.write_count:08d}_{uuid.uuid4().hex[:12]}"
+        commit_id = f"commit_{session.write_count:08d}_{uuid.uuid4().hex[:12]}"
         tmp_path = self.rank_path / f".tmp_{commit_id}"
         commit_path = commits_path / commit_id
         if tmp_path.exists():
@@ -247,16 +268,16 @@ class CheckpointCatalog:
             "mode": self.mode,
             "rank": self.rank,
             "world_size": self.world_size,
-            "labels": selection.labels,
+            "labels": session.labels,
             "lead_time": _encode_json_value(_extract_lead_time(coords)),
-            "write_count": selection.write_count,
+            "write_count": session.write_count,
             "saved_at": datetime.now(timezone.utc).isoformat(),
             "states": {},
             "artifacts": {},
         }
 
         states_path = tmp_path / "states"
-        for state_id, state in selection.bound_states.items():
+        for state_id, state in session.bound_states.items():
             state_path = states_path / _safe_dir_name(state_id)
             _write_dataclass_state(state, state_id, state_path)
             manifest["states"][state_id] = {
@@ -281,12 +302,16 @@ class CheckpointCatalog:
 
         entry = _entry_from_manifest(manifest)
         self._update_catalog(entry)
-        selection._entry = entry
-        selection._loaded_states = _load_state_index(commit_path, manifest)
+        session._entry = entry
+        session._loaded_states = _load_state_index(commit_path, manifest)
         return entry
 
     def _update_catalog(self, entry: CheckpointEntry) -> None:
-        entries = list(self._catalog) if self._catalog is not None else _read_catalog(self.rank_path)
+        entries = (
+            list(self._catalog)
+            if self._catalog is not None
+            else _read_catalog(self.rank_path)
+        )
         entries = [item for item in entries if item.commit_id != entry.commit_id]
         if self.mode == "overwrite":
             entries = [item for item in entries if item.labels != entry.labels]
@@ -297,12 +322,12 @@ class CheckpointCatalog:
         _prune_commits(self.rank_path, {item.commit_id for item in entries})
 
 
-class Checkpoint:
-    """Selected checkpoint catalog row or future label set."""
+class CheckpointSession:
+    """Active checkpoint row or future label set."""
 
     def __init__(
         self,
-        catalog: CheckpointCatalog,
+        catalog: Checkpoint,
         labels: dict[str, Any],
         entry: CheckpointEntry | None,
     ) -> None:
@@ -313,18 +338,19 @@ class Checkpoint:
         self.write_count = entry.write_count if entry is not None else 0
         self._pending_coords: CoordSystem | Mapping[str, Any] | None = None
         self._pending_artifacts: Mapping[str, Any] | None = None
-        self._tokens: list[Token[Checkpoint | None]] = []
+        self._tokens: list[Token[CheckpointSession | None]] = []
+        self._pending_adopted = False
         self._loaded_states = self._load_selected_states()
 
     @property
     def exists(self) -> bool:
-        """Whether this selection resolves to an existing checkpoint row."""
+        """Whether this session resolves to an existing checkpoint row."""
         return self._entry is not None
 
     @property
     def is_active(self) -> bool:
-        """Whether this checkpoint is active in the current context."""
-        return _ACTIVE_SELECTION.get() is self
+        """Whether this checkpoint session is active in the current context."""
+        return _ACTIVE_SESSION.get() is self
 
     @property
     def commit_id(self) -> str | None:
@@ -333,7 +359,7 @@ class Checkpoint:
 
     @property
     def lead_time(self) -> Any | None:
-        """Lead time recorded for this selection, if present."""
+        """Lead time recorded for this session, if present."""
         return None if self._entry is None else self._entry.lead_time
 
     @property
@@ -352,7 +378,7 @@ class Checkpoint:
         """Load one artifact by name."""
         artifacts = self.artifacts
         if name not in artifacts:
-            raise KeyError(f"Artifact {name!r} not found in checkpoint selection.")
+            raise KeyError(f"Artifact {name!r} not found in checkpoint session.")
         return artifacts[name]
 
     def bind(self, state: T) -> T:
@@ -360,7 +386,7 @@ class Checkpoint:
         state_id = _state_id(state)
         if state_id in self.bound_states:
             raise CheckpointStateCollision(
-                f"{state_id} was registered more than once in this checkpoint selection."
+                f"{state_id} was registered more than once in this checkpoint session."
             )
 
         loaded_state = self._loaded_states.get(state_id)
@@ -369,6 +395,34 @@ class Checkpoint:
 
         self.bound_states[state_id] = state
         return state
+
+    def _adopt_pending_states(self) -> None:
+        pending = _PENDING_STATES.get()
+        if not pending:
+            return
+
+        adopted = [item for item in pending if item.checkpoint is self.catalog]
+        if not adopted:
+            return
+
+        if self.exists:
+            warnings.warn(
+                "Checkpoint state was bound before an existing checkpoint session "
+                "was active. Saved dataclass state is being hydrated late; "
+                "constructor side effects that depended on that state will not be "
+                "replayed. Construct restartable components inside "
+                "`with checkpoint.select(...):` when hydration must happen during "
+                "initialization.",
+                UserWarning,
+                stacklevel=3,
+            )
+
+        for item in adopted:
+            self.bind(item.state)
+
+        _PENDING_STATES.set(
+            tuple(item for item in pending if item.checkpoint is not self.catalog)
+        )
 
     def write(
         self,
@@ -389,20 +443,23 @@ class Checkpoint:
         coords: CoordSystem | Mapping[str, Any] | None = None,
         artifacts: Mapping[str, Any] | None = None,
     ) -> CheckpointEntry:
-        """Force an atomic checkpoint commit for the current selection."""
+        """Force an atomic checkpoint commit for the current session."""
         if coords is None:
             coords = self._pending_coords
         if artifacts is None:
             artifacts = self._pending_artifacts
         return self.catalog._commit(self, coords, artifacts)
 
-    def __enter__(self) -> Checkpoint:
-        self._tokens.append(_ACTIVE_SELECTION.set(self))
+    def __enter__(self) -> CheckpointSession:
+        if not self._pending_adopted:
+            self._adopt_pending_states()
+            self._pending_adopted = True
+        self._tokens.append(_ACTIVE_SESSION.set(self))
         return self
 
     def __exit__(self, *args: Any) -> None:
         if self._tokens:
-            _ACTIVE_SELECTION.reset(self._tokens.pop())
+            _ACTIVE_SESSION.reset(self._tokens.pop())
 
     def __bool__(self) -> bool:
         return self.exists
@@ -410,7 +467,7 @@ class Checkpoint:
     @property
     def _commit_path(self) -> Path:
         if self._entry is None:
-            raise CheckpointError("This checkpoint selection does not exist.")
+            raise CheckpointError("This checkpoint session does not exist.")
         return self.catalog.rank_path / "commits" / self._entry.commit_id
 
     def _read_manifest(self) -> dict[str, Any]:
@@ -429,6 +486,14 @@ class LoadedState:
 
     path: Path
     manifest: dict[str, Any]
+
+
+def _buffer_pending_state(checkpoint: Checkpoint, state: Any) -> None:
+    state_id = _state_id(state)
+    pending = _PENDING_STATES.get()
+    if any(item.checkpoint is checkpoint and item.state is state for item in pending):
+        return
+    _PENDING_STATES.set((*pending, PendingCheckpointState(checkpoint, state_id, state)))
 
 
 def _detect_distributed_rank() -> tuple[int, int]:
@@ -464,9 +529,7 @@ def _encode_labels(
     filtered = entries
     for key, value in encoded.items():
         if key not in latest_keys:
-            filtered = [
-                entry for entry in filtered if entry.labels.get(key) == value
-            ]
+            filtered = [entry for entry in filtered if entry.labels.get(key) == value]
     if not filtered:
         return encoded
     latest = filtered[-1]
@@ -743,7 +806,9 @@ def _dump_array(
     rel_parts: tuple[str, ...],
 ) -> dict[str, Any]:
     if array.dtype == object:
-        raise CheckpointSerializationError("object dtype arrays cannot be checkpointed.")
+        raise CheckpointSerializationError(
+            "object dtype arrays cannot be checkpointed."
+        )
     rel_path = Path(*rel_parts).with_suffix(".npy")
     full_path = base_path / rel_path
     full_path.parent.mkdir(parents=True, exist_ok=True)
@@ -786,7 +851,10 @@ def _load_value(
         return np.dtype(payload["value"])
     if kind in ("tensor", "ndarray"):
         array = np.load(base_path / payload["path"], allow_pickle=False)
-        if list(array.shape) != payload["shape"] or str(array.dtype) != payload["dtype"]:
+        if (
+            list(array.shape) != payload["shape"]
+            or str(array.dtype) != payload["dtype"]
+        ):
             raise CheckpointSerializationError(
                 "checkpoint array metadata does not match stored data."
             )
@@ -799,8 +867,7 @@ def _load_value(
         return tuple(_load_value(item, base_path) for item in payload["items"])
     if kind == "dict":
         return {
-            key: _load_value(item, base_path)
-            for key, item in payload["items"].items()
+            key: _load_value(item, base_path) for key, item in payload["items"].items()
         }
     if kind == "dataclass":
         if is_dataclass(current_value) and not isinstance(current_value, type):
@@ -821,8 +888,7 @@ def _load_value(
                 )
             return current_value
         return {
-            key: _load_value(item, base_path)
-            for key, item in payload["fields"].items()
+            key: _load_value(item, base_path) for key, item in payload["fields"].items()
         }
     raise CheckpointSerializationError(f"Unsupported checkpoint payload kind {kind!r}.")
 

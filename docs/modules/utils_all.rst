@@ -53,16 +53,16 @@ The following functions can be used to convert to and from these numpy arrays.
 :mod:`earth2studio.utils`: Checkpointing
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A small checkpoint catalog for restartable inference workflows. Checkpoints
-track explicit workflow labels, optional artifacts, and dataclass state bound by
-components during a selected checkpoint context.
+Checkpoint utilities for restartable inference workflows. Checkpoints track
+explicit workflow labels, optional artifacts, and dataclass state bound by
+components during a selected checkpoint session.
 
 .. autosummary::
    :toctree: generated/utils/
    :template: class.rst
 
-   utils.checkpoint.CheckpointCatalog
    utils.checkpoint.Checkpoint
+   utils.checkpoint.CheckpointSession
 
 .. autosummary::
    :toctree: generated/utils/

@@ -30,7 +30,7 @@ from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.checkpoint import Checkpoint, CheckpointCatalog
+from earth2studio.utils.checkpoint import Checkpoint, CheckpointSession
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
@@ -48,7 +48,7 @@ def deterministic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint | CheckpointCatalog | None = None,
+    checkpoint: Checkpoint | CheckpointSession | None = None,
 ) -> IOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
@@ -73,9 +73,9 @@ def deterministic(
     verbose : bool, optional
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
-        Checkpoint catalog or selected checkpoint used to record and resume workflow
-        progress, by default None. If a catalog has an active selection, the
-        workflow uses that checkpoint; otherwise it selects the latest matching row
+        Checkpoint manager or checkpoint session used to record and resume workflow
+        progress, by default None. If a checkpoint has an active session, the
+        workflow uses that session; otherwise it selects the latest matching row
         or starts a new labeled row.
 
     Returns
@@ -192,18 +192,18 @@ def deterministic(
 
 
 def _checkpoint_context(
-    checkpoint: Checkpoint | CheckpointCatalog | None, **labels: Any
+    checkpoint: Checkpoint | CheckpointSession | None, **labels: Any
 ):
     if checkpoint is None:
         return nullcontext(None)
-    if isinstance(checkpoint, Checkpoint):
+    if isinstance(checkpoint, CheckpointSession):
         if checkpoint.is_active:
             return nullcontext(checkpoint)
         return checkpoint
 
-    active_checkpoint = checkpoint.active
-    if active_checkpoint is not None:
-        return nullcontext(active_checkpoint)
+    active_session = checkpoint.active
+    if active_session is not None:
+        return nullcontext(active_session)
     return checkpoint.select(**labels)
 
 
@@ -264,9 +264,7 @@ def _read_restart_from_io(
 def _restart_read_coords(
     prognostic_coords: CoordSystem, time: np.ndarray, lead_time: Any
 ) -> CoordSystem:
-    restart_lead_time = _restart_lead_time(
-        prognostic_coords["lead_time"], lead_time
-    )
+    restart_lead_time = _restart_lead_time(prognostic_coords["lead_time"], lead_time)
     read_coords: CoordSystem = OrderedDict()
     time_added = False
 
@@ -296,7 +294,9 @@ def _restart_read_coords(
     return read_coords
 
 
-def _insert_variable_coord(read_coords: CoordSystem, variable: np.ndarray) -> CoordSystem:
+def _insert_variable_coord(
+    read_coords: CoordSystem, variable: np.ndarray
+) -> CoordSystem:
     coords: CoordSystem = OrderedDict()
     inserted = False
     for key, value in read_coords.items():
@@ -325,7 +325,7 @@ def diagnostic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint | CheckpointCatalog | None = None,
+    checkpoint: Checkpoint | CheckpointSession | None = None,
 ) -> IOBackend:
     """Built in diagnostic workflow.
     This workflow creates a determinstic inference pipeline that couples a prognostic
@@ -352,7 +352,7 @@ def diagnostic(
     verbose : bool, optional
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
-        Checkpoint catalog or selected checkpoint used to record and resume workflow
+        Checkpoint manager or checkpoint session used to record and resume workflow
         progress, by default None. Resume requires the IO backend to contain the
         prognostic variables needed for the next forecast step.
 
@@ -479,7 +479,7 @@ def ensemble(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint | CheckpointCatalog | None = None,
+    checkpoint: Checkpoint | CheckpointSession | None = None,
 ) -> IOBackend:
     """Built in ensemble workflow.
 
@@ -509,8 +509,8 @@ def ensemble(
     verbose : bool, optional
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
-        Checkpoint catalog or selected checkpoint used to record and resume workflow
-        progress, by default None. When a catalog is provided, rows are tracked
+        Checkpoint manager or checkpoint session used to record and resume workflow
+        progress, by default None. When a checkpoint manager is provided, rows are tracked
         independently for each ensemble batch.
 
     Returns
@@ -598,7 +598,9 @@ def ensemble(
                 )
                 if restart_step >= nsteps:
                     continue
-                restart_coords = OrderedDict({"ensemble": ensemble_coords}) | prognostic_ic
+                restart_coords = (
+                    OrderedDict({"ensemble": ensemble_coords}) | prognostic_ic
+                )
                 x, coords = _read_restart_from_io(
                     io, restart_coords, time, ckpt.lead_time, device
                 )
