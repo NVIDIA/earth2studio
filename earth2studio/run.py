@@ -441,9 +441,9 @@ def diagnostic(
                 if restart_step is not None and local_step == 0:
                     continue
 
+                last_coords = coords
                 x, coords = map_coords(x, coords, diagnostic_ic)
                 x, coords = diagnostic(x, coords)
-                last_coords = coords
                 x, coords = map_coords(x, coords, output_coords)
                 io.write(*split_coords(x, coords))
                 if ckpt is not None:

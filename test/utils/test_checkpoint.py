@@ -84,6 +84,49 @@ class RequiredState:
     value: int
 
 
+class DroppingLeadTimeDiagnostic(torch.nn.Module):
+    def __init__(self, variables: list[str], domain_coords: OrderedDict):
+        super().__init__()
+        self.variables = np.asarray(variables)
+        self.domain_coords = domain_coords
+
+    def input_coords(self):
+        coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": np.empty(0),
+                "variable": self.variables,
+            }
+        )
+        coords.update(self.domain_coords)
+        return coords
+
+    def output_coords(self, input_coords):
+        output_coords = input_coords.copy()
+        output_coords.pop("lead_time", None)
+        return output_coords
+
+    def __call__(self, x, coords):
+        output_coords = coords.copy()
+        lead_time_index = list(output_coords).index("lead_time")
+        output_coords.pop("lead_time")
+        return x.squeeze(lead_time_index), output_coords
+
+
+class RecordingIO:
+    def __init__(self):
+        self.coords = None
+        self.array_names = None
+        self.writes = []
+
+    def add_array(self, coords, array_name, **kwargs):
+        self.coords = coords
+        self.array_names = array_name
+
+    def write(self, x, coords, array_name):
+        self.writes.append((x, coords, array_name))
+
 
 def _coords(hours: int):
     return OrderedDict({"lead_time": np.asarray([np.timedelta64(hours, "h")])})
@@ -479,6 +522,28 @@ def test_diagnostic_workflow_resumes_from_checkpoint(tmp_path):
     assert selected.lead_time == np.timedelta64(18, "h")
     assert selected.write_count == 4
     assert io["u10m"].shape[1] == 4
+
+
+def test_diagnostic_checkpoint_tracks_prognostic_lead_time(tmp_path):
+    coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
+    variables = ["u10m", "v10m"]
+    checkpoint = Checkpoint("diagnostic", path=tmp_path, flush_interval=1)
+    io = RecordingIO()
+
+    run.diagnostic(
+        ["2024-01-01"],
+        1,
+        Persistence(variables, coords),
+        DroppingLeadTimeDiagnostic(variables, coords),
+        Random(domain_coords=coords),
+        io,
+        device=torch.device("cpu"),
+        verbose=False,
+        checkpoint=checkpoint,
+    )
+
+    assert len(io.writes) == 2
+    assert checkpoint.select(-1).lead_time == np.timedelta64(6, "h")
 
 
 def test_ensemble_workflow_resumes_each_batch_from_checkpoint(tmp_path):
