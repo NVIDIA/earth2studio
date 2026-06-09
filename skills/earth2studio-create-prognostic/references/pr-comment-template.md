@@ -34,14 +34,14 @@ PR author to upload images manually in the browser.
 ### Validation Scripts
 
 The validation scripts are for review only and must not be committed. Include
-copy-pasteable scripts or concise script summaries here, but remove machine
-names, absolute paths, cache paths, hostnames, and environment-specific details.
+copy-pasteable Python scripts here, but remove machine names, absolute paths,
+cache paths, hostnames, and environment-specific details.
 
 <details>
 <summary>Vanilla reference script</summary>
 
 ```python
-PASTE THE FULL WORKING VANILLA SCRIPT HERE OR A REVIEW-SAFE SUMMARY.
+PASTE THE FULL WORKING VANILLA SCRIPT HERE.
 ```
 
 </details>
@@ -50,7 +50,7 @@ PASTE THE FULL WORKING VANILLA SCRIPT HERE OR A REVIEW-SAFE SUMMARY.
 <summary>Earth2Studio reference script</summary>
 
 ```python
-PASTE THE FULL WORKING E2S SCRIPT HERE OR A REVIEW-SAFE SUMMARY.
+PASTE THE FULL WORKING E2S SCRIPT HERE.
 ```
 
 </details>
@@ -59,7 +59,7 @@ PASTE THE FULL WORKING E2S SCRIPT HERE OR A REVIEW-SAFE SUMMARY.
 <summary>Comparison script</summary>
 
 ```python
-PASTE THE FULL WORKING COMPARISON SCRIPT HERE OR A REVIEW-SAFE SUMMARY.
+PASTE THE FULL WORKING COMPARISON SCRIPT HERE.
 ```
 
 </details>

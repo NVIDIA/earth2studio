@@ -67,7 +67,9 @@ Use `pr-comment-template.md`. The comment should include:
 - Results summary table
 - Key findings
 - Reference plot placeholders
-- Review-safe validation scripts or concise script summaries
+- Full review-safe validation scripts inside expandable details blocks
+
+Each script must be placed in a fenced `python` code block under its own `<details>` / `<summary>` section. Do not replace the scripts with summaries.
 
 Do not upload images from the automation and do not paste `<img ...>` links.
 Use TODO placeholders so the PR author can upload plots manually in the browser.
