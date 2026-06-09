@@ -120,11 +120,12 @@ from loguru import logger
 - `batch`: `np.empty(0)`
 - `time`: `np.empty(0)` (dynamic)
 - `lead_time`: starts at `np.timedelta64(0, "h")`
-- `lat`: 90 to -90 (north to south)
+- `lat`: 90 to -90 (north to south); this is the public Earth2Studio convention even if the source model uses the opposite order
 - `lon`: 0 to 360
+- If a checkpoint/model core expects south-to-north latitude, flip tensors internally before/after the core model; do not expose flipped latitude in `input_coords` or `output_coords`
 - Map variables to `E2STUDIO_VOCAB` (282 entries in `earth2studio/lexicon/base.py`)
 
-**output_coords:** Use `handshake_dim`/`handshake_coords`, increment `lead_time`.
+**output_coords:** Use `handshake_dim`/`handshake_coords` for input validation, then increment `lead_time`. Prefer a shared coordinate-check helper and call it from `output_coords`, `__call__`, and iterator setup before model execution.
 
 ### Step 5 — Implement Forward Pass
 
@@ -225,6 +226,7 @@ def input_coords(self) -> CoordSystem:
         "time": np.empty(0),
         "lead_time": np.array([np.timedelta64(0, "h")]),
         "variable": np.array(["t2m", "u10m", ...]),
+        # Public Earth2Studio convention is north-to-south latitude.
         "lat": np.linspace(90, -90, 181),
         "lon": np.linspace(0, 359, 360),
     })

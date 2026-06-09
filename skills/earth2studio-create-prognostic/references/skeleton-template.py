@@ -146,7 +146,9 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "time": np.empty(0),  # Dynamic time dimension
                 "lead_time": np.array([np.timedelta64(0, "h")]),  # Initial lead time
                 "variable": np.array(VARIABLES),
-                # TODO: Set grid dimensions from reference
+                # TODO: Set grid dimensions from reference. Keep public
+                # Earth2Studio latitude north-to-south even if the core model
+                # uses south-to-north internally.
                 "lat": np.linspace(90, -90, 721, endpoint=True),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
@@ -320,14 +322,23 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output tensor and coordinates one time step ahead.
         """
         target_input_coords = self.input_coords()
-        handshake_coords(coords, target_input_coords, "variable")
+        handshake_dim(coords, "lead_time", 2)
         handshake_dim(coords, "variable", 3)
+        handshake_dim(coords, "lat", 4)
+        handshake_dim(coords, "lon", 5)
+        handshake_coords(coords, target_input_coords, "lead_time")
+        handshake_coords(coords, target_input_coords, "variable")
+        handshake_coords(coords, target_input_coords, "lat")
+        handshake_coords(coords, target_input_coords, "lon")
 
         # Move to device
         device = self.device_buffer.device
         x = x.to(device)
 
         # TODO: Reshape input tensor for the core model
+        # If the core model uses south-to-north latitude, torch.flip the
+        # internal tensor before the model and flip the output back before
+        # returning. Public coords must remain 90 to -90.
         # E2S format: (batch, time, lead_time, variable, lat, lon)
         # Example reshape to (batch, variable, lat, lon):
         # x_model = x.squeeze(1).squeeze(1)  # Remove time and lead_time dims

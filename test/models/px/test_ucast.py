@@ -86,6 +86,10 @@ def test_ucast_call(ucast_model: UCast) -> None:
     assert torch.allclose(out, x[:, -1:])
     assert (out_coords["time"] == coords["time"]).all()
     assert out_coords["lead_time"][0] == np.timedelta64(12, "h")
+    assert coords["lat"][0] == 90
+    assert coords["lat"][-1] == -90
+    assert out_coords["lat"][0] == 90
+    assert out_coords["lat"][-1] == -90
     assert (out_coords["variable"] == np.array(VARIABLES)).all()
     handshake_dim(out_coords, "time", 0)
     handshake_dim(out_coords, "lead_time", 1)
@@ -121,7 +125,7 @@ def test_ucast_iter_ensemble(ucast_model: UCast) -> None:
 @pytest.mark.parametrize(
     "coords_update",
     [
-        {"lat": np.linspace(90, -90, 121)},
+        {"lat": np.linspace(-90, 90, 121)},
         {"lon": np.linspace(0, 360, 241, endpoint=False)},
     ],
 )

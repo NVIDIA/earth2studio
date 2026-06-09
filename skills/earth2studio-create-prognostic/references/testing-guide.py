@@ -176,6 +176,10 @@ class TestModelNameMock:
 
         # Validate output coordinates
         assert isinstance(out_coords, OrderedDict)
+        assert coords["lat"][0] == 90
+        assert coords["lat"][-1] == -90
+        assert out_coords["lat"][0] == 90
+        assert out_coords["lat"][-1] == -90
         # Standard models: time=0, lead_time=1, variable=2, lat=3, lon=4
         handshake_dim(out_coords, "variable", 2)
 
@@ -262,6 +266,17 @@ class TestModelNameMock:
                     "lead_time": np.array([np.timedelta64(0, "h")]),
                     "variable": np.array(["wrong_var"]),
                     "lat": np.linspace(90, -90, 10),
+                    "lon": np.linspace(0, 360, 20),
+                }
+            ),
+            # Wrong latitude convention: public model coords must be 90 to -90
+            OrderedDict(
+                {
+                    "batch": np.empty(0),
+                    "time": np.empty(0),
+                    "lead_time": np.array([np.timedelta64(0, "h")]),
+                    "variable": np.array(["t2m"]),  # TODO: Replace with model variables
+                    "lat": np.linspace(-90, 90, 10),
                     "lon": np.linspace(0, 360, 20),
                 }
             ),

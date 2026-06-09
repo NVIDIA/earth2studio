@@ -654,7 +654,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     [np.timedelta64(-12, "h"), np.timedelta64(0, "h")]
                 ),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(-90, 90, 121, endpoint=True),
+                "lat": np.linspace(90, -90, 121, endpoint=True),
                 "lon": np.linspace(0, 360, 240, endpoint=False),
             }
         )
@@ -664,7 +664,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(12, "h")]),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(-90, 90, 121, endpoint=True),
+                "lat": np.linspace(90, -90, 121, endpoint=True),
                 "lon": np.linspace(0, 360, 240, endpoint=False),
             }
         )
@@ -673,21 +673,23 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Input coordinate system of the prognostic model."""
         return self._input_coords.copy()
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model."""
-        output_coords = self._output_coords.copy()
-
+    def _check_input_coords(self, input_coords: CoordSystem) -> None:
+        """Validate input coordinates against the public U-CAST coordinate system."""
         test_coords = input_coords.copy()
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
         target_input_coords = self.input_coords()
         for i, key in enumerate(target_input_coords):
+            handshake_dim(test_coords, key, i)
             if key not in ["batch", "time"]:
-                handshake_dim(test_coords, key, i)
                 handshake_coords(test_coords, target_input_coords, key)
 
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of the prognostic model."""
+        self._check_input_coords(input_coords)
+        output_coords = self._output_coords.copy()
         output_coords["batch"] = input_coords["batch"]
         output_coords["time"] = input_coords["time"]
         output_coords["lead_time"] = (
@@ -756,6 +758,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+        self._check_input_coords(coords)
         self._enable_inference_dropout()
 
         batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
@@ -771,10 +774,12 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 f"Expected U-CAST spatial shape [121, 240], got [{n_lat}, {n_lon}]"
             )
 
-        # U-CAST operates on (lon, lat), while Earth2Studio exposes (lat, lon).
+        # U-CAST operates on (lon, lat) with south-to-north latitude. Keep the
+        # public Earth2Studio convention north-to-south and flip only internally.
         x_model = x.permute(0, 1, 2, 3, 5, 4).reshape(
             batch_size * time_size, history_size, n_variables, n_lon, n_lat
         )
+        x_model = torch.flip(x_model, dims=(-1,))
         latest_sst_nan_mask = torch.isnan(x_model[:, -1, self.sst_index])
         x_norm = self._normalize(x_model.clone())
         model_input = torch.cat([x_norm[:, 0], x_norm[:, 1]], dim=1)
@@ -820,6 +825,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             pred_sst,
         )
 
+        pred = torch.flip(pred, dims=(-1,))
         return pred.reshape(batch_size, time_size, n_variables, n_lon, n_lat).permute(
             0, 1, 2, 4, 3
         )[:, :, None]
