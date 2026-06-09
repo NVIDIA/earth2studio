@@ -619,7 +619,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2026 gpu:16gb ensemble
+    region:global class:mrf product:wind product:temp product:atmos year:2026 gpu:40gb ensemble
     """
 
     def __init__(
