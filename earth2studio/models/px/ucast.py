@@ -135,15 +135,17 @@ class Conv2d(torch.nn.Module):
             self.padding = kernel // 2
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        weight = self.weight.to(x.dtype) if self.weight is not None else None
-        bias = self.bias.to(x.dtype) if self.bias is not None else None
+        weight = self.weight
+        bias = self.bias
 
         if self.up:
             x = F.interpolate(x, scale_factor=2, mode="nearest")
         if self.down:
             x = F.avg_pool2d(x, kernel_size=2)
         if weight is not None:
-            x = _conv2d_circular_height(x, weight, bias, self.padding)
+            x = _conv2d_circular_height(x, weight, None, self.padding)
+        if bias is not None:
+            x = x.add_(bias.reshape(1, -1, 1, 1))
         return x
 
 
@@ -520,24 +522,26 @@ def _compute_static_condition(ds: xr.Dataset) -> torch.Tensor:
         data_array = ds[field]
         if "time" in data_array.dims:
             data_array = data_array.isel(time=0)
-        lat_name = "latitude" if "latitude" in data_array.dims else "lat"
-        lon_name = "longitude" if "longitude" in data_array.dims else "lon"
-        data = (
-            data_array.transpose(lat_name, lon_name).compute().values.astype(np.float32)
-        )
-        arrays.append(data)
+        data = data_array.compute().values
+        if data.ndim > 2:
+            data = data[0]
+
+        spatial_dims = [dim for dim in data_array.dims if dim != "time"]
+        if spatial_dims[0] in ["latitude", "lat"]:
+            data = data.T
+        arrays.append(data.astype(np.float32))
 
     static = np.stack(arrays, axis=0)
     mean = static.mean(axis=(-2, -1), keepdims=True)
     std = static.std(axis=(-2, -1), keepdims=True)
-    return torch.from_numpy((static - mean) / std).float()
+    return torch.from_numpy(((static - mean) / std).transpose(0, 2, 1)).float()
 
 
 def _load_static_condition(package: Package) -> torch.Tensor:
     if _package_file_exists(package, "static_condition.pt"):
         return torch.load(package.resolve("static_condition.pt"), weights_only=True)
 
-    cache_path = Path(Package.default_cache("ucast/static_condition.pt"))
+    cache_path = Path(Package.default_cache("ucast/static_condition_v2.pt"))
     if cache_path.exists():
         return torch.load(cache_path, weights_only=True)
 
@@ -811,9 +815,11 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 static_condition=static,
             )
 
-        pred_residual = pred_residual.to(x_norm.dtype)
         pred_norm = (
-            pred_residual * self.residual_to_normalized_scale.to(dtype=x_norm.dtype)
+            pred_residual
+            * self.residual_to_normalized_scale.to(
+                device=pred_residual.device, dtype=pred_residual.dtype
+            )
             + x_norm[:, -1]
         )
         pred = self._denormalize(pred_norm)
