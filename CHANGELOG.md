@@ -22,9 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through 2011-03-27 with cycles every 5 days, served from the NCEI HTTPS
   archive
 - Added IBTrACS tropical cyclone track DataFrame source (`IBTrACS`)
+- Added checkpoint/session utilities and restart support for deterministic,
+  diagnostic, and ensemble inference workflows
+- Added checkpoint state policy hints exposed through bound state proxies
 
 ### Changed
 
+- Simplified workflow checkpoint handling with package-level no-op checkpoint
+  sessions and idempotent final flushes
+- Deterministic checkpoint resume now leaves restart-state restoration to the
+  prognostic iterator after fetching the normal initial condition
 - Automatic test skipping for missing optional dependencies via
   `pytest_ignore_collect` hook in `test/conftest.py`
 
