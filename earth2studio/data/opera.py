@@ -16,6 +16,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import io
 import os
 import pathlib
@@ -80,16 +82,6 @@ _PROJDEF = (
 # Pixel scale = EXTENT / grid_size_in_that_dimension.
 _GRID_EXTENT_X = 3_800_000.0  # metres east–west
 _GRID_EXTENT_Y = 4_400_000.0  # metres north–south
-
-# Filename-parameter names used in the ODYSSEY-era archive (pre-2024-07).
-# The ODIM quantity code *inside* the HDF5 is unchanged (always DBZH/RATE/ACRR);
-# only the S3 object name differs.
-_LEGACY_FILENAME_PARAMS: dict[str, str] = {
-    "DBZH": "DBZH_QIND",
-    "RATE": "QIND_RATE",
-    "ACRR": "ACRR_QIND",
-}
-
 
 # ---------------------------------------------------------------------------
 # Grid helpers
@@ -580,8 +572,18 @@ class OPERA:
         if self.fs is None:
             raise ValueError("Filesystem not initialized; call _async_init first")
 
-        logger.debug(f"Fetching {task.url}")
-        data_bytes = await self.fs._cat_file(task.url)
+        sha = hashlib.sha256(task.url.encode())
+        cache_path = os.path.join(self.cache, sha.hexdigest())
+
+        if pathlib.Path(cache_path).is_file():
+            logger.debug(f"Cache hit {cache_path}")
+            data_bytes = pathlib.Path(cache_path).read_bytes()
+        else:
+            logger.debug(f"Fetching {task.url}")
+            data_bytes = await self.fs._cat_file(task.url)
+            with open(cache_path, "wb") as fh:
+                await asyncio.to_thread(fh.write, data_bytes)
+
         return _decode_odim_h5(data_bytes, task.odim_quantity)
 
     # ------------------------------------------------------------------
@@ -610,7 +612,7 @@ class OPERA:
             Full HTTPS URL to the ODIM HDF5 file on CloudFerro S3.
         """
         param = (
-            _LEGACY_FILENAME_PARAMS.get(odim_quantity, odim_quantity)
+            OPERALexicon.LEGACY_FILENAME_PARAMS.get(odim_quantity, odim_quantity)
             if t < _CIRRUS_START
             else odim_quantity
         )
