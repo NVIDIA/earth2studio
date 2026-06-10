@@ -889,27 +889,18 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out_coords["lead_time"] = out_coords["lead_time"][1:]
         yield out, out_coords
 
-        front_hook = getattr(self.front_hook, "__func__", self.front_hook)
-        rear_hook = getattr(self.rear_hook, "__func__", self.rear_hook)
-        use_internal_state = (
-            front_hook is PrognosticMixin._default_hook
-            and rear_hook is PrognosticMixin._default_hook
-        )
         x_norm = None
         sst_mask = None
 
         while True:
             x, coords = self.front_hook(x, coords)
-            if use_internal_state:
-                out, x_norm, sst_mask = self._forward(
-                    x,
-                    coords,
-                    x_norm=x_norm,
-                    sst_mask=sst_mask,
-                    return_state=True,
-                )
-            else:
-                out = self._forward(x, coords)
+            out, x_norm, sst_mask = self._forward(
+                x,
+                coords,
+                x_norm=x_norm,
+                sst_mask=sst_mask,
+                return_state=True,
+            )
             out_coords = self.output_coords(coords)
             out, out_coords = self.rear_hook(out, out_coords)
 
