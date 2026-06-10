@@ -21,6 +21,7 @@ import os
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from pathlib import Path
+from typing import TypedDict
 
 import numpy as np
 import torch
@@ -63,6 +64,17 @@ UCAST_WB2_DATASET = (
     "gs://weatherbench2/datasets/era5/"
     "1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr"
 )
+
+
+class _ConvInitKwargs(TypedDict):
+    init_weight: float
+    init_bias: float
+
+
+class _BlockKwargs(TypedDict):
+    channels_per_head: int
+    dropout: float
+
 
 _SEC_PER_DAY = 86400
 _AVG_DAY_PER_YEAR = 365.24219
@@ -227,8 +239,11 @@ class UNetBlock(torch.nn.Module):
             )
         )
 
-        init = {"init_weight": math.sqrt(1 / 3), "init_bias": math.sqrt(1 / 3)}
-        init_zero = {"init_weight": 0.0, "init_bias": 0.0}
+        init: _ConvInitKwargs = {
+            "init_weight": math.sqrt(1 / 3),
+            "init_bias": math.sqrt(1 / 3),
+        }
+        init_zero: _ConvInitKwargs = {"init_weight": 0.0, "init_bias": 0.0}
 
         self.norm0 = GroupNorm(num_channels=in_channels, eps=eps)
         self.conv0 = Conv2d(
@@ -313,12 +328,15 @@ class DhariwalUNet(torch.nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        block_kwargs = {
+        block_kwargs: _BlockKwargs = {
             "channels_per_head": channels_per_head,
             "dropout": dropout,
         }
-        init = {"init_weight": math.sqrt(1 / 3), "init_bias": math.sqrt(1 / 3)}
-        init_zero = {"init_weight": 0.0, "init_bias": 0.0}
+        init: _ConvInitKwargs = {
+            "init_weight": math.sqrt(1 / 3),
+            "init_bias": math.sqrt(1 / 3),
+        }
+        init_zero: _ConvInitKwargs = {"init_weight": 0.0, "init_bias": 0.0}
 
         img_resolution = 240
         self.enc = torch.nn.ModuleDict()
@@ -880,7 +898,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+    ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         coords = coords.copy()
         self.output_coords(coords)
 
