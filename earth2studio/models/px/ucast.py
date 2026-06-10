@@ -56,7 +56,6 @@ VARIABLES += [f"w{level}" for level in LEVELS]
 STATIC_FIELDS = ["land_sea_mask", "geopotential_at_surface"]
 UCAST_REPO = "salv47/u-cast"
 UCAST_CHECKPOINT = "ucast.ckpt"
-UCAST_PACKAGE = f"hf://{UCAST_REPO}"
 UCAST_STATS_GITHUB_RAW = (
     "https://raw.githubusercontent.com/Rose-STL-Lab/u-cast/"
     "f6ca2ae408f9c36174dadc7902a08e64daff123b"
@@ -747,14 +746,15 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Load U-CAST checkpoint package from Hugging Face."""
-        return Package(
-            UCAST_PACKAGE,
+        """Load the default package for the U-CAST model."""
+        package = Package(
+            "hf://salv47/u-cast",
             cache_options={
-                "cache_storage": Package.default_cache("ucast/checkpoints"),
+                "cache_storage": Package.default_cache("ucast"),
                 "same_names": True,
             },
         )
+        return package
 
     @classmethod
     def load_model(cls, package: Package) -> PrognosticModel:
