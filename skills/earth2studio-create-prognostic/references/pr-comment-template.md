@@ -31,8 +31,8 @@ Single-step sanity plots:
 
 Multi-step vanilla-vs-Earth2Studio comparison plots. For each selected variable,
 the plot should have forecast lead times as columns and these rows: Earth2Studio
-wrapper output on top, vanilla reference output in the middle, and absolute
-difference on the bottom.
+wrapper output on top, vanilla reference output in the middle, and relative
+error on the bottom. Use a small denominator clamp such as `max(abs(vanilla), 1e-6)`.
 
 > TODO: Upload `REFERENCE_COMPARE_TIMESERIES_VARIABLE_1.png` here.
 >
