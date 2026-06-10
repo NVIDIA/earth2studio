@@ -184,7 +184,9 @@ class AttentionOp(torch.autograd.Function):
     """Attention weight computation used by the U-CAST U-Net."""
 
     @staticmethod
-    def forward(ctx: torch.autograd.function.FunctionCtx, q: torch.Tensor, k: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
+    def forward(
+        ctx: torch.autograd.function.FunctionCtx, q: torch.Tensor, k: torch.Tensor
+    ) -> torch.Tensor:  # type: ignore[override]
         del ctx
         return (
             torch.einsum(
@@ -449,12 +451,8 @@ def _load_sst_fill_value(package: Package) -> float:
         return float(_extract_stat(ds, _wb2_name("sst")).item())
 
 
-def _package_file_exists(package: Package, file_path: str) -> bool:
-    return bool(package.fs.exists(os.path.join(package.root, file_path)))
-
-
 def _load_checkpoint_path(package: Package) -> str:
-    if _package_file_exists(package, UCAST_CHECKPOINT):
+    if package.fs.exists(os.path.join(package.root, UCAST_CHECKPOINT)):
         return package.resolve(UCAST_CHECKPOINT)
 
     return hf_hub_download(
@@ -468,7 +466,7 @@ def _load_ema_state_dict(
     model: torch.nn.Module,
     checkpoint_path: str,
 ) -> None:
-    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     state_dict = checkpoint["state_dict"]
     ema_prefix = "model_ema."
     ema_buffers = {
@@ -494,11 +492,15 @@ def _load_ema_state_dict(
         if ema_key in ema_name_to_param:
             model_state[ema_name_to_param[ema_key]] = ema_val
 
-    missing, unexpected = model.load_state_dict(model_state, strict=True)
-    if missing:
-        logger.warning(f"Missing EMA keys while loading U-CAST: {missing[:5]}")
-    if unexpected:
-        logger.warning(f"Unexpected EMA keys while loading U-CAST: {unexpected[:5]}")
+    load_result = model.load_state_dict(model_state, strict=False)
+    missing = load_result.missing_keys
+    unexpected = load_result.unexpected_keys
+    if missing or unexpected:
+        raise RuntimeError(
+            "Failed to load U-CAST EMA checkpoint with "
+            f"{len(missing)} missing keys and {len(unexpected)} unexpected keys. "
+            f"Missing sample: {missing[:5]}; unexpected sample: {unexpected[:5]}"
+        )
 
 
 def _ensure_latitude_is_ascending(ds: xr.Dataset) -> xr.Dataset:
@@ -506,13 +508,6 @@ def _ensure_latitude_is_ascending(ds: xr.Dataset) -> xr.Dataset:
     if not (np.diff(ds[lat_name].values) > 0).all():
         return ds.reindex({lat_name: list(reversed(ds[lat_name].values))})
     return ds
-
-
-def _open_default_wb2_dataset() -> xr.Dataset:
-    import gcsfs
-
-    fs = gcsfs.GCSFileSystem(token="anon")  # noqa: S106
-    return xr.open_zarr(fs.get_mapper(UCAST_WB2_DATASET), zarr_format=2)
 
 
 def _compute_static_condition(ds: xr.Dataset) -> torch.Tensor:
@@ -533,12 +528,12 @@ def _compute_static_condition(ds: xr.Dataset) -> torch.Tensor:
 
     static = np.stack(arrays, axis=0)
     mean = static.mean(axis=(-2, -1), keepdims=True)
-    std = static.std(axis=(-2, -1), keepdims=True)
+    std = np.clip(static.std(axis=(-2, -1), keepdims=True), 1e-6, None)
     return torch.from_numpy(((static - mean) / std).transpose(0, 2, 1)).float()
 
 
 def _load_static_condition(package: Package) -> torch.Tensor:
-    if _package_file_exists(package, "static_condition.pt"):
+    if package.fs.exists(os.path.join(package.root, "static_condition.pt")):
         return torch.load(package.resolve("static_condition.pt"), weights_only=True)
 
     cache_path = Path(Package.default_cache("ucast/static_condition_v2.pt"))
@@ -547,8 +542,14 @@ def _load_static_condition(package: Package) -> torch.Tensor:
 
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     logger.info("Loading U-CAST static fields from WeatherBench2 public ERA5 zarr")
-    ds = _open_default_wb2_dataset()
-    static = _compute_static_condition(ds)
+    import gcsfs
+
+    fs = gcsfs.GCSFileSystem(token="anon")  # noqa: S106
+    ds = xr.open_zarr(fs.get_mapper(UCAST_WB2_DATASET), zarr_format=2)
+    try:
+        static = _compute_static_condition(ds)
+    finally:
+        ds.close()
     torch.save(static, cache_path)
     return static
 
@@ -749,6 +750,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 module.train(self.stochastic)
 
     def _normalize(self, x: torch.Tensor) -> torch.Tensor:
+        x = x.clone()
         sst = x[:, :, self.sst_index]
         x[:, :, self.sst_index] = torch.where(
             torch.isnan(sst),
@@ -785,7 +787,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         x_model = torch.flip(x_model, dims=(-1,))
         latest_sst_nan_mask = torch.isnan(x_model[:, -1, self.sst_index])
-        x_norm = self._normalize(x_model.clone())
+        x_norm = self._normalize(x_model)
         model_input = torch.cat([x_norm[:, 0], x_norm[:, 1]], dim=1)
 
         target_times = (
