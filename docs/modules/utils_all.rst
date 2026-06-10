@@ -48,6 +48,21 @@ The following functions can be used to convert to and from these numpy arrays.
    utils.time.timearray_to_datetime
    utils.time.to_time_array
 
+.. _earth2studio.utils.cos_zenith:
+
+:mod:`earth2studio.utils`: Cosine Zenith Angle
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Utilities for computing the cosine of the solar zenith angle on GPU, used as a
+time-varying input feature for models that require solar forcing.
+
+.. autosummary::
+   :toctree: generated/utils/
+   :template: function.rst
+
+   utils.cos_zenith.cos_zenith_angle
+   utils.cos_zenith.cos_zenith_angle_from_timestamp
+
 .. _earth2studio.data.functions:
 
 :mod:`earth2studio.data`: Data

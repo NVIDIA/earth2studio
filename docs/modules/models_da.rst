@@ -39,3 +39,18 @@ to process observations independently or maintain internal state across time ste
       HealDA
       InterpEquirectangular
       StormCastSDA
+
+.. _earth2studio.models.da.utils:
+
+:mod:`earth2studio.models.da`: Data Assimilation Utilities
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Helper classes for mapping point observations onto model grids, useful for
+SDA-capable prognostic models.
+
+.. autosummary::
+   :nosignatures:
+   :toctree: generated/models/da/
+   :template: class.rst
+
+   utils.ObsGridMapping
