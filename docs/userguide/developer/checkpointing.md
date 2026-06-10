@@ -97,17 +97,18 @@ keeps a history, and `keep_last` can cap that history.
 
 ## Workflow Resume
 
-The built-in deterministic workflow first checks whether the selected checkpoint
-session hydrated component state. When it did, the workflow fetches the normal
-initial condition and lets the prognostic model's iterator use its hydrated
-dataclass state to restore or replay to the selected restart point. A
-checkpoint-aware iterator should yield the selected checkpoint boundary first,
-matching the normal iterator convention of yielding the initial condition first.
+The built-in deterministic workflow always fetches the normal initial condition
+and feeds it to the prognostic model iterator. When a checkpoint row is selected,
+the workflow uses the row's lead time only as the completed workflow position. A
+checkpoint-aware model is responsible for using its bound dataclass state inside
+`create_iterator` to restore or replay to that selected restart point. The
+iterator should yield the selected checkpoint boundary first, matching the normal
+iterator convention of yielding the initial condition first.
 
-When no component state was hydrated, deterministic resume falls back to reading
-the selected lead time from the IO backend. That fallback requires the IO backend
-to contain the prognostic variables needed for the next forecast step. The
-diagnostic workflow has the same IO requirement today. The ensemble workflow
+This keeps deterministic restart independent from model internals and avoids
+assuming that user-facing IO output is restart-complete. The diagnostic workflow
+still resumes from IO today and therefore requires the IO backend to contain the
+prognostic variables needed for the next forecast step. The ensemble workflow
 stores progress per mini-batch using an `ensemble_batch` label, allowing
 completed batches to be skipped and partially completed batches to continue from
 their latest saved lead time.

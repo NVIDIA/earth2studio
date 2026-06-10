@@ -142,30 +142,25 @@ def deterministic(
                 logger.success("\nInference complete")
                 return io
 
-        if ckpt.exists and not ckpt.has_hydrated_state:
-            x, coords = _read_restart_from_io(
-                io, prognostic_ic, time, ckpt.lead_time, device
-            )
+        if hasattr(prognostic, "interp_method"):
+            interp_to = prognostic_ic
+            interp_method = prognostic.interp_method
         else:
-            if hasattr(prognostic, "interp_method"):
-                interp_to = prognostic_ic
-                interp_method = prognostic.interp_method
-            else:
-                interp_to = None
-                interp_method = "nearest"
+            interp_to = None
+            interp_method = "nearest"
 
-            x, coords = fetch_data(
-                source=data,
-                time=time,
-                variable=prognostic_ic["variable"],
-                lead_time=prognostic_ic["lead_time"],
-                device=device,
-                interp_to=interp_to,
-                interp_method=interp_method,
-            )
+        x, coords = fetch_data(
+            source=data,
+            time=time,
+            variable=prognostic_ic["variable"],
+            lead_time=prognostic_ic["lead_time"],
+            device=device,
+            interp_to=interp_to,
+            interp_method=interp_method,
+        )
 
-            logger.success(f"Fetched data from {data.__class__.__name__}")
-            # sphinx - fetch data end
+        logger.success(f"Fetched data from {data.__class__.__name__}")
+        # sphinx - fetch data end
 
         # Map lat and lon if needed
         x, coords = map_coords(x, coords, prognostic.input_coords())

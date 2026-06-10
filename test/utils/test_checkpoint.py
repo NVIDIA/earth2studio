@@ -122,7 +122,6 @@ def test_checkpoint_contexts_and_no_checkpoint_session(tmp_path):
     with NO_CHECKPOINT as ckpt:
         assert not ckpt
         assert not ckpt.exists
-        assert not ckpt.has_hydrated_state
         assert not ckpt.is_active
         assert ckpt.write(lead_time=_lead_time(0)) is None
         assert ckpt.flush() is None
@@ -522,7 +521,7 @@ def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
     )
 
     data = Random(domain_coords=coords)
-    model = Persistence(variables, coords)
+    model = RestartablePersistence(variables, coords)
     run.deterministic(
         ["2024-01-01"],
         1,
@@ -537,7 +536,7 @@ def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
 
     with checkpoint.select(-1):
         data = Random(domain_coords=coords)
-        model = Persistence(variables, coords)
+        model = RestartablePersistence(variables, coords)
         run.deterministic(
             ["2024-01-01"],
             3,
@@ -590,10 +589,9 @@ def test_deterministic_workflow_uses_model_checkpoint_state_when_io_is_filtered(
         checkpoint=checkpoint,
     )
 
-    with checkpoint.select(-1) as selected:
+    with checkpoint.select(-1):
         data = Random(domain_coords=coords)
         model = RestartablePersistence(variables, coords)
-        assert selected.has_hydrated_state
         run.deterministic(
             ["2024-01-01"],
             3,

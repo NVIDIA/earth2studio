@@ -53,6 +53,7 @@ In this example you will learn:
 import os
 import shutil
 from collections import OrderedDict
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -62,7 +63,7 @@ import earth2studio.run as run
 from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
-from earth2studio.utils.checkpoint import Checkpoint
+from earth2studio.utils.checkpoint import Checkpoint, bind_checkpoint_state
 from earth2studio.utils.time import to_time_array
 
 os.makedirs("outputs", exist_ok=True)
@@ -90,7 +91,6 @@ time = ["2024-01-01T00:00:00"]
 final_nsteps = 5
 first_attempt_nsteps = 2
 
-prealloc_model = Persistence(variables, domain_coords)
 
 # %%
 # Preallocate the full output store. A real full-length deterministic run does
@@ -116,6 +116,39 @@ def deterministic_output_coords(model, time, nsteps):
     return output_coords
 
 
+@dataclass
+class PersistenceRestartState:
+    x: torch.Tensor | None = None
+    coord_keys: tuple[str, ...] = ()
+    coord_values: tuple[np.ndarray, ...] = ()
+
+
+class RestartablePersistence(Persistence):
+    def __init__(self, variables, domain_coords):
+        super().__init__(variables, domain_coords)
+        self.restart = bind_checkpoint_state(PersistenceRestartState())
+
+    def create_iterator(self, x, coords):
+        if self.restart.x is not None and self.restart.coord_keys:
+            x = self.restart.x.to(x.device)
+            coords = OrderedDict(
+                (key, np.asarray(value).copy())
+                for key, value in zip(
+                    self.restart.coord_keys, self.restart.coord_values
+                )
+            )
+
+        for x_out, coords_out in super().create_iterator(x, coords):
+            self.restart.x = x_out.detach().cpu()
+            self.restart.coord_keys = tuple(coords_out.keys())
+            self.restart.coord_values = tuple(
+                np.asarray(value).copy() for value in coords_out.values()
+            )
+            yield x_out, coords_out
+
+
+prealloc_model = RestartablePersistence(variables, domain_coords)
+
 io = ZarrBackend(str(forecast_store), backend_kwargs={"overwrite": True})
 coords = deterministic_output_coords(prealloc_model, time, final_nsteps)
 var_names = coords.pop("variable")
@@ -140,7 +173,7 @@ checkpoint = Checkpoint(
 )
 
 data = Random(domain_coords=domain_coords)
-model = Persistence(variables, domain_coords)
+model = RestartablePersistence(variables, domain_coords)
 run.deterministic(
     time=time,
     nsteps=first_attempt_nsteps,
@@ -164,11 +197,10 @@ print(checkpoint)
 #
 # The selected checkpoint session is used as a context manager so the chosen row is
 # the active restart state while components are constructed and while the
-# workflow runs. If a component opts into checkpoint state, it can hydrate its
-# small dataclass from this row during construction. The workflow accepts
-# the checkpoint manager and uses the active session from the surrounding context.
-# In this lightweight example, that selection tells the workflow which lead time
-# to read from IO before continuing.
+# workflow runs. This example model hydrates its restart dataclass during
+# construction, and its iterator uses that state to start from the selected
+# checkpoint boundary. The workflow still fetches the normal initial condition
+# and feeds it to the iterator.
 
 # %%
 io = ZarrBackend(str(forecast_store))
@@ -176,7 +208,7 @@ checkpoint = Checkpoint("restart-demo", path=checkpoint_store, mode="append")
 
 with checkpoint.select(-1):
     data = Random(domain_coords=domain_coords)
-    model = Persistence(variables, domain_coords)
+    model = RestartablePersistence(variables, domain_coords)
     run.deterministic(
         time=time,
         nsteps=final_nsteps,

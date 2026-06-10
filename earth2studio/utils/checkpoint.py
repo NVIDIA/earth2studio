@@ -103,11 +103,6 @@ class NullCheckpointSession:
         return 0
 
     @property
-    def has_hydrated_state(self) -> bool:
-        """Whether any state was hydrated from a selected checkpoint row."""
-        return False
-
-    @property
     def is_active(self) -> bool:
         """Whether this checkpoint session is active in the current context."""
         return False
@@ -403,7 +398,6 @@ class CheckpointSession:
         self._pending_lead_time: Any | None = None
         self._pending_artifacts: Mapping[str, Any] | None = None
         self._pending_dirty = False
-        self._hydrated_state_ids: set[str] = set()
         self._tokens: list[Token[CheckpointSession | None]] = []
         self._pending_adopted = False
         self._loaded_states = self._load_selected_states()
@@ -427,11 +421,6 @@ class CheckpointSession:
     def lead_time(self) -> Any | None:
         """Lead time recorded for this session, if present."""
         return None if self._entry is None else self._entry.lead_time
-
-    @property
-    def has_hydrated_state(self) -> bool:
-        """Whether any bound state was hydrated from the selected checkpoint row."""
-        return bool(self._hydrated_state_ids)
 
     @property
     def artifacts(self) -> dict[str, Any]:
@@ -463,7 +452,6 @@ class CheckpointSession:
         loaded_state = self._loaded_states.get(state_id)
         if loaded_state is not None:
             _populate_dataclass_state(state, state_id, loaded_state)
-            self._hydrated_state_ids.add(state_id)
 
         self.bound_states[state_id] = state
         return state
