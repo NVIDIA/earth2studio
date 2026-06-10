@@ -188,12 +188,13 @@ def test_opera_call_mock_mixed_grid_raises(tmp_path, monkeypatch):
     ny_rate, nx_rate = _CIRRUS_RATE_YX
 
     shapes = {
-        "refc":   (ny_dbzh, nx_dbzh),
-        "tprate": (ny_rate,  nx_rate),
+        "refc": (ny_dbzh, nx_dbzh),
+        "tprate": (ny_rate, nx_rate),
     }
 
     async def _fake_fetch_array(task):
         from earth2studio.lexicon import OPERALexicon
+
         qty, _ = OPERALexicon[["refc", "tprate"][task.var_idx]]
         ny, nx = shapes[["refc", "tprate"][task.var_idx]]
         return np.zeros((ny, nx), dtype=np.float32)
@@ -244,14 +245,16 @@ def test_opera_available():
     # ODYSSEY era: 15-minute grid
     assert OPERA.available(datetime(2024, 6, 1, 0)) is True
     assert OPERA.available(datetime(2024, 6, 1, 0, 15)) is True
-    assert OPERA.available(datetime(2024, 6, 1, 0, 7)) is False   # off ODYSSEY grid
-    assert OPERA.available(datetime(2000, 1, 1, 0)) is False       # before archive
+    assert OPERA.available(datetime(2024, 6, 1, 0, 7)) is False  # off ODYSSEY grid
+    assert OPERA.available(datetime(2000, 1, 1, 0)) is False  # before archive
     assert OPERA.available(np.datetime64("2024-06-01T00:00")) is True
     # CIRRUS era: 5-minute grid
     assert OPERA.available(datetime(2024, 9, 1, 0)) is True
     assert OPERA.available(datetime(2024, 9, 1, 0, 5)) is True
-    assert OPERA.available(datetime(2024, 9, 1, 0, 15)) is True    # 15 is also a 5-min boundary
-    assert OPERA.available(datetime(2024, 9, 1, 0, 7)) is False    # off CIRRUS grid too
+    assert (
+        OPERA.available(datetime(2024, 9, 1, 0, 15)) is True
+    )  # 15 is also a 5-min boundary
+    assert OPERA.available(datetime(2024, 9, 1, 0, 7)) is False  # off CIRRUS grid too
 
 
 # ==========================================================================

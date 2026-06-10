@@ -34,9 +34,9 @@ class OPERALexicon(metaclass=LexiconType):
     """
 
     VOCAB: dict[str, str] = {
-        "refc": "DBZH",    # composite reflectivity (dBZ)
+        "refc": "DBZH",  # composite reflectivity (dBZ)
         "tprate": "RATE",  # instantaneous surface rain rate (mm h-1)
-        "tp01": "ACRR",    # 1-hour rainfall accumulation (m)
+        "tp01": "ACRR",  # 1-hour rainfall accumulation (m)
     }
 
     # Filename parameter used in the legacy ODYSSEY archive (pre-2024-07).

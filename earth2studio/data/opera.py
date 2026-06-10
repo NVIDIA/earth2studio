@@ -152,7 +152,11 @@ def _sort_odim_groups(parent: Any, prefix: str) -> list[str]:
         return (int(suffix) if suffix.isdigit() else 10**9, name)
 
     return sorted(
-        [n for n, item in parent.items() if n.startswith(prefix) and hasattr(item, "items")],
+        [
+            n
+            for n, item in parent.items()
+            if n.startswith(prefix) and hasattr(item, "items")
+        ],
         key=_key,
     )
 
@@ -246,7 +250,7 @@ class _OPERAAsyncTask:
 
 @check_optional_dependencies()
 class OPERA:
-    """EUMETNET OPERA European weather radar composite data source.
+    r"""EUMETNET OPERA European weather radar composite data source.
 
     Provides access to the pan-European OPERA composite radar products
     (reflectivity, rain rate, hourly accumulation) from the EUMETNET Open
@@ -392,7 +396,9 @@ class OPERA:
             at 2 km in the post-2024-07 CIRRUS era).
         """
         try:
-            xr_array = _sync_async(self.fetch, time, variable, timeout=self.async_timeout)
+            xr_array = _sync_async(
+                self.fetch, time, variable, timeout=self.async_timeout
+            )
         finally:
             if not self._cache:
                 shutil.rmtree(self.cache, ignore_errors=True)
@@ -650,7 +656,9 @@ class OPERA:
                 raise ValueError(
                     f"Requested time {t} is before the OPERA archive start {_MIN_DATE}"
                 )
-            interval = _CIRRUS_INTERVAL_SECONDS if t >= _CIRRUS_START else _INTERVAL_SECONDS
+            interval = (
+                _CIRRUS_INTERVAL_SECONDS if t >= _CIRRUS_START else _INTERVAL_SECONDS
+            )
             if int((t - epoch).total_seconds()) % interval != 0:
                 raise ValueError(
                     f"Requested time {t} does not align to "
