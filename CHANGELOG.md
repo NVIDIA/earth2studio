@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added AIFS 2.0 prognostic model (`AIFS2`) with wave and 10 hPa pressure level support
 - Added AIFS 2.0 ensemble prognostic model (`AIFS2ENS`) with stochastic noise injection
+- Added U-CAST prognostic model (`UCast`) with 1.5-degree global ERA5
+  forecasting support
 - Added wave variables to IFS data source for AIFS2 support
 - Added NCEP CFSv2 operational forecast data sources for the pressure-level
   `pgbf` and surface-flux `flxf` products (`CFS_FX`, `CFS_FX_Flux`), backed by

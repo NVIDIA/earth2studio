@@ -20,6 +20,7 @@ argument-hint: URL or local path to reference inference script (optional)
 - [ ] Create `earth2studio/models/px/<name>.py` with triple inheritance
 - [ ] Create `test/models/px/test_<name>.py` with mock tests
 - [ ] Run: `uv run pytest test/models/px/test_<name>.py -v`
+- [ ] Update docs and changelog (Step 9)
 - [ ] Run: `make format && make lint`
 
 > **⚠️ CRITICAL:** Always use `uv run` for Python commands:
@@ -168,9 +169,13 @@ uv run pytest test/models/px/test_<name>.py -m "not package" -v
 
 ### Step 9 — Documentation
 
-- Add to `docs/modules/models_px.rst` (alphabetical)
-- Add to `docs/userguide/about/install.md` (alphabetical, tab)
-- Update `CHANGELOG.md` under `### Added`
+- Add to `docs/modules/models_px.rst` (alphabetical). This is required for
+  every new prognostic model so the API docs include the generated page.
+- Add to `docs/userguide/about/install.md` (alphabetical tab) when a new
+  optional dependency extra is added. If no new dependency extra is added, do
+  not invent an install tab.
+- Update `CHANGELOG.md` under `### Added`. This is required for every new
+  prognostic model.
 
 **Format and lint:**
 ```bash

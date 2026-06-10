@@ -80,8 +80,10 @@ machine-identifying details.
 
 ## Branch, Commit, and PR
 
-Stage only implementation, tests, docs, changelog, dependency metadata, and skill
-updates that belong in the branch. Exclude validation scripts and outputs.
+Before opening or updating the PR, verify that new prognostic models are listed
+in `docs/modules/models_px.rst` and `CHANGELOG.md`. Stage only implementation,
+tests, docs, changelog, dependency metadata, and skill updates that belong in
+the branch. Exclude validation scripts and outputs.
 
 ```bash
 git add earth2studio/models/px/<filename>.py         earth2studio/models/px/__init__.py         test/models/px/test_<filename>.py         pyproject.toml         CHANGELOG.md         docs/modules/models_px.rst         docs/userguide/about/install.md
