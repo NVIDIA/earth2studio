@@ -165,7 +165,12 @@ Create `PhooModelName` dummy matching interface for mock tests.
 **Run tests:**
 ```bash
 uv run pytest test/models/px/test_<name>.py -m "not package" -v
+uv run pytest test/models/px/test_<name>.py::test_<model>_package --package -v
 ```
+
+Do not omit the package test. If arbitrary random inputs are not physically
+valid for the real checkpoint, use a stable model-appropriate synthetic input
+while still loading real weights and running a forward pass.
 
 ### Step 8 — Register Model (if requested)
 

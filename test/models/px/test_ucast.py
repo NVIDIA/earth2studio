@@ -15,18 +15,20 @@
 # limitations under the License.
 
 from collections import OrderedDict
+from collections.abc import Iterable
 
 import numpy as np
 import pytest
 import torch
 
+from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import UCast
 from earth2studio.models.px.ucast import VARIABLES
 from earth2studio.utils import handshake_dim
 
 
-class ZeroResidualUCast(torch.nn.Module):
-    """Tiny test double for the U-CAST core model."""
+class PhooUCastModel(torch.nn.Module):
+    """Test double for the U-CAST core model."""
 
     def forward(
         self,
@@ -49,11 +51,11 @@ class ZeroResidualUCast(torch.nn.Module):
         )
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def ucast_model() -> UCast:
     n_variables = len(VARIABLES)
     return UCast(
-        model=ZeroResidualUCast(),
+        model=PhooUCastModel(),
         center=torch.zeros(n_variables),
         scale=torch.ones(n_variables),
         residual_scale=torch.ones(n_variables),
@@ -63,34 +65,39 @@ def ucast_model() -> UCast:
     )
 
 
-def _input(ucast_model: UCast) -> tuple[torch.Tensor, OrderedDict]:
-    coords = ucast_model.input_coords()
-    del coords["batch"]
-    coords["time"] = np.array([np.datetime64("2020-01-01T00:00")])
-    x = torch.randn(
-        coords["time"].shape[0],
-        coords["lead_time"].shape[0],
-        coords["variable"].shape[0],
-        coords["lat"].shape[0],
-        coords["lon"].shape[0],
-    )
-    return x, coords
+@pytest.fixture(scope="function")
+def model() -> UCast:
+    package = UCast.load_default_package()
+    return UCast.load_model(package)
 
 
-def test_ucast_call(ucast_model: UCast) -> None:
-    x, coords = _input(ucast_model)
+def _input(
+    ucast_model: UCast,
+    time: np.ndarray,
+    device: str = "cpu",
+) -> tuple[torch.Tensor, OrderedDict]:
+    dc = ucast_model.input_coords()
+    del dc["batch"]
+    del dc["time"]
+    del dc["lead_time"]
+    del dc["variable"]
 
-    out, out_coords = ucast_model(x, coords)
+    ds = Random(dc)
+    lead_time = ucast_model.input_coords()["lead_time"]
+    variable = ucast_model.input_coords()["variable"]
+    return fetch_data(ds, time, variable, lead_time, device=device)
 
-    assert out.shape == torch.Size([1, 1, len(VARIABLES), 121, 240])
-    assert torch.allclose(out, x[:, -1:])
-    assert (out_coords["time"] == coords["time"]).all()
-    assert out_coords["lead_time"][0] == np.timedelta64(12, "h")
-    assert coords["lat"][0] == 90
-    assert coords["lat"][-1] == -90
+
+def _check_output_coords(
+    out_coords: OrderedDict,
+    coords: OrderedDict,
+    lead_time: np.timedelta64,
+) -> None:
+    np.testing.assert_array_equal(out_coords["time"], coords["time"])
+    np.testing.assert_array_equal(out_coords["lead_time"], np.array([lead_time]))
+    np.testing.assert_array_equal(out_coords["variable"], np.array(VARIABLES))
     assert out_coords["lat"][0] == 90
     assert out_coords["lat"][-1] == -90
-    assert (out_coords["variable"] == np.array(VARIABLES)).all()
     handshake_dim(out_coords, "time", 0)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "variable", 2)
@@ -98,22 +105,76 @@ def test_ucast_call(ucast_model: UCast) -> None:
     handshake_dim(out_coords, "lon", 4)
 
 
-def test_ucast_iter_ensemble(ucast_model: UCast) -> None:
-    x, coords = _input(ucast_model)
-    x = x.unsqueeze(0).repeat(2, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(2)})
+@pytest.mark.parametrize(
+    "time",
+    [
+        np.array([np.datetime64("2020-01-01T00:00")]),
+        np.array(
+            [
+                np.datetime64("2020-01-01T00:00"),
+                np.datetime64("2020-01-02T00:00"),
+            ]
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="No GPU"),
+        ),
+    ],
+)
+def test_ucast_call(ucast_model: UCast, time: np.ndarray, device: str) -> None:
+    ucast_model = ucast_model.to(device)
+    x, coords = _input(ucast_model, time, device=device)
+
+    out, out_coords = ucast_model(x, coords)
+
+    assert out.shape == torch.Size([len(time), 1, len(VARIABLES), 121, 240])
+    assert torch.allclose(out, x[:, -1:])
+    _check_output_coords(out_coords, coords, np.timedelta64(12, "h"))
+
+
+@pytest.mark.parametrize("ensemble", [1, 2])
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="No GPU"),
+        ),
+    ],
+)
+def test_ucast_iter(ucast_model: UCast, ensemble: int, device: str) -> None:
+    ucast_model = ucast_model.to(device)
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    x, coords = _input(ucast_model, time, device=device)
+
+    x = x.unsqueeze(0).repeat(ensemble, *([1] * x.ndim))
+    coords.update({"ensemble": np.arange(ensemble)})
     coords.move_to_end("ensemble", last=False)
 
     iterator = ucast_model.create_iterator(x, coords)
+    assert isinstance(iterator, Iterable)
+
     initial, initial_coords = next(iterator)
     assert torch.allclose(initial, x[:, :, -1:])
-    assert initial_coords["lead_time"][0] == np.timedelta64(0, "h")
+    np.testing.assert_array_equal(
+        initial_coords["lead_time"], np.array([np.timedelta64(0, "h")])
+    )
 
-    for step in range(3):
-        out, out_coords = next(iterator)
-        assert out.shape == torch.Size([2, 1, 1, len(VARIABLES), 121, 240])
+    for i, (out, out_coords) in enumerate(iterator):
+        assert out.shape == torch.Size(
+            [ensemble, len(time), 1, len(VARIABLES), 121, 240]
+        )
         assert torch.allclose(out, x[:, :, -1:])
-        assert out_coords["lead_time"][0] == np.timedelta64(12 * (step + 1), "h")
+        assert (out_coords["ensemble"] == np.arange(ensemble)).all()
+        assert (out_coords["time"] == time).all()
+        assert out_coords["lead_time"][0] == np.timedelta64(12 * (i + 1), "h")
         handshake_dim(out_coords, "ensemble", 0)
         handshake_dim(out_coords, "time", 1)
         handshake_dim(out_coords, "lead_time", 2)
@@ -121,17 +182,50 @@ def test_ucast_iter_ensemble(ucast_model: UCast) -> None:
         handshake_dim(out_coords, "lat", 4)
         handshake_dim(out_coords, "lon", 5)
 
+        if i >= 4:
+            break
+
 
 @pytest.mark.parametrize(
     "coords_update",
     [
+        {"lead_time": np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")])},
+        {"variable": np.array(["bad_variable", *VARIABLES[1:]])},
         {"lat": np.linspace(-90, 90, 121)},
         {"lon": np.linspace(0, 360, 241, endpoint=False)},
     ],
 )
-def test_ucast_invalid_coords(ucast_model: UCast, coords_update: dict) -> None:
-    x, coords = _input(ucast_model)
+def test_ucast_exceptions(ucast_model: UCast, coords_update: dict) -> None:
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    x, coords = _input(ucast_model, time)
     coords.update(coords_update)
 
     with pytest.raises((KeyError, ValueError)):
         ucast_model(x, coords)
+
+
+@pytest.mark.package
+@pytest.mark.parametrize(
+    "device",
+    [
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="No GPU"),
+        ),
+    ],
+)
+def test_ucast_package(model: UCast, device: str) -> None:
+    torch.cuda.empty_cache()
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    ucast_model = model.to(device)
+    _, coords = _input(ucast_model, time, device=device)
+    x = ucast_model.center.reshape(1, 1, len(VARIABLES), 1, 1).expand(
+        len(time), coords["lead_time"].shape[0], len(VARIABLES), 121, 240
+    )
+    x = x.contiguous()
+
+    out, out_coords = ucast_model(x, coords)
+
+    assert out.shape == torch.Size([len(time), 1, len(VARIABLES), 121, 240])
+    assert torch.isfinite(out).all()
+    _check_output_coords(out_coords, coords, np.timedelta64(12, "h"))

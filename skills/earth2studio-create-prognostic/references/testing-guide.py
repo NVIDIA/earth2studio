@@ -21,11 +21,17 @@ Copy and adapt for your specific model.
 
 Test file location: test/models/px/test_<model_name>.py
 
-Required tests:
-1. test_<model>_call - Single forward pass with mock model
-2. test_<model>_iter - Iterator produces correct sequence
-3. test_<model>_exceptions - Invalid coordinates raise errors
-4. test_<model>_package - Integration test with real weights (@pytest.mark.package)
+Required standard tests. Do not rename or omit these:
+1. test_<model>_call - Single forward pass with mock model, parameterized over time and device where practical.
+2. test_<model>_iter - Iterator produces the initial condition and advances lead_time for ensemble sizes 1 and 2.
+3. test_<model>_exceptions - Invalid coordinates, variables, lead times, or dimension order raise errors.
+4. test_<model>_package - Integration test with real weights using @pytest.mark.package and the repo --package option.
+
+Use Random/fetch_data for mock call and iterator tests when possible. For package
+tests, arbitrary Gaussian random fields may be physically invalid for some real
+checkpoints; in that case construct a stable model-appropriate finite input
+(e.g. normalization center or another documented neutral state), but still load
+the real package and run the real forward path.
 
 See real examples:
 - test/models/px/test_pangu.py
@@ -319,7 +325,7 @@ def test_model_package():
     3. Validates output shape and coordinates
 
     Marked with @pytest.mark.package to skip in normal test runs.
-    Run with: uv run pytest -m package
+    Run with: uv run pytest test/models/px/test_<model_name>.py::test_<model>_package --package -v
     """
     # Load real model
     model = ModelName.load_model(ModelName.load_default_package())
@@ -331,7 +337,9 @@ def test_model_package():
     del dc["lead_time"]
     del dc["variable"]
 
-    # Fetch random data
+    # Fetch random data. If random fields are not valid for the real
+    # checkpoint, replace x with a stable model-appropriate finite input
+    # while preserving coords.
     ds = Random(dc)
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
