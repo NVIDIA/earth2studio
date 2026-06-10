@@ -20,7 +20,7 @@ argument-hint: URL or local path to reference inference script (optional)
 - [ ] Create `earth2studio/models/px/<name>.py` with triple inheritance
 - [ ] Create `test/models/px/test_<name>.py` with mock tests
 - [ ] Run: `uv run pytest test/models/px/test_<name>.py -v`
-- [ ] Update docs and changelog (Step 9)
+- [ ] Add/update model extra, install docs, API docs, and changelog (Steps 1-2, 9)
 - [ ] Run: `make format && make lint`
 
 > **⚠️ CRITICAL:** Always use `uv run` for Python commands:
@@ -70,16 +70,21 @@ If `$ARGUMENTS` provided, use it. Otherwise ask:
 
 Analyze: packages, architecture, I/O shapes, time step, resolution, checkpoint.
 
-Propose `pyproject.toml` group (alphabetical, add to `all`):
+Propose `pyproject.toml` group (alphabetical, add to `all`). Every
+prognostic model must have an optional dependency extra, even when no packages
+are required:
 ```toml
 model-name = ["package1>=version", "package2"]
+# or, when no additional packages are required:
+model-name = []
 ```
 
 **[CONFIRM]** Present dependencies and ask user to approve.
 
 ### Step 2 — Add Dependencies
 
-Edit `pyproject.toml`: add group alphabetically, update `all` aggregate.
+Edit `pyproject.toml`: add the model extra alphabetically, even if it is
+empty, and update the `all` aggregate.
 
 ### Step 3 — Create Model File
 
@@ -171,9 +176,10 @@ uv run pytest test/models/px/test_<name>.py -m "not package" -v
 
 - Add to `docs/modules/models_px.rst` (alphabetical). This is required for
   every new prognostic model so the API docs include the generated page.
-- Add to `docs/userguide/about/install.md` (alphabetical tab) when a new
-  optional dependency extra is added. If no new dependency extra is added, do
-  not invent an install tab.
+- Add to `docs/userguide/about/install.md` (alphabetical tab) for the
+  model extra, even when the extra is empty. Include model-specific notes plus
+  both `pip install earth2studio[model-name]` and
+  `uv add earth2studio --extra model-name` instructions.
 - Update `CHANGELOG.md` under `### Added`. This is required for every new
   prognostic model.
 
@@ -195,6 +201,10 @@ Use PR-safe placeholders for plots so the user can upload images manually.
 Follow `references/validation-guide.md` and use:
 - `references/pr-body-template.md`
 - `references/pr-comment-template.md`
+
+Before creating the PR, verify `pyproject.toml` has the model extra, the
+`all` extra includes it, install docs include both pip and uv commands, and
+`docs/modules/models_px.rst` plus `CHANGELOG.md` are updated.
 
 Do not include machine names, absolute paths, device inventory, or uploaded image
 links in PR text. Use plot placeholders instead.

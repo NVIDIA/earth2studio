@@ -30,9 +30,10 @@ If the checkpoint or model-weight license is not clearly documented, write
 |---|---|---|---|---|
 | `PACKAGE_NAME` | `>=X.Y` | LICENSE_TYPE | [link](LICENSE_URL) | REASON |
 
-Use `No new dependencies needed` when applicable. For each new dependency,
-check the package repository or package index, link directly to the license, and
-flag any non-permissive license for maintainer review.
+Every model must have a dependency extra. If the extra is empty, write that
+no third-party packages are added and name the empty model extra. For each new
+dependency, check the package repository or package index, link directly to the
+license, and flag any non-permissive license for maintainer review.
 
 ### Reference comparison
 
