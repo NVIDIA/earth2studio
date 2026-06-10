@@ -56,19 +56,9 @@ VARIABLES += [f"w{level}" for level in LEVELS]
 STATIC_FIELDS = ["land_sea_mask", "geopotential_at_surface"]
 UCAST_REPO = "salv47/u-cast"
 UCAST_CHECKPOINT = "ucast.ckpt"
-UCAST_STATS_GITHUB_RAW = (
-    "https://raw.githubusercontent.com/Rose-STL-Lab/u-cast/"
-    "f6ca2ae408f9c36174dadc7902a08e64daff123b"
-)
 UCAST_WB2_DATASET = (
     "gs://weatherbench2/datasets/era5/"
     "1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr"
-)
-UCAST_STATS_FILES = (
-    "data/stats/era5_mean.nc",
-    "data/stats/era5_std.nc",
-    "data/stats/era5_residual_std.nc",
-    "data/stats/era5_min.nc",
 )
 
 
@@ -465,31 +455,14 @@ def _extract_stat(ds: xr.Dataset, wb2_name: str) -> torch.Tensor:
 
 
 def _load_stat_tensor(package: Package, filename: str) -> torch.Tensor:
-    with xr.open_dataset(package.resolve(f"data/stats/{filename}")) as ds:
+    with xr.open_dataset(package.resolve(f"stats/{filename}")) as ds:
         stats = [_extract_stat(ds, _wb2_name(var)) for var in VARIABLES]
     return torch.stack([stat.reshape(()) for stat in stats])
 
 
 def _load_sst_fill_value(package: Package) -> float:
-    with xr.open_dataset(package.resolve("data/stats/era5_min.nc")) as ds:
+    with xr.open_dataset(package.resolve("stats/era5_min.nc")) as ds:
         return float(_extract_stat(ds, _wb2_name("sst")).item())
-
-
-def _package_has_stats(package: Package) -> bool:
-    return all(
-        package.fs.exists(os.path.join(package.root, file_path))
-        for file_path in UCAST_STATS_FILES
-    )
-
-
-def _load_stats_package() -> Package:
-    return Package(
-        UCAST_STATS_GITHUB_RAW,
-        cache_options={
-            "cache_storage": Package.default_cache("ucast/stats"),
-            "same_names": True,
-        },
-    )
 
 
 def _load_checkpoint_path(package: Package) -> str:
@@ -748,7 +721,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load the default package for the U-CAST model."""
         package = Package(
-            "hf://salv47/u-cast",
+            "hf://salv47/u-cast@refs%2Fpr%2F1",
             cache_options={
                 "cache_storage": Package.default_cache("ucast"),
                 "same_names": True,
@@ -758,15 +731,12 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     def load_model(cls, package: Package) -> PrognosticModel:
-        """Load U-CAST from a package and normalization statistics."""
-        stats_package = (
-            package if _package_has_stats(package) else _load_stats_package()
-        )
-        center = _load_stat_tensor(stats_package, "era5_mean.nc")
-        scale = _load_stat_tensor(stats_package, "era5_std.nc")
-        residual_scale = _load_stat_tensor(stats_package, "era5_residual_std.nc")
-        sst_fill_value = _load_sst_fill_value(stats_package)
-        static_condition = _load_static_condition(stats_package)
+        """Load U-CAST from a package."""
+        center = _load_stat_tensor(package, "era5_mean.nc")
+        scale = _load_stat_tensor(package, "era5_std.nc")
+        residual_scale = _load_stat_tensor(package, "era5_residual_std.nc")
+        sst_fill_value = _load_sst_fill_value(package)
+        static_condition = _load_static_condition(package)
 
         core_model = DhariwalUNet(
             in_channels=len(VARIABLES) * 2 + len(STATIC_FIELDS) + 4,
