@@ -23,11 +23,22 @@
 Do not upload or attach images from the automation. Leave placeholders for the
 PR author to upload images manually in the browser.
 
-> TODO: Upload `PLOT_NAME_1` here.
+Single-step sanity plots:
+
+> TODO: Upload `SINGLE_STEP_PLOT_NAME_1` here.
 >
-> TODO: Upload `PLOT_NAME_2` here.
+> TODO: Upload `SINGLE_STEP_PLOT_NAME_2` here.
+
+Multi-step vanilla-vs-Earth2Studio comparison plots. For each selected variable,
+the plot should have forecast lead times as columns and these rows: Earth2Studio
+wrapper output on top, vanilla reference output in the middle, and absolute
+difference on the bottom.
+
+> TODO: Upload `REFERENCE_COMPARE_TIMESERIES_VARIABLE_1.png` here.
 >
-> TODO: Upload `PLOT_NAME_3` here.
+> TODO: Upload `REFERENCE_COMPARE_TIMESERIES_VARIABLE_2.png` here.
+>
+> TODO: Upload `REFERENCE_COMPARE_TIMESERIES_VARIABLE_3.png` here.
 
 ---
 

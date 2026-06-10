@@ -66,10 +66,12 @@ Use `pr-comment-template.md`. The comment should include:
 - Sanitized environment label only, such as `GPU validation run`
 - Results summary table
 - Key findings
-- Reference plot placeholders
+- Reference plot placeholders, including multi-step vanilla-vs-Earth2Studio comparison plots
 - Full review-safe validation scripts inside expandable details blocks
 
 Each script must be placed in a fenced `python` code block under its own `<details>` / `<summary>` section. Do not replace the scripts with summaries.
+
+The comparison script should preserve the scalar numerical comparison and also include plotting code for the multi-step comparison tensors. The generated comparison plots should place Earth2Studio output on the top row, vanilla reference output on the middle row, and absolute difference on the bottom row across multiple forecast lead times.
 
 Do not upload images from the automation and do not paste `<img ...>` links.
 Use TODO placeholders so the PR author can upload plots manually in the browser.
