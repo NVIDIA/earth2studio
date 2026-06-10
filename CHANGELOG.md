@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Simplified workflow checkpoint handling with package-level no-op checkpoint
   sessions and idempotent final flushes
+- Deterministic checkpoint resume now prefers hydrated model/component state
+  before falling back to IO-backed restart
 - Automatic test skipping for missing optional dependencies via
   `pytest_ignore_collect` hook in `test/conftest.py`
 

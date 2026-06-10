@@ -141,6 +141,8 @@ def deterministic(
             if restart_step >= nsteps:
                 logger.success("\nInference complete")
                 return io
+
+        if ckpt.exists and not ckpt.has_hydrated_state:
             x, coords = _read_restart_from_io(
                 io, prognostic_ic, time, ckpt.lead_time, device
             )

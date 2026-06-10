@@ -85,10 +85,44 @@ class RequiredState:
     value: int
 
 
+@dataclass
+class RestartablePrognosticState:
+    x: torch.Tensor | None = None
+    coord_keys: tuple[str, ...] = ()
+    coord_values: tuple[np.ndarray, ...] = ()
+
+
+class RestartablePersistence(Persistence):
+    def __init__(self, variables, domain_coords):
+        super().__init__(variables, domain_coords)
+        self.checkpoint = bind_checkpoint_state(RestartablePrognosticState())
+        self.used_hydrated_state = False
+
+    def create_iterator(self, x, coords):
+        if self.checkpoint.x is not None and self.checkpoint.coord_keys:
+            self.used_hydrated_state = True
+            x = self.checkpoint.x.to(x.device)
+            coords = OrderedDict(
+                (key, np.asarray(value).copy())
+                for key, value in zip(
+                    self.checkpoint.coord_keys, self.checkpoint.coord_values
+                )
+            )
+
+        for x_out, coords_out in super().create_iterator(x, coords):
+            self.checkpoint.x = x_out.detach().cpu()
+            self.checkpoint.coord_keys = tuple(coords_out.keys())
+            self.checkpoint.coord_values = tuple(
+                np.asarray(value).copy() for value in coords_out.values()
+            )
+            yield x_out, coords_out
+
+
 def test_checkpoint_contexts_and_no_checkpoint_session(tmp_path):
     with NO_CHECKPOINT as ckpt:
         assert not ckpt
         assert not ckpt.exists
+        assert not ckpt.has_hydrated_state
         assert not ckpt.is_active
         assert ckpt.write(lead_time=_lead_time(0)) is None
         assert ckpt.flush() is None
@@ -519,6 +553,65 @@ def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
     assert selected.lead_time == np.timedelta64(18, "h")
     assert selected.write_count == 4
     assert io["u10m"].shape[1] == 4
+
+
+def test_deterministic_workflow_uses_model_checkpoint_state_when_io_is_filtered(
+    tmp_path,
+):
+    coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
+    variables = ["u10m", "v10m"]
+    output_coords = OrderedDict({"variable": np.asarray(["u10m"])})
+    io = ZarrBackend()
+    io.add_array(
+        OrderedDict(
+            {
+                "time": np.asarray(["2024-01-01T00"], dtype="datetime64[ns]"),
+                "lead_time": np.asarray([np.timedelta64(6 * i, "h") for i in range(4)]),
+                **coords,
+            }
+        ),
+        ["u10m"],
+    )
+    checkpoint = Checkpoint(
+        "deterministic", path=tmp_path, mode="append", flush_interval=1
+    )
+
+    data = Random(domain_coords=coords)
+    model = RestartablePersistence(variables, coords)
+    run.deterministic(
+        ["2024-01-01"],
+        1,
+        model,
+        data,
+        io,
+        output_coords=output_coords,
+        device=torch.device("cpu"),
+        verbose=False,
+        checkpoint=checkpoint,
+    )
+
+    with checkpoint.select(-1) as selected:
+        data = Random(domain_coords=coords)
+        model = RestartablePersistence(variables, coords)
+        assert selected.has_hydrated_state
+        run.deterministic(
+            ["2024-01-01"],
+            3,
+            model,
+            data,
+            io,
+            output_coords=output_coords,
+            device=torch.device("cpu"),
+            verbose=False,
+            checkpoint=checkpoint,
+        )
+
+    selected = checkpoint.select(-1)
+    assert model.used_hydrated_state
+    assert selected.lead_time == np.timedelta64(18, "h")
+    assert selected.write_count == 4
+    assert io["u10m"].shape[1] == 4
+    assert "v10m" not in io
 
 
 def test_diagnostic_workflow_resumes_from_checkpoint(tmp_path):

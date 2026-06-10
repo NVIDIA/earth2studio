@@ -97,12 +97,20 @@ keeps a history, and `keep_last` can cap that history.
 
 ## Workflow Resume
 
-The built-in deterministic workflow can resume from forecast fields already
-written to the IO backend. The diagnostic workflow can also resume when the IO
-backend contains the prognostic variables needed for the next forecast step. The
-ensemble workflow stores progress per mini-batch using an `ensemble_batch` label,
-allowing completed batches to be skipped and partially completed batches to
-continue from their latest saved lead time.
+The built-in deterministic workflow first checks whether the selected checkpoint
+session hydrated component state. When it did, the workflow fetches the normal
+initial condition and lets the prognostic model's iterator use its hydrated
+dataclass state to restore or replay to the selected restart point. A
+checkpoint-aware iterator should yield the selected checkpoint boundary first,
+matching the normal iterator convention of yielding the initial condition first.
+
+When no component state was hydrated, deterministic resume falls back to reading
+the selected lead time from the IO backend. That fallback requires the IO backend
+to contain the prognostic variables needed for the next forecast step. The
+diagnostic workflow has the same IO requirement today. The ensemble workflow
+stores progress per mini-batch using an `ensemble_batch` label, allowing
+completed batches to be skipped and partially completed batches to continue from
+their latest saved lead time.
 
 For custom loops, print the checkpoint and select the desired row by index, for
 example `checkpoint.select(-1)` for the latest row. `Checkpoint` and
@@ -148,9 +156,12 @@ class NoisePerturbation:
 
 When a checkpoint session is active, `bind_checkpoint_state` loads the matching
 saved state if one exists and registers the live dataclass instance for future
-writes. When no session is active but a `Checkpoint` has been instantiated,
-`bind_checkpoint_state` buffers the live dataclass for that checkpoint. The
-buffered state is registered when a session for that checkpoint is entered.
+writes. Model state can be lightweight replay metadata, such as lead time and RNG
+state, or heavier direct-resume tensors when the model cannot be restarted from
+user-facing IO output alone. When no session is active but a `Checkpoint` has
+been instantiated, `bind_checkpoint_state` buffers the live dataclass for that
+checkpoint. The buffered state is registered when a session for that checkpoint
+is entered.
 
 This makes new runs simple:
 
