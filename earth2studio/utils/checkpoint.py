@@ -27,12 +27,13 @@ from dataclasses import MISSING, dataclass, fields, is_dataclass
 from datetime import date, datetime, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Literal, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 import numpy as np
 import torch
 
 T = TypeVar("T")
+CheckpointStatePolicy = Literal["minimal", "replay", "direct"]
 
 _CHECKPOINT_VERSION = 1
 _ACTIVE_SESSION: ContextVar[CheckpointSession | None] = ContextVar(
@@ -69,6 +70,7 @@ class PendingCheckpointState:
     checkpoint: Checkpoint
     state_id: str
     state: Any
+    reusable: bool = False
 
 
 @dataclass(frozen=True)
@@ -84,6 +86,115 @@ class CheckpointEntry:
     world_size: int
     state_ids: tuple[str, ...]
     artifacts: tuple[str, ...]
+
+
+class CheckpointState(Generic[T]):
+    """Bound checkpoint state proxy returned by :func:`bind_checkpoint_state`.
+
+    The proxy forwards normal attribute access to the wrapped dataclass while
+    exposing checkpoint metadata through ``checkpoint_*`` properties.
+    """
+
+    __slots__ = ("_state", "_checkpoint", "_session", "_state_loaded")
+
+    def __init__(
+        self,
+        state: T,
+        checkpoint: Checkpoint | None = None,
+        session: CheckpointSession | None = None,
+        state_loaded: bool = False,
+    ) -> None:
+        object.__setattr__(self, "_state", state)
+        object.__setattr__(self, "_checkpoint", checkpoint)
+        object.__setattr__(self, "_session", session)
+        object.__setattr__(self, "_state_loaded", state_loaded)
+
+    @property
+    def checkpoint_dataclass(self) -> T:
+        """Wrapped dataclass instance serialized by the checkpoint."""
+        return self._state
+
+    @property
+    def checkpoint_enabled(self) -> bool:
+        """Whether this state is associated with a checkpoint."""
+        return self._checkpoint is not None
+
+    @property
+    def checkpoint_state_policy(self) -> CheckpointStatePolicy:
+        """Checkpoint state policy requested by the user."""
+        if self._checkpoint is None:
+            return "minimal"
+        return self._checkpoint.state_policy
+
+    @property
+    def checkpoint_flush_interval(self) -> int | None:
+        """Flush interval configured on the associated checkpoint."""
+        if self._checkpoint is None:
+            return None
+        return self._checkpoint.flush_interval
+
+    @property
+    def checkpoint_write_count(self) -> int:
+        """Number of write boundaries recorded in the active session."""
+        if self._session is None:
+            return 0
+        return self._session.write_count
+
+    @property
+    def checkpoint_is_flush_due(self) -> bool:
+        """Whether the next checkpoint write is expected to flush to disk."""
+        interval = self.checkpoint_flush_interval
+        if self._session is None or interval is None:
+            return False
+        return (self._session.write_count + 1) % interval == 0
+
+    @property
+    def checkpoint_selected(self) -> bool:
+        """Whether this state is bound to an existing checkpoint row."""
+        return self._session is not None and self._session.exists
+
+    @property
+    def checkpoint_state_loaded(self) -> bool:
+        """Whether this dataclass was hydrated from the selected checkpoint row."""
+        return self._state_loaded
+
+    @property
+    def checkpoint_lead_time(self) -> Any | None:
+        """Selected checkpoint lead time, if one exists."""
+        if self._session is None:
+            return None
+        return self._session.lead_time
+
+    @property
+    def checkpoint_labels(self) -> Mapping[str, Any]:
+        """Labels for the active checkpoint session or pending checkpoint."""
+        if self._session is not None:
+            return self._session.labels
+        return {}
+
+    def _bind_checkpoint(
+        self,
+        checkpoint: Checkpoint | None,
+        session: CheckpointSession | None = None,
+        state_loaded: bool = False,
+    ) -> None:
+        object.__setattr__(self, "_checkpoint", checkpoint)
+        object.__setattr__(self, "_session", session)
+        object.__setattr__(self, "_state_loaded", state_loaded)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._state, name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in self.__slots__:
+            object.__setattr__(self, name, value)
+            return
+        if name.startswith("checkpoint_"):
+            raise AttributeError(f"{name!r} is checkpoint metadata and is read-only.")
+        setattr(self._state, name, value)
+
+    def __repr__(self) -> str:
+        return repr(self._state)
 
 
 class NullCheckpointSession:
@@ -144,24 +255,30 @@ def default_checkpoint_path(name: str) -> Path:
     return base / "checkpoints" / name
 
 
-def bind_checkpoint_state(state: T) -> T:
-    """Bind a dataclass instance to the active checkpoint session.
+def bind_checkpoint_state(state: T) -> CheckpointState[T]:
+    """Bind a dataclass instance to checkpoint state metadata.
 
-    When no checkpoint session is active, state is buffered for the most recently
-    instantiated :class:`Checkpoint` in this context. If no checkpoint has been
-    instantiated, the dataclass is returned unchanged.
+    The returned proxy forwards normal dataclass field access and exposes
+    checkpoint metadata through ``checkpoint_*`` properties. When no checkpoint
+    session is active, state is buffered for the most recently instantiated
+    :class:`Checkpoint` in this context.
     """
-    if not is_dataclass(state) or isinstance(state, type):
-        raise TypeError("bind_checkpoint_state requires a dataclass instance.")
+    if isinstance(state, CheckpointState):
+        bound_state = state
+    else:
+        if not is_dataclass(state) or isinstance(state, type):
+            raise TypeError("bind_checkpoint_state requires a dataclass instance.")
+        bound_state = CheckpointState(state)
 
     session = _ACTIVE_SESSION.get()
     if session is not None:
-        return session.bind(state)
+        return session.bind(bound_state)
 
     checkpoint = _CURRENT_CHECKPOINT.get()
     if checkpoint is not None:
-        _buffer_pending_state(checkpoint, state)
-    return state
+        bound_state._bind_checkpoint(checkpoint)
+        return _buffer_pending_state(checkpoint, bound_state)
+    return bound_state
 
 
 class Checkpoint:
@@ -178,6 +295,7 @@ class Checkpoint:
         mode: Literal["overwrite", "append"] = "overwrite",
         flush_interval: int | None = 1,
         keep_last: int | None = None,
+        state_policy: CheckpointStatePolicy = "direct",
         rank: int | None = None,
         world_size: int | None = None,
     ) -> None:
@@ -187,6 +305,8 @@ class Checkpoint:
             raise ValueError("flush_interval must be a positive integer or None.")
         if keep_last is not None and keep_last < 1:
             raise ValueError("keep_last must be a positive integer or None.")
+        if state_policy not in ("minimal", "replay", "direct"):
+            raise ValueError("state_policy must be 'minimal', 'replay', or 'direct'.")
 
         detected_rank, detected_world_size = _detect_distributed_rank()
         self.name = name
@@ -194,6 +314,7 @@ class Checkpoint:
         self.mode = mode
         self.flush_interval = flush_interval
         self.keep_last = 1 if mode == "overwrite" else keep_last
+        self.state_policy = state_policy
         self.rank = detected_rank if rank is None else rank
         self.world_size = detected_world_size if world_size is None else world_size
         self._catalog: list[CheckpointEntry] | None = None
@@ -273,6 +394,7 @@ class Checkpoint:
             f'Checkpoint("{self.name}")',
             f"path: {self.path}",
             f"mode: {self.mode}",
+            f"state_policy: {self.state_policy}",
             f"rank: {self.rank}/{self.world_size}",
         ]
         if not entries:
@@ -337,11 +459,12 @@ class Checkpoint:
 
         states_path = tmp_path / "states"
         for state_id, state in session.bound_states.items():
+            dataclass_state = _unwrap_checkpoint_state(state)
             state_path = states_path / _safe_dir_name(state_id)
-            _write_dataclass_state(state, state_id, state_path)
+            _write_dataclass_state(dataclass_state, state_id, state_path)
             manifest["states"][state_id] = {
                 "path": str(state_path.relative_to(tmp_path)),
-                "schema_hash": _schema_hash(state),
+                "schema_hash": _schema_hash(dataclass_state),
             }
 
         if artifacts:
@@ -394,6 +517,7 @@ class CheckpointSession:
         self.labels = labels
         self._entry = entry
         self.bound_states: dict[str, Any] = {}
+        self._reusable_state_ids: set[str] = set()
         self.write_count = entry.write_count if entry is not None else 0
         self._pending_lead_time: Any | None = None
         self._pending_artifacts: Mapping[str, Any] | None = None
@@ -441,20 +565,28 @@ class CheckpointSession:
             raise KeyError(f"Artifact {name!r} not found in checkpoint session.")
         return artifacts[name]
 
-    def bind(self, state: T) -> T:
+    def bind(self, state: T | CheckpointState[T]) -> CheckpointState[T]:
         """Bind and hydrate a dataclass state object."""
-        state_id = _state_id(state)
-        if state_id in self.bound_states:
-            raise CheckpointStateCollision(
-                f"{state_id} was registered more than once in this checkpoint session."
-            )
+        bound_state = _as_checkpoint_state(state)
+        dataclass_state = bound_state.checkpoint_dataclass
+        state_id = _state_id(dataclass_state)
+        existing = self.bound_states.get(state_id)
+        if existing is not None:
+            if _unwrap_checkpoint_state(existing) is dataclass_state:
+                return existing
+            if state_id not in self._reusable_state_ids:
+                raise CheckpointStateCollision(
+                    f"{state_id} was registered more than once in this checkpoint session."
+                )
+            self._reusable_state_ids.remove(state_id)
 
         loaded_state = self._loaded_states.get(state_id)
         if loaded_state is not None:
-            _populate_dataclass_state(state, state_id, loaded_state)
+            _populate_dataclass_state(dataclass_state, state_id, loaded_state)
 
-        self.bound_states[state_id] = state
-        return state
+        bound_state._bind_checkpoint(self.catalog, self, loaded_state is not None)
+        self.bound_states[state_id] = bound_state
+        return bound_state
 
     def _adopt_pending_states(self) -> None:
         pending = _PENDING_STATES.get()
@@ -465,7 +597,7 @@ class CheckpointSession:
         if not adopted:
             return
 
-        if self.exists:
+        if self.exists and any(not item.reusable for item in adopted):
             warnings.warn(
                 "Checkpoint state was bound before an existing checkpoint session "
                 "was active. Saved dataclass state is being hydrated late; "
@@ -479,6 +611,8 @@ class CheckpointSession:
 
         for item in adopted:
             self.bind(item.state)
+            if item.reusable:
+                self._reusable_state_ids.add(item.state_id)
 
         _PENDING_STATES.set(
             tuple(item for item in pending if item.checkpoint is not self.catalog)
@@ -531,6 +665,9 @@ class CheckpointSession:
     def __exit__(self, *args: Any) -> None:
         if self._tokens:
             _ACTIVE_SESSION.reset(self._tokens.pop())
+        for state in self.bound_states.values():
+            state._bind_checkpoint(self.catalog)
+            _buffer_pending_state(self.catalog, state, reusable=True)
 
     def __bool__(self) -> bool:
         return self.exists
@@ -559,12 +696,41 @@ class LoadedState:
     manifest: dict[str, Any]
 
 
-def _buffer_pending_state(checkpoint: Checkpoint, state: Any) -> None:
-    state_id = _state_id(state)
+def _buffer_pending_state(
+    checkpoint: Checkpoint, state: CheckpointState[T], reusable: bool = False
+) -> CheckpointState[T]:
+    state_id = _state_id(state.checkpoint_dataclass)
     pending = _PENDING_STATES.get()
-    if any(item.checkpoint is checkpoint and item.state is state for item in pending):
-        return
-    _PENDING_STATES.set((*pending, PendingCheckpointState(checkpoint, state_id, state)))
+    for index, item in enumerate(pending):
+        if item.checkpoint is not checkpoint or item.state_id != state_id:
+            continue
+        if _unwrap_checkpoint_state(item.state) is state.checkpoint_dataclass:
+            return item.state
+        if item.reusable:
+            updated = list(pending)
+            updated[index] = PendingCheckpointState(
+                checkpoint, state_id, state, reusable=reusable
+            )
+            _PENDING_STATES.set(tuple(updated))
+            return state
+    _PENDING_STATES.set(
+        (*pending, PendingCheckpointState(checkpoint, state_id, state, reusable))
+    )
+    return state
+
+
+def _as_checkpoint_state(state: T | CheckpointState[T]) -> CheckpointState[T]:
+    if isinstance(state, CheckpointState):
+        return state
+    if not is_dataclass(state) or isinstance(state, type):
+        raise TypeError("checkpoint state requires a dataclass instance.")
+    return CheckpointState(state)
+
+
+def _unwrap_checkpoint_state(state: Any) -> Any:
+    if isinstance(state, CheckpointState):
+        return state.checkpoint_dataclass
+    return state
 
 
 def _detect_distributed_rank() -> tuple[int, int]:
@@ -707,6 +873,7 @@ def _entry_from_catalog(payload: Mapping[str, Any]) -> CheckpointEntry:
 
 
 def _write_dataclass_state(state: Any, state_id: str, state_path: Path) -> None:
+    state = _unwrap_checkpoint_state(state)
     state_path.mkdir(parents=True, exist_ok=True)
     manifest = {
         "state_id": state_id,
@@ -737,6 +904,7 @@ def _load_state_index(
 def _populate_dataclass_state(
     state: Any, state_id: str, loaded_state: LoadedState
 ) -> None:
+    state = _unwrap_checkpoint_state(state)
     if loaded_state.manifest.get("state_id") != state_id:
         raise CheckpointStateSchemaError(
             f"Saved checkpoint state {loaded_state.manifest.get('state_id')} does not match {state_id}."
@@ -759,6 +927,7 @@ def _populate_dataclass_state(
 
 
 def _state_id(state: Any) -> str:
+    state = _unwrap_checkpoint_state(state)
     if not is_dataclass(state) or isinstance(state, type):
         raise TypeError("Checkpoint state must be a dataclass instance.")
     cls = type(state)
@@ -766,6 +935,7 @@ def _state_id(state: Any) -> str:
 
 
 def _schema_hash(state: Any) -> str:
+    state = _unwrap_checkpoint_state(state)
     schema = "|".join(
         f"{field.name}:{field.type!r}:{_field_default_id(field)}"
         for field in fields(state)

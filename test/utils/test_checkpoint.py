@@ -34,6 +34,7 @@ from earth2studio.utils.checkpoint import (
     Checkpoint,
     CheckpointError,
     CheckpointSerializationError,
+    CheckpointState,
     CheckpointStateCollision,
     CheckpointStateSchemaError,
     bind_checkpoint_state,
@@ -99,7 +100,11 @@ class RestartablePersistence(Persistence):
         self.used_hydrated_state = False
 
     def create_iterator(self, x, coords):
-        if self.checkpoint.x is not None and self.checkpoint.coord_keys:
+        if (
+            self.checkpoint.checkpoint_state_loaded
+            and self.checkpoint.x is not None
+            and self.checkpoint.coord_keys
+        ):
             self.used_hydrated_state = True
             x = self.checkpoint.x.to(x.device)
             coords = OrderedDict(
@@ -110,11 +115,19 @@ class RestartablePersistence(Persistence):
             )
 
         for x_out, coords_out in super().create_iterator(x, coords):
-            self.checkpoint.x = x_out.detach().cpu()
-            self.checkpoint.coord_keys = tuple(coords_out.keys())
-            self.checkpoint.coord_values = tuple(
-                np.asarray(value).copy() for value in coords_out.values()
-            )
+            if (
+                self.checkpoint.checkpoint_enabled
+                and self.checkpoint.checkpoint_state_policy == "direct"
+            ):
+                self.checkpoint.x = x_out.detach().cpu()
+                self.checkpoint.coord_keys = tuple(coords_out.keys())
+                self.checkpoint.coord_values = tuple(
+                    np.asarray(value).copy() for value in coords_out.values()
+                )
+            else:
+                self.checkpoint.x = None
+                self.checkpoint.coord_keys = ()
+                self.checkpoint.coord_values = ()
             yield x_out, coords_out
 
 
@@ -134,6 +147,37 @@ def test_checkpoint_contexts_and_no_checkpoint_session(tmp_path):
             assert active.flush() is None
 
     assert len(checkpoint.catalog) == 1
+
+
+def test_checkpoint_state_proxy_metadata_and_rebinding(tmp_path):
+    proxy = CheckpointState(ToyState())
+    assert repr(proxy) == repr(proxy.checkpoint_dataclass)
+    assert proxy.checkpoint_state_policy == "minimal"
+    assert proxy.checkpoint_flush_interval is None
+    assert proxy.checkpoint_write_count == 0
+    assert not proxy.checkpoint_is_flush_due
+    assert proxy.checkpoint_lead_time is None
+    assert proxy.checkpoint_labels == {}
+    assert not proxy.checkpoint_state_loaded
+    assert NO_CHECKPOINT.labels == {}
+    assert NO_CHECKPOINT.write_count == 0
+    assert not NO_CHECKPOINT.is_active
+
+    checkpoint = Checkpoint("forecast", path=tmp_path, flush_interval=None)
+    with checkpoint.select(time="2024-01-01") as ckpt:
+        rebound = bind_checkpoint_state(proxy)
+        assert rebound is proxy
+        assert bind_checkpoint_state(proxy) is proxy
+        assert ckpt.is_active
+        assert proxy.checkpoint_labels == {"time": "2024-01-01"}
+        assert ckpt.artifacts == {}
+        with pytest.raises(TypeError):
+            ckpt.bind(object())
+        assert ckpt.write(lead_time=torch.tensor([6])) is None
+        entry = ckpt.flush()
+
+    assert entry is not None
+    assert entry.lead_time == 6
 
 
 class DroppingLeadTimeDiagnostic(torch.nn.Module):
@@ -293,21 +337,42 @@ def test_append_keep_last_and_positional_selection(tmp_path):
 
 
 def test_bind_before_new_session_is_adopted_on_enter(tmp_path):
-    checkpoint = Checkpoint("forecast", path=tmp_path)
+    checkpoint = Checkpoint(
+        "forecast", path=tmp_path, flush_interval=2, state_policy="replay"
+    )
 
-    state = ToyState()
-    assert bind_checkpoint_state(state) is state
-    assert bind_checkpoint_state(state) is state
+    dataclass_state = ToyState()
+    state = bind_checkpoint_state(dataclass_state)
+    assert isinstance(state, CheckpointState)
+    assert state.checkpoint_dataclass is dataclass_state
+    assert bind_checkpoint_state(dataclass_state) is state
+    assert state.checkpoint_enabled
+    assert state.checkpoint_state_policy == "replay"
+    assert state.checkpoint_flush_interval == 2
+    with pytest.raises(AttributeError):
+        state.checkpoint_state_policy = "direct"
     state.calls = 5
 
     with checkpoint.select(time="2024-01-01") as ckpt:
         assert list(ckpt.bound_states.values()) == [state]
+        assert not state.checkpoint_selected
+        assert not state.checkpoint_state_loaded
+        assert state.checkpoint_write_count == 0
+        assert not state.checkpoint_is_flush_due
+        ckpt.write(lead_time=_lead_time(3))
+        assert state.checkpoint_write_count == 1
+        assert state.checkpoint_is_flush_due
         ckpt.flush(lead_time=_lead_time(6))
 
     with Checkpoint("forecast", path=tmp_path).select(time="2024-01-01"):
         restored = bind_checkpoint_state(ToyState())
+        assert restored.checkpoint_selected
+        assert restored.checkpoint_state_loaded
+        assert restored.checkpoint_lead_time == np.timedelta64(6, "h")
 
     assert restored.calls == 5
+    assert not restored.checkpoint_selected
+    assert not restored.checkpoint_state_loaded
 
 
 def test_bind_before_existing_session_warns_and_hydrates_late(tmp_path):
@@ -324,12 +389,17 @@ def test_bind_before_existing_session_warns_and_hydrates_late(tmp_path):
     with pytest.warns(UserWarning, match="bound before an existing checkpoint session"):
         with checkpoint.select(time="2024-01-01") as ckpt:
             assert ckpt.exists
+            assert state.checkpoint_state_loaded
             assert state.calls == 9
 
 
 def test_defensive_paths_and_catalog_rebuild(tmp_path):
     plain = ToyState()
-    assert bind_checkpoint_state(plain) is plain
+    plain_state = bind_checkpoint_state(plain)
+    assert isinstance(plain_state, CheckpointState)
+    assert plain_state.checkpoint_dataclass is plain
+    plain_state.calls = 1
+    assert plain.calls == 1
     with pytest.raises(TypeError):
         bind_checkpoint_state(object())
 
@@ -339,6 +409,8 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
         Checkpoint("bad", path=tmp_path, flush_interval=0)
     with pytest.raises(ValueError):
         Checkpoint("bad", path=tmp_path, keep_last=0)
+    with pytest.raises(ValueError):
+        Checkpoint("bad", path=tmp_path, state_policy="bad")
 
     checkpoint = Checkpoint("forecast", path=tmp_path / "catalog", mode="append")
     assert "catalog: empty" in repr(checkpoint)
@@ -632,7 +704,7 @@ def test_diagnostic_workflow_resumes_from_checkpoint(tmp_path):
 
     with checkpoint.select(time=to_time_array(["2024-01-01"])) as ckpt:
         data = Random(domain_coords=coords)
-        model = Persistence(variables, coords)
+        model = RestartablePersistence(variables, coords)
         diagnostic = Identity()
         run.diagnostic(
             ["2024-01-01"],
@@ -649,7 +721,7 @@ def test_diagnostic_workflow_resumes_from_checkpoint(tmp_path):
 
     with checkpoint.select(-1) as ckpt:
         data = Random(domain_coords=coords)
-        model = Persistence(variables, coords)
+        model = RestartablePersistence(variables, coords)
         diagnostic = Identity()
         run.diagnostic(
             ["2024-01-01"],
@@ -666,6 +738,7 @@ def test_diagnostic_workflow_resumes_from_checkpoint(tmp_path):
     selected = checkpoint.select(-1)
     assert selected.lead_time == np.timedelta64(18, "h")
     assert selected.write_count == 4
+    assert model.used_hydrated_state
     assert io["u10m"].shape[1] == 4
 
 
@@ -713,7 +786,7 @@ def test_ensemble_workflow_resumes_each_batch_from_checkpoint(tmp_path):
         ["2024-01-01"],
         1,
         nensemble,
-        Persistence(variables, coords),
+        RestartablePersistence(variables, coords),
         Random(domain_coords=coords),
         io,
         Zero(),
@@ -727,7 +800,7 @@ def test_ensemble_workflow_resumes_each_batch_from_checkpoint(tmp_path):
         ["2024-01-01"],
         3,
         nensemble,
-        Persistence(variables, coords),
+        RestartablePersistence(variables, coords),
         Random(domain_coords=coords),
         io,
         Zero(),

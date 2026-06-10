@@ -18,7 +18,7 @@ where to restart.
 from earth2studio.run import deterministic
 from earth2studio.utils.checkpoint import Checkpoint
 
-checkpoint = Checkpoint("my-forecast", flush_interval=6)
+checkpoint = Checkpoint("my-forecast", flush_interval=6, state_policy="direct")
 
 deterministic(
     time=["2024-01-01"],
@@ -42,6 +42,16 @@ Use `flush_interval=1` for every write call to commit immediately, or
 workflow flushes the final pending state before returning. When checkpointing is
 omitted, built-in workflows use a no-op checkpoint session with the same
 `write` and `flush` methods.
+
+`state_policy` is a user intent hint exposed to bound component state. It does
+not force a model to checkpoint a particular payload. Supported values are:
+
+- `minimal`: save only lightweight progress/bookkeeping state if the component
+  supports that mode.
+- `replay`: save enough metadata for the component to replay from an earlier
+  known starting point.
+- `direct`: save enough component-owned state to continue directly from the
+  checkpoint boundary. This is the default.
 
 ## Selecting Restart Points
 
@@ -97,21 +107,20 @@ keeps a history, and `keep_last` can cap that history.
 
 ## Workflow Resume
 
-The built-in deterministic workflow always fetches the normal initial condition
-and feeds it to the prognostic model iterator. When a checkpoint row is selected,
-the workflow uses the row's lead time only as the completed workflow position. A
-checkpoint-aware model is responsible for using its bound dataclass state inside
-`create_iterator` to restore or replay to that selected restart point. The
-iterator should yield the selected checkpoint boundary first, matching the normal
-iterator convention of yielding the initial condition first.
+Built-in workflows always fetch the normal initial condition and feed it to the
+prognostic model iterator. When a checkpoint row is selected, the workflow uses
+the row's lead time only as the completed workflow position. A checkpoint-aware
+model is responsible for using its bound dataclass state inside `create_iterator`
+to restore or replay to that selected restart point. The iterator should yield
+the selected checkpoint boundary first, matching the normal iterator convention
+of yielding the initial condition first.
 
-This keeps deterministic restart independent from model internals and avoids
-assuming that user-facing IO output is restart-complete. The diagnostic workflow
-still resumes from IO today and therefore requires the IO backend to contain the
-prognostic variables needed for the next forecast step. The ensemble workflow
-stores progress per mini-batch using an `ensemble_batch` label, allowing
-completed batches to be skipped and partially completed batches to continue from
-their latest saved lead time.
+This keeps restart independent from model internals and avoids assuming that
+user-facing IO output is restart-complete. Diagnostic workflows still track the
+prognostic lead time before diagnostic output is written. Ensemble workflows store
+progress per mini-batch using an `ensemble_batch` label, allowing completed
+batches to be skipped and partially completed batches to continue from their
+latest saved lead time.
 
 For custom loops, print the checkpoint and select the desired row by index, for
 example `checkpoint.select(-1)` for the latest row. `Checkpoint` and
@@ -151,9 +160,17 @@ class NoisePerturbation:
     def __call__(self, x):
         y = add_noise(x, generator=self.generator)
         self.checkpoint.calls += 1
-        self.checkpoint.rng_state = self.generator.get_state()
+        if self.checkpoint.checkpoint_enabled:
+            self.checkpoint.rng_state = self.generator.get_state()
         return y
 ```
+
+`bind_checkpoint_state` returns a proxy around the original dataclass. Normal
+dataclass fields are accessed directly, while checkpoint metadata is exposed
+through `checkpoint_*` properties such as `checkpoint_enabled`,
+`checkpoint_state_policy`, `checkpoint_flush_interval`, `checkpoint_write_count`,
+`checkpoint_is_flush_due`, `checkpoint_selected`, `checkpoint_state_loaded`, and
+`checkpoint_lead_time`.
 
 When a checkpoint session is active, `bind_checkpoint_state` loads the matching
 saved state if one exists and registers the live dataclass instance for future
@@ -163,6 +180,22 @@ user-facing IO output alone. When no session is active but a `Checkpoint` has
 been instantiated, `bind_checkpoint_state` buffers the live dataclass for that
 checkpoint. The buffered state is registered when a session for that checkpoint
 is entered.
+
+
+A model can use the checkpoint policy hint without adding another API call:
+
+```python
+if self.restart.checkpoint_state_loaded:
+    x = self.restart.x.to(x.device)
+
+if self.restart.checkpoint_state_policy == "direct":
+    self.restart.x = x.detach().cpu()
+elif self.restart.checkpoint_state_policy == "replay":
+    self.restart.step = step
+    self.restart.rng_state = generator.get_state()
+else:
+    self.restart.x = None
+```
 
 This makes new runs simple:
 
