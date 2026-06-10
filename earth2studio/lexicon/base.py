@@ -61,6 +61,8 @@ E2STUDIO_VOCAB = {
     "tp12": "total precipitation accumulated over past 12 hours (m)",
     "tp24": "total precipitation accumulated over past 24 hours (m)",
     "cp06": "convective precipitation accumulated over past 6 hours (m)",
+    "cos_mwd": "cosine of mean wave direction (unitless)",
+    "sin_mwd": "sine of mean wave direction (unitless)",
     "tpf": "total precipitation flux (kg m-2 s-1)",
     "tcc": "total cloud cover (0 - 1)",
     "sd": "snow depth (m of water equivalent)",
