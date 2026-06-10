@@ -767,7 +767,14 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x * self.scale.to(dtype=x.dtype) + self.center.to(dtype=x.dtype)
 
     @torch.inference_mode()
-    def _forward(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+    def _forward(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+        x_norm: torch.Tensor | None = None,
+        sst_mask: torch.Tensor | None = None,
+        return_state: bool = False,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         self._check_input_coords(coords)
         self._enable_inference_dropout()
 
@@ -784,14 +791,28 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 f"Expected U-CAST spatial shape [121, 240], got [{n_lat}, {n_lon}]"
             )
 
-        # U-CAST operates on (lon, lat) with south-to-north latitude. Keep the
-        # public Earth2Studio convention north-to-south and flip only internally.
-        x_model = x.permute(0, 1, 2, 3, 5, 4).reshape(
-            batch_size * time_size, history_size, n_variables, n_lon, n_lat
+        model_shape = (
+            batch_size * time_size,
+            history_size,
+            n_variables,
+            n_lon,
+            n_lat,
         )
-        x_model = torch.flip(x_model, dims=(-1,))
-        latest_sst_nan_mask = torch.isnan(x_model[:, -1, self.sst_index])
-        x_norm = self._normalize(x_model)
+        if x_norm is None:
+            # U-CAST operates on (lon, lat) with south-to-north latitude. Keep the
+            # public Earth2Studio convention north-to-south and flip only internally.
+            x_model = x.permute(0, 1, 2, 3, 5, 4).reshape(model_shape)
+            x_model = torch.flip(x_model, dims=(-1,))
+            sst_mask = torch.isnan(x_model[:, -1, self.sst_index])
+            x_norm = self._normalize(x_model)
+        else:
+            if x_norm.shape != model_shape:
+                raise ValueError(
+                    f"Expected normalized U-CAST state shape {model_shape}, got {tuple(x_norm.shape)}"
+                )
+            if sst_mask is None:
+                raise ValueError("sst_mask is required when x_norm is provided")
+
         model_input = torch.cat([x_norm[:, 0], x_norm[:, 1]], dim=1)
 
         target_times = (
@@ -832,15 +853,19 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         pred_sst = pred[:, self.sst_index]
         pred[:, self.sst_index] = torch.where(
-            latest_sst_nan_mask,
+            sst_mask,
             self.sst_fill_value.to(dtype=pred.dtype, device=pred.device),
             pred_sst,
         )
 
         pred = torch.flip(pred, dims=(-1,))
-        return pred.reshape(batch_size, time_size, n_variables, n_lon, n_lat).permute(
+        out = pred.reshape(batch_size, time_size, n_variables, n_lon, n_lat).permute(
             0, 1, 2, 4, 3
         )[:, :, None]
+        if return_state:
+            next_x_norm = torch.cat([x_norm[:, 1:], pred_norm[:, None]], dim=1)
+            return out, next_x_norm, sst_mask
+        return out
 
     @batch_func()
     def __call__(
@@ -864,9 +889,27 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out_coords["lead_time"] = out_coords["lead_time"][1:]
         yield out, out_coords
 
+        front_hook = getattr(self.front_hook, "__func__", self.front_hook)
+        rear_hook = getattr(self.rear_hook, "__func__", self.rear_hook)
+        use_internal_state = (
+            front_hook is PrognosticMixin._default_hook
+            and rear_hook is PrognosticMixin._default_hook
+        )
+        x_norm = None
+        sst_mask = None
+
         while True:
             x, coords = self.front_hook(x, coords)
-            out = self._forward(x, coords)
+            if use_internal_state:
+                out, x_norm, sst_mask = self._forward(
+                    x,
+                    coords,
+                    x_norm=x_norm,
+                    sst_mask=sst_mask,
+                    return_state=True,
+                )
+            else:
+                out = self._forward(x, coords)
             out_coords = self.output_coords(coords)
             out, out_coords = self.rear_hook(out, out_coords)
 

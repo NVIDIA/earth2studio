@@ -51,6 +51,20 @@ class PhooUCastModel(torch.nn.Module):
         )
 
 
+class SstResidualUCastModel(PhooUCastModel):
+    """Test double that predicts a non-zero SST residual."""
+
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        dynamical_condition: torch.Tensor | None = None,
+        static_condition: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        out = super().forward(inputs, dynamical_condition, static_condition)
+        out[:, VARIABLES.index("sst")] = 1.0
+        return out
+
+
 @pytest.fixture(scope="function")
 def ucast_model() -> UCast:
     n_variables = len(VARIABLES)
@@ -184,6 +198,31 @@ def test_ucast_iter(ucast_model: UCast, ensemble: int, device: str) -> None:
 
         if i >= 4:
             break
+
+
+def test_ucast_iter_uses_internal_normalized_state() -> None:
+    n_variables = len(VARIABLES)
+    ucast_model = UCast(
+        model=SstResidualUCastModel(),
+        center=torch.zeros(n_variables),
+        scale=torch.ones(n_variables),
+        residual_scale=torch.ones(n_variables),
+        static_condition=torch.zeros(2, 121, 240),
+        sst_fill_value=-1.0,
+        stochastic=False,
+    )
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    x, coords = _input(ucast_model, time)
+    sst_index = VARIABLES.index("sst")
+    x[:, -1, sst_index, 0, 0] = torch.nan
+
+    iterator = ucast_model.create_iterator(x, coords)
+    next(iterator)
+    first, _ = next(iterator)
+    second, _ = next(iterator)
+
+    assert first[0, 0, sst_index, 0, 0] == ucast_model.sst_fill_value
+    assert second[0, 0, sst_index, 0, 0] == ucast_model.sst_fill_value
 
 
 @pytest.mark.parametrize(
