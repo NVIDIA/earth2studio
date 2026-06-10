@@ -528,7 +528,8 @@ def _compute_static_condition(ds: xr.Dataset) -> torch.Tensor:
 
     static = np.stack(arrays, axis=0)
     mean = static.mean(axis=(-2, -1), keepdims=True)
-    std = np.clip(static.std(axis=(-2, -1), keepdims=True), 1e-6, None)
+    std = static.std(axis=(-2, -1), keepdims=True)
+    std = np.maximum(std, 1e-6)
     return torch.from_numpy(((static - mean) / std).transpose(0, 2, 1)).float()
 
 
@@ -750,12 +751,15 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 module.train(self.stochastic)
 
     def _normalize(self, x: torch.Tensor) -> torch.Tensor:
-        x = x.clone()
-        sst = x[:, :, self.sst_index]
-        x[:, :, self.sst_index] = torch.where(
+        sst = x[:, :, self.sst_index : self.sst_index + 1]
+        sst = torch.where(
             torch.isnan(sst),
             self.sst_fill_value.to(dtype=x.dtype, device=x.device),
             sst,
+        )
+        x = torch.cat(
+            [x[:, :, : self.sst_index], sst, x[:, :, self.sst_index + 1 :]],
+            dim=2,
         )
         return (x - self.center.to(dtype=x.dtype)) / self.scale.to(dtype=x.dtype)
 
