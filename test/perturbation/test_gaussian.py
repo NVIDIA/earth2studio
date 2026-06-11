@@ -81,57 +81,39 @@ def test_gaussian_checkpoint_state_round_trip(tmp_path):
     x = torch.zeros(2, 3)
     coords = OrderedDict([("batch", []), ("variable", [])])
 
-    replay_expected_generator = torch.Generator().manual_seed(123)
-    expected_replay = x + torch.randn(
-        x.shape, dtype=x.dtype, device=x.device, generator=replay_expected_generator
-    )
-
     replay_checkpoint = Checkpoint(
         "gaussian-replay", path=tmp_path / "replay", state_policy="replay"
     )
     with replay_checkpoint.select(time="2024-01-01") as ckpt:
-        perturbation = Gaussian(1.0, generator=torch.Generator().manual_seed(123))
-        perturbed, _ = perturbation(x, coords)
-        assert torch.allclose(perturbed, expected_replay)
-        assert perturbation.checkpoint.calls == 1
+        perturbation = Gaussian(1.0)
+        expected_replay, _ = perturbation(x, coords)
         assert perturbation.checkpoint.generator_state is not None
         ckpt.write(lead_time=np.timedelta64(0, "h"))
 
     with replay_checkpoint.select(-1):
-        perturbation = Gaussian(1.0, generator=torch.Generator().manual_seed(999))
+        perturbation = Gaussian(1.0)
         replayed, _ = perturbation(x, coords)
         assert perturbation.checkpoint.checkpoint_state_loaded
         assert torch.allclose(replayed, expected_replay)
-        assert perturbation.checkpoint.calls == 2
-
-    direct_expected_generator = torch.Generator().manual_seed(456)
-    expected_direct_first = x + torch.randn(
-        x.shape, dtype=x.dtype, device=x.device, generator=direct_expected_generator
-    )
-    expected_direct_next = x + torch.randn(
-        x.shape, dtype=x.dtype, device=x.device, generator=direct_expected_generator
-    )
 
     direct_checkpoint = Checkpoint(
         "gaussian-direct", path=tmp_path / "direct", state_policy="direct"
     )
     with direct_checkpoint.select(time="2024-01-01") as ckpt:
-        perturbation = Gaussian(1.0, generator=torch.Generator().manual_seed(456))
-        perturbed, _ = perturbation(x, coords)
-        assert torch.allclose(perturbed, expected_direct_first)
-        assert perturbation.checkpoint.calls == 1
+        perturbation = Gaussian(1.0)
+        perturbation(x, coords)
         assert perturbation.checkpoint.generator_state is not None
         ckpt.write(lead_time=np.timedelta64(0, "h"))
+        expected_direct_next, _ = perturbation(x, coords)
+        expected_direct_third, _ = perturbation(x, coords)
 
     with direct_checkpoint.select(-1):
-        perturbation = Gaussian(1.0, generator=torch.Generator().manual_seed(999))
+        perturbation = Gaussian(1.0)
         resumed, _ = perturbation(x, coords)
         assert perturbation.checkpoint.checkpoint_state_loaded
-        assert torch.allclose(resumed, x)
-        assert perturbation.checkpoint.calls == 1
+        assert torch.allclose(resumed, expected_direct_next)
         next_perturbed, _ = perturbation(x, coords)
-        assert torch.allclose(next_perturbed, expected_direct_next)
-        assert perturbation.checkpoint.calls == 2
+        assert torch.allclose(next_perturbed, expected_direct_third)
 
 
 def test_correlated_spherical_gaussian_no_amplitude():

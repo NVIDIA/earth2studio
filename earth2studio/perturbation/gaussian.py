@@ -38,7 +38,6 @@ except ImportError:
 
 @dataclass
 class _GaussianCheckpointState:
-    calls: int = 0
     generator_state: torch.Tensor | None = None
     generator_device_type: str | None = None
 
@@ -51,23 +50,17 @@ class Gaussian:
     noise_amplitude : float | Tensor, optional
         Noise amplitude, by default 0.05. If a tensor,
         this must be broadcastable with the input data.
-    generator : torch.Generator, optional
-        Random generator used to sample noise, by default None.
     """
 
-    def __init__(
-        self,
-        noise_amplitude: float | torch.Tensor = 0.05,
-        generator: torch.Generator | None = None,
-    ):
+    def __init__(self, noise_amplitude: float | torch.Tensor = 0.05):
         self.noise_amplitude = (
             noise_amplitude
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor([noise_amplitude])
         )
-        self.generator = generator
+        self.generator: torch.Generator | None = None
         self.checkpoint = bind_checkpoint_state(_GaussianCheckpointState())
-        self._restored_generator_state_id: int | None = None
+        self._restore_generator_state()
 
     @torch.inference_mode()
     def __call__(
@@ -90,10 +83,6 @@ class Gaussian:
             Output tensor and respective coordinate system dictionary
         """
         generator = self._get_generator(x.device)
-        restored = self._restore_generator_state(generator)
-        if restored and self.checkpoint.checkpoint_state_policy == "direct":
-            return x, coords
-
         pre_state = generator.get_state()
         noise_amplitude = self.noise_amplitude.to(x.device)
         y = x + noise_amplitude * torch.randn(
@@ -106,31 +95,26 @@ class Gaussian:
         if self.generator is None:
             self.generator = torch.Generator(device=device)
             self.generator.seed()
-        if self.generator.device.type != device.type:
-            raise RuntimeError(
-                "Gaussian generator is on "
-                f"{self.generator.device.type!r}, but input is on {device.type!r}."
-            )
         return self.generator
 
-    def _restore_generator_state(self, generator: torch.Generator) -> bool:
+    def _restore_generator_state(self) -> None:
         if not self.checkpoint.checkpoint_state_loaded:
-            self._restored_generator_state_id = None
-            return False
+            return
         if self.checkpoint.generator_state is None:
-            return False
-        if self.checkpoint.generator_device_type != generator.device.type:
+            return
+        if self.checkpoint.generator_device_type is None:
+            raise RuntimeError("Gaussian checkpoint generator device is missing.")
+        if self.generator is None:
+            self.generator = torch.Generator(
+                device=self.checkpoint.generator_device_type
+            )
+        if self.generator.device.type != self.checkpoint.generator_device_type:
             raise RuntimeError(
                 "Gaussian checkpoint generator state was saved for "
-                f"{self.checkpoint.generator_device_type!r}, but input is on "
-                f"{generator.device.type!r}."
+                f"{self.checkpoint.generator_device_type!r}, but generator is on "
+                f"{self.generator.device.type!r}."
             )
-        state_id = id(self.checkpoint.generator_state)
-        if self._restored_generator_state_id == state_id:
-            return False
-        generator.set_state(self.checkpoint.generator_state.cpu())
-        self._restored_generator_state_id = state_id
-        return True
+        self.generator.set_state(self.checkpoint.generator_state.cpu())
 
     def _save_generator_state(
         self,
@@ -141,18 +125,15 @@ class Gaussian:
         if not self.checkpoint.checkpoint_enabled:
             return
 
-        self.checkpoint.calls += 1
         if self.checkpoint.checkpoint_state_policy == "replay":
-            state = pre_state
+            self.checkpoint.generator_state = pre_state.cpu().clone()
+            self.checkpoint.generator_device_type = generator.device.type
         elif self.checkpoint.checkpoint_state_policy == "direct":
-            state = post_state
+            self.checkpoint.generator_state = post_state.cpu().clone()
+            self.checkpoint.generator_device_type = generator.device.type
         else:
-            state = None
-
-        self.checkpoint.generator_state = None if state is None else state.cpu().clone()
-        self.checkpoint.generator_device_type = (
-            None if state is None else generator.device.type
-        )
+            self.checkpoint.generator_state = None
+            self.checkpoint.generator_device_type = None
 
 
 @check_optional_dependencies()
