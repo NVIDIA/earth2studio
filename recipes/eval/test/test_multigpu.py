@@ -56,8 +56,8 @@ def _run_worker(
         "--output-dir",
         output_dir,
     ]
-    return subprocess.run(
-        cmd,  # noqa: S603
+    return subprocess.run(  # noqa: S603
+        cmd,
         capture_output=True,
         text=True,
         timeout=timeout,

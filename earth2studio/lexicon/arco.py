@@ -74,15 +74,13 @@ LEVELS = [
 
 MDL_LEVELS = np.arange(1, 138)
 
-ACCUMULATION_6H_VARIABLES = {
-    "cp06",
-    "ro",
-    "ro06",
-    "sf",
-    "sf06",
-    "ssrd06",
-    "strd06",
-    "tp06",
+ACCUMULATION_HOURS = {
+    "cp06": 6,
+    "ro06": 6,
+    "sf06": 6,
+    "ssrd06": 6,
+    "strd06": 6,
+    "tp06": 6,
 }
 
 

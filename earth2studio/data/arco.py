@@ -40,7 +40,7 @@ from earth2studio.data.utils import (
     prep_data_inputs,
 )
 from earth2studio.lexicon import ARCOLexicon
-from earth2studio.lexicon.arco import ACCUMULATION_6H_VARIABLES
+from earth2studio.lexicon.arco import ACCUMULATION_HOURS
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
@@ -315,11 +315,13 @@ class ARCO:
             # surface variable
             data = None
             for var_name, var_idx, level, modifier in var_entries:
-                if self._is_6h_accumulation(var_name):
-                    start_index = time_index - 5
+                accumulation_hours = ACCUMULATION_HOURS.get(var_name)
+                # Sum hourly ARCO fields to support cumulative variables.
+                if accumulation_hours is not None:
+                    start_index = time_index - accumulation_hours + 1
                     if start_index < 0:
                         raise ValueError(
-                            f"Cannot compute 6-hour accumulation for {var_name} at {t}"
+                            f"Cannot compute {accumulation_hours}-hour accumulation for {var_name} at {t}"
                         )
                     accumulated = await zarr_array.getitem(
                         slice(start_index, time_index + 1)
@@ -387,11 +389,13 @@ class ARCO:
             output = modifier(data)
         # Surface variable
         elif len(shape) == 3:
-            if self._is_6h_accumulation(variable):
-                start_index = time_index - 5
+            accumulation_hours = ACCUMULATION_HOURS.get(variable)
+            # Sum hourly ARCO fields to support cumulative variables.
+            if accumulation_hours is not None:
+                start_index = time_index - accumulation_hours + 1
                 if start_index < 0:
                     raise ValueError(
-                        f"Cannot compute 6-hour accumulation for {variable} at {time}"
+                        f"Cannot compute {accumulation_hours}-hour accumulation for {variable} at {time}"
                     )
                 data = await zarr_array.getitem(slice(start_index, time_index + 1))
                 output = modifier(np.sum(data, axis=0))
@@ -467,11 +471,6 @@ class ARCO:
         start_date = datetime(year=1900, month=1, day=1)
         duration = time - start_date
         return int(divmod(duration.total_seconds(), 3600)[0])
-
-    @classmethod
-    def _is_6h_accumulation(cls, variable: str) -> bool:
-        """Check if a variable should sum six hourly ARCO fields."""
-        return variable in ACCUMULATION_6H_VARIABLES
 
     @classmethod
     def _is_mdl_level(cls, variable: str) -> bool:

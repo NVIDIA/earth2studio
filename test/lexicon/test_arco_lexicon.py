@@ -19,7 +19,7 @@ import pytest
 import torch
 
 from earth2studio.lexicon import ARCOLexicon
-from earth2studio.lexicon.arco import ACCUMULATION_6H_VARIABLES
+from earth2studio.lexicon.arco import ACCUMULATION_HOURS
 from earth2studio.lexicon.base import E2STUDIO_VOCAB
 
 
@@ -107,16 +107,14 @@ def test_new_arco_aliases_are_in_base_vocab():
 
 
 def test_arco_accumulation_aliases():
-    assert {
-        "cp06",
-        "ro",
-        "ro06",
-        "sf",
-        "sf06",
-        "ssrd06",
-        "strd06",
-        "tp06",
-    } <= ACCUMULATION_6H_VARIABLES
+    assert ACCUMULATION_HOURS == {
+        "cp06": 6,
+        "ro06": 6,
+        "sf06": 6,
+        "ssrd06": 6,
+        "strd06": 6,
+        "tp06": 6,
+    }
 
 
 def test_arco_wave_direction_modifiers():
