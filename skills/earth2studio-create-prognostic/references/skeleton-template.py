@@ -106,6 +106,13 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Additional resources:
     - <link to checkpoint source>
     - <link to model documentation>
+
+    Badges
+    ------
+    Use only badges defined in docs/conf.py
+    (https://github.com/NVIDIA/earth2studio/blob/main/docs/conf.py). Order them
+    as region(s), class, product(s), year, gpu. Do not add unsupported badges.
+    region:global class:mrf product:wind product:temp year:2026 gpu:40gb
     """
 
     # =========================================================================
