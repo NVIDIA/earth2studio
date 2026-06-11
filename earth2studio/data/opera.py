@@ -67,7 +67,7 @@ _INTERVAL_SECONDS = 900
 # resolution raised to 1 km for DBZH, and update cycle shortened to 5 minutes.
 # The ODIM HDF5 structure also differs between eras (see _decode_odim_h5).
 # Note: pixel resolution varies by product even within an era (e.g. CIRRUS era
-# DBZH → 1 km / 3800×4400; RATE and ACRR → 2 km / 1900×2200).
+# DBZH → 1 km / 3800x4400; RATE and ACRR → 2 km / 1900x2200).
 _CIRRUS_START = datetime(2024, 7, 1)
 
 # CIRRUS-era composite interval: 5 minutes
@@ -80,12 +80,8 @@ _PROJDEF = (
 
 # Spatial extent of the OPERA LAEA grid, constant across all eras and products.
 # Pixel scale = EXTENT / grid_size_in_that_dimension.
-_GRID_EXTENT_X = 3_800_000.0  # metres east–west
-_GRID_EXTENT_Y = 4_400_000.0  # metres north–south
-
-# ---------------------------------------------------------------------------
-# Grid helpers
-# ---------------------------------------------------------------------------
+_GRID_EXTENT_X = 3_800_000.0  # metres east-west
+_GRID_EXTENT_Y = 4_400_000.0  # metres north-south
 
 
 def _compute_opera_latlon(xsize: int, ysize: int) -> tuple[np.ndarray, np.ndarray]:
@@ -127,114 +123,9 @@ def _compute_opera_latlon(xsize: int, ysize: int) -> tuple[np.ndarray, np.ndarra
     return lat.astype(np.float32), lon.astype(np.float32)
 
 
-# ---------------------------------------------------------------------------
-# ODIM HDF5 decoding helpers
-# ---------------------------------------------------------------------------
-
-
-def _odim_attrs(group: Any) -> dict[str, Any]:
-    """Return a plain-Python dict of scalar HDF5 attributes."""
-    result: dict[str, Any] = {}
-    for k, v in group.attrs.items():
-        if isinstance(v, bytes):
-            v = v.decode("utf-8", errors="replace")
-        elif isinstance(v, np.generic):
-            v = v.item()
-        result[k] = v
-    return result
-
-
-def _sort_odim_groups(parent: Any, prefix: str) -> list[str]:
-    """Return numerically sorted names of ODIM sub-groups with given prefix."""
-
-    def _key(name: str) -> tuple[int, str]:
-        suffix = name.removeprefix(prefix)
-        return (int(suffix) if suffix.isdigit() else 10**9, name)
-
-    return sorted(
-        [
-            n
-            for n, item in parent.items()
-            if n.startswith(prefix) and hasattr(item, "items")
-        ],
-        key=_key,
-    )
-
-
-def _apply_linear_scaling(raw: np.ndarray, what: dict[str, Any]) -> np.ndarray:
-    """Apply ODIM gain/offset scaling and replace nodata/undetect with NaN."""
-    gain = float(what.get("gain", 1.0))
-    offset = float(what.get("offset", 0.0))
-    nodata = what.get("nodata")
-    undetect = what.get("undetect")
-    result = raw.astype(np.float32) * gain + offset
-    if nodata is not None:
-        result[raw == nodata] = np.nan
-    if undetect is not None:
-        result[raw == undetect] = np.nan
-    return result
-
-
-def _decode_odim_h5(data_bytes: bytes, odim_quantity: str) -> np.ndarray:
-    """Decode an in-memory ODIM HDF5 file and return a 2-D float32 array.
-
-    Handles two ODIM HDF5 layout variants encountered in the OPERA archive:
-
-    * **CIRRUS / NIMBUS era (ODIM 2.4+):** ``dataset*/data*/what/@quantity`` —
-      the quantity tag sits inside each ``data*`` sub-group.
-    * **ODYSSEY era (ODIM 2.0):** ``dataset*/what/@quantity`` — the quantity
-      tag is at the *dataset* level; the data array lives in ``dataset*/data1``.
-
-    Parameters
-    ----------
-    data_bytes : bytes
-        Raw bytes of the ODIM HDF5 file.
-    odim_quantity : str
-        ODIM quantity code to extract (e.g. ``"DBZH"``).
-
-    Returns
-    -------
-    np.ndarray
-        Decoded 2-D float32 array whose shape matches the file's grid.
-
-    Raises
-    ------
-    ValueError
-        If the requested quantity is not found in the file.
-    """
-    with h5py.File(io.BytesIO(data_bytes), "r") as fh:
-        for ds_name in _sort_odim_groups(fh, "dataset"):
-            ds = fh[ds_name]
-
-            # CIRRUS/NIMBUS era: quantity in data*/what (standard ODIM 2.4+)
-            for da_name in _sort_odim_groups(ds, "data"):
-                da = ds[da_name]
-                if "what" not in da or "data" not in da:
-                    continue
-                what = _odim_attrs(da["what"])
-                if str(what.get("quantity", "")).upper() != odim_quantity.upper():
-                    continue
-                return _apply_linear_scaling(da["data"][:], what)
-
-            # ODYSSEY era: quantity in dataset*/what, data array in dataset*/data1
-            if "what" in ds:
-                what = _odim_attrs(ds["what"])
-                if str(what.get("quantity", "")).upper() == odim_quantity.upper():
-                    da_names = _sort_odim_groups(ds, "data")
-                    if da_names and "data" in ds[da_names[0]]:
-                        return _apply_linear_scaling(ds[da_names[0]]["data"][:], what)
-
-    raise ValueError(f"ODIM quantity '{odim_quantity}' not found in HDF5 file")
-
-
-# ---------------------------------------------------------------------------
-# Async task
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class _OPERAAsyncTask:
-    """A single async fetch unit (one time × variable combination)."""
+    """A single async fetch unit (one time x variable combination)."""
 
     time_idx: int
     var_idx: int
@@ -243,40 +134,30 @@ class _OPERAAsyncTask:
     modifier: Callable
 
 
-# ---------------------------------------------------------------------------
-# Data source
-# ---------------------------------------------------------------------------
-
-
 @check_optional_dependencies()
 class OPERA:
-    r"""EUMETNET OPERA European weather radar composite data source.
+    """EUMETNET OPERA European weather radar composite data source.
 
     Provides access to the pan-European OPERA composite radar products
     (reflectivity, rain rate, hourly accumulation) from the EUMETNET Open
     Radar Data (ORD) archive hosted on CloudFerro S3.  Data is stored in ODIM
     HDF5 format on a Lambert Equal-Area (LAEA) projection covering roughly
-    70°N–32°N, 30°W–62°E.
+    70°N-32°N, 30°W-62°E. The archive spans from October 2011 to present in 15-minute
+    steps.
 
     The pixel resolution and ODIM HDF5 structure differ between production eras:
 
-    * **ODYSSEY era (before 2024-07-01):** 2 km per pixel, 1900 × 2200 grid,
+    * **ODYSSEY era (before 2024-07-01):** 2 km per pixel, 1900 x 2200 grid,
       ODIM HDF5 version 2.0.  The quantity tag lives at the *dataset* level.
     * **CIRRUS / NIMBUS era (from 2024-07-01 onward):** ODIM version 2.4.
-      Resolution varies by product: DBZH is 1 km (3800 × 4400); RATE and ACRR
-      remain at 2 km (1900 × 2200).
+      Resolution varies by product: DBZH is 1 km (3800 x 4400); RATE and ACRR
+      remain at 2 km (1900 x 2200).
 
-    All grids share the same spatial extent (3800 km × 4400 km) and LAEA
+    All grids share the same spatial extent (3800 km x 4400 km) and LAEA
     projection origin.  If a single call requests variables with different
     pixel resolutions, a :exc:`ValueError` is raised — request each resolution
     group separately.
 
-    The output ``xr.DataArray`` uses dimensions ``(time, variable, y, x)``
-    where ``y`` and ``x`` are pixel indices.  2-D geographic coordinates are
-    attached as non-dimension coords ``_lat`` and ``_lon`` (shape
-    ``(y, x)``), matching the pattern used by
-    :class:`earth2studio.data.GOES` and
-    :class:`earth2studio.data.HimawariAHI`.
 
     Parameters
     ----------
@@ -296,27 +177,18 @@ class OPERA:
     -------
     This is a remote data source and can potentially download a large amount
     of data to your local machine for large requests.  Each ODIM HDF5 file is
-    roughly 400 KB – 2 MB.
+    roughly 400 KB - 2 MB.
 
     Note
     ----
-    EUMETNET Open Radar Data documentation:
-    https://eumetnet.github.io/openradardata-documentation/
+    Additional information on the data repository can be referenced here:
 
-    CloudFerro S3 archive (public, no authentication required):
-    https://s3.waw3-1.cloudferro.com/openradar-archive/
-
-    Composite products available via ``OPERALexicon``:
-
-    - ``refc`` – DBZH composite reflectivity (dBZ)
-    - ``tprate`` – RATE instantaneous surface rain rate (mm h\ :sup:`-1`\)
-    - ``tp01`` – ACRR 1-hour rainfall accumulation (m)
-
-    Archive spans from October 2011 to present in 15-minute steps.
+    - https://eumetnet.github.io/openradardata-documentation/
+    - https://s3.waw3-1.cloudferro.com/openradar-archive/
 
     Badges
     ------
-    region:eu dataclass:observation product:radar product:precip
+    region:eu dataclass:observation product:precip product:radar
     """
 
     # Class-level lat/lon grid cache keyed by (ysize, xsize).
@@ -329,6 +201,103 @@ class OPERA:
         if key not in cls._grid_cache:
             cls._grid_cache[key] = _compute_opera_latlon(xsize, ysize)
         return cls._grid_cache[key]
+
+    @staticmethod
+    def _odim_attrs(group: Any) -> dict[str, Any]:
+        """Return a plain-Python dict of scalar HDF5 attributes."""
+        result: dict[str, Any] = {}
+        for k, v in group.attrs.items():
+            if isinstance(v, bytes):
+                v = v.decode("utf-8", errors="replace")
+            elif isinstance(v, np.generic):
+                v = v.item()
+            result[k] = v
+        return result
+
+    @staticmethod
+    def _sort_odim_groups(parent: Any, prefix: str) -> list[str]:
+        """Return numerically sorted names of ODIM sub-groups with given prefix."""
+
+        def _key(name: str) -> tuple[int, str]:
+            suffix = name.removeprefix(prefix)
+            return (int(suffix) if suffix.isdigit() else 10**9, name)
+
+        return sorted(
+            [
+                n
+                for n, item in parent.items()
+                if n.startswith(prefix) and hasattr(item, "items")
+            ],
+            key=_key,
+        )
+
+    @staticmethod
+    def _apply_linear_scaling(raw: np.ndarray, what: dict[str, Any]) -> np.ndarray:
+        """Apply ODIM gain/offset scaling and replace nodata/undetect with NaN."""
+        gain = float(what.get("gain", 1.0))
+        offset = float(what.get("offset", 0.0))
+        nodata = what.get("nodata")
+        undetect = what.get("undetect")
+        result = raw.astype(np.float32) * gain + offset
+        if nodata is not None:
+            result[raw == nodata] = np.nan
+        if undetect is not None:
+            result[raw == undetect] = np.nan
+        return result
+
+    @staticmethod
+    def _decode_odim_h5(data_bytes: bytes, odim_quantity: str) -> np.ndarray:
+        """Decode an in-memory ODIM HDF5 file and return a 2-D float32 array.
+
+        Handles two ODIM HDF5 layout variants encountered in the OPERA archive:
+
+        * **CIRRUS / NIMBUS era (ODIM 2.4+):** ``dataset*/data*/what/@quantity`` —
+          the quantity tag sits inside each ``data*`` sub-group.
+        * **ODYSSEY era (ODIM 2.0):** ``dataset*/what/@quantity`` — the quantity
+          tag is at the *dataset* level; the data array lives in ``dataset*/data1``.
+
+        Parameters
+        ----------
+        data_bytes : bytes
+            Raw bytes of the ODIM HDF5 file.
+        odim_quantity : str
+            ODIM quantity code to extract (e.g. ``"DBZH"``).
+
+        Returns
+        -------
+        np.ndarray
+            Decoded 2-D float32 array whose shape matches the file's grid.
+
+        Raises
+        ------
+        ValueError
+            If the requested quantity is not found in the file.
+        """
+        with h5py.File(io.BytesIO(data_bytes), "r") as fh:
+            for ds_name in OPERA._sort_odim_groups(fh, "dataset"):
+                ds = fh[ds_name]
+
+                # CIRRUS/NIMBUS era: quantity in data*/what (standard ODIM 2.4+)
+                for da_name in OPERA._sort_odim_groups(ds, "data"):
+                    da = ds[da_name]
+                    if "what" not in da or "data" not in da:
+                        continue
+                    what = OPERA._odim_attrs(da["what"])
+                    if str(what.get("quantity", "")).upper() != odim_quantity.upper():
+                        continue
+                    return OPERA._apply_linear_scaling(da["data"][:], what)
+
+                # ODYSSEY era: quantity in dataset*/what, data array in dataset*/data1
+                if "what" in ds:
+                    what = OPERA._odim_attrs(ds["what"])
+                    if str(what.get("quantity", "")).upper() == odim_quantity.upper():
+                        da_names = OPERA._sort_odim_groups(ds, "data")
+                        if da_names and "data" in ds[da_names[0]]:
+                            return OPERA._apply_linear_scaling(
+                                ds[da_names[0]]["data"][:], what
+                            )
+
+        raise ValueError(f"ODIM quantity '{odim_quantity}' not found in HDF5 file")
 
     def __init__(
         self,
@@ -346,54 +315,36 @@ class OPERA:
         self._tmp_cache_hash: str | None = None
         self.fs: Any = None
 
-    # ------------------------------------------------------------------
-    # Async filesystem init
-    # ------------------------------------------------------------------
-
     async def _async_init(self) -> None:
-        """Initialise the async HTTP filesystem (called lazily on first fetch)."""
+        """Async initialization of zarr group
+
+        Note
+        ----
+        Async fsspec expects initialization inside of the execution loop
+        """
         from fsspec.implementations.http import HTTPFileSystem
 
         self.fs = HTTPFileSystem(asynchronous=True)
-
-    # ------------------------------------------------------------------
-    # Synchronous entry point
-    # ------------------------------------------------------------------
 
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Fetch OPERA composite data for the requested times and variables.
+        """Retrieve OPERA composite data
 
         Parameters
         ----------
         time : datetime | list[datetime] | TimeArray
-            Timestamps to fetch (UTC).  Must align to 15-minute boundaries
-            for the ODYSSEY era (before 2024-07) or 5-minute boundaries for
-            the CIRRUS era (2024-07 onward).  Must fall within the archive
-            window (2011-10 onward).
+            Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
-            Variable names from :class:`~earth2studio.lexicon.OPERALexicon`
-            (``"refc"``, ``"tprate"``, ``"tp01"``).
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the OPERA lexicon.
 
         Returns
         -------
         xr.DataArray
-            Data array with dimensions ``(time, variable, y, x)``.
-            Non-dimension coordinates ``_lat`` and ``_lon`` hold the 2-D
-            geographic position of each pixel.
-
-        Raises
-        ------
-        KeyError
-            If a variable name is not in :class:`~earth2studio.lexicon.OPERALexicon`.
-        ValueError
-            If a requested time is outside the archive range, not on a
-            15-minute grid boundary, or if the requested variables map to
-            different pixel resolutions (e.g. DBZH at 1 km mixed with RATE
-            at 2 km in the post-2024-07 CIRRUS era).
+            OPERA weather data array
         """
         try:
             xr_array = _sync_async(
@@ -404,28 +355,25 @@ class OPERA:
                 shutil.rmtree(self.cache, ignore_errors=True)
         return xr_array
 
-    # ------------------------------------------------------------------
-    # Async fetch
-    # ------------------------------------------------------------------
-
     async def fetch(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async implementation of :meth:`__call__`.
+        """Async function to get data
 
         Parameters
         ----------
         time : datetime | list[datetime] | TimeArray
-            Timestamps to fetch.
+            Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
-            Variable names.
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the OPERA lexicon.
 
         Returns
         -------
         xr.DataArray
-            Data array with dimensions ``(time, variable, y, x)``.
+            OPERA weather data array
         """
         if self.fs is None:
             await self._async_init()
@@ -487,10 +435,6 @@ class OPERA:
         ).assign_coords({"_lat": (("y", "x"), lat), "_lon": (("y", "x"), lon)})
         return xr_array
 
-    # ------------------------------------------------------------------
-    # Task creation
-    # ------------------------------------------------------------------
-
     def _create_tasks(
         self,
         time_list: list[datetime],
@@ -526,10 +470,6 @@ class OPERA:
                 )
         return tasks
 
-    # ------------------------------------------------------------------
-    # Fetch wrapper (retry + apply modifier)
-    # ------------------------------------------------------------------
-
     async def fetch_wrapper(self, task: _OPERAAsyncTask) -> np.ndarray:
         """Fetch a single task with retry and apply the variable modifier.
 
@@ -552,10 +492,6 @@ class OPERA:
             exceptions=(OSError, IOError, TimeoutError, ConnectionError),
         )
         return task.modifier(out)
-
-    # ------------------------------------------------------------------
-    # Fetch single array (pure async I/O)
-    # ------------------------------------------------------------------
 
     async def fetch_array(self, task: _OPERAAsyncTask) -> np.ndarray:
         """Download one ODIM HDF5 file and decode the requested quantity.
@@ -590,11 +526,7 @@ class OPERA:
             with open(cache_path, "wb") as fh:
                 await asyncio.to_thread(fh.write, data_bytes)
 
-        return _decode_odim_h5(data_bytes, task.odim_quantity)
-
-    # ------------------------------------------------------------------
-    # URL construction
-    # ------------------------------------------------------------------
+        return self._decode_odim_h5(data_bytes, task.odim_quantity)
 
     @classmethod
     def _build_url(cls, t: datetime, odim_quantity: str) -> str:
@@ -625,10 +557,6 @@ class OPERA:
         date_path = t.strftime("%Y/%m/%d")
         ts = t.strftime("%Y%m%dT%H%M")
         return f"{_ARCHIVE_BASE}/{date_path}/OPERA/COMP/OPERA@{ts}@0@{param}.h5"
-
-    # ------------------------------------------------------------------
-    # Time validation
-    # ------------------------------------------------------------------
 
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
@@ -665,10 +593,6 @@ class OPERA:
                     f"{interval // 60}-minute OPERA composite intervals"
                 )
 
-    # ------------------------------------------------------------------
-    # Cache property
-    # ------------------------------------------------------------------
-
     @property
     def cache(self) -> str:
         """Local directory used to cache downloaded ODIM HDF5 files."""
@@ -679,10 +603,6 @@ class OPERA:
             cache_location = os.path.join(cache_location, f"tmp_{self._tmp_cache_hash}")
         return cache_location
 
-    # ------------------------------------------------------------------
-    # Available classmethod
-    # ------------------------------------------------------------------
-
     @classmethod
     def available(cls, time: datetime | np.datetime64) -> bool:
         """Check whether a given time is fetchable from the OPERA archive.
@@ -690,14 +610,12 @@ class OPERA:
         Parameters
         ----------
         time : datetime | np.datetime64
-            Date/time to check.
+            Date time to access
 
         Returns
         -------
         bool
-            ``True`` if ``time`` falls within the archive window and aligns to
-            the era-appropriate composite interval (15 minutes for ODYSSEY,
-            5 minutes for CIRRUS).
+            If date time is avaiable
         """
         if isinstance(time, np.datetime64):
             time = time.astype("datetime64[ns]").astype("datetime64[us]").item()
