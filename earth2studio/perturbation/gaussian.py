@@ -14,13 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Literal
 
 import numpy as np
 import torch
 from typing_extensions import Self
 
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -32,6 +34,14 @@ try:
 except ImportError:
     OptionalDependencyFailure("perturbation")
     InverseRealSHT = None
+
+
+@dataclass
+class _GaussianCheckpointState:
+    calls: int = 0
+    rng_state: torch.Tensor | None = None
+    rng_device_type: str | None = None
+    rng_position: Literal["pre", "post"] | None = None
 
 
 class Gaussian:
@@ -50,6 +60,8 @@ class Gaussian:
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor([noise_amplitude])
         )
+        self.checkpoint = bind_checkpoint_state(_GaussianCheckpointState())
+        self._restored_rng_state_id: int | None = None
 
     @torch.inference_mode()
     def __call__(
@@ -71,8 +83,91 @@ class Gaussian:
         tuple[torch.Tensor, CoordSystem]:
             Output tensor and respective coordinate system dictionary
         """
+        restored_rng = self._restore_rng_state(x.device)
+        if restored_rng and self.checkpoint.rng_position == "post":
+            return x, coords
+
+        pre_rng_state, pre_rng_device_type = _get_rng_state(x.device)
         noise_amplitude = self.noise_amplitude.to(x.device)
-        return x + noise_amplitude * torch.randn_like(x), coords
+        y = x + noise_amplitude * torch.randn_like(x)
+        post_rng_state, post_rng_device_type = _get_rng_state(x.device)
+        self._save_rng_state(
+            pre_rng_state,
+            pre_rng_device_type,
+            post_rng_state,
+            post_rng_device_type,
+        )
+        return y, coords
+
+    def _restore_rng_state(self, device: torch.device) -> bool:
+        if not self.checkpoint.checkpoint_state_loaded:
+            self._restored_rng_state_id = None
+            return False
+        if self.checkpoint.rng_state is None:
+            return False
+        if self.checkpoint.rng_device_type is None:
+            return False
+        rng_state_id = id(self.checkpoint.rng_state)
+        if self._restored_rng_state_id == rng_state_id:
+            return False
+        _set_rng_state(
+            device, self.checkpoint.rng_device_type, self.checkpoint.rng_state
+        )
+        self._restored_rng_state_id = rng_state_id
+        return True
+
+    def _save_rng_state(
+        self,
+        pre_rng_state: torch.Tensor | None,
+        pre_rng_device_type: str | None,
+        post_rng_state: torch.Tensor | None,
+        post_rng_device_type: str | None,
+    ) -> None:
+        if not self.checkpoint.checkpoint_enabled:
+            return
+
+        self.checkpoint.calls += 1
+        if self.checkpoint.checkpoint_state_policy == "replay":
+            self.checkpoint.rng_state = pre_rng_state
+            self.checkpoint.rng_device_type = pre_rng_device_type
+            self.checkpoint.rng_position = "pre" if pre_rng_state is not None else None
+        elif self.checkpoint.checkpoint_state_policy == "direct":
+            self.checkpoint.rng_state = post_rng_state
+            self.checkpoint.rng_device_type = post_rng_device_type
+            self.checkpoint.rng_position = (
+                "post" if post_rng_state is not None else None
+            )
+        else:
+            self.checkpoint.rng_state = None
+            self.checkpoint.rng_device_type = None
+            self.checkpoint.rng_position = None
+
+
+def _get_rng_state(device: torch.device) -> tuple[torch.Tensor | None, str | None]:
+    if device.type == "cpu":
+        return torch.get_rng_state(), "cpu"
+    if device.type == "cuda":
+        return torch.cuda.get_rng_state(device).cpu(), "cuda"
+    return None, None
+
+
+def _set_rng_state(
+    device: torch.device, rng_device_type: str, rng_state: torch.Tensor
+) -> None:
+    if rng_device_type != device.type:
+        raise RuntimeError(
+            "Gaussian checkpoint RNG state was saved for "
+            f"{rng_device_type!r}, but perturbation is running on {device.type!r}."
+        )
+    rng_state = rng_state.cpu()
+    if device.type == "cpu":
+        torch.set_rng_state(rng_state)
+    elif device.type == "cuda":
+        torch.cuda.set_rng_state(rng_state, device)
+    else:
+        raise RuntimeError(
+            f"Gaussian checkpoint RNG state does not support {device.type!r} devices."
+        )
 
 
 @check_optional_dependencies()

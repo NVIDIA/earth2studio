@@ -16,10 +16,12 @@
 
 from collections import OrderedDict
 
+import numpy as np
 import pytest
 import torch
 
 from earth2studio.perturbation import CorrelatedSphericalGaussian, Gaussian
+from earth2studio.utils.checkpoint import Checkpoint
 
 
 @pytest.mark.parametrize(
@@ -73,6 +75,61 @@ def test_gaussian(x, coords, amplitude, device):
             torch.std(dx), torch.Tensor([amplitude]).to(device), rtol=1e-2, atol=1e-1
         )
     assert dx.device == x.device
+
+
+def test_gaussian_checkpoint_state_round_trip(tmp_path):
+    x = torch.zeros(2, 3)
+    coords = OrderedDict([("batch", []), ("variable", [])])
+
+    torch.manual_seed(123)
+    expected_replay = x + torch.randn_like(x)
+
+    replay_checkpoint = Checkpoint(
+        "gaussian-replay", path=tmp_path / "replay", state_policy="replay"
+    )
+    torch.manual_seed(123)
+    with replay_checkpoint.select(time="2024-01-01") as ckpt:
+        perturbation = Gaussian(1.0)
+        perturbed, _ = perturbation(x, coords)
+        assert torch.allclose(perturbed, expected_replay)
+        assert perturbation.checkpoint.calls == 1
+        assert perturbation.checkpoint.rng_position == "pre"
+        ckpt.write(lead_time=np.timedelta64(0, "h"))
+
+    torch.manual_seed(999)
+    with replay_checkpoint.select(-1):
+        perturbation = Gaussian(1.0)
+        replayed, _ = perturbation(x, coords)
+        assert perturbation.checkpoint.checkpoint_state_loaded
+        assert torch.allclose(replayed, expected_replay)
+        assert perturbation.checkpoint.calls == 2
+
+    torch.manual_seed(456)
+    expected_direct_first = x + torch.randn_like(x)
+    expected_direct_next = x + torch.randn_like(x)
+
+    direct_checkpoint = Checkpoint(
+        "gaussian-direct", path=tmp_path / "direct", state_policy="direct"
+    )
+    torch.manual_seed(456)
+    with direct_checkpoint.select(time="2024-01-01") as ckpt:
+        perturbation = Gaussian(1.0)
+        perturbed, _ = perturbation(x, coords)
+        assert torch.allclose(perturbed, expected_direct_first)
+        assert perturbation.checkpoint.calls == 1
+        assert perturbation.checkpoint.rng_position == "post"
+        ckpt.write(lead_time=np.timedelta64(0, "h"))
+
+    torch.manual_seed(999)
+    with direct_checkpoint.select(-1):
+        perturbation = Gaussian(1.0)
+        resumed, _ = perturbation(x, coords)
+        assert perturbation.checkpoint.checkpoint_state_loaded
+        assert torch.allclose(resumed, x)
+        assert perturbation.checkpoint.calls == 1
+        next_perturbed, _ = perturbation(x, coords)
+        assert torch.allclose(next_perturbed, expected_direct_next)
+        assert perturbation.checkpoint.calls == 2
 
 
 def test_correlated_spherical_gaussian_no_amplitude():

@@ -24,10 +24,10 @@ import torch
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import FCN3
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.checkpoint import Checkpoint
 
 
 class PhooFCN3Preprocessor(torch.nn.Module):
-
     def __init__(
         self,
     ):
@@ -65,6 +65,17 @@ class PhooFCN3ModelWrapper(torch.nn.Module):
 
     def set_rng(self, reset: bool = True, seed: int = 333):
         return
+
+
+class PhooRestartFCN3ModelWrapper(PhooFCN3ModelWrapper):
+    def forward(self, x, t, normalized_data: bool = False, replace_state: bool = False):
+        return x + self.model.preprocessor.state[0].to(x.device)
+
+
+def _phoo_fcn3(model: torch.nn.Module, variables: np.ndarray) -> FCN3:
+    fcn3 = FCN3.__new__(FCN3)
+    FCN3.__init__.__wrapped__(fcn3, model, variables=variables)
+    return fcn3
 
 
 @pytest.fixture(scope="function")
@@ -165,6 +176,59 @@ def test_fcn3_iter(ensemble, device, dummy_model):
 
         if i > 5:
             break
+
+
+def test_fcn3_checkpoint_state_round_trip_with_phoo_model(tmp_path):
+    variables = np.array(["u10m"])
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    checkpoint = Checkpoint(
+        "fcn3", path=tmp_path / "fcn3", flush_interval=1, state_policy="direct"
+    )
+
+    torch.manual_seed(123)
+    model = PhooRestartFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor()))
+    p = _phoo_fcn3(model, variables=variables).to("cpu")
+    input_coords = p.input_coords()
+    coords = OrderedDict(
+        {
+            "time": time,
+            "lead_time": input_coords["lead_time"],
+            "variable": input_coords["variable"],
+            "lat": input_coords["lat"],
+            "lon": input_coords["lon"],
+        }
+    )
+    x = torch.zeros(
+        len(coords["time"]),
+        len(coords["lead_time"]),
+        len(coords["variable"]),
+        len(coords["lat"]),
+        len(coords["lon"]),
+    )
+
+    with checkpoint.select(time=time) as ckpt:
+        iterator = p.create_iterator(x, coords)
+        next(iterator)
+        step1, step1_coords = next(iterator)
+        ckpt.write(lead_time=step1_coords["lead_time"])
+        step2, step2_coords = next(iterator)
+
+    torch.manual_seed(999)
+    with checkpoint.select(-1):
+        resumed_model = PhooRestartFCN3ModelWrapper(
+            PhooFCN3Model(PhooFCN3Preprocessor())
+        )
+        resumed = _phoo_fcn3(resumed_model, variables=variables).to("cpu")
+        assert resumed.checkpoint.checkpoint_state_loaded
+
+        resumed_iterator = resumed.create_iterator(torch.full_like(x, -100.0), coords)
+        restored_step1, restored_step1_coords = next(resumed_iterator)
+        resumed_step2, resumed_step2_coords = next(resumed_iterator)
+
+    assert torch.allclose(restored_step1, step1)
+    assert torch.allclose(resumed_step2, step2)
+    assert restored_step1_coords["lead_time"][0] == step1_coords["lead_time"][0]
+    assert resumed_step2_coords["lead_time"][0] == step2_coords["lead_time"][0]
 
 
 @pytest.mark.parametrize(
