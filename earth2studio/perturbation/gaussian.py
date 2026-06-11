@@ -122,7 +122,10 @@ class Gaussian:
         post_state: torch.Tensor,
         generator: torch.Generator,
     ) -> None:
-        if not self.checkpoint.checkpoint_enabled:
+        if not (
+            self.checkpoint.checkpoint_enabled
+            and self.checkpoint.checkpoint_is_flush_due
+        ):
             return
 
         if self.checkpoint.checkpoint_state_policy == "replay":

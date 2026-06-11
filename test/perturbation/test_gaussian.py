@@ -97,13 +97,19 @@ def test_gaussian_checkpoint_state_round_trip(tmp_path):
         assert torch.allclose(replayed, expected_replay)
 
     direct_checkpoint = Checkpoint(
-        "gaussian-direct", path=tmp_path / "direct", state_policy="direct"
+        "gaussian-direct",
+        path=tmp_path / "direct",
+        flush_interval=2,
+        state_policy="direct",
     )
     with direct_checkpoint.select(time="2024-01-01") as ckpt:
         perturbation = Gaussian(1.0)
         perturbation(x, coords)
-        assert perturbation.checkpoint.generator_state is not None
+        assert perturbation.checkpoint.generator_state is None
         ckpt.write(lead_time=np.timedelta64(0, "h"))
+        perturbation(x, coords)
+        assert perturbation.checkpoint.generator_state is not None
+        ckpt.write(lead_time=np.timedelta64(6, "h"))
         expected_direct_next, _ = perturbation(x, coords)
         expected_direct_third, _ = perturbation(x, coords)
 
