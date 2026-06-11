@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 import torch
@@ -39,9 +39,8 @@ except ImportError:
 @dataclass
 class _GaussianCheckpointState:
     calls: int = 0
-    rng_state: torch.Tensor | None = None
-    rng_device_type: str | None = None
-    rng_position: Literal["pre", "post"] | None = None
+    generator_state: torch.Tensor | None = None
+    generator_device_type: str | None = None
 
 
 class Gaussian:
@@ -52,16 +51,23 @@ class Gaussian:
     noise_amplitude : float | Tensor, optional
         Noise amplitude, by default 0.05. If a tensor,
         this must be broadcastable with the input data.
+    generator : torch.Generator, optional
+        Random generator used to sample noise, by default None.
     """
 
-    def __init__(self, noise_amplitude: float | torch.Tensor = 0.05):
+    def __init__(
+        self,
+        noise_amplitude: float | torch.Tensor = 0.05,
+        generator: torch.Generator | None = None,
+    ):
         self.noise_amplitude = (
             noise_amplitude
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor([noise_amplitude])
         )
+        self.generator = generator
         self.checkpoint = bind_checkpoint_state(_GaussianCheckpointState())
-        self._restored_rng_state_id: int | None = None
+        self._restored_generator_state_id: int | None = None
 
     @torch.inference_mode()
     def __call__(
@@ -83,90 +89,69 @@ class Gaussian:
         tuple[torch.Tensor, CoordSystem]:
             Output tensor and respective coordinate system dictionary
         """
-        restored_rng = self._restore_rng_state(x.device)
-        if restored_rng and self.checkpoint.rng_position == "post":
+        generator = self._get_generator(x.device)
+        restored = self._restore_generator_state(generator)
+        if restored and self.checkpoint.checkpoint_state_policy == "direct":
             return x, coords
 
-        pre_rng_state, pre_rng_device_type = _get_rng_state(x.device)
+        pre_state = generator.get_state()
         noise_amplitude = self.noise_amplitude.to(x.device)
-        y = x + noise_amplitude * torch.randn_like(x)
-        post_rng_state, post_rng_device_type = _get_rng_state(x.device)
-        self._save_rng_state(
-            pre_rng_state,
-            pre_rng_device_type,
-            post_rng_state,
-            post_rng_device_type,
+        y = x + noise_amplitude * torch.randn(
+            x.shape, dtype=x.dtype, device=x.device, generator=generator
         )
+        self._save_generator_state(pre_state, generator.get_state(), generator)
         return y, coords
 
-    def _restore_rng_state(self, device: torch.device) -> bool:
+    def _get_generator(self, device: torch.device) -> torch.Generator:
+        if self.generator is None:
+            self.generator = torch.Generator(device=device)
+            self.generator.seed()
+        if self.generator.device.type != device.type:
+            raise RuntimeError(
+                "Gaussian generator is on "
+                f"{self.generator.device.type!r}, but input is on {device.type!r}."
+            )
+        return self.generator
+
+    def _restore_generator_state(self, generator: torch.Generator) -> bool:
         if not self.checkpoint.checkpoint_state_loaded:
-            self._restored_rng_state_id = None
+            self._restored_generator_state_id = None
             return False
-        if self.checkpoint.rng_state is None:
+        if self.checkpoint.generator_state is None:
             return False
-        if self.checkpoint.rng_device_type is None:
+        if self.checkpoint.generator_device_type != generator.device.type:
+            raise RuntimeError(
+                "Gaussian checkpoint generator state was saved for "
+                f"{self.checkpoint.generator_device_type!r}, but input is on "
+                f"{generator.device.type!r}."
+            )
+        state_id = id(self.checkpoint.generator_state)
+        if self._restored_generator_state_id == state_id:
             return False
-        rng_state_id = id(self.checkpoint.rng_state)
-        if self._restored_rng_state_id == rng_state_id:
-            return False
-        _set_rng_state(
-            device, self.checkpoint.rng_device_type, self.checkpoint.rng_state
-        )
-        self._restored_rng_state_id = rng_state_id
+        generator.set_state(self.checkpoint.generator_state.cpu())
+        self._restored_generator_state_id = state_id
         return True
 
-    def _save_rng_state(
+    def _save_generator_state(
         self,
-        pre_rng_state: torch.Tensor | None,
-        pre_rng_device_type: str | None,
-        post_rng_state: torch.Tensor | None,
-        post_rng_device_type: str | None,
+        pre_state: torch.Tensor,
+        post_state: torch.Tensor,
+        generator: torch.Generator,
     ) -> None:
         if not self.checkpoint.checkpoint_enabled:
             return
 
         self.checkpoint.calls += 1
         if self.checkpoint.checkpoint_state_policy == "replay":
-            self.checkpoint.rng_state = pre_rng_state
-            self.checkpoint.rng_device_type = pre_rng_device_type
-            self.checkpoint.rng_position = "pre" if pre_rng_state is not None else None
+            state = pre_state
         elif self.checkpoint.checkpoint_state_policy == "direct":
-            self.checkpoint.rng_state = post_rng_state
-            self.checkpoint.rng_device_type = post_rng_device_type
-            self.checkpoint.rng_position = (
-                "post" if post_rng_state is not None else None
-            )
+            state = post_state
         else:
-            self.checkpoint.rng_state = None
-            self.checkpoint.rng_device_type = None
-            self.checkpoint.rng_position = None
+            state = None
 
-
-def _get_rng_state(device: torch.device) -> tuple[torch.Tensor | None, str | None]:
-    if device.type == "cpu":
-        return torch.get_rng_state(), "cpu"
-    if device.type == "cuda":
-        return torch.cuda.get_rng_state(device).cpu(), "cuda"
-    return None, None
-
-
-def _set_rng_state(
-    device: torch.device, rng_device_type: str, rng_state: torch.Tensor
-) -> None:
-    if rng_device_type != device.type:
-        raise RuntimeError(
-            "Gaussian checkpoint RNG state was saved for "
-            f"{rng_device_type!r}, but perturbation is running on {device.type!r}."
-        )
-    rng_state = rng_state.cpu()
-    if device.type == "cpu":
-        torch.set_rng_state(rng_state)
-    elif device.type == "cuda":
-        torch.cuda.set_rng_state(rng_state, device)
-    else:
-        raise RuntimeError(
-            f"Gaussian checkpoint RNG state does not support {device.type!r} devices."
+        self.checkpoint.generator_state = None if state is None else state.cpu().clone()
+        self.checkpoint.generator_device_type = (
+            None if state is None else generator.device.type
         )
 
 

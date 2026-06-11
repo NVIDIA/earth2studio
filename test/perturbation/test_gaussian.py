@@ -81,48 +81,50 @@ def test_gaussian_checkpoint_state_round_trip(tmp_path):
     x = torch.zeros(2, 3)
     coords = OrderedDict([("batch", []), ("variable", [])])
 
-    torch.manual_seed(123)
-    expected_replay = x + torch.randn_like(x)
+    replay_expected_generator = torch.Generator().manual_seed(123)
+    expected_replay = x + torch.randn(
+        x.shape, dtype=x.dtype, device=x.device, generator=replay_expected_generator
+    )
 
     replay_checkpoint = Checkpoint(
         "gaussian-replay", path=tmp_path / "replay", state_policy="replay"
     )
-    torch.manual_seed(123)
     with replay_checkpoint.select(time="2024-01-01") as ckpt:
-        perturbation = Gaussian(1.0)
+        perturbation = Gaussian(1.0, generator=torch.Generator().manual_seed(123))
         perturbed, _ = perturbation(x, coords)
         assert torch.allclose(perturbed, expected_replay)
         assert perturbation.checkpoint.calls == 1
-        assert perturbation.checkpoint.rng_position == "pre"
+        assert perturbation.checkpoint.generator_state is not None
         ckpt.write(lead_time=np.timedelta64(0, "h"))
 
-    torch.manual_seed(999)
     with replay_checkpoint.select(-1):
-        perturbation = Gaussian(1.0)
+        perturbation = Gaussian(1.0, generator=torch.Generator().manual_seed(999))
         replayed, _ = perturbation(x, coords)
         assert perturbation.checkpoint.checkpoint_state_loaded
         assert torch.allclose(replayed, expected_replay)
         assert perturbation.checkpoint.calls == 2
 
-    torch.manual_seed(456)
-    expected_direct_first = x + torch.randn_like(x)
-    expected_direct_next = x + torch.randn_like(x)
+    direct_expected_generator = torch.Generator().manual_seed(456)
+    expected_direct_first = x + torch.randn(
+        x.shape, dtype=x.dtype, device=x.device, generator=direct_expected_generator
+    )
+    expected_direct_next = x + torch.randn(
+        x.shape, dtype=x.dtype, device=x.device, generator=direct_expected_generator
+    )
 
     direct_checkpoint = Checkpoint(
         "gaussian-direct", path=tmp_path / "direct", state_policy="direct"
     )
-    torch.manual_seed(456)
     with direct_checkpoint.select(time="2024-01-01") as ckpt:
-        perturbation = Gaussian(1.0)
+        perturbation = Gaussian(1.0, generator=torch.Generator().manual_seed(456))
         perturbed, _ = perturbation(x, coords)
         assert torch.allclose(perturbed, expected_direct_first)
         assert perturbation.checkpoint.calls == 1
-        assert perturbation.checkpoint.rng_position == "post"
+        assert perturbation.checkpoint.generator_state is not None
         ckpt.write(lead_time=np.timedelta64(0, "h"))
 
-    torch.manual_seed(999)
     with direct_checkpoint.select(-1):
-        perturbation = Gaussian(1.0)
+        perturbation = Gaussian(1.0, generator=torch.Generator().manual_seed(999))
         resumed, _ = perturbation(x, coords)
         assert perturbation.checkpoint.checkpoint_state_loaded
         assert torch.allclose(resumed, x)
