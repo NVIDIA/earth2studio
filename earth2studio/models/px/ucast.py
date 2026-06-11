@@ -463,10 +463,6 @@ def _load_sst_fill_value(package: Package) -> float:
         return float(_extract_stat(ds, _wb2_name("sst")).item())
 
 
-def _load_checkpoint_path(package: Package) -> str:
-    return package.resolve(UCAST_CHECKPOINT)
-
-
 def _load_ema_state_dict(
     model: torch.nn.Module,
     checkpoint_path: str,
@@ -738,8 +734,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             attn_levels=(2, 3),
             dropout=0.1,
         )
-        checkpoint_path = _load_checkpoint_path(package)
-        _load_ema_state_dict(core_model, checkpoint_path)
+        _load_ema_state_dict(core_model, package.resolve(UCAST_CHECKPOINT))
         core_model.eval()
 
         return cls(
