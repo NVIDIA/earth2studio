@@ -655,11 +655,15 @@ async def managed_session(fs: Any) -> Any:
     session = None
     try:
         if hasattr(fs, "set_session"):
-            session = await fs.set_session(refresh=True)
+            session = await fs.set_session()
         yield session
     finally:
         if session is not None:
             await session.close()
+            # Reset fs._session so the next managed_session call creates a
+            # fresh aiohttp client (fsspec ≥ 2026 removed the refresh= kwarg).
+            if hasattr(fs, "_session"):
+                fs._session = None
 
 
 async def gather_with_concurrency(
