@@ -15,10 +15,8 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from collections.abc import Mapping
 from datetime import datetime
 from math import ceil
-from typing import Any
 
 import numpy as np
 import torch
@@ -126,7 +124,13 @@ def deterministic(
     for key, value in total_coords.items():
         total_coords[key] = output_coords.get(key, value)
     var_names = total_coords.pop("variable")
-    _add_output_array_if_needed(io, total_coords, var_names)
+    missing = list(var_names)
+    try:
+        missing = [name for name in var_names if name not in io]
+    except TypeError:
+        pass
+    if missing:
+        io.add_array(total_coords, missing)
 
     if checkpoint is None:
         checkpoint = NO_CHECKPOINT
@@ -136,8 +140,8 @@ def deterministic(
 
     with checkpoint as ckpt:
         restart_step = None
-        if ckpt.exists:
-            restart_step = _lead_time_index(total_coords["lead_time"], ckpt.lead_time)
+        if ckpt.exists and ckpt.write_count > 0:
+            restart_step = ckpt.write_count - 1
             if restart_step >= nsteps:
                 logger.success("\nInference complete")
                 return io
@@ -169,7 +173,6 @@ def deterministic(
 
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
-        last_coords = coords
         with tqdm(
             total=nsteps + 1,
             initial=initial_progress,
@@ -182,11 +185,11 @@ def deterministic(
                 if restart_step is not None and local_step == 0:
                     continue
 
-                last_coords = coords
+                current_lead_time = coords["lead_time"][-1]
                 # Subselect domain/variables as indicated in output_coords
                 x, coords = map_coords(x, coords, output_coords)
                 io.write(*split_coords(x, coords))
-                ckpt.write(lead_time=_lead_time_from_coords(last_coords))
+                ckpt.write(lead_time=current_lead_time)
                 pbar.update(1)
                 if step == nsteps:
                     break
@@ -195,39 +198,6 @@ def deterministic(
 
     logger.success("\nInference complete")
     return io
-
-
-def _add_output_array_if_needed(
-    io: IOBackend, coords: CoordSystem, var_names: np.ndarray
-) -> None:
-    missing = list(var_names)
-    try:
-        missing = [name for name in var_names if name not in io]
-    except TypeError:
-        pass
-    if missing:
-        io.add_array(coords, missing)
-
-
-def _lead_time_from_coords(coords: Mapping[str, Any]) -> Any | None:
-    if "lead_time" not in coords:
-        return None
-    value = coords["lead_time"]
-    if isinstance(value, np.ndarray) and value.size == 1:
-        return value.reshape(-1)[0]
-    if isinstance(value, torch.Tensor) and value.numel() == 1:
-        return value.detach().cpu().reshape(-1)[0].item()
-    return value
-
-
-def _lead_time_index(lead_times: np.ndarray, lead_time: Any) -> int:
-    value = np.asarray(lead_time).reshape(-1)[0]
-    index = np.where(lead_times == value)[0]
-    if index.shape[0] == 0:
-        raise ValueError(
-            f"Checkpoint lead_time {lead_time} is not in workflow lead_time coordinates."
-        )
-    return int(index[0])
 
 
 # sphinx - diagnostic start
@@ -317,7 +287,13 @@ def diagnostic(
     for key, value in total_coords.items():
         total_coords[key] = output_coords.get(key, value)
     var_names = total_coords.pop("variable")
-    _add_output_array_if_needed(io, total_coords, var_names)
+    missing = list(var_names)
+    try:
+        missing = [name for name in var_names if name not in io]
+    except TypeError:
+        pass
+    if missing:
+        io.add_array(total_coords, missing)
 
     if checkpoint is None:
         checkpoint = NO_CHECKPOINT
@@ -327,8 +303,8 @@ def diagnostic(
 
     with checkpoint as ckpt:
         restart_step = None
-        if ckpt.exists:
-            restart_step = _lead_time_index(total_coords["lead_time"], ckpt.lead_time)
+        if ckpt.exists and ckpt.write_count > 0:
+            restart_step = ckpt.write_count - 1
             if restart_step >= nsteps:
                 logger.success("\nInference complete")
                 return io
@@ -356,7 +332,6 @@ def diagnostic(
 
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
-        last_coords = coords
         with tqdm(
             total=nsteps + 1,
             initial=initial_progress,
@@ -369,12 +344,12 @@ def diagnostic(
                 if restart_step is not None and local_step == 0:
                     continue
 
-                last_coords = coords
+                current_lead_time = coords["lead_time"][-1]
                 x, coords = map_coords(x, coords, diagnostic_ic)
                 x, coords = diagnostic(x, coords)
                 x, coords = map_coords(x, coords, output_coords)
                 io.write(*split_coords(x, coords))
-                ckpt.write(lead_time=_lead_time_from_coords(last_coords))
+                ckpt.write(lead_time=current_lead_time)
                 pbar.update(1)
                 if step == nsteps:
                     break
@@ -488,7 +463,13 @@ def ensemble(
     for key, value in total_coords.items():
         total_coords[key] = output_coords.get(key, value)
     variables_to_save = total_coords.pop("variable")
-    _add_output_array_if_needed(io, total_coords, variables_to_save)
+    missing = list(variables_to_save)
+    try:
+        missing = [name for name in variables_to_save if name not in io]
+    except TypeError:
+        pass
+    if missing:
+        io.add_array(total_coords, missing)
 
     if batch_size is None:
         batch_size = nensemble
@@ -519,10 +500,8 @@ def ensemble(
 
         with batch_checkpoint as ckpt:
             restart_step = None
-            if ckpt.exists:
-                restart_step = _lead_time_index(
-                    total_coords["lead_time"], ckpt.lead_time
-                )
+            if ckpt.exists and ckpt.write_count > 0:
+                restart_step = ckpt.write_count - 1
                 if restart_step >= nsteps:
                     continue
 
@@ -534,7 +513,6 @@ def ensemble(
 
             model = prognostic.create_iterator(x, coords)
             initial_progress = 0 if restart_step is None else restart_step + 1
-            last_coords = coords
             with tqdm(
                 total=nsteps + 1,
                 initial=initial_progress,
@@ -552,10 +530,10 @@ def ensemble(
                     if restart_step is not None and local_step == 0:
                         continue
 
-                    last_coords = coords
+                    current_lead_time = coords["lead_time"][-1]
                     x, coords = map_coords(x, coords, output_coords)
                     io.write(*split_coords(x, coords))
-                    ckpt.write(lead_time=_lead_time_from_coords(last_coords))
+                    ckpt.write(lead_time=current_lead_time)
                     pbar.update(1)
                     if step == nsteps:
                         break
