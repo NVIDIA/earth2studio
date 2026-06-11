@@ -708,7 +708,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load the default package for the U-CAST model."""
         package = Package(
-            "hf://salv47/u-cast@refs%2Fpr%2F1",
+            "hf://salv47/u-cast@775f2974b52b5beb8945ac3c60212ca25e0a13f5",
             cache_options={
                 "cache_storage": Package.default_cache("ucast"),
                 "same_names": True,
