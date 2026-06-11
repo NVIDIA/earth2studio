@@ -27,7 +27,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import xarray as xr
-from huggingface_hub import hf_hub_download
 from loguru import logger
 
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -54,7 +53,6 @@ VARIABLES += [f"v{level}" for level in LEVELS]
 VARIABLES += [f"w{level}" for level in LEVELS]
 
 STATIC_FIELDS = ["land_sea_mask", "geopotential_at_surface"]
-UCAST_REPO = "salv47/u-cast"
 UCAST_CHECKPOINT = "ucast.ckpt"
 UCAST_WB2_DATASET = (
     "gs://weatherbench2/datasets/era5/"
@@ -466,14 +464,7 @@ def _load_sst_fill_value(package: Package) -> float:
 
 
 def _load_checkpoint_path(package: Package) -> str:
-    if package.fs.exists(os.path.join(package.root, UCAST_CHECKPOINT)):
-        return package.resolve(UCAST_CHECKPOINT)
-
-    return hf_hub_download(
-        repo_id=UCAST_REPO,
-        filename=UCAST_CHECKPOINT,
-        cache_dir=Package.default_cache("ucast/huggingface"),
-    )
+    return package.resolve(UCAST_CHECKPOINT)
 
 
 def _load_ema_state_dict(
@@ -642,6 +633,8 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     region:global class:mrf product:wind product:temp product:atmos year:2026 gpu:40gb ensemble
     """
 
+    DT = np.timedelta64(12, "h")
+
     def __init__(
         self,
         model: torch.nn.Module,
@@ -670,11 +663,9 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
-                "lead_time": np.array(
-                    [np.timedelta64(-12, "h"), np.timedelta64(0, "h")]
-                ),
+                "lead_time": np.array([-self.DT, np.timedelta64(0, "h")]),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 121, endpoint=True),
+                "lat": np.linspace(90, -90, 121),
                 "lon": np.linspace(0, 360, 240, endpoint=False),
             }
         )
@@ -682,9 +673,9 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(12, "h")]),
+                "lead_time": np.array([self.DT]),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 121, endpoint=True),
+                "lat": np.linspace(90, -90, 121),
                 "lon": np.linspace(0, 360, 240, endpoint=False),
             }
         )
@@ -830,9 +821,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         model_input = torch.cat([x_norm[:, 0], x_norm[:, 1]], dim=1)
 
-        target_times = (
-            coords["time"] + coords["lead_time"][-1] + np.timedelta64(12, "h")
-        )
+        target_times = coords["time"] + coords["lead_time"][-1] + self.DT
         forcing = _compute_forcings(target_times, coords["lon"], n_lat).to(
             device=x.device,
             dtype=x.dtype,
@@ -895,7 +884,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
         self.output_coords(coords)
 
