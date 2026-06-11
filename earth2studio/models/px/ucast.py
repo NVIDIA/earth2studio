@@ -879,7 +879,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+    ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         coords = coords.copy()
         self.output_coords(coords)
 
