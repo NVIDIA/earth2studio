@@ -74,6 +74,17 @@ LEVELS = [
 
 MDL_LEVELS = np.arange(1, 138)
 
+ACCUMULATION_6H_VARIABLES = {
+    "cp06",
+    "ro",
+    "ro06",
+    "sf",
+    "sf06",
+    "ssrd06",
+    "strd06",
+    "tp06",
+}
+
 
 class ARCOLexicon(metaclass=LexiconType):
     """ARCO Lexicon
@@ -110,9 +121,11 @@ class ARCOLexicon(metaclass=LexiconType):
         "mcc": "medium_cloud_cover::",
         "mwp": "mean_wave_period::",
         "ro": "runoff::",
+        "ro06": "runoff::",
         "sd": "snow_depth::",
         "sdor": "standard_deviation_of_orography::",
         "sf": "snowfall::",
+        "sf06": "snowfall::",
         "sin_mwd": "mean_wave_direction::",
         "slor": "slope_of_sub_gridscale_orography::",
         "ssrd06": "surface_solar_radiation_downwards::",

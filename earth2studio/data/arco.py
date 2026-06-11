@@ -40,6 +40,7 @@ from earth2studio.data.utils import (
     prep_data_inputs,
 )
 from earth2studio.lexicon import ARCOLexicon
+from earth2studio.lexicon.arco import ACCUMULATION_6H_VARIABLES
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
@@ -312,9 +313,22 @@ class ARCO:
                 xr_array[time_idx, var_idx] = modifier(data)
         elif len(shape) == 3:
             # surface variable
-            data = await zarr_array.getitem(time_index)
+            data = None
             for var_name, var_idx, level, modifier in var_entries:
-                xr_array[time_idx, var_idx] = modifier(data)
+                if self._is_6h_accumulation(var_name):
+                    start_index = time_index - 5
+                    if start_index < 0:
+                        raise ValueError(
+                            f"Cannot compute 6-hour accumulation for {var_name} at {t}"
+                        )
+                    accumulated = await zarr_array.getitem(
+                        slice(start_index, time_index + 1)
+                    )
+                    xr_array[time_idx, var_idx] = modifier(np.sum(accumulated, axis=0))
+                else:
+                    if data is None:
+                        data = await zarr_array.getitem(time_index)
+                    xr_array[time_idx, var_idx] = modifier(data)
         else:
             # atmospheric variable : fetch all needed levels at once
             level_indices = []
@@ -373,8 +387,17 @@ class ARCO:
             output = modifier(data)
         # Surface variable
         elif len(shape) == 3:
-            data = await zarr_array.getitem(time_index)
-            output = modifier(data)
+            if self._is_6h_accumulation(variable):
+                start_index = time_index - 5
+                if start_index < 0:
+                    raise ValueError(
+                        f"Cannot compute 6-hour accumulation for {variable} at {time}"
+                    )
+                data = await zarr_array.getitem(slice(start_index, time_index + 1))
+                output = modifier(np.sum(data, axis=0))
+            else:
+                data = await zarr_array.getitem(time_index)
+                output = modifier(data)
         # Atmospheric variable
         else:
             # Load levels coordinate system from Zarr store and check
@@ -444,6 +467,11 @@ class ARCO:
         start_date = datetime(year=1900, month=1, day=1)
         duration = time - start_date
         return int(divmod(duration.total_seconds(), 3600)[0])
+
+    @classmethod
+    def _is_6h_accumulation(cls, variable: str) -> bool:
+        """Check if a variable should sum six hourly ARCO fields."""
+        return variable in ACCUMULATION_6H_VARIABLES
 
     @classmethod
     def _is_mdl_level(cls, variable: str) -> bool:

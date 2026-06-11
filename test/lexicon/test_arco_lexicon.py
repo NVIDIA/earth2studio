@@ -19,6 +19,7 @@ import pytest
 import torch
 
 from earth2studio.lexicon import ARCOLexicon
+from earth2studio.lexicon.arco import ACCUMULATION_6H_VARIABLES
 from earth2studio.lexicon.base import E2STUDIO_VOCAB
 
 
@@ -29,7 +30,7 @@ from earth2studio.lexicon.base import E2STUDIO_VOCAB
         ["u10m", "v200"],
         ["hcc", "z500", "q700"],
         ["sdor", "slor", "tcw", "tp06"],
-        ["stl1", "swvl2", "ssrd06", "strd06", "ro"],
+        ["stl1", "swvl2", "ssrd06", "strd06", "ro06", "sf06"],
         ["cdww", "mwp", "swh", "wmb"],
     ],
 )
@@ -52,8 +53,10 @@ def test_arco_lexicon(variable, device):
         ("lcc", "low_cloud_cover::"),
         ("mcc", "medium_cloud_cover::"),
         ("ro", "runoff::"),
+        ("ro06", "runoff::"),
         ("sdor", "standard_deviation_of_orography::"),
         ("sf", "snowfall::"),
+        ("sf06", "snowfall::"),
         ("slor", "slope_of_sub_gridscale_orography::"),
         ("ssrd06", "surface_solar_radiation_downwards::"),
         ("stl1", "soil_temperature_level_1::"),
@@ -80,9 +83,11 @@ def test_new_arco_aliases_are_in_base_vocab():
         "mcc",
         "mwp",
         "ro",
+        "ro06",
         "sd",
         "sdor",
         "sf",
+        "sf06",
         "sin_mwd",
         "slor",
         "ssrd06",
@@ -99,6 +104,19 @@ def test_new_arco_aliases_are_in_base_vocab():
     ]
 
     assert not set(aliases) - set(E2STUDIO_VOCAB)
+
+
+def test_arco_accumulation_aliases():
+    assert {
+        "cp06",
+        "ro",
+        "ro06",
+        "sf",
+        "sf06",
+        "ssrd06",
+        "strd06",
+        "tp06",
+    } <= ACCUMULATION_6H_VARIABLES
 
 
 def test_arco_wave_direction_modifiers():
