@@ -206,14 +206,14 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         "stl2",
         "ssrd06",
         "strd06",
-        "sf",
+        "sf06",
         "tcc",
         "mcc",
         "hcc",
         "lcc",
         "u100m",
         "v100m",
-        "ro",
+        "ro06",
     ]
     VARIABLE_INVARIANTS = ["lsm", "sdor", "slor", "z"]
     VARIABLE_FORCINGS = [
@@ -494,6 +494,8 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         }
         accum_6h_map = {
             "cp": "cp06",
+            "ro": "ro06",
+            "sf": "sf06",
             "tp": "tp06",
             "ssrd": "ssrd06",
             "strd": "strd06",

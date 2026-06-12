@@ -40,6 +40,7 @@ from earth2studio.data.utils import (
     prep_data_inputs,
 )
 from earth2studio.lexicon import ARCOLexicon
+from earth2studio.lexicon.arco import ACCUMULATION_HOURS
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
@@ -312,9 +313,24 @@ class ARCO:
                 xr_array[time_idx, var_idx] = modifier(data)
         elif len(shape) == 3:
             # surface variable
-            data = await zarr_array.getitem(time_index)
+            data = None
             for var_name, var_idx, level, modifier in var_entries:
-                xr_array[time_idx, var_idx] = modifier(data)
+                accumulation_hours = ACCUMULATION_HOURS.get(var_name)
+                # Sum hourly ARCO fields to support cumulative variables.
+                if accumulation_hours is not None:
+                    start_index = time_index - accumulation_hours + 1
+                    if start_index < 0:
+                        raise ValueError(
+                            f"Cannot compute {accumulation_hours}-hour accumulation for {var_name} at {t}"
+                        )
+                    accumulated = await zarr_array.getitem(
+                        slice(start_index, time_index + 1)
+                    )
+                    xr_array[time_idx, var_idx] = modifier(np.sum(accumulated, axis=0))
+                else:
+                    if data is None:
+                        data = await zarr_array.getitem(time_index)
+                    xr_array[time_idx, var_idx] = modifier(data)
         else:
             # atmospheric variable : fetch all needed levels at once
             level_indices = []
@@ -373,8 +389,19 @@ class ARCO:
             output = modifier(data)
         # Surface variable
         elif len(shape) == 3:
-            data = await zarr_array.getitem(time_index)
-            output = modifier(data)
+            accumulation_hours = ACCUMULATION_HOURS.get(variable)
+            # Sum hourly ARCO fields to support cumulative variables.
+            if accumulation_hours is not None:
+                start_index = time_index - accumulation_hours + 1
+                if start_index < 0:
+                    raise ValueError(
+                        f"Cannot compute {accumulation_hours}-hour accumulation for {variable} at {time}"
+                    )
+                data = await zarr_array.getitem(slice(start_index, time_index + 1))
+                output = modifier(np.sum(data, axis=0))
+            else:
+                data = await zarr_array.getitem(time_index)
+                output = modifier(data)
         # Atmospheric variable
         else:
             # Load levels coordinate system from Zarr store and check
