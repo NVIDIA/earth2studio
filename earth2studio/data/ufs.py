@@ -757,9 +757,10 @@ class UFSObsSat(_UFSObsBase):
                         day = day + timedelta(hours=6)
         return tasks
 
-    def _handle_missing_file(self, path: str) -> None:
+    def _handle_missing_file(self, key: str) -> None:
         """Satellite data may have missing platforms, just warn instead of error."""
-        logger.warning(f"File {path} not found")
+        uri = f"s3://{self.UFS_BUCKET}/{key}"
+        logger.warning(f"File {uri} not found")
 
     def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
         """Build column map, always including Channel_Index for channel-indexed fields."""
