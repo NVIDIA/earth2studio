@@ -47,7 +47,7 @@ class _GSIAsyncTask:
     datetime_file: datetime
     datetime_max: datetime
     datetime_min: datetime
-    gsi_file_uri: str
+    gsi_obs_key: str
     gsi_modifier: Callable
     gsi_obs_name: str
     e2s_obs_name: str
@@ -79,8 +79,13 @@ class _UFSObsBase:
         self._max_workers = max_workers
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
-        # Anonymous obstore S3 stores, cached per bucket (created lazily).
-        self._stores: dict[str, S3Store] = {}
+        # Anonymous obstore S3 store for the public NOAA UFS replay bucket.
+        self._store = S3Store(
+            self.UFS_BUCKET,
+            region=self._region,
+            skip_signature=True,
+            client_options={"pool_max_idle_per_host": str(self._max_workers)},
+        )
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
@@ -88,17 +93,6 @@ class _UFSObsBase:
 
     # NOAA UFS GEFSv13 replay archive is a public bucket in us-east-1.
     _region = "us-east-1"
-
-    def _store(self, bucket: str) -> S3Store:
-        """Return a cached anonymous obstore S3Store for ``bucket``."""
-        if bucket not in self._stores:
-            self._stores[bucket] = S3Store(
-                bucket,
-                region=self._region,
-                skip_signature=True,
-                client_options={"pool_max_idle_per_host": str(self._max_workers)},
-            )
-        return self._stores[bucket]
 
     def __call__(
         self,
@@ -134,15 +128,14 @@ class _UFSObsBase:
         fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
         """Async function to get data."""
-        # obstore S3 stores are created lazily per bucket in _fetch_remote_file.
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
         schema = self.resolve_fields(fields)
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         async_tasks = self._create_tasks(time_list, variable_list)
-        file_uri_set = {task.gsi_file_uri for task in async_tasks}
-        fetch_jobs = [self._fetch_remote_file(uri) for uri in file_uri_set]
+        file_key_set = {task.gsi_obs_key for task in async_tasks}
+        fetch_jobs = [self._fetch_remote_file(key) for key in file_key_set]
         await tqdm.gather(
             *fetch_jobs, desc="Fetching GSI files", disable=(not self._verbose)
         )
@@ -159,50 +152,44 @@ class _UFSObsBase:
 
     async def _fetch_remote_file(
         self,
-        path: str,
+        key: str,
         byte_offset: int = 0,
         byte_length: int | None = None,
     ) -> None:
-        """Fetches remote file into cache.
+        """Fetches a remote object (by key within UFS_BUCKET) into cache.
 
         Parameters
         ----------
-        path : str
-            S3 URI to fetch
+        key : str
+            Object key within UFS_BUCKET to fetch
         byte_offset : int, optional
             Byte offset to start reading from, by default 0
         byte_length : int | None, optional
             Number of bytes to read, by default None (read all)
         """
-        cache_path = self.cache_path(path, byte_offset, byte_length)
+        cache_path = self.cache_path(key, byte_offset, byte_length)
         if pathlib.Path(cache_path).is_file():
             return
 
-        # path is an S3 URI ("bucket/key" or "s3://bucket/key"); split into
-        # bucket + key for the per-bucket obstore store.
-        key = path[5:] if path.startswith("s3://") else path
-        bucket, _, object_key = key.partition("/")
-        store = self._store(bucket)
+        store = self._store
         try:
             if byte_length:
                 result = await obs.get_range_async(
-                    store, object_key, start=byte_offset, end=byte_offset + byte_length
+                    store, key, start=byte_offset, end=byte_offset + byte_length
                 )
             else:
-                response = await obs.get_async(store, object_key)
+                response = await obs.get_async(store, key)
                 result = await response.bytes_async()
-            data = result.to_bytes() if hasattr(result, "to_bytes") else bytes(result)
             with open(cache_path, "wb") as file:
-                file.write(data)
+                file.write(bytes(result))
         except (FileNotFoundError, obs.exceptions.NotFoundError):
-            self._handle_missing_file(path)
-        except Exception as err:
-            raise
+            self._handle_missing_file(key)
 
-    def _handle_missing_file(self, path: str) -> None:
+    def _handle_missing_file(self, key: str) -> None:
         """Handle missing file during fetch. Can be overridden by subclasses."""
-        logger.error(f"File {path} not found")
-        raise FileNotFoundError(f"File {path} not found")
+        uri = f"s3://{self.UFS_BUCKET}/{key}"
+        logger.error(f"File {uri} not found")
+        raise FileNotFoundError(f"File {uri} not found")
 
     def _compile_dataframe(
         self,
@@ -227,9 +214,12 @@ class _UFSObsBase:
             # Overwrite obs column name (needed for uv)
             column_map = self._build_column_map(schema)
             column_map[task.gsi_obs_name] = "observation"
-            local_path = self.cache_path(task.gsi_file_uri)
+            local_path = self.cache_path(task.gsi_obs_key)
             if not pathlib.Path(local_path).is_file():
-                logger.warning("Cached file missing for {}", task.gsi_file_uri)
+                logger.warning(
+                    "Cached file missing for {}",
+                    f"s3://{self.UFS_BUCKET}/{task.gsi_obs_key}",
+                )
                 continue
             try:
                 with h5netcdf.File(local_path, "r") as ds:
@@ -536,13 +526,13 @@ class UFSObsConv(_UFSObsBase):
                     year_key = day.strftime("%Y")
                     month_key = day.strftime("%m")
                     datetime_key = day.strftime("%Y%m%d%H")
-                    s3_uri = f"s3://{self.UFS_BUCKET}/{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_platform}_{gsi_sensor}_{gsi_product}.{datetime_key}_control.nc4"
+                    obs_key = f"{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_platform}_{gsi_sensor}_{gsi_product}.{datetime_key}_control.nc4"
                     tasks.append(
                         _GSIAsyncTask(
                             datetime_file=day,
                             datetime_min=tmin,
                             datetime_max=tmax,
-                            gsi_file_uri=s3_uri,
+                            gsi_obs_key=obs_key,
                             gsi_modifier=modifier,
                             gsi_obs_name=gsi_name,
                             e2s_obs_name=v,
@@ -751,13 +741,13 @@ class UFSObsSat(_UFSObsBase):
                         year_key = day.strftime("%Y")
                         month_key = day.strftime("%m")
                         datetime_key = day.strftime("%Y%m%d%H")
-                        s3_uri = f"s3://{self.UFS_BUCKET}/{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_sensor}_{gsi_platform}_{gsi_product}.{datetime_key}_control.nc4"
+                        obs_key = f"{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_sensor}_{gsi_platform}_{gsi_product}.{datetime_key}_control.nc4"
                         tasks.append(
                             _GSIAsyncTask(
                                 datetime_file=day,
                                 datetime_min=tmin,
                                 datetime_max=tmax,
-                                gsi_file_uri=s3_uri,
+                                gsi_obs_key=obs_key,
                                 gsi_modifier=modifier,
                                 gsi_obs_name=gsi_name,
                                 e2s_obs_name=v,
