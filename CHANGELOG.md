@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- UFS GSI observation sources (`UFSObsConv`, `UFSObsSat`) now fetch from S3 via native `obstore` instead of `s3fs` to avoid the Python-GIL bottleneck that caps fsspec's concurrent S3 read throughput (~22% faster obs fetch, ~20% HealDA e2e on B200; output unchanged).
 - Automatic test skipping for missing optional dependencies via
   `pytest_ignore_collect` hook in `test/conftest.py`
 
