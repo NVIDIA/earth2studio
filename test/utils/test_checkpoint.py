@@ -58,7 +58,7 @@ class ToyState:
     )
     timestamp: np.datetime64 = np.datetime64("2026-06-08T00", "h")
     delta: np.timedelta64 = np.timedelta64(0, "h")
-    device: torch.device = torch.device("cpu")
+    tensor_device: torch.device = torch.device("cpu")
     dtype: torch.dtype = torch.float32
     np_dtype: np.dtype = np.dtype("float32")
     created: datetime = datetime(2024, 1, 1, tzinfo=timezone.utc)
@@ -100,6 +100,7 @@ class RestartablePersistence(Persistence):
         self.used_hydrated_state = False
 
     def create_iterator(self, x, coords):
+        restored = False
         if (
             self.checkpoint.checkpoint_state_loaded
             and self.checkpoint.x is not None
@@ -107,6 +108,7 @@ class RestartablePersistence(Persistence):
         ):
             self.used_hydrated_state = True
             x = self.checkpoint.x.to(x.device)
+            restored = True
             coords = OrderedDict(
                 (key, np.asarray(value).copy())
                 for key, value in zip(
@@ -114,12 +116,15 @@ class RestartablePersistence(Persistence):
                 )
             )
 
-        for x_out, coords_out in super().create_iterator(x, coords):
+        iterator = super().create_iterator(x, coords)
+        if restored:
+            next(iterator)
+        for x_out, coords_out in iterator:
             if (
                 self.checkpoint.checkpoint_enabled
-                and self.checkpoint.checkpoint_state_policy == "direct"
+                and self.checkpoint.checkpoint_state_policy == "full"
             ):
-                self.checkpoint.x = x_out.detach().cpu()
+                self.checkpoint.x = x_out.detach().to(self.checkpoint.device)
                 self.checkpoint.coord_keys = tuple(coords_out.keys())
                 self.checkpoint.coord_values = tuple(
                     np.asarray(value).copy() for value in coords_out.values()
@@ -153,20 +158,30 @@ def test_checkpoint_state_proxy_metadata_and_rebinding(tmp_path):
     proxy = CheckpointState(ToyState())
     assert repr(proxy) == repr(proxy.checkpoint_dataclass)
     assert proxy.checkpoint_state_policy == "minimal"
+    assert proxy.checkpoint_device == torch.device("cpu")
+    assert proxy.device == torch.device("cpu")
     assert proxy.checkpoint_flush_interval is None
     assert proxy.checkpoint_write_count == 0
     assert not proxy.checkpoint_is_flush_due
     assert proxy.checkpoint_lead_time is None
     assert proxy.checkpoint_labels == {}
     assert not proxy.checkpoint_state_loaded
+    with pytest.raises(AttributeError):
+        proxy.device = torch.device("cpu")
     assert NO_CHECKPOINT.labels == {}
     assert NO_CHECKPOINT.write_count == 0
     assert not NO_CHECKPOINT.is_active
+    assert NO_CHECKPOINT.device == torch.device("cpu")
 
-    checkpoint = Checkpoint("forecast", path=tmp_path, flush_interval=None)
+    checkpoint = Checkpoint(
+        "forecast", path=tmp_path, flush_interval=None, device="cpu"
+    )
+    assert checkpoint.device == torch.device("cpu")
     with checkpoint.select(time="2024-01-01") as ckpt:
         rebound = bind_checkpoint_state(proxy)
         assert rebound is proxy
+        assert ckpt.device == torch.device("cpu")
+        assert proxy.device == torch.device("cpu")
         assert bind_checkpoint_state(proxy) is proxy
         assert ckpt.is_active
         assert proxy.checkpoint_labels == {"time": "2024-01-01"}
@@ -254,7 +269,7 @@ def test_bind_round_trip_hydrates_dataclass_and_catalog(tmp_path):
             restored.weights, np.asarray([3.0, 4.0], dtype=np.float32)
         )
         assert restored.delta == np.timedelta64(6, "h")
-        assert restored.device == torch.device("cpu")
+        assert restored.tensor_device == torch.device("cpu")
         assert restored.dtype == torch.float32
         assert restored.np_dtype == np.dtype("float32")
         assert restored.created == datetime(2024, 1, 1, tzinfo=timezone.utc)
@@ -338,7 +353,7 @@ def test_append_keep_last_and_positional_selection(tmp_path):
 
 def test_bind_before_new_session_is_adopted_on_enter(tmp_path):
     checkpoint = Checkpoint(
-        "forecast", path=tmp_path, flush_interval=2, state_policy="replay"
+        "forecast", path=tmp_path, flush_interval=2, state_policy="state"
     )
 
     dataclass_state = ToyState()
@@ -347,10 +362,10 @@ def test_bind_before_new_session_is_adopted_on_enter(tmp_path):
     assert state.checkpoint_dataclass is dataclass_state
     assert bind_checkpoint_state(dataclass_state) is state
     assert state.checkpoint_enabled
-    assert state.checkpoint_state_policy == "replay"
+    assert state.checkpoint_state_policy == "state"
     assert state.checkpoint_flush_interval == 2
     with pytest.raises(AttributeError):
-        state.checkpoint_state_policy = "direct"
+        state.checkpoint_state_policy = "full"
     state.calls = 5
 
     with checkpoint.select(time="2024-01-01") as ckpt:
@@ -411,6 +426,14 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
         Checkpoint("bad", path=tmp_path, keep_last=0)
     with pytest.raises(ValueError):
         Checkpoint("bad", path=tmp_path, state_policy="bad")
+    assert (
+        Checkpoint("legacy-replay", path=tmp_path, state_policy="replay").state_policy
+        == "state"
+    )
+    assert (
+        Checkpoint("legacy-direct", path=tmp_path, state_policy="direct").state_policy
+        == "full"
+    )
 
     checkpoint = Checkpoint("forecast", path=tmp_path / "catalog", mode="append")
     assert "catalog: empty" in repr(checkpoint)

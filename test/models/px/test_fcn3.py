@@ -182,7 +182,7 @@ def test_fcn3_checkpoint_state_round_trip_with_phoo_model(tmp_path):
     variables = np.array(["u10m"])
     time = np.array([np.datetime64("1993-04-05T00:00")])
     checkpoint = Checkpoint(
-        "fcn3", path=tmp_path / "fcn3", flush_interval=1, state_policy="direct"
+        "fcn3", path=tmp_path / "fcn3", flush_interval=2, state_policy="full"
     )
 
     torch.manual_seed(123)
@@ -208,10 +208,12 @@ def test_fcn3_checkpoint_state_round_trip_with_phoo_model(tmp_path):
 
     with checkpoint.select(time=time) as ckpt:
         iterator = p.create_iterator(x, coords)
-        next(iterator)
+        _, initial_coords = next(iterator)
+        ckpt.write(lead_time=initial_coords["lead_time"])
         step1, step1_coords = next(iterator)
         ckpt.write(lead_time=step1_coords["lead_time"])
         step2, step2_coords = next(iterator)
+        step3, step3_coords = next(iterator)
 
     torch.manual_seed(999)
     with checkpoint.select(-1):
@@ -222,13 +224,13 @@ def test_fcn3_checkpoint_state_round_trip_with_phoo_model(tmp_path):
         assert resumed.checkpoint.checkpoint_state_loaded
 
         resumed_iterator = resumed.create_iterator(torch.full_like(x, -100.0), coords)
-        restored_step1, restored_step1_coords = next(resumed_iterator)
         resumed_step2, resumed_step2_coords = next(resumed_iterator)
+        resumed_step3, resumed_step3_coords = next(resumed_iterator)
 
-    assert torch.allclose(restored_step1, step1)
     assert torch.allclose(resumed_step2, step2)
-    assert restored_step1_coords["lead_time"][0] == step1_coords["lead_time"][0]
+    assert torch.allclose(resumed_step3, step3)
     assert resumed_step2_coords["lead_time"][0] == step2_coords["lead_time"][0]
+    assert resumed_step3_coords["lead_time"][0] == step3_coords["lead_time"][0]
 
 
 @pytest.mark.parametrize(

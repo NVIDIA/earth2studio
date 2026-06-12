@@ -323,7 +323,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> tuple[torch.Tensor, CoordSystem, bool]:
         if not self.checkpoint.checkpoint_state_loaded:
             return x, coords, False
-        if self.checkpoint.checkpoint_state_policy != "direct":
+        if self.checkpoint.checkpoint_state_policy != "full":
             return x, coords, False
         if self.checkpoint.x is None or not self.checkpoint.coord_keys:
             return x, coords, False
@@ -331,7 +331,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             raise RuntimeError("FCN3 checkpoint coordinate state is incomplete.")
         if not self.checkpoint.internal_noise_states:
             raise RuntimeError(
-                "FCN3 checkpoint is missing internal noise state required for direct restart."
+                "FCN3 checkpoint is missing internal noise state required for full restart."
             )
 
         restored_x = self.checkpoint.x.to(x.device)
@@ -358,22 +358,27 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _save_checkpoint_state(self, x: torch.Tensor, coords: CoordSystem) -> None:
         if not self.checkpoint.checkpoint_enabled:
             return
-        if self.checkpoint.checkpoint_state_policy != "direct":
+        if self.checkpoint.checkpoint_state_policy != "full":
             self.checkpoint.x = None
             self.checkpoint.coord_keys = ()
             self.checkpoint.coord_values = ()
             self.checkpoint.internal_noise_states = ()
             return
 
-        self.checkpoint.x = x.detach().cpu().clone()
+        def checkpoint_tensor(tensor: torch.Tensor) -> torch.Tensor:
+            tensor = tensor.detach()
+            if tensor.device == self.checkpoint.device:
+                return tensor.clone()
+            return tensor.to(self.checkpoint.device)
+
+        self.checkpoint.x = checkpoint_tensor(x)
         self.checkpoint.coord_keys = tuple(coords.keys())
         self.checkpoint.coord_values = tuple(
             np.asarray(value).copy() for value in coords.values()
         )
         self.checkpoint.internal_noise_states = tuple(
             tuple(
-                None if state is None else state.detach().cpu().clone()
-                for state in states
+                None if state is None else checkpoint_tensor(state) for state in states
             )
             for states in getattr(self, "_internal_noise_states", ())
         )
@@ -462,6 +467,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 self._set_internal_state(j, i)
 
         x = x.unsqueeze(2)
+        self._save_checkpoint_state(x, output_coords)
         return x, output_coords
 
     @batch_func()
@@ -488,10 +494,8 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if not restored:
             # Initialize the internal noise states for each batch and time.
             self._reset_internal_state(len(coords["batch"]), len(coords["time"]))
-            x, coords = self._forward(x, coords)
 
-        self._save_checkpoint_state(x, coords)
-        return x, coords
+        return self._forward(x, coords)
 
     @batch_func()
     def _default_generator(
@@ -504,18 +508,16 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if not restored:
             # Initialize the internal noise states for each batch and time.
             self._reset_internal_state(len(coords["batch"]), len(coords["time"]))
+            self._save_checkpoint_state(x, coords)
+            yield x, coords
 
-        # Yield the initial condition or selected direct checkpoint boundary.
-        self._save_checkpoint_state(x, coords)
-        yield x, coords
         while True:
             # Front hook
             x, coords = self.front_hook(x, coords)
-            # Advance FCN3 one forecast step.
+            # Advance FCN3 one forecast step. Restored checkpoints resume here.
             x, coords = self._forward(x, coords)
             # Rear hook
             x, coords = self.rear_hook(x, coords)
-            self._save_checkpoint_state(x, coords)
             yield x, coords.copy()
 
     def create_iterator(

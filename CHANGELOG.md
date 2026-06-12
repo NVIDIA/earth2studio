@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sessions and idempotent final flushes
 - Deterministic checkpoint resume now leaves restart-state restoration to the
   prognostic iterator after fetching the normal initial condition
+- Renamed checkpoint state policies to `minimal`, `state`, and `full`, with
+  legacy `replay` and `direct` aliases preserved
 - Automatic test skipping for missing optional dependencies via
   `pytest_ignore_collect` hook in `test/conftest.py`
 

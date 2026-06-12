@@ -129,12 +129,14 @@ class RestartablePersistence(Persistence):
         self.restart = bind_checkpoint_state(PersistenceRestartState())
 
     def create_iterator(self, x, coords):
+        restored = False
         if (
             self.restart.checkpoint_state_loaded
             and self.restart.x is not None
             and self.restart.coord_keys
         ):
             x = self.restart.x.to(x.device)
+            restored = True
             coords = OrderedDict(
                 (key, np.asarray(value).copy())
                 for key, value in zip(
@@ -142,12 +144,15 @@ class RestartablePersistence(Persistence):
                 )
             )
 
-        for x_out, coords_out in super().create_iterator(x, coords):
+        iterator = super().create_iterator(x, coords)
+        if restored:
+            next(iterator)
+        for x_out, coords_out in iterator:
             if (
                 self.restart.checkpoint_enabled
-                and self.restart.checkpoint_state_policy == "direct"
+                and self.restart.checkpoint_state_policy == "full"
             ):
-                self.restart.x = x_out.detach().cpu()
+                self.restart.x = x_out.detach().to(self.restart.device)
                 self.restart.coord_keys = tuple(coords_out.keys())
                 self.restart.coord_values = tuple(
                     np.asarray(value).copy() for value in coords_out.values()

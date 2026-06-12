@@ -181,9 +181,11 @@ def deterministic(
             disable=(not verbose),
         ) as pbar:
             for local_step, (x, coords) in enumerate(model):
-                step = local_step if restart_step is None else restart_step + local_step
-                if restart_step is not None and local_step == 0:
-                    continue
+                step = (
+                    local_step
+                    if restart_step is None
+                    else restart_step + local_step + 1
+                )
 
                 current_lead_time = coords["lead_time"][-1]
                 # Subselect domain/variables as indicated in output_coords
@@ -340,9 +342,11 @@ def diagnostic(
             disable=(not verbose),
         ) as pbar:
             for local_step, (x, coords) in enumerate(model):
-                step = local_step if restart_step is None else restart_step + local_step
-                if restart_step is not None and local_step == 0:
-                    continue
+                step = (
+                    local_step
+                    if restart_step is None
+                    else restart_step + local_step + 1
+                )
 
                 current_lead_time = coords["lead_time"][-1]
                 x, coords = map_coords(x, coords, diagnostic_ic)
@@ -525,10 +529,8 @@ def ensemble(
                     step = (
                         local_step
                         if restart_step is None
-                        else restart_step + local_step
+                        else restart_step + local_step + 1
                     )
-                    if restart_step is not None and local_step == 0:
-                        continue
 
                     current_lead_time = coords["lead_time"][-1]
                     x, coords = map_coords(x, coords, output_coords)

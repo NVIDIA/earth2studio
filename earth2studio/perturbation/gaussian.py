@@ -128,10 +128,10 @@ class Gaussian:
         ):
             return
 
-        if self.checkpoint.checkpoint_state_policy == "replay":
+        if self.checkpoint.checkpoint_state_policy == "state":
             self.checkpoint.generator_state = pre_state.cpu().clone()
             self.checkpoint.generator_device_type = generator.device.type
-        elif self.checkpoint.checkpoint_state_policy == "direct":
+        elif self.checkpoint.checkpoint_state_policy == "full":
             self.checkpoint.generator_state = post_state.cpu().clone()
             self.checkpoint.generator_device_type = generator.device.type
         else:

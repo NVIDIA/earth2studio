@@ -33,7 +33,16 @@ import numpy as np
 import torch
 
 T = TypeVar("T")
-CheckpointStatePolicy = Literal["minimal", "replay", "direct"]
+CheckpointStatePolicy = Literal["minimal", "state", "full"]
+CheckpointStatePolicyInput = CheckpointStatePolicy | Literal["replay", "direct"]
+
+_STATE_POLICY_ALIASES: dict[str, CheckpointStatePolicy] = {
+    "minimal": "minimal",
+    "state": "state",
+    "full": "full",
+    "replay": "state",
+    "direct": "full",
+}
 
 _CHECKPOINT_VERSION = 1
 _ACTIVE_SESSION: ContextVar[CheckpointSession | None] = ContextVar(
@@ -127,6 +136,18 @@ class CheckpointState(Generic[T]):
         return self._checkpoint.state_policy
 
     @property
+    def checkpoint_device(self) -> torch.device:
+        """Device used for live checkpoint state tensors."""
+        if self._checkpoint is None:
+            return torch.device("cpu")
+        return self._checkpoint.device
+
+    @property
+    def device(self) -> torch.device:
+        """Alias for the checkpoint tensor state device."""
+        return self.checkpoint_device
+
+    @property
     def checkpoint_flush_interval(self) -> int | None:
         """Flush interval configured on the associated checkpoint."""
         if self._checkpoint is None:
@@ -189,7 +210,7 @@ class CheckpointState(Generic[T]):
         if name in self.__slots__:
             object.__setattr__(self, name, value)
             return
-        if name.startswith("checkpoint_"):
+        if name == "device" or name.startswith("checkpoint_"):
             raise AttributeError(f"{name!r} is checkpoint metadata and is read-only.")
         setattr(self._state, name, value)
 
@@ -202,6 +223,8 @@ class NullCheckpointSession:
 
     exists = False
     lead_time = None
+    device = torch.device("cpu")
+    checkpoint_device = torch.device("cpu")
 
     @property
     def labels(self) -> Mapping[str, Any]:
@@ -295,9 +318,10 @@ class Checkpoint:
         mode: Literal["overwrite", "append"] = "overwrite",
         flush_interval: int | None = 1,
         keep_last: int | None = None,
-        state_policy: CheckpointStatePolicy = "direct",
+        state_policy: CheckpointStatePolicyInput = "full",
         rank: int | None = None,
         world_size: int | None = None,
+        device: str | torch.device = torch.device("cpu"),
     ) -> None:
         if mode not in ("overwrite", "append"):
             raise ValueError("mode must be 'overwrite' or 'append'.")
@@ -305,8 +329,7 @@ class Checkpoint:
             raise ValueError("flush_interval must be a positive integer or None.")
         if keep_last is not None and keep_last < 1:
             raise ValueError("keep_last must be a positive integer or None.")
-        if state_policy not in ("minimal", "replay", "direct"):
-            raise ValueError("state_policy must be 'minimal', 'replay', or 'direct'.")
+        state_policy = _normalize_state_policy(state_policy)
 
         detected_rank, detected_world_size = _detect_distributed_rank()
         self.name = name
@@ -315,6 +338,7 @@ class Checkpoint:
         self.flush_interval = flush_interval
         self.keep_last = 1 if mode == "overwrite" else keep_last
         self.state_policy = state_policy
+        self.device = torch.device(device)
         self.rank = detected_rank if rank is None else rank
         self.world_size = detected_world_size if world_size is None else world_size
         self._catalog: list[CheckpointEntry] | None = None
@@ -545,6 +569,11 @@ class CheckpointSession:
     def lead_time(self) -> Any | None:
         """Lead time recorded for this session, if present."""
         return None if self._entry is None else self._entry.lead_time
+
+    @property
+    def device(self) -> torch.device:
+        """Device used for live checkpoint state tensors."""
+        return self.catalog.device
 
     @property
     def artifacts(self) -> dict[str, Any]:
@@ -924,6 +953,18 @@ def _populate_dataclass_state(
     for name, payload in saved_fields.items():
         current_value = getattr(state, name)
         setattr(state, name, _load_value(payload, loaded_state.path, current_value))
+
+
+def _normalize_state_policy(
+    policy: CheckpointStatePolicyInput,
+) -> CheckpointStatePolicy:
+    try:
+        return _STATE_POLICY_ALIASES[policy]
+    except KeyError as exc:
+        raise ValueError(
+            "state_policy must be 'minimal', 'state', or 'full'. "
+            "Legacy aliases 'replay' and 'direct' are also accepted."
+        ) from exc
 
 
 def _state_id(state: Any) -> str:

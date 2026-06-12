@@ -18,7 +18,7 @@ where to restart.
 from earth2studio.run import deterministic
 from earth2studio.utils.checkpoint import Checkpoint
 
-checkpoint = Checkpoint("my-forecast", flush_interval=6, state_policy="direct")
+checkpoint = Checkpoint("my-forecast", flush_interval=6, state_policy="full")
 
 deterministic(
     time=["2024-01-01"],
@@ -46,12 +46,14 @@ omitted, built-in workflows use a no-op checkpoint session with the same
 `state_policy` is a user intent hint exposed to bound component state. It does
 not force a model to checkpoint a particular payload. Supported values are:
 
-- `minimal`: save only lightweight progress/bookkeeping state if the component
-  supports that mode.
-- `replay`: save enough metadata for the component to replay from an earlier
-  known starting point.
-- `direct`: save enough component-owned state to continue directly from the
-  checkpoint boundary. This is the default.
+- `minimal`: save only catalog progress and explicit workflow artifacts.
+- `state`: save lightweight component restart state such as RNG, generator, or
+  counter state needed to resume at workflow or forecast-instance boundaries.
+- `full`: save all supported restart state, including heavy tensors needed to
+  resume inside a rollout. This is the default.
+
+Legacy policy names `replay` and `direct` are accepted as aliases for `state`
+and `full`, respectively.
 
 ## Selecting Restart Points
 
@@ -168,9 +170,12 @@ class NoisePerturbation:
 `bind_checkpoint_state` returns a proxy around the original dataclass. Normal
 dataclass fields are accessed directly, while checkpoint metadata is exposed
 through `checkpoint_*` properties such as `checkpoint_enabled`,
-`checkpoint_state_policy`, `checkpoint_flush_interval`, `checkpoint_write_count`,
-`checkpoint_is_flush_due`, `checkpoint_selected`, `checkpoint_state_loaded`, and
-`checkpoint_lead_time`.
+`checkpoint_state_policy`, `checkpoint_device`, `checkpoint_flush_interval`,
+`checkpoint_write_count`, `checkpoint_is_flush_due`, `checkpoint_selected`,
+`checkpoint_state_loaded`, and `checkpoint_lead_time`. The shorter `device`
+alias is provided for tensor staging, for example `x.to(self.restart.device)`.
+Because `device` is reserved checkpoint metadata, component state dataclasses
+should use a different field name for their own device values.
 
 When a checkpoint session is active, `bind_checkpoint_state` loads the matching
 saved state if one exists and registers the live dataclass instance for future
@@ -188,9 +193,9 @@ A model can use the checkpoint policy hint without adding another API call:
 if self.restart.checkpoint_state_loaded:
     x = self.restart.x.to(x.device)
 
-if self.restart.checkpoint_state_policy == "direct":
-    self.restart.x = x.detach().cpu()
-elif self.restart.checkpoint_state_policy == "replay":
+if self.restart.checkpoint_state_policy == "full":
+    self.restart.x = x.detach().to(self.restart.device)
+elif self.restart.checkpoint_state_policy == "state":
     self.restart.step = step
     self.restart.rng_state = generator.get_state()
 else:

@@ -82,7 +82,7 @@ def test_gaussian_checkpoint_state_round_trip(tmp_path):
     coords = OrderedDict([("batch", []), ("variable", [])])
 
     replay_checkpoint = Checkpoint(
-        "gaussian-replay", path=tmp_path / "replay", state_policy="replay"
+        "gaussian-state", path=tmp_path / "state", state_policy="state"
     )
     with replay_checkpoint.select(time="2024-01-01") as ckpt:
         perturbation = Gaussian(1.0)
@@ -97,10 +97,10 @@ def test_gaussian_checkpoint_state_round_trip(tmp_path):
         assert torch.allclose(replayed, expected_replay)
 
     direct_checkpoint = Checkpoint(
-        "gaussian-direct",
-        path=tmp_path / "direct",
+        "gaussian-full",
+        path=tmp_path / "full",
         flush_interval=2,
-        state_policy="direct",
+        state_policy="full",
     )
     with direct_checkpoint.select(time="2024-01-01") as ckpt:
         perturbation = Gaussian(1.0)
