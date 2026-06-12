@@ -20,6 +20,16 @@ import numpy as np
 
 from .base import LexiconType
 
+IFS_ACCUMULATION_HOURS = {
+    "cp06": 6,
+    "ro06": 6,
+    "sf06": 6,
+    "ssrd06": 6,
+    "strd06": 6,
+    "tp06": 6,
+}
+AIFS_ACCUMULATION_HOURS = IFS_ACCUMULATION_HOURS
+
 
 class ECMWFOpenDataLexicon(metaclass=LexiconType):
     """Base lexicon class for the ECMWF open data client.
@@ -134,6 +144,8 @@ class IFSLexicon(ECMWFOpenDataLexicon):
         "zos": "zos::sfc::",
         # 6-hour accumulation aliases for AIFS2 compatibility
         "cp06": "cp::sfc::",
+        "ro06": "ro::sfc::",
+        "sf06": "sf::sfc::",
         "tp06": "tp::sfc::",
         "ssrd06": "ssrd::sfc::",
         "strd06": "strd::sfc::",
@@ -255,16 +267,20 @@ class AIFSLexicon(ECMWFOpenDataLexicon):
         "mcc": "mcc::sfc::",
         "msl": "msl::sfc::",
         "rowe": "rowe::sfc::",
+        "ro06": "rowe::sfc::",
         "sdor": "sdor::sfc::",
         "sf": "sf::sfc::",
+        "sf06": "sf::sfc::",
         "skt": "skt::sfc::",
         "slor": "slor::sfc::",
         "sp": "sp::sfc::",
+        "cp06": "cp::sfc::",
         "ssrd06": "ssrd::sfc::",
         "strd06": "strd::sfc::",
         "tcc": "tcc::sfc::",
         "tcw": "tcw::sfc::",
         "tp": "tp::sfc::",
+        "tp06": "tp::sfc::",
         # "z": "z::sfc::", # Grib error with unique keys
     }
     SOIL_VARIABLES = {
@@ -326,8 +342,8 @@ class AIFSLexicon(ECMWFOpenDataLexicon):
             def mod(x: np.ndarray) -> np.ndarray:
                 return x / 100.0
 
-        elif aifs_key.split("::")[0] == "tp":
-            # TP in AIFS is (kg m-2) param id 228228, convert to (m) param id 228
+        elif aifs_key.split("::")[0] in ["cp", "rowe", "sf", "tp"]:
+            # AIFS water-equivalent accumulations use kg m-2; convert to m.
             def mod(x: np.ndarray) -> np.ndarray:
                 # Assume density of water is 1000 kg m-3
                 # x (kg m-2) / 1000 (kg m-3) = (m)
