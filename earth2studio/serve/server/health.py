@@ -67,7 +67,10 @@ def _pgrep(pattern: str, *, exact: bool = False) -> list[int]:
     cmd = ["pgrep", "-x" if exact else "-f", pattern]
     try:
         result = subprocess.run(  # noqa: S603
-            cmd, capture_output=True, text=True, timeout=5
+            cmd,  # noqa: S603
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0 and result.stdout.strip():
             return [
