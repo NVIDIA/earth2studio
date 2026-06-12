@@ -29,6 +29,7 @@ import torch.nn.functional as F
 import xarray as xr
 from loguru import logger
 
+from earth2studio.lexicon import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -72,19 +73,6 @@ class _BlockKwargs(TypedDict):
 
 _SEC_PER_DAY = 86400
 _AVG_DAY_PER_YEAR = 365.24219
-_WB2_NAMES = {
-    "msl": "mean_sea_level_pressure",
-    "u10m": "10m_u_component_of_wind",
-    "v10m": "10m_v_component_of_wind",
-    "t2m": "2m_temperature",
-    "sst": "sea_surface_temperature",
-}
-_WB2_NAMES.update({f"z{level}": f"geopotential_{level}" for level in LEVELS})
-_WB2_NAMES.update({f"q{level}": f"specific_humidity_{level}" for level in LEVELS})
-_WB2_NAMES.update({f"t{level}": f"temperature_{level}" for level in LEVELS})
-_WB2_NAMES.update({f"u{level}": f"u_component_of_wind_{level}" for level in LEVELS})
-_WB2_NAMES.update({f"v{level}": f"v_component_of_wind_{level}" for level in LEVELS})
-_WB2_NAMES.update({f"w{level}": f"vertical_velocity_{level}" for level in LEVELS})
 
 
 def _conv2d_circular_height(
@@ -435,17 +423,13 @@ class DhariwalUNet(torch.nn.Module):
         return self.out_conv(F.silu(self.out_norm(x)))
 
 
-def _wb2_name(variable: str) -> str:
-    return _WB2_NAMES[variable]
-
-
-def _extract_stat(ds: xr.Dataset, wb2_name: str) -> torch.Tensor:
-    if wb2_name in ds:
-        return torch.as_tensor(ds[wb2_name].values, dtype=torch.float32)
-
-    var_name, level = wb2_name.rsplit("_", 1)
-    if not level.isdigit():
-        raise ValueError(f"Could not find statistic for {wb2_name}")
+def _extract_stat(ds: xr.Dataset, variable: str) -> torch.Tensor:
+    wb2_key, _ = WB2Lexicon[variable]
+    var_name, level = wb2_key.split("::")
+    if not level:
+        if var_name not in ds:
+            raise ValueError(f"Could not find statistic for {variable}")
+        return torch.as_tensor(ds[var_name].values, dtype=torch.float32)
     return torch.as_tensor(
         ds[var_name].sel(level=int(level)).values,
         dtype=torch.float32,
@@ -454,13 +438,13 @@ def _extract_stat(ds: xr.Dataset, wb2_name: str) -> torch.Tensor:
 
 def _load_stat_tensor(package: Package, filename: str) -> torch.Tensor:
     with xr.open_dataset(package.resolve(f"stats/{filename}")) as ds:
-        stats = [_extract_stat(ds, _wb2_name(var)) for var in VARIABLES]
+        stats = [_extract_stat(ds, var) for var in VARIABLES]
     return torch.stack([stat.reshape(()) for stat in stats])
 
 
 def _load_sst_fill_value(package: Package) -> float:
     with xr.open_dataset(package.resolve("stats/era5_min.nc")) as ds:
-        return float(_extract_stat(ds, _wb2_name("sst")).item())
+        return float(_extract_stat(ds, "sst").item())
 
 
 def _load_ema_state_dict(
