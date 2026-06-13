@@ -520,6 +520,14 @@ def _normalize_static_array(static: np.ndarray) -> np.ndarray:
 
 
 def _normalize_static_tensor(static: torch.Tensor) -> torch.Tensor:
+    # Keep user-provided statics torch-native. The vanilla reference normalizes
+    # this with NumPy, which is bit-accurate against the original script:
+    # static_array = static.detach().cpu().numpy().astype(np.float32).copy()
+    # mean = static_array.mean(axis=(-2, -1), keepdims=True)
+    # std = static_array.std(axis=(-2, -1), keepdims=True)
+    # normalized = ((static_array - mean) / std).astype(np.float32)
+    # Torch reductions can differ by one float32 ulp from NumPy because the
+    # reduction order and memory layout handling are not identical.
     mean = static.mean(dim=(-2, -1), keepdim=True)
     std = static.std(dim=(-2, -1), keepdim=True, unbiased=False)
     return (static - mean) / std
