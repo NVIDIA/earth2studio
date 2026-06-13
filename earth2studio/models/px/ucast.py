@@ -21,7 +21,7 @@ import os
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, cast
 
 import numpy as np
 import torch
@@ -53,6 +53,7 @@ VARIABLES += [f"v{level}" for level in LEVELS]
 VARIABLES += [f"w{level}" for level in LEVELS]
 
 STATIC_FIELDS = ["land_sea_mask", "geopotential_at_surface"]
+STATIC_VARIABLES = ["lsm", "z"]
 UCAST_CHECKPOINT = "ucast.ckpt"
 UCAST_WB2_DATASET = (
     "gs://weatherbench2/datasets/era5/"
@@ -511,6 +512,20 @@ def _ensure_latitude_is_ascending(ds: xr.Dataset) -> xr.Dataset:
     return ds
 
 
+def _normalize_static_array(static: np.ndarray) -> np.ndarray:
+    mean = static.mean(axis=(-2, -1), keepdims=True)
+    std = static.std(axis=(-2, -1), keepdims=True)
+    std = np.maximum(std, 1e-6)
+    return ((static - mean) / std).astype(np.float32, copy=False)
+
+
+def _normalize_static_tensor(static: torch.Tensor) -> torch.Tensor:
+    mean = static.mean(dim=(-2, -1), keepdim=True)
+    std = static.std(dim=(-2, -1), keepdim=True, unbiased=False)
+    std = torch.clamp(std, min=1e-6)
+    return (static - mean) / std
+
+
 def _compute_static_condition(ds: xr.Dataset) -> torch.Tensor:
     ds = _ensure_latitude_is_ascending(ds)
     arrays = []
@@ -527,11 +542,8 @@ def _compute_static_condition(ds: xr.Dataset) -> torch.Tensor:
             data = data.T
         arrays.append(data.astype(np.float32))
 
-    static = np.stack(arrays, axis=0)
-    mean = static.mean(axis=(-2, -1), keepdims=True)
-    std = static.std(axis=(-2, -1), keepdims=True)
-    std = np.maximum(std, 1e-6)
-    return torch.from_numpy(((static - mean) / std).transpose(0, 2, 1)).float()
+    static = _normalize_static_array(np.stack(arrays, axis=0))
+    return torch.from_numpy(static.transpose(0, 2, 1)).float()
 
 
 def _load_static_condition(package: Package) -> torch.Tensor:
@@ -618,11 +630,17 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     residual_scale : torch.Tensor
         Per-variable residual standard deviations in ``VARIABLES`` order.
     static_condition : torch.Tensor
-        Static fields in ``(field, lat, lon)`` order.
+        Static fields in ``(field, lat, lon)`` order. Empty if
+        ``preload_static_fields=False``.
     sst_fill_value : float
         Fill value used for SST NaNs over land before normalization.
     stochastic : bool
         Keep dropout layers active during inference, by default True.
+    preload_static_fields : bool
+        If True, static fields are fetched from WeatherBench2 at load time and
+        cached. If False, these fields must be provided as input variables
+        (``lsm`` and ``z``), allowing use of static fields from alternative
+        sources for exact reproducibility, by default True.
 
     Badges
     ------
@@ -640,10 +658,12 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         static_condition: torch.Tensor,
         sst_fill_value: float,
         stochastic: bool = True,
+        preload_static_fields: bool = True,
     ) -> None:
         super().__init__()
         self.model = model
         self.stochastic = stochastic
+        self.preload_static_fields = preload_static_fields
         self.sst_index = VARIABLES.index("sst")
 
         self.register_buffer("center", center.float().view(-1, 1, 1))
@@ -652,15 +672,22 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "residual_to_normalized_scale",
             (residual_scale.float() / scale.float()).view(-1, 1, 1),
         )
-        self.register_buffer("static_condition", static_condition.float())
+        if preload_static_fields:
+            self.register_buffer("static_condition", static_condition.float())
+        else:
+            self.register_buffer("static_condition", torch.empty(0))
         self.register_buffer("sst_fill_value", torch.tensor(float(sst_fill_value)))
+
+        input_variables = (
+            VARIABLES if preload_static_fields else VARIABLES + STATIC_VARIABLES
+        )
 
         self._input_coords = OrderedDict(
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
                 "lead_time": np.array([-self.DT, np.timedelta64(0, "h")]),
-                "variable": np.array(VARIABLES),
+                "variable": np.array(input_variables),
                 "lat": np.linspace(90, -90, 121),
                 "lon": np.linspace(0, 360, 240, endpoint=False),
             }
@@ -717,13 +744,35 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return package
 
     @classmethod
-    def load_model(cls, package: Package) -> PrognosticModel:
-        """Load U-CAST from a package."""
+    def load_model(
+        cls, package: Package, preload_static_fields: bool = True
+    ) -> PrognosticModel:
+        """Load U-CAST from a package.
+
+        Parameters
+        ----------
+        package : Package
+            Model package to load from.
+        preload_static_fields : bool, optional
+            If True, static fields (lsm and z) are fetched from WeatherBench2 at
+            load time and cached. If False, these fields must be provided as
+            input variables, allowing use of static fields from alternative
+            sources for exact reproducibility with reference implementations,
+            by default True.
+
+        Returns
+        -------
+        PrognosticModel
+            Loaded U-CAST model.
+        """
         center = _load_stat_tensor(package, "era5_mean.nc")
         scale = _load_stat_tensor(package, "era5_std.nc")
         residual_scale = _load_stat_tensor(package, "era5_residual_std.nc")
         sst_fill_value = _load_sst_fill_value(package)
-        static_condition = _load_static_condition(package)
+        if preload_static_fields:
+            static_condition = _load_static_condition(package)
+        else:
+            static_condition = torch.empty(0)
 
         core_model = DhariwalUNet(
             in_channels=len(VARIABLES) * 2 + len(STATIC_FIELDS) + 4,
@@ -744,6 +793,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             residual_scale,
             static_condition,
             sst_fill_value,
+            preload_static_fields=preload_static_fields,
         )
 
     def _enable_inference_dropout(self) -> None:
@@ -780,9 +830,12 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._enable_inference_dropout()
 
         batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
-        if history_size != 2 or n_variables != len(VARIABLES):
+        expected_variables = len(VARIABLES)
+        if not self.preload_static_fields:
+            expected_variables += len(STATIC_VARIABLES)
+        if history_size != 2 or n_variables != expected_variables:
             raise ValueError(
-                f"Expected U-CAST input shape [batch, time, 2, {len(VARIABLES)}, 121, 240], got {tuple(x.shape)}"
+                f"Expected U-CAST input shape [batch, time, 2, {expected_variables}, 121, 240], got {tuple(x.shape)}"
             )
         if (
             n_lat != self._input_coords["lat"].shape[0]
@@ -791,6 +844,13 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             raise ValueError(
                 f"Expected U-CAST spatial shape [121, 240], got [{n_lat}, {n_lon}]"
             )
+
+        if self.preload_static_fields:
+            x_static = None
+        else:
+            x_static = x[:, :, 0, len(VARIABLES) :]
+            x = x[:, :, :, : len(VARIABLES)]
+            n_variables = len(VARIABLES)
 
         model_shape = (
             batch_size * time_size,
@@ -824,12 +884,20 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcing = forcing.unsqueeze(0).expand(batch_size, -1, -1, -1, -1)
         forcing = forcing.reshape(batch_size * time_size, 4, n_lon, n_lat)
 
-        static = self.static_condition.to(device=x.device, dtype=x.dtype)
-        static = (
-            static.permute(0, 2, 1)
-            .unsqueeze(0)
-            .expand(batch_size * time_size, -1, -1, -1)
-        )
+        if self.preload_static_fields:
+            static = self.static_condition.to(device=x.device, dtype=x.dtype)
+            static = (
+                static.permute(0, 2, 1)
+                .unsqueeze(0)
+                .expand(batch_size * time_size, -1, -1, -1)
+            )
+        else:
+            x_static = cast(torch.Tensor, x_static)
+            static = x_static.permute(0, 1, 2, 4, 3).reshape(
+                batch_size * time_size, len(STATIC_VARIABLES), n_lon, n_lat
+            )
+            static = torch.flip(static, dims=(-1,))
+            static = _normalize_static_tensor(static.float()).to(dtype=x.dtype)
 
         use_amp = x.device.type == "cuda"
         with torch.autocast(
@@ -884,8 +952,11 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.output_coords(coords)
 
         out = x[:, :, 1:]
+        if not self.preload_static_fields:
+            out = out[:, :, :, : len(VARIABLES)]
         out_coords = coords.copy()
         out_coords["lead_time"] = out_coords["lead_time"][1:]
+        out_coords["variable"] = self._output_coords["variable"].copy()
         yield out, out_coords
 
         x_norm = None
@@ -903,7 +974,13 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             out_coords = self.output_coords(coords)
             out, out_coords = self.rear_hook(out, out_coords)
 
-            x = torch.cat([x[:, :, 1:], out], dim=2)
+            if self.preload_static_fields:
+                next_state = out
+            else:
+                static = x[:, :, -1:, len(VARIABLES) :]
+                next_state = torch.cat([out, static], dim=3)
+
+            x = torch.cat([x[:, :, 1:], next_state], dim=2)
             coords["lead_time"] = np.array(
                 [coords["lead_time"][-1], out_coords["lead_time"][-1]]
             )

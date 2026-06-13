@@ -23,7 +23,7 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import UCast
-from earth2studio.models.px.ucast import VARIABLES
+from earth2studio.models.px.ucast import STATIC_VARIABLES, VARIABLES
 from earth2studio.utils import handshake_dim
 
 
@@ -76,6 +76,21 @@ def ucast_model() -> UCast:
         static_condition=torch.zeros(2, 121, 240),
         sst_fill_value=0.0,
         stochastic=False,
+    )
+
+
+@pytest.fixture(scope="function")
+def ucast_model_with_input_static_fields() -> UCast:
+    n_variables = len(VARIABLES)
+    return UCast(
+        model=PhooUCastModel(),
+        center=torch.zeros(n_variables),
+        scale=torch.ones(n_variables),
+        residual_scale=torch.ones(n_variables),
+        static_condition=torch.empty(0),
+        sst_fill_value=0.0,
+        stochastic=False,
+        preload_static_fields=False,
     )
 
 
@@ -152,6 +167,24 @@ def test_ucast_call(ucast_model: UCast, time: np.ndarray, device: str) -> None:
     _check_output_coords(out_coords, coords, np.timedelta64(12, "h"))
 
 
+def test_ucast_call_with_input_static_fields(
+    ucast_model_with_input_static_fields: UCast,
+) -> None:
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    x, coords = _input(ucast_model_with_input_static_fields, time)
+
+    np.testing.assert_array_equal(
+        coords["variable"], np.array([*VARIABLES, *STATIC_VARIABLES])
+    )
+    assert ucast_model_with_input_static_fields.static_condition.numel() == 0
+
+    out, out_coords = ucast_model_with_input_static_fields(x, coords)
+
+    assert out.shape == torch.Size([len(time), 1, len(VARIABLES), 121, 240])
+    assert torch.allclose(out, x[:, -1:, : len(VARIABLES)])
+    _check_output_coords(out_coords, coords, np.timedelta64(12, "h"))
+
+
 @pytest.mark.parametrize("ensemble", [1, 2])
 @pytest.mark.parametrize(
     "device",
@@ -198,6 +231,28 @@ def test_ucast_iter(ucast_model: UCast, ensemble: int, device: str) -> None:
 
         if i >= 4:
             break
+
+
+def test_ucast_iter_with_input_static_fields(
+    ucast_model_with_input_static_fields: UCast,
+) -> None:
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    x, coords = _input(ucast_model_with_input_static_fields, time)
+
+    iterator = ucast_model_with_input_static_fields.create_iterator(x, coords)
+
+    initial, initial_coords = next(iterator)
+    assert initial.shape == torch.Size([len(time), 1, len(VARIABLES), 121, 240])
+    assert torch.allclose(initial, x[:, -1:, : len(VARIABLES)])
+    np.testing.assert_array_equal(initial_coords["variable"], np.array(VARIABLES))
+    np.testing.assert_array_equal(
+        initial_coords["lead_time"], np.array([np.timedelta64(0, "h")])
+    )
+
+    first, first_coords = next(iterator)
+    assert first.shape == torch.Size([len(time), 1, len(VARIABLES), 121, 240])
+    assert torch.allclose(first, x[:, -1:, : len(VARIABLES)])
+    _check_output_coords(first_coords, coords, np.timedelta64(12, "h"))
 
 
 def test_ucast_iter_uses_internal_normalized_state() -> None:
