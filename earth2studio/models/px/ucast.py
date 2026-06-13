@@ -33,7 +33,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
 from earth2studio.utils.type import CoordSystem
 
 LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
@@ -851,18 +851,10 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._enable_inference_dropout()
 
         batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
-        expected_variables = len(VARIABLES)
-        if history_size != 2 or n_variables != expected_variables:
-            raise ValueError(
-                f"Expected U-CAST input shape [batch, time, 2, {expected_variables}, 121, 240], got {tuple(x.shape)}"
-            )
-        if (
-            n_lat != self._input_coords["lat"].shape[0]
-            or n_lon != self._input_coords["lon"].shape[0]
-        ):
-            raise ValueError(
-                f"Expected U-CAST spatial shape [121, 240], got [{n_lat}, {n_lon}]"
-            )
+        handshake_size(coords, "lead_time", history_size)
+        handshake_size(coords, "variable", n_variables)
+        handshake_size(coords, "lat", n_lat)
+        handshake_size(coords, "lon", n_lon)
 
         model_shape = (
             batch_size * time_size,
@@ -942,6 +934,11 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Runs the 12-hour U-CAST prognostic model one step."""
         out_coords = self.output_coords(coords)
         batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
+        handshake_size(coords, "lead_time", history_size)
+        handshake_size(coords, "variable", n_variables)
+        handshake_size(coords, "lat", n_lat)
+        handshake_size(coords, "lon", n_lon)
+
         if self.preload_static_fields:
             static_condition = (
                 self.static_condition.permute(0, 2, 1)
@@ -949,18 +946,6 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 .expand(batch_size * time_size, -1, -1, -1)
             )
         else:
-            expected_variables = len(VARIABLES) + len(STATIC_VARIABLES)
-            if history_size != 2 or n_variables != expected_variables:
-                raise ValueError(
-                    f"Expected U-CAST input shape [batch, time, 2, {expected_variables}, 121, 240], got {tuple(x.shape)}"
-                )
-            if (
-                n_lat != self._input_coords["lat"].shape[0]
-                or n_lon != self._input_coords["lon"].shape[0]
-            ):
-                raise ValueError(
-                    f"Expected U-CAST spatial shape [121, 240], got [{n_lat}, {n_lon}]"
-                )
             static_condition = _static_condition_from_input(
                 x[:, :, 0, len(VARIABLES) :],
                 batch_size,
@@ -980,6 +965,11 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords = coords.copy()
         self.output_coords(coords)
         batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
+        handshake_size(coords, "lead_time", history_size)
+        handshake_size(coords, "variable", n_variables)
+        handshake_size(coords, "lat", n_lat)
+        handshake_size(coords, "lon", n_lon)
+
         if self.preload_static_fields:
             static_condition = (
                 self.static_condition.permute(0, 2, 1)
@@ -987,18 +977,6 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 .expand(batch_size * time_size, -1, -1, -1)
             )
         else:
-            expected_variables = len(VARIABLES) + len(STATIC_VARIABLES)
-            if history_size != 2 or n_variables != expected_variables:
-                raise ValueError(
-                    f"Expected U-CAST input shape [batch, time, 2, {expected_variables}, 121, 240], got {tuple(x.shape)}"
-                )
-            if (
-                n_lat != self._input_coords["lat"].shape[0]
-                or n_lon != self._input_coords["lon"].shape[0]
-            ):
-                raise ValueError(
-                    f"Expected U-CAST spatial shape [121, 240], got [{n_lat}, {n_lon}]"
-                )
             static_condition = _static_condition_from_input(
                 x[:, :, 0, len(VARIABLES) :], batch_size, time_size, n_lon, n_lat
             )
