@@ -842,21 +842,16 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         x: torch.Tensor,
         coords: CoordSystem,
+        static_condition: torch.Tensor,
         x_norm: torch.Tensor | None = None,
         sst_mask: torch.Tensor | None = None,
-        static_condition: torch.Tensor | None = None,
         return_state: bool = False,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         self._check_input_coords(coords)
         self._enable_inference_dropout()
 
         batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
-        static_fields_in_input = (
-            not self.preload_static_fields and static_condition is None
-        )
         expected_variables = len(VARIABLES)
-        if static_fields_in_input:
-            expected_variables += len(STATIC_VARIABLES)
         if history_size != 2 or n_variables != expected_variables:
             raise ValueError(
                 f"Expected U-CAST input shape [batch, time, 2, {expected_variables}, 121, 240], got {tuple(x.shape)}"
@@ -868,13 +863,6 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             raise ValueError(
                 f"Expected U-CAST spatial shape [121, 240], got [{n_lat}, {n_lon}]"
             )
-
-        if not static_fields_in_input:
-            x_static = None
-        else:
-            x_static = x[:, :, 0, len(VARIABLES) :]
-            x = x[:, :, :, : len(VARIABLES)]
-            n_variables = len(VARIABLES)
 
         model_shape = (
             batch_size * time_size,
@@ -908,31 +896,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcing = forcing.unsqueeze(0).expand(batch_size, -1, -1, -1, -1)
         forcing = forcing.reshape(batch_size * time_size, 4, n_lon, n_lat)
 
-        if self.preload_static_fields:
-            static = self.static_condition.to(device=x.device, dtype=x.dtype)
-            static = (
-                static.permute(0, 2, 1)
-                .unsqueeze(0)
-                .expand(batch_size * time_size, -1, -1, -1)
-            )
-        elif static_condition is not None:
-            expected_static_shape = (
-                batch_size * time_size,
-                len(STATIC_VARIABLES),
-                n_lon,
-                n_lat,
-            )
-            if static_condition.shape != expected_static_shape:
-                raise ValueError(
-                    f"Expected U-CAST static condition shape {expected_static_shape}, got {tuple(static_condition.shape)}"
-                )
-            static = static_condition.to(device=x.device, dtype=x.dtype)
-        else:
-            if x_static is None:
-                raise ValueError("U-CAST static fields are required")
-            static = _static_condition_from_input(
-                x_static, batch_size, time_size, n_lon, n_lat
-            ).to(dtype=x.dtype)
+        static = static_condition.to(device=x.device, dtype=x.dtype)
 
         use_amp = x.device.type == "cuda"
         with torch.autocast(
@@ -977,7 +941,37 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Runs the 12-hour U-CAST prognostic model one step."""
         out_coords = self.output_coords(coords)
-        return self._forward(x, coords), out_coords
+        batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
+        if self.preload_static_fields:
+            static_condition = (
+                self.static_condition.permute(0, 2, 1)
+                .unsqueeze(0)
+                .expand(batch_size * time_size, -1, -1, -1)
+            )
+        else:
+            expected_variables = len(VARIABLES) + len(STATIC_VARIABLES)
+            if history_size != 2 or n_variables != expected_variables:
+                raise ValueError(
+                    f"Expected U-CAST input shape [batch, time, 2, {expected_variables}, 121, 240], got {tuple(x.shape)}"
+                )
+            if (
+                n_lat != self._input_coords["lat"].shape[0]
+                or n_lon != self._input_coords["lon"].shape[0]
+            ):
+                raise ValueError(
+                    f"Expected U-CAST spatial shape [121, 240], got [{n_lat}, {n_lon}]"
+                )
+            static_condition = _static_condition_from_input(
+                x[:, :, 0, len(VARIABLES) :],
+                batch_size,
+                time_size,
+                n_lon,
+                n_lat,
+            )
+            x = x[:, :, :, : len(VARIABLES)]
+            coords = coords.copy()
+            coords["variable"] = self._output_coords["variable"].copy()
+        return self._forward(x, coords, static_condition), out_coords
 
     @batch_func()
     def _default_generator(
@@ -985,9 +979,14 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         coords = coords.copy()
         self.output_coords(coords)
-        static_condition = None
-        if not self.preload_static_fields:
-            batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
+        batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
+        if self.preload_static_fields:
+            static_condition = (
+                self.static_condition.permute(0, 2, 1)
+                .unsqueeze(0)
+                .expand(batch_size * time_size, -1, -1, -1)
+            )
+        else:
             expected_variables = len(VARIABLES) + len(STATIC_VARIABLES)
             if history_size != 2 or n_variables != expected_variables:
                 raise ValueError(
