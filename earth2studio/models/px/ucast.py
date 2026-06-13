@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 import math
-import os
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from pathlib import Path
@@ -561,10 +560,7 @@ def _compute_static_condition(ds: xr.Dataset) -> torch.Tensor:
 
 
 def _load_static_condition(package: Package) -> torch.Tensor:
-    if package.fs.exists(os.path.join(package.root, "static_condition.pt")):
-        return torch.load(package.resolve("static_condition.pt"), weights_only=True)
-
-    cache_path = Path(Package.default_cache("ucast/static_condition.pt"))
+    cache_path = Path(package.cache) / "static_condition.pt"
     if cache_path.exists():
         return torch.load(cache_path, weights_only=True)
 
