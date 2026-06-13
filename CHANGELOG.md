@@ -27,9 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for cumulative variables in ARCO data source
 
 ### Changed
+
 - UFS GSI observation sources (`UFSObsConv`, `UFSObsSat`) now fetch from S3 via native
- `obstore` instead of `s3fs` to avoid the Python-GIL bottleneck that caps fsspec's
- concurrent S3 read throughput (~22% faster obs fetch, ~20% HealDA e2e on B200; output unchanged).
+  `obstore` instead of `s3fs` to avoid the Python-GIL bottleneck that caps fsspec's
+  concurrent S3 read throughput (~22% faster obs fetch, ~20% HealDA e2e on B200; output unchanged).
 - Renamed AIFS runoff and snowfall variables to `ro06` and `sf06` and added six-hour
   accumulated IFS/AIFS data aliases.
 - Automatic test skipping for missing optional dependencies via
