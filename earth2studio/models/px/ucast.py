@@ -58,6 +58,7 @@ UCAST_WB2_DATASET = (
     "gs://weatherbench2/datasets/era5/"
     "1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr"
 )
+UCAST_STATIC_FIELD_TIME = np.datetime64("2020-01-01T00:00:00")
 
 
 class _ConvInitKwargs(TypedDict):
@@ -545,7 +546,7 @@ def _compute_static_condition(ds: xr.Dataset) -> torch.Tensor:
     for field in STATIC_FIELDS:
         data_array = ds[field]
         if "time" in data_array.dims:
-            data_array = data_array.isel(time=0)
+            data_array = data_array.sel(time=UCAST_STATIC_FIELD_TIME)
         data = data_array.compute().values
         if data.ndim > 2:
             data = data[0]
@@ -557,25 +558,6 @@ def _compute_static_condition(ds: xr.Dataset) -> torch.Tensor:
 
     static = _normalize_static_array(np.stack(arrays, axis=0))
     return torch.from_numpy(static.transpose(0, 2, 1)).float()
-
-
-def _load_static_condition(package: Package) -> torch.Tensor:
-    cache_path = Path(package.cache) / "static_condition.pt"
-    if cache_path.exists():
-        return torch.load(cache_path, weights_only=True)
-
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    logger.info("Loading U-CAST static fields from WeatherBench2 public ERA5 zarr")
-    import gcsfs
-
-    fs = gcsfs.GCSFileSystem(token="anon")  # noqa: S106
-    ds = xr.open_zarr(fs.get_mapper(UCAST_WB2_DATASET), zarr_format=2)
-    try:
-        static = _compute_static_condition(ds)
-    finally:
-        ds.close()
-    torch.save(static, cache_path)
-    return static
 
 
 def _compute_forcings(
@@ -795,8 +777,25 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         scale = _load_stat_tensor(package, "era5_std.nc")
         residual_scale = _load_stat_tensor(package, "era5_residual_std.nc")
         sst_fill_value = _load_sst_fill_value(package)
+        # Fetch static fields from WeatherBench2 (only if preloading).
         if preload_static_fields:
-            static_condition = _load_static_condition(package)
+            cache_path = Path(package.cache) / "static_condition.pt"
+            if cache_path.exists():
+                static_condition = torch.load(cache_path, weights_only=True)
+            else:
+                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                logger.info(
+                    "Loading U-CAST static fields from WeatherBench2 public ERA5 zarr"
+                )
+                import gcsfs
+
+                fs = gcsfs.GCSFileSystem(token="anon")  # noqa: S106
+                ds = xr.open_zarr(fs.get_mapper(UCAST_WB2_DATASET), zarr_format=2)
+                try:
+                    static_condition = _compute_static_condition(ds)
+                finally:
+                    ds.close()
+                torch.save(static_condition, cache_path)
         else:
             static_condition = torch.empty(0)
 
