@@ -520,11 +520,9 @@ def _normalize_static_array(static: np.ndarray) -> np.ndarray:
 
 
 def _normalize_static_tensor(static: torch.Tensor) -> torch.Tensor:
-    static_array = static.detach().cpu().numpy().astype(np.float32, copy=False).copy()
-    mean = static_array.mean(axis=(-2, -1), keepdims=True)
-    std = static_array.std(axis=(-2, -1), keepdims=True)
-    normalized = ((static_array - mean) / std).astype(np.float32, copy=False)
-    return torch.from_numpy(normalized).to(device=static.device, dtype=static.dtype)
+    mean = static.mean(dim=(-2, -1), keepdim=True)
+    std = static.std(dim=(-2, -1), keepdim=True, unbiased=False)
+    return (static - mean) / std
 
 
 def _static_condition_from_input(
