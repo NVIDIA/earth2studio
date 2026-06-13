@@ -586,34 +586,44 @@ def _compute_forcings(
     time_vals: np.ndarray,
     lon_vals: np.ndarray,
     n_lat: int,
+    device: torch.device,
+    dtype: torch.dtype,
 ) -> torch.Tensor:
     seconds = time_vals.astype("datetime64[s]").astype(np.int64).astype(np.float64)
-
     year_progress = np.mod(seconds / _SEC_PER_DAY / _AVG_DAY_PER_YEAR, 1.0).astype(
         np.float32
     )
-    yp_sin = np.sin(2 * np.pi * year_progress)
-    yp_cos = np.cos(2 * np.pi * year_progress)
-
     day_frac = np.mod(seconds, _SEC_PER_DAY) / _SEC_PER_DAY
-    lon_offset = np.deg2rad(lon_vals) / (2 * np.pi)
+    lon_offset = np.deg2rad(lon_vals) / (2.0 * np.pi)
     day_progress = np.mod(day_frac[:, None] + lon_offset[None, :], 1.0).astype(
         np.float32
     )
-    dp_sin = np.sin(2 * np.pi * day_progress)
-    dp_cos = np.cos(2 * np.pi * day_progress)
 
+    yp_sin = torch.as_tensor(
+        np.sin(2.0 * np.pi * year_progress), device=device, dtype=dtype
+    )
+    yp_cos = torch.as_tensor(
+        np.cos(2.0 * np.pi * year_progress), device=device, dtype=dtype
+    )
+    dp_sin = torch.as_tensor(
+        np.sin(2.0 * np.pi * day_progress), device=device, dtype=dtype
+    )
+    dp_cos = torch.as_tensor(
+        np.cos(2.0 * np.pi * day_progress), device=device, dtype=dtype
+    )
+
+    n_time = len(time_vals)
     n_lon = len(lon_vals)
-    forcing = np.stack(
+    forcing = torch.stack(
         [
-            np.broadcast_to(yp_sin[:, None, None], (len(time_vals), n_lon, n_lat)),
-            np.broadcast_to(yp_cos[:, None, None], (len(time_vals), n_lon, n_lat)),
-            np.broadcast_to(dp_sin[:, :, None], (len(time_vals), n_lon, n_lat)),
-            np.broadcast_to(dp_cos[:, :, None], (len(time_vals), n_lon, n_lat)),
+            yp_sin[:, None, None].expand(n_time, n_lon, n_lat),
+            yp_cos[:, None, None].expand(n_time, n_lon, n_lat),
+            dp_sin[:, :, None].expand(n_time, n_lon, n_lat),
+            dp_cos[:, :, None].expand(n_time, n_lon, n_lat),
         ],
-        axis=1,
-    ).astype(np.float32)
-    return torch.from_numpy(forcing)
+        dim=1,
+    )
+    return forcing
 
 
 class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -881,7 +891,10 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         model_input = torch.cat([x_norm[:, 0], x_norm[:, 1]], dim=1)
 
         target_times = coords["time"] + coords["lead_time"][-1] + self.DT
-        forcing = _compute_forcings(target_times, coords["lon"], n_lat).to(
+        forcing = _compute_forcings(
+            target_times,
+            coords["lon"],
+            n_lat,
             device=x.device,
             dtype=x.dtype,
         )
