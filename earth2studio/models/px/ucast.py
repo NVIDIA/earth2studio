@@ -21,7 +21,7 @@ import os
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from pathlib import Path
-from typing import TypedDict, cast
+from typing import TypedDict
 
 import numpy as np
 import torch
@@ -526,6 +526,20 @@ def _normalize_static_tensor(static: torch.Tensor) -> torch.Tensor:
     return (static - mean) / std
 
 
+def _static_condition_from_input(
+    x_static: torch.Tensor,
+    batch_size: int,
+    time_size: int,
+    n_lon: int,
+    n_lat: int,
+) -> torch.Tensor:
+    static = x_static.permute(0, 1, 2, 4, 3).reshape(
+        batch_size * time_size, len(STATIC_VARIABLES), n_lon, n_lat
+    )
+    static = torch.flip(static, dims=(-1,))
+    return _normalize_static_tensor(static.float()).to(dtype=x_static.dtype)
+
+
 def _compute_static_condition(ds: xr.Dataset) -> torch.Tensor:
     ds = _ensure_latitude_is_ascending(ds)
     arrays = []
@@ -714,6 +728,12 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
         target_input_coords = self.input_coords()
+        input_variables = np.asarray(input_coords.get("variable", []))
+        if not self.preload_static_fields and input_variables.shape[0] == len(
+            VARIABLES
+        ):
+            target_input_coords["variable"] = np.array(VARIABLES)
+
         for i, key in enumerate(target_input_coords):
             handshake_dim(test_coords, key, i)
             if key not in ["batch", "time"]:
@@ -824,14 +844,18 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
         x_norm: torch.Tensor | None = None,
         sst_mask: torch.Tensor | None = None,
+        static_condition: torch.Tensor | None = None,
         return_state: bool = False,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         self._check_input_coords(coords)
         self._enable_inference_dropout()
 
         batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
+        static_fields_in_input = (
+            not self.preload_static_fields and static_condition is None
+        )
         expected_variables = len(VARIABLES)
-        if not self.preload_static_fields:
+        if static_fields_in_input:
             expected_variables += len(STATIC_VARIABLES)
         if history_size != 2 or n_variables != expected_variables:
             raise ValueError(
@@ -845,7 +869,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 f"Expected U-CAST spatial shape [121, 240], got [{n_lat}, {n_lon}]"
             )
 
-        if self.preload_static_fields:
+        if not static_fields_in_input:
             x_static = None
         else:
             x_static = x[:, :, 0, len(VARIABLES) :]
@@ -891,13 +915,24 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 .unsqueeze(0)
                 .expand(batch_size * time_size, -1, -1, -1)
             )
-        else:
-            x_static = cast(torch.Tensor, x_static)
-            static = x_static.permute(0, 1, 2, 4, 3).reshape(
-                batch_size * time_size, len(STATIC_VARIABLES), n_lon, n_lat
+        elif static_condition is not None:
+            expected_static_shape = (
+                batch_size * time_size,
+                len(STATIC_VARIABLES),
+                n_lon,
+                n_lat,
             )
-            static = torch.flip(static, dims=(-1,))
-            static = _normalize_static_tensor(static.float()).to(dtype=x.dtype)
+            if static_condition.shape != expected_static_shape:
+                raise ValueError(
+                    f"Expected U-CAST static condition shape {expected_static_shape}, got {tuple(static_condition.shape)}"
+                )
+            static = static_condition.to(device=x.device, dtype=x.dtype)
+        else:
+            if x_static is None:
+                raise ValueError("U-CAST static fields are required")
+            static = _static_condition_from_input(
+                x_static, batch_size, time_size, n_lon, n_lat
+            ).to(dtype=x.dtype)
 
         use_amp = x.device.type == "cuda"
         with torch.autocast(
@@ -950,10 +985,28 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         coords = coords.copy()
         self.output_coords(coords)
+        static_condition = None
+        if not self.preload_static_fields:
+            batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
+            expected_variables = len(VARIABLES) + len(STATIC_VARIABLES)
+            if history_size != 2 or n_variables != expected_variables:
+                raise ValueError(
+                    f"Expected U-CAST input shape [batch, time, 2, {expected_variables}, 121, 240], got {tuple(x.shape)}"
+                )
+            if (
+                n_lat != self._input_coords["lat"].shape[0]
+                or n_lon != self._input_coords["lon"].shape[0]
+            ):
+                raise ValueError(
+                    f"Expected U-CAST spatial shape [121, 240], got [{n_lat}, {n_lon}]"
+                )
+            static_condition = _static_condition_from_input(
+                x[:, :, 0, len(VARIABLES) :], batch_size, time_size, n_lon, n_lat
+            )
+            x = x[:, :, :, : len(VARIABLES)]
+            coords["variable"] = self._output_coords["variable"].copy()
 
         out = x[:, :, 1:]
-        if not self.preload_static_fields:
-            out = out[:, :, :, : len(VARIABLES)]
         out_coords = coords.copy()
         out_coords["lead_time"] = out_coords["lead_time"][1:]
         out_coords["variable"] = self._output_coords["variable"].copy()
@@ -969,18 +1022,13 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 coords,
                 x_norm=x_norm,
                 sst_mask=sst_mask,
+                static_condition=static_condition,
                 return_state=True,
             )
             out_coords = self.output_coords(coords)
             out, out_coords = self.rear_hook(out, out_coords)
 
-            if self.preload_static_fields:
-                next_state = out
-            else:
-                static = x[:, :, -1:, len(VARIABLES) :]
-                next_state = torch.cat([out, static], dim=3)
-
-            x = torch.cat([x[:, :, 1:], next_state], dim=2)
+            x = torch.cat([x[:, :, 1:], out], dim=2)
             coords["lead_time"] = np.array(
                 [coords["lead_time"][-1], out_coords["lead_time"][-1]]
             )
