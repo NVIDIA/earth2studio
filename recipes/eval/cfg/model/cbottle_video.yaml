@@ -1,0 +1,7 @@
+# cBottle video prognostic model
+# Generative global climate/video model with lat/lon I/O by default.
+architecture: earth2studio.models.px.cbottle_video.CBottleVideo
+# Omit package_path to use the default HuggingFace checkpoint.
+# package_path: /path/to/custom/checkpoint
+load_args:
+    lat_lon: true

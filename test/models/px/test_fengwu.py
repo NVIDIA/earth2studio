@@ -57,7 +57,7 @@ def fengwu_test_package(tmp_path_factory):
         opset_version=17,
         input_names=["input"],
         output_names=["output"],
-        dynamic_shapes=({0: "batch_size"},),
+        dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
     )
     # Create fake normalization files
     np.save(tmp_path / "global_means.npy", np.zeros(69))

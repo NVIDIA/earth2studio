@@ -274,6 +274,18 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         ort_session: InferenceSession,
     ) -> torch.Tensor:
+        x = (x - self.center) / self.scale  # Normalize
+        x = x.view(x.shape[0], -1, 721, 1440)  # Concat time-steps
+
+        if self.device.type == "cpu":
+            # ONNXRuntime IO binding expects device-backed buffers; use the
+            # regular NumPy path for CPU execution.
+            output_np = ort_session.run(
+                ["output"],
+                {"input": x.detach().cpu().contiguous().numpy().astype(np.float32)},
+            )[0]
+            output_tensor = torch.from_numpy(output_np).to(self.device)
+            return self.scale * output_tensor[:, :69].unsqueeze(1) + self.center
 
         # Ref https://onnxruntime.ai/docs/api/python/api_summary.html
         binding = ort_session.io_binding()
@@ -301,8 +313,6 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
             return out
 
-        x = (x - self.center) / self.scale  # Normalize
-        x = x.view(x.shape[0], -1, 721, 1440)  # Concat time-steps
         # Forward pass, fengwu onnx supports batched
         bind_input("input", x)
         output = bind_output("output", like=x)

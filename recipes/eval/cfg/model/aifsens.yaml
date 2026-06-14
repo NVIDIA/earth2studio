@@ -1,0 +1,5 @@
+# AIFS ensemble prognostic model
+# 6-hour time step, native model grid internally with lat/lon I/O wrapper.
+architecture: earth2studio.models.px.aifsens.AIFSENS
+# Omit package_path to use the default HuggingFace checkpoint.
+# package_path: /path/to/custom/checkpoint

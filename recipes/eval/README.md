@@ -381,6 +381,20 @@ can switch on the command line:
 python main.py model=fcn3
 ```
 
+Bundled standard forecast model configs include `ace2`, `aifs`, `aifsens`,
+`atlas`, `aurora`, `cbottle_video`, `dlwp`, `fcn`, `fcn3`, `fengwu`,
+`gencast_mini`, `graphcast_operational`, `graphcast_small`, `pangu3`,
+`pangu6`, `pangu24`, and `sfno`. Specialized configs are also provided for
+`dlesym` and `stormscope_goes_mrms`, which use custom pipelines.
+
+Some model families require optional dependencies beyond the base eval
+environment. Add the matching Earth2Studio extra to the recipe's
+`earth2studio[...]` dependency before syncing; the recipe does not install
+every model backend by default. Most model configs use the same name as
+their extra, for example `aifs`, `atlas`, `aurora`, `fcn`, `fengwu`,
+`graphcast`, `pangu`, or `sfno`; `cbottle_video` uses `cbottle`, and
+`gencast_mini` uses `gencast`.
+
 ### Ensemble runs
 
 Set `ensemble_size > 1` and provide a perturbation config:

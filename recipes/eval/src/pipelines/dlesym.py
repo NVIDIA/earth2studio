@@ -26,8 +26,8 @@ from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
-from earth2studio.data import DataSource, fetch_data
-from earth2studio.models.px.dlesym import DLESyM
+from earth2studio.data.base import DataSource
+from earth2studio.data.utils import fetch_data
 from earth2studio.utils.coords import CoordSystem, map_coords
 
 from ..models import load_prognostic
@@ -207,14 +207,15 @@ class DLESyMPipeline(ForecastPipeline):
         if not self._ocean_variables:
             return x_step
 
-        if not isinstance(self.prognostic, DLESyM):
+        retrieve_valid_ocean_outputs = getattr(
+            self.prognostic, "retrieve_valid_ocean_outputs", None
+        )
+        if retrieve_valid_ocean_outputs is None:
             raise ValueError(
                 "DLESyMPipeline expects the loaded prognostic to be a DLESyM model; "
                 f"Got: {type(self.prognostic).__name__}"
             )
-        _, valid_coords = self.prognostic.retrieve_valid_ocean_outputs(
-            x_step, coords_step
-        )
+        _, valid_coords = retrieve_valid_ocean_outputs(x_step, coords_step)
         valid_lt = set(valid_coords["lead_time"].tolist())
         all_lt = list(coords_step["lead_time"].tolist())
         all_vars = list(coords_step["variable"])

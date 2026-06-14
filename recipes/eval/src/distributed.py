@@ -24,6 +24,9 @@ from typing import Any, TypeVar
 import torch
 from loguru import logger
 from physicsnemo.distributed import DistributedManager
+from physicsnemo.distributed.manager import (
+    PhysicsNeMoUninitializedDistributedManagerWarning,
+)
 
 T = TypeVar("T")
 
@@ -49,7 +52,11 @@ def run_on_rank0_first(func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
     T
         Return value of *func*.
     """
-    dist = DistributedManager()
+    try:
+        dist = DistributedManager()
+    except PhysicsNeMoUninitializedDistributedManagerWarning:
+        DistributedManager.initialize()
+        dist = DistributedManager()
 
     if not dist.distributed:
         return func(*args, **kwargs)

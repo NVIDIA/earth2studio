@@ -1,0 +1,5 @@
+# FCN / FourCastNet prognostic model
+# 6-hour time step, 720x1440 lat/lon grid, 26 prognostic variables.
+architecture: earth2studio.models.px.fcn.FCN
+# Omit package_path to use the default NGC checkpoint.
+# package_path: /path/to/custom/checkpoint

@@ -1,0 +1,5 @@
+# Pangu-Weather 24-hour prognostic model
+# 24-hour time step, 721x1440 lat/lon grid, ONNX runtime backend.
+architecture: earth2studio.models.px.pangu.Pangu24
+# Omit package_path to use the default HuggingFace checkpoint.
+# package_path: /path/to/custom/checkpoint

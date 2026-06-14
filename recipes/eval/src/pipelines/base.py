@@ -51,7 +51,7 @@ from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
-from earth2studio.data import DataSource
+from earth2studio.data.base import DataSource
 from earth2studio.utils.coords import CoordSystem, map_coords
 from src.data import CompositeSource, PredownloadedSource
 from src.output import OutputManager, build_output_coords

@@ -1,0 +1,7 @@
+# GenCast Mini prognostic model
+# 12-hour time step, 1-degree lat/lon grid, stochastic JAX backend.
+architecture: earth2studio.models.px.gencast_mini.GenCastMini
+# Omit package_path to use the default Google Cloud checkpoint.
+# package_path: /path/to/custom/checkpoint
+load_args:
+    jit_compile: false
