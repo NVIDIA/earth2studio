@@ -45,6 +45,7 @@ def deterministic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
+    compile: bool = False,
 ) -> IOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
@@ -68,6 +69,10 @@ def deterministic(
         Device to run inference on, by default None
     verbose : bool, optional
         Print inference progress, by default True
+    compile : bool, optional
+        Use torch.compile to accelerate the prognostic model's forward pass,
+        by default False. Note: This requires PyTorch >= 2.0 and may incur
+        initial compilation overhead.
 
     Returns
     -------
@@ -84,6 +89,17 @@ def deterministic(
     )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
+
+    if compile:
+        if hasattr(prognostic, "_forward"):
+            logger.info("Compiling prognostic model...")
+            prognostic._forward = torch.compile(
+                prognostic._forward, mode="reduce-overhead"
+            )
+        else:
+            logger.warning(
+                "Compilation requested but prognostic model does not have _forward method. Skipping."
+            )
     # sphinx - fetch data start
     # Fetch data from data source and load onto device
     prognostic_ic = prognostic.input_coords()
@@ -163,6 +179,7 @@ def diagnostic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
+    compile: bool = False,
 ) -> IOBackend:
     """Built in diagnostic workflow.
     This workflow creates a determinstic inference pipeline that couples a prognostic
@@ -188,6 +205,10 @@ def diagnostic(
         Device to run inference on, by default None
     verbose : bool, optional
         Print inference progress, by default True
+    compile : bool, optional
+        Use torch.compile to accelerate the prognostic and diagnostic model's
+        forward pass, by default False. Note: This requires PyTorch >= 2.0 and
+        may incur initial compilation overhead.
 
     Returns
     -------
@@ -205,6 +226,21 @@ def diagnostic(
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
     diagnostic = diagnostic.to(device)
+
+    if compile:
+        if hasattr(prognostic, "_forward"):
+            logger.info("Compiling prognostic model...")
+            prognostic._forward = torch.compile(
+                prognostic._forward, mode="reduce-overhead"
+            )
+        else:
+            logger.warning(
+                "Compilation requested but prognostic model does not have _forward method. Skipping prognostic compilation."
+            )
+
+        # Compile the diagnostic model call
+        logger.info("Compiling diagnostic model...")
+        diagnostic = torch.compile(diagnostic, mode="reduce-overhead")
     # Fetch data from data source and load onto device
     prognostic_ic = prognostic.input_coords()
     diagnostic_ic = diagnostic.input_coords()
@@ -290,6 +326,7 @@ def ensemble(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
+    compile: bool = False,
 ) -> IOBackend:
     """Built in ensemble workflow.
 
@@ -318,6 +355,10 @@ def ensemble(
         Device to run inference on, by default None
     verbose : bool, optional
         Print inference progress, by default True
+    compile : bool, optional
+        Use torch.compile to accelerate the prognostic model's forward pass,
+        by default False. Note: This requires PyTorch >= 2.0 and may incur
+        initial compilation overhead.
 
     Returns
     -------
@@ -335,6 +376,17 @@ def ensemble(
     )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
+
+    if compile:
+        if hasattr(prognostic, "_forward"):
+            logger.info("Compiling prognostic model...")
+            prognostic._forward = torch.compile(
+                prognostic._forward, mode="reduce-overhead"
+            )
+        else:
+            logger.warning(
+                "Compilation requested but prognostic model does not have _forward method. Skipping."
+            )
 
     # Fetch data from data source and load onto device
     prognostic_ic = prognostic.input_coords()
