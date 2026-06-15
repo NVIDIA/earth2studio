@@ -21,7 +21,7 @@ to process observations independently or maintain internal state across time ste
 
 .. currentmodule:: earth2studio.models.da
 
-.. badge-filter:: region:global region:na region:as
+.. badge-filter:: region:global region:na region:eu region:as region:au region:af region:sa
    class:nwc class:ds class:mrf class:s2s class:da class:cm
    product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
    year:2021 year:2022 year:2023 year:2024 year:2025 year:2026

@@ -16,6 +16,7 @@
 
 import datetime as dt
 import math
+import warnings
 from collections import OrderedDict
 from collections.abc import Generator
 from typing import Any
@@ -263,7 +264,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 "lon": np.empty(0, dtype=np.float32),
                 "observation": np.empty(0, dtype=np.float32),
                 "variable": np.array(list(SAT_SENSORS), dtype=str),
-                "channel_index": np.empty(0, dtype=np.uint16),
+                "sensor_index": np.empty(0, dtype=np.uint16),
                 "satellite": np.empty(0, dtype=str),
                 "scan_angle": np.empty(0, dtype=np.float32),
                 "satellite_za": np.empty(0, dtype=np.float32),
@@ -591,7 +592,19 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             Standardized DataFrame with unified column schema
         """
         stats = self._sensor_stats[sensor]
-        raw_ch = df["channel_index"].values.astype(int)
+        if "sensor_index" in df.columns:
+            channel_col = "sensor_index"
+        elif "channel_index" in df.columns:
+            warnings.warn(
+                "HealDA satellite observations should provide 'sensor_index' with "
+                "the physical sensor channel. Falling back to 'channel_index' for "
+                "backward compatibility. For UFSObsSat this is the native GSI "
+                "Channel_Index pointer and may produce incorrect channel mappings."
+            )
+            channel_col = "channel_index"
+        else:
+            raise ValueError("Satellite observations must include 'sensor_index'.")
+        raw_ch = df[channel_col].values.astype(int)
         platforms = SENSOR_PLATFORMS.get(sensor, [])
         platform_map = {name: i for i, name in enumerate(platforms)}
 
@@ -603,7 +616,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         out_of_bounds = raw_ch[raw_ch > max_raw]
         if len(out_of_bounds) > 0:
             raise ValueError(
-                f"Sensor {sensor!r}: channel_index values {set(out_of_bounds.tolist())} "
+                f"Sensor {sensor!r}: {channel_col} values {set(out_of_bounds.tolist())} "
                 f"exceed max channel {max_raw} in stats table"
             )
 
@@ -645,12 +658,20 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         if unknown_vars:
             raise ValueError(f"Unknown conventional variable(s): {unknown_vars}")
 
+        # HealDA v1 was trained with pressure values in hPa, while Earth2Studio
+        # conventional data sources provide pressure-like fields in Pa.
+        obs = df["observation"].values.astype(np.float64)
+        is_pres_obs = df["variable"].values == "pres"
+        obs[is_pres_obs] /= 100.0  # Pa -> hPa
+
+        pressure = df["pres"].values.astype(np.float32) / np.float32(100.0)  # Pa -> hPa
+
         return pd.DataFrame(
             {
                 "lat": df["lat"].values.astype(np.float32),
                 "lon": df["lon"].values.astype(np.float32),
                 "obs_time_ns": df["time"].values.astype("datetime64[ns]"),
-                "observation": df["observation"].values.astype(np.float64),
+                "observation": obs,
                 "local_channel": df["variable"]
                 .map(CONV_VAR_CHANNEL)
                 .values.astype(np.int32),
@@ -658,7 +679,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 "sensor": "conv",
                 "obs_type": df["type"].fillna(0).values.astype(np.int32),
                 "height": df["elev"].values.astype(np.float32),
-                "pressure": df["pres"].values.astype(np.float32),
+                "pressure": pressure,
                 "scan_angle": np.float32(np.nan),
                 "sat_zenith_angle": np.float32(np.nan),
                 "sol_zenith_angle": np.float32(np.nan),
@@ -849,21 +870,21 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             obs = pd.concat(ordered_parts, ignore_index=True)
         else:
             obs = pd.DataFrame(
-                columns=[
-                    "lat",
-                    "lon",
-                    "obs_time_ns",
-                    "observation",
-                    "local_channel",
-                    "local_platform",
-                    "sensor",
-                    "obs_type",
-                    "height",
-                    "pressure",
-                    "scan_angle",
-                    "sat_zenith_angle",
-                    "sol_zenith_angle",
-                ]
+                {
+                    "lat": np.empty(0, dtype=np.float32),
+                    "lon": np.empty(0, dtype=np.float32),
+                    "obs_time_ns": np.empty(0, dtype="datetime64[ns]"),
+                    "observation": np.empty(0, dtype=np.float32),
+                    "local_channel": np.empty(0, dtype=np.int32),
+                    "local_platform": np.empty(0, dtype=np.int64),
+                    "sensor": np.empty(0, dtype=str),
+                    "obs_type": np.empty(0, dtype=np.int32),
+                    "height": np.empty(0, dtype=np.float32),
+                    "pressure": np.empty(0, dtype=np.float32),
+                    "scan_angle": np.empty(0, dtype=np.float32),
+                    "sat_zenith_angle": np.empty(0, dtype=np.float32),
+                    "sol_zenith_angle": np.empty(0, dtype=np.float32),
+                }
             )
 
         def to_dev(col: str) -> torch.Tensor:

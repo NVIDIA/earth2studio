@@ -42,19 +42,14 @@ process.
 2. [Configure and Execute Runs](#2-configure-and-execute-runs)
    - [2.1 Generate Ensemble](#21-generate-ensemble)
    - [2.2 Reproduce Individual Ensemble Members](#22-reproduce-individual-ensemble-members)
-     *(coming soon)*
    - [2.3 Extract Reference Tracks from ERA5](#23-extract-reference-tracks-from-era5)
-     *(coming soon)*
-3. [Visualisation](#3-visualisation) *(coming soon)*
+3. [Visualisation](#3-visualisation)
 4. [TempestExtremes Integration](#4-tempestextremes-integration)
 5. [Example Workflow](#5-example-workflow)
    - [5.1 Extract Baseline](#51-extract-baseline-optional)
-     *(coming soon)*
    - [5.2 Produce Ensemble Forecasts](#52-produce-ensemble-forecasts)
    - [5.3 Analyse Tracks](#53-analyse-tracks)
-     *(coming soon)*
    - [5.4 Reproduce Interesting Members](#54-reproduce-interesting-members-to-extract-fields)
-     *(coming soon)*
 
 ## 1. Setting up the Environment
 
@@ -143,28 +138,50 @@ Runs are configured through YAML files located in
 `tc_tracking/cfg`. To execute the pipeline:
 
 ```bash
-python tc_hunt.py --config-name=config.yaml
-```
-
-The script can also be executed in distributed settings
-using Slurm, MPI, or torchrun. For example:
-
-```bash
-torchrun --nproc-per-node=2 tc_hunt.py --config-name=config.yaml
+python main.py --config-name=config.yaml
 ```
 
 The pipeline has three operational modes:
 
 - **`generate_ensemble`**: Generate an ensemble prediction
   and extract tropical cyclones.
-- **`reproduce_members`** *(coming soon)*: Reproduce
+- **`reproduce_members`**: Reproduce
   individual ensemble members to store atmospheric fields
   of interesting tracks. Note: Currently only works with
   FCN3, as AIFS-ENS does not expose a method to set the
   model's internal random state.
-- **`extract_baseline`** *(coming soon)*: Extract tropical
+- **`extract_baseline`**: Extract tropical
   cyclone tracks from historical reanalysis data (e.g. ERA5)
   for validation purposes.
+
+**Parallelism:**
+
+The two GPU-bound modes (`generate_ensemble` and
+`reproduce_members`) can be executed in distributed
+settings using Slurm, MPI, or torchrun, e.g.
+
+```bash
+torchrun --nproc-per-node=2 main.py --config-name=config.yaml
+```
+
+The pipeline has three operational modes:
+
+- **`generate_ensemble`**: Generate an ensemble prediction
+  and extract tropical cyclones.
+- **`reproduce_members`**: Reproduce
+  individual ensemble members to store atmospheric fields
+  of interesting tracks. Note: Currently only works with
+  FCN3, as AIFS-ENS does not expose a method to set the
+  model's internal random state.
+- **`extract_baseline`**: Extract tropical
+  cyclone tracks from historical reanalysis data (e.g. ERA5)
+  for validation purposes.
+  The CPU-bound `extract_baseline` mode does not use
+  `torchrun` and does not require a GPU. Instead, individual
+  storms are distributed across CPU worker processes via the
+  ``num_workers`` configuration entry (see
+  [Section 2.3](#23-extract-reference-tracks-from-era5)),
+  so a plain ``python main.py ...`` invocation suffices.
 
 In the following we will explain how to configure the yaml
 files for those three modes. You can find example configs
@@ -361,13 +378,6 @@ modify this section.
 
 ### 2.2 Reproduce Individual Ensemble Members
 
-> [!Note]
-> This feature will be available in a future update.
-
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
-
 A common workflow is to run ensemble forecasts without
 storing atmospheric fields, since track data is approximately
 five orders of magnitude smaller than the associated field
@@ -437,17 +447,7 @@ batch size of 2 in the example above, the run would reproduce
 members 4, 5, 8, and 9 from the midnight ensemble, and
 members 4, 5, 12, and 13 from the midday ensemble.
 
-</details>
-<!-- markdownlint-enable MD033 -->
-
 ### 2.3 Extract Reference Tracks from ERA5
-
-> [!Note]
-> This feature will be available in a future update.
-
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
 
 [IBTrACS](https://www.ncei.noaa.gov/products/international-best-track-archive)
 (International Best Track Archive for Climate Stewardship)
@@ -492,24 +492,32 @@ TempestExtremes to extract tropical cyclone tracks. Since
 multiple storms may be active globally at any given time,
 a second matching step compares all extracted tracks against
 the IBTrACS ground truth to identify the correct track for
-each named storm.
+each named storm. A track is matched at the first IBTrACS
+observation time for which the extracted storm position lies
+within ``max_dist`` metres of the IBTrACS reference position.
+The ``max_dist`` setting is optional and defaults to
+``300000`` (300 km) if omitted:
+
+```yaml
+max_dist: 300000   # optional; max. distance (in metres) between
+                   # extracted track and IBTrACS reference at the
+                   # matching time step; defaults to 300000 (300 km)
+```
 
 **IO Configuration:**
 
 **IBTrACS Data:**
 
-Download the IBTrACS data in CSV format:
+The pipeline requires the IBTrACS dataset in CSV format.
+Specify a local path in the configuration:
 
-<!-- markdownlint-disable MD013 -->
-
-```bash
-wget https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.ALL.list.v04r01.csv
+```yaml
+ibtracs_source_data: "./aux_data/ibtracs.ALL.list.v04r01.csv"
 ```
 
-<!-- markdownlint-enable MD013 -->
-
-Note: This file is over 300MB and may take several minutes
-to download.
+If the file does not exist at the configured path, it is
+downloaded automatically from NCEI (~300 MB). The download
+only occurs once; subsequent runs use the cached file.
 
 **Reanalysis Data:**
 
@@ -526,7 +534,7 @@ to download.
 
 ```yaml
 store_dir: "./outputs_${project}"
-ibtracs_source_data: "/path/to/ibtracs.ALL.list.v04r01.csv"
+ibtracs_source_data: "./aux_data/ibtracs.ALL.list.v04r01.csv"
 
 data_source:
     era5_train:
@@ -540,34 +548,54 @@ data_source:
             _target_: earth2studio.data.CDS
 ```
 
-</details>
-<!-- markdownlint-enable MD033 -->
+**Parallel Extraction:**
+
+`extract_baseline` is CPU-bound (no GPU required) and
+distributes individual storms across worker processes via
+a [`ProcessPoolExecutor`][ppe-docs]. Set the desired number
+of workers in the configuration:
+
+```yaml
+num_workers: 2     # 1 = serial; capped at len(cases)
+```
+
+Each worker handles one storm at a time and writes its own
+per-storm CSV file independently, so output is
+deterministic and no inter-process communication is needed.
+Serial runs (`num_workers: 1`) skip the pool entirely and use the
+same code path inline. If `num_workers` exceeds the number
+of configured cases, it is silently capped to `len(cases)`
+and a warning is logged.
 
 ## 3. Visualisation
 
-> [!Note]
-> Visualisation tools will be available in a future update.
+Two [JupyText](https://jupytext.readthedocs.io/) notebook scripts are
+provided in the recipe root for analysing and visualising tropical cyclone
+tracking results:
 
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
-
-Two Jupyter notebooks are provided in `./plotting` for
-analysing and visualising tropical cyclone tracking results:
-
-- **`tracks_slayground.ipynb`**: Ensemble track analysis
+- **`plot_tracks_analysis.py`**: Ensemble track analysis
   including spaghetti plots (trajectory visualisation),
   absolute and relative intensity metrics (wind speed,
   MSLP), comparisons against ERA5 reference tracks and
   IBTrACS observations, extreme value statistics, and
   error moment analysis over lead time.
 
-- **`plot_tracks_n_fields.ipynb`**: Create animated
+- **`plot_tracks_n_fields.py`**: Create animated
   visualisations of storm tracks overlaid on atmospheric
   field data.
 
-</details>
-<!-- markdownlint-enable MD033 -->
+Both scripts can be run as plain Python files or converted to Jupyter
+notebooks via JupyText. From the recipe root:
+
+```bash
+jupytext --to notebook plot_tracks_analysis.py
+jupytext --to notebook plot_tracks_n_fields.py
+jupyter notebook plot_tracks_analysis.ipynb
+```
+
+The recipe root must be the working directory so that `src.plt.*` imports
+resolve correctly. Helper modules (`analyse_n_plot.py`, `data_handling.py`,
+`plotting_helpers.py`) live in `src/plt/`.
 
 ## 4. TempestExtremes Integration
 
@@ -644,25 +672,20 @@ tracks extracted from ERA5 data.
 
 ### 5.1 Extract Baseline (Optional)
 
-> [!Note]
-> This feature will be available in a future update.
-
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
-
 This step extracts reference tracks from ERA5 reanalysis for
 comparison with forecast predictions. Note that downloading
 the ERA5 field data for Hato and Helene is required and can
 take some time. If it takes too long, you can skip this step
 and use the pre-computed reference tracks provided in
-`./test/aux_data` instead.
+`./aux_data` instead.
 
-First, download the IBTrACS data, then extract the baseline
-tracks:
+The IBTrACS data file is downloaded automatically on first
+use. Extract the baseline tracks (no `torchrun` / GPU
+needed; storms are spread across `num_workers` CPU worker
+processes as configured in the YAML):
 
 ```bash
-python tc_hunt.py --config-name=extract_era5.yaml
+python main.py --config-name=extract_era5.yaml
 ```
 
 This should produce a folder called
@@ -672,17 +695,14 @@ files:
 - `reference_track_hato_2017_west_pacific.csv`
 - `reference_track_helene_2024_north_atlantic.csv`
 
-</details>
-<!-- markdownlint-enable MD033 -->
-
 ### 5.2 Produce Ensemble Forecasts
 
 Run the forecast loop for Helene using FCN3 and for Hato
 using AIFS-ENS:
 
 ```bash
-python tc_hunt.py --config-name=helene.yaml
-python tc_hunt.py --config-name=hato.yaml
+python main.py --config-name=helene.yaml
+python main.py --config-name=hato.yaml
 ```
 
 This should produce two output folders: `outputs_helene` and
@@ -691,15 +711,8 @@ trajectories.
 
 ### 5.3 Analyse Tracks
 
-> [!Note]
-> Visualisation tools will be available in a future update.
-
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
-
 Visualise the results using the notebook
-`plotting/tracks_slayground.ipynb`.
+`plot_tracks_analysis.py` (or convert to `.ipynb` via jupytext).
 
 **For Helene**, configure the first cell of the notebook
 with:
@@ -722,17 +735,7 @@ tru_track_dir = '/path/to/outputs_reference_tracks'
 # tru_track_dir = '/path/to/test/aux_data'
 ```
 
-</details>
-<!-- markdownlint-enable MD033 -->
-
 ### 5.4 Reproduce Interesting Members to Extract Fields
-
-> [!Note]
-> This feature will be available in a future update.
-
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
 
 Suppose that after conducting the above analysis you want
 to take a closer look at ensemble members 0, 8, 9, and 12
@@ -752,7 +755,7 @@ atmospheric fields for detailed analysis.
 3. Execute the pipeline:
 
    ```bash
-   python tc_hunt.py --config-name=reproduce_helene.yaml
+   python main.py --config-name=reproduce_helene.yaml
    ```
 
 4. This should produce a folder `outputs_reproduce_helene`
@@ -762,7 +765,7 @@ atmospheric fields for detailed analysis.
 
 **Visualise Tracks and Fields**:
 
-Use the notebook `plotting/plot_tracks_n_fields.ipynb` to
+Use the notebook `plot_tracks_n_fields.py` to
 create animated visualisations:
 
 1. Configure the file paths:
@@ -794,14 +797,12 @@ correctly, point `track_dir` to the original Helene run
 (`outputs_helene/cyclone_tracks_te`) and confirm that the
 tracks are identical.
 
-</details>
-<!-- markdownlint-enable MD033 -->
-
 <!-- markdownlint-disable MD013 -->
 
 [te-repo]: https://github.com/ClimateGlobalChange/tempestextremes
 [te-install]: https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended
 [flash-attn-help]: https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html#flash-attention-has-long-build-time-for-aifs-models
 [docker-build]: https://docs.docker.com/get-started/docker-concepts/building-images/build-tag-and-publish-an-image/#build-an-image
+[ppe-docs]: https://docs.python.org/3/library/concurrent.futures.html#processpoolexecutor
 
 <!-- markdownlint-enable MD013 -->

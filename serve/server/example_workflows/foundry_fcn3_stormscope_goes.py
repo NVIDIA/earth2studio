@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from collections import OrderedDict
 from collections.abc import Sequence
 from datetime import datetime, timedelta
@@ -25,6 +24,7 @@ import torch
 import xarray as xr
 import zarr
 from cftime import date2num
+from loguru import logger
 
 from earth2studio.data import (
     GOES,
@@ -44,13 +44,10 @@ from earth2studio.serve.server import (
     Earth2Workflow,
     WorkflowParameters,
     WorkflowProgress,
-    workflow_registry,
+    WorkflowRegistry,
 )
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import timearray_to_datetime, to_time_array
-
-logger = logging.getLogger("foundry_fcn3_stormscope_goes_workflow")
-logger.setLevel(logging.INFO)
 
 GOES_MODEL_NAME = "6km_60min_natten_cos_zenith_input_eoe_v2"
 
@@ -58,7 +55,7 @@ _MAX_FORECAST_STEPS = 32
 _MAX_ENSEMBLE_SAMPLES = 32
 
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
     """FCN3 (with interpolation) plus StormScope GOES diagnostic ensemble for Foundry."""
 

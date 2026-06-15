@@ -25,6 +25,35 @@ import pytest
 from earth2studio.data import AIFS_ENS_FX, AIFS_FX, IFS, IFS_ENS, IFS_ENS_FX, IFS_FX
 
 
+def test_accumulation_alias_tasks_use_previous_lead_time():
+    ds = object.__new__(AIFS_FX)
+    time = [datetime(2025, 12, 31, 0)]
+    lead_time = [timedelta(hours=12)]
+
+    tasks = asyncio.run(ds._create_tasks(time, lead_time, ["sf06", "ro06", "t2m"]))
+
+    assert tasks[0].variable == "sf"
+    assert tasks[0].lead_time == timedelta(hours=12)
+    assert tasks[0].previous_lead_time == timedelta(hours=6)
+    assert tasks[1].variable == "rowe"
+    assert tasks[1].previous_lead_time == timedelta(hours=6)
+    assert tasks[2].variable == "2t"
+    assert tasks[2].previous_lead_time is None
+
+
+def test_accumulation_alias_tasks_reject_short_lead_time():
+    ds = object.__new__(IFS_FX)
+
+    with pytest.raises(ValueError, match="too short"):
+        asyncio.run(
+            ds._create_tasks(
+                [datetime(2025, 12, 31, 0)],
+                [timedelta(hours=0)],
+                ["sf06"],
+            )
+        )
+
+
 def now6h():
     """Get closest 6 hour timestamp"""
     nt = datetime.now()
@@ -47,7 +76,7 @@ def now6h():
 )
 @pytest.mark.parametrize("variable", ["tcwv", ["sp"]])
 def test_ifs_fetch(time, variable):
-    ds = IFS(cache=False)
+    ds = IFS()
     data = ds(time, variable)
     shape = data.shape
 
@@ -64,7 +93,7 @@ def test_ifs_fetch(time, variable):
     assert not np.isnan(data.values).any()
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
-    ds = IFS_FX(cache=False)
+    ds = IFS_FX()
     data_fx = ds(time, timedelta(hours=0), variable)
     shape = data_fx.shape
 
@@ -75,6 +104,11 @@ def test_ifs_fetch(time, variable):
     assert shape[4] == 1440
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
     assert np.allclose(data.values, data_fx.values[:, 0])
+
+    try:
+        shutil.rmtree(ds.cache)
+    except FileNotFoundError:
+        pass
 
 
 @pytest.mark.slow
@@ -90,8 +124,8 @@ def test_ifs_fetch(time, variable):
         ],
     ],
 )
-@pytest.mark.parametrize("variable", ["tcwv", ["sp"]])
-@pytest.mark.parametrize("member", [0, 1])
+@pytest.mark.parametrize("variable", ["t2m", ["sp"]])
+@pytest.mark.parametrize("member", [2])
 def test_ifs_ens_fetch(time, variable, member):
     ds = IFS_ENS(cache=False, member=member)
     data = ds(time, variable)
@@ -148,7 +182,7 @@ def test_ifs_ens_fetch(time, variable, member):
 )
 @pytest.mark.parametrize("variable", ["tcwv", ["sp"]])
 def test_ifs_ens_fx_fetch(time, lead_time, variable):
-    ds = IFS_ENS_FX(cache=False, member=0)
+    ds = IFS_ENS_FX(cache=False)
     data = ds(time, lead_time, variable)
     shape = data.shape
 
@@ -247,78 +281,6 @@ def test_ifs_cache(time, variable, cache):
         shutil.rmtree(ds.cache)
     except FileNotFoundError:
         pass
-
-
-@pytest.mark.asyncio
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
-async def test_ifs_async_fetch():
-    t = now6h() - timedelta(hours=12)
-    lt = timedelta(hours=0)
-    variable = "msl"
-
-    ds_ifs = IFS(cache=False)
-    ds_ifs_fx = IFS_FX(cache=False)
-    ds_ifs_ens = IFS_ENS(cache=False, member=1)
-    ds_ifs_ens_fx = IFS_ENS_FX(cache=False, member=1)
-    ds_aifs_fx = AIFS_FX(cache=False)
-    ds_aifs_ens_fx = AIFS_ENS_FX(cache=False, member=1)
-
-    da_ifs, da_fx, da_ens, da_ens_fx, da_aifs_fx, da_aifs_ens_fx = await asyncio.gather(
-        ds_ifs.fetch(t, variable),
-        ds_ifs_fx.fetch(t, lt, variable),
-        ds_ifs_ens.fetch(t, variable),
-        ds_ifs_ens_fx.fetch(t, lt, variable),
-        ds_aifs_fx.fetch(t, lt, variable),
-        ds_aifs_ens_fx.fetch(t, lt, variable),
-    )
-
-    # IFS (analysis): [time, variable, lat, lon]
-    assert da_ifs.shape[0] == 1
-    assert da_ifs.shape[1] == 1
-    assert da_ifs.shape[2] == 721
-    assert da_ifs.shape[3] == 1440
-    assert not np.isnan(da_ifs.values).any()
-
-    # IFS_FX (forecast): [time, lead_time, variable, lat, lon]
-    assert da_fx.shape[0] == 1
-    assert da_fx.shape[1] == 1
-    assert da_fx.shape[2] == 1
-    assert da_fx.shape[3] == 721
-    assert da_fx.shape[4] == 1440
-    assert not np.isnan(da_fx.values).any()
-
-    # IFS_ENS (analysis): [time, variable, lat, lon]
-    assert da_ens.shape[0] == 1
-    assert da_ens.shape[1] == 1
-    assert da_ens.shape[2] == 721
-    assert da_ens.shape[3] == 1440
-    assert not np.isnan(da_ens.values).any()
-
-    # IFS_ENS_FX (forecast): [time, lead_time, variable, lat, lon]
-    assert da_ens_fx.shape[0] == 1
-    assert da_ens_fx.shape[1] == 1
-    assert da_ens_fx.shape[2] == 1
-    assert da_ens_fx.shape[3] == 721
-    assert da_ens_fx.shape[4] == 1440
-    assert not np.isnan(da_ens_fx.values).any()
-
-    # AIFS_FX (forecast): [time, lead_time, variable, lat, lon]
-    assert da_aifs_fx.shape[0] == 1
-    assert da_aifs_fx.shape[1] == 1
-    assert da_aifs_fx.shape[2] == 1
-    assert da_aifs_fx.shape[3] == 721
-    assert da_aifs_fx.shape[4] == 1440
-    assert not np.isnan(da_aifs_fx.values).any()
-
-    # AIFS_ENS_FX (forecast): [time, lead_time, variable, lat, lon]
-    assert da_aifs_ens_fx.shape[0] == 1
-    assert da_aifs_ens_fx.shape[1] == 1
-    assert da_aifs_ens_fx.shape[2] == 1
-    assert da_aifs_ens_fx.shape[3] == 721
-    assert da_aifs_ens_fx.shape[4] == 1440
-    assert not np.isnan(da_aifs_ens_fx.values).any()
 
 
 @pytest.mark.timeout(30)

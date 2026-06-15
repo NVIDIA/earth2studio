@@ -7,7 +7,7 @@ Data sources that provide tabular data as DataFrames.
 
 .. currentmodule:: earth2studio
 
-.. badge-filter:: region:global region:na region:as
+.. badge-filter:: region:global region:na region:eu region:as region:au region:af region:sa
    dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation
    product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
    :filter-mode: or
@@ -20,6 +20,9 @@ Data sources that provide tabular data as DataFrames.
       :toctree: generated/data/
       :template: datasource.rst
 
+      data.GHCNDaily
+      data.GOESGLM
+      data.IBTrACS
       data.ISD
       data.JPSS_ATMS
       data.JPSS_CRIS
@@ -27,6 +30,8 @@ Data sources that provide tabular data as DataFrames.
       data.MetOpAVHRR
       data.MetOpIASI
       data.MetOpMHS
+      data.NNJAObsConv
+      data.NomadsGDASObsConv
       data.RandomDataFrame
       data.UFSObsConv
       data.UFSObsSat

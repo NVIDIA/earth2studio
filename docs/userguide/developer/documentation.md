@@ -104,7 +104,7 @@ generated using [sphinx-gallery](https://sphinx-gallery.github.io/stable/index.h
 Examples demonstrate how to use Earth2Studio APIs.
 Examples should be short and concise, designed to be run in a short wall-clock time of
 under 10 minutes on a typical data-center level GPU.
-The script must be runnable on a single 32Gb A100 GPU using minimal extra dependencies.
+The script must be runnable on a single 80Gb H100 GPU using minimal extra dependencies.
 Additional requirements might be required for running the example inside the CD pipeline,
 which will be addressed on a case-by-case basis.
 

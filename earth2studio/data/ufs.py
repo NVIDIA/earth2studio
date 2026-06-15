@@ -16,8 +16,6 @@
 
 from __future__ import annotations
 
-import asyncio
-import concurrent.futures
 import hashlib
 import os
 import pathlib
@@ -28,15 +26,15 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import h5netcdf
-import nest_asyncio
 import numpy as np
+import obstore as obs
 import pandas as pd
 import pyarrow as pa
-import s3fs
 from loguru import logger
+from obstore.store import S3Store
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import _sync_async, datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import GSIConventionalLexicon, GSISatelliteLexicon
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
@@ -49,7 +47,7 @@ class _GSIAsyncTask:
     datetime_file: datetime
     datetime_max: datetime
     datetime_min: datetime
-    gsi_file_uri: str
+    gsi_obs_key: str
     gsi_modifier: Callable
     gsi_obs_name: str
     e2s_obs_name: str
@@ -81,23 +79,20 @@ class _UFSObsBase:
         self._max_workers = max_workers
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
-
-        try:
-            nest_asyncio.apply()
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            self.fs = None
+        # Anonymous obstore S3 store for the public NOAA UFS replay bucket.
+        self._store = S3Store(
+            self.UFS_BUCKET,
+            region=self._region,
+            skip_signature=True,
+            client_options={"pool_max_idle_per_host": str(self._max_workers)},
+        )
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
         self._tolerance_upper = pd.to_timedelta(upper).to_pytimedelta()
 
-    async def _async_init(self) -> None:
-        """Async initialization of S3 filesystem"""
-        self.fs = s3fs.S3FileSystem(
-            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
-        )
+    # NOAA UFS GEFSv13 replay archive is a public bucket in us-east-1.
+    _region = "us-east-1"
 
     def __call__(
         self,
@@ -117,26 +112,12 @@ class _UFSObsBase:
             Fields to include in output, by default None (all fields).
         """
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        loop.set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
-        )
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        df = loop.run_until_complete(
-            asyncio.wait_for(
-                self.fetch(time, variable, fields), timeout=self.async_timeout
+            df = _sync_async(
+                self.fetch, time, variable, fields, timeout=self.async_timeout
             )
-        )
-
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
+        finally:
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return df
 
@@ -147,28 +128,17 @@ class _UFSObsBase:
         fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
         """Async function to get data."""
-        if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If you are calling this "
-                "function directly make sure the data source is initialized inside the async loop!"
-            )
-
-        session = await self.fs.set_session(refresh=True)
-
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
         schema = self.resolve_fields(fields)
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         async_tasks = self._create_tasks(time_list, variable_list)
-        file_uri_set = {task.gsi_file_uri for task in async_tasks}
-        fetch_jobs = [self._fetch_remote_file(uri) for uri in file_uri_set]
+        file_key_set = {task.gsi_obs_key for task in async_tasks}
+        fetch_jobs = [self._fetch_remote_file(key) for key in file_key_set]
         await tqdm.gather(
             *fetch_jobs, desc="Fetching GSI files", disable=(not self._verbose)
         )
-
-        if session:
-            await session.close()
 
         df = self._compile_dataframe(async_tasks, variable_list, schema)
 
@@ -182,39 +152,44 @@ class _UFSObsBase:
 
     async def _fetch_remote_file(
         self,
-        path: str,
+        key: str,
         byte_offset: int = 0,
         byte_length: int | None = None,
     ) -> None:
-        """Fetches remote file into cache.
+        """Fetches a remote object (by key within UFS_BUCKET) into cache.
 
         Parameters
         ----------
-        path : str
-            S3 URI to fetch
+        key : str
+            Object key within UFS_BUCKET to fetch
         byte_offset : int, optional
             Byte offset to start reading from, by default 0
         byte_length : int | None, optional
             Number of bytes to read, by default None (read all)
         """
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
+        cache_path = self.cache_path(key, byte_offset, byte_length)
+        if pathlib.Path(cache_path).is_file():
+            return
 
-        cache_path = self.cache_path(path, byte_offset, byte_length)
-        if not pathlib.Path(cache_path).is_file():
+        store = self._store
+        try:
             if byte_length:
-                byte_length = int(byte_offset + byte_length)
-            try:
-                data = await self.fs._cat_file(path, start=byte_offset, end=byte_length)
-                with open(cache_path, "wb") as file:
-                    file.write(data)
-            except FileNotFoundError:
-                self._handle_missing_file(path)
+                result = await obs.get_range_async(
+                    store, key, start=byte_offset, end=byte_offset + byte_length
+                )
+            else:
+                response = await obs.get_async(store, key)
+                result = await response.bytes_async()
+            with open(cache_path, "wb") as file:
+                file.write(bytes(result))
+        except (FileNotFoundError, obs.exceptions.NotFoundError):
+            self._handle_missing_file(key)
 
-    def _handle_missing_file(self, path: str) -> None:
+    def _handle_missing_file(self, key: str) -> None:
         """Handle missing file during fetch. Can be overridden by subclasses."""
-        logger.error(f"File {path} not found")
-        raise FileNotFoundError(f"File {path} not found")
+        uri = f"s3://{self.UFS_BUCKET}/{key}"
+        logger.error(f"File {uri} not found")
+        raise FileNotFoundError(f"File {uri} not found")
 
     def _compile_dataframe(
         self,
@@ -223,20 +198,38 @@ class _UFSObsBase:
         schema: pa.Schema,
     ) -> pd.DataFrame:
         """Compile fetched data into a DataFrame."""
+        # Identify schema fields that are per-channel (need Channel_Index lookup)
+        channel_indexed_fields: dict[str, str] = {}
+        for field in schema:
+            if (
+                field.metadata
+                and b"channel_indexed" in field.metadata
+                and b"gsi_name" in field.metadata
+            ):
+                gsi_name = field.metadata[b"gsi_name"].decode("utf-8")
+                channel_indexed_fields[gsi_name] = field.name
+
         frames: list[pd.DataFrame] = []
         for task in async_tasks:
             # Overwrite obs column name (needed for uv)
             column_map = self._build_column_map(schema)
             column_map[task.gsi_obs_name] = "observation"
-            local_path = self.cache_path(task.gsi_file_uri)
+            local_path = self.cache_path(task.gsi_obs_key)
             if not pathlib.Path(local_path).is_file():
-                logger.warning("Cached file missing for {}", task.gsi_file_uri)
+                logger.warning(
+                    "Cached file missing for {}",
+                    f"s3://{self.UFS_BUCKET}/{task.gsi_obs_key}",
+                )
                 continue
             try:
                 with h5netcdf.File(local_path, "r") as ds:
                     data: dict[str, np.ndarray] = {}
+                    channel_index_raw: np.ndarray | None = None
                     for name, dset in ds.variables.items():
                         if name not in column_map:
+                            continue
+                        # Skip channel-indexed fields; they are expanded below
+                        if name in channel_indexed_fields:
                             continue
                         values = np.asarray(dset[:])
                         pa_type = self.SCHEMA.field(column_map[name]).type
@@ -249,6 +242,25 @@ class _UFSObsBase:
                         # Apply subclass-specific transformations
                         values = self._transform_column(name, values, task, ds)
                         data[name] = pa.array(values, type=pa_type)
+                        # Stash raw Channel_Index for per-channel expansion
+                        if name == "Channel_Index":
+                            channel_index_raw = np.asarray(dset[:])
+
+                    # Expand channel-indexed fields using Channel_Index as lookup
+                    if channel_index_raw is not None:
+                        idx: np.ndarray = channel_index_raw.astype(np.int32) - 1
+                        for gsi_name, field_name in channel_indexed_fields.items():
+                            if gsi_name in ds.variables:
+                                lut = np.asarray(
+                                    ds[gsi_name][:],
+                                    dtype=schema.field(
+                                        field_name
+                                    ).type.to_pandas_dtype(),
+                                )
+                                data[gsi_name] = pa.array(
+                                    lut[idx], type=schema.field(field_name).type
+                                )
+
                 df = pd.DataFrame(data)
             except Exception as exc:  # pragma: no cover - defensive
                 logger.error("Failed to read {}: {}", local_path, exc)
@@ -514,13 +526,13 @@ class UFSObsConv(_UFSObsBase):
                     year_key = day.strftime("%Y")
                     month_key = day.strftime("%m")
                     datetime_key = day.strftime("%Y%m%d%H")
-                    s3_uri = f"s3://{self.UFS_BUCKET}/{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_platform}_{gsi_sensor}_{gsi_product}.{datetime_key}_control.nc4"
+                    obs_key = f"{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_platform}_{gsi_sensor}_{gsi_product}.{datetime_key}_control.nc4"
                     tasks.append(
                         _GSIAsyncTask(
                             datetime_file=day,
                             datetime_min=tmin,
                             datetime_max=tmax,
-                            gsi_file_uri=s3_uri,
+                            gsi_obs_key=obs_key,
                             gsi_modifier=modifier,
                             gsi_obs_name=gsi_name,
                             e2s_obs_name=v,
@@ -540,6 +552,9 @@ class UFSObsConv(_UFSObsBase):
         # Convert hours offset to timedelta, and add to datetime of file
         if name == "Time":
             values = pd.to_timedelta(values, unit="h") + task.datetime_file
+        # GSI stores Pressure in hPa (mb), convert to Pa
+        elif name == "Pressure":
+            values = values * 100.0
         return values
 
     def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
@@ -639,6 +654,18 @@ class UFSObsSat(_UFSObsBase):
                 nullable=True,
                 metadata={"gsi_name": "Channel_Index"},
             ),
+            pa.field(
+                "sensor_index",
+                pa.uint16(),
+                nullable=True,
+                metadata={"gsi_name": "sensor_chan", "channel_indexed": "true"},
+            ),
+            pa.field(
+                "wavenumber",
+                pa.float64(),
+                nullable=True,
+                metadata={"gsi_name": "wavenumber", "channel_indexed": "true"},
+            ),
             pa.field("solza", pa.float32(), metadata={"gsi_name": "Sol_Zenith_Angle"}),
             pa.field(
                 "solaza", pa.float32(), metadata={"gsi_name": "Sol_Azimuth_Angle"}
@@ -714,13 +741,13 @@ class UFSObsSat(_UFSObsBase):
                         year_key = day.strftime("%Y")
                         month_key = day.strftime("%m")
                         datetime_key = day.strftime("%Y%m%d%H")
-                        s3_uri = f"s3://{self.UFS_BUCKET}/{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_sensor}_{gsi_platform}_{gsi_product}.{datetime_key}_control.nc4"
+                        obs_key = f"{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_sensor}_{gsi_platform}_{gsi_product}.{datetime_key}_control.nc4"
                         tasks.append(
                             _GSIAsyncTask(
                                 datetime_file=day,
                                 datetime_min=tmin,
                                 datetime_max=tmax,
-                                gsi_file_uri=s3_uri,
+                                gsi_obs_key=obs_key,
                                 gsi_modifier=modifier,
                                 gsi_obs_name=gsi_name,
                                 e2s_obs_name=v,
@@ -730,9 +757,22 @@ class UFSObsSat(_UFSObsBase):
                         day = day + timedelta(hours=6)
         return tasks
 
-    def _handle_missing_file(self, path: str) -> None:
+    def _handle_missing_file(self, key: str) -> None:
         """Satellite data may have missing platforms, just warn instead of error."""
-        logger.warning(f"File {path} not found")
+        uri = f"s3://{self.UFS_BUCKET}/{key}"
+        logger.warning(f"File {uri} not found")
+
+    def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
+        """Build column map, always including Channel_Index for channel-indexed fields."""
+        column_map = super()._build_column_map(schema)
+        # Channel_Index is required to expand any channel-indexed fields
+        for field in schema:
+            if field.metadata and b"channel_indexed" in field.metadata:
+                ci_field = self.SCHEMA.field("channel_index")
+                ci_gsi = ci_field.metadata[b"gsi_name"].decode("utf-8")
+                column_map[ci_gsi] = ci_field.name
+                break
+        return column_map
 
     def _transform_column(
         self,
@@ -745,12 +785,8 @@ class UFSObsSat(_UFSObsBase):
         # Convert hours offset to timedelta, and add to datetime of file
         if name == "Obs_Time":
             values = pd.to_timedelta(values, unit="h") + task.datetime_file
-        # Channel index actually seems to be a pointer to sensor channels
-        if name == "Channel_Index":
-            sensor_chan = ds["sensor_chan"][:].astype(np.uint16)
-            values = sensor_chan[values.astype(np.uint16) - 1]
         return values
 
     def _add_task_columns(self, df: pd.DataFrame, task: _GSIAsyncTask) -> None:
-        """Add satellite column for satellite data."""
+        """Add satellite column."""
         df["satellite"] = task.satellite

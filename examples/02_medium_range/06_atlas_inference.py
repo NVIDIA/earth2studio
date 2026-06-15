@@ -34,7 +34,7 @@ In this example you will learn:
 """
 # /// script
 # dependencies = [
-#   "torch==2.9.1", # Match lock file to avoid torch-harmonics issue
+#   "torch==2.11.0", # Match lock file to avoid torch-harmonics issue
 #   "earth2studio[atlas] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
 #   "matplotlib",
@@ -63,6 +63,9 @@ In this example you will learn:
 import os
 
 os.makedirs("outputs", exist_ok=True)
+# Performance optimization for Atlas model
+# This is on by default in NGC containers, but other environments may need to set it manually.
+os.environ["TORCH_ALLOW_TF32_CUBLAS_OVERRIDE"] = "1"
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function

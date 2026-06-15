@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import os
 import zipfile
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
@@ -27,7 +28,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -148,14 +149,14 @@ VARIABLES = [
     "stl2",
     "ssrd06",
     "strd06",
-    "sf",
+    "sf06",
     "tcc",
     "mcc",
     "hcc",
     "lcc",
     "u100m",
     "v100m",
-    "ro",
+    "ro06",
 ]  # from config.json >> dataset.variables
 
 
@@ -438,13 +439,23 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Fetch invariants from IFS, note that there are deviations between these
         # invariant fields depending on where and what time the data is fetched.
         # For this model, we will use ECMWF's own invarints in the IFS data store.
-        ifs = IFS(cache=True, verbose=False)
-        invariants, _ = fetch_data(
-            source=ifs,
-            time=np.array([np.datetime64("2026-01-01T00:00:00")]),
-            variable=["lsm", "sdor", "slor", "z"],
-        )
-        invariants = invariants.squeeze()
+        # Check for cached invariants first
+        cache_dir = Package.default_cache("aifs-ens-1.0")
+        invariants_path = os.path.join(cache_dir, "invariants.pt")
+
+        if os.path.exists(invariants_path):
+            invariants = torch.load(invariants_path, weights_only=True)
+        else:
+            ifs = IFS(cache=True, verbose=False)
+            invariants, _ = fetch_data(
+                source=ifs,
+                time=np.array([np.datetime64("2026-01-01T00:00:00")]),
+                variable=["lsm", "sdor", "slor", "z"],
+            )
+            invariants = invariants.squeeze()
+            # Cache the invariants tensor
+            os.makedirs(cache_dir, exist_ok=True)
+            torch.save(invariants, invariants_path)
 
         # Can also fetch from NCAR ERA5 backup but these have some differences
         # invariant_package = Package(
@@ -478,14 +489,21 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         time_array: np.datetime64,
         longitudes: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Get cosine and sine of Julian day"""
+        """Get cosine and sine of Julian day.
+
+        Reference implementation: earthkit.data.sources.forcings.ForcingMaker
+        https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/sources/forcings.py
+        """
         days = (
             time_array.astype("datetime64[D]") - time_array.astype("datetime64[Y]")
         ).astype(np.float32)
         hours = (
             time_array.astype("datetime64[h]") - time_array.astype("datetime64[D]")
         ).astype(np.float32)
-        julian_days = days + (hours / 24.0)
+        seconds = (
+            time_array.astype("datetime64[s]") - time_array.astype("datetime64[h]")
+        ).astype(np.float32)
+        julian_days = days + hours / 24.0 + seconds / 86400.0
         normalized = 2 * np.pi * (julian_days / 365.25)
         cos_julian_day = torch.full_like(
             longitudes, np.cos(normalized), dtype=torch.float32
@@ -500,11 +518,22 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         time_array: np.datetime64,
         longitudes: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Get cosine and sine of local time"""
+        """Get cosine and sine of local time.
+
+        Reference implementation: earthkit.data.sources.forcings.ForcingMaker
+        https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/sources/forcings.py
+        """
         hours = (
             time_array.astype("datetime64[h]") - time_array.astype("datetime64[D]")
         ).astype(np.float32)
-        normalized_time = 2 * np.pi * (hours / 24.0)
+        minutes: np.floating = (
+            time_array.astype("datetime64[m]") - time_array.astype("datetime64[h]")
+        ).astype(np.float32)
+        seconds: np.floating = (
+            time_array.astype("datetime64[s]") - time_array.astype("datetime64[m]")
+        ).astype(np.float32)
+        hours_since_midnight = hours + minutes / 60.0 + seconds / 3600.0
+        normalized_time = 2 * np.pi * (hours_since_midnight / 24.0)
         normalized_longitudes = 2 * np.pi * (longitudes / 360.0)
         tau = normalized_time + normalized_longitudes
         cos_local_time = torch.cos(tau)
@@ -517,7 +546,11 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         latitudes: torch.Tensor,
         longitudes: torch.Tensor,
     ) -> torch.Tensor:
-        """Get cosine zenith fields for input time array"""
+        """Get cosine zenith fields for input time array.
+
+        Reference implementation: earthkit.data.utils.meteo.cos_solar_zenith_angle
+        https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/utils/meteo.py
+        """
 
         # Get Julian day
         days = (date.astype("datetime64[D]") - date.astype("datetime64[Y]")).astype(
@@ -529,7 +562,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         seconds = (date.astype("datetime64[s]") - date.astype("datetime64[h]")).astype(
             np.float32
         )
-        julian_day = days + seconds / 86400.0
+        julian_day = days + hours / 24.0 + seconds / 86400.0
 
         # Convert angle to tensor
         angle = torch.tensor(
@@ -595,6 +628,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> torch.Tensor:
         """Prepare input tensor and coordinates for the AIFS ENS model."""
+        handshake_size(coords, "time", 1)  # Prepare input limited to 1 time stamp
         # add invariants
         x = self._add_invariants(x, coords)
 

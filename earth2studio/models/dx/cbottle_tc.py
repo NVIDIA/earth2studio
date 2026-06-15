@@ -254,6 +254,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         sampler_steps: int = 18,
         sigma_max: float = 200,
         seed: int | None = None,
+        allow_second_order_derivatives: bool = False,
     ) -> DiagnosticModel:
         """Load diagnostic from package
 
@@ -272,6 +273,10 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         seed : int, optional
             Random generator seed for latent variables. If None, no seed will be used,
             by default None
+        allow_second_order_derivatives : bool, optional
+            Enable checkpoint/model loading path required for second-order autodiff
+            (needed for odds-ratio computations). Keep False for faster standard
+            guided inference, by default False.
 
         Returns
         -------
@@ -285,7 +290,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         ]
         # https://github.com/NVlabs/cBottle/blob/4f44c125398896fad1f4c9df3d80dc845758befa/src/cbottle/inference.py#L106
         core_model = MixtureOfExpertsDenoiser.from_pretrained(
-            checkpoints, (100.0, 10.0)
+            checkpoints,
+            (100.0, 10.0),
+            allow_second_order_derivatives=allow_second_order_derivatives,
         )
 
         try:
@@ -297,7 +304,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         with Checkpoint(
             package.resolve("cBottle-3d-tc/training-state-002176000.checkpoint")
         ) as c:
-            classifier_model = c.read_model().eval()
+            classifier_model = c.read_model(
+                allow_second_order_derivatives=allow_second_order_derivatives,
+            ).eval()
 
         sst_ds = xr.open_dataset(
             package.resolve("amip_midmonth_sst.nc"),
@@ -451,7 +460,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         second_of_day = input["second_of_day"].to(device)
         day_of_year = input["day_of_year"].to(device)
 
-        self.core_model.sigma_max = torch.Tensor([self.sigma_max]).to(device)
+        self.core_model.sigma_max = float(self.sigma_max)
         self.core_model.num_steps = self.sampler_steps
         # Process in batches with progress bar if verbose is enabled
         n_samples = len(times)
@@ -492,12 +501,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         if self.lat_lon:
             # Convert back into lat lon
-            nlat, nlon = 721, 1440
-            latlon_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-                nlat, nlon, includes_south_pole=True
-            )
-            regridder = earth2grid.get_regridder(cb_coords.grid, latlon_grid).to(device)
-            output = regridder(output).squeeze(2)
+            output = self.regrid_hpx_to_latlon(output, grid=cb_coords.grid).squeeze(2)
 
             output = output.reshape(
                 output_coords["batch"].shape[0],
@@ -517,6 +521,150 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             )
 
         return output, output_coords
+
+    def calculate_odds_ratio(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+        guidance_scale: float = 128,
+        compute_forward_divergences: bool = False,
+    ) -> tuple[float | torch.Tensor, torch.Tensor, CoordSystem]:
+        """Compute classifier-guided log-odds ratio for one guidance sample.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input guidance tensor with the same layout expected by :meth:`__call__`.
+        coords : CoordSystem
+            Coordinate system associated with ``x``.
+        guidance_scale : float, optional
+            Guidance scale forwarded to cBottle odds-ratio evaluation. Defaults to 128.
+        compute_forward_divergences : bool, optional
+            If True, compute forward-phase Hutchinson divergence terms. These are
+            not required for ``log_odds_ratio`` and increase runtime; by default False.
+
+        Returns
+        -------
+        tuple[float | torch.Tensor, torch.Tensor, CoordSystem]
+            log_odds_ratio, forward_latents, latent_coords
+
+        Note
+        ----
+        This method requires the underlying cBottle model to be loaded with
+        ``allow_second_order_derivatives=True`` via :meth:`load_model`. The default
+        ``allow_second_order_derivatives=False`` path is optimized for standard guided
+        sampling and fails for odds-ratio computations.
+        """
+
+        output_coords = self.output_coords(coords)
+
+        if x.ndim not in (5, 6):
+            raise ValueError(
+                "Expected guidance tensor with 5 dims [time, lead_time, variable, lat|hpx, lon?] "
+                "or 6 dims [batch, time, lead_time, variable, lat|hpx, lon?]."
+            )
+
+        times = output_coords["time"][:, None]
+        leads = output_coords["lead_time"][None, :]
+        sample_times = [pd.to_datetime(t) for t in (times + leads).reshape(-1)]
+
+        if x.ndim == 6:
+            n_batch = x.shape[0]
+            times = n_batch * sample_times
+            x = x.reshape(-1, *x.shape[3:])
+        else:
+            times = sample_times
+            x = x.reshape(-1, *x.shape[-3:])
+
+        if x.shape[0] != len(times):
+            raise ValueError(
+                "Guidance samples and inferred time coordinates are inconsistent."
+            )
+        if x.shape[0] != 1:
+            raise ValueError(
+                "calculate_odds_ratio supports exactly one sample after flattening "
+                "(batch*time*lead_time == 1)."
+            )
+
+        cb_input = self.get_cbottle_input(times)
+        device = self.device_buffer.device
+        batch = {
+            "target": cb_input["target"].to(device),
+            "labels": cb_input["labels"].to(device),
+            "condition": cb_input["condition"].to(device),
+            "second_of_day": cb_input["second_of_day"].to(device),
+            "day_of_year": cb_input["day_of_year"].to(device),
+        }
+
+        guidance_hpx = self._prepare_guidance_tensor(x.to(device))
+        guidance_pixels = torch.nonzero(
+            ~torch.isnan(guidance_hpx[0, 0, 0]), as_tuple=False
+        ).squeeze(-1)
+        if guidance_pixels.numel() == 0:
+            raise ValueError("No guidance pixels set (all guidance entries are NaN).")
+
+        self.core_model.sigma_max = float(self.sigma_max)
+        log_odds_ratio, forward_latents = self.core_model.calculate_odds_ratio(
+            batch=batch,
+            guidance_pixels=guidance_pixels,
+            guidance_scale=guidance_scale,
+            compute_forward_divergences=compute_forward_divergences,
+            num_steps=self.sampler_steps,
+        )  # forward_latents shape: (1, 45, 1, 49152)
+
+        if self.lat_lon:
+            domain_grid = getattr(
+                self.core_model.net.domain, "_grid", self.core_model.net.domain
+            )
+            forward_latents = self.regrid_hpx_to_latlon(
+                forward_latents, domain_grid
+            ).squeeze(2)
+            latent_coords = OrderedDict(
+                {
+                    "batch": np.arange(forward_latents.shape[0]),
+                    "variable": np.array(self.output_variables),
+                    "lat": self.lat_grid.cpu().numpy(),
+                    "lon": self.lon_grid.cpu().numpy(),
+                }
+            )
+        else:
+            latent_coords = OrderedDict(
+                {
+                    "batch": np.arange(forward_latents.shape[0]),
+                    "variable": np.array(self.output_variables),
+                    "hpx": np.arange(4**HPX_LEVEL * 12),
+                }
+            )
+            forward_latents = forward_latents.squeeze(2)
+
+        return log_odds_ratio, forward_latents, latent_coords
+
+    def regrid_hpx_to_latlon(
+        self,
+        x: torch.Tensor,
+        grid: "earth2grid.base.Grid",
+    ) -> torch.Tensor:
+        """Regrid an HPX tensor to lat/lon grid.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor whose last dimension is HPX pixels.
+        grid : earth2grid.base.Grid
+            Input HPX grid
+
+        Returns
+        -------
+        torch.Tensor
+            Regridded tensor with trailing dimensions ``(..., nlat, nlon)``.
+        """
+        latlon_grid = earth2grid.latlon.equiangular_lat_lon_grid(
+            721, 1440, includes_south_pole=True
+        )
+        regridder = earth2grid.get_regridder(grid, latlon_grid).to(
+            self.device_buffer.device
+        )
+        return regridder(x)
 
     def get_cbottle_input(
         self,

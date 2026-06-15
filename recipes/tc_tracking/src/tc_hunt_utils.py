@@ -21,10 +21,13 @@ from typing import Any
 
 import numpy as np
 import torch
+from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 
 from earth2studio.utils.time import to_time_array
+
+EARTH_RADIUS_M = 6371000
 
 
 def set_initial_times(cfg: DictConfig) -> np.ndarray:
@@ -58,6 +61,42 @@ def set_initial_times(cfg: DictConfig) -> np.ndarray:
         )
 
     return ics
+
+
+def remove_duplicates(
+    data_list: list[list],
+) -> list[list]:
+    """Remove duplicate reproduction work items, preserving order.
+
+    Each sub-list is expected to follow the reproduction schema
+    ``[np.datetime64, np.ndarray, int]`` (initial condition, batch member
+    indices, random seed).  Arrays with the same values but different dtypes
+    or shapes are considered different.
+
+    Parameters
+    ----------
+    data_list : list[list]
+        List of ``[np.datetime64, np.ndarray, int]`` sub-lists.
+
+    Returns
+    -------
+    list[list]
+        De-duplicated list preserving original order.
+    """
+    seen: set[tuple] = set()
+    result: list[list] = []
+
+    for sublist in data_list:
+        hashable_key = (
+            sublist[0],
+            (tuple(sublist[1].tolist()), str(sublist[1].dtype), sublist[1].shape),
+            sublist[2],
+        )
+        if hashable_key not in seen:
+            seen.add(hashable_key)
+            result.append(sublist)
+
+    return result
 
 
 def get_set_of_random_seeds(
@@ -100,6 +139,39 @@ def get_set_of_random_seeds(
         seeds = rng.integers(low=0, high=2**32, size=n_batches * n_ics, dtype=np.uint32)
 
     return seeds
+
+
+def assign_runs_to_rank(items: list[Any]) -> list[Any] | None:
+    """Partition work items across distributed ranks.
+
+    Splits *items* evenly across all ranks via contiguous slicing, which is
+    deterministic for a deterministic input. Returns ``None`` for ranks that
+    receive no work.
+
+    Parameters
+    ----------
+    items : list[Any]
+        List of work items (e.g. ``(initial_condition, member_indices, seed)``
+        tuples or storm names).
+
+    Returns
+    -------
+    list[Any] | None
+        Subset of *items* assigned to this rank, or ``None`` if idle.
+    """
+    dist = DistributedManager()
+
+    items_per_rank = len(items) // dist.world_size
+    if len(items) % dist.world_size != 0:
+        items_per_rank += 1
+
+    items = items[dist.rank * items_per_rank : (dist.rank + 1) * items_per_rank]
+
+    if len(items) == 0:
+        logger.info(f"nothing to do for rank {dist.rank}, exiting")
+        return None
+
+    return items
 
 
 def run_with_rank_ordered_execution(
@@ -269,3 +341,43 @@ class InstabilityDetection:
         return (torch.abs(comp - self.baseline) < self.thresh.to(xx.device)).all(
             dim=-1
         ), self._output_coords
+
+
+def great_circle_distance(
+    lat1: float | np.ndarray,
+    lon1: float | np.ndarray,
+    lat2: float | np.ndarray,
+    lon2: float | np.ndarray,
+    radius: float = EARTH_RADIUS_M,
+) -> float | np.ndarray:
+    """Compute the great-circle distance between two points on a sphere.
+
+    Uses the Haversine formula on the sphere, the radius of which defaults
+    to Earth's mean radius of 6371 km.
+
+    Parameters
+    ----------
+    lat1 : float or np.ndarray
+        Latitude(s) of the first point in degrees.
+    lon1 : float or np.ndarray
+        Longitude(s) of the first point in degrees.
+    lat2 : float or np.ndarray
+        Latitude(s) of the second point in degrees.
+    lon2 : float or np.ndarray
+        Longitude(s) of the second point in degrees.
+    radius : float, optional
+        Sphere radius in metres, by default ``EARTH_RADIUS_M`` (6 371 km).
+
+    Returns
+    -------
+    float or np.ndarray
+        Distance(s) in metres.
+    """
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+
+    aa = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    cc = 2 * np.arctan2(np.sqrt(aa), np.sqrt(1 - aa))
+
+    return radius * cc

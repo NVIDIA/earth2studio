@@ -20,11 +20,11 @@ import hashlib
 import os
 import pathlib
 import shutil
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-import nest_asyncio
 import numpy as np
 import pygrib
 import s3fs
@@ -34,6 +34,7 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    _sync_async,
     datasource_cache_root,
     prep_data_inputs,
     prep_forecast_inputs,
@@ -112,18 +113,11 @@ class GFS:
     ):
         self._cache = cache
         self._verbose = verbose
+        self._tmp_cache_hash: str | None = None
 
         if source == "aws":
             self.uri_prefix = "noaa-gfs-bdp-pds"
-            # Check to see if there is a running loop (initialized in async)
-            try:
-                nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
-                loop = asyncio.get_running_loop()
-                loop.run_until_complete(self._async_init())
-            except RuntimeError:
-                # Else we assume that async calls will be used which in that case
-                # we will init the group in the call function when we have the loop
-                self.fs = None
+            self.fs: s3fs.S3FileSystem | FTPFileSystem | None = None
 
             # To update search "gfs." at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html
             # They are slowly adding more data
@@ -184,21 +178,13 @@ class GFS:
             GFS weather data array
         """
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
-        )
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
+            xr_array = _sync_async(
+                self.fetch, time, variable, timeout=self.async_timeout
+            )
+        finally:
+            # Delete cache if needed
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
 
@@ -222,12 +208,9 @@ class GFS:
         xr.DataArray
             GFS weather data array
         """
+        # Lazily initialize async filesystem on first use
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If you are calling this \
-            function directly make sure the data source is initialized inside the async \
-            loop!"
-            )
+            await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
         # Create cache dir if doesnt exist
@@ -526,7 +509,12 @@ class GFS:
         """Return appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "gfs")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_gfs")
+            if self._tmp_cache_hash is None:
+                # First access for temp cache: create a random suffix to avoid collisions
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            cache_location = os.path.join(
+                cache_location, f"tmp_gfs_{self._tmp_cache_hash}"
+            )
         return cache_location
 
     @classmethod
@@ -617,20 +605,13 @@ class GFS_FX(GFS):
             GFS weather data array
         """
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(
-                self.fetch(time, lead_time, variable), timeout=self.async_timeout
+            xr_array = _sync_async(
+                self.fetch, time, lead_time, variable, timeout=self.async_timeout
             )
-        )
+        finally:
+            # Delete cache if needed
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
 
@@ -657,12 +638,9 @@ class GFS_FX(GFS):
         xr.DataArray
             GFS weather data array
         """
+        # Lazily initialize async filesystem on first use
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If you are calling this \
-            function directly make sure the data source is initialized inside the async \
-            loop!"
-            )
+            await self._async_init()
 
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
         # Create cache dir if doesnt exist
@@ -714,10 +692,6 @@ class GFS_FX(GFS):
         # Close aiohttp client if s3fs
         if session:
             await session.close()
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
 
         return xr_array
 

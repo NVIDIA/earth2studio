@@ -49,17 +49,15 @@ from earth2studio.utils.interp import NearestNeighborInterpolator
 from earth2studio.utils.type import CoordSystem
 
 try:
-    from omegaconf import OmegaConf
-    from physicsnemo import Module
-    from physicsnemo.utils.insolation import insolation as pnm_insolation
+    from physicsnemo.models import DiT
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
+    from physicsnemo.utils.insolation import insolation as pnm_insolation
 except ImportError:
     OptionalDependencyFailure("stormscope")
-    OmegaConf = None  # type: ignore[assignment]
-    Module = None  # type: ignore[assignment]
-    pnm_insolation = None  # type: ignore[assignment]
+    DiT = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
-
+    pnm_insolation = None  # type: ignore[assignment]
+    
 from earth2studio.models.nn.stormscope_util import (
     DropInDiT,
     EDMPrecond,
@@ -67,7 +65,7 @@ from earth2studio.models.nn.stormscope_util import (
 )
 
 
-def model_wrap(model: Module) -> nn.Module:
+def model_wrap(model: DiT) -> nn.Module:
     """Wrap a physicsnemo Module so it is compatible with the preconditioning
     and sampler used by StormScope.
     TODO: Remove once core EDMPrecond architecture is fully upstreamed
@@ -1284,7 +1282,7 @@ class StormScopeGOES(StormScopeBase):
 
         model_spec = []
         for m in pkg["checkpoints"]:
-            model = Module.from_checkpoint(package.resolve(m["path"]))
+            model = DiT.from_checkpoint(package.resolve(m["path"]))
             model_spec.append(
                 {
                     "model": model_wrap(model),
@@ -1629,7 +1627,7 @@ class StormScopeMRMS(StormScopeBase):
 
         model_spec = []
         for m in pkg["checkpoints"]:
-            model = Module.from_checkpoint(package.resolve(m["path"]))
+            model = DiT.from_checkpoint(package.resolve(m["path"]))
             model_spec.append(
                 {
                     "model": model_wrap(model),

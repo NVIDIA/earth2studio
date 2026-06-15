@@ -9,7 +9,7 @@ Typically used in intercomparison workflows.
 
 .. currentmodule:: earth2studio
 
-.. badge-filter:: region:global region:na region:as
+.. badge-filter:: region:global region:na region:eu region:as region:au region:af region:sa
    dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation
    product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
    :filter-mode: or
@@ -25,6 +25,10 @@ Typically used in intercomparison workflows.
       data.AIFS_FX
       data.CAMS_FX
       data.AIFS_ENS_FX
+      data.CFS_FX
+      data.CFS_FX_Flux
+      data.CFS_Reforecast_FX
+      data.CFS_Reforecast_FX_Flux
       data.GFS_FX
       data.GEFS_FX
       data.GEFS_FX_721x1440

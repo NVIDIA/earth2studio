@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 import inspect
-import logging
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 from typing import Any, ClassVar, cast, get_type_hints
@@ -259,9 +258,6 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
             # No-op when running outside API server context
             return
         self.update_execution_data(self.execution_id, progress)
-
-
-logger = logging.getLogger(__name__)
 
 
 class BackendProgress:

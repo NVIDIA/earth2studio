@@ -23,24 +23,20 @@ as a custom pipeline that can be invoked via the REST API.
 """
 
 import json
-import logging
 from collections import OrderedDict
 from typing import Any, Literal
 
 import numpy as np
 import zarr
+from loguru import logger
 from pydantic import Field
 
 from earth2studio.serve.server.workflow import (
     Workflow,
     WorkflowParameters,
     WorkflowProgress,
-    workflow_registry,
+    WorkflowRegistry,
 )
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class EnsembleWorkflowParameters(WorkflowParameters):
@@ -60,13 +56,13 @@ class EnsembleWorkflowParameters(WorkflowParameters):
     nensemble: int = Field(
         default=8,
         ge=1,
-        le=64,
+        le=512,
         description="Number of ensemble members",
     )
     batch_size: int = Field(
         default=2,
         ge=1,
-        le=32,
+        le=64,
         description="Number of ensemble members per batch",
     )
 
@@ -76,12 +72,22 @@ class EnsembleWorkflowParameters(WorkflowParameters):
         description="Prognostic model type (ensemble workflow currently supports fcn)",
     )
 
-    # Perturbation configuration (SphericalGaussian)
+    # Perturbation configuration
+    perturbation: Literal["spherical_gaussian", "gaussian"] = Field(
+        default="spherical_gaussian",
+        description="Perturbation method: 'spherical_gaussian' (correlated on sphere) "
+        "or 'gaussian' (independent per grid point)",
+    )
     noise_amplitude: float = Field(
         default=0.15,
         ge=0.0,
         le=1.0,
-        description="Noise amplitude for SphericalGaussian perturbation",
+        description="Noise amplitude for the perturbation method",
+    )
+    seed_base: int | None = Field(
+        default=None,
+        description="RNG seed for reproducible perturbations. "
+        "If None, results are non-deterministic.",
     )
 
     # Data source configuration
@@ -113,7 +119,7 @@ class EnsembleWorkflowParameters(WorkflowParameters):
     )
 
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class EnsembleWorkflow(Workflow):
     """
     Ensemble workflow that runs Earth2Studio ensemble forecasts.
@@ -163,11 +169,13 @@ class EnsembleWorkflow(Workflow):
             )
             self.update_execution_data(execution_id, progress)
 
+            import torch
+
             from earth2studio import run
             from earth2studio.data import GFS
             from earth2studio.io import ZarrBackend
             from earth2studio.models.px import FCN
-            from earth2studio.perturbation import SphericalGaussian
+            from earth2studio.perturbation import Gaussian, SphericalGaussian
 
             # Load prognostic model
             progress = WorkflowProgress(
@@ -190,7 +198,11 @@ class EnsembleWorkflow(Workflow):
                 total_steps=6,
             )
             self.update_execution_data(execution_id, progress)
-            sg = SphericalGaussian(noise_amplitude=parameters.noise_amplitude)
+
+            if parameters.perturbation == "gaussian":
+                sg = Gaussian(noise_amplitude=parameters.noise_amplitude)
+            else:
+                sg = SphericalGaussian(noise_amplitude=parameters.noise_amplitude)
 
             # Data source
             if parameters.data_source.lower() == "gfs":
@@ -222,17 +234,27 @@ class EnsembleWorkflow(Workflow):
             )
             self.update_execution_data(execution_id, progress)
 
-            io_result = run.ensemble(  # type: ignore[assignment]
-                parameters.forecast_times,
-                parameters.nsteps,
-                parameters.nensemble,
-                model,
-                data,
-                io,
-                sg,
-                batch_size=parameters.batch_size,
-                output_coords=output_coords,
-            )
+            def _run_ensemble() -> Any:
+                return run.ensemble(  # type: ignore[assignment]
+                    parameters.forecast_times,
+                    parameters.nsteps,
+                    parameters.nensemble,
+                    model,
+                    data,
+                    io,
+                    sg,
+                    batch_size=parameters.batch_size,
+                    output_coords=output_coords,
+                )
+
+            if parameters.seed_base is not None:
+                devices = [torch.device("cuda")] if torch.cuda.is_available() else []
+                with torch.random.fork_rng(devices=devices):
+                    torch.manual_seed(parameters.seed_base)
+                    io_result = _run_ensemble()
+            else:
+                io_result = _run_ensemble()
+
             io = io_result  # type: ignore[assignment]
 
             # Consolidate zarr metadata
@@ -244,7 +266,9 @@ class EnsembleWorkflow(Workflow):
                 "nensemble": parameters.nensemble,
                 "batch_size": parameters.batch_size,
                 "model_type": parameters.model_type,
+                "perturbation": parameters.perturbation,
                 "noise_amplitude": parameters.noise_amplitude,
+                "seed_base": parameters.seed_base,
                 "data_source": parameters.data_source,
                 "output_format": parameters.output_format,
             }

@@ -20,11 +20,11 @@ import inspect
 import os
 import pathlib
 import shutil
+import uuid
 from datetime import datetime
 from typing import Literal
 
 import gcsfs
-import nest_asyncio
 import numpy as np
 import xarray as xr
 import zarr
@@ -33,6 +33,7 @@ from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     AsyncCachingFileSystem,
+    _sync_async,
     datasource_cache_root,
     prep_data_inputs,
 )
@@ -60,18 +61,12 @@ class _WB2Base:
 
         self._cache = cache
         self._verbose = verbose
+        self._tmp_cache_hash: str | None = None
         self.async_timeout = async_timeout
 
         # Check to see if there is a running loop (initialized in async)
-        try:
-            nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            # Else we assume that async calls will be used which in that case
-            # we will init the group in the call function when we have the loop
-            self.zarr_group = None
-            self.level_coords = None
+        self.zarr_group = None
+        self.level_coords = None
 
     async def _async_init(self) -> None:
         """Async initialization of zarr group
@@ -128,22 +123,13 @@ class _WB2Base:
         """
 
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.zarr_group is None:
-            loop.run_until_complete(self._async_init())
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
-        )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
+            xr_array = _sync_async(
+                self.fetch, time, variable, timeout=self.async_timeout
+            )
+        finally:
+            # Delete cache if needed
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
 
@@ -168,11 +154,7 @@ class _WB2Base:
             ERA5 weather data array from weather bench 2
         """
         if self.zarr_group is None:
-            raise ValueError(
-                "Zarr group is not initialized! If you are calling this \
-            function directly make sure the data source is initialized inside the async \
-            loop!"
-            )
+            await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
         # Create cache dir if doesnt exist
@@ -278,7 +260,12 @@ class _WB2Base:
         """Get the appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "wb2era5")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_wb2era5")
+            if self._tmp_cache_hash is None:
+                # First access for temp cache: create a random suffix to avoid collisions
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            cache_location = os.path.join(
+                cache_location, f"tmp_wb2era5_{self._tmp_cache_hash}"
+            )
         return cache_location
 
     @classmethod
@@ -576,11 +563,7 @@ class WB2Climatology(_WB2Base):
             ERA5 weather data array from weather bench 2
         """
         if self.zarr_group is None:
-            raise ValueError(
-                "Zarr group is not initialized! If you are calling this \
-            function directly make sure the data source is initialized inside the async \
-            loop!"
-            )
+            await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
         # Create cache dir if doesnt exist
@@ -593,10 +576,10 @@ class WB2Climatology(_WB2Base):
         if inspect.isawaitable(self.zarr_group):
             self.zarr_group = await self.zarr_group
 
-        WB2_CLIMATE_LAT = await (await self.zarr_group.get("latitude")).getitem(
+        WB2_CLIMATE_LAT = await (await self.zarr_group.get("latitude")).getitem(  # type: ignore[attr-defined]
             slice(None)
         )
-        WB2_CLIMATE_LON = await (await self.zarr_group.get("longitude")).getitem(
+        WB2_CLIMATE_LON = await (await self.zarr_group.get("longitude")).getitem(  # type: ignore[attr-defined]
             slice(None)
         )
 
@@ -618,7 +601,7 @@ class WB2Climatology(_WB2Base):
         ]
         func_map = map(functools.partial(self.fetch_wrapper, xr_array=xr_array), args)
 
-        self.level_coords = await (await self.zarr_group.get("level")).getitem(
+        self.level_coords = await (await self.zarr_group.get("level")).getitem(  # type: ignore[attr-defined]
             slice(None)
         )
         # Launch all fetch requests

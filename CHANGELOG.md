@@ -7,20 +7,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.14.0a0] - 2026-04-xx
+## [0.16.0a0] - xxxx-xx-xx
 
 ### Added
 
-- Added GenCast 1 degree Mini model
-- Added CAMS Global atmospheric composition forecast data source (`CAMS_FX`)
-- Added MetOp AMSU-A Level 1B brightness temperature data source (`MetOpAMSUA`)
-- Added MetOp AVHRR Level 1B radiance/brightness temperature data source (`MetOpAVHRR`)
-- Added AMSU-A (channels 1-14) and AVHRR channel variables to `E2STUDIO_VOCAB`
-- Added JPSS ATMS Level 1 BUFR brightness-temperature data source (`JPSS_ATMS`)
-- Added JPSS CrIS FSR Level 1 spectral radiance data source (`JPSS_CRIS`)
-- Added MetOp IASI Level 1C infrared brightness temperature data source (`MetOpIASI`)
+- Added AIFS 2.0 prognostic model (`AIFS2`) with wave and 10 hPa pressure level support
+- Added AIFS 2.0 ensemble prognostic model (`AIFS2ENS`) with stochastic noise injection
+- Added U-CAST prognostic model (`UCast`) with 1.5-degree global ERA5
+  forecasting support
+- Added wave variables to IFS data source for AIFS2 support
+- Added NCEP CFSv2 operational forecast data sources for the pressure-level
+  `pgbf` and surface-flux `flxf` products (`CFS_FX`, `CFS_FX_Flux`), backed by
+  either NOMADS (real-time) or the AWS Open Data mirror (archive)
+- Added NCEP CFSv2 6-hourly 9-month reforecast data sources
+  (`CFS_Reforecast_FX`, `CFS_Reforecast_FX_Flux`), covering 1981-12-12
+  through 2011-03-27 with cycles every 5 days, served from the NCEI HTTPS
+  archive
+- Added IBTrACS tropical cyclone track DataFrame source (`IBTrACS`)
+- Added EUMETNET OPERA European weather radar composite DataSource for DBZH
+  reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
+- Added support for cumulative variables in ARCO data source
 
 ### Changed
+
+- UFS GSI observation sources (`UFSObsConv`, `UFSObsSat`) now fetch from S3 via native
+  `obstore` instead of `s3fs` to avoid the Python-GIL bottleneck that caps fsspec's
+  concurrent S3 read throughput (~22% faster obs fetch, ~20% HealDA e2e on B200; output unchanged).
+- Renamed AIFS runoff and snowfall variables to `ro06` and `sf06` and added six-hour
+  accumulated IFS/AIFS data aliases.
+- Automatic test skipping for missing optional dependencies via
+  `pytest_ignore_collect` hook in `test/conftest.py`
 
 ### Deprecated
 
@@ -28,11 +44,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed ARCO data source `ARCO_TIME_STOP` fallback to 2025-12-31,
+  reflecting the most recent available data in the bucket
+
 ### Security
 
 ### Dependencies
 
+- Added `obstore>=0.8` for fetching UFS GSI observation data from S3.
+- Removed `aifs` and `aifsens` from the `[all]` extra due to dependency conflicts with
+  `aifs2` (incompatible anemoi-models versions).
+
+## [0.15.0] - 2026-05-25
+
+### Added
+
+- Added Himawari-8/9 AHI ISatSS L2 Full Disk satellite data source (`HimawariAHI`)
+- Added GHCN-Daily global station observation data frame source (`GHCNDaily`)
+- Added NNJA conventional (in-situ + GPS RO) observation data source (`NNJAObsConv`)
+- Added GOES Geostationary Lightning Mapper L2 LCFA event data source (`GOESGLM`)
+- Added real-time GDAS conventional observation data source (`NomadsGDASObsConv`)
+- Added `quality` field to `E2STUDIO_SCHEMA` for observation QC markers
+- Added Climate in a Bottle tropical cyclone guidance and odds ration example
+
+### Changed
+
+- UFS Satellite Obs source is now the only one that provides the UFS specific
+  `channel_index` and general `sensor_index` fields, all other now provide
+  `sensor_index` only which can be used to consistently map from UFS to L1 products
+- Added `wavenumber` (cm⁻¹) field to all satellite schemas
+- Changed `channel_index` to `sensor_index` in `E2STUDIO_SCHEMA`
+- Added Orbit-2 precipitation downscaling model
+- Disabled Atlas example from documentation build due to slow performance
+
+### Fixed
+
+- Fixed potential `uint16` underflow in UFS channel index expansion
+- S3 upload bug in server utilities
+- Fixed pres obs from UFS to be Pascal units
+- Fixed chunk downloading race condition in file system cache for Zarr data sources
+- Fixed 180° longitude misalignment in ECMWF open-data sources for some GRIB files with
+  non-standard lon origin
+
+### Dependencies
+
+- Removed nested_asyncio for Python 3.14 compatibility and updated async data sources
+- Bumping minimum ecmwf-opendata version to 0.3.29 to resolve IFS data request errors
+
+## [0.14.0] - 2026-04-27
+
+### Added
+
+- Added GenCast 1 degree Mini model
+- Added CAMS Global atmospheric composition forecast data source (`CAMS_FX`)
+- Added MetOp AMSU-A Level 1B brightness temperature data source (`MetOpAMSUA`)
+- Added MetOp AVHRR Level 1B radiance/brightness temperature data source (`MetOpAVHRR`)
+- Added JPSS ATMS Level 1 BUFR brightness-temperature data source (`JPSS_ATMS`)
+- Added JPSS CrIS FSR Level 1 spectral radiance data source (`JPSS_CRIS`)
+- Added MetOp IASI Level 1C infrared brightness temperature data source (`MetOpIASI`)
+- Added NClimGrid daily CONUS gridded climate data source (`NClimGridDaily`)
+- Added MTG-I FCI Level-1C Full Disk satellite radiance data source (`MeteosatFCI`)
+
+### Fixed
+
+- Fixed source code links in documentation
+
+### Dependencies
+
 - Added `eumdac>=3.1.0` to `data` optional dependency group for EUMETSAT Data Store access
+- Moved package dependencies defaults to CUDA 13.0 following torch
+- Moving suggested Python version to 3.13
+- Pointing physicsnemo to git main source for torch 2.11 compatibility
 
 ## [0.13.0] - 2026-03-20
 

@@ -20,6 +20,16 @@ import numpy as np
 
 from .base import LexiconType
 
+IFS_ACCUMULATION_HOURS = {
+    "cp06": 6,
+    "ro06": 6,
+    "sf06": 6,
+    "ssrd06": 6,
+    "strd06": 6,
+    "tp06": 6,
+}
+AIFS_ACCUMULATION_HOURS = IFS_ACCUMULATION_HOURS
+
 
 class ECMWFOpenDataLexicon(metaclass=LexiconType):
     """Base lexicon class for the ECMWF open data client.
@@ -73,7 +83,7 @@ class ECMWFOpenDataLexicon(metaclass=LexiconType):
 
             def mod(x: np.ndarray) -> np.ndarray:
                 """Modify data value (if necessary)."""
-                return x * 9.81
+                return x * 9.80665
 
         else:
 
@@ -97,8 +107,12 @@ class IFSLexicon(ECMWFOpenDataLexicon):
         "d2m": "2d::sfc::",
         "t2m": "2t::sfc::",
         "asn": "asn::sfc::",
+        "cp": "cp::sfc::",
         "ewss": "ewss::sfc::",
+        "hcc": "hcc::sfc::",
+        "lcc": "lcc::sfc::",
         "lsm": "lsm::sfc::",
+        "mcc": "mcc::sfc::",
         "mn2t3": "mn2t3::sfc::",
         "msl": "msl::sfc::",
         "mucape": "mucape::sfc::",
@@ -106,10 +120,13 @@ class IFSLexicon(ECMWFOpenDataLexicon):
         "nsss": "nsss::sfc::",
         "ptype": "ptype::sfc::",
         "ro": "ro::sfc::",
+        "sd": "sd::sfc::",
         "sdor": "sdor::sfc::",
+        "sf": "sf::sfc::",
         "sithick": "sithick::sfc::",
         "skt": "skt::sfc::",
         "slor": "slor::sfc::",
+        "snowc": "snowc::sfc::",
         "sp": "sp::sfc::",
         "ssr": "ssr::sfc::",
         "ssrd": "ssrd::sfc::",
@@ -117,6 +134,7 @@ class IFSLexicon(ECMWFOpenDataLexicon):
         "strd": "strd::sfc::",
         "sve": "sve::sfc::",
         "svn": "svn::sfc::",
+        "tcc": "tcc::sfc::",
         "tcw": "tcw::sfc::",
         "tcwv": "tcwv::sfc::",
         "tp": "tp::sfc::",
@@ -124,6 +142,13 @@ class IFSLexicon(ECMWFOpenDataLexicon):
         "ttr": "ttr::sfc::",
         "z": "z::sfc::",
         "zos": "zos::sfc::",
+        # 6-hour accumulation aliases for AIFS2 compatibility
+        "cp06": "cp::sfc::",
+        "ro06": "ro::sfc::",
+        "sf06": "sf::sfc::",
+        "tp06": "tp::sfc::",
+        "ssrd06": "ssrd::sfc::",
+        "strd06": "strd::sfc::",
     }
     SOIL_VARIABLES = {
         "stl1": "sot::sl::1",
@@ -134,6 +159,22 @@ class IFSLexicon(ECMWFOpenDataLexicon):
         "swvl2": "vsw::sl::2",
         "swvl3": "vsw::sl::3",
         "swvl4": "vsw::sl::4",
+    }
+    # Wave variables (from ECMWF wave stream)
+    WAVE_VARIABLES = {
+        "cdww": "cdww::wave::",  # Coefficient of drag with waves
+        "cos_mwd": "mwd::wave::",  # Cosine of mean wave direction (derived)
+        "mwd": "mwd::wave::",  # Mean wave direction
+        "mwp": "mwp::wave::",  # Mean wave period
+        "sin_mwd": "mwd::wave::",  # Sine of mean wave direction (derived)
+        "swh": "swh::wave::",  # Significant wave height
+        "wmb": "wmb::wave::",  # Model bathymetry
+        "h1012": "h1012::wave::",  # Wave spectral height 10-12s
+        "h1214": "h1214::wave::",  # Wave spectral height 12-14s
+        "h1417": "h1417::wave::",  # Wave spectral height 14-17s
+        "h1721": "h1721::wave::",  # Wave spectral height 17-21s
+        "h2125": "h2125::wave::",  # Wave spectral height 21-25s
+        "h2530": "h2530::wave::",  # Wave spectral height 25-30s
     }
     PRS_VARIABLES = [
         "d",
@@ -147,6 +188,7 @@ class IFSLexicon(ECMWFOpenDataLexicon):
         "z",
     ]
     PRS_LEVELS = [
+        10,
         50,
         100,
         150,
@@ -163,12 +205,40 @@ class IFSLexicon(ECMWFOpenDataLexicon):
     ]
 
     VOCAB = ECMWFOpenDataLexicon.build_vocab(
-        sfc_variables=SFC_VARIABLES,
+        sfc_variables={**SFC_VARIABLES, **WAVE_VARIABLES},
         soil_variables=SOIL_VARIABLES,
         prs_variables=PRS_VARIABLES,
         prs_names=ECMWFOpenDataLexicon.PRS_NAMES,
         prs_levels=PRS_LEVELS,
     )
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable]:
+        """Retrieve name from vocabulary."""
+        ifs_key = cls.VOCAB[val]
+
+        if val == "cos_mwd":
+            # Convert mean wave direction (degrees) to cosine
+            def mod(x: np.ndarray) -> np.ndarray:
+                return np.cos(np.deg2rad(x))
+
+        elif val == "sin_mwd":
+            # Convert mean wave direction (degrees) to sine
+            def mod(x: np.ndarray) -> np.ndarray:
+                return np.sin(np.deg2rad(x))
+
+        elif ifs_key.split("::")[0] == "gh":
+            # Convert geopotential height to geopotential
+            def mod(x: np.ndarray) -> np.ndarray:
+                return x * 9.80665  # Standard gravity (m/s²)
+
+        else:
+
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Modify data value (if necessary)."""
+                return x
+
+        return ifs_key, mod
 
 
 class AIFSLexicon(ECMWFOpenDataLexicon):
@@ -197,16 +267,20 @@ class AIFSLexicon(ECMWFOpenDataLexicon):
         "mcc": "mcc::sfc::",
         "msl": "msl::sfc::",
         "rowe": "rowe::sfc::",
+        "ro06": "rowe::sfc::",
         "sdor": "sdor::sfc::",
         "sf": "sf::sfc::",
+        "sf06": "sf::sfc::",
         "skt": "skt::sfc::",
         "slor": "slor::sfc::",
         "sp": "sp::sfc::",
+        "cp06": "cp::sfc::",
         "ssrd06": "ssrd::sfc::",
         "strd06": "strd::sfc::",
         "tcc": "tcc::sfc::",
         "tcw": "tcw::sfc::",
         "tp": "tp::sfc::",
+        "tp06": "tp::sfc::",
         # "z": "z::sfc::", # Grib error with unique keys
     }
     SOIL_VARIABLES = {
@@ -268,8 +342,8 @@ class AIFSLexicon(ECMWFOpenDataLexicon):
             def mod(x: np.ndarray) -> np.ndarray:
                 return x / 100.0
 
-        elif aifs_key.split("::")[0] == "tp":
-            # TP in AIFS is (kg m-2) param id 228228, convert to (m) param id 228
+        elif aifs_key.split("::")[0] in ["cp", "rowe", "sf", "tp"]:
+            # AIFS water-equivalent accumulations use kg m-2; convert to m.
             def mod(x: np.ndarray) -> np.ndarray:
                 # Assume density of water is 1000 kg m-3
                 # x (kg m-2) / 1000 (kg m-3) = (m)
