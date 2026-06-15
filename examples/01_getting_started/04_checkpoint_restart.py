@@ -193,7 +193,7 @@ checkpoint = Checkpoint(
     path=checkpoint_store,
     mode="append",
     flush_interval=1,
-    keep_last=4,
+    history_size=4,
     state_policy="full",
     device=compute_device,
 )
@@ -235,7 +235,7 @@ checkpoint = Checkpoint(
     "restart-demo",
     path=checkpoint_store,
     mode="append",
-    keep_last=4,
+    history_size=4,
     state_policy="full",
     device=compute_device,
 )

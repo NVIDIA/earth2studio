@@ -79,7 +79,7 @@ Custom workflows can call `write` after a safe iteration boundary, usually after
 the forecast fields for that iteration have been written to the IO backend.
 
 ```python
-checkpoint = Checkpoint("ensemble-forecast", mode="append", keep_last=8)
+checkpoint = Checkpoint("ensemble-forecast", mode="append", history_size=8)
 
 with checkpoint.select(time=time, ensemble=member) as ckpt:
     for lead_time in lead_times:
@@ -102,7 +102,7 @@ keyword arguments are intentionally not accepted so checkpoint payloads remain
 explicit.
 
 `mode="overwrite"` keeps only the latest row for a label set. `mode="append"`
-keeps a history, and `keep_last` can cap that history.
+keeps a history, and `history_size` can cap that history.
 
 ## Workflow Resume
 

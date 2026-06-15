@@ -308,7 +308,7 @@ class Checkpoint:
         path: str | Path | None = None,
         mode: Literal["overwrite", "append"] = "overwrite",
         flush_interval: int | None = 1,
-        keep_last: int | None = None,
+        history_size: int | None = None,
         state_policy: CheckpointStatePolicy = "full",
         rank: int | None = None,
         world_size: int | None = None,
@@ -318,8 +318,8 @@ class Checkpoint:
             raise ValueError("mode must be 'overwrite' or 'append'.")
         if flush_interval is not None and flush_interval < 1:
             raise ValueError("flush_interval must be a positive integer or None.")
-        if keep_last is not None and keep_last < 1:
-            raise ValueError("keep_last must be a positive integer or None.")
+        if history_size is not None and history_size < 1:
+            raise ValueError("history_size must be a positive integer or None.")
         state_policy = _normalize_state_policy(state_policy)
 
         detected_rank, detected_world_size = _detect_distributed_rank()
@@ -327,7 +327,7 @@ class Checkpoint:
         self.path = Path(path) if path is not None else default_checkpoint_path(name)
         self.mode = mode
         self.flush_interval = flush_interval
-        self.keep_last = 1 if mode == "overwrite" else keep_last
+        self.history_size = 1 if mode == "overwrite" else history_size
         self.state_policy = state_policy
         self.device = torch.device(device)
         self.rank = detected_rank if rank is None else rank
@@ -513,7 +513,7 @@ class Checkpoint:
         if self.mode == "overwrite":
             entries = [item for item in entries if item.labels != entry.labels]
         entries.append(entry)
-        entries = _apply_keep_last(entries, entry.labels, self.keep_last)
+        entries = _apply_history_size(entries, entry.labels, self.history_size)
         _write_catalog(self.rank_path, entries)
         self._catalog = entries
         _prune_commits(self.rank_path, {item.commit_id for item in entries})
@@ -828,13 +828,13 @@ def _write_catalog(rank_path: Path, entries: list[CheckpointEntry]) -> None:
     _write_json(rank_path / "catalog.json", payload)
 
 
-def _apply_keep_last(
-    entries: list[CheckpointEntry], labels: dict[str, Any], keep_last: int | None
+def _apply_history_size(
+    entries: list[CheckpointEntry], labels: dict[str, Any], history_size: int | None
 ) -> list[CheckpointEntry]:
-    if keep_last is None:
+    if history_size is None:
         return entries
     matching = [entry for entry in entries if entry.labels == labels]
-    remove = {entry.commit_id for entry in matching[:-keep_last]}
+    remove = {entry.commit_id for entry in matching[:-history_size]}
     return [entry for entry in entries if entry.commit_id not in remove]
 
 

@@ -285,9 +285,9 @@ def test_write_interval_overwrite_and_manual_flush_prune_old_commits(tmp_path):
         assert state.calls == 3
 
 
-def test_append_keep_last_and_positional_selection(tmp_path):
+def test_append_history_size_and_positional_selection(tmp_path):
     checkpoint = Checkpoint(
-        "forecast", path=tmp_path, mode="append", flush_interval=1, keep_last=2
+        "forecast", path=tmp_path, mode="append", flush_interval=1, history_size=2
     )
 
     for hours in (6, 12, 18):
@@ -373,7 +373,7 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
     with pytest.raises(ValueError):
         Checkpoint("bad", path=tmp_path, flush_interval=0)
     with pytest.raises(ValueError):
-        Checkpoint("bad", path=tmp_path, keep_last=0)
+        Checkpoint("bad", path=tmp_path, history_size=0)
     with pytest.raises(ValueError):
         Checkpoint("bad", path=tmp_path, state_policy="bad")
     with pytest.raises(ValueError):
