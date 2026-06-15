@@ -68,6 +68,7 @@ run(["2024-01-01"], 10, model, ds, io)
 - [Testing](developer/testing)
 - [Build](developer/build)
 - [Recipes](developer/recipes)
+- [Checkpointing](developer/checkpointing)
 
 ## Support
 
