@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added AIFS 2.0 prognostic model (`AIFS2`) with wave and 10 hPa pressure level support
 - Added AIFS 2.0 ensemble prognostic model (`AIFS2ENS`) with stochastic noise injection
+- Added U-CAST prognostic model (`UCast`) with 1.5-degree global ERA5
+  forecasting support
 - Added wave variables to IFS data source for AIFS2 support
 - Added NCEP CFSv2 operational forecast data sources for the pressure-level
   `pgbf` and surface-flux `flxf` products (`CFS_FX`, `CFS_FX_Flux`), backed by
@@ -25,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added checkpoint/session utilities and restart support for deterministic,
   diagnostic, and ensemble inference workflows
 - Added checkpoint state policy hints exposed through bound state proxies
+- Added EUMETNET OPERA European weather radar composite DataSource for DBZH
+  reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
+- Added support for cumulative variables in ARCO data source
 
 ### Changed
 
@@ -34,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prognostic iterator after fetching the normal initial condition
 - Renamed checkpoint state policies to `minimal`, `state`, and `full`, with
   legacy `replay` and `direct` aliases preserved
+- UFS GSI observation sources (`UFSObsConv`, `UFSObsSat`) now fetch from S3 via native
+  `obstore` instead of `s3fs` to avoid the Python-GIL bottleneck that caps fsspec's
+  concurrent S3 read throughput (~22% faster obs fetch, ~20% HealDA e2e on B200; output unchanged).
+- Renamed AIFS runoff and snowfall variables to `ro06` and `sf06` and added six-hour
+  accumulated IFS/AIFS data aliases.
 - Automatic test skipping for missing optional dependencies via
   `pytest_ignore_collect` hook in `test/conftest.py`
 
@@ -50,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
+- Added `obstore>=0.8` for fetching UFS GSI observation data from S3.
 - Removed `aifs` and `aifsens` from the `[all]` extra due to dependency conflicts with
   `aifs2` (incompatible anemoi-models versions).
 

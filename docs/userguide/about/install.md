@@ -477,6 +477,28 @@ uv add earth2studio --extra stormscope
 :::
 ::::
 :::::
+:::::{tab-item} UCast
+Notes: The UCast model does not require additional Python packages beyond the
+base Earth2Studio install. Install the model extra anyway so environments can
+select the UCast dependency group consistently.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[ucast]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra ucast
+```
+
+:::
+::::
+:::::
 :::::{tab-item} InterpModAFNO
 Notes: Requires a base prognostic model to be installed.
 
