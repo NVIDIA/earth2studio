@@ -21,7 +21,7 @@ Running StormCast-CONUS Inference
 
 Basic StormCast-CONUS inference workflow for the full Continental United States.
 
-This example demonstrates how to run a deterministic forecast using
+This example demonstrates how to run a single-member forecast using
 StormCast-CONUS, a generative convection-allowing model at 3 km resolution over
 the full CONUS HRRR domain. For details about the model see
 
