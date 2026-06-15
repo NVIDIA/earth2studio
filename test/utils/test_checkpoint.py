@@ -376,14 +376,10 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
         Checkpoint("bad", path=tmp_path, keep_last=0)
     with pytest.raises(ValueError):
         Checkpoint("bad", path=tmp_path, state_policy="bad")
-    assert (
-        Checkpoint("legacy-replay", path=tmp_path, state_policy="replay").state_policy
-        == "state"
-    )
-    assert (
-        Checkpoint("legacy-direct", path=tmp_path, state_policy="direct").state_policy
-        == "full"
-    )
+    with pytest.raises(ValueError):
+        Checkpoint("legacy-replay", path=tmp_path, state_policy="replay")
+    with pytest.raises(ValueError):
+        Checkpoint("legacy-direct", path=tmp_path, state_policy="direct")
 
     checkpoint = Checkpoint("forecast", path=tmp_path / "catalog", mode="append")
     assert "catalog: empty" in repr(checkpoint)

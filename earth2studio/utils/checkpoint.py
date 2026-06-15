@@ -34,15 +34,6 @@ import torch
 
 T = TypeVar("T")
 CheckpointStatePolicy = Literal["minimal", "state", "full"]
-CheckpointStatePolicyInput = CheckpointStatePolicy | Literal["replay", "direct"]
-
-_STATE_POLICY_ALIASES: dict[str, CheckpointStatePolicy] = {
-    "minimal": "minimal",
-    "state": "state",
-    "full": "full",
-    "replay": "state",
-    "direct": "full",
-}
 
 _CHECKPOINT_VERSION = 1
 _ACTIVE_SESSION: ContextVar[CheckpointSession | None] = ContextVar(
@@ -318,7 +309,7 @@ class Checkpoint:
         mode: Literal["overwrite", "append"] = "overwrite",
         flush_interval: int | None = 1,
         keep_last: int | None = None,
-        state_policy: CheckpointStatePolicyInput = "full",
+        state_policy: CheckpointStatePolicy = "full",
         rank: int | None = None,
         world_size: int | None = None,
         device: str | torch.device = torch.device("cpu"),
@@ -956,15 +947,11 @@ def _populate_dataclass_state(
 
 
 def _normalize_state_policy(
-    policy: CheckpointStatePolicyInput,
+    policy: str,
 ) -> CheckpointStatePolicy:
-    try:
-        return _STATE_POLICY_ALIASES[policy]
-    except KeyError as exc:
-        raise ValueError(
-            "state_policy must be 'minimal', 'state', or 'full'. "
-            "Legacy aliases 'replay' and 'direct' are also accepted."
-        ) from exc
+    if policy not in ("minimal", "state", "full"):
+        raise ValueError("state_policy must be 'minimal', 'state', or 'full'.")
+    return policy
 
 
 def _state_id(state: Any) -> str:

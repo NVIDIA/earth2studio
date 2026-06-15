@@ -52,9 +52,6 @@ not force a model to checkpoint a particular payload. Supported values are:
 - `full`: save all supported restart state, including heavy tensors needed to
   resume inside a rollout. This is the default.
 
-Legacy policy names `replay` and `direct` are accepted as aliases for `state`
-and `full`, respectively.
-
 ## Selecting Restart Points
 
 `Checkpoint.select` returns a `CheckpointSession`, which chooses a saved row or a
