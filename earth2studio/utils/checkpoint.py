@@ -467,7 +467,9 @@ class Checkpoint:
             "rank": self.rank,
             "world_size": self.world_size,
             "labels": session.labels,
-            "lead_time": _encode_json_value(_normalize_lead_time(lead_time)),
+            "lead_time": CheckpointCodec.encode_json_value(
+                CheckpointCodec.normalize_lead_time(lead_time)
+            ),
             "write_count": session.write_count,
             "saved_at": datetime.now(timezone.utc).isoformat(),
             "states": {},
@@ -492,7 +494,7 @@ class Checkpoint:
                     raise CheckpointSerializationError(
                         "checkpoint artifact names must be strings."
                     )
-                manifest["artifacts"][name] = _dump_value(
+                manifest["artifacts"][name] = CheckpointCodec.dump_value(
                     value, artifacts_path, (_safe_dir_name(name),)
                 )
 
@@ -576,7 +578,7 @@ class CheckpointSession:
         manifest = self._read_manifest()
         artifacts_path = self._commit_path / "artifacts"
         return {
-            name: _load_value(payload, artifacts_path)
+            name: CheckpointCodec.load_value(payload, artifacts_path)
             for name, payload in manifest.get("artifacts", {}).items()
         }
 
@@ -647,7 +649,7 @@ class CheckpointSession:
     ) -> CheckpointEntry | None:
         """Record a safe checkpoint boundary and flush if due."""
         self.write_count += 1
-        self._pending_lead_time = _normalize_lead_time(lead_time)
+        self._pending_lead_time = CheckpointCodec.normalize_lead_time(lead_time)
         self._pending_artifacts = artifacts
         self._pending_dirty = True
         interval = self.catalog.flush_interval
@@ -665,7 +667,7 @@ class CheckpointSession:
         commit_lead_time = (
             self._pending_lead_time
             if lead_time is None
-            else _normalize_lead_time(lead_time)
+            else CheckpointCodec.normalize_lead_time(lead_time)
         )
         commit_artifacts = self._pending_artifacts if artifacts is None else artifacts
         if not self._pending_dirty and not has_updates:
@@ -780,7 +782,9 @@ def _detect_distributed_rank() -> tuple[int, int]:
 def _encode_labels(
     labels: Mapping[str, Any], entries: list[CheckpointEntry]
 ) -> dict[str, Any]:
-    encoded = {key: _encode_json_value(value) for key, value in labels.items()}
+    encoded = {
+        key: CheckpointCodec.encode_json_value(value) for key, value in labels.items()
+    }
     latest_keys = [key for key, value in labels.items() if _is_latest_selector(value)]
     if not latest_keys:
         return encoded
@@ -856,7 +860,7 @@ def _entry_from_manifest(manifest: Mapping[str, Any]) -> CheckpointEntry:
     return CheckpointEntry(
         commit_id=str(manifest["commit_id"]),
         labels=dict(manifest.get("labels", {})),
-        lead_time=_decode_json_value(manifest.get("lead_time")),
+        lead_time=CheckpointCodec.decode_json_value(manifest.get("lead_time")),
         write_count=int(manifest.get("write_count", 0)),
         saved_at=str(manifest["saved_at"]),
         rank=int(manifest.get("rank", 0)),
@@ -870,7 +874,7 @@ def _entry_to_catalog(entry: CheckpointEntry) -> dict[str, Any]:
     return {
         "commit_id": entry.commit_id,
         "labels": entry.labels,
-        "lead_time": _encode_json_value(entry.lead_time),
+        "lead_time": CheckpointCodec.encode_json_value(entry.lead_time),
         "write_count": entry.write_count,
         "saved_at": entry.saved_at,
         "rank": entry.rank,
@@ -884,7 +888,7 @@ def _entry_from_catalog(payload: Mapping[str, Any]) -> CheckpointEntry:
     return CheckpointEntry(
         commit_id=str(payload["commit_id"]),
         labels=dict(payload.get("labels", {})),
-        lead_time=_decode_json_value(payload.get("lead_time")),
+        lead_time=CheckpointCodec.decode_json_value(payload.get("lead_time")),
         write_count=int(payload.get("write_count", 0)),
         saved_at=str(payload["saved_at"]),
         rank=int(payload.get("rank", 0)),
@@ -901,7 +905,7 @@ def _write_dataclass_state(state: Any, state_id: str, state_path: Path) -> None:
         "state_id": state_id,
         "schema_hash": _schema_hash(state),
         "fields": {
-            field.name: _dump_value(
+            field.name: CheckpointCodec.dump_value(
                 getattr(state, field.name), state_path, (field.name,)
             )
             for field in fields(state)
@@ -945,7 +949,11 @@ def _populate_dataclass_state(
         )
     for name, payload in saved_fields.items():
         current_value = getattr(state, name)
-        setattr(state, name, _load_value(payload, loaded_state.path, current_value))
+        setattr(
+            state,
+            name,
+            CheckpointCodec.load_value(payload, loaded_state.path, current_value),
+        )
 
 
 def _normalize_state_policy(
@@ -985,292 +993,305 @@ def _field_default_id(field: Any) -> str:
     return "required"
 
 
-def _dump_value(
-    value: Any, base_path: Path, rel_parts: tuple[str, ...]
-) -> dict[str, Any]:
-    if value is None:
-        return {"kind": "none"}
-    if isinstance(value, bool):
-        return {"kind": "bool", "value": value}
-    if isinstance(value, int) and not isinstance(value, bool):
-        return {"kind": "int", "value": value}
-    if isinstance(value, float):
-        return {"kind": "float", "value": value}
-    if isinstance(value, str):
-        return {"kind": "str", "value": value}
-    if isinstance(value, datetime):
-        return {"kind": "datetime", "value": value.isoformat()}
-    if isinstance(value, date):
-        return {"kind": "date", "value": value.isoformat()}
-    if isinstance(value, timedelta):
-        return {
-            "kind": "timedelta",
-            "days": value.days,
-            "seconds": value.seconds,
-            "microseconds": value.microseconds,
-        }
-    if isinstance(value, np.datetime64):
-        return _encode_np_datetime(value)
-    if isinstance(value, np.timedelta64):
-        return _encode_np_timedelta(value)
-    if isinstance(value, torch.device):
-        return {"kind": "torch_device", "value": str(value)}
-    if isinstance(value, torch.dtype):
-        return {"kind": "torch_dtype", "value": str(value)}
-    if isinstance(value, np.dtype):
-        return {"kind": "np_dtype", "value": str(value)}
-    if isinstance(value, np.generic):
-        return _dump_value(value.item(), base_path, rel_parts)
-    if isinstance(value, torch.Tensor):
-        array = value.detach().cpu().numpy()
-        return _dump_array(array, "tensor", base_path, rel_parts)
-    if isinstance(value, np.ndarray):
-        return _dump_array(value, "ndarray", base_path, rel_parts)
-    if isinstance(value, list):
-        return {
-            "kind": "list",
-            "items": [
-                _dump_value(item, base_path, (*rel_parts, str(index)))
-                for index, item in enumerate(value)
-            ],
-        }
-    if isinstance(value, tuple):
-        return {
-            "kind": "tuple",
-            "items": [
-                _dump_value(item, base_path, (*rel_parts, str(index)))
-                for index, item in enumerate(value)
-            ],
-        }
-    if isinstance(value, dict):
-        payload = {}
-        for key, item in value.items():
-            if not isinstance(key, str):
-                raise CheckpointSerializationError(
-                    "checkpoint dictionaries must use string keys."
+class CheckpointCodec:
+    """Codec for pickle-free checkpoint metadata and state payloads."""
+
+    SCALAR_KINDS = frozenset(("bool", "int", "float", "str"))
+    JSON_SCALAR_TYPES = (bool, int, float, str)
+
+    @classmethod
+    def dump_value(
+        cls, value: Any, base_path: Path, rel_parts: tuple[str, ...]
+    ) -> dict[str, Any]:
+        if value is None:
+            return {"kind": "none"}
+        if isinstance(value, bool):
+            return {"kind": "bool", "value": value}
+        if isinstance(value, int) and not isinstance(value, bool):
+            return {"kind": "int", "value": value}
+        if isinstance(value, float):
+            return {"kind": "float", "value": value}
+        if isinstance(value, str):
+            return {"kind": "str", "value": value}
+        if isinstance(value, datetime):
+            return {"kind": "datetime", "value": value.isoformat()}
+        if isinstance(value, date):
+            return {"kind": "date", "value": value.isoformat()}
+        if isinstance(value, timedelta):
+            return {
+                "kind": "timedelta",
+                "days": value.days,
+                "seconds": value.seconds,
+                "microseconds": value.microseconds,
+            }
+        if isinstance(value, np.datetime64):
+            return cls.encode_np_datetime(value)
+        if isinstance(value, np.timedelta64):
+            return cls.encode_np_timedelta(value)
+        if isinstance(value, torch.device):
+            return {"kind": "torch_device", "value": str(value)}
+        if isinstance(value, torch.dtype):
+            return {"kind": "torch_dtype", "value": str(value)}
+        if isinstance(value, np.dtype):
+            return {"kind": "np_dtype", "value": str(value)}
+        if isinstance(value, np.generic):
+            return cls.dump_value(value.item(), base_path, rel_parts)
+        if isinstance(value, torch.Tensor):
+            array = value.detach().cpu().numpy()
+            return cls.dump_array(array, "tensor", base_path, rel_parts)
+        if isinstance(value, np.ndarray):
+            return cls.dump_array(value, "ndarray", base_path, rel_parts)
+        if isinstance(value, list):
+            return {
+                "kind": "list",
+                "items": [
+                    cls.dump_value(item, base_path, (*rel_parts, str(index)))
+                    for index, item in enumerate(value)
+                ],
+            }
+        if isinstance(value, tuple):
+            return {
+                "kind": "tuple",
+                "items": [
+                    cls.dump_value(item, base_path, (*rel_parts, str(index)))
+                    for index, item in enumerate(value)
+                ],
+            }
+        if isinstance(value, dict):
+            payload = {}
+            for key, item in value.items():
+                if not isinstance(key, str):
+                    raise CheckpointSerializationError(
+                        "checkpoint dictionaries must use string keys."
+                    )
+                payload[key] = cls.dump_value(
+                    item, base_path, (*rel_parts, _safe_dir_name(key))
                 )
-            payload[key] = _dump_value(
-                item, base_path, (*rel_parts, _safe_dir_name(key))
-            )
-        return {"kind": "dict", "items": payload}
-    if is_dataclass(value) and not isinstance(value, type):
-        return {
-            "kind": "dataclass",
-            "state_id": _state_id(value),
-            "schema_hash": _schema_hash(value),
-            "fields": {
-                field.name: _dump_value(
-                    getattr(value, field.name), base_path, (*rel_parts, field.name)
-                )
-                for field in fields(value)
-            },
-        }
-    raise CheckpointSerializationError(
-        f"Unsupported checkpoint value {type(value).__module__}.{type(value).__qualname__}."
-    )
-
-
-def _dump_array(
-    array: np.ndarray,
-    kind: Literal["tensor", "ndarray"],
-    base_path: Path,
-    rel_parts: tuple[str, ...],
-) -> dict[str, Any]:
-    if array.dtype == object:
-        raise CheckpointSerializationError(
-            "object dtype arrays cannot be checkpointed."
-        )
-    rel_path = Path(*rel_parts).with_suffix(".npy")
-    full_path = base_path / rel_path
-    full_path.parent.mkdir(parents=True, exist_ok=True)
-    np.save(full_path, array, allow_pickle=False)
-    return {
-        "kind": kind,
-        "path": str(rel_path),
-        "dtype": str(array.dtype),
-        "shape": list(array.shape),
-    }
-
-
-def _load_value(
-    payload: Mapping[str, Any], base_path: Path, current_value: Any = None
-) -> Any:
-    kind = payload["kind"]
-    if kind == "none":
-        return None
-    if kind in ("bool", "int", "float", "str"):
-        return payload["value"]
-    if kind == "datetime":
-        return datetime.fromisoformat(payload["value"])
-    if kind == "date":
-        return date.fromisoformat(payload["value"])
-    if kind == "timedelta":
-        return timedelta(
-            days=payload["days"],
-            seconds=payload["seconds"],
-            microseconds=payload["microseconds"],
-        )
-    if kind == "np_datetime64":
-        return np.datetime64(payload["value"], payload["unit"])
-    if kind == "np_timedelta64":
-        return np.timedelta64(payload["value"], payload["unit"])
-    if kind == "torch_device":
-        return torch.device(payload["value"])
-    if kind == "torch_dtype":
-        return getattr(torch, payload["value"].split(".")[-1])
-    if kind == "np_dtype":
-        return np.dtype(payload["value"])
-    if kind in ("tensor", "ndarray"):
-        array = np.load(base_path / payload["path"], allow_pickle=False)
-        if (
-            list(array.shape) != payload["shape"]
-            or str(array.dtype) != payload["dtype"]
-        ):
-            raise CheckpointSerializationError(
-                "checkpoint array metadata does not match stored data."
-            )
-        if kind == "tensor":
-            return torch.from_numpy(array)
-        return array
-    if kind == "list":
-        return [_load_value(item, base_path) for item in payload["items"]]
-    if kind == "tuple":
-        return tuple(_load_value(item, base_path) for item in payload["items"])
-    if kind == "dict":
-        return {
-            key: _load_value(item, base_path) for key, item in payload["items"].items()
-        }
-    if kind == "dataclass":
-        if is_dataclass(current_value) and not isinstance(current_value, type):
-            expected_hash = _schema_hash(current_value)
-            if payload.get("schema_hash") != expected_hash:
-                raise CheckpointStateSchemaError(
-                    f"Saved nested state {payload.get('state_id')} does not match the current dataclass schema."
-                )
-            for field in fields(current_value):
-                setattr(
-                    current_value,
-                    field.name,
-                    _load_value(
-                        payload["fields"][field.name],
+            return {"kind": "dict", "items": payload}
+        if is_dataclass(value) and not isinstance(value, type):
+            return {
+                "kind": "dataclass",
+                "state_id": _state_id(value),
+                "schema_hash": _schema_hash(value),
+                "fields": {
+                    field.name: cls.dump_value(
+                        getattr(value, field.name),
                         base_path,
-                        getattr(current_value, field.name),
-                    ),
-                )
-            return current_value
-        return {
-            key: _load_value(item, base_path) for key, item in payload["fields"].items()
-        }
-    raise CheckpointSerializationError(f"Unsupported checkpoint payload kind {kind!r}.")
+                        (*rel_parts, field.name),
+                    )
+                    for field in fields(value)
+                },
+            }
+        raise CheckpointSerializationError(
+            f"Unsupported checkpoint value {type(value).__module__}.{type(value).__qualname__}."
+        )
 
-
-def _encode_json_value(value: Any) -> Any:
-    if value is None or isinstance(value, bool | int | float | str):
-        return value
-    if isinstance(value, datetime):
-        return {"kind": "datetime", "value": value.isoformat()}
-    if isinstance(value, date):
-        return {"kind": "date", "value": value.isoformat()}
-    if isinstance(value, timedelta):
-        return {
-            "kind": "timedelta",
-            "days": value.days,
-            "seconds": value.seconds,
-            "microseconds": value.microseconds,
-        }
-    if isinstance(value, np.datetime64):
-        return _encode_np_datetime(value)
-    if isinstance(value, np.timedelta64):
-        return _encode_np_timedelta(value)
-    if isinstance(value, torch.device):
-        return {"kind": "torch_device", "value": str(value)}
-    if isinstance(value, torch.dtype):
-        return {"kind": "torch_dtype", "value": str(value)}
-    if isinstance(value, np.dtype):
-        return {"kind": "np_dtype", "value": str(value)}
-    if isinstance(value, np.generic):
-        return _encode_json_value(value.item())
-    if isinstance(value, np.ndarray):
-        if value.dtype == object:
+    @staticmethod
+    def dump_array(
+        array: np.ndarray,
+        kind: Literal["tensor", "ndarray"],
+        base_path: Path,
+        rel_parts: tuple[str, ...],
+    ) -> dict[str, Any]:
+        if array.dtype == object:
             raise CheckpointSerializationError(
-                "object dtype arrays cannot be used as checkpoint labels."
+                "object dtype arrays cannot be checkpointed."
             )
+        rel_path = Path(*rel_parts).with_suffix(".npy")
+        full_path = base_path / rel_path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        np.save(full_path, array, allow_pickle=False)
         return {
-            "kind": "ndarray_label",
-            "dtype": str(value.dtype),
-            "values": [_encode_json_value(item) for item in value.reshape(-1)],
-            "shape": list(value.shape),
+            "kind": kind,
+            "path": str(rel_path),
+            "dtype": str(array.dtype),
+            "shape": list(array.shape),
         }
-    if isinstance(value, list | tuple):
-        return [_encode_json_value(item) for item in value]
-    if isinstance(value, dict):
-        encoded = {}
-        for key, item in value.items():
-            if not isinstance(key, str):
+
+    @classmethod
+    def load_value(
+        cls, payload: Mapping[str, Any], base_path: Path, current_value: Any = None
+    ) -> Any:
+        kind = payload["kind"]
+        if kind == "none":
+            return None
+        if kind in cls.SCALAR_KINDS:
+            return payload["value"]
+        if kind == "datetime":
+            return datetime.fromisoformat(payload["value"])
+        if kind == "date":
+            return date.fromisoformat(payload["value"])
+        if kind == "timedelta":
+            return timedelta(
+                days=payload["days"],
+                seconds=payload["seconds"],
+                microseconds=payload["microseconds"],
+            )
+        if kind == "np_datetime64":
+            return np.datetime64(payload["value"], payload["unit"])
+        if kind == "np_timedelta64":
+            return np.timedelta64(payload["value"], payload["unit"])
+        if kind == "torch_device":
+            return torch.device(payload["value"])
+        if kind == "torch_dtype":
+            return getattr(torch, payload["value"].split(".")[-1])
+        if kind == "np_dtype":
+            return np.dtype(payload["value"])
+        if kind in ("tensor", "ndarray"):
+            array = np.load(base_path / payload["path"], allow_pickle=False)
+            if (
+                list(array.shape) != payload["shape"]
+                or str(array.dtype) != payload["dtype"]
+            ):
                 raise CheckpointSerializationError(
-                    "checkpoint label dictionaries must use string keys."
+                    "checkpoint array metadata does not match stored data."
                 )
-            encoded[key] = _encode_json_value(item)
-        return encoded
-    raise CheckpointSerializationError(
-        f"Unsupported checkpoint metadata value {type(value).__module__}.{type(value).__qualname__}."
-    )
+            if kind == "tensor":
+                return torch.from_numpy(array)
+            return array
+        if kind == "list":
+            return [cls.load_value(item, base_path) for item in payload["items"]]
+        if kind == "tuple":
+            return tuple(cls.load_value(item, base_path) for item in payload["items"])
+        if kind == "dict":
+            return {
+                key: cls.load_value(item, base_path)
+                for key, item in payload["items"].items()
+            }
+        if kind == "dataclass":
+            if is_dataclass(current_value) and not isinstance(current_value, type):
+                expected_hash = _schema_hash(current_value)
+                if payload.get("schema_hash") != expected_hash:
+                    raise CheckpointStateSchemaError(
+                        f"Saved nested state {payload.get('state_id')} does not match the current dataclass schema."
+                    )
+                for field in fields(current_value):
+                    setattr(
+                        current_value,
+                        field.name,
+                        cls.load_value(
+                            payload["fields"][field.name],
+                            base_path,
+                            getattr(current_value, field.name),
+                        ),
+                    )
+                return current_value
+            return {
+                key: cls.load_value(item, base_path)
+                for key, item in payload["fields"].items()
+            }
+        raise CheckpointSerializationError(
+            f"Unsupported checkpoint payload kind {kind!r}."
+        )
 
+    @classmethod
+    def encode_json_value(cls, value: Any) -> Any:
+        if value is None or isinstance(value, cls.JSON_SCALAR_TYPES):
+            return value
+        if isinstance(value, datetime):
+            return {"kind": "datetime", "value": value.isoformat()}
+        if isinstance(value, date):
+            return {"kind": "date", "value": value.isoformat()}
+        if isinstance(value, timedelta):
+            return {
+                "kind": "timedelta",
+                "days": value.days,
+                "seconds": value.seconds,
+                "microseconds": value.microseconds,
+            }
+        if isinstance(value, np.datetime64):
+            return cls.encode_np_datetime(value)
+        if isinstance(value, np.timedelta64):
+            return cls.encode_np_timedelta(value)
+        if isinstance(value, torch.device):
+            return {"kind": "torch_device", "value": str(value)}
+        if isinstance(value, torch.dtype):
+            return {"kind": "torch_dtype", "value": str(value)}
+        if isinstance(value, np.dtype):
+            return {"kind": "np_dtype", "value": str(value)}
+        if isinstance(value, np.generic):
+            return cls.encode_json_value(value.item())
+        if isinstance(value, np.ndarray):
+            if value.dtype == object:
+                raise CheckpointSerializationError(
+                    "object dtype arrays cannot be used as checkpoint labels."
+                )
+            return {
+                "kind": "ndarray_label",
+                "dtype": str(value.dtype),
+                "values": [cls.encode_json_value(item) for item in value.reshape(-1)],
+                "shape": list(value.shape),
+            }
+        if isinstance(value, list | tuple):
+            return [cls.encode_json_value(item) for item in value]
+        if isinstance(value, dict):
+            encoded = {}
+            for key, item in value.items():
+                if not isinstance(key, str):
+                    raise CheckpointSerializationError(
+                        "checkpoint label dictionaries must use string keys."
+                    )
+                encoded[key] = cls.encode_json_value(item)
+            return encoded
+        raise CheckpointSerializationError(
+            f"Unsupported checkpoint metadata value {type(value).__module__}.{type(value).__qualname__}."
+        )
 
-def _decode_json_value(value: Any) -> Any:
-    if isinstance(value, list):
-        return [_decode_json_value(item) for item in value]
-    if not isinstance(value, dict) or "kind" not in value:
+    @classmethod
+    def decode_json_value(cls, value: Any) -> Any:
+        if isinstance(value, list):
+            return [cls.decode_json_value(item) for item in value]
+        if not isinstance(value, dict) or "kind" not in value:
+            return value
+        kind = value["kind"]
+        if kind == "datetime":
+            return datetime.fromisoformat(value["value"])
+        if kind == "date":
+            return date.fromisoformat(value["value"])
+        if kind == "timedelta":
+            return timedelta(
+                days=value["days"],
+                seconds=value["seconds"],
+                microseconds=value["microseconds"],
+            )
+        if kind == "np_datetime64":
+            return np.datetime64(value["value"], value["unit"])
+        if kind == "np_timedelta64":
+            return np.timedelta64(value["value"], value["unit"])
+        if kind == "torch_device":
+            return torch.device(value["value"])
+        if kind == "torch_dtype":
+            return getattr(torch, value["value"].split(".")[-1])
+        if kind == "np_dtype":
+            return np.dtype(value["value"])
+        if kind == "ndarray_label":
+            decoded = [cls.decode_json_value(item) for item in value["values"]]
+            return np.asarray(decoded, dtype=np.dtype(value["dtype"])).reshape(
+                value["shape"]
+            )
         return value
-    kind = value["kind"]
-    if kind == "datetime":
-        return datetime.fromisoformat(value["value"])
-    if kind == "date":
-        return date.fromisoformat(value["value"])
-    if kind == "timedelta":
-        return timedelta(
-            days=value["days"],
-            seconds=value["seconds"],
-            microseconds=value["microseconds"],
-        )
-    if kind == "np_datetime64":
-        return np.datetime64(value["value"], value["unit"])
-    if kind == "np_timedelta64":
-        return np.timedelta64(value["value"], value["unit"])
-    if kind == "torch_device":
-        return torch.device(value["value"])
-    if kind == "torch_dtype":
-        return getattr(torch, value["value"].split(".")[-1])
-    if kind == "np_dtype":
-        return np.dtype(value["value"])
-    if kind == "ndarray_label":
-        decoded = [_decode_json_value(item) for item in value["values"]]
-        return np.asarray(decoded, dtype=np.dtype(value["dtype"])).reshape(
-            value["shape"]
-        )
-    return value
 
+    @staticmethod
+    def encode_np_datetime(value: np.datetime64) -> dict[str, Any]:
+        unit, _ = np.datetime_data(value.dtype)
+        return {"kind": "np_datetime64", "value": str(value), "unit": unit}
 
-def _encode_np_datetime(value: np.datetime64) -> dict[str, Any]:
-    unit, _ = np.datetime_data(value.dtype)
-    return {"kind": "np_datetime64", "value": str(value), "unit": unit}
+    @staticmethod
+    def encode_np_timedelta(value: np.timedelta64) -> dict[str, Any]:
+        unit, _ = np.datetime_data(value.dtype)
+        return {
+            "kind": "np_timedelta64",
+            "value": int(value.astype(f"timedelta64[{unit}]").astype("int64")),
+            "unit": unit,
+        }
 
-
-def _encode_np_timedelta(value: np.timedelta64) -> dict[str, Any]:
-    unit, _ = np.datetime_data(value.dtype)
-    return {
-        "kind": "np_timedelta64",
-        "value": int(value.astype(f"timedelta64[{unit}]").astype("int64")),
-        "unit": unit,
-    }
-
-
-def _normalize_lead_time(value: Any | None) -> Any | None:
-    if isinstance(value, np.ndarray) and value.size == 1:
-        return value.reshape(-1)[0]
-    if isinstance(value, torch.Tensor) and value.numel() == 1:
-        return value.detach().cpu().reshape(-1)[0].item()
-    return value
+    @staticmethod
+    def normalize_lead_time(value: Any | None) -> Any | None:
+        if isinstance(value, np.ndarray) and value.size == 1:
+            return value.reshape(-1)[0]
+        if isinstance(value, torch.Tensor) and value.numel() == 1:
+            return value.detach().cpu().reshape(-1)[0].item()
+        return value
 
 
 def _is_latest_selector(value: Any) -> bool:
@@ -1298,7 +1319,7 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _display_value(value: Any) -> str:
-    value = _decode_json_value(value)
+    value = CheckpointCodec.decode_json_value(value)
     if isinstance(value, np.ndarray):
         return np.array2string(value, separator=", ")
     return "" if value is None else str(value)
