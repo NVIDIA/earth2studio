@@ -16,6 +16,7 @@
 
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
+from dataclasses import dataclass
 
 import numpy as np
 import torch
@@ -23,7 +24,15 @@ import torch
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.type import CoordSystem
+
+
+@dataclass
+class _PersistenceCheckpointState:
+    x: torch.Tensor | None = None
+    coord_keys: tuple[str, ...] = ()
+    coord_values: tuple[np.ndarray, ...] = ()
 
 
 class Persistence(torch.nn.Module, PrognosticMixin):
@@ -78,6 +87,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
 
         self._history = history
         self._dt = dt
+        self.checkpoint = bind_checkpoint_state(_PersistenceCheckpointState())
 
     def __str__(
         self,
@@ -130,6 +140,40 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         )
         return output_coords
 
+    def _restore_checkpoint_state(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem, bool]:
+        if (
+            self.checkpoint.checkpoint_state_policy == "full"
+            and self.checkpoint.checkpoint_state_loaded
+            and self.checkpoint.x is not None
+            and self.checkpoint.coord_keys
+        ):
+            x = self.checkpoint.x.to(x.device)
+            coords = OrderedDict(
+                (key, np.asarray(value).copy())
+                for key, value in zip(
+                    self.checkpoint.coord_keys, self.checkpoint.coord_values
+                )
+            )
+            return x, coords, True
+        return x, coords, False
+
+    def _save_checkpoint_state(self, x: torch.Tensor, coords: CoordSystem) -> None:
+        if (
+            self.checkpoint.checkpoint_enabled
+            and self.checkpoint.checkpoint_state_policy == "full"
+        ):
+            self.checkpoint.x = x.detach().clone().to(self.checkpoint.device)
+            self.checkpoint.coord_keys = tuple(coords.keys())
+            self.checkpoint.coord_values = tuple(
+                np.asarray(value).copy() for value in coords.values()
+            )
+        else:
+            self.checkpoint.x = None
+            self.checkpoint.coord_keys = ()
+            self.checkpoint.coord_values = ()
+
     @torch.inference_mode()
     def _forward(
         self,
@@ -162,17 +206,22 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         x : torch.Tensor
         coords : CoordSystem
         """
-        return self._forward(x, coords)
+        x_out, coords_out = self._forward(x, coords)
+        self._save_checkpoint_state(x_out, coords_out)
+        return x_out, coords_out
 
     @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
 
+        x, coords, restored = self._restore_checkpoint_state(x, coords)
         self.output_coords(coords.copy())
-        coords_out = coords.copy()
-        coords_out["lead_time"] = coords["lead_time"][-1:]
-        yield x[:, -1:], coords_out
+        if not restored:
+            coords_out = coords.copy()
+            coords_out["lead_time"] = coords["lead_time"][-1:]
+            self._save_checkpoint_state(x, coords)
+            yield x[:, -1:], coords_out
 
         while True:
             # Front hook
@@ -188,6 +237,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
                 [coords["lead_time"][1:], coords_out["lead_time"]]
             )
             x = torch.cat([x[:, 1:], x_out], dim=1)
+            self._save_checkpoint_state(x, coords)
 
             yield x_out, coords_out
 

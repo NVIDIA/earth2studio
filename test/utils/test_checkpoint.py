@@ -86,56 +86,6 @@ class RequiredState:
     value: int
 
 
-@dataclass
-class RestartablePrognosticState:
-    x: torch.Tensor | None = None
-    coord_keys: tuple[str, ...] = ()
-    coord_values: tuple[np.ndarray, ...] = ()
-
-
-class RestartablePersistence(Persistence):
-    def __init__(self, variables, domain_coords):
-        super().__init__(variables, domain_coords)
-        self.checkpoint = bind_checkpoint_state(RestartablePrognosticState())
-        self.used_hydrated_state = False
-
-    def create_iterator(self, x, coords):
-        restored = False
-        if (
-            self.checkpoint.checkpoint_state_loaded
-            and self.checkpoint.x is not None
-            and self.checkpoint.coord_keys
-        ):
-            self.used_hydrated_state = True
-            x = self.checkpoint.x.to(x.device)
-            restored = True
-            coords = OrderedDict(
-                (key, np.asarray(value).copy())
-                for key, value in zip(
-                    self.checkpoint.coord_keys, self.checkpoint.coord_values
-                )
-            )
-
-        iterator = super().create_iterator(x, coords)
-        if restored:
-            next(iterator)
-        for x_out, coords_out in iterator:
-            if (
-                self.checkpoint.checkpoint_enabled
-                and self.checkpoint.checkpoint_state_policy == "full"
-            ):
-                self.checkpoint.x = x_out.detach().to(self.checkpoint.device)
-                self.checkpoint.coord_keys = tuple(coords_out.keys())
-                self.checkpoint.coord_values = tuple(
-                    np.asarray(value).copy() for value in coords_out.values()
-                )
-            else:
-                self.checkpoint.x = None
-                self.checkpoint.coord_keys = ()
-                self.checkpoint.coord_values = ()
-            yield x_out, coords_out
-
-
 def test_checkpoint_contexts_and_no_checkpoint_session(tmp_path):
     with NO_CHECKPOINT as ckpt:
         assert not ckpt
@@ -616,7 +566,7 @@ def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
     )
 
     data = Random(domain_coords=coords)
-    model = RestartablePersistence(variables, coords)
+    model = Persistence(variables, coords)
     run.deterministic(
         ["2024-01-01"],
         1,
@@ -631,7 +581,7 @@ def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
 
     with checkpoint.select(-1):
         data = Random(domain_coords=coords)
-        model = RestartablePersistence(variables, coords)
+        model = Persistence(variables, coords)
         run.deterministic(
             ["2024-01-01"],
             3,
@@ -671,7 +621,7 @@ def test_deterministic_workflow_uses_model_checkpoint_state_when_io_is_filtered(
     )
 
     data = Random(domain_coords=coords)
-    model = RestartablePersistence(variables, coords)
+    model = Persistence(variables, coords)
     run.deterministic(
         ["2024-01-01"],
         1,
@@ -686,7 +636,7 @@ def test_deterministic_workflow_uses_model_checkpoint_state_when_io_is_filtered(
 
     with checkpoint.select(-1):
         data = Random(domain_coords=coords)
-        model = RestartablePersistence(variables, coords)
+        model = Persistence(variables, coords)
         run.deterministic(
             ["2024-01-01"],
             3,
@@ -700,7 +650,6 @@ def test_deterministic_workflow_uses_model_checkpoint_state_when_io_is_filtered(
         )
 
     selected = checkpoint.select(-1)
-    assert model.used_hydrated_state
     assert selected.lead_time == np.timedelta64(18, "h")
     assert selected.write_count == 4
     assert io["u10m"].shape[1] == 4
@@ -727,7 +676,7 @@ def test_diagnostic_workflow_resumes_from_checkpoint(tmp_path):
 
     with checkpoint.select(time=to_time_array(["2024-01-01"])) as ckpt:
         data = Random(domain_coords=coords)
-        model = RestartablePersistence(variables, coords)
+        model = Persistence(variables, coords)
         diagnostic = Identity()
         run.diagnostic(
             ["2024-01-01"],
@@ -744,7 +693,7 @@ def test_diagnostic_workflow_resumes_from_checkpoint(tmp_path):
 
     with checkpoint.select(-1) as ckpt:
         data = Random(domain_coords=coords)
-        model = RestartablePersistence(variables, coords)
+        model = Persistence(variables, coords)
         diagnostic = Identity()
         run.diagnostic(
             ["2024-01-01"],
@@ -761,7 +710,6 @@ def test_diagnostic_workflow_resumes_from_checkpoint(tmp_path):
     selected = checkpoint.select(-1)
     assert selected.lead_time == np.timedelta64(18, "h")
     assert selected.write_count == 4
-    assert model.used_hydrated_state
     assert io["u10m"].shape[1] == 4
 
 
@@ -809,7 +757,7 @@ def test_ensemble_workflow_resumes_each_batch_from_checkpoint(tmp_path):
         ["2024-01-01"],
         1,
         nensemble,
-        RestartablePersistence(variables, coords),
+        Persistence(variables, coords),
         Random(domain_coords=coords),
         io,
         Zero(),
@@ -823,7 +771,7 @@ def test_ensemble_workflow_resumes_each_batch_from_checkpoint(tmp_path):
         ["2024-01-01"],
         3,
         nensemble,
-        RestartablePersistence(variables, coords),
+        Persistence(variables, coords),
         Random(domain_coords=coords),
         io,
         Zero(),
