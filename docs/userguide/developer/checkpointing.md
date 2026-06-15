@@ -181,10 +181,11 @@ When a checkpoint session is active, `bind_checkpoint_state` loads the matching
 saved state if one exists and registers the live dataclass instance for future
 writes. Model state can be lightweight `state` policy metadata, such as lead
 time and RNG state, or heavier `full` policy tensors when the model cannot be
-restarted from user-facing IO output alone. When no session is active but a
-`Checkpoint` has been instantiated, `bind_checkpoint_state` buffers the live
-dataclass for that checkpoint. The buffered state is registered when a session
-for that checkpoint is entered.
+restarted from user-facing IO output alone. Built-in opt-in examples include
+`Persistence` and `FCN`/FourCastNet full-state restart support. When no session
+is active but a `Checkpoint` has been instantiated, `bind_checkpoint_state`
+buffers the live dataclass for that checkpoint. The buffered state is registered
+when a session for that checkpoint is entered.
 
 
 A model can use the checkpoint policy hint without adding another API call:

@@ -23,10 +23,10 @@ This example shows how to use :py:class:`earth2studio.utils.checkpoint.Checkpoin
 to restart a deterministic forecast after it stops partway through a run.
 
 The example uses :py:class:`earth2studio.data.Random` and
-:py:class:`earth2studio.models.px.UCast`. To keep the example runnable without
-downloading the full U-Cast package, the public U-Cast wrapper is paired with a
-small zero-residual PyTorch core. The checkpointing mechanics are identical for
-the packaged U-Cast model.
+:py:class:`earth2studio.models.px.FCN`, the FourCastNet AFNO prognostic model.
+To keep the example runnable without downloading the full FCN package, the
+public FCN wrapper is paired with a small identity PyTorch core. The
+checkpointing mechanics are identical for the packaged FCN model.
 
 In this example you will learn:
 
@@ -69,8 +69,8 @@ import torch
 import earth2studio.run as run
 from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
-from earth2studio.models.px import UCast
-from earth2studio.models.px.ucast import VARIABLES as UCAST_VARIABLES
+from earth2studio.models.px import FCN
+from earth2studio.models.px.fcn import VARIABLES as FCN_VARIABLES
 from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.time import to_time_array
 
@@ -84,14 +84,15 @@ for path in (forecast_store, checkpoint_store):
         shutil.rmtree(path)
 
 # %%
-# Build a small U-Cast forecast problem. The zero-residual core keeps the example
-# fast while preserving U-Cast's normal input/output coordinates and restart
+# Build a small FCN/AFNO forecast problem. The identity core keeps the example
+# fast while preserving FCN's normal input/output coordinates and restart
 # behavior.
 #
 # Full checkpoint state can be staged on the same device used for inference.
 # Setting ``device`` to the current CUDA device can reduce CPU/GPU transfers for
-# restart tensors during a run. Set it to ``torch.device("cpu")`` for
-# CPU-only development.
+# restart tensors during a run. Set it to ``torch.device("cpu")`` for CPU-only
+# development. Since FCN ``full`` checkpoints store the full autoregressive
+# state, keep ``history_size`` small when using ``mode="append"``.
 
 # %%
 compute_device = torch.device(
@@ -99,42 +100,25 @@ compute_device = torch.device(
 )
 
 
-class ZeroResidualUCastCore(torch.nn.Module):
-    def forward(
-        self,
-        inputs: torch.Tensor,
-        dynamical_condition: torch.Tensor | None = None,
-        static_condition: torch.Tensor | None = None,
-    ) -> torch.Tensor:
-        return torch.zeros(
-            inputs.shape[0],
-            len(UCAST_VARIABLES),
-            inputs.shape[-2],
-            inputs.shape[-1],
-            device=inputs.device,
-            dtype=inputs.dtype,
-        )
+class IdentityAFNOCore(torch.nn.Module):
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        return inputs
 
 
-def make_ucast_model() -> UCast:
-    n_variables = len(UCAST_VARIABLES)
-    return UCast(
-        model=ZeroResidualUCastCore(),
-        center=torch.zeros(n_variables),
-        scale=torch.ones(n_variables),
-        residual_scale=torch.ones(n_variables),
-        static_condition=torch.zeros(2, 121, 240),
-        sst_fill_value=0.0,
-        stochastic=False,
+def make_afno_model() -> FCN:
+    n_variables = len(FCN_VARIABLES)
+    return FCN(
+        core_model=IdentityAFNOCore(),
+        center=torch.zeros(n_variables, 1, 1),
+        scale=torch.ones(n_variables, 1, 1),
     )
 
 
-domain_coords = OrderedDict(
-    {
-        "lat": np.linspace(90, -90, 121),
-        "lon": np.linspace(0, 360, 240, endpoint=False),
-    }
-)
+prealloc_model = make_afno_model()
+domain_coords = prealloc_model.input_coords().copy()
+for key in ("batch", "lead_time", "variable"):
+    domain_coords.pop(key)
+
 output_variables = np.array(["t2m", "u10m"])
 time = ["2024-01-01T00:00:00"]
 final_nsteps = 3
@@ -145,7 +129,7 @@ first_attempt_nsteps = 1
 # Preallocate the full output store. A real full-length deterministic run does
 # this before the first model step. We do it explicitly here because this example
 # simulates a mid-run stop by intentionally running only the first forecast step.
-# The IO store writes only two variables, while the checkpoint keeps U-Cast's full
+# The IO store writes only two variables, while the checkpoint keeps FCN's full
 # restart state internally when ``state_policy="full"`` is used.
 
 # %%
@@ -167,8 +151,6 @@ def deterministic_output_coords(model, time, nsteps, variables):
     output_coords.move_to_end("time", last=False)
     return output_coords
 
-
-prealloc_model = make_ucast_model()
 
 io = ZarrBackend(str(forecast_store), backend_kwargs={"overwrite": True})
 coords = deterministic_output_coords(
@@ -200,7 +182,7 @@ checkpoint = Checkpoint(
 
 with checkpoint as ckpt:
     data = Random(domain_coords=domain_coords)
-    model = make_ucast_model()
+    model = make_afno_model()
     run.deterministic(
         time=time,
         nsteps=first_attempt_nsteps,
@@ -224,7 +206,7 @@ print(checkpoint)
 #
 # The selected checkpoint session is used as a context manager so the chosen row
 # is the active restart state while components are constructed and while the
-# workflow runs. ``UCast`` hydrates its restart dataclass during construction. Its
+# workflow runs. ``FCN`` hydrates its restart dataclass during construction. Its
 # iterator consumes the selected checkpoint boundary internally and yields the
 # next forecast state, while the workflow still fetches the normal initial
 # condition and feeds it to the iterator.
@@ -242,7 +224,7 @@ checkpoint = Checkpoint(
 
 with checkpoint.select(-1) as ckpt:
     data = Random(domain_coords=domain_coords)
-    model = make_ucast_model()
+    model = make_afno_model()
     run.deterministic(
         time=time,
         nsteps=final_nsteps,
@@ -261,9 +243,8 @@ print(io.root.tree())
 
 # %%
 # The latest checkpoint row now points at the final completed lead time. If the
-# second process stopped too, selecting ``-1`` again would continue from the new
-# latest row.
+# run is interrupted again, repeat the resume block and select ``-1``.
 
 # %%
 latest = checkpoint.select(-1)
-print(f"Latest restart lead time: {latest.lead_time}")
+print(f"Latest completed lead time: {latest.lead_time}")
