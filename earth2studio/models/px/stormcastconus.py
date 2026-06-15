@@ -109,14 +109,9 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Parameters
     ----------
-    model_high : torch.nn.Module
-        Diffusion sub-model used at high noise levels (``sigma >= sigma_threshold``).
-    model_pz_low : torch.nn.Module
-        Diffusion sub-model for pressure-level variables at low noise levels.
-    model_tq_low : torch.nn.Module
-        Diffusion sub-model for temperature / moisture variables at low noise levels.
-    model_uv_low : torch.nn.Module
-        Diffusion sub-model for wind variables at low noise levels.
+    diffusion_model : torch.nn.Module
+        Configured diffusion model (e.g. a :class:`_SplitModelWrapper` instance
+        created by :meth:`load_model`).
     means : torch.Tensor
         Per-channel mean for normalising the high-resolution state.
     stds : torch.Tensor
@@ -145,8 +140,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ``sigma_min``, ``sigma_max``, ``rho`` (scheduler), and
         ``S_churn``, ``S_min``, ``S_max``, ``S_noise`` (solver).
         Unspecified keys use sensible defaults.
-    sigma_threshold : float, optional
-        Sigma threshold for the split model wrapper, by default 3.0.
     num_diffusion_steps : int, optional
         Number of diffusion sampling steps for the EDM (no-obs) path, by default 18.
     num_sda_diffusion_steps : int, optional
@@ -172,22 +165,15 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Whether to run the diffusion forward pass under ``torch.autocast`` with
         bfloat16, by default True.
     clamp_values : bool, optional
-        Whether to clamp denoised outputs to physically plausible minima in
-        ``SplitModelWrapper`` and apply reflectivity clipping in ``_forward``,
+        Whether to apply reflectivity clipping in ``_forward``. When the model is
+        loaded via :meth:`load_model`, this flag is also forwarded to
+        :class:`_SplitModelWrapper` to enable per-variable physical-minimum clamping,
         by default True.
-    variables_split : dict[str, list[str]], optional
-        Override for the channel-routing split in ``SplitModelWrapper``. Maps
-        sub-model name (``"pz"``, ``"tq"``, ``"uv"``) to the list of variable
-        names handled by that sub-model. ``None`` uses
-        ``SplitModelWrapper.VARIABLES_SPLIT``.
     """
 
     def __init__(
         self,
-        model_high: torch.nn.Module,
-        model_pz_low: torch.nn.Module,
-        model_tq_low: torch.nn.Module,
-        model_uv_low: torch.nn.Module,
+        diffusion_model: torch.nn.Module,
         means: torch.Tensor,
         stds: torch.Tensor,
         invariants: torch.Tensor,
@@ -199,7 +185,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_variables: np.ndarray = np.array(CONDITIONING_VARIABLES),
         conditioning_data_source: DataSource | ForecastSource | None = None,
         sampler_args: dict[str, float | int] | None = None,
-        sigma_threshold: float = 3.0,
         num_diffusion_steps: int = 18,
         num_sda_diffusion_steps: int = 36,
         batch_size: int = 1,
@@ -209,21 +194,9 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sda_gamma: float = 0.001,
         use_amp: bool = True,
         clamp_values: bool = True,
-        variables_split: dict[str, list[str]] | None = None,
     ):
         super().__init__()
-        self.diffusion_model = SplitModelWrapper(
-            model_high=model_high,
-            model_pz_low=model_pz_low,
-            model_tq_low=model_tq_low,
-            model_uv_low=model_uv_low,
-            mean=means,
-            std=stds,
-            sigma_threshold=sigma_threshold,
-            clamp_values=clamp_values,
-            variables=variables,
-            variables_split=variables_split,
-        )
+        self.diffusion_model = diffusion_model
         self.register_buffer("means", means)
         self.register_buffer("stds", stds)
         self.register_buffer("invariants", invariants)
@@ -740,7 +713,9 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Data source to use for global conditioning, by default GFS_FX
         **model_kwargs
             Additional keyword arguments forwarded to the model constructor
-            (e.g. ``hrrr_lat_lim``, ``num_diffusion_steps``, ``use_amp``).
+            (e.g. ``hrrr_lat_lim``, ``num_diffusion_steps``, ``use_amp``,
+            ``clamp_values``). ``clamp_values`` is additionally applied to
+            the internal :class:`_SplitModelWrapper`.
 
         Returns
         -------
@@ -797,11 +772,21 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             else None
         )
 
+        diffusion_model = _SplitModelWrapper(
+            model_high=model_high,
+            model_pz_low=model_pz_low,
+            model_tq_low=model_tq_low,
+            model_uv_low=model_uv_low,
+            mean=means,
+            std=stds,
+            sigma_threshold=config["sigma_threshold"],
+            clamp_values=model_kwargs.get("clamp_values", True),
+            variables=variables,
+            variables_split=variables_split,
+        )
+
         return cls(
-            model_high,
-            model_pz_low,
-            model_tq_low,
-            model_uv_low,
+            diffusion_model,
             means,
             stds,
             invariants,
@@ -811,13 +796,11 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
             sampler_args=sampler_args,
-            sigma_threshold=config["sigma_threshold"],
-            variables_split=variables_split,
             **model_kwargs
         )
 
 
-class SplitModelWrapper(torch.nn.Module):
+class _SplitModelWrapper(torch.nn.Module):
     """Route diffusion denoising across sigma-dependent sub-models.
 
     At high noise levels (``sigma >= sigma_threshold``), a single
@@ -911,7 +894,7 @@ class SplitModelWrapper(torch.nn.Module):
                 torch.as_tensor([(v in split_vars) for v in _variables]),
             )
 
-        min_values = [SplitModelWrapper.MIN_VALUES.get(var, -np.inf) for var in _variables]
+        min_values = [_SplitModelWrapper.MIN_VALUES.get(var, -np.inf) for var in _variables]
         min_values_t = (torch.as_tensor(min_values)[None, :, None, None] - mean) / std
         self.register_buffer("min_values", min_values_t)
 
