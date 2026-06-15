@@ -25,6 +25,7 @@ from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import UCast
 from earth2studio.models.px.ucast import VARIABLES
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.checkpoint import Checkpoint
 
 
 class PhooUCastModel(torch.nn.Module):
@@ -65,8 +66,7 @@ class SstResidualUCastModel(PhooUCastModel):
         return out
 
 
-@pytest.fixture(scope="function")
-def ucast_model() -> UCast:
+def _make_ucast_model(stochastic: bool = False) -> UCast:
     n_variables = len(VARIABLES)
     return UCast(
         model=PhooUCastModel(),
@@ -75,8 +75,13 @@ def ucast_model() -> UCast:
         residual_scale=torch.ones(n_variables),
         static_condition=torch.zeros(2, 121, 240),
         sst_fill_value=0.0,
-        stochastic=False,
+        stochastic=stochastic,
     )
+
+
+@pytest.fixture(scope="function")
+def ucast_model() -> UCast:
+    return _make_ucast_model()
 
 
 @pytest.fixture(scope="function")
@@ -198,6 +203,56 @@ def test_ucast_iter(ucast_model: UCast, ensemble: int, device: str) -> None:
 
         if i >= 4:
             break
+
+
+def test_ucast_checkpoint_state_round_trip(tmp_path) -> None:
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    source_model = _make_ucast_model()
+    x, coords = _input(source_model, time)
+    x = x.unsqueeze(0)
+    coords.update({"ensemble": np.array([0])})
+    coords.move_to_end("ensemble", last=False)
+
+    checkpoint = Checkpoint(
+        "ucast",
+        path=tmp_path,
+        mode="append",
+        flush_interval=1,
+        state_policy="full",
+    )
+    with checkpoint as ckpt:
+        model = _make_ucast_model()
+        iterator = model.create_iterator(x, coords)
+        initial, initial_coords = next(iterator)
+        first, first_coords = next(iterator)
+        ckpt.write(lead_time=first_coords["lead_time"][-1])
+        ckpt.flush()
+
+    np.testing.assert_array_equal(
+        initial_coords["lead_time"], np.array([np.timedelta64(0, "h")])
+    )
+    np.testing.assert_array_equal(
+        first_coords["lead_time"], np.array([np.timedelta64(12, "h")])
+    )
+    assert torch.allclose(initial, x[:, :, -1:])
+    assert torch.allclose(first, x[:, :, -1:])
+
+    checkpoint = Checkpoint(
+        "ucast",
+        path=tmp_path,
+        mode="append",
+        flush_interval=1,
+        state_policy="full",
+    )
+    with checkpoint.select(-1):
+        model = _make_ucast_model()
+        resumed, resumed_coords = next(model.create_iterator(x, coords))
+        assert model.checkpoint.checkpoint_state_loaded
+
+    np.testing.assert_array_equal(
+        resumed_coords["lead_time"], np.array([np.timedelta64(24, "h")])
+    )
+    assert torch.allclose(resumed, x[:, :, -1:])
 
 
 def test_ucast_iter_uses_internal_normalized_state() -> None:

@@ -19,6 +19,7 @@ from __future__ import annotations
 import math
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TypedDict
 
@@ -33,6 +34,7 @@ from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
+from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.type import CoordSystem
 
 LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
@@ -611,6 +613,17 @@ def _compute_forcings(
     return forcing
 
 
+@dataclass
+class _UCastCheckpointState:
+    x: torch.Tensor | None = None
+    x_norm: torch.Tensor | None = None
+    sst_mask: torch.Tensor | None = None
+    coord_keys: tuple[str, ...] = ()
+    coord_values: tuple[np.ndarray, ...] = ()
+    rng_state: torch.Tensor | None = None
+    rng_device_type: str | None = None
+
+
 class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """U-CAST 1.5 degree global probabilistic weather model.
 
@@ -711,6 +724,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "lon": np.linspace(0, 360, 240, endpoint=False),
             }
         )
+        self.checkpoint = bind_checkpoint_state(_UCastCheckpointState())
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model."""
@@ -849,6 +863,106 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _denormalize(self, x: torch.Tensor) -> torch.Tensor:
         return x * self.scale.to(dtype=x.dtype) + self.center.to(dtype=x.dtype)
 
+    def _rng_state(
+        self, device: torch.device
+    ) -> tuple[torch.Tensor, str] | tuple[None, None]:
+        if not self.stochastic:
+            return None, None
+        if device.type == "cuda":
+            return torch.cuda.get_rng_state(device).cpu().clone(), "cuda"
+        return torch.get_rng_state().cpu().clone(), "cpu"
+
+    def _restore_rng_state(self, device: torch.device) -> None:
+        if (
+            not self.stochastic
+            or not self.checkpoint.checkpoint_state_loaded
+            or self.checkpoint.rng_state is None
+        ):
+            return
+        if self.checkpoint.rng_device_type == "cuda" and device.type == "cuda":
+            torch.cuda.set_rng_state(self.checkpoint.rng_state.cpu(), device)
+        elif self.checkpoint.rng_device_type == "cpu" and device.type == "cpu":
+            torch.set_rng_state(self.checkpoint.rng_state.cpu())
+
+    def _restore_checkpoint_state(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[
+        torch.Tensor, CoordSystem, torch.Tensor | None, torch.Tensor | None, bool
+    ]:
+        policy = self.checkpoint.checkpoint_state_policy
+        if policy in ("state", "full"):
+            self._restore_rng_state(x.device)
+        if (
+            policy == "full"
+            and self.checkpoint.checkpoint_state_loaded
+            and self.checkpoint.x is not None
+            and self.checkpoint.coord_keys
+        ):
+            x = self.checkpoint.x.to(x.device)
+            coords = OrderedDict(
+                (key, np.asarray(value).copy())
+                for key, value in zip(
+                    self.checkpoint.coord_keys, self.checkpoint.coord_values
+                )
+            )
+            x_norm = (
+                None
+                if self.checkpoint.x_norm is None
+                else self.checkpoint.x_norm.to(x.device)
+            )
+            sst_mask = (
+                None
+                if self.checkpoint.sst_mask is None
+                else self.checkpoint.sst_mask.to(x.device)
+            )
+            if x_norm is not None and sst_mask is None:
+                x_norm = None
+            return x, coords, x_norm, sst_mask, True
+        return x, coords, None, None, False
+
+    def _save_checkpoint_state(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+        x_norm: torch.Tensor | None,
+        sst_mask: torch.Tensor | None,
+        device: torch.device,
+    ) -> None:
+        if not self.checkpoint.checkpoint_enabled:
+            return
+
+        rng_state, rng_device_type = self._rng_state(device)
+        policy = self.checkpoint.checkpoint_state_policy
+        if policy in ("state", "full"):
+            self.checkpoint.rng_state = rng_state
+            self.checkpoint.rng_device_type = rng_device_type
+        else:
+            self.checkpoint.rng_state = None
+            self.checkpoint.rng_device_type = None
+
+        if policy == "full":
+            self.checkpoint.x = x.detach().clone().to(self.checkpoint.device)
+            self.checkpoint.x_norm = (
+                None
+                if x_norm is None
+                else x_norm.detach().clone().to(self.checkpoint.device)
+            )
+            self.checkpoint.sst_mask = (
+                None
+                if sst_mask is None
+                else sst_mask.detach().clone().to(self.checkpoint.device)
+            )
+            self.checkpoint.coord_keys = tuple(coords.keys())
+            self.checkpoint.coord_values = tuple(
+                np.asarray(value).copy() for value in coords.values()
+            )
+        else:
+            self.checkpoint.x = None
+            self.checkpoint.x_norm = None
+            self.checkpoint.sst_mask = None
+            self.checkpoint.coord_keys = ()
+            self.checkpoint.coord_values = ()
+
     @torch.inference_mode()
     def _forward(
         self,
@@ -971,7 +1085,27 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x = x[:, :, :, : len(VARIABLES)]
             coords = coords.copy()
             coords["variable"] = self._output_coords["variable"].copy()
-        return self._forward(x, coords, static_condition), out_coords
+
+        x, coords, x_norm, sst_mask, restored = self._restore_checkpoint_state(
+            x, coords
+        )
+        if restored:
+            out_coords = self.output_coords(coords)
+        out, x_norm, sst_mask = self._forward(
+            x,
+            coords,
+            x_norm=x_norm,
+            sst_mask=sst_mask,
+            static_condition=static_condition,
+            return_state=True,
+        )
+        next_x = torch.cat([x[:, :, 1:], out], dim=2)
+        next_coords = coords.copy()
+        next_coords["lead_time"] = np.array(
+            [coords["lead_time"][-1], out_coords["lead_time"][-1]]
+        )
+        self._save_checkpoint_state(next_x, next_coords, x_norm, sst_mask, x.device)
+        return out, out_coords
 
     @batch_func()
     def _default_generator(
@@ -998,14 +1132,16 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x = x[:, :, :, : len(VARIABLES)]
             coords["variable"] = self._output_coords["variable"].copy()
 
-        out = x[:, :, 1:]
-        out_coords = coords.copy()
-        out_coords["lead_time"] = out_coords["lead_time"][1:]
-        out_coords["variable"] = self._output_coords["variable"].copy()
-        yield out, out_coords
-
-        x_norm = None
-        sst_mask = None
+        x, coords, x_norm, sst_mask, restored = self._restore_checkpoint_state(
+            x, coords
+        )
+        if not restored:
+            out = x[:, :, 1:]
+            out_coords = coords.copy()
+            out_coords["lead_time"] = out_coords["lead_time"][1:]
+            out_coords["variable"] = self._output_coords["variable"].copy()
+            self._save_checkpoint_state(x, coords, None, None, x.device)
+            yield out, out_coords
 
         while True:
             x, coords = self.front_hook(x, coords)
@@ -1024,6 +1160,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             coords["lead_time"] = np.array(
                 [coords["lead_time"][-1], out_coords["lead_time"][-1]]
             )
+            self._save_checkpoint_state(x, coords, x_norm, sst_mask, x.device)
 
             yield out, out_coords.copy()
 

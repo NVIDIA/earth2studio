@@ -23,9 +23,10 @@ This example shows how to use :py:class:`earth2studio.utils.checkpoint.Checkpoin
 to restart a deterministic forecast after it stops partway through a run.
 
 The example uses :py:class:`earth2studio.data.Random` and
-:py:class:`earth2studio.models.px.Persistence` so the restart mechanics are easy
-to inspect without downloading a model package. The same checkpoint usage applies
-to larger prognostic models.
+:py:class:`earth2studio.models.px.UCast`. To keep the example runnable without
+downloading the full U-Cast package, the public U-Cast wrapper is paired with a
+small zero-residual PyTorch core. The checkpointing mechanics are identical for
+the packaged U-Cast model.
 
 In this example you will learn:
 
@@ -45,8 +46,8 @@ In this example you will learn:
 # ------
 # A restartable forecast needs two persistent locations: one for forecast fields
 # and one for the checkpoint. The IO backend owns the forecast arrays.
-# The checkpoint owns small restart metadata, such as the latest
-# completed lead time. Model weights and forecast fields are not copied into the
+# The checkpoint owns restart metadata plus any model state required to continue
+# the rollout. Model weights and forecast fields are not copied into the
 # checkpoint.
 
 # %%
@@ -61,7 +62,8 @@ import torch
 import earth2studio.run as run
 from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
-from earth2studio.models.px import Persistence
+from earth2studio.models.px import UCast
+from earth2studio.models.px.ucast import VARIABLES as UCAST_VARIABLES
 from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.time import to_time_array
 
@@ -75,41 +77,74 @@ for path in (forecast_store, checkpoint_store):
         shutil.rmtree(path)
 
 # %%
-# Build a small deterministic forecast problem. In a production run these would
-# usually be replaced with a downloaded prognostic model and a real data source.
+# Build a small U-Cast forecast problem. The zero-residual core keeps the example
+# fast while preserving U-Cast's normal input/output coordinates and restart
+# behavior.
 #
 # Full checkpoint state can be staged on the same device used for inference.
-# Keeping restart tensors on the active CUDA device can reduce CPU/GPU transfers
-# during a run; this example falls back to CPU when CUDA is unavailable.
+# Setting ``device`` to the current CUDA device can reduce CPU/GPU transfers for
+# restart tensors during a run. Set it to ``torch.device("cpu")`` for
+# CPU-only development.
 
 # %%
 compute_device = torch.device(
-    f"cuda:{torch.cuda.current_device()}"
-    if torch.cuda.is_available()
-    else "cpu"
+    f"cuda:{torch.cuda.current_device()}" if torch.cuda.is_available() else "cpu"
 )
+
+
+class ZeroResidualUCastCore(torch.nn.Module):
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        dynamical_condition: torch.Tensor | None = None,
+        static_condition: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        return torch.zeros(
+            inputs.shape[0],
+            len(UCAST_VARIABLES),
+            inputs.shape[-2],
+            inputs.shape[-1],
+            device=inputs.device,
+            dtype=inputs.dtype,
+        )
+
+
+def make_ucast_model() -> UCast:
+    n_variables = len(UCAST_VARIABLES)
+    return UCast(
+        model=ZeroResidualUCastCore(),
+        center=torch.zeros(n_variables),
+        scale=torch.ones(n_variables),
+        residual_scale=torch.ones(n_variables),
+        static_condition=torch.zeros(2, 121, 240),
+        sst_fill_value=0.0,
+        stochastic=False,
+    )
+
 
 domain_coords = OrderedDict(
     {
-        "lat": np.linspace(-20, 20, 8),
-        "lon": np.linspace(120, 180, 12),
+        "lat": np.linspace(90, -90, 121),
+        "lon": np.linspace(0, 360, 240, endpoint=False),
     }
 )
-variables = ["t2m", "u10m"]
+output_variables = np.array(["t2m", "u10m"])
 time = ["2024-01-01T00:00:00"]
-final_nsteps = 5
-first_attempt_nsteps = 2
+final_nsteps = 3
+first_attempt_nsteps = 1
 
 
 # %%
 # Preallocate the full output store. A real full-length deterministic run does
 # this before the first model step. We do it explicitly here because this example
-# simulates a mid-run stop by intentionally running only the first two steps.
+# simulates a mid-run stop by intentionally running only the first forecast step.
+# The IO store writes only two variables, while the checkpoint keeps U-Cast's full
+# restart state internally when ``state_policy="full"`` is used.
 
 # %%
 
 
-def deterministic_output_coords(model, time, nsteps):
+def deterministic_output_coords(model, time, nsteps, variables):
     input_coords = model.input_coords()
     output_coords = model.output_coords(input_coords).copy()
     for key, value in model.output_coords(input_coords).items():
@@ -120,15 +155,18 @@ def deterministic_output_coords(model, time, nsteps):
     output_coords["lead_time"] = np.asarray(
         [model.output_coords(input_coords)["lead_time"] * i for i in range(nsteps + 1)]
     ).flatten()
+    output_coords["variable"] = variables
     output_coords.move_to_end("lead_time", last=False)
     output_coords.move_to_end("time", last=False)
     return output_coords
 
 
-prealloc_model = Persistence(variables, domain_coords)
+prealloc_model = make_ucast_model()
 
 io = ZarrBackend(str(forecast_store), backend_kwargs={"overwrite": True})
-coords = deterministic_output_coords(prealloc_model, time, final_nsteps)
+coords = deterministic_output_coords(
+    prealloc_model, time, final_nsteps, output_variables
+)
 var_names = coords.pop("variable")
 io.add_array(coords, var_names)
 
@@ -148,19 +186,21 @@ checkpoint = Checkpoint(
     path=checkpoint_store,
     mode="append",
     flush_interval=1,
+    keep_last=4,
     state_policy="full",
     device=compute_device,
 )
 
 with checkpoint as ckpt:
     data = Random(domain_coords=domain_coords)
-    model = Persistence(variables, domain_coords)
+    model = make_ucast_model()
     run.deterministic(
         time=time,
         nsteps=first_attempt_nsteps,
         prognostic=model,
         data=data,
         io=io,
+        output_coords=OrderedDict({"variable": output_variables}),
         device=compute_device,
         verbose=False,
         checkpoint=ckpt,
@@ -172,16 +212,15 @@ print(checkpoint)
 # %%
 # Resume
 # ------
-# In a new process, re-open the same IO store and checkpoint. The
-# printout above shows the available row ids. Select ``-1`` to resume from the
-# latest row.
+# In a new process, re-open the same IO store and checkpoint. The printout above
+# shows the available row ids. Select ``-1`` to resume from the latest row.
 #
-# The selected checkpoint session is used as a context manager so the chosen row is
-# the active restart state while components are constructed and while the
-# workflow runs. ``Persistence`` hydrates its restart dataclass during
-# construction. Its iterator consumes the selected checkpoint boundary internally
-# and yields the next forecast state, while the workflow still fetches the normal
-# initial condition and feeds it to the iterator.
+# The selected checkpoint session is used as a context manager so the chosen row
+# is the active restart state while components are constructed and while the
+# workflow runs. ``UCast`` hydrates its restart dataclass during construction. Its
+# iterator consumes the selected checkpoint boundary internally and yields the
+# next forecast state, while the workflow still fetches the normal initial
+# condition and feeds it to the iterator.
 
 # %%
 io = ZarrBackend(str(forecast_store))
@@ -189,19 +228,21 @@ checkpoint = Checkpoint(
     "restart-demo",
     path=checkpoint_store,
     mode="append",
+    keep_last=4,
     state_policy="full",
     device=compute_device,
 )
 
 with checkpoint.select(-1) as ckpt:
     data = Random(domain_coords=domain_coords)
-    model = Persistence(variables, domain_coords)
+    model = make_ucast_model()
     run.deterministic(
         time=time,
         nsteps=final_nsteps,
         prognostic=model,
         data=data,
         io=io,
+        output_coords=OrderedDict({"variable": output_variables}),
         device=compute_device,
         verbose=False,
         checkpoint=ckpt,
