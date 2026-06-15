@@ -338,7 +338,9 @@ class Checkpoint:
 
     @property
     def rank_path(self) -> Path:
-        """Directory for the current process rank."""
+        """Directory for this process checkpoint writes."""
+        if self.world_size == 1:
+            return self.path
         return self.path / f"rank_{self.rank:06d}"
 
     @property

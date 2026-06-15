@@ -248,10 +248,11 @@ checkpoint binding raises `CheckpointStateSchemaError` instead of guessing.
 
 ## Distributed Runs
 
-Each process writes to its own rank directory, such as `rank_000000` or
-`rank_000001`. Rank detection first checks PhysicsNeMo's distributed manager
-when available, then common distributed environment variables. The checkpoint
-does not use file locks across ranks.
+Serial runs write directly into the checkpoint directory. Distributed runs write
+each process to its own rank directory, such as `rank_000000` or `rank_000001`.
+Rank detection first checks PhysicsNeMo's distributed manager when available,
+then common distributed environment variables. The checkpoint does not use file
+locks across ranks.
 
 ## Storage Layout
 

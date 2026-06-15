@@ -501,11 +501,19 @@ def test_schema_mismatch_errors_before_hydration(tmp_path):
 
 def test_default_path_and_rank_directory_detection(tmp_path, monkeypatch):
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-    monkeypatch.setenv("RANK", "2")
-    monkeypatch.setenv("WORLD_SIZE", "4")
 
     assert default_checkpoint_path("forecast") == tmp_path / "checkpoints" / "forecast"
 
+    serial = Checkpoint("serial", path=tmp_path / "serial", rank=0, world_size=1)
+    with serial.select(time="2024-01-01") as ckpt:
+        ckpt.flush(lead_time=_lead_time(0))
+
+    assert serial.rank_path == serial.path
+    assert (serial.path / "catalog.json").exists()
+    assert not (serial.path / "rank_000000").exists()
+
+    monkeypatch.setenv("RANK", "2")
+    monkeypatch.setenv("WORLD_SIZE", "4")
     checkpoint = Checkpoint("forecast")
     with checkpoint.select(time="2024-01-01") as ckpt:
         ckpt.flush(lead_time=_lead_time(0))
