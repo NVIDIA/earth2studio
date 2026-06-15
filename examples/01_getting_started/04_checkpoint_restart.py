@@ -49,6 +49,13 @@ In this example you will learn:
 # The checkpoint owns restart metadata plus any model state required to continue
 # the rollout. Model weights and forecast fields are not copied into the
 # checkpoint.
+#
+# .. warning::
+#
+#    Model checkpoint state is opt-in. Before relying on restartable inference,
+#    verify that the model you plan to use documents checkpoint support. If a
+#    model does not support checkpointing yet, open a feature request on the
+#    `Earth2Studio GitHub <https://github.com/NVIDIA/earth2studio/issues>`_.
 
 # %%
 import os
