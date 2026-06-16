@@ -49,11 +49,13 @@ from earth2studio.utils.interp import NearestNeighborInterpolator
 from earth2studio.utils.type import CoordSystem
 
 try:
+    from physicsnemo import Module
     from physicsnemo.models import DiT
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
     from physicsnemo.utils.insolation import insolation as pnm_insolation
 except ImportError:
     OptionalDependencyFailure("stormscope")
+    Module = None  # type: ignore[assignment]
     DiT = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
     pnm_insolation = None  # type: ignore[assignment]
