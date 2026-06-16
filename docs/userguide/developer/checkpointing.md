@@ -20,18 +20,21 @@ from earth2studio.utils.checkpoint import Checkpoint
 
 checkpoint = Checkpoint("my-forecast", flush_interval=6, state_policy="full")
 
-deterministic(
-    time=["2024-01-01"],
-    nsteps=24,
-    prognostic=model,
-    data=data,
-    io=io,
-    checkpoint=checkpoint,
-)
+with checkpoint as ckpt:
+    deterministic(
+        time=["2024-01-01"],
+        nsteps=24,
+        prognostic=model,
+        data=data,
+        io=io,
+        checkpoint=ckpt,
+    )
 ```
 
-The built-in deterministic, diagnostic, and ensemble workflows write checkpoint
-rows after successful IO writes. `flush_interval` controls durable writes to
+Use checkpointed workflows inside a checkpoint context so restart-aware models
+and perturbations bind to the active session before the run begins. The built-in
+deterministic, diagnostic, and ensemble workflows write checkpoint rows after
+successful IO writes. `flush_interval` controls durable writes to
 disk. The workflow can call `write` on the active checkpoint session every
 iteration while the checkpoint decides whether a real disk commit is due.
 Ensemble workflow rows are tracked independently by `ensemble_batch` when a
@@ -203,12 +206,14 @@ else:
     self.restart.x = None
 ```
 
-This makes new runs simple:
+This makes new runs simple while keeping the active checkpoint session explicit:
 
 ```python
 checkpoint = Checkpoint("my-forecast")
-model = MyRestartableModel(...)
-deterministic(..., checkpoint=checkpoint)
+
+with checkpoint as ckpt:
+    model = MyRestartableModel(...)
+    deterministic(..., checkpoint=ckpt)
 ```
 
 For strict restart hydration from an existing row, construct restartable
@@ -217,10 +222,10 @@ components inside the selected session:
 ```python
 checkpoint = Checkpoint("my-forecast")
 
-with checkpoint.select(-1):
+with checkpoint.select(-1) as ckpt:
     model = MyRestartableModel(...)
     perturbation = NoisePerturbation(generator)
-    deterministic(..., checkpoint=checkpoint)
+    deterministic(..., checkpoint=ckpt)
 ```
 
 If a component binds state before an existing checkpoint session is entered, the
