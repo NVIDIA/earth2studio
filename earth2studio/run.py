@@ -51,10 +51,7 @@ def deterministic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint
-    | CheckpointSession
-    | NullCheckpointSession
-    | None = NO_CHECKPOINT,
+    checkpoint: Checkpoint | CheckpointSession | NullCheckpointSession = NO_CHECKPOINT,
 ) -> IOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
@@ -80,9 +77,9 @@ def deterministic(
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
         Checkpoint manager or checkpoint session used to record and resume workflow
-        progress, by default no checkpoint. If a checkpoint has an active session, the
-        workflow uses that session; otherwise it selects the latest matching row
-        or starts a new labeled row.
+        progress, by default no checkpoint. Use the checkpoint as a context manager
+        to make the active session explicit when restart-aware components need to
+        bind state before the workflow starts.
 
     Returns
     -------
@@ -131,12 +128,6 @@ def deterministic(
         pass
     if missing:
         io.add_array(total_coords, missing)
-
-    if checkpoint is None:
-        checkpoint = NO_CHECKPOINT
-    if isinstance(checkpoint, Checkpoint):
-        active = checkpoint.active
-        checkpoint = active if active is not None else checkpoint.select(time=time)
 
     with checkpoint as ckpt:
         restart_step = None
@@ -213,10 +204,7 @@ def diagnostic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint
-    | CheckpointSession
-    | NullCheckpointSession
-    | None = NO_CHECKPOINT,
+    checkpoint: Checkpoint | CheckpointSession | NullCheckpointSession = NO_CHECKPOINT,
 ) -> IOBackend:
     """Built in diagnostic workflow.
     This workflow creates a determinstic inference pipeline that couples a prognostic
@@ -297,12 +285,6 @@ def diagnostic(
     if missing:
         io.add_array(total_coords, missing)
 
-    if checkpoint is None:
-        checkpoint = NO_CHECKPOINT
-    if isinstance(checkpoint, Checkpoint):
-        active = checkpoint.active
-        checkpoint = active if active is not None else checkpoint.select(time=time)
-
     with checkpoint as ckpt:
         restart_step = None
         if ckpt.exists and ckpt.write_count > 0:
@@ -377,10 +359,7 @@ def ensemble(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint
-    | CheckpointSession
-    | NullCheckpointSession
-    | None = NO_CHECKPOINT,
+    checkpoint: Checkpoint | CheckpointSession | NullCheckpointSession = NO_CHECKPOINT,
 ) -> IOBackend:
     """Built in ensemble workflow.
 
@@ -493,13 +472,13 @@ def ensemble(
     ):
         mini_batch_size = min(batch_size, nensemble - batch_id)
         ensemble_coords = np.arange(batch_id, batch_id + mini_batch_size)
-        batch_checkpoint = NO_CHECKPOINT if checkpoint is None else checkpoint
+        batch_checkpoint = checkpoint
         if isinstance(batch_checkpoint, Checkpoint):
             active = batch_checkpoint.active
             batch_checkpoint = (
                 active
                 if active is not None
-                else batch_checkpoint.select(time=time, ensemble_batch=batch_id)
+                else batch_checkpoint.select(ensemble_batch=batch_id)
             )
 
         with batch_checkpoint as ckpt:

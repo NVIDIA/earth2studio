@@ -130,8 +130,8 @@ example `checkpoint.select(-1)` for the latest row. `Checkpoint` and
 `CheckpointSession` both support context-manager use. Built-in workflows accept
 either the checkpoint manager or a selected `CheckpointSession`. Passing the
 manager while a session is active uses that active session; passing a manager
-with no active session chooses the latest matching workflow row, or starts a new
-row when no matching checkpoint exists.
+with no active session selects the latest catalog row, or starts a new row when
+no checkpoint exists.
 
 ## Component State
 

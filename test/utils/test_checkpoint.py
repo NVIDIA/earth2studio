@@ -299,6 +299,9 @@ def test_append_history_size_and_positional_selection(tmp_path):
     assert checkpoint.select(-1).lead_time == np.timedelta64(18, "h")
     assert checkpoint.select(-2).lead_time == np.timedelta64(12, "h")
     assert checkpoint.select(time=-1, ensemble=0).lead_time == np.timedelta64(18, "h")
+    with checkpoint as ckpt:
+        assert ckpt.lead_time == np.timedelta64(18, "h")
+        assert ckpt.labels == {"time": "2024-01-01", "ensemble": 0}
 
 
 def test_bind_before_new_session_is_adopted_on_enter(tmp_path):
@@ -785,9 +788,8 @@ def test_ensemble_workflow_resumes_each_batch_from_checkpoint(tmp_path):
         checkpoint=checkpoint,
     )
 
-    time = to_time_array(["2024-01-01"])
     for batch_id in range(nensemble):
-        selected = checkpoint.select(time=time, ensemble_batch=batch_id)
+        selected = checkpoint.select(ensemble_batch=batch_id)
         assert selected.lead_time == np.timedelta64(18, "h")
         assert selected.write_count == 4
     assert len(checkpoint.catalog) == 8

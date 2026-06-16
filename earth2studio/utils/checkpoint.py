@@ -442,7 +442,11 @@ class Checkpoint:
 
     def __enter__(self) -> CheckpointSession:
         active = self.active
-        session = active if active is not None else self.select()
+        if active is not None:
+            session = active
+        else:
+            self.refresh()
+            session = self.select(-1) if self._catalog else self.select()
         self._context_sessions.append(session)
         return session.__enter__()
 
