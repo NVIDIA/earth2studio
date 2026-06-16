@@ -320,9 +320,34 @@ class Checkpoint:
             raise ValueError("flush_interval must be a positive integer or None.")
         if history_size is not None and history_size < 1:
             raise ValueError("history_size must be a positive integer or None.")
-        state_policy = _normalize_state_policy(state_policy)
+        if state_policy not in ("minimal", "state", "full"):
+            raise ValueError("state_policy must be 'minimal', 'state', or 'full'.")
 
-        detected_rank, detected_world_size = _detect_distributed_rank()
+        detected_rank, detected_world_size = 0, 1
+        detected_distributed = False
+        try:
+            from physicsnemo.distributed import DistributedManager
+
+            manager = DistributedManager()
+            manager_rank = getattr(manager, "rank", None)
+            manager_world_size = getattr(manager, "world_size", None)
+            if manager_rank is not None and manager_world_size is not None:
+                detected_rank = int(manager_rank)
+                detected_world_size = int(manager_world_size)
+                detected_distributed = True
+        except ImportError:
+            pass
+        except (AttributeError, RuntimeError, ValueError, TypeError):
+            pass
+
+        if not detected_distributed:
+            for rank_name in ("RANK", "LOCAL_RANK", "SLURM_PROCID"):
+                rank_value = os.environ.get(rank_name)
+                if rank_value is not None:
+                    detected_rank = int(rank_value)
+                    detected_world_size = int(os.environ.get("WORLD_SIZE", "1"))
+                    break
+
         self.name = name
         self.path = Path(path) if path is not None else default_checkpoint_path(name)
         self.mode = mode
@@ -371,7 +396,27 @@ class Checkpoint:
         """
         self.refresh()
         entries = list(self._catalog or [])
-        encoded_labels = _encode_labels(labels, entries)
+        encoded_labels = {
+            key: CheckpointCodec.encode_json_value(value)
+            for key, value in labels.items()
+        }
+        latest_keys = [
+            key
+            for key, value in labels.items()
+            if isinstance(value, int) and not isinstance(value, bool) and value == -1
+        ]
+        if latest_keys:
+            filtered = entries
+            for key, value in encoded_labels.items():
+                if key not in latest_keys:
+                    filtered = [
+                        entry for entry in filtered if entry.labels.get(key) == value
+                    ]
+            if filtered:
+                latest = filtered[-1]
+                for key in latest_keys:
+                    if key in latest.labels:
+                        encoded_labels[key] = latest.labels[key]
 
         if encoded_labels:
             entries = [
@@ -479,8 +524,19 @@ class Checkpoint:
         states_path = tmp_path / "states"
         for state_id, state in session.bound_states.items():
             dataclass_state = _unwrap_checkpoint_state(state)
-            state_path = states_path / _safe_dir_name(state_id)
-            _write_dataclass_state(dataclass_state, state_id, state_path)
+            state_path = states_path / sha256(state_id.encode("utf-8")).hexdigest()[:24]
+            state_path.mkdir(parents=True, exist_ok=True)
+            state_manifest = {
+                "state_id": state_id,
+                "schema_hash": _schema_hash(dataclass_state),
+                "fields": {
+                    field.name: CheckpointCodec.dump_value(
+                        getattr(dataclass_state, field.name), state_path, (field.name,)
+                    )
+                    for field in fields(dataclass_state)
+                },
+            }
+            _write_json(state_path / "metadata.json", state_manifest)
             manifest["states"][state_id] = {
                 "path": str(state_path.relative_to(tmp_path)),
                 "schema_hash": _schema_hash(dataclass_state),
@@ -495,7 +551,9 @@ class Checkpoint:
                         "checkpoint artifact names must be strings."
                     )
                 manifest["artifacts"][name] = CheckpointCodec.dump_value(
-                    value, artifacts_path, (_safe_dir_name(name),)
+                    value,
+                    artifacts_path,
+                    (sha256(name.encode("utf-8")).hexdigest()[:24],),
                 )
 
         _write_json(tmp_path / "manifest.json", manifest)
@@ -517,10 +575,40 @@ class Checkpoint:
         if self.mode == "overwrite":
             entries = [item for item in entries if item.labels != entry.labels]
         entries.append(entry)
-        entries = _apply_history_size(entries, entry.labels, self.history_size)
-        _write_catalog(self.rank_path, entries)
+        if self.history_size is not None:
+            matching = [item for item in entries if item.labels == entry.labels]
+            remove = {item.commit_id for item in matching[: -self.history_size]}
+            entries = [item for item in entries if item.commit_id not in remove]
+
+        catalog_payload = {
+            "version": _CHECKPOINT_VERSION,
+            "entries": [
+                {
+                    "commit_id": item.commit_id,
+                    "labels": item.labels,
+                    "lead_time": CheckpointCodec.encode_json_value(item.lead_time),
+                    "write_count": item.write_count,
+                    "saved_at": item.saved_at,
+                    "rank": item.rank,
+                    "world_size": item.world_size,
+                    "state_ids": list(item.state_ids),
+                    "artifacts": list(item.artifacts),
+                }
+                for item in entries
+            ],
+        }
+        _write_json(self.rank_path / "catalog.json", catalog_payload)
         self._catalog = entries
-        _prune_commits(self.rank_path, {item.commit_id for item in entries})
+
+        keep = {item.commit_id for item in entries}
+        commits_path = self.rank_path / "commits"
+        if commits_path.exists():
+            for commit_path in commits_path.iterdir():
+                if commit_path.is_dir() and commit_path.name not in keep:
+                    shutil.rmtree(commit_path)
+        for tmp_path in self.rank_path.glob(".tmp_*"):
+            if tmp_path.is_dir():
+                shutil.rmtree(tmp_path)
 
 
 class CheckpointSession:
@@ -591,7 +679,12 @@ class CheckpointSession:
 
     def bind(self, state: T | CheckpointState[T]) -> CheckpointState[T]:
         """Bind and hydrate a dataclass state object."""
-        bound_state = _as_checkpoint_state(state)
+        if isinstance(state, CheckpointState):
+            bound_state = state
+        else:
+            if not is_dataclass(state) or isinstance(state, type):
+                raise TypeError("checkpoint state requires a dataclass instance.")
+            bound_state = CheckpointState(state)
         dataclass_state = bound_state.checkpoint_dataclass
         state_id = _state_id(dataclass_state)
         existing = self.bound_states.get(state_id)
@@ -606,7 +699,31 @@ class CheckpointSession:
 
         loaded_state = self._loaded_states.get(state_id)
         if loaded_state is not None:
-            _populate_dataclass_state(dataclass_state, state_id, loaded_state)
+            if loaded_state.manifest.get("state_id") != state_id:
+                raise CheckpointStateSchemaError(
+                    f"Saved checkpoint state {loaded_state.manifest.get('state_id')} does not match {state_id}."
+                )
+            expected_hash = _schema_hash(dataclass_state)
+            if loaded_state.manifest.get("schema_hash") != expected_hash:
+                raise CheckpointStateSchemaError(
+                    f"Saved checkpoint state {state_id} does not match the current dataclass schema."
+                )
+
+            current_fields = {field.name: field for field in fields(dataclass_state)}
+            saved_fields = loaded_state.manifest.get("fields", {})
+            if set(saved_fields) != set(current_fields):
+                raise CheckpointStateSchemaError(
+                    f"Saved checkpoint state {state_id} fields do not match the current dataclass fields."
+                )
+            for name, payload in saved_fields.items():
+                current_value = getattr(dataclass_state, name)
+                setattr(
+                    dataclass_state,
+                    name,
+                    CheckpointCodec.load_value(
+                        payload, loaded_state.path, current_value
+                    ),
+                )
 
         bound_state._bind_checkpoint(self.catalog, self, loaded_state is not None)
         self.bound_states[state_id] = bound_state
@@ -743,63 +860,10 @@ def _buffer_pending_state(
     return state
 
 
-def _as_checkpoint_state(state: T | CheckpointState[T]) -> CheckpointState[T]:
-    if isinstance(state, CheckpointState):
-        return state
-    if not is_dataclass(state) or isinstance(state, type):
-        raise TypeError("checkpoint state requires a dataclass instance.")
-    return CheckpointState(state)
-
-
 def _unwrap_checkpoint_state(state: Any) -> Any:
     if isinstance(state, CheckpointState):
         return state.checkpoint_dataclass
     return state
-
-
-def _detect_distributed_rank() -> tuple[int, int]:
-    try:
-        from physicsnemo.distributed import DistributedManager
-
-        manager = DistributedManager()
-        rank = getattr(manager, "rank", None)
-        world_size = getattr(manager, "world_size", None)
-        if rank is not None and world_size is not None:
-            return int(rank), int(world_size)
-    except ImportError:
-        pass
-    except (AttributeError, RuntimeError, ValueError, TypeError):
-        pass
-
-    for rank_name in ("RANK", "LOCAL_RANK", "SLURM_PROCID"):
-        rank = os.environ.get(rank_name)
-        if rank is not None:
-            world_size = os.environ.get("WORLD_SIZE", "1")
-            return int(rank), int(world_size)
-    return 0, 1
-
-
-def _encode_labels(
-    labels: Mapping[str, Any], entries: list[CheckpointEntry]
-) -> dict[str, Any]:
-    encoded = {
-        key: CheckpointCodec.encode_json_value(value) for key, value in labels.items()
-    }
-    latest_keys = [key for key, value in labels.items() if _is_latest_selector(value)]
-    if not latest_keys:
-        return encoded
-
-    filtered = entries
-    for key, value in encoded.items():
-        if key not in latest_keys:
-            filtered = [entry for entry in filtered if entry.labels.get(key) == value]
-    if not filtered:
-        return encoded
-    latest = filtered[-1]
-    for key in latest_keys:
-        if key in latest.labels:
-            encoded[key] = latest.labels[key]
-    return encoded
 
 
 def _read_catalog(rank_path: Path) -> list[CheckpointEntry]:
@@ -807,13 +871,23 @@ def _read_catalog(rank_path: Path) -> list[CheckpointEntry]:
     if catalog_path.exists():
         try:
             payload = _read_json(catalog_path)
-            return [_entry_from_catalog(item) for item in payload.get("entries", [])]
+            return [
+                CheckpointEntry(
+                    commit_id=str(item["commit_id"]),
+                    labels=dict(item.get("labels", {})),
+                    lead_time=CheckpointCodec.decode_json_value(item.get("lead_time")),
+                    write_count=int(item.get("write_count", 0)),
+                    saved_at=str(item["saved_at"]),
+                    rank=int(item.get("rank", 0)),
+                    world_size=int(item.get("world_size", 1)),
+                    state_ids=tuple(item.get("state_ids", ())),
+                    artifacts=tuple(item.get("artifacts", ())),
+                )
+                for item in payload.get("entries", [])
+            ]
         except (OSError, json.JSONDecodeError, KeyError, TypeError):
             pass
-    return _scan_catalog(rank_path)
 
-
-def _scan_catalog(rank_path: Path) -> list[CheckpointEntry]:
     commits_path = rank_path / "commits"
     if not commits_path.exists():
         return []
@@ -824,36 +898,6 @@ def _scan_catalog(rank_path: Path) -> list[CheckpointEntry]:
         except (OSError, json.JSONDecodeError, KeyError, TypeError):
             continue
     return sorted(entries, key=lambda entry: entry.saved_at)
-
-
-def _write_catalog(rank_path: Path, entries: list[CheckpointEntry]) -> None:
-    payload = {
-        "version": _CHECKPOINT_VERSION,
-        "entries": [_entry_to_catalog(entry) for entry in entries],
-    }
-    _write_json(rank_path / "catalog.json", payload)
-
-
-def _apply_history_size(
-    entries: list[CheckpointEntry], labels: dict[str, Any], history_size: int | None
-) -> list[CheckpointEntry]:
-    if history_size is None:
-        return entries
-    matching = [entry for entry in entries if entry.labels == labels]
-    remove = {entry.commit_id for entry in matching[:-history_size]}
-    return [entry for entry in entries if entry.commit_id not in remove]
-
-
-def _prune_commits(rank_path: Path, keep: set[str]) -> None:
-    commits_path = rank_path / "commits"
-    if not commits_path.exists():
-        return
-    for commit_path in commits_path.iterdir():
-        if commit_path.is_dir() and commit_path.name not in keep:
-            shutil.rmtree(commit_path)
-    for tmp_path in rank_path.glob(".tmp_*"):
-        if tmp_path.is_dir():
-            shutil.rmtree(tmp_path)
 
 
 def _entry_from_manifest(manifest: Mapping[str, Any]) -> CheckpointEntry:
@@ -870,50 +914,6 @@ def _entry_from_manifest(manifest: Mapping[str, Any]) -> CheckpointEntry:
     )
 
 
-def _entry_to_catalog(entry: CheckpointEntry) -> dict[str, Any]:
-    return {
-        "commit_id": entry.commit_id,
-        "labels": entry.labels,
-        "lead_time": CheckpointCodec.encode_json_value(entry.lead_time),
-        "write_count": entry.write_count,
-        "saved_at": entry.saved_at,
-        "rank": entry.rank,
-        "world_size": entry.world_size,
-        "state_ids": list(entry.state_ids),
-        "artifacts": list(entry.artifacts),
-    }
-
-
-def _entry_from_catalog(payload: Mapping[str, Any]) -> CheckpointEntry:
-    return CheckpointEntry(
-        commit_id=str(payload["commit_id"]),
-        labels=dict(payload.get("labels", {})),
-        lead_time=CheckpointCodec.decode_json_value(payload.get("lead_time")),
-        write_count=int(payload.get("write_count", 0)),
-        saved_at=str(payload["saved_at"]),
-        rank=int(payload.get("rank", 0)),
-        world_size=int(payload.get("world_size", 1)),
-        state_ids=tuple(payload.get("state_ids", ())),
-        artifacts=tuple(payload.get("artifacts", ())),
-    )
-
-
-def _write_dataclass_state(state: Any, state_id: str, state_path: Path) -> None:
-    state = _unwrap_checkpoint_state(state)
-    state_path.mkdir(parents=True, exist_ok=True)
-    manifest = {
-        "state_id": state_id,
-        "schema_hash": _schema_hash(state),
-        "fields": {
-            field.name: CheckpointCodec.dump_value(
-                getattr(state, field.name), state_path, (field.name,)
-            )
-            for field in fields(state)
-        },
-    }
-    _write_json(state_path / "metadata.json", manifest)
-
-
 def _load_state_index(
     commit_path: Path, manifest: Mapping[str, Any]
 ) -> dict[str, LoadedState]:
@@ -927,43 +927,6 @@ def _load_state_index(
     return loaded
 
 
-def _populate_dataclass_state(
-    state: Any, state_id: str, loaded_state: LoadedState
-) -> None:
-    state = _unwrap_checkpoint_state(state)
-    if loaded_state.manifest.get("state_id") != state_id:
-        raise CheckpointStateSchemaError(
-            f"Saved checkpoint state {loaded_state.manifest.get('state_id')} does not match {state_id}."
-        )
-    expected_hash = _schema_hash(state)
-    if loaded_state.manifest.get("schema_hash") != expected_hash:
-        raise CheckpointStateSchemaError(
-            f"Saved checkpoint state {state_id} does not match the current dataclass schema."
-        )
-
-    current_fields = {field.name: field for field in fields(state)}
-    saved_fields = loaded_state.manifest.get("fields", {})
-    if set(saved_fields) != set(current_fields):
-        raise CheckpointStateSchemaError(
-            f"Saved checkpoint state {state_id} fields do not match the current dataclass fields."
-        )
-    for name, payload in saved_fields.items():
-        current_value = getattr(state, name)
-        setattr(
-            state,
-            name,
-            CheckpointCodec.load_value(payload, loaded_state.path, current_value),
-        )
-
-
-def _normalize_state_policy(
-    policy: str,
-) -> CheckpointStatePolicy:
-    if policy not in ("minimal", "state", "full"):
-        raise ValueError("state_policy must be 'minimal', 'state', or 'full'.")
-    return policy
-
-
 def _state_id(state: Any) -> str:
     state = _unwrap_checkpoint_state(state)
     if not is_dataclass(state) or isinstance(state, type):
@@ -974,23 +937,22 @@ def _state_id(state: Any) -> str:
 
 def _schema_hash(state: Any) -> str:
     state = _unwrap_checkpoint_state(state)
-    schema = "|".join(
-        f"{field.name}:{field.type!r}:{_field_default_id(field)}"
-        for field in fields(state)
-    )
-    return sha256(schema.encode("utf-8")).hexdigest()
-
-
-def _field_default_id(field: Any) -> str:
-    if field.default is not MISSING:
-        default_type = type(field.default)
-        return f"default:{default_type.__module__}.{default_type.__qualname__}"
-    if field.default_factory is not MISSING:
-        factory = field.default_factory
-        module = getattr(factory, "__module__", type(factory).__module__)
-        qualname = getattr(factory, "__qualname__", type(factory).__qualname__)
-        return f"factory:{module}.{qualname}"
-    return "required"
+    parts = []
+    for field in fields(state):
+        if field.default is not MISSING:
+            default_type = type(field.default)
+            default_id = (
+                f"default:{default_type.__module__}.{default_type.__qualname__}"
+            )
+        elif field.default_factory is not MISSING:
+            factory = field.default_factory
+            module = getattr(factory, "__module__", type(factory).__module__)
+            qualname = getattr(factory, "__qualname__", type(factory).__qualname__)
+            default_id = f"factory:{module}.{qualname}"
+        else:
+            default_id = "required"
+        parts.append(f"{field.name}:{field.type!r}:{default_id}")
+    return sha256("|".join(parts).encode("utf-8")).hexdigest()
 
 
 class CheckpointCodec:
@@ -1065,7 +1027,9 @@ class CheckpointCodec:
                         "checkpoint dictionaries must use string keys."
                     )
                 payload[key] = cls.dump_value(
-                    item, base_path, (*rel_parts, _safe_dir_name(key))
+                    item,
+                    base_path,
+                    (*rel_parts, sha256(key.encode("utf-8")).hexdigest()[:24]),
                 )
             return {"kind": "dict", "items": payload}
         if is_dataclass(value) and not isinstance(value, type):
@@ -1292,14 +1256,6 @@ class CheckpointCodec:
         if isinstance(value, torch.Tensor) and value.numel() == 1:
             return value.detach().cpu().reshape(-1)[0].item()
         return value
-
-
-def _is_latest_selector(value: Any) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and value == -1
-
-
-def _safe_dir_name(name: str) -> str:
-    return sha256(name.encode("utf-8")).hexdigest()[:24]
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
