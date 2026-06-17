@@ -43,6 +43,8 @@ Thus are typically used to generate forecast predictions.
       DiagnosticWrapper
       DLESyM
       DLESyMLatLon
+      DLESyMv0_ISCCP_ERA5
+      DLESyMv0_ISCCP_ERA5LatLon
       DLWP
       FCN
       FCN3
