@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added Earthmover Arraylake / Marketplace data sources (`Arraylake`,
+  `ArraylakeForecast`) that resolve Earth2Studio variables against any
+  subscribed Arraylake repository using ECMWF GRIB and CF metadata
 - Added AIFS 2.0 prognostic model (`AIFS2`) with wave and 10 hPa pressure level support
 - Added AIFS 2.0 ensemble prognostic model (`AIFS2ENS`) with stochastic noise injection
 - Added U-CAST prognostic model (`UCast`) with 1.5-degree global ERA5

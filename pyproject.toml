@@ -55,6 +55,7 @@ Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 data = [
+    "arraylake>=1.0.0; python_version>='3.12'",
     "cdsapi>=0.7.5",
     "cfgrib>=0.9.10.3",
     "eccodes>=2.39.2",
