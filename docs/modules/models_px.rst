@@ -36,6 +36,7 @@ Thus are typically used to generate forecast predictions.
       ACE2ERA5
       AIFS
       AIFS2
+      AIFS2ENS
       AIFSENS
       Atlas
       Aurora
@@ -62,3 +63,4 @@ Thus are typically used to generate forecast predictions.
       StormCast
       StormScopeGOES
       StormScopeMRMS
+      UCast

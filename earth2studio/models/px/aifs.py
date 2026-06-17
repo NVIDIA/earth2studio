@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import os
 import zipfile
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
@@ -27,7 +28,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -205,14 +206,14 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         "stl2",
         "ssrd06",
         "strd06",
-        "sf",
+        "sf06",
         "tcc",
         "mcc",
         "hcc",
         "lcc",
         "u100m",
         "v100m",
-        "ro",
+        "ro06",
     ]
     VARIABLE_INVARIANTS = ["lsm", "sdor", "slor", "z"]
     VARIABLE_FORCINGS = [
@@ -435,13 +436,23 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Fetch invariants from IFS, note that there are deviations between these
         # invariant fields depending on where and what time the data is fetched.
         # For this model, we will use ECMWF's own invarints in the IFS data store.
-        ifs = IFS(cache=True, verbose=False)
-        invariants, _ = fetch_data(
-            source=ifs,
-            time=np.array([np.datetime64("2026-01-01T00:00:00")]),
-            variable=["lsm", "sdor", "slor", "z"],
-        )
-        invariants = invariants.squeeze()
+        # Check for cached invariants first
+        cache_dir = Package.default_cache("aifs-single-1.1")
+        invariants_path = os.path.join(cache_dir, "invariants.pt")
+
+        if os.path.exists(invariants_path):
+            invariants = torch.load(invariants_path, weights_only=True)
+        else:
+            ifs = IFS(cache=True, verbose=False)
+            invariants, _ = fetch_data(
+                source=ifs,
+                time=np.array([np.datetime64("2026-01-01T00:00:00")]),
+                variable=["lsm", "sdor", "slor", "z"],
+            )
+            invariants = invariants.squeeze()
+            # Cache the invariants tensor
+            os.makedirs(cache_dir, exist_ok=True)
+            torch.save(invariants, invariants_path)
 
         # Can also fetch from NCAR ERA5 backup but these have some differences
         # invariant_package = Package(
@@ -483,6 +494,8 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         }
         accum_6h_map = {
             "cp": "cp06",
+            "ro": "ro06",
+            "sf": "sf06",
             "tp": "tp06",
             "ssrd": "ssrd06",
             "strd": "strd06",
@@ -623,6 +636,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> torch.Tensor:
         """Prepare input tensor and coordinates for the AIFS model."""
+        handshake_size(coords, "time", 1)  # Prepare input limited to 1 time stamp
         # Interpolate the input tensor to the model grid
         shape = x.shape
         x = x.flatten(start_dim=4)

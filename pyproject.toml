@@ -20,6 +20,7 @@ dependencies = [
     "huggingface-hub>=0.27.0",
     "loguru",
     "netCDF4>=1.6.4,<1.7.3", # https://github.com/Unidata/netcdf4-python/issues/1438
+    "obstore>=0.8",
     "pygrib",
     "python-dotenv",
     "pandas",
@@ -33,20 +34,16 @@ dependencies = [
 ]
 
 classifiers = [
-    "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
-    'Programming Language :: Python',
-    'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.11',
-    'Programming Language :: Python :: 3.12',
-    'Programming Language :: Python :: 3.13',
-    'Programming Language :: Python :: 3.14',
-    'Programming Language :: Python :: 3 :: Only',
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Intended Audience :: Science/Research",
     "Environment :: GPU",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    'Typing :: Typed',
+    "Typing :: Typed",
 ]
 dynamic = ["version"]
 
@@ -125,7 +122,7 @@ aifs = [
     "flash-attn",
 ]
 aifs2 = [
-    "anemoi-models==0.9.3",
+    "anemoi-models>=0.9.3,<0.9.5",
     "earthkit-regrid>=0.5.1",
     "ecmwf-opendata>=0.3.29",
     "flash-attn",
@@ -136,6 +133,13 @@ aifsens = [
     "earthkit-regrid==0.4.0",
     "ecmwf-opendata>=0.3.29",
     "flash-attn",
+]
+aifs2ens = [
+    "anemoi-models==0.11.2",
+    "earthkit-regrid>=0.5.1",
+    "ecmwf-opendata>=0.3.29",
+    "flash-attn",
+    "torch-geometric>=2.6.0",
 ]
 atlas = [
     "natten ; python_version < '3.14'",
@@ -221,6 +225,7 @@ stormscope = [
     "nvtx>=0.2.11",
     "earth2studio[utils]",
 ]
+ucast = []
 # DX Models
 cbottle = [
     "earth2grid",
@@ -273,7 +278,7 @@ da-stormcast = [
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
-    "earth2studio[aifs2,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast]",
+    "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",
     "earth2studio[cbottle,climatenet,corrdiff,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda]",
 ]
@@ -300,8 +305,8 @@ conflicts = [
   [
     { extra = "aifs" },
     { extra = "aifs2" },
+    { extra = "aifs2ens" },
     { extra = "aifsens" },
-    { extra = "all" },
   ]
 ]
 default-groups = ["dev", "build"]
@@ -334,8 +339,7 @@ torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
 ]
-# Remove once update release with torch 2.11 fixable
-nvidia-physicsnemo = { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "369a15782b9922d7694d49a00bfaf8960b9be429" }
+
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
 
 
@@ -403,16 +407,17 @@ fixable = ["I"]
 ignore = ["E501", "S311"]
 
 # Exclude the examples and experimental folders
-exclude = []
+exclude = [".claude"]
 
 [tool.ruff.per-file-ignores]
 # Ignore `F401` (import violations) in all `__init__.py` files, and in `docs/*.py`.
 "__init__.py" = ["F401"]
-"docs/*.py" = ["F401"]
+"docs/*.py" = ["F401", "S603"]
 "examples/*.py" = ["E402"]
 "recipes/**/*_notebook.py" = ["E402"]
 # Ignore `S101` (assertions) in all `test` files.
 "test/*.py" = ["S101"]
+"skills/**/*.py" = ["F401", "E731", "I001", "S101"]
 "serve/server/test/*.py" = ["S101"]
 "recipes/**/test/*.py" = ["S101"]
 
@@ -478,7 +483,7 @@ fail-under = 95
 color = true
 omit-covered-files = false
 verbose = 2
-exclude = ["setup.py", "test/*", "docs", "build"]
+exclude = ["setup.py", "test/*", "skills/*", "docs", "build"]
 ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
 
 # ==== MyPy configuration ====
@@ -488,7 +493,7 @@ python_version = "3.13"
 packages = ['earth2studio']
 exclude = [
     'examples', 'test', 'docs', 'serve/test', 'recipes/.*/test',
-    'serve/server/example_workflows',
+    'serve/server/example_workflows', 'skills',
 ]
 disallow_untyped_calls = true
 disallow_untyped_defs = true

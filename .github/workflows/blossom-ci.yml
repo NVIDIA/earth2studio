@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -56,7 +56,8 @@ jobs:
            github.actor == 'gertln' ||
            github.actor == 'shrek' ||
            github.actor == 'gh0st-ryder' ||
-           github.actor == 'aayushg55'
+           github.actor == 'aayushg55' ||
+           github.actor == 'negin513'
          )
     steps:
       - name: Check if comment is issued by authorized person

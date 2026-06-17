@@ -1,0 +1,37 @@
+{
+  "name": "earth2studio",
+  "description": "Earth2Studio skills for weather and climate AI workflows — model discovery, installation, data fetching, deterministic forecasting, and building new model/data source wrappers.",
+  "version": "0.16.0",
+  "owner": {
+    "name": "NVIDIA"
+  },
+  "plugins": [
+    {
+      "name": "earth2studio",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/NVIDIA/earth2studio.git",
+        "path": "./skills"
+      },
+      "description": "Earth2Studio skills for weather and climate AI — discover models, install the package, fetch data, run deterministic forecasts, and create new data source or prognostic model wrappers.",
+      "version": "0.16.0",
+      "author": {
+        "name": "NVIDIA"
+      },
+      "homepage": "https://nvidia.github.io/earth2studio/",
+      "repository": "https://github.com/NVIDIA/earth2studio",
+      "license": "Apache-2.0",
+      "category": "weather-climate",
+      "tags": ["earth2studio", "weather", "climate", "AI", "forecasting", "NVIDIA"],
+      "strict": false,
+      "skills": [
+        "./earth2studio-discover",
+        "./earth2studio-install",
+        "./earth2studio-data-fetch",
+        "./earth2studio-deterministic-forecast",
+        "./earth2studio-create-datasource",
+        "./earth2studio-create-prognostic"
+      ]
+    }
+  ]
+}

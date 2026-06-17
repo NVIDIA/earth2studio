@@ -30,10 +30,13 @@ try:
     from packaging.version import Version
 
     anemoi_version = version("anemoi-models")
-    # AIFS 2.x requires anemoi-models >= 0.9.3 (not 0.5.x which is for AIFS 1.x)
-    if Version(anemoi_version) < Version("0.9.3"):
+    # AIFS 2.x requires anemoi-models in the range specified by pyproject.toml.
+    if not (Version("0.9.3") <= Version(anemoi_version) < Version("0.9.5")):
         pytest.skip(
-            f"anemoi-models {anemoi_version} not compatible with AIFS 2.x (requires >=0.9.3)",
+            (
+                f"anemoi-models {anemoi_version} not compatible with AIFS 2.x "
+                "(requires >=0.9.3,<0.9.5)"
+            ),
             allow_module_level=True,
         )
 except ImportError as e:
@@ -809,9 +812,19 @@ def test_aifs2_exceptions(dc, device):
 
 @pytest.fixture(scope="function")
 def model() -> AIFS2:
-    """Load real AIFS2 model from package."""
+    """Load real AIFS2 model from package, mocking IFS fetch if needed."""
+    from unittest.mock import patch
+
+    # Mock fetch_data to return fake invariants if IFS would be called
+    def mock_fetch_data(source, time, variable, *args, **kwargs):
+        # Return fake invariants tensor (5 variables: lsm, sdor, slor, z, wmb)
+        fake_invariants = torch.zeros(1, 1, 1, len(variable), 721, 1440)
+        fake_coords = {"time": time, "variable": np.array(variable)}
+        return fake_invariants, fake_coords
+
     package = AIFS2.load_default_package()
-    p = AIFS2.load_model(package)
+    with patch("earth2studio.models.px.aifs2.fetch_data", side_effect=mock_fetch_data):
+        p = AIFS2.load_model(package)
     return p
 
 

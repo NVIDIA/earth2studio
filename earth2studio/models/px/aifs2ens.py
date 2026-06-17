@@ -1,0 +1,1137 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+import json
+import os
+import zipfile
+from collections import OrderedDict
+from collections.abc import Generator, Iterator
+
+import numpy as np
+import torch
+
+from earth2studio.data import IFS
+from earth2studio.data.utils import fetch_data
+from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.px.base import PrognosticModel
+from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import CoordSystem
+
+try:
+    import anemoi.models  # noqa: F401
+    import earthkit.regrid  # noqa: F401
+    import ecmwf.opendata  # noqa: F401
+    import flash_attn  # noqa: F401
+except ImportError:
+    OptionalDependencyFailure("aifs2ens")
+
+
+@check_optional_dependencies()
+class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+    """Artificial Intelligence Forecasting System Ensemble version 2 (AIFS ENS v2),
+    a data driven ensemble forecast model developed by the European Centre for
+    Medium-Range Weather Forecasts (ECMWF). AIFS ENS v2 is based on a graph neural
+    network (GNN) encoder and decoder, and a sliding window transformer processor.
+    It extends AIFS ENS v1 with wave forecasting capabilities, improved stratospheric
+    representation (10 hPa level), and snow cover. The ensemble model incorporates
+    inherent stochasticity through noise conditioning, producing different forecasts
+    for the same initial conditions.
+
+    Note
+    ----
+    Key features of AIFS ENS v2:
+
+    - Ensemble model with inherent stochasticity (noise conditioning)
+    - New wave component with 11 wave variables
+    - New snow variable (snowc - snow coverage)
+    - Extended pressure levels to 10 hPa
+
+    It is recommended to use the :class:`~earth2studio.data.IFS` data source to
+    prepare model inputs given the variable set required.
+
+    Note
+    ----
+    For additional information see the following resources:
+
+    - https://arxiv.org/abs/2506.10868
+    - https://huggingface.co/ecmwf/aifs-ens-2.0
+    - https://github.com/ecmwf/anemoi-core
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        Core PyTorch module with the pretrained AIFS ENS v2 weights loaded.
+    latitudes : torch.Tensor
+        Latitude values for the native octahedral grid, registered as a buffer for
+        interpolation.
+    longitudes : torch.Tensor
+        Longitude values for the native octahedral grid, registered as a buffer for
+        interpolation.
+    interpolation_matrix : torch.Tensor
+        CSR sparse matrix mapping ERA5 lat/lon inputs onto the octahedral grid.
+    inverse_interpolation_matrix : torch.Tensor
+        CSR sparse matrix mapping outputs from the octahedral grid back to ERA5
+        lat/lon.
+    invariants : torch.Tensor
+        Tensor of shape [5, 721, 1440] containing the invariant fields "lsm", "sdor",
+        "slor", "z", and "wmb" (model bathymetry). Empty if preload_invariants=False.
+    preload_invariants : bool
+        If True, invariant fields are fetched from IFS at load time and
+        cached. If False, invariant fields must be provided as input variables,
+        enabling use of invariants from alternative sources for exact reproducibility,
+        by default True.
+    seed : int | None
+        If specified, sets the random seed before each model forward pass for
+        reproducible stochastic noise. The seed used is `seed + step` where
+        step is the forecast step number (0, 1, 2, ...). Use the same seed in both
+        E2S and vanilla anemoi-inference to get identical outputs, by default None.
+
+    Warning
+    -------
+    We encourage users to familiarize themselves with the license restrictions of this
+    model's checkpoints.
+
+    Badges
+    ------
+    region:global class:mrf product:wind product:precip product:temp product:atmos
+    product:land product:solar product:ocean year:2026 gpu:40gb
+    """
+
+    # Full variable list for AIFS ENS v2 (sorted alphabetically by checkpoint name)
+    # The order MUST match checkpoint data_indices.data._name_to_index
+    VARIABLES = [
+        "u100m",
+        "v100m",
+        "u10m",
+        "v10m",
+        "d2m",
+        "t2m",
+        "cdww",
+        "cos_julian_day",
+        "cos_latitude",
+        "cos_local_time",
+        "cos_longitude",
+        "cos_mwd",
+        "cp06",
+        "h1012",
+        "h1214",
+        "h1417",
+        "h1721",
+        "h2125",
+        "h2530",
+        "hcc",
+        "insolation",
+        "lcc",
+        "lsm",
+        "mcc",
+        "msl",
+        "mwp",
+        "q100",
+        "q1000",
+        "q150",
+        "q200",
+        "q250",
+        "q300",
+        "q400",
+        "q50",
+        "q500",
+        "q600",
+        "q700",
+        "q850",
+        "q925",
+        "ro06",
+        "sd",
+        "sdor",
+        "sf06",
+        "sin_julian_day",
+        "sin_latitude",
+        "sin_local_time",
+        "sin_longitude",
+        "sin_mwd",
+        "skt",
+        "slor",
+        "snowc",
+        "sp",
+        "ssrd06",
+        "stl1",
+        "stl2",
+        "strd06",
+        "swh",
+        "swvl1",
+        "swvl2",
+        "t10",
+        "t100",
+        "t1000",
+        "t150",
+        "t200",
+        "t250",
+        "t300",
+        "t400",
+        "t50",
+        "t500",
+        "t600",
+        "t700",
+        "t850",
+        "t925",
+        "tcc",
+        "tcw",
+        "tp06",
+        "u10",
+        "u100",
+        "u1000",
+        "u150",
+        "u200",
+        "u250",
+        "u300",
+        "u400",
+        "u50",
+        "u500",
+        "u600",
+        "u700",
+        "u850",
+        "u925",
+        "v10",
+        "v100",
+        "v1000",
+        "v150",
+        "v200",
+        "v250",
+        "v300",
+        "v400",
+        "v50",
+        "v500",
+        "v600",
+        "v700",
+        "v850",
+        "v925",
+        "w10",
+        "w100",
+        "w1000",
+        "w150",
+        "w200",
+        "w250",
+        "w300",
+        "w400",
+        "w50",
+        "w500",
+        "w600",
+        "w700",
+        "w850",
+        "w925",
+        "wmb",
+        "z",
+        "z10",
+        "z100",
+        "z1000",
+        "z150",
+        "z200",
+        "z250",
+        "z300",
+        "z400",
+        "z50",
+        "z500",
+        "z600",
+        "z700",
+        "z850",
+        "z925",
+    ]
+
+    VARIABLE_INVARIANTS = ["lsm", "sdor", "slor", "z", "wmb"]
+    VARIABLE_FORCINGS = [
+        "cos_latitude",
+        "cos_longitude",
+        "sin_latitude",
+        "sin_longitude",
+        "cos_julian_day",
+        "cos_local_time",
+        "sin_julian_day",
+        "sin_local_time",
+        "insolation",
+    ]
+
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        latitudes: torch.Tensor,
+        longitudes: torch.Tensor,
+        interpolation_matrix: torch.Tensor,
+        inverse_interpolation_matrix: torch.Tensor,
+        invariants: torch.Tensor,
+        preload_invariants: bool = True,
+        seed: int | None = None,
+    ) -> None:
+        super().__init__()
+        self.model = model
+        self.preload_invariants = preload_invariants
+        self.seed = seed
+        if preload_invariants:
+            self.register_buffer("invariants", invariants)
+        else:
+            # Store None placeholder - invariants will come from input
+            self.register_buffer("invariants", torch.empty(0))
+        self.register_buffer("latitudes", latitudes)
+        self.register_buffer("longitudes", longitudes)
+        self.register_buffer("interpolation_matrix", interpolation_matrix)
+        self.register_buffer(
+            "inverse_interpolation_matrix", inverse_interpolation_matrix
+        )
+
+        # Check to make sure that the models total variable input variables are
+        # consistent with the wrappers
+        name_to_index = self.model.data_indices.data._name_to_index
+        variables = [
+            name for name, idx in sorted(name_to_index.items(), key=lambda x: x[1])
+        ]
+
+        if self._ckpt_var_to_e2s(variables) != self.VARIABLES:
+            raise ValueError(
+                "Model variables are not the same as wrapper VARIABLES, your checkpoint is not expected..."
+            )
+
+        self.register_buffer("input_full_ids", self.model.data_indices.data.input.full)
+        self.register_buffer(
+            "invariant_ids",
+            torch.IntTensor(
+                [
+                    name_to_index[v]
+                    for v in self._e2s_to_ckpt_var(self.VARIABLE_INVARIANTS)
+                ]
+            ),
+        )
+        self.register_buffer(
+            "forcing_ids",
+            torch.IntTensor(
+                [
+                    name_to_index[v]
+                    for v in self._e2s_to_ckpt_var(self.VARIABLE_FORCINGS)
+                ]
+            ),
+        )
+        self.register_buffer("input_ids", self.model.data_indices.data.input.prognostic)
+        self.register_buffer(
+            "output_ids",
+            torch.sort(
+                torch.cat(
+                    [
+                        self.model.data_indices.data.output.prognostic,
+                        self.model.data_indices.data.output.diagnostic,
+                    ]
+                )
+            )[0],
+        )
+
+    def input_coords(self) -> CoordSystem:
+        """Input coordinate system of the prognostic model
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        # Get prognostic input variables
+        input_vars = [self.VARIABLES[i] for i in self.input_ids]
+
+        # If not preloading invariants, add them as input variables
+        if not self.preload_invariants:
+            input_vars = input_vars + self.VARIABLE_INVARIANTS
+
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": np.array(
+                    [np.timedelta64(-6, "h"), np.timedelta64(0, "h")]
+                ),
+                "variable": np.array(input_vars),
+                "lat": np.linspace(90.0, -90.0, 721),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        output_coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": np.array([np.timedelta64(6, "h")]),
+                "variable": np.array([self.VARIABLES[i] for i in self.output_ids]),
+                "lat": np.linspace(90.0, -90.0, 721),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+        if input_coords is None:
+            return output_coords
+
+        test_coords = input_coords.copy()
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+        target_input_coords = self.input_coords()
+        for i, key in enumerate(target_input_coords):
+            if key not in ["batch", "time"]:
+                handshake_dim(test_coords, key, i)
+                handshake_coords(test_coords, target_input_coords, key)
+
+        output_coords["batch"] = input_coords["batch"]
+        output_coords["time"] = input_coords["time"]
+
+        output_coords["lead_time"] = (
+            input_coords["lead_time"][-1] + output_coords["lead_time"]
+        )
+        return output_coords
+
+    @classmethod
+    def load_default_package(cls) -> Package:
+        """Load prognostic package"""
+        package = Package(
+            "hf://ecmwf/aifs-ens-2.0@29a1f8c4ab76cd0e5b64cfd415f4ff9e08edf7cf",
+            cache_options={
+                "cache_storage": Package.default_cache("aifs-ens-2.0"),
+                "same_names": True,
+            },
+        )
+        return package
+
+    @classmethod
+    @check_optional_dependencies()
+    def load_model(
+        cls,
+        package: Package,
+        preload_invariants: bool = True,
+        seed: int | None = None,
+    ) -> PrognosticModel:
+        """Load prognostic from package
+
+        Parameters
+        ----------
+        package : Package
+            Model package to load from
+        preload_invariants : bool, optional
+            If True, invariant fields (lsm, sdor, slor, z, wmb) are fetched
+            from IFS at load time and cached. If False, these fields must be provided
+            as input variables, allowing use of invariants from alternative sources
+            (e.g., ECMWF Open Data) for exact reproducibility with reference
+            implementations, by default True.
+        seed : int | None, optional
+            If specified, sets the random seed before each model forward pass for
+            reproducible stochastic noise. The seed used is `seed + step` where
+            step is the forecast step number, by default None.
+
+        Returns
+        -------
+        PrognosticModel
+            Loaded AIFS2ENS model
+        """
+
+        # Load model
+        model_path = package.resolve("aifs-ens-crps-2.0.ckpt")
+        model = torch.load(
+            model_path, weights_only=False, map_location=torch.ones(1).device
+        )
+        model.eval()
+
+        # Extract metadata and supporting arrays from the zip file
+        with zipfile.ZipFile(model_path, "r") as zipf:
+            # Find the metadata file dynamically
+            # The checkpoint may use different prefix names (e.g., "inference-last",
+            # "inference", "quiet_grub", etc.)
+            metadata_file = None
+            for name in zipf.namelist():
+                if name.endswith("anemoi-metadata/ai-models.json"):
+                    metadata_file = name
+                    break
+
+            if metadata_file is None:
+                raise FileNotFoundError(
+                    "Could not find 'anemoi-metadata/ai-models.json' in checkpoint"
+                )
+
+            # Load metadata
+            metadata = json.load(zipf.open(metadata_file))
+
+            # Load supporting arrays
+            supporting_arrays = {}
+            for key, entry in metadata.get("supporting_arrays_paths", {}).items():
+                supporting_arrays[key] = np.frombuffer(
+                    zipf.read(entry["path"]),
+                    dtype=entry["dtype"],
+                ).reshape(entry["shape"])
+
+        # Load interpolation matrix
+        interpolation_package = Package(
+            "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear",
+            cache_options={
+                "cache_storage": Package.default_cache(
+                    "aifs-ens-2.0_interpolation_matrix"
+                ),
+                "same_names": True,
+            },
+        )
+        interpolation_matrix_path = interpolation_package.resolve(
+            "9533e90f8433424400ab53c7fafc87ba1a04453093311c0b5bd0b35fedc1fb83.npz"
+        )
+        interpolation_matrix = np.load(interpolation_matrix_path)
+        torch_interpolation_matrix = torch.sparse_csr_tensor(
+            crow_indices=torch.from_numpy(interpolation_matrix["indptr"]),
+            col_indices=torch.from_numpy(interpolation_matrix["indices"]),
+            values=torch.from_numpy(interpolation_matrix["data"]),
+            size=(interpolation_matrix["shape"][0], interpolation_matrix["shape"][1]),
+            dtype=torch.float32,
+        )
+        inverse_interpolation_package = Package(
+            "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear/",
+            cache_options={
+                "cache_storage": Package.default_cache(
+                    "aifs-ens-2.0_inverse_interpolation_matrix"
+                ),
+                "same_names": True,
+            },
+        )
+        inverse_interpolation_matrix_path = inverse_interpolation_package.resolve(
+            "7f0be51c7c1f522592c7639e0d3f95bcbff8a044292aa281c1e73b842736d9bf.npz"
+        )
+        inverse_interpolation_matrix = np.load(inverse_interpolation_matrix_path)
+        torch_inverse_interpolation_matrix = torch.sparse_csr_tensor(
+            crow_indices=torch.from_numpy(inverse_interpolation_matrix["indptr"]),
+            col_indices=torch.from_numpy(inverse_interpolation_matrix["indices"]),
+            values=torch.from_numpy(inverse_interpolation_matrix["data"]),
+            size=(
+                inverse_interpolation_matrix["shape"][0],
+                inverse_interpolation_matrix["shape"][1],
+            ),
+            dtype=torch.float32,
+        )
+
+        # Fetch invariants from IFS (only if preloading)
+        # Use a recent date to ensure wave data (wmb) is available
+        if preload_invariants:
+            # Check for cached invariants first
+            cache_dir = Package.default_cache("aifs-ens-2.0")
+            invariants_path = os.path.join(cache_dir, "invariants.pt")
+
+            if os.path.exists(invariants_path):
+                invariants = torch.load(invariants_path, weights_only=True)
+            else:
+                ifs = IFS(cache=True, verbose=False)
+                invariants, _ = fetch_data(
+                    source=ifs,
+                    time=np.array([np.datetime64("2026-05-15T00:00:00")]),
+                    variable=["lsm", "sdor", "slor", "z", "wmb"],
+                )
+                invariants = invariants.squeeze()
+                # Cache the invariants tensor
+                os.makedirs(cache_dir, exist_ok=True)
+                torch.save(invariants, invariants_path)
+        else:
+            # Placeholder - invariants will come from input
+            invariants = torch.empty(0)
+
+        return cls(
+            model,
+            latitudes=torch.Tensor(supporting_arrays["latitudes"]).reshape(1, 1, -1, 1),
+            longitudes=torch.Tensor(supporting_arrays["longitudes"]).reshape(
+                1, 1, -1, 1
+            ),
+            interpolation_matrix=torch_interpolation_matrix,
+            inverse_interpolation_matrix=torch_inverse_interpolation_matrix,
+            invariants=invariants,
+            preload_invariants=preload_invariants,
+            seed=seed,
+        )
+
+    @staticmethod
+    def _ckpt_var_to_e2s(names: list[str]) -> list[str]:
+        """Translate checkpoint variable names into Earth2Studio variable IDs."""
+        surface_map = {
+            "10u": "u10m",
+            "10v": "v10m",
+            "2d": "d2m",
+            "2t": "t2m",
+            "100u": "u100m",
+            "100v": "v100m",
+        }
+        accum_6h_map = {
+            "cp": "cp06",
+            "ro": "ro06",
+            "sf": "sf06",
+            "tp": "tp06",
+            "ssrd": "ssrd06",
+            "strd": "strd06",
+        }
+
+        def _map_one(name: str) -> str:
+            # Surface shorthand
+            if name in surface_map:
+                return surface_map[name]
+            # 6-hour accumulations
+            if name in accum_6h_map:
+                return accum_6h_map[name]
+            # Pressure level e.g. q_50 -> q50, but u_10 -> u10 (10 hPa level)
+            if "_" in name:
+                parts = name.split("_", 1)
+                if len(parts) == 2 and parts[1].isdigit():
+                    return f"{parts[0]}{parts[1]}"
+            return name
+
+        return [_map_one(n) for n in names]
+
+    @staticmethod
+    def _e2s_to_ckpt_var(names: list[str]) -> list[str]:
+        """Translate Earth2Studio variable IDs back to checkpoint names."""
+        reverse_surface_map = {
+            "u10m": "10u",
+            "v10m": "10v",
+            "d2m": "2d",
+            "t2m": "2t",
+            "u100m": "100u",
+            "v100m": "100v",
+        }
+
+        def _map_one(name: str) -> str:
+            if name in reverse_surface_map:
+                return reverse_surface_map[name]
+            return name
+
+        return [_map_one(n) for n in names]
+
+    def get_cos_sin_julian_day(
+        self,
+        time_array: np.datetime64,
+        longitudes: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Get cosine and sine of Julian day.
+
+        Reference implementation: earthkit.data.sources.forcings.ForcingMaker
+        https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/sources/forcings.py
+        """
+        days: np.floating = (
+            time_array.astype("datetime64[D]") - time_array.astype("datetime64[Y]")
+        ).astype(np.float32)
+        hours: np.floating = (
+            time_array.astype("datetime64[h]") - time_array.astype("datetime64[D]")
+        ).astype(np.float32)
+        seconds: np.floating = (
+            time_array.astype("datetime64[s]") - time_array.astype("datetime64[h]")
+        ).astype(np.float32)
+        julian_days = days + hours / 24.0 + seconds / 86400.0
+        normalized = 2 * np.pi * (julian_days / 365.25)
+        cos_julian_day = torch.full_like(
+            longitudes, np.cos(normalized), dtype=torch.float32
+        )
+        sin_julian_day = torch.full_like(
+            longitudes, np.sin(normalized), dtype=torch.float32
+        )
+        return cos_julian_day, sin_julian_day
+
+    def get_cos_sin_local_time(
+        self,
+        time_array: np.datetime64,
+        longitudes: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Get cosine and sine of local time.
+
+        Reference implementation: earthkit.data.sources.forcings.ForcingMaker
+        https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/sources/forcings.py
+        """
+        hours: np.floating = (
+            time_array.astype("datetime64[h]") - time_array.astype("datetime64[D]")
+        ).astype(np.float32)
+        normalized_time = 2 * np.pi * (hours / 24.0)
+        normalized_longitudes = 2 * np.pi * (longitudes / 360.0)
+        tau = normalized_time + normalized_longitudes
+        cos_local_time = torch.cos(tau)
+        sin_local_time = torch.sin(tau)
+        return cos_local_time, sin_local_time
+
+    def get_cosine_zenith_fields(
+        self,
+        date: np.datetime64,
+        latitudes: torch.Tensor,
+        longitudes: torch.Tensor,
+    ) -> torch.Tensor:
+        """Get cosine zenith fields for input time array.
+
+        Reference implementation: earthkit.data.utils.meteo.cos_solar_zenith_angle
+        https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/utils/meteo.py
+        """
+
+        # Get Julian day
+        days: np.floating = (
+            date.astype("datetime64[D]") - date.astype("datetime64[Y]")
+        ).astype(np.float32)
+        hours: np.floating = (
+            date.astype("datetime64[h]") - date.astype("datetime64[D]")
+        ).astype(np.float32)
+        seconds: np.floating = (
+            date.astype("datetime64[s]") - date.astype("datetime64[h]")
+        ).astype(np.float32)
+        julian_day = days + hours / 24.0 + seconds / 86400.0
+
+        # Convert angle to tensor
+        angle = torch.tensor(
+            julian_day / 365.25 * torch.pi * 2, device=latitudes.device
+        )
+
+        # declination in [degrees]
+        declination = (
+            0.396372
+            - 22.91327 * torch.cos(angle)
+            + 4.025430 * torch.sin(angle)
+            - 0.387205 * torch.cos(2 * angle)
+            + 0.051967 * torch.sin(2 * angle)
+            - 0.154527 * torch.cos(3 * angle)
+            + 0.084798 * torch.sin(3 * angle)
+        )
+
+        # time correction in [h.degrees]
+        time_correction = (
+            0.004297
+            + 0.107029 * torch.cos(angle)
+            - 1.837877 * torch.sin(angle)
+            - 0.837378 * torch.cos(2 * angle)
+            - 2.340475 * torch.sin(2 * angle)
+        )
+
+        # Convert to radians
+        declination = torch.deg2rad(declination)
+        latitudes = torch.deg2rad(latitudes)
+
+        # Calculate sine and cosine of declination and latitude
+        sindec_sinlat = torch.sin(declination) * torch.sin(latitudes)
+        cosdec_coslat = torch.cos(declination) * torch.cos(latitudes)
+
+        # Solar hour angle
+        solar_angle = torch.deg2rad((hours - 12) * 15 + longitudes + time_correction)
+        zenith_angle = sindec_sinlat + cosdec_coslat * torch.cos(solar_angle)
+
+        # Clip negative values
+        return torch.clamp(zenith_angle, min=0.0)
+
+    def _prepare_input(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> torch.Tensor:
+        """Prepare input tensor and coordinates for the AIFS model."""
+        # Determine number of prognostic variables vs invariants in input
+        n_prognostic = len(self.input_ids)
+        if self.preload_invariants:
+            # All input variables are prognostic
+            x_prognostic = x
+        else:
+            # Split input: first n_prognostic are prognostic, rest are invariants
+            x_prognostic = x[..., :n_prognostic, :, :]
+            x_invariants = x[..., n_prognostic:, :, :]
+
+        # Interpolate the prognostic input tensor to the model grid
+        shape = x_prognostic.shape
+        n_batch = shape[0]
+        n_time = shape[1]
+        x_prog = x_prognostic.flatten(start_dim=4)
+        x_prog = x_prog.flatten(end_dim=3)
+        x_prog = torch.swapaxes(x_prog, 0, -1)
+        x_prog = x_prog.to(dtype=torch.float32)
+        x_prog = self.interpolation_matrix @ x_prog
+        x_prog = torch.swapaxes(x_prog, 0, -1)
+        x_prog = x_prog.reshape([n_batch * n_time, shape[2], shape[3], -1])
+        x_prog = torch.swapaxes(x_prog, 2, 3)
+        n_bt = n_batch * n_time
+        n_lead = shape[2]
+        n_nodes = x_prog.shape[2]
+
+        # Handle invariants
+        if self.preload_invariants:
+            # Use preloaded invariants
+            i = self.invariants.flatten(start_dim=1)
+            i = torch.swapaxes(i, 0, -1)
+            i = i.to(dtype=torch.float32)
+            i = self.interpolation_matrix @ i
+        else:
+            # Use invariants from input (take from first time step only)
+            # Invariants shape: [batch, time, lead_time, n_invariants, lat, lon]
+            # We only need one copy since they're static
+            inv_shape = x_invariants.shape
+            i = x_invariants[:, :, 0, :, :, :]  # Take first lead_time
+            i = i.flatten(start_dim=3)
+            i = i.flatten(end_dim=2)
+            i = torch.swapaxes(i, 0, -1)
+            i = i.to(dtype=torch.float32)
+            i = self.interpolation_matrix @ i
+            # Reshape back: we need [n_invariants, n_nodes] for later assignment
+            i = torch.swapaxes(i, 0, -1)
+            i = i.reshape([inv_shape[0] * inv_shape[1], inv_shape[3], -1])
+            # Take mean over batch*time since invariants should be constant
+            i = i[0]  # Just take first batch
+            i = torch.swapaxes(i, 0, -1)
+
+        # Reconstruct full feature tensor in checkpoint variable space
+        x_full = torch.zeros(
+            (n_bt, n_lead, n_nodes, len(self.VARIABLES)),
+            device=x_prog.device,
+            dtype=torch.float32,
+        )
+        x_full[..., self.input_ids] = x_prog
+        x_full[..., self.invariant_ids] = i
+
+        # Compute static forcings (lat/lon based - same for all times)
+        cos_latitude = torch.cos(torch.deg2rad(self.latitudes)).to(dtype=torch.float32)
+        sin_latitude = torch.sin(torch.deg2rad(self.latitudes)).to(dtype=torch.float32)
+        cos_longitude = torch.cos(torch.deg2rad(self.longitudes)).to(
+            dtype=torch.float32
+        )
+        sin_longitude = torch.sin(torch.deg2rad(self.longitudes)).to(
+            dtype=torch.float32
+        )
+        cos_latitude = cos_latitude.repeat(n_bt, n_lead, 1, 1)
+        sin_latitude = sin_latitude.repeat(n_bt, n_lead, 1, 1)
+        cos_longitude = cos_longitude.repeat(n_bt, n_lead, 1, 1)
+        sin_longitude = sin_longitude.repeat(n_bt, n_lead, 1, 1)
+
+        x_full[..., self.forcing_ids[0]] = cos_latitude[..., 0]
+        x_full[..., self.forcing_ids[1]] = cos_longitude[..., 0]
+        x_full[..., self.forcing_ids[2]] = sin_latitude[..., 0]
+        x_full[..., self.forcing_ids[3]] = sin_longitude[..., 0]
+
+        # Compute time-dependent forcings (loop over times)
+        for t in range(n_time):
+            time_t = coords["time"][t]
+            # Indices for this time in the flattened batch*time dimension
+            bt_start = t * n_batch
+            bt_end = (t + 1) * n_batch
+
+            cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(
+                time_t - np.timedelta64(6, "h"), self.longitudes
+            )
+            cos_julian_day_1, sin_julian_day_1 = self.get_cos_sin_julian_day(
+                time_t, self.longitudes
+            )
+            cos_julian_day = torch.cat(
+                [cos_julian_day_0, cos_julian_day_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+            sin_julian_day = torch.cat(
+                [sin_julian_day_0, sin_julian_day_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+
+            cos_local_time_0, sin_local_time_0 = self.get_cos_sin_local_time(
+                time_t - np.timedelta64(6, "h"), self.longitudes
+            )
+            cos_local_time_1, sin_local_time_1 = self.get_cos_sin_local_time(
+                time_t, self.longitudes
+            )
+            cos_local_time = torch.cat(
+                [cos_local_time_0, cos_local_time_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+            sin_local_time = torch.cat(
+                [sin_local_time_0, sin_local_time_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+
+            cos_zenith_angle_0 = self.get_cosine_zenith_fields(
+                time_t - np.timedelta64(6, "h"), self.latitudes, self.longitudes
+            )
+            cos_zenith_angle_1 = self.get_cosine_zenith_fields(
+                time_t, self.latitudes, self.longitudes
+            )
+            cos_zenith_angle = torch.cat(
+                [cos_zenith_angle_0, cos_zenith_angle_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+
+            x_full[bt_start:bt_end, ..., self.forcing_ids[4]] = cos_julian_day[..., 0]
+            x_full[bt_start:bt_end, ..., self.forcing_ids[5]] = cos_local_time[..., 0]
+            x_full[bt_start:bt_end, ..., self.forcing_ids[6]] = sin_julian_day[..., 0]
+            x_full[bt_start:bt_end, ..., self.forcing_ids[7]] = sin_local_time[..., 0]
+            x_full[bt_start:bt_end, ..., self.forcing_ids[8]] = cos_zenith_angle[..., 0]
+
+        x_full = x_full[
+            ..., self.input_full_ids
+        ]  # Select input (prognostic + forcing + invar)
+        return x_full
+
+    def _update_input(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> torch.Tensor:
+        """Update time based inputs."""
+        n_time = coords["time"].shape[0]
+        # x shape is [batch*time, lead_time, nodes, variables]
+        # We need to figure out n_batch from x shape and n_time
+        n_bt = x.shape[0]
+        n_batch = n_bt // n_time
+
+        for t in range(n_time):
+            time_t = coords["time"][t]
+            bt_start = t * n_batch
+            bt_end = (t + 1) * n_batch
+
+            time0 = time_t + coords["lead_time"][0]
+            time1 = time_t + coords["lead_time"][1]
+
+            # Get cos, sin of Julian day
+            cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(
+                time0, self.longitudes
+            )
+            cos_julian_day_1, sin_julian_day_1 = self.get_cos_sin_julian_day(
+                time1, self.longitudes
+            )
+            cos_julian_day = torch.cat(
+                [cos_julian_day_0, cos_julian_day_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+            sin_julian_day = torch.cat(
+                [sin_julian_day_0, sin_julian_day_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+
+            # Get cos, sin local time
+            cos_local_time_0, sin_local_time_0 = self.get_cos_sin_local_time(
+                time0, self.longitudes
+            )
+            cos_local_time_1, sin_local_time_1 = self.get_cos_sin_local_time(
+                time1, self.longitudes
+            )
+            cos_local_time = torch.cat(
+                [cos_local_time_0, cos_local_time_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+            sin_local_time = torch.cat(
+                [sin_local_time_0, sin_local_time_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+
+            # Get cosine zenith angle
+            cos_zenith_angle_0 = self.get_cosine_zenith_fields(
+                time0, self.latitudes, self.longitudes
+            )
+            cos_zenith_angle_1 = self.get_cosine_zenith_fields(
+                time1, self.latitudes, self.longitudes
+            )
+            cos_zenith_angle = torch.cat(
+                [cos_zenith_angle_0, cos_zenith_angle_1], dim=1
+            ).repeat(n_batch, 1, 1, 1)
+
+            x[bt_start:bt_end, ..., self.forcing_ids[4]] = cos_julian_day[..., 0]
+            x[bt_start:bt_end, ..., self.forcing_ids[5]] = cos_local_time[..., 0]
+            x[bt_start:bt_end, ..., self.forcing_ids[6]] = sin_julian_day[..., 0]
+            x[bt_start:bt_end, ..., self.forcing_ids[7]] = sin_local_time[..., 0]
+            x[bt_start:bt_end, ..., self.forcing_ids[8]] = cos_zenith_angle[..., 0]
+
+        # Select out actual input variables from the full fields set
+        x = x[..., self.input_full_ids]
+
+        return x
+
+    def _prepare_output(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Prepare input tensor and coordinates for the AIFS model."""
+        # Remove generated forcings
+        x = x[..., self.output_ids]
+        shape = x.shape
+
+        # Interpolate the model grid to the lat lon grid
+        x = x[:, 1:2]
+        x = x.flatten(end_dim=1)
+        x = torch.swapaxes(x, 0, 1)
+        x = x.flatten(start_dim=1)
+        x = x.to(dtype=torch.float32)
+        x = self.inverse_interpolation_matrix @ x
+        x = torch.reshape(x, [x.shape[0], shape[0], shape[-1]])
+        x = torch.swapaxes(x, 0, 1)
+        x = torch.swapaxes(x, 1, 2)
+        x = torch.reshape(
+            x,
+            [
+                coords["batch"].shape[0],
+                coords["time"].shape[0],
+                coords["lead_time"].shape[0],
+                coords["variable"].shape[0],
+                coords["lat"].shape[0],
+                coords["lon"].shape[0],
+            ],
+        )
+
+        return x
+
+    def _forward(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+        step: int = 0,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        output_coords = self.output_coords(coords)
+        # Set RNG seed for reproducibility if specified
+        # Uses step-dependent seed so each forward call is deterministic but different
+        if self.seed is not None:
+            torch.manual_seed(self.seed + step)
+            if x.device.type == "cuda":
+                torch.cuda.manual_seed(self.seed + step)
+        with torch.autocast(device_type=str(x.device), dtype=torch.bfloat16):
+            y = self.model.predict_step(x, fcstep=step)
+            out = torch.zeros(
+                (x.shape[0], x.shape[1], x.shape[2], len(self.VARIABLES)),
+                device=x.device,
+            )
+            out[:, 0, :, self.input_full_ids] = x[:, 1]
+            out[:, 1, :, self.model.data_indices.data.output.full] = y[:, 0]
+
+            forcing_full = torch.sort(
+                torch.cat([self.forcing_ids, self.invariant_ids], dim=0)
+            )[0]
+            mask = torch.isin(self.input_full_ids, forcing_full)
+            out[:, 1, :, forcing_full] = x[:, 1, :, torch.where(mask)[0]]
+
+        return out, output_coords
+
+    @batch_func()
+    def __call__(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Runs prognostic model 1 step.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor
+        coords : CoordSystem
+            Input coordinate system
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Output tensor and coordinate system 6 hours in the future
+        """
+        output_coords = self.output_coords(coords)
+        x = self._prepare_input(x, coords)
+        x, out_coords = self._forward(x, coords)
+        x = self._prepare_output(x, out_coords)
+        return x, output_coords
+
+    def _fill_input(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Helper function of create a lat/lon tensor with the input prognostic and zero
+        filled diagnostic variables.
+        """
+        batch, time, lead, n_input_vars, height, width = x.shape
+        out = torch.zeros(
+            (batch, time, lead, len(self.VARIABLES), height, width),
+            device=x.device,
+        )
+
+        # Determine number of prognostic variables
+        n_prognostic = len(self.input_ids)
+
+        if self.preload_invariants:
+            # All input variables are prognostic
+            out[:, :, 0, self.input_ids] = x[0, 0, 0, ...]
+            out[:, :, 0, self.invariant_ids] = self.invariants
+            out[:, :, 1, self.input_ids] = x[0, 0, 1, ...]
+            out[:, :, 1, self.invariant_ids] = self.invariants
+        else:
+            # Input contains prognostic + invariant variables
+            x_prognostic = x[..., :n_prognostic, :, :]
+            x_invariants = x[..., n_prognostic:, :, :]
+            out[:, :, 0, self.input_ids] = x_prognostic[0, 0, 0, ...]
+            out[:, :, 0, self.invariant_ids] = x_invariants[0, 0, 0, ...]
+            out[:, :, 1, self.input_ids] = x_prognostic[0, 0, 1, ...]
+            out[:, :, 1, self.invariant_ids] = x_invariants[0, 0, 1, ...]
+
+        out = out[:, :, :, self.output_ids, ...]
+
+        out_coords = coords.copy()
+        out_coords["variable"] = np.array([self.VARIABLES[i] for i in self.output_ids])
+
+        return out, out_coords
+
+    @batch_func()
+    def _default_generator(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        coords = coords.copy()
+
+        self.output_coords(coords)
+        output_tensor, coords_out = self._fill_input(x, coords)
+        coords_out["lead_time"] = coords["lead_time"][1:]
+        yield output_tensor[:, :, 1:], coords_out
+
+        # Prepare input tensor
+        x = self._prepare_input(x, coords)
+        step = 0
+
+        while True:
+            # Front hook
+            x, coords = self.front_hook(x, coords)
+
+            # Forward is identity operator
+            y, coords_out = self._forward(x, coords, step=step)
+
+            # Prepare output tensor
+            output_tensor = self._prepare_output(y, coords_out)
+
+            # Rear hook
+            output_tensor, coords_out = self.rear_hook(output_tensor, coords_out)
+
+            # Yield output tensor
+            yield output_tensor, coords_out.copy()
+
+            # Update coordinates
+            coords["lead_time"] = (
+                coords["lead_time"]
+                + self.output_coords(self.input_coords())["lead_time"]
+            )
+            # Prepare input tensor
+            x = self._update_input(y, coords)
+            step += 1
+
+    def create_iterator(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        """Creates a iterator which can be used to perform time-integration of the
+        prognostic model. Will return the initial condition first (0th step).
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor
+        coords : CoordSystem
+            Input coordinate system
+
+        Yields
+        ------
+        Iterator[tuple[torch.Tensor, CoordSystem]]
+            Iterator that generates time-steps of the prognostic model container the
+            output data tensor and coordinate system dictionary.
+        """
+        yield from self._default_generator(x, coords)

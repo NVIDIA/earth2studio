@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import os
 import zipfile
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
@@ -27,7 +28,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -148,14 +149,14 @@ VARIABLES = [
     "stl2",
     "ssrd06",
     "strd06",
-    "sf",
+    "sf06",
     "tcc",
     "mcc",
     "hcc",
     "lcc",
     "u100m",
     "v100m",
-    "ro",
+    "ro06",
 ]  # from config.json >> dataset.variables
 
 
@@ -409,7 +410,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             col_indices=torch.from_numpy(interpolation_matrix["indices"]),
             values=torch.from_numpy(interpolation_matrix["data"]),
             size=(interpolation_matrix["shape"][0], interpolation_matrix["shape"][1]),
-            dtype=torch.float32,
+            dtype=torch.float64,
         )
         inverse_interpolation_package = Package(
             "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear/",
@@ -432,19 +433,29 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 inverse_interpolation_matrix["shape"][0],
                 inverse_interpolation_matrix["shape"][1],
             ),
-            dtype=torch.float32,
+            dtype=torch.float64,
         )
 
         # Fetch invariants from IFS, note that there are deviations between these
         # invariant fields depending on where and what time the data is fetched.
         # For this model, we will use ECMWF's own invarints in the IFS data store.
-        ifs = IFS(cache=True, verbose=False)
-        invariants, _ = fetch_data(
-            source=ifs,
-            time=np.array([np.datetime64("2026-01-01T00:00:00")]),
-            variable=["lsm", "sdor", "slor", "z"],
-        )
-        invariants = invariants.squeeze()
+        # Check for cached invariants first
+        cache_dir = Package.default_cache("aifs-ens-1.0")
+        invariants_path = os.path.join(cache_dir, "invariants.pt")
+
+        if os.path.exists(invariants_path):
+            invariants = torch.load(invariants_path, weights_only=True)
+        else:
+            ifs = IFS(cache=True, verbose=False)
+            invariants, _ = fetch_data(
+                source=ifs,
+                time=np.array([np.datetime64("2026-01-01T00:00:00")]),
+                variable=["lsm", "sdor", "slor", "z"],
+            )
+            invariants = invariants.squeeze()
+            # Cache the invariants tensor
+            os.makedirs(cache_dir, exist_ok=True)
+            torch.save(invariants, invariants_path)
 
         # Can also fetch from NCAR ERA5 backup but these have some differences
         # invariant_package = Package(
@@ -515,7 +526,14 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         hours = (
             time_array.astype("datetime64[h]") - time_array.astype("datetime64[D]")
         ).astype(np.float32)
-        normalized_time = 2 * np.pi * (hours / 24.0)
+        minutes: np.floating = (
+            time_array.astype("datetime64[m]") - time_array.astype("datetime64[h]")
+        ).astype(np.float32)
+        seconds: np.floating = (
+            time_array.astype("datetime64[s]") - time_array.astype("datetime64[m]")
+        ).astype(np.float32)
+        hours_since_midnight = hours + minutes / 60.0 + seconds / 3600.0
+        normalized_time = 2 * np.pi * (hours_since_midnight / 24.0)
         normalized_longitudes = 2 * np.pi * (longitudes / 360.0)
         tau = normalized_time + normalized_longitudes
         cos_local_time = torch.cos(tau)
@@ -610,6 +628,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> torch.Tensor:
         """Prepare input tensor and coordinates for the AIFS ENS model."""
+        handshake_size(coords, "time", 1)  # Prepare input limited to 1 time stamp
         # add invariants
         x = self._add_invariants(x, coords)
 
@@ -618,8 +637,9 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = x.flatten(start_dim=4)
         x = x.flatten(end_dim=3)
         x = torch.swapaxes(x, 0, -1)
-        x = x.to(dtype=torch.float32)
+        x = x.to(dtype=torch.float64)
         x = self.interpolation_matrix @ x
+        x = x.to(dtype=torch.float32)
         x = torch.swapaxes(x, 0, -1)
         x = x.reshape([shape[0] * shape[1], shape[2], shape[3], -1])
         x = torch.swapaxes(x, 2, 3)
@@ -758,8 +778,9 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = x.flatten(end_dim=1)
         x = torch.swapaxes(x, 0, 1)
         x = x.flatten(start_dim=1)
-        x = x.to(dtype=torch.float32)
+        x = x.to(dtype=torch.float64)
         x = self.inverse_interpolation_matrix @ x
+        x = x.to(dtype=torch.float32)
         x = torch.reshape(x, [x.shape[0], shape[0], shape[-1]])
         x = torch.swapaxes(x, 0, 1)
         x = torch.swapaxes(x, 1, 2)

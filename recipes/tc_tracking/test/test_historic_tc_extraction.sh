@@ -8,7 +8,7 @@ echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 echo " >>> running baseline. might take a couple of minutes to download data..."
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo ""
-python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=extract_era5.yaml
+python ../main.py --config-path=$(pwd)/cfg --config-name=extract_era5.yaml
 
 
 # Compare reference track files between ground truth and produced output
