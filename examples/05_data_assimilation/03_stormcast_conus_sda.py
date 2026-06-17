@@ -101,19 +101,18 @@ package = Package(
 )
 
 # Configure SDA: sda_std_obs is the assumed normalised observation noise std per
-# variable (lower = trust observations more).  A dict can be supplied to set
-# different noise levels per variable; variables not listed fall back to 0.1.
+# variable (lower = trust observations more).
 # sda_gamma is the DPS step-size scaling (lower = stronger guidance from obs).
 #
-# By default the model runs on the full CONUS domain (~24 GB GPU RAM).
-# To run on a smaller central-US subdomain (~6 GB), uncomment the two lines
-# below and pass hrrr_lat_lim / hrrr_lon_lim to load_model.
+# By default the model runs on the central-US subdomain.
+# To run on a smaller central-US subdomain, comment the lines
+# for hrrr_lat_lim and hrrr_lon_lim in the load_model call.
 hrrr_lat_lim = (273, 785)
 hrrr_lon_lim = (579, 1219)
 model = StormCastCONUSSDA.load_model(
     package,
-    hrrr_lat_lim=hrrr_lat_lim,  # uncomment for the subdomain
-    hrrr_lon_lim=hrrr_lon_lim,  # uncomment for the subdomain
+    hrrr_lat_lim=hrrr_lat_lim,  # comment for full domain
+    hrrr_lon_lim=hrrr_lon_lim,  # comment for full domain
     num_diffusion_steps=18,
     num_sda_diffusion_steps=96,
     sda_std_obs=0.15,
