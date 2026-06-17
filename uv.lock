@@ -2371,7 +2371,7 @@ requires-dist = [
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=3.1.0" },
 ]
-provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cyclone", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormscope", "utils", "windgust-afno"]
+provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cyclone", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormscope", "ucast", "utils", "windgust-afno"]
 
 [package.metadata.requires-dev]
 build = [

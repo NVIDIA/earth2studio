@@ -149,14 +149,14 @@ VARIABLES = [
     "stl2",
     "ssrd06",
     "strd06",
-    "sf",
+    "sf06",
     "tcc",
     "mcc",
     "hcc",
     "lcc",
     "u100m",
     "v100m",
-    "ro",
+    "ro06",
 ]  # from config.json >> dataset.variables
 
 

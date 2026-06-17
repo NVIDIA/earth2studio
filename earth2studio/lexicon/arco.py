@@ -74,6 +74,15 @@ LEVELS = [
 
 MDL_LEVELS = np.arange(1, 138)
 
+ACCUMULATION_HOURS = {
+    "cp06": 6,
+    "ro06": 6,
+    "sf06": 6,
+    "ssrd06": 6,
+    "strd06": 6,
+    "tp06": 6,
+}
+
 
 class ARCOLexicon(metaclass=LexiconType):
     """ARCO Lexicon
@@ -101,6 +110,33 @@ class ARCOLexicon(metaclass=LexiconType):
         "mtdwswrf": "mean_top_downward_short_wave_radiation_flux::",
         "skt": "skin_temperature::",
         "sic": "sea_ice_cover::",
+        # AIFS/AIFS ENS and AIFS2 aliases backed by ARCO ERA5 single-level fields.
+        "cdww": "coefficient_of_drag_with_waves::",
+        "cp06": "convective_precipitation::",
+        "cos_mwd": "mean_wave_direction::",
+        "hcc": "high_cloud_cover::",
+        "lcc": "low_cloud_cover::",
+        "mcc": "medium_cloud_cover::",
+        "mwp": "mean_wave_period::",
+        "ro": "runoff::",
+        "ro06": "runoff::",
+        "sd": "snow_depth::",
+        "sdor": "standard_deviation_of_orography::",
+        "sf": "snowfall::",
+        "sf06": "snowfall::",
+        "sin_mwd": "mean_wave_direction::",
+        "slor": "slope_of_sub_gridscale_orography::",
+        "ssrd06": "surface_solar_radiation_downwards::",
+        "stl1": "soil_temperature_level_1::",
+        "stl2": "soil_temperature_level_2::",
+        "strd06": "surface_thermal_radiation_downwards::",
+        "swh": "significant_height_of_combined_wind_waves_and_swell::",
+        "swvl1": "volumetric_soil_water_layer_1::",
+        "swvl2": "volumetric_soil_water_layer_2::",
+        "tcc": "total_cloud_cover::",
+        "tcw": "total_column_water::",
+        "tp06": "total_precipitation::",
+        "wmb": "model_bathymetry::",
     }
     VOCAB.update({f"u{level}": f"u_component_of_wind::{level}" for level in LEVELS})
     VOCAB.update({f"v{level}": f"v_component_of_wind::{level}" for level in LEVELS})
@@ -160,8 +196,20 @@ class ARCOLexicon(metaclass=LexiconType):
         """Return name in ARCO vocabulary."""
         arco_key = cls.VOCAB[val]
 
-        def mod(x: np.array) -> np.array:
-            """Modify name (if necessary)."""
-            return x
+        if val == "cos_mwd":
+
+            def mod(x: np.array) -> np.array:
+                return np.cos(np.deg2rad(x))
+
+        elif val == "sin_mwd":
+
+            def mod(x: np.array) -> np.array:
+                return np.sin(np.deg2rad(x))
+
+        else:
+
+            def mod(x: np.array) -> np.array:
+                """Modify name (if necessary)."""
+                return x
 
         return arco_key, mod

@@ -27,7 +27,7 @@ import pytest
 import torch
 import xarray as xr
 from omegaconf import OmegaConf
-from src.data import PredownloadedSource
+from src.data import CompositeSource, PredownloadedSource
 from src.output import OutputManager, build_score_coords
 from src.scoring import (
     _concat_chunks,
@@ -904,8 +904,6 @@ class TestOpenVerificationSourceHook:
         # wraps them in a CompositeSource.  Leave verification.zarr /
         # data.zarr absent so the fallback path is exercised.
         from test.test_data import _create_yx_zarr_store
-
-        from src.data import CompositeSource
 
         t = np.array(["2024-01-01"], dtype="datetime64[ns]")
         _create_yx_zarr_store(tmp_path / "data_goes.zarr", t, ["abi01c"])
