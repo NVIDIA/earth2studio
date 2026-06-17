@@ -14,6 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from earth2studio.models.nn.stormcastconus import (
+    StormCastCONUSBase as StormCastCONUSSDA,
+)
+
 from .healda import HealDA
 from .interp import InterpEquirectangular
 from .sda_stormcast import StormCastSDA
