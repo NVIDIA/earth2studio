@@ -64,10 +64,11 @@ In this example you will learn:
 #   HEALPix inputs, handling the regridding and derived-variable preparation
 #   yourself (see the base DLESyM example for that lower-level pattern).
 #
-# The upstream checkpoints are not yet published to HuggingFace, so the model
-# package is resolved from the ``DLESYM_V0_ISCCP_ERA5_PACKAGE_PATH`` environment
-# variable. Build it locally with ``tools/convert_dlesym_upstream.py`` and point
-# the variable at the resulting directory before running this example.
+# The upstream checkpoints are published to HuggingFace at
+# ``nvidia/dlesym-v0-isccp-era5`` and are downloaded automatically by
+# :py:meth:`~earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon.load_default_package`.
+# You can override the download with the ``DLESYM_V0_ISCCP_ERA5_PACKAGE_PATH``
+# environment variable to point at a locally-built package instead.
 
 # %%
 import os

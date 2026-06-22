@@ -159,3 +159,40 @@ def test_dlesym_v0_isccp_era5_precip_log_epsilon_inverse(device):
     )
     out, _ = model(x, in_coords)
     assert torch.allclose(out, torch.zeros_like(out), atol=1e-6)
+
+
+@pytest.mark.package
+@pytest.mark.parametrize("device", ["cuda:0"])
+def test_dlesym_v0_isccp_era5_precip_package(device):
+    """Load the real HuggingFace package and run one precip diagnostic forward pass."""
+    torch.cuda.empty_cache()
+    package = DLESyMv0_ISCCP_ERA5Precip.load_default_package()
+    model = DLESyMv0_ISCCP_ERA5Precip.load_model(package).to(device)
+
+    nside = model.nside
+    batch_size = 1
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    in_coords = model.input_coords()
+    in_coords["batch"] = np.arange(batch_size)
+    in_coords["time"] = time
+
+    x = torch.randn(
+        batch_size,
+        len(time),
+        len(in_coords["lead_time"]),
+        len(in_coords["variable"]),
+        12,
+        nside,
+        nside,
+        device=device,
+    )
+
+    out, out_coords = model(x, in_coords)
+    expected_coords = model.output_coords(in_coords)
+
+    assert out.shape == (batch_size, len(time), 1, 1, 12, nside, nside)
+    assert list(out_coords["variable"]) == [model.output_variable]
+    assert len(out_coords["lead_time"]) == 1
+    assert out_coords["lead_time"][0] == in_coords["lead_time"][-1]
+    for key in out_coords:
+        handshake_coords(out_coords, expected_coords, key)

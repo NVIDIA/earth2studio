@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from collections import OrderedDict
 from pathlib import Path
 
@@ -50,32 +49,30 @@ except ImportError:
     insolation = None
 
 
-_DLESYM_V0_ISCCP_ERA5_PACKAGE_ENV = "DLESYM_V0_ISCCP_ERA5_PACKAGE_PATH"
-
-
 @check_optional_dependencies()
 class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
-    """Upstream-DLESyM precipitation diagnostic.
+    """Precipitation diagnostic for the DLESyMv0_ISCCP_ERA5 climate model.
 
     A ``HEALPixUNet`` diagnostic from the AtmosSci-DLESM/DLESyM repository
     that predicts 6-hourly accumulated precipitation (``tp06``) from the full
-    coupled atmosphere/ocean state. Architecturally identical to the ocean
-    submodel but with different channel counts and ``output_time_dim=1``.
-    Distributed alongside the prognostic checkpoints used by
-    :class:`~earth2studio.models.px.dlesym_v0_isccp_era5.DLESyMv0_ISCCP_ERA5`.
+    coupled atmosphere/ocean state. It is designed to be chained off
+    :class:`~earth2studio.models.px.DLESyMv0_ISCCP_ERA5` (or its lat/lon
+    variant).
 
-    The model takes 2 history timesteps of 10 variables (the full coupled
-    state used by the upstream forecast: the 9 atmos variables plus ``sst``)
-    on a HEALPix ``nside=64`` grid and predicts ``tp06`` at the last input
-    timestep -- i.e., precipitation accumulated over the 6h prior to ``t=0``.
+    The model takes 2 consecutive history timesteps of 10 variables (the 9
+    atmospheric variables plus ``sst``) on a HEALPix ``nside=64`` grid and
+    predicts ``tp06`` at the last input timestep (i.e., precipitation
+    accumulated over the 6 h prior to ``t=0``).
 
     When ``use_ttr=True`` (default), the wrapper accepts ERA5 ``ttr`` in
     place of ``rlut`` and applies the same per-doy moment-matching TTR -> OLR
-    transform as :class:`~earth2studio.models.px.dlesym_v0_isccp_era5.DLESyMv0_ISCCP_ERA5` before
-    the forward pass. This lets the diagnostic run standalone from an ERA5
-    initial condition. When ``use_ttr=False``, supply pre-transformed
-    ``rlut`` directly (e.g. when chaining off of ``DLESyMv0_ISCCP_ERA5`` output, which
-    is already in OLR space).
+    transform as
+    :class:`~earth2studio.models.px.dlesym_v0_isccp_era5.DLESyMv0_ISCCP_ERA5`
+    before the forward pass. This allows the diagnostic to run standalone
+    from an ERA5 initial condition. When ``use_ttr=False``, supply
+    pre-transformed ``rlut`` directly -- use this when chaining off
+    :class:`~earth2studio.models.px.DLESyMv0_ISCCP_ERA5` output, which is
+    already in OLR space.
 
     Parameters
     ----------
@@ -127,7 +124,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global class:s2s product:precip year:2024 gpu:40gb
+    region:global class:cm product:precip year:2024 gpu:40gb
     """
 
     def __init__(
@@ -270,22 +267,9 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default upstream-DLESyM precip package.
-
-        Pulls the package path from the ``DLESYM_UW_PACKAGE_PATH`` environment
-        variable (the same package that holds the prognostic checkpoints).
-        """
-        pkg_path = os.environ.get(_DLESYM_V0_ISCCP_ERA5_PACKAGE_ENV)
-        if pkg_path is None:
-            raise FileNotFoundError(
-                f"{_DLESYM_V0_ISCCP_ERA5_PACKAGE_ENV} is not set. The upstream DLESyM "
-                "checkpoints are not yet published to HuggingFace; build the "
-                "package locally with `python tools/convert_dlesym_upstream.py "
-                "--upstream-dir <clone> --out-dir <path>` and set "
-                f"{_DLESYM_V0_ISCCP_ERA5_PACKAGE_ENV} to <path>."
-            )
+        """Default DLESyMv0_ISCCP_ERA5 precip package on HuggingFace."""
         return Package(
-            pkg_path,
+            "hf://nvidia/dlesym-v0-isccp-era5@924b2d62644ef61289dd960e018f60d6e067bfca",
             cache_options={
                 "cache_storage": Package.default_cache("dlesym_v0_isccp_era5"),
                 "same_names": True,
@@ -300,7 +284,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
         model_idx: int = 0,
         use_ttr: bool = True,
     ) -> DiagnosticModel:
-        """Load the upstream precip diagnostic from a package.
+        """Load the DLESyMv0_ISCCP_ERA5 precip diagnostic from a package.
 
         Parameters
         ----------

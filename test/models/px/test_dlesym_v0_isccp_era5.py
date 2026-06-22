@@ -495,3 +495,92 @@ def test_dlesym_v0_isccp_era5_latlon_iterator(device, batch_size):
         )
         assert "rlut" in list(coords["variable"])
         assert np.all(coords["lead_time"] == _ATMOS_OUTPUT_TIMES + coupler_step * i)
+
+
+@pytest.mark.package
+@pytest.mark.parametrize("device", ["cuda:0"])
+def test_dlesym_v0_isccp_era5_package(device):
+    """Load the real HuggingFace package and run one coupled forward step on HEALPix."""
+    torch.cuda.empty_cache()
+    package = DLESyMv0_ISCCP_ERA5.load_default_package()
+    model = DLESyMv0_ISCCP_ERA5.load_model(package).to(device)
+
+    nside = model.nside
+    batch_size = 1
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    in_coords = model.input_coords()
+    in_coords["batch"] = np.arange(batch_size)
+    in_coords["time"] = time
+
+    x = torch.randn(
+        batch_size,
+        len(time),
+        len(in_coords["lead_time"]),
+        len(in_coords["variable"]),
+        12,
+        nside,
+        nside,
+        device=device,
+    )
+
+    out, out_coords = model(x, in_coords)
+    expected_coords = model.output_coords(in_coords)
+
+    n_vars = len(in_coords["variable"])
+    assert out.shape == (
+        batch_size,
+        len(time),
+        len(_ATMOS_OUTPUT_TIMES),
+        n_vars,
+        12,
+        nside,
+        nside,
+    )
+    assert "rlut" in list(out_coords["variable"])
+    assert "ttr" not in list(out_coords["variable"])
+    for key in out_coords:
+        handshake_coords(out_coords, expected_coords, key)
+
+
+@pytest.mark.package
+@pytest.mark.parametrize("device", ["cuda:0"])
+def test_dlesym_v0_isccp_era5_latlon_package(device):
+    """Load the real HuggingFace package and run one coupled forward step on lat/lon."""
+    torch.cuda.empty_cache()
+    package = DLESyMv0_ISCCP_ERA5LatLon.load_default_package()
+    model = DLESyMv0_ISCCP_ERA5LatLon.load_model(package).to(device)
+
+    batch_size = 1
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    in_coords = model.input_coords()
+    in_coords["batch"] = np.arange(batch_size)
+    in_coords["time"] = time
+
+    nlat = len(in_coords["lat"])
+    nlon = len(in_coords["lon"])
+    x = torch.randn(
+        batch_size,
+        len(time),
+        len(in_coords["lead_time"]),
+        len(in_coords["variable"]),
+        nlat,
+        nlon,
+        device=device,
+    )
+
+    out, out_coords = model(x, in_coords)
+    expected_coords = model.output_coords(in_coords)
+
+    n_out_vars = len(out_coords["variable"])
+    assert out.shape == (
+        batch_size,
+        len(time),
+        len(_ATMOS_OUTPUT_TIMES),
+        n_out_vars,
+        nlat,
+        nlon,
+    )
+    assert "rlut" in list(out_coords["variable"])
+    assert "ttr" not in list(out_coords["variable"])
+    for key in out_coords:
+        handshake_coords(out_coords, expected_coords, key)

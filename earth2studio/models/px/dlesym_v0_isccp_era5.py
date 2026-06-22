@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from collections.abc import Generator, Iterator
 from pathlib import Path
 from typing import Any
@@ -48,9 +47,6 @@ _TTR_CLIM_FILE = "era5_ttr_doy_stats_hpx64.nc"
 _OLR_CLIM_FILE = "isccp_olr_doy_stats_hpx64.nc"
 _TTR_CLIM_VARS = ("ttr1h_mean", "ttr1h_std")
 _OLR_CLIM_VARS = ("olr_mean", "olr_std")
-
-
-_DLESYM_V0_ISCCP_ERA5_PACKAGE_ENV = "DLESYM_V0_ISCCP_ERA5_PACKAGE_PATH"
 
 
 def apply_ttr_to_olr(
@@ -143,27 +139,34 @@ def _load_clim_nc(
 
 @check_optional_dependencies()
 class DLESyMv0_ISCCP_ERA5(DLESyM):
-    """DLESyM upstream (University of Washington) prognostic model.
+    """DLESyMv0_ISCCP_ERA5 prognostic model for climate-timescale rollouts.
 
-    This wrapper loads the atmosphere + ocean checkpoints distributed by
+    This model packages the atmosphere and ocean checkpoints distributed by
     `AtmosSci-DLESM/DLESyM <https://github.com/AtmosSci-DLESM/DLESyM>`_ (the
-    University of Washington group that authored Cresswell-Clay et al. 2024)
-    and exposes them via the same coupled-rollout interface as
-    :class:`~earth2studio.models.px.dlesym.DLESyM`. The architecture is
-    identical -- both use ``physicsnemo.models.dlwp_healpix`` -- but the
-    upstream models carry a different variable set (9 atmos variables
-    including outgoing longwave radiation, 3-variable ocean coupling) and were
-    trained on ISCCP-distributed OLR rather than ERA5 TTR.
+    University of Washington group, Cresswell-Clay et al. 2024). It is
+    designed and validated for multi-decadal to millennial climate
+    integration (100–1000 year rollouts), as demonstrated in the original
+    paper. This distinguishes it from
+    :class:`~earth2studio.models.px.DLESyM` (``DLESyM-V1-ERA5``), which was
+    optimised for subseasonal-to-seasonal (S2S) ensemble forecasting over
+    lead times of days to weeks.
 
-    When ``use_ttr=True`` (default), the wrapper accepts ERA5 ``ttr`` directly
-    and applies the upstream team's per-day-of-year moment-matching transform
-    to convert it to ISCCP-distributed OLR before the forward pass. The
+    The architecture is similar to
+    :class:`~earth2studio.models.px.DLESyM` -- both use
+    ``physicsnemo.models.dlwp_healpix`` on a HEALPix ``nside=64``
+    (≈ 1°) grid with coupled atmosphere/ocean rollout -- but the upstream
+    checkpoints carry a different variable set (9 atmospheric variables
+    including outgoing longwave radiation trained on ISCCP-distributed OLR,
+    and a 3-variable ocean coupling) rather than ERA5 TTR.
+
+    When ``use_ttr=True`` (default), the wrapper accepts ERA5 ``ttr`` and
+    applies the upstream team's per-day-of-year moment-matching transform to
+    convert it to ISCCP-distributed OLR before the forward pass. The
     transform requires bundled climatology netCDFs
     (``era5_ttr_doy_stats_hpx64.nc`` with ``ttr1h_mean`` / ``ttr1h_std`` and
     ``isccp_olr_doy_stats_hpx64.nc`` with ``olr_mean`` / ``olr_std``) inside
     the model package, each indexed by ``(dayofyear, face, height, width)``.
-    When ``use_ttr=False``, the wrapper expects pre-transformed OLR
-    (``rlut``) directly.
+    When ``use_ttr=False``, supply pre-transformed OLR (``rlut``) directly.
 
     Parameters
     ----------
@@ -206,7 +209,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
 
     Badges
     ------
-    region:global class:s2s product:wind product:temp product:atmos product:ocean year:2024
+    region:global class:cm product:wind product:temp product:atmos product:ocean year:2024
     gpu:40gb
     """
 
@@ -285,25 +288,9 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default upstream-DLESyM model package.
-
-        Pulls the package path from the ``DLESYM_UW_PACKAGE_PATH`` environment
-        variable. Until the upstream model is published to HuggingFace,
-        users must build the package locally via
-        ``tools/convert_dlesym_upstream.py`` and point this variable at the
-        resulting directory.
-        """
-        pkg_path = os.environ.get(_DLESYM_V0_ISCCP_ERA5_PACKAGE_ENV)
-        if pkg_path is None:
-            raise FileNotFoundError(
-                f"{_DLESYM_V0_ISCCP_ERA5_PACKAGE_ENV} is not set. The upstream DLESyM "
-                "checkpoints are not yet published to HuggingFace; build the "
-                "package locally with `python tools/convert_dlesym_upstream.py "
-                "--upstream-dir <clone> --out-dir <path>` and set "
-                f"{_DLESYM_V0_ISCCP_ERA5_PACKAGE_ENV} to <path>."
-            )
+        """Default DLESyMv0_ISCCP_ERA5 model package on HuggingFace."""
         return Package(
-            pkg_path,
+            "hf://nvidia/dlesym-v0-isccp-era5@924b2d62644ef61289dd960e018f60d6e067bfca",
             cache_options={
                 "cache_storage": Package.default_cache("dlesym_v0_isccp_era5"),
                 "same_names": True,
@@ -319,7 +306,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
         atmos_model_idx: int = 0,
         ocean_model_idx: int = 0,
     ) -> PrognosticModel:
-        """Load the upstream prognostic from a package.
+        """Load the DLESyMv0_ISCCP_ERA5 prognostic from a package.
 
         Parameters
         ----------
@@ -563,26 +550,26 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
 
 @check_optional_dependencies()
 class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
-    """Lat/lon variant of :class:`DLESyMv0_ISCCP_ERA5`.
+    """Lat/lon convenience wrapper for :class:`DLESyMv0_ISCCP_ERA5`.
 
-    Combines the upstream (University of Washington) DLESyM checkpoints with the
-    lat/lon regridding interface of
-    :class:`~earth2studio.models.px.dlesym.DLESyMLatLon`. Inputs are accepted on
-    the equiangular lat/lon grid (so any ERA5-compatible
-    :class:`~earth2studio.data.DataSource` works directly), regridded to the
-    HEALPix ``nside=64`` grid internally, and the outputs are regridded back to
-    lat/lon before being returned. This is the recommended entry point for most
-    users of the upstream checkpoints.
+    Combines the DLESyMv0_ISCCP_ERA5 climate checkpoints (see
+    :class:`DLESyMv0_ISCCP_ERA5`) with the lat/lon regridding interface of
+    :class:`~earth2studio.models.px.dlesym.DLESyMLatLon`. Inputs are accepted
+    on the equiangular lat/lon grid (so any ERA5-compatible
+    :class:`~earth2studio.data.DataSource` works directly), regridded to
+    HEALPix ``nside=64`` internally, and the outputs are regridded back to
+    lat/lon before being returned. This is the recommended entry point for
+    most users of the upstream checkpoints, including climate-timescale
+    rollouts.
 
     Like :class:`DLESyMv0_ISCCP_ERA5`, when ``use_ttr=True`` (default) the
     wrapper advertises ERA5 ``ttr`` as the radiative input variable and applies
-    the per-day-of-year moment-matching TTR -> OLR transform internally. Because
-    the transform's climatologies are defined on the HEALPix grid, it is applied
-    *after* the input has been regridded to HEALPix (and only to the initial
-    condition; subsequent rollout steps reuse the model's own OLR output). The
-    derived variables (``ws10m`` from ``u10m``/``v10m`` and ``tau300-700`` from
-    ``z300``/``z700``) and the SST NaN-interpolation are handled identically to
-    :class:`~earth2studio.models.px.dlesym.DLESyMLatLon`.
+    the per-day-of-year moment-matching TTR -> OLR transform internally. The
+    transform is applied *after* the initial condition is regridded to HEALPix;
+    subsequent rollout steps reuse the model's own OLR output, so it is only
+    applied once. Derived variables (``ws10m`` from ``u10m``/``v10m`` and
+    ``tau300-700`` from ``z300``/``z700``) and SST NaN-interpolation are
+    handled identically to :class:`~earth2studio.models.px.dlesym.DLESyMLatLon`.
 
     Parameters
     ----------
@@ -615,7 +602,7 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
 
     Badges
     ------
-    region:global class:s2s product:wind product:temp product:atmos product:ocean year:2024
+    region:global class:cm product:wind product:temp product:atmos product:ocean year:2024
     gpu:40gb
     """
 
