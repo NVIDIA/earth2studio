@@ -110,7 +110,7 @@ def apply_ttr_to_olr(
     olr_mu = _gather(olr_clim_mean).unsqueeze(0).to(x.device)
     olr_sd = _gather(olr_clim_std).unsqueeze(0).to(x.device)
 
-    ttr_scaled = ((ttr - ttr_mu) / ttr_sd) * -1.0
+    ttr_scaled = ((ttr - ttr_mu) / ttr_sd.clamp(min=1e-8)) * -1.0
     olr = ttr_scaled * olr_sd + olr_mu
     olr = olr.clamp_min(olr_floor).to(x.dtype)
 
