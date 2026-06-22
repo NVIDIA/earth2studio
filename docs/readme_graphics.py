@@ -17,8 +17,9 @@
 """Generate CSS-based HTML artboard graphics for the Earth2Studio README.
 
 This script produces a set of HTML artboards (hero banner, quickstart video,
-data sources diagram, model zoo overview, and composability pipeline graphic)
-along with a shared CSS stylesheet, a review page, and a JSON manifest.
+agent setup banner, data sources diagram, model zoo overview, and composability
+pipeline graphic) along with a shared CSS stylesheet, a review page, and a JSON
+manifest.
 
 Optionally, it can export high-resolution PNG screenshots of each artboard
 using a headless Chromium-based browser (Chrome, Chromium, or Edge).
@@ -52,7 +53,7 @@ OUT_DIR = ROOT / "outputs" / "earth2studio-readme-graphics-css"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 W, H = 1600, 460
-ASSET_VERSION = "typography-v96"
+ASSET_VERSION = "agent-setup-v98"
 EXPORT_SCALE = 2
 
 # Browser executable names to search on PATH (cross-platform)
@@ -804,6 +805,141 @@ body {
   box-shadow: var(--box-glow-soft);
 }
 
+.agent-setup-flow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 690px minmax(0, 1fr);
+  gap: 28px;
+  margin-top: 22px;
+}
+
+.agent-terminal {
+  min-height: 232px;
+  padding: 18px 20px;
+  border: 1px solid color-mix(in srgb, var(--signal-cyan) 86%, var(--box-border));
+  border-radius: var(--radius-card);
+  background: linear-gradient(180deg, rgba(5, 18, 16, .96), rgba(7, 15, 10, .96));
+  box-shadow: var(--box-glow), inset 0 0 0 1px rgba(22, 199, 199, .12);
+}
+
+.agent-terminal-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.agent-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--signal-green);
+}
+
+.agent-dot:nth-child(2) { background: var(--signal-cyan); }
+.agent-dot:nth-child(3) { background: var(--signal-gold); }
+
+.agent-terminal-title {
+  margin-left: 8px;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.agent-line {
+  --chars: 60;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 13.8px;
+  line-height: 1.68;
+  font-weight: 700;
+}
+
+.agent-line .cmd { color: var(--signal-green); }
+.agent-line .ready { color: var(--signal-gold); }
+
+.agent-cursor {
+  display: inline-block;
+  width: 9px;
+  height: 19px;
+  margin-left: 4px;
+  vertical-align: -4px;
+  background: var(--signal-green);
+}
+
+.agent-skill-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.agent-skill-card {
+  min-width: 0;
+  min-height: 232px;
+  padding: 18px;
+  border: 1px solid var(--accent);
+  border-top: 5px solid var(--accent);
+  border-radius: var(--radius-card);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 13%, transparent), transparent 56%),
+    var(--card-glass);
+  box-shadow: var(--box-glow);
+}
+
+.agent-skill-card .label {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.1;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.agent-skill-card h3 {
+  margin: 14px 0 0;
+  color: var(--foreground);
+  font-size: 25px;
+  line-height: 1.08;
+  font-weight: 820;
+}
+
+.agent-skill-card p {
+  margin: 9px 0 0;
+  color: var(--ink-soft);
+  font-size: 15.5px;
+  line-height: 1.28;
+  font-weight: 660;
+}
+
+.agent-examples {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-examples li {
+  min-width: 0;
+  padding: 6px 9px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  border-radius: 999px;
+  background: var(--secondary-glass);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .observing-system {
   position: relative;
   height: 184px;
@@ -1276,6 +1412,84 @@ def quickstart_video() -> str:
     )
 
 
+def agent_setup() -> str:
+    """Build the agentic setup artboard showing install and workflow skills."""
+    commands = [
+        ("earth2studio-install", "58", ".15s"),
+        ("earth2studio-discover", "59", "1.55s"),
+        ("earth2studio-data-fetch", "59", "2.95s"),
+        ("earth2studio-deterministic-forecast", "72", "4.35s"),
+    ]
+    command_lines = "\n".join(
+        f"""
+        <span class="agent-line" style="--chars: {chars}; animation-delay: {delay}">
+          <span class="cmd">$</span> npx skills add NVIDIA/skills --skill {esc(skill)}
+        </span>"""
+        for skill, chars, delay in commands
+    )
+    skill_cards = [
+        (
+            "earth2studio-discover",
+            "Discover",
+            "Ask an agent to recommend data, models, IO, and docs for your workflow.",
+            ["find a forecast recipe", "compare data sources"],
+            "--signal-cyan",
+        ),
+        (
+            "earth2studio-install",
+            "Install",
+            "Automate environment setup and model-specific package guidance.",
+            ["setup Earth2Studio", "install model deps"],
+            "--signal-green",
+        ),
+        (
+            "deterministic forecast",
+            "Run",
+            "Run a first forecast with a data source, model, and Zarr store.",
+            ["GFS -> FourCastNet3", "write Zarr output"],
+            "--signal-gold",
+        ),
+    ]
+    cards = []
+    for label, title, body, examples, accent in skill_cards:
+        chips = "".join(f"<li>{esc(example)}</li>" for example in examples)
+        cards.append(
+            f"""
+        <article class="agent-skill-card" style="--accent: var({accent})">
+          <div class="label">{esc(label)}</div>
+          <h3>{esc(title)}</h3>
+          <p>{esc(body)}</p>
+          <ul class="agent-examples">{chips}</ul>
+        </article>"""
+        )
+
+    return layout_page(
+        "Earth2Studio agentic setup",
+        header(
+            "Agent setup",
+            "Agentic Earth2Studio setup",
+            "Use NVIDIA skills to automate setup, discover workflows, and launch a first forecast.",
+            "agent-ready setup",
+        )
+        + f"""
+    <section class="agent-setup-flow">
+      <div class="agent-terminal">
+        <div class="agent-terminal-top">
+          <span class="agent-dot"></span><span class="agent-dot"></span><span class="agent-dot"></span>
+          <span class="agent-terminal-title">install commands</span>
+        </div>
+{command_lines}
+        <span class="agent-line" style="--chars: 39; animation-delay: 5.85s">
+          <span class="ready">ready&gt;</span> Earth2Studio skills installed<span class="agent-cursor"></span>
+        </span>
+      </div>
+      <div class="agent-skill-grid">
+        {"".join(cards)}
+      </div>
+    </section>""",
+    )
+
+
 def datasource() -> str:
     """Build the data sources artboard illustrating observing systems and data APIs."""
     source_lanes = [
@@ -1563,6 +1777,7 @@ def composability() -> str:
 PAGES = {
     "earth2studio-readme-hero": hero,
     "earth2studio-readme-quickstart-video": quickstart_video,
+    "earth2studio-readme-agent-setup": agent_setup,
     "earth2studio-readme-data-sources": datasource,
     "earth2studio-readme-model-zoo": model_zoo,
     "earth2studio-readme-composability": composability,
@@ -1613,6 +1828,7 @@ def export_pngs() -> None:
                 "--disable-gpu",
                 "--hide-scrollbars",
                 "--default-background-color=00000000",
+                "--virtual-time-budget=9000",
                 f"--force-device-scale-factor={EXPORT_SCALE}",
                 f"--window-size={W},{H}",
                 f"--screenshot={png_path}",

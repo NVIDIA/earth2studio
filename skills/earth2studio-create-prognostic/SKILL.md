@@ -20,6 +20,7 @@ argument-hint: URL or local path to reference inference script (optional)
 - [ ] Create `earth2studio/models/px/<name>.py` with triple inheritance
 - [ ] Create `test/models/px/test_<name>.py` with mock tests
 - [ ] Run: `uv run pytest test/models/px/test_<name>.py -v`
+- [ ] Add/update model extra, install docs, API docs, and changelog (Steps 1-2, 9)
 - [ ] Run: `make format && make lint`
 
 > **⚠️ CRITICAL:** Always use `uv run` for Python commands:
@@ -69,16 +70,21 @@ If `$ARGUMENTS` provided, use it. Otherwise ask:
 
 Analyze: packages, architecture, I/O shapes, time step, resolution, checkpoint.
 
-Propose `pyproject.toml` group (alphabetical, add to `all`):
+Propose `pyproject.toml` group (alphabetical, add to `all`). Every
+prognostic model must have an optional dependency extra, even when no packages
+are required:
 ```toml
 model-name = ["package1>=version", "package2"]
+# or, when no additional packages are required:
+model-name = []
 ```
 
 **[CONFIRM]** Present dependencies and ask user to approve.
 
 ### Step 2 — Add Dependencies
 
-Edit `pyproject.toml`: add group alphabetically, update `all` aggregate.
+Edit `pyproject.toml`: add the model extra alphabetically, even if it is
+empty, and update the `all` aggregate.
 
 ### Step 3 — Create Model File
 
@@ -120,11 +126,12 @@ from loguru import logger
 - `batch`: `np.empty(0)`
 - `time`: `np.empty(0)` (dynamic)
 - `lead_time`: starts at `np.timedelta64(0, "h")`
-- `lat`: 90 to -90 (north to south)
+- `lat`: 90 to -90 (north to south); this is the public Earth2Studio convention even if the source model uses the opposite order
 - `lon`: 0 to 360
+- If a checkpoint/model core expects south-to-north latitude, flip tensors internally before/after the core model; do not expose flipped latitude in `input_coords` or `output_coords`
 - Map variables to `E2STUDIO_VOCAB` (282 entries in `earth2studio/lexicon/base.py`)
 
-**output_coords:** Use `handshake_dim`/`handshake_coords`, increment `lead_time`.
+**output_coords:** Use `handshake_dim`/`handshake_coords` for input validation, then increment `lead_time`. Prefer a shared coordinate-check helper and call it from `output_coords`, `__call__`, and iterator setup before model execution.
 
 ### Step 5 — Implement Forward Pass
 
@@ -158,7 +165,12 @@ Create `PhooModelName` dummy matching interface for mock tests.
 **Run tests:**
 ```bash
 uv run pytest test/models/px/test_<name>.py -m "not package" -v
+uv run pytest test/models/px/test_<name>.py::test_<model>_package --package -v
 ```
+
+Do not omit the package test. If arbitrary random inputs are not physically
+valid for the real checkpoint, use a stable model-appropriate synthetic input
+while still loading real weights and running a forward pass.
 
 ### Step 8 — Register Model (if requested)
 
@@ -167,29 +179,40 @@ uv run pytest test/models/px/test_<name>.py -m "not package" -v
 
 ### Step 9 — Documentation
 
-- Add to `docs/modules/models_px.rst` (alphabetical)
-- Add to `docs/userguide/about/install.md` (alphabetical, tab)
-- Update `CHANGELOG.md` under `### Added`
+- Add to `docs/modules/models_px.rst` (alphabetical). This is required for
+  every new prognostic model so the API docs include the generated page.
+- Add to `docs/userguide/about/install.md` (alphabetical tab) for the
+  model extra, even when the extra is empty. Include model-specific notes plus
+  both `pip install earth2studio[model-name]` and
+  `uv add earth2studio --extra model-name` instructions.
+- Update `CHANGELOG.md` under `### Added`. This is required for every new
+  prognostic model.
 
 **Format and lint:**
 ```bash
 make format && make lint && make license
 ```
 
-### Step 10 — Validation (if requested)
+### Step 10 - Validation (if requested)
 
-Create comparison scripts (do NOT commit):
-1. `reference_<model>_vanilla.py` — third-party inference
-2. `reference_<model>_e2s.py` — E2S wrapper inference
-3. `reference_<model>_compare.py` — numerical comparison
+Follow `references/validation-guide.md`. Create uncommitted vanilla, E2S,
+comparison, and sanity-check scripts; do not commit generated outputs or images.
+Use PR-safe placeholders for plots so the user can upload images manually.
 
 **[CONFIRM]** User must visually inspect plots before proceeding.
 
-### Step 11 — PR (if requested)
+### Step 11 - PR (if requested)
 
-1. Branch: `feat/prognostic-model-<name>`
-2. Commit (exclude comparison scripts)
-3. `gh pr create --repo NVIDIA/earth2studio`
+Follow `references/validation-guide.md` and use:
+- `references/pr-body-template.md`
+- `references/pr-comment-template.md`
+
+Before creating the PR, verify `pyproject.toml` has the model extra, the
+`all` extra includes it, install docs include both pip and uv commands, and
+`docs/modules/models_px.rst` plus `CHANGELOG.md` are updated.
+
+Do not include machine names, absolute paths, device inventory, or uploaded image
+links in PR text. Use plot placeholders instead.
 
 ---
 
@@ -225,6 +248,7 @@ def input_coords(self) -> CoordSystem:
         "time": np.empty(0),
         "lead_time": np.array([np.timedelta64(0, "h")]),
         "variable": np.array(["t2m", "u10m", ...]),
+        # Public Earth2Studio convention is north-to-south latitude.
         "lat": np.linspace(90, -90, 181),
         "lon": np.linspace(0, 359, 360),
     })
