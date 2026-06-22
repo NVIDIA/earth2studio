@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed ARCO data source `ARCO_TIME_STOP` fallback to 2025-12-31,
   reflecting the most recent available data in the bucket
+- Fixed `ZarrBackend` chunk metadata reload to skip coordinate arrays when reopening Zarr stores.
 
 ### Security
 
