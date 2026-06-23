@@ -43,7 +43,10 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.imports import OptionalDependencyFailure, check_optional_dependencies
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import CoordSystem
 
 # Optional dependency pattern for packaged diagnostics. Replace this block with
