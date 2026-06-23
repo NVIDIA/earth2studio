@@ -319,6 +319,60 @@ def test_zarr_file(overwrite: bool, device: str, tmp_path: str) -> None:
             z.add_array(total_coords, array_name, data=dummy)
 
 
+def test_zarr_reopen_skips_coordinate_arrays_when_loading_chunks(
+    tmp_path: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lat = np.arange(4)
+    lon = np.arange(6)
+    file_name = tmp_path / "chunks.zarr"
+    root = zarr.group(zarr.storage.LocalStore(file_name), overwrite=True)
+
+    root.create_array(
+        "lat",
+        shape=lat.shape,
+        chunks=lat.shape,
+        dtype=lat.dtype,
+        dimension_names=["lat"],
+    )
+    root["lat"][:] = lat
+    root.create_array(
+        "fields",
+        shape=(len(lat), len(lon)),
+        chunks=(2, 3),
+        dtype="float32",
+        dimension_names=["lat", "lon"],
+    )
+    root.create_array(
+        "lon",
+        shape=lon.shape,
+        chunks=lon.shape,
+        dtype=lon.dtype,
+        dimension_names=["lon"],
+    )
+    root["lon"][:] = lon
+
+    root_type = type(root)
+    original_iter = root_type.__iter__
+
+    def iter_coords_first(group: zarr.Group):
+        names = list(original_iter(group))
+        ordered_names = ["lat", "fields", "lon"]
+        if set(ordered_names).issubset(names):
+            return iter(
+                ordered_names + [name for name in names if name not in ordered_names]
+            )
+        return iter(names)
+
+    monkeypatch.setattr(root_type, "__iter__", iter_coords_first)
+    assert list(root)[:3] == ["lat", "fields", "lon"]
+
+    z = ZarrBackend(file_name)
+
+    assert z.chunks["lat"] == 2
+    assert z.chunks["lon"] == 3
+
+
 @pytest.mark.parametrize(
     "time",
     [
