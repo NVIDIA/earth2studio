@@ -17,8 +17,8 @@
 """Testing guide for diagnostic model wrappers.
 
 Copy the relevant patterns into `test/models/dx/test_<model_name>.py` and
-replace helper placeholders before running tests. Do not leave skipped,
-placeholder, or NotImplementedError tests in submitted model tests.
+replace helper placeholders before running tests. Generated tests should be
+executable: do not leave skipped, placeholder, or NotImplementedError tests.
 
 Required standard tests:
 1. `test_<model>_call` for a mock or simple forward pass.

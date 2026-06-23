@@ -15,7 +15,11 @@ argument-hint: URL or local path to reference inference script (optional)
 
 ## Quick Start Checklist
 
-Do these steps in order. Do not skip ahead.
+Do these steps in order. Do not skip ahead. Before editing, read this
+SKILL.md and load the relevant reference files for the model type. After
+implementation, run the focused pytest command before saying tests pass. If
+tests cannot run, report the exact command and failure instead of claiming
+success.
 
 - [ ] Read this SKILL.md completely first
 - [ ] Get the reference script, repo, paper, or model documentation (Step 0)
