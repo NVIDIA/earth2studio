@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache 2.0 <br>
 ## Use Case: <br>
-Developers and engineers implementing diagnostic model wrappers that connect third-party or derived ML transforms to the Earth2Studio framework for single-step data transformations. <br>
+Developers and engineers building AI-driven weather and climate models use this skill to implement diagnostic model wrappers that connect third-party or derived ML transforms to the Earth2Studio framework. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>
@@ -19,27 +19,28 @@ Risk: Review before execution as proposals could introduce incorrect or misleadi
 Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
-- [Skeleton Template](references/skeleton-template.py) <br>
-- [Method Templates](references/method-templates.py) <br>
-- [Testing Guide](references/testing-guide.py) <br>
-- [Validation Guide](references/validation-guide.md) <br>
-- [Earth2Studio Diagnostic Models Documentation](https://github.com/NVIDIA/earth2studio) <br>
+- [skeleton-template.py](references/skeleton-template.py) <br>
+- [method-templates.py](references/method-templates.py) <br>
+- [testing-guide.py](references/testing-guide.py) <br>
+- [validation-guide.md](references/validation-guide.md) <br>
+- [pr-body-template.md](references/pr-body-template.md) <br>
+- [pr-comment-template.md](references/pr-comment-template.md) <br>
 
 
 ## Skill Output: <br>
-**Output Type(s):** [Code, Files, Shell commands] <br>
-**Output Format:** [Python source files with inline shell commands] <br>
+**Output Type(s):** [Code, Shell commands] <br>
+**Output Format:** [Python source files with inline bash commands] <br>
 **Output Parameters:** [1D] <br>
 **Other Properties Related to Output:** [None] <br>
 
 ## Evaluation Agents Used: <br>
-- `claude-code` <br>
-- `codex` <br>
+- claude-code <br>
+- codex <br>
 
 
 
 ## Evaluation Tasks: <br>
-Evaluated against 3 evaluation tasks (3 positive skill-activation cases) via NVSkills-Eval external profile in astra-sandbox environment. <br>
+Evaluated against 3 internal skill evaluation tasks via NVSkills-Eval (external profile). <br>
 
 ## Evaluation Metrics Used: <br>
 Reported benchmark dimensions: <br>
@@ -63,11 +64,11 @@ Underlying evaluation signals used in this run: <br>
 ## Evaluation Results: <br>
 | Dimension | Num | `claude-code` | `codex` |
 |---|---:|---:|---:|
-| Security | 3 | 100% (+0%) | 100% (+0%) |
-| Correctness | 3 | 88% (+9%) | 54% (+15%) |
-| Discoverability | 3 | 81% (+5%) | 61% (-11%) |
-| Effectiveness | 3 | 92% (+43%) | 27% (+18%) |
-| Efficiency | 3 | 75% (+7%) | 57% (-24%) |
+| Security | 3 | 100% (+0%) | 83% (+33%) |
+| Correctness | 3 | 91% (+4%) | 63% (-9%) |
+| Discoverability | 3 | 83% (+3%) | 50% (+9%) |
+| Effectiveness | 3 | 89% (-0%) | 44% (-43%) |
+| Efficiency | 3 | 63% (-2%) | 40% (+5%) |
 
 ## Skill Version(s): <br>
 0.17.0 (source: frontmatter) <br>
