@@ -10,7 +10,7 @@ Closes: OPTIONAL_ISSUE
 | Property | Value |
 |---|---|
 | **Diagnostic type** | Simple derived / AutoModel / Generative |
-| **Architecture** | PyTorch / ONNX / JAX / other |
+| **Framework** | PyTorch / ONNX / JAX / other |
 | **Input variables** | N variables (brief groups or link to implementation) |
 | **Output variables** | N variables (brief groups or link to implementation) |
 | **Input spatial resolution** | X degree x Y degree (NxM grid) |

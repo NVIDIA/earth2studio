@@ -124,7 +124,7 @@ class PrecipEstimator(torch.nn.Module, AutoModelMixin):
             Model package with checkpoint files.
         """
         return Package(
-            "ngc://models/nvidia/modulus/precip_estimator@v1.0",
+            "hf://nvidia/precip-estimator@0123456789abcdef0123456789abcdef01234567",
             cache_options={
                 "cache_storage": Package.default_cache("precip_estimator"),
                 "same_names": True,

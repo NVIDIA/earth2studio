@@ -175,7 +175,8 @@ Canonical method order:
 8. Private/support methods
 9. `__call__` decorated with `@torch.inference_mode()` and `@batch_func()`
 
-Do not create shared base classes or broad abstractions for one model.
+Avoid shared base classes or broad abstractions unless the wrapper naturally has
+multiple closely related variants where a small base class reduces duplication.
 
 ### Step 4 - Implement Coordinates
 
@@ -348,7 +349,7 @@ Do not:
 - Inherit from `PrognosticMixin`.
 - Include `lead_time` coordinates.
 - Create `create_iterator`.
-- Create general base classes for one wrapper.
+- Create general base classes for a single wrapper without a clear multi-variant need.
 - Commit API keys, credentials, validation scripts, plots, or generated outputs.
 - Read from `evals/targets/`.
 
