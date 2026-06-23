@@ -27,7 +27,13 @@ harbor:
   n_concurrent: 4
   timeout_multiplier: 6.0
   pre_agent_setup:
-    - /usr/local/bin/e2s-eval-bootstrap
+    - >-
+      mkdir -p /logs/verifier /logs/agent /logs/artifacts &&
+      if [ -x /usr/local/bin/e2s-eval-bootstrap ]; then
+      /usr/local/bin/e2s-eval-bootstrap;
+      else
+      echo "e2s-eval-bootstrap not present; skipping optional repo bootstrap";
+      fi
 
 skill_workspace:
   mode: isolated

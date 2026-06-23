@@ -7,6 +7,8 @@
 
 set -euo pipefail
 
+mkdir -p /logs/verifier /logs/agent /logs/artifacts
+
 REPO_ROOT="${EARTH2STUDIO_ROOT:-/workspace/repo}"
 
 if [[ ! -f "${REPO_ROOT}/pyproject.toml" ]]; then
@@ -15,8 +17,6 @@ if [[ ! -f "${REPO_ROOT}/pyproject.toml" ]]; then
 fi
 
 cd "${REPO_ROOT}"
-
-mkdir -p /logs/verifier /logs/agent /logs/artifacts
 
 export UV_LINK_MODE=copy
 export UV_PYTHON=3.13
