@@ -19,7 +19,7 @@ ENV UV_PYTHON=3.13
 ENV EARTH2STUDIO_ROOT=/workspace/repo
 
 RUN mkdir -p /workspace/skills /workspace/input /workspace/output \
-    /logs/verifier /logs/agent
+    /logs/verifier /logs/agent /logs/artifacts
 
 # Install pytest globally as fallback (agents should use `uv run pytest` but this
 # prevents failures if they accidentally use system Python)

@@ -46,13 +46,6 @@ Implement a diagnostic model wrapper connecting third-party or derived ML
 transforms to Earth2Studio. Diagnostic models transform data at a single time
 point: input fields in, output fields out, no forecast integration.
 
-Diagnostic models are not prognostic models:
-
-- No `PrognosticMixin`
-- No `create_iterator`
-- No `lead_time` coordinate
-- No autoregressive stepping
-
 ## Prerequisites
 
 - Earth2Studio installed via `uv` with dev dependencies (`uv sync --all-extras`)

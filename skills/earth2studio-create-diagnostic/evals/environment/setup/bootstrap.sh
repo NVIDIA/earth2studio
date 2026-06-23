@@ -16,6 +16,8 @@ fi
 
 cd "${REPO_ROOT}"
 
+mkdir -p /logs/verifier /logs/agent /logs/artifacts
+
 export UV_LINK_MODE=copy
 export UV_PYTHON=3.13
 
