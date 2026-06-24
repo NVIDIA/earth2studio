@@ -116,13 +116,7 @@ def deterministic(
     for key, value in total_coords.items():
         total_coords[key] = output_coords.get(key, value)
     var_names = total_coords.pop("variable")
-    missing = list(var_names)
-    try:
-        missing = [name for name in var_names if name not in io]
-    except TypeError:
-        pass
-    if missing:
-        io.add_array(total_coords, missing)
+    io.add_array(total_coords, var_names)
 
     with checkpoint as ckpt:
         restart_step = None
@@ -272,13 +266,7 @@ def diagnostic(
     for key, value in total_coords.items():
         total_coords[key] = output_coords.get(key, value)
     var_names = total_coords.pop("variable")
-    missing = list(var_names)
-    try:
-        missing = [name for name in var_names if name not in io]
-    except TypeError:
-        pass
-    if missing:
-        io.add_array(total_coords, missing)
+    io.add_array(total_coords, var_names)
 
     with checkpoint as ckpt:
         restart_step = None
@@ -440,13 +428,7 @@ def ensemble(
     for key, value in total_coords.items():
         total_coords[key] = output_coords.get(key, value)
     variables_to_save = total_coords.pop("variable")
-    missing = list(variables_to_save)
-    try:
-        missing = [name for name in variables_to_save if name not in io]
-    except TypeError:
-        pass
-    if missing:
-        io.add_array(total_coords, missing)
+    io.add_array(total_coords, variables_to_save)
 
     if batch_size is None:
         batch_size = nensemble
