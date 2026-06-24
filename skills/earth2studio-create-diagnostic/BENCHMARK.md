@@ -7,9 +7,9 @@ This benchmark summarizes 3-Tier Evaluation from NVSkills-Eval results for the s
 ## Evaluation Summary
 
 - Skill: `earth2studio-create-diagnostic`
-- Evaluation date: 2026-06-23
+- Evaluation date: 2026-06-24
 - NVSkills-Eval profile: `external`
-- Environment: `local`
+- Environment: `astra-sandbox`
 - Dataset: 3 evaluation tasks
 - Attempts per task: 1
 - Pass threshold: 50%
@@ -54,11 +54,11 @@ Task composition is derived from the evaluation dataset when possible. Entries w
 
 | Dimension | Num | `claude-code` | `codex` |
 |---|---:|---:|---:|
-| Security | 3 | 100% (+0%) | 83% (+33%) |
-| Correctness | 3 | 91% (+4%) | 63% (-9%) |
-| Discoverability | 3 | 83% (+3%) | 50% (+9%) |
-| Effectiveness | 3 | 89% (-0%) | 44% (-43%) |
-| Efficiency | 3 | 63% (-2%) | 40% (+5%) |
+| Security | 3 | 100% (+0%) | 67% (-33%) |
+| Correctness | 3 | 88% (+7%) | 72% (+33%) |
+| Discoverability | 3 | 81% (+6%) | 61% (-1%) |
+| Effectiveness | 3 | 92% (+41%) | 60% (+49%) |
+| Efficiency | 3 | 76% (+10%) | 57% (-9%) |
 
 Score values show skill-assisted performance. Values in parentheses show uplift versus the no-skill baseline when baseline data is available.
 

@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache 2.0 <br>
 ## Use Case: <br>
-Developers and engineers building AI-driven weather and climate models use this skill to implement diagnostic model wrappers that connect third-party or derived ML transforms to the Earth2Studio framework. <br>
+Developers and engineers use this skill to implement diagnostic model wrappers connecting third-party or derived ML transforms to Earth2Studio for single-step data transformations. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>
@@ -23,24 +23,23 @@ Mitigation: Review and scan skill before deployment. <br>
 - [method-templates.py](references/method-templates.py) <br>
 - [testing-guide.py](references/testing-guide.py) <br>
 - [validation-guide.md](references/validation-guide.md) <br>
-- [pr-body-template.md](references/pr-body-template.md) <br>
-- [pr-comment-template.md](references/pr-comment-template.md) <br>
+- [Earth2Studio Diagnostic Models User Guide](docs/userguide/components/diagnostic.md) <br>
 
 
 ## Skill Output: <br>
-**Output Type(s):** [Code, Shell commands] <br>
-**Output Format:** [Python source files with inline bash commands] <br>
+**Output Type(s):** [Code, Shell commands, Files] <br>
+**Output Format:** [Python source files with inline shell commands] <br>
 **Output Parameters:** [1D] <br>
 **Other Properties Related to Output:** [None] <br>
 
 ## Evaluation Agents Used: <br>
-- claude-code <br>
-- codex <br>
+- `claude-code` <br>
+- `codex` <br>
 
 
 
 ## Evaluation Tasks: <br>
-Evaluated against 3 internal skill evaluation tasks via NVSkills-Eval (external profile). <br>
+Evaluated against 3 internal evaluation tasks with NVSkills-Eval external profile in astra-sandbox environment. <br>
 
 ## Evaluation Metrics Used: <br>
 Reported benchmark dimensions: <br>
@@ -64,11 +63,11 @@ Underlying evaluation signals used in this run: <br>
 ## Evaluation Results: <br>
 | Dimension | Num | `claude-code` | `codex` |
 |---|---:|---:|---:|
-| Security | 3 | 100% (+0%) | 83% (+33%) |
-| Correctness | 3 | 91% (+4%) | 63% (-9%) |
-| Discoverability | 3 | 83% (+3%) | 50% (+9%) |
-| Effectiveness | 3 | 89% (-0%) | 44% (-43%) |
-| Efficiency | 3 | 63% (-2%) | 40% (+5%) |
+| Security | 3 | 100% (+0%) | 67% (-33%) |
+| Correctness | 3 | 88% (+7%) | 72% (+33%) |
+| Discoverability | 3 | 81% (+6%) | 61% (-1%) |
+| Effectiveness | 3 | 92% (+41%) | 60% (+49%) |
+| Efficiency | 3 | 76% (+10%) | 57% (-9%) |
 
 ## Skill Version(s): <br>
 0.17.0 (source: frontmatter) <br>
