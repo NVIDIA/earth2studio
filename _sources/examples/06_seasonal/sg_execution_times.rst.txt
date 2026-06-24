@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:00.000** total execution time for 2 files **from examples/06_seasonal**:
+**00:00.000** total execution time for 3 files **from examples/06_seasonal**:
 
 .. container::
 
@@ -36,5 +36,8 @@ Computation times
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_06_seasonal_02_dlesym_example.py` (``02_dlesym_example.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_06_seasonal_03_dlesym_climate.py` (``03_dlesym_climate.py``)
      - 00:00.000
      - 0.0

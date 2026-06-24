@@ -52,6 +52,23 @@ prediction timescales of two weeks to two years.
     </div>
 
 
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Coupled inference with the upstream DLESyM checkpoints, including precipitation.">
+
+.. only:: html
+
+  .. image:: /examples/06_seasonal/images/thumb/sphx_glr_03_dlesym_climate_thumb.png
+    :alt:
+
+  :doc:`/examples/06_seasonal/03_dlesym_climate`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running the DLESyM ISCCP-ERA5 Model</div>
+    </div>
+
+
 .. thumbnail-parent-div-close
 
 .. raw:: html
@@ -64,4 +81,5 @@ prediction timescales of two weeks to two years.
 
    /examples/06_seasonal/01_seasonal_statistics
    /examples/06_seasonal/02_dlesym_example
+   /examples/06_seasonal/03_dlesym_climate
 
