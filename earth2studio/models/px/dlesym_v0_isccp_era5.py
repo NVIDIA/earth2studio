@@ -194,6 +194,11 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
 
     Note
     ----
+    For more information see:
+
+    - https://github.com/AtmosSci-DLESM/DLESyM
+    - https://arxiv.org/abs/2409.16247 (Cresswell-Clay et al. 2024)
+
     See :class:`~earth2studio.models.px.dlesym.DLESyM` for details on the
     coupled rollout, ``retrieve_valid_atmos_outputs`` /
     ``retrieve_valid_ocean_outputs``, and the HEALPix grid layout.
@@ -224,9 +229,12 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
         olr_floor: float = 0.0,
         **kwargs: Any,
     ):
+        # Set before super().__init__() because the parent __init__ calls
+        # self.input_coords(), which (via Python dispatch) hits this subclass's
+        # override and reads self.use_ttr.
+        self.use_ttr = use_ttr
         super().__init__(*args, **kwargs)
 
-        self.use_ttr = use_ttr
         self.olr_floor = float(olr_floor)
 
         # The upstream model variable space uses Earth2Studio's ``rlut`` (the
@@ -270,17 +278,9 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
             )
 
     def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model.
-
-        When ``use_ttr=True``, ``rlut`` in the model's atmos variable list is
-        replaced by ``ttr`` so that any ERA5-compatible
-        :class:`~earth2studio.data.DataSource` resolves the input cleanly.
-        """
+        """Input coordinate system of the prognostic model."""
         coords = super().input_coords()
-        # ``use_ttr`` is set after the parent __init__ chain runs, and the
-        # parent's __init__ calls ``self.input_coords()`` while computing
-        # variable indices. Default to False until the subclass finishes init.
-        if getattr(self, "use_ttr", False):
+        if self.use_ttr:
             variables = list(coords["variable"])
             variables[variables.index("rlut")] = "ttr"
             coords["variable"] = np.array(variables)
@@ -387,18 +387,8 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
         ttr_clim_mean = ttr_clim_std = None
         olr_clim_mean = olr_clim_std = None
         if use_ttr:
-            try:
-                ttr_path = Path(package.resolve(_TTR_CLIM_FILE))
-                olr_path = Path(package.resolve(_OLR_CLIM_FILE))
-            except Exception as e:
-                raise FileNotFoundError(
-                    f"use_ttr=True requires climatology files {_TTR_CLIM_FILE} "
-                    f"and {_OLR_CLIM_FILE} in the model package. They were not "
-                    "found. Either rebuild the package with the climatology "
-                    "netCDFs included, or pass `use_ttr=False` to disable the "
-                    "TTR->OLR transform (then supply ISCCP-distributed `rlut` "
-                    "directly to the model)."
-                ) from e
+            ttr_path = Path(package.resolve(_TTR_CLIM_FILE))
+            olr_path = Path(package.resolve(_OLR_CLIM_FILE))
             ttr_clim_mean, ttr_clim_std = _load_clim_nc(ttr_path, _TTR_CLIM_VARS)
             olr_clim_mean, olr_clim_std = _load_clim_nc(olr_path, _OLR_CLIM_VARS)
 

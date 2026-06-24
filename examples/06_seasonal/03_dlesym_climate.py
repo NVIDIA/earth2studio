@@ -16,8 +16,8 @@
 
 # %%
 """
-Running Upstream DLESyM (Cresswell-Clay et al. 2024)
-====================================================
+Running the DLESyM ISCCP-ERA5 Model
+===================================
 
 Coupled inference with the upstream DLESyM checkpoints, including precipitation.
 
@@ -64,11 +64,6 @@ In this example you will learn:
 #   HEALPix inputs, handling the regridding and derived-variable preparation
 #   yourself (see the base DLESyM example for that lower-level pattern).
 #
-# The upstream checkpoints are published to HuggingFace at
-# ``nvidia/dlesym-v0-isccp-era5`` and are downloaded automatically by
-# :py:meth:`~earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon.load_default_package`.
-# You can override the download with the ``DLESYM_V0_ISCCP_ERA5_PACKAGE_PATH``
-# environment variable to point at a locally-built package instead.
 
 # %%
 import os
@@ -136,14 +131,6 @@ x, coords = fetch_data(
     device=device,
 )
 
-# ``fetch_data`` returns data without a batch dimension. Add an explicit leading
-# batch axis so the coupled outputs keep a ``(batch, time, lead_time, variable,
-# ...)`` layout, which makes the indexing below unambiguous.
-x = x[None]
-coords = coords.copy()
-coords["batch"] = np.array([0])
-coords.move_to_end("batch", last=False)
-
 # Run a single coupled step (lat/lon in, lat/lon out)
 y, y_coords = model(x, coords)
 
@@ -207,7 +194,7 @@ var_order = [y_vars.index(v) for v in precip_vars]
 
 # Last two atmosphere lead times form the [-6h, 0h] window relative to the
 # diagnosed valid time; relative spacing is what the diagnostic validates.
-precip_in = y[:, :, -2:][:, :, :, var_order]
+precip_in = y[:, -2:][:, :, var_order]
 precip_coords = y_coords.copy()
 precip_coords["lead_time"] = y_coords["lead_time"][-2:]
 precip_coords["variable"] = np.array(precip_vars)
@@ -254,7 +241,7 @@ atmos_lead = y_atmos_coords["lead_time"][-1]
 im = axs[0].pcolormesh(
     lon,
     lat,
-    y_atmos[0, 0, -1, atmos_idx].cpu().numpy(),
+    y_atmos[0, -1, atmos_idx].cpu().numpy(),
     transform=ccrs.PlateCarree(),
     cmap="cividis",
 )
@@ -269,7 +256,7 @@ ocean_lead = y_ocean_coords["lead_time"][-1]
 im = axs[1].pcolormesh(
     lon,
     lat,
-    y_ocean[0, 0, -1, ocean_idx].cpu().numpy(),
+    y_ocean[0, -1, ocean_idx].cpu().numpy(),
     transform=ccrs.PlateCarree(),
     cmap="Spectral_r",
 )
@@ -286,7 +273,7 @@ cbar.set_label(f"{ocean_var} [{ocean_units}]")
 # grid-scale outliers, and an auto-scaled norm would chase those and wash out
 # the real field. Values are clipped into the window for display only.
 precip_lead = tp_coords["lead_time"][-1]
-precip_field = np.clip(tp_ll[0, 0, 0, 0].cpu().numpy(), 0.0, None)
+precip_field = np.clip(tp_ll[0, 0, 0].cpu().numpy(), 0.0, None)
 vmin, vmax = 1e-4, 5e-2  # metres of accumulated precip over 6 h
 im = axs[2].pcolormesh(
     lon,
@@ -304,4 +291,4 @@ cbar.set_label("tp06 [m] (log scale)")
 
 plt.suptitle(f"Upstream DLESyM forecast - Initialization: {ic_date}")
 plt.tight_layout()
-plt.savefig("outputs/15_dlesym_v0_isccp_era5_prediction.png")
+plt.savefig("outputs/03_dlesym_climate_prediction.png")

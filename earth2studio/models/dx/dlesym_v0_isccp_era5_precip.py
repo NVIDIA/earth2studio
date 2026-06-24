@@ -19,18 +19,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.px.dlesym_v0_isccp_era5 import (
-    _OLR_CLIM_FILE,
-    _OLR_CLIM_VARS,
-    _TTR_CLIM_FILE,
-    _TTR_CLIM_VARS,
-    _load_clim_nc,
-    apply_ttr_to_olr,
-)
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -47,6 +40,102 @@ except ImportError:
     Module = None
     OmegaConf = None
     insolation = None
+
+
+# Climatology file names + the (mean, std) data-variable names inside each
+# netCDF. Kept here so the docstring, loader, and error messages agree.
+_TTR_CLIM_FILE = "era5_ttr_doy_stats_hpx64.nc"
+_OLR_CLIM_FILE = "isccp_olr_doy_stats_hpx64.nc"
+_TTR_CLIM_VARS = ("ttr1h_mean", "ttr1h_std")
+_OLR_CLIM_VARS = ("olr_mean", "olr_std")
+
+
+def apply_ttr_to_olr(
+    x: torch.Tensor,
+    coords: CoordSystem,
+    ttr_idx: int,
+    ttr_clim_mean: torch.Tensor,
+    ttr_clim_std: torch.Tensor,
+    olr_clim_mean: torch.Tensor,
+    olr_clim_std: torch.Tensor,
+    olr_floor: float = 0.0,
+) -> torch.Tensor:
+    """Convert ERA5 TTR to ISCCP-distributed OLR via per-doy moment matching.
+
+    Mirrors the upstream pipeline transform at
+    nathanielcresswellclay/dlesym_pipeline @ aimip:
+    ``processing/utils/transform_ttr1h_olr.py``. The transform is per
+    ``(face, height, width, day-of-year)`` so it preserves spatial structure
+    while matching the per-pixel marginal distribution to ISCCP OLR.
+
+    Parameters
+    ----------
+    x : torch.Tensor
+        Input tensor with the TTR channel at axis ``-4``; shape
+        ``(B, T, LT, V, F, H, W)``.
+    coords : CoordSystem
+        Coordinates carrying ``time`` (datetime64) and ``lead_time``
+        (timedelta64) used to derive day-of-year per (T, LT) pair.
+    ttr_idx : int
+        Position of the TTR channel along the variable axis.
+    ttr_clim_mean, ttr_clim_std : torch.Tensor
+        ERA5 TTR per-doy climatology, shape ``(D, F, H, W)``.
+    olr_clim_mean, olr_clim_std : torch.Tensor
+        ISCCP OLR per-doy climatology, same shape.
+    olr_floor : float, optional
+        Lower bound applied to the transformed OLR (the upstream pipeline
+        uses a small positive quantile floor). Defaults to 0.0.
+
+    Returns
+    -------
+    torch.Tensor
+        ``x`` with the TTR channel replaced by ISCCP-distributed OLR.
+    """
+    ttr = x[:, :, :, ttr_idx, :, :, :]  # (B, T, LT, F, H, W)
+
+    times = np.asarray(coords["time"], dtype="datetime64[ns]")
+    leads = np.asarray(coords["lead_time"], dtype="timedelta64[ns]")
+    valid_times = times[:, None] + leads[None, :]  # (T, LT)
+    doy = (
+        valid_times.astype("datetime64[D]") - valid_times.astype("datetime64[Y]")
+    ).astype(int)
+    doy = np.clip(doy, 0, ttr_clim_mean.shape[0] - 1)
+
+    doy_t = torch.from_numpy(doy.flatten()).long().to(ttr_clim_mean.device)
+
+    def _gather(buf: torch.Tensor) -> torch.Tensor:
+        return buf.index_select(0, doy_t).view(*doy.shape, *buf.shape[1:])
+
+    ttr_mu = _gather(ttr_clim_mean).unsqueeze(0).to(x.device)
+    ttr_sd = _gather(ttr_clim_std).unsqueeze(0).to(x.device)
+    olr_mu = _gather(olr_clim_mean).unsqueeze(0).to(x.device)
+    olr_sd = _gather(olr_clim_std).unsqueeze(0).to(x.device)
+
+    ttr_scaled = ((ttr - ttr_mu) / ttr_sd.clamp(min=1e-8)) * -1.0
+    olr = ttr_scaled * olr_sd + olr_mu
+    olr = olr.clamp_min(olr_floor).to(x.dtype)
+
+    x_out = x.clone()
+    x_out[:, :, :, ttr_idx, :, :, :] = olr
+    return x_out
+
+
+def _load_clim_nc(
+    path: Path, var_names: tuple[str, str]
+) -> tuple[np.ndarray, np.ndarray]:
+    """Load a per-doy climatology netCDF as two ``(D, F, H, W)`` arrays.
+
+    The bundled climatology files store ``(mean, std)`` as separate data
+    variables indexed by ``(dayofyear, face, height, width)`` with
+    ``dayofyear`` 1-based. We sort by ``dayofyear`` so index 0 corresponds to
+    day-of-year 1, then strip the xarray metadata.
+    """
+    mean_name, std_name = var_names
+    with xr.open_dataset(path) as ds:
+        ds = ds.sortby("dayofyear")
+        mean = np.asarray(ds[mean_name].values, dtype="float32")
+        std = np.asarray(ds[std_name].values, dtype="float32")
+    return mean, std
 
 
 @check_optional_dependencies()
@@ -281,7 +370,6 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
     def load_model(
         cls,
         package: Package,
-        model_idx: int = 0,
         use_ttr: bool = True,
     ) -> DiagnosticModel:
         """Load the DLESyMv0_ISCCP_ERA5 precip diagnostic from a package.
@@ -293,8 +381,6 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
             checkpoint, the HEALPix lat/lon, the constant fields, and (when
             ``use_ttr=True``) the TTR/OLR climatology netCDFs
             (``era5_ttr_doy_stats_hpx64.nc`` and ``isccp_olr_doy_stats_hpx64.nc``).
-        model_idx : int, optional
-            Index into ``cfg.models.precip_model_checkpoints``. Defaults to 0.
         use_ttr : bool, optional
             See :class:`DLESyMv0_ISCCP_ERA5Precip`. Defaults to True.
 
@@ -313,7 +399,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
                 "Rebuild the package with the precip model included "
                 "(`tools/convert_dlesym_upstream.py` without --skip-precip)."
             )
-        ckpt_path = package.resolve(cfg.models.precip_model_checkpoints[model_idx])
+        ckpt_path = package.resolve(cfg.models.precip_model_checkpoints[0])
         core_model = Module.from_checkpoint(ckpt_path)
         core_model.output_time_dim = 1  # diagnostic always emits a single step
 
@@ -351,18 +437,8 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
         ttr_clim_mean = ttr_clim_std = None
         olr_clim_mean = olr_clim_std = None
         if use_ttr:
-            try:
-                ttr_path = Path(package.resolve(_TTR_CLIM_FILE))
-                olr_path = Path(package.resolve(_OLR_CLIM_FILE))
-            except Exception as e:
-                raise FileNotFoundError(
-                    f"use_ttr=True requires climatology files {_TTR_CLIM_FILE} "
-                    f"and {_OLR_CLIM_FILE} in the model package. They were not "
-                    "found. Either rebuild the package with the climatology "
-                    "netCDFs included, or pass `use_ttr=False` to disable the "
-                    "TTR->OLR transform (then supply ISCCP-distributed `rlut` "
-                    "directly to the model)."
-                ) from e
+            ttr_path = Path(package.resolve(_TTR_CLIM_FILE))
+            olr_path = Path(package.resolve(_OLR_CLIM_FILE))
             ttr_clim_mean, ttr_clim_std = _load_clim_nc(ttr_path, _TTR_CLIM_VARS)
             olr_clim_mean, olr_clim_std = _load_clim_nc(olr_path, _OLR_CLIM_VARS)
 
