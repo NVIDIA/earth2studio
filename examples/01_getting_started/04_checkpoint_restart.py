@@ -19,12 +19,12 @@
 Checkpointing a Deterministic Forecast
 ======================================
 
-Basic inference workflow checkpointing. See the
-:doc:`checkpointing user guide </userguide/advanced/checkpointing>` for more
-background on checkpoint catalogs and restart policies.
+Basic inference workflow checkpointing.
 
 This example shows how to use :py:class:`earth2studio.utils.checkpoint.Checkpoint`
-to restart a deterministic forecast after it stops partway through a run.
+to restart a deterministic forecast after it stops partway through a run. See the
+:doc:`checkpointing user guide </userguide/advanced/checkpointing>` for more
+information on checkpoint catalogs and restart policies.
 
 The example uses :py:class:`earth2studio.data.Random` and
 :py:class:`earth2studio.models.px.FCN`, the FourCastNet AFNO prognostic model.
@@ -137,6 +137,7 @@ def deterministic_output_coords(model, time, nsteps, variables):
 
 
 def model_domain_coords(model):
+    """Small helper"""
     coords = model.input_coords().copy()
     for key in ("batch", "lead_time", "variable"):
         coords.pop(key)
