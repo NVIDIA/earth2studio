@@ -55,7 +55,7 @@ run(["2024-01-01"], 10, model, ds, io)
 
 ## Advanced Usage
 
-- [Checkpointing](developer/checkpointing)
+- [Checkpointing](advanced/checkpointing)
 - [Batch Dimension](advanced/batch)
 - [AutoModels](advanced/auto)
 - [Lexicon](advanced/lexicon)
