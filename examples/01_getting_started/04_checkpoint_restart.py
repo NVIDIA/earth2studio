@@ -16,8 +16,10 @@
 
 # %%
 """
-Restarting a Deterministic Forecast
-===================================
+Checkpointing a Deterministic Forecast
+======================================
+
+Basic inference workflow checkpointing.
 
 This example shows how to use :py:class:`earth2studio.utils.checkpoint.Checkpoint`
 to restart a deterministic forecast after it stops partway through a run.
@@ -75,6 +77,7 @@ os.makedirs("outputs", exist_ok=True)
 forecast_store = Path("outputs/04_checkpoint_restart.zarr")
 checkpoint_store = Path("outputs/04_checkpoint_restart_checkpoint")
 
+# Clean up any left over checkpoints
 for path in (forecast_store, checkpoint_store):
     if path.exists():
         shutil.rmtree(path)
@@ -117,6 +120,7 @@ first_attempt_nsteps = 1
 
 
 def deterministic_output_coords(model, time, nsteps, variables):
+    """Full output coords for entire roll out"""
     input_coords = model.input_coords()
     output_coords = model.output_coords(input_coords).copy()
     for key, value in model.output_coords(input_coords).items():
@@ -217,11 +221,3 @@ with checkpoint.select(-1) as ckpt:
 print("Checkpoint after resume:")
 print(checkpoint)
 print(io.root.tree())
-
-# %%
-# The latest checkpoint row now points at the final completed lead time. If the
-# run is interrupted again, repeat the resume block and select ``-1``.
-
-# %%
-latest = checkpoint.select(-1)
-print(f"Latest completed lead time: {latest.lead_time}")
