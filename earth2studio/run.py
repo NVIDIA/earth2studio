@@ -29,10 +29,9 @@ from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.checkpoint import (
-    NO_CHECKPOINT,
     Checkpoint,
     CheckpointSession,
-    NullCheckpointSession,
+    NullCheckpoint,
 )
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
@@ -51,7 +50,7 @@ def deterministic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint | CheckpointSession | NullCheckpointSession = NO_CHECKPOINT,
+    checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
 ) -> IOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
@@ -77,9 +76,7 @@ def deterministic(
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
         Checkpoint manager or checkpoint session used to record and resume workflow
-        progress, by default no checkpoint. Use the checkpoint as a context manager
-        to make the active session explicit when restart-aware components need to
-        bind state before the workflow starts.
+        progress, by default no checkpoint
 
     Returns
     -------
@@ -204,7 +201,7 @@ def diagnostic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint | CheckpointSession | NullCheckpointSession = NO_CHECKPOINT,
+    checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
 ) -> IOBackend:
     """Built in diagnostic workflow.
     This workflow creates a determinstic inference pipeline that couples a prognostic
@@ -232,9 +229,7 @@ def diagnostic(
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
         Checkpoint manager or checkpoint session used to record and resume workflow
-        progress, by default no checkpoint. When resuming, the workflow fetches the
-        normal initial condition and checkpoint-aware models restore from their own
-        bound checkpoint state.
+        progress, by default no checkpoint
 
     Returns
     -------
@@ -359,7 +354,7 @@ def ensemble(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
-    checkpoint: Checkpoint | CheckpointSession | NullCheckpointSession = NO_CHECKPOINT,
+    checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
 ) -> IOBackend:
     """Built in ensemble workflow.
 
@@ -390,8 +385,7 @@ def ensemble(
         Print inference progress, by default True
     checkpoint : Checkpoint, optional
         Checkpoint manager or checkpoint session used to record and resume workflow
-        progress, by default no checkpoint. When a checkpoint manager is provided, rows are tracked
-        independently for each ensemble batch.
+        progress, by default no checkpoint
 
     Returns
     -------

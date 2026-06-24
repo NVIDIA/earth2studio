@@ -30,13 +30,13 @@ from earth2studio.models.dx import Identity
 from earth2studio.models.px import Persistence
 from earth2studio.perturbation import Zero
 from earth2studio.utils.checkpoint import (
-    NO_CHECKPOINT,
     Checkpoint,
     CheckpointError,
     CheckpointSerializationError,
     CheckpointState,
     CheckpointStateCollision,
     CheckpointStateSchemaError,
+    NullCheckpoint,
     bind_checkpoint_state,
     default_checkpoint_path,
 )
@@ -87,7 +87,7 @@ class RequiredState:
 
 
 def test_checkpoint_contexts_and_no_checkpoint_session(tmp_path):
-    with NO_CHECKPOINT as ckpt:
+    with NullCheckpoint() as ckpt:
         assert not ckpt
         assert not ckpt.exists
         assert not ckpt.is_active
@@ -118,10 +118,11 @@ def test_checkpoint_state_proxy_metadata_and_rebinding(tmp_path):
     assert not proxy.checkpoint_state_loaded
     with pytest.raises(AttributeError):
         proxy.device = torch.device("cpu")
-    assert NO_CHECKPOINT.labels == {}
-    assert NO_CHECKPOINT.write_count == 0
-    assert not NO_CHECKPOINT.is_active
-    assert NO_CHECKPOINT.device == torch.device("cpu")
+    null_checkpoint = NullCheckpoint()
+    assert null_checkpoint.labels == {}
+    assert null_checkpoint.write_count == 0
+    assert not null_checkpoint.is_active
+    assert null_checkpoint.device == torch.device("cpu")
 
     checkpoint = Checkpoint(
         "forecast", path=tmp_path, flush_interval=None, device="cpu"
@@ -306,7 +307,7 @@ def test_append_history_size_and_positional_selection(tmp_path):
 
 def test_bind_before_new_session_is_adopted_on_enter(tmp_path):
     checkpoint = Checkpoint(
-        "forecast", path=tmp_path, flush_interval=2, state_policy="state"
+        "forecast", path=tmp_path, flush_interval=2, state_policy="workflow"
     )
 
     dataclass_state = ToyState()
@@ -315,10 +316,10 @@ def test_bind_before_new_session_is_adopted_on_enter(tmp_path):
     assert state.checkpoint_dataclass is dataclass_state
     assert bind_checkpoint_state(dataclass_state) is state
     assert state.checkpoint_enabled
-    assert state.checkpoint_state_policy == "state"
+    assert state.checkpoint_state_policy == "workflow"
     assert state.checkpoint_flush_interval == 2
     with pytest.raises(AttributeError):
-        state.checkpoint_state_policy = "full"
+        state.checkpoint_state_policy = "rollout"
     state.calls = 5
 
     with checkpoint.select(time="2024-01-01") as ckpt:

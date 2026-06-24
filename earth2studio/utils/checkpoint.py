@@ -33,7 +33,7 @@ import numpy as np
 import torch
 
 T = TypeVar("T")
-CheckpointStatePolicy = Literal["minimal", "state", "full"]
+CheckpointStatePolicy = Literal["minimal", "workflow", "rollout"]
 
 _CHECKPOINT_VERSION = 1
 _ACTIVE_SESSION: ContextVar[CheckpointSession | None] = ContextVar(
@@ -167,7 +167,7 @@ class CheckpointState(Generic[T]):
 
     @property
     def checkpoint_state_loaded(self) -> bool:
-        """Whether this dataclass was hydrated from the selected checkpoint row."""
+        """Whether this dataclass was restored from the selected checkpoint row."""
         return self._state_loaded
 
     @property
@@ -209,8 +209,8 @@ class CheckpointState(Generic[T]):
         return repr(self._state)
 
 
-class NullCheckpointSession:
-    """No-op checkpoint session used when checkpointing is disabled."""
+class NullCheckpoint:
+    """No-op checkpoint used when checkpointing is disabled."""
 
     exists = False
     lead_time = None
@@ -248,7 +248,7 @@ class NullCheckpointSession:
         """Accept a flush request without committing anything."""
         return None
 
-    def __enter__(self) -> NullCheckpointSession:
+    def __enter__(self) -> NullCheckpoint:
         return self
 
     def __exit__(self, *args: Any) -> None:
@@ -256,9 +256,6 @@ class NullCheckpointSession:
 
     def __bool__(self) -> bool:
         return False
-
-
-NO_CHECKPOINT = NullCheckpointSession()
 
 
 def default_checkpoint_path(name: str) -> Path:
@@ -269,7 +266,7 @@ def default_checkpoint_path(name: str) -> Path:
     return base / "checkpoints" / name
 
 
-def bind_checkpoint_state(state: T) -> CheckpointState[T]:
+def bind_checkpoint_state(state: T | CheckpointState[T]) -> CheckpointState[T]:
     """Bind a dataclass instance to checkpoint state metadata.
 
     The returned proxy forwards normal dataclass field access and exposes
@@ -277,6 +274,7 @@ def bind_checkpoint_state(state: T) -> CheckpointState[T]:
     session is active, state is buffered for the most recently instantiated
     :class:`Checkpoint` in this context.
     """
+    bound_state: CheckpointState[Any]
     if isinstance(state, CheckpointState):
         bound_state = state
     else:
@@ -298,8 +296,8 @@ def bind_checkpoint_state(state: T) -> CheckpointState[T]:
 class Checkpoint:
     """Catalog of restart checkpoints for a named inference run.
 
-    Checkpoints store small restart metadata, optional artifacts, and dataclass state
-    bound by components through :func:`bind_checkpoint_state`.
+    Checkpoints store small restart metadata, optional artifacts, and component
+    state bound through :func:`bind_checkpoint_state`.
     """
 
     def __init__(
@@ -309,7 +307,7 @@ class Checkpoint:
         mode: Literal["overwrite", "append"] = "overwrite",
         flush_interval: int | None = 1,
         history_size: int | None = None,
-        state_policy: CheckpointStatePolicy = "full",
+        state_policy: CheckpointStatePolicy = "rollout",
         rank: int | None = None,
         world_size: int | None = None,
         device: str | torch.device = torch.device("cpu"),
@@ -320,8 +318,10 @@ class Checkpoint:
             raise ValueError("flush_interval must be a positive integer or None.")
         if history_size is not None and history_size < 1:
             raise ValueError("history_size must be a positive integer or None.")
-        if state_policy not in ("minimal", "state", "full"):
-            raise ValueError("state_policy must be 'minimal', 'state', or 'full'.")
+        if state_policy not in ("minimal", "workflow", "rollout"):
+            raise ValueError(
+                "state_policy must be 'minimal', 'workflow', or 'rollout'."
+            )
 
         detected_rank, detected_world_size = 0, 1
         detected_distributed = False
@@ -397,7 +397,7 @@ class Checkpoint:
         self.refresh()
         entries = list(self._catalog or [])
         encoded_labels = {
-            key: CheckpointCodec.encode_json_value(value)
+            key: _CheckpointCodec.encode_json_value(value)
             for key, value in labels.items()
         }
         latest_keys = [
@@ -516,8 +516,8 @@ class Checkpoint:
             "rank": self.rank,
             "world_size": self.world_size,
             "labels": session.labels,
-            "lead_time": CheckpointCodec.encode_json_value(
-                CheckpointCodec.normalize_lead_time(lead_time)
+            "lead_time": _CheckpointCodec.encode_json_value(
+                _CheckpointCodec.normalize_lead_time(lead_time)
             ),
             "write_count": session.write_count,
             "saved_at": datetime.now(timezone.utc).isoformat(),
@@ -534,7 +534,7 @@ class Checkpoint:
                 "state_id": state_id,
                 "schema_hash": _schema_hash(dataclass_state),
                 "fields": {
-                    field.name: CheckpointCodec.dump_value(
+                    field.name: _CheckpointCodec.dump_value(
                         getattr(dataclass_state, field.name), state_path, (field.name,)
                     )
                     for field in fields(dataclass_state)
@@ -554,7 +554,7 @@ class Checkpoint:
                     raise CheckpointSerializationError(
                         "checkpoint artifact names must be strings."
                     )
-                manifest["artifacts"][name] = CheckpointCodec.dump_value(
+                manifest["artifacts"][name] = _CheckpointCodec.dump_value(
                     value,
                     artifacts_path,
                     (sha256(name.encode("utf-8")).hexdigest()[:24],),
@@ -590,7 +590,7 @@ class Checkpoint:
                 {
                     "commit_id": item.commit_id,
                     "labels": item.labels,
-                    "lead_time": CheckpointCodec.encode_json_value(item.lead_time),
+                    "lead_time": _CheckpointCodec.encode_json_value(item.lead_time),
                     "write_count": item.write_count,
                     "saved_at": item.saved_at,
                     "rank": item.rank,
@@ -670,7 +670,7 @@ class CheckpointSession:
         manifest = self._read_manifest()
         artifacts_path = self._commit_path / "artifacts"
         return {
-            name: CheckpointCodec.load_value(payload, artifacts_path)
+            name: _CheckpointCodec.load_value(payload, artifacts_path)
             for name, payload in manifest.get("artifacts", {}).items()
         }
 
@@ -682,14 +682,15 @@ class CheckpointSession:
         return artifacts[name]
 
     def bind(self, state: T | CheckpointState[T]) -> CheckpointState[T]:
-        """Bind and hydrate a dataclass state object."""
+        """Bind and restore a dataclass state object."""
+        bound_state: CheckpointState[Any]
         if isinstance(state, CheckpointState):
             bound_state = state
         else:
             if not is_dataclass(state) or isinstance(state, type):
                 raise TypeError("checkpoint state requires a dataclass instance.")
             bound_state = CheckpointState(state)
-        dataclass_state = bound_state.checkpoint_dataclass
+        dataclass_state: Any = bound_state.checkpoint_dataclass
         state_id = _state_id(dataclass_state)
         existing = self.bound_states.get(state_id)
         if existing is not None:
@@ -724,7 +725,7 @@ class CheckpointSession:
                 setattr(
                     dataclass_state,
                     name,
-                    CheckpointCodec.load_value(
+                    _CheckpointCodec.load_value(
                         payload, loaded_state.path, current_value
                     ),
                 )
@@ -745,10 +746,10 @@ class CheckpointSession:
         if self.exists and any(not item.reusable for item in adopted):
             warnings.warn(
                 "Checkpoint state was bound before an existing checkpoint session "
-                "was active. Saved dataclass state is being hydrated late; "
+                "was active. Saved dataclass state is being restored late; "
                 "constructor side effects that depended on that state will not be "
                 "replayed. Construct restartable components inside "
-                "`with checkpoint.select(...):` when hydration must happen during "
+                "`with checkpoint.select(...):` when state must be restored during "
                 "initialization.",
                 UserWarning,
                 stacklevel=3,
@@ -770,7 +771,7 @@ class CheckpointSession:
     ) -> CheckpointEntry | None:
         """Record a safe checkpoint boundary and flush if due."""
         self.write_count += 1
-        self._pending_lead_time = CheckpointCodec.normalize_lead_time(lead_time)
+        self._pending_lead_time = _CheckpointCodec.normalize_lead_time(lead_time)
         self._pending_artifacts = artifacts
         self._pending_dirty = True
         interval = self.catalog.flush_interval
@@ -788,7 +789,7 @@ class CheckpointSession:
         commit_lead_time = (
             self._pending_lead_time
             if lead_time is None
-            else CheckpointCodec.normalize_lead_time(lead_time)
+            else _CheckpointCodec.normalize_lead_time(lead_time)
         )
         commit_artifacts = self._pending_artifacts if artifacts is None else artifacts
         if not self._pending_dirty and not has_updates:
@@ -879,7 +880,7 @@ def _read_catalog(rank_path: Path) -> list[CheckpointEntry]:
                 CheckpointEntry(
                     commit_id=str(item["commit_id"]),
                     labels=dict(item.get("labels", {})),
-                    lead_time=CheckpointCodec.decode_json_value(item.get("lead_time")),
+                    lead_time=_CheckpointCodec.decode_json_value(item.get("lead_time")),
                     write_count=int(item.get("write_count", 0)),
                     saved_at=str(item["saved_at"]),
                     rank=int(item.get("rank", 0)),
@@ -908,7 +909,7 @@ def _entry_from_manifest(manifest: Mapping[str, Any]) -> CheckpointEntry:
     return CheckpointEntry(
         commit_id=str(manifest["commit_id"]),
         labels=dict(manifest.get("labels", {})),
-        lead_time=CheckpointCodec.decode_json_value(manifest.get("lead_time")),
+        lead_time=_CheckpointCodec.decode_json_value(manifest.get("lead_time")),
         write_count=int(manifest.get("write_count", 0)),
         saved_at=str(manifest["saved_at"]),
         rank=int(manifest.get("rank", 0)),
@@ -959,7 +960,7 @@ def _schema_hash(state: Any) -> str:
     return sha256("|".join(parts).encode("utf-8")).hexdigest()
 
 
-class CheckpointCodec:
+class _CheckpointCodec:
     """Codec for pickle-free checkpoint metadata and state payloads."""
 
     SCALAR_KINDS = frozenset(("bool", "int", "float", "str"))
@@ -1279,7 +1280,7 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _display_value(value: Any) -> str:
-    value = CheckpointCodec.decode_json_value(value)
+    value = _CheckpointCodec.decode_json_value(value)
     if isinstance(value, np.ndarray):
         return np.array2string(value, separator=", ")
     return "" if value is None else str(value)

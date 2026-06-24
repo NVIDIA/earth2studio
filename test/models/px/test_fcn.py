@@ -25,7 +25,6 @@ from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import FCN
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.checkpoint import Checkpoint
-from earth2studio.utils.imports import OptionalDependencyFailure
 
 
 class PhooFCNModel(torch.nn.Module):
@@ -36,13 +35,6 @@ class PhooFCNModel(torch.nn.Module):
 class IncrementFCNModel(torch.nn.Module):
     def forward(self, x):
         return x + 1
-
-
-def _fcn_dependency_failure_key() -> str | None:
-    for key in OptionalDependencyFailure.failures:
-        if key.replace("\\", "/").endswith("earth2studio/models/px/fcn.py"):
-            return key
-    return None
 
 
 @pytest.mark.parametrize(
@@ -142,54 +134,45 @@ def test_fcn_iter(ensemble, device):
             break
 
 
-def test_fcn_checkpoint_full_state_round_trip(tmp_path):
-    failure_key = _fcn_dependency_failure_key()
-    failure = None
-    if failure_key is not None:
-        failure = OptionalDependencyFailure.failures.pop(failure_key)
+def test_fcn_checkpoint_rollout_state_round_trip(tmp_path):
+    center = torch.zeros(26, 1, 1)
+    scale = torch.ones(26, 1, 1)
+    source_model = FCN(IncrementFCNModel(), center, scale)
+    base_coords = source_model.input_coords()
+    coords = OrderedDict(
+        {
+            "time": np.array([np.datetime64("1993-04-05T00:00")]),
+            "lead_time": base_coords["lead_time"],
+            "variable": base_coords["variable"],
+            "lat": base_coords["lat"],
+            "lon": base_coords["lon"],
+        }
+    )
+    x = torch.zeros(1, 1, 26, 720, 1440)
 
-    try:
-        center = torch.zeros(26, 1, 1)
-        scale = torch.ones(26, 1, 1)
-        source_model = FCN(IncrementFCNModel(), center, scale)
-        base_coords = source_model.input_coords()
-        coords = OrderedDict(
-            {
-                "time": np.array([np.datetime64("1993-04-05T00:00")]),
-                "lead_time": base_coords["lead_time"],
-                "variable": base_coords["variable"],
-                "lat": base_coords["lat"],
-                "lon": base_coords["lon"],
-            }
-        )
-        x = torch.zeros(1, 1, 26, 720, 1440)
+    checkpoint = Checkpoint(
+        "fcn", path=tmp_path, flush_interval=1, state_policy="rollout"
+    )
+    with checkpoint as ckpt:
+        model = FCN(IncrementFCNModel(), center, scale)
+        iterator = model.create_iterator(x, coords)
+        next(iterator)
+        saved_x, saved_coords = next(iterator)
+        assert saved_coords["lead_time"][0] == np.timedelta64(6, "h")
+        assert saved_x[0, 0, 0, 0, 0] == 1
+        ckpt.write(lead_time=saved_coords["lead_time"][-1])
 
-        checkpoint = Checkpoint(
-            "fcn", path=tmp_path, flush_interval=1, state_policy="full"
-        )
-        with checkpoint as ckpt:
-            model = FCN(IncrementFCNModel(), center, scale)
-            iterator = model.create_iterator(x, coords)
-            next(iterator)
-            saved_x, saved_coords = next(iterator)
-            assert saved_coords["lead_time"][0] == np.timedelta64(6, "h")
-            assert saved_x[0, 0, 0, 0, 0] == 1
-            ckpt.write(lead_time=saved_coords["lead_time"][-1])
+    checkpoint = Checkpoint("fcn", path=tmp_path, state_policy="rollout")
+    with checkpoint.select(-1):
+        model = FCN(IncrementFCNModel(), center, scale)
+        assert model.checkpoint.checkpoint_state_loaded
+        restart_x = torch.full_like(x, -5)
+        resumed_x, resumed_coords = next(model.create_iterator(restart_x, coords))
 
-        checkpoint = Checkpoint("fcn", path=tmp_path, state_policy="full")
-        with checkpoint.select(-1):
-            model = FCN(IncrementFCNModel(), center, scale)
-            assert model.checkpoint.checkpoint_state_loaded
-            restart_x = torch.full_like(x, -5)
-            resumed_x, resumed_coords = next(model.create_iterator(restart_x, coords))
-
-        assert resumed_coords["lead_time"][0] == np.timedelta64(12, "h")
-        assert resumed_x[0, 0, 0, 0, 0] == 2
-        assert resumed_x.amin() == 2
-        assert resumed_x.amax() == 2
-    finally:
-        if failure_key is not None and failure is not None:
-            OptionalDependencyFailure.failures[failure_key] = failure
+    assert resumed_coords["lead_time"][0] == np.timedelta64(12, "h")
+    assert resumed_x[0, 0, 0, 0, 0] == 2
+    assert resumed_x.amin() == 2
+    assert resumed_x.amax() == 2
 
 
 @pytest.mark.parametrize(

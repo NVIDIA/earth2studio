@@ -24,9 +24,6 @@ to restart a deterministic forecast after it stops partway through a run.
 
 The example uses :py:class:`earth2studio.data.Random` and
 :py:class:`earth2studio.models.px.FCN`, the FourCastNet AFNO prognostic model.
-To keep the example runnable without downloading the full FCN package, the
-public FCN wrapper is paired with a small identity PyTorch core. The
-checkpointing mechanics are identical for the packaged FCN model.
 
 In this example you will learn:
 
@@ -70,7 +67,6 @@ import earth2studio.run as run
 from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import FCN
-from earth2studio.models.px.fcn import VARIABLES as FCN_VARIABLES
 from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.time import to_time_array
 
@@ -84,14 +80,14 @@ for path in (forecast_store, checkpoint_store):
         shutil.rmtree(path)
 
 # %%
-# Build a small FCN/AFNO forecast problem. The identity core keeps the example
-# fast while preserving FCN's normal input/output coordinates and restart
-# behavior.
+# Load the packaged FCN/AFNO forecast model. The default package points at the
+# FourCastNet model artifacts, and ``load_model`` constructs an FCN instance from
+# those artifacts.
 #
-# Full checkpoint state can be staged on the same device used for inference.
+# Rollout checkpoint state can be staged on the same device used for inference.
 # Setting ``device`` to the current CUDA device can reduce CPU/GPU transfers for
 # restart tensors during a run. Set it to ``torch.device("cpu")`` for CPU-only
-# development. Since FCN ``full`` checkpoints store the full autoregressive
+# development. Since FCN ``rollout`` checkpoints store the complete autoregressive
 # state, keep ``history_size`` small when using ``mode="append"``.
 
 # %%
@@ -99,23 +95,8 @@ compute_device = torch.device(
     f"cuda:{torch.cuda.current_device()}" if torch.cuda.is_available() else "cpu"
 )
 
-
-class IdentityAFNOCore(torch.nn.Module):
-    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-        return inputs
-
-
-def make_afno_model() -> FCN:
-    n_variables = len(FCN_VARIABLES)
-    return FCN(
-        core_model=IdentityAFNOCore(),
-        center=torch.zeros(n_variables, 1, 1),
-        scale=torch.ones(n_variables, 1, 1),
-    )
-
-
-prealloc_model = make_afno_model()
-domain_coords = prealloc_model.input_coords().copy()
+model = FCN.load_model(FCN.load_default_package())
+domain_coords = model.input_coords().copy()
 for key in ("batch", "lead_time", "variable"):
     domain_coords.pop(key)
 
@@ -129,8 +110,8 @@ first_attempt_nsteps = 1
 # Preallocate the full output store. A real full-length deterministic run does
 # this before the first model step. We do it explicitly here because this example
 # simulates a mid-run stop by intentionally running only the first forecast step.
-# The IO store writes only two variables, while the checkpoint keeps FCN's full
-# restart state internally when ``state_policy="full"`` is used.
+# The IO store writes only two variables, while the checkpoint keeps FCN's complete
+# restart state internally when ``state_policy="rollout"`` is used.
 
 # %%
 
@@ -153,9 +134,7 @@ def deterministic_output_coords(model, time, nsteps, variables):
 
 
 io = ZarrBackend(str(forecast_store), backend_kwargs={"overwrite": True})
-coords = deterministic_output_coords(
-    prealloc_model, time, final_nsteps, output_variables
-)
+coords = deterministic_output_coords(model, time, final_nsteps, output_variables)
 var_names = coords.pop("variable")
 io.add_array(coords, var_names)
 
@@ -164,8 +143,8 @@ io.add_array(coords, var_names)
 # -------------
 # Every restartable run should be performed inside a checkpoint context. On an
 # empty checkpoint, ``with checkpoint`` opens a new session for future writes.
-# Construct restart-aware components inside that context so their dataclass state
-# binds to the active checkpoint session. The workflow records a checkpoint row
+# Construct restart-aware components inside that context so their state binds to
+# the active checkpoint session. The workflow records a checkpoint row
 # after each successful IO write because ``flush_interval=1`` and
 # ``mode="append"`` keeps each row in the printed checkpoint table.
 
@@ -176,13 +155,12 @@ checkpoint = Checkpoint(
     mode="append",
     flush_interval=1,
     history_size=4,
-    state_policy="full",
+    state_policy="rollout",
     device=compute_device,
 )
 
 with checkpoint as ckpt:
     data = Random(domain_coords=domain_coords)
-    model = make_afno_model()
     run.deterministic(
         time=time,
         nsteps=first_attempt_nsteps,
@@ -206,7 +184,7 @@ print(checkpoint)
 #
 # The selected checkpoint session is used as a context manager so the chosen row
 # is the active restart state while components are constructed and while the
-# workflow runs. ``FCN`` hydrates its restart dataclass during construction. Its
+# workflow runs. ``FCN`` restores its restart state during construction. Its
 # iterator consumes the selected checkpoint boundary internally and yields the
 # next forecast state, while the workflow still fetches the normal initial
 # condition and feeds it to the iterator.
@@ -218,13 +196,12 @@ checkpoint = Checkpoint(
     path=checkpoint_store,
     mode="append",
     history_size=4,
-    state_policy="full",
+    state_policy="rollout",
     device=compute_device,
 )
 
 with checkpoint.select(-1) as ckpt:
     data = Random(domain_coords=domain_coords)
-    model = make_afno_model()
     run.deterministic(
         time=time,
         nsteps=final_nsteps,

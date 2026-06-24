@@ -153,7 +153,7 @@ def test_persistence_checkpoint_state_round_trip(tmp_path):
     data = Random(domain_coords)
     x, coords = fetch_data(data, time, np.asarray(variable), lead_time, device="cpu")
     checkpoint = Checkpoint(
-        "persistence", path=tmp_path, mode="append", state_policy="full"
+        "persistence", path=tmp_path, mode="append", state_policy="rollout"
     )
 
     with checkpoint as ckpt:

@@ -144,7 +144,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         self, x: torch.Tensor, coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem, bool]:
         if (
-            self.checkpoint.checkpoint_state_policy == "full"
+            self.checkpoint.checkpoint_state_policy == "rollout"
             and self.checkpoint.checkpoint_state_loaded
             and self.checkpoint.x is not None
             and self.checkpoint.coord_keys
@@ -162,7 +162,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     def _save_checkpoint_state(self, x: torch.Tensor, coords: CoordSystem) -> None:
         if (
             self.checkpoint.checkpoint_enabled
-            and self.checkpoint.checkpoint_state_policy == "full"
+            and self.checkpoint.checkpoint_state_policy == "rollout"
         ):
             self.checkpoint.x = x.detach().clone().to(self.checkpoint.device)
             self.checkpoint.coord_keys = tuple(coords.keys())

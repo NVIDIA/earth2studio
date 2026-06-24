@@ -76,7 +76,6 @@ class _FCNCheckpointState:
     coord_values: tuple[np.ndarray, ...] = ()
 
 
-@check_optional_dependencies()
 class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FourCastNet global prognostic model. Consists of a single model with a time-step
     size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole
@@ -189,7 +188,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self, x: torch.Tensor, coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem, bool]:
         if (
-            self.checkpoint.checkpoint_state_policy == "full"
+            self.checkpoint.checkpoint_state_policy == "rollout"
             and self.checkpoint.checkpoint_state_loaded
             and self.checkpoint.x is not None
             and self.checkpoint.coord_keys
@@ -207,7 +206,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _save_checkpoint_state(self, x: torch.Tensor, coords: CoordSystem) -> None:
         if (
             self.checkpoint.checkpoint_enabled
-            and self.checkpoint.checkpoint_state_policy == "full"
+            and self.checkpoint.checkpoint_state_policy == "rollout"
         ):
             self.checkpoint.x = x.detach().clone().to(self.checkpoint.device)
             self.checkpoint.coord_keys = tuple(coords.keys())

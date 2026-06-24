@@ -34,11 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Simplified workflow checkpoint handling with package-level no-op checkpoint
-  sessions and idempotent final flushes
-- Deterministic checkpoint resume now leaves restart-state restoration to the
-  prognostic iterator after fetching the normal initial condition
-- Renamed checkpoint state policies to `minimal`, `state`, and `full`
 - UFS GSI observation sources (`UFSObsConv`, `UFSObsSat`) now fetch from S3 via native
   `obstore` instead of `s3fs` to avoid the Python-GIL bottleneck that caps fsspec's
   concurrent S3 read throughput (~22% faster obs fetch, ~20% HealDA e2e on B200; output unchanged).

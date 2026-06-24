@@ -54,8 +54,9 @@ The following functions can be used to convert to and from these numpy arrays.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Checkpoint utilities for restartable inference workflows. Checkpoints track
-explicit workflow labels, optional artifacts, and dataclass state bound by
-components during a selected checkpoint session.
+workflow progress, restart rows, optional artifacts, and component state needed
+to resume long-running workflows while forecast fields remain in the selected
+IO backend.
 
 .. autosummary::
    :toctree: generated/utils/
@@ -64,7 +65,7 @@ components during a selected checkpoint session.
    utils.checkpoint.Checkpoint
    utils.checkpoint.CheckpointSession
    utils.checkpoint.CheckpointState
-   utils.checkpoint.NullCheckpointSession
+   utils.checkpoint.NullCheckpoint
 
 .. autosummary::
    :toctree: generated/utils/

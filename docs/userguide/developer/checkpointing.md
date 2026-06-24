@@ -1,9 +1,26 @@
 # Checkpointing
 
-Earth2Studio checkpoints are small restart catalogs for inference workflows. A
-checkpoint row records progress labels, the latest completed lead time, optional
-small artifacts, and dataclass state from components that opt in. Forecast fields
-stay in the selected IO backend; model weights are not copied into checkpoints.
+Earth2Studio checkpoints enable users to restart inference workflows. A
+checkpoint is a catalog of restart points for one named run. Each row in that
+catalog is a checkpoint session: it records the labels, completed lead time,
+optional artifacts, and opt-in component state(s) needed to restart that particular
+workflow selection.
+
+Checkpoint storage is independent of the user-facing IO backend and independent
+of any particular model implementation. Forecast fields remain in the IO backend
+you choose, model weights are not copied into checkpoints, and the checkpoint
+catalog stores only the restart metadata and component state requested by the
+configured state policy. Exactly what gets logged is user-configurable through
+the checkpoint options and through the checkpoint support implemented by each
+component.
+
+```{warning}
+Checkpointing support is opt-in for every component. Not all models,
+perturbations, or custom components support checkpointed restarts. Always verify
+that the model you plan to use has checkpoint support before relying on it
+for restartable inference. If checkpointing is missing for a model you need, open
+a [feature request](https://github.com/NVIDIA/earth2studio/issues).
+```
 
 ## Basic Use
 
@@ -11,7 +28,7 @@ stay in the selected IO backend; model weights are not copied into checkpoints.
 from earth2studio.run import deterministic
 from earth2studio.utils.checkpoint import Checkpoint
 
-checkpoint = Checkpoint("my-forecast", flush_interval=6, state_policy="full")
+checkpoint = Checkpoint("my-forecast", flush_interval=6, state_policy="rollout")
 
 with checkpoint as ckpt:
     deterministic(
@@ -26,9 +43,10 @@ with checkpoint as ckpt:
 
 Use checkpointed workflows inside a checkpoint context. This makes the active
 session clear and lets restart-aware models or perturbations bind their state
-before the run starts. Built-in workflows call `write` after successful IO writes
-and call `flush` before returning. If no checkpoint is supplied, they use the
-package no-op checkpoint session.
+before the run starts. Built-in workflows automatically interact with the
+checkpoint session: they call `write` after successful IO writes and call
+`flush` before returning. If no checkpoint is supplied, they use the
+`NullCheckpoint` no-op checkpoint.
 
 `Checkpoint` options:
 
@@ -38,11 +56,19 @@ package no-op checkpoint session.
 - `mode="append"`: keep a row history; cap it with `history_size`.
 - `device=torch.device("cpu")`: device used by components for staged tensor state.
 
-`state_policy` is a hint for opt-in components:
+Components can opt into supporting checkpoint states when they need restart information
+(rng-states, state tensors, etc).
+The user chooses the requested state policy, and each component decides what it supports
+for that policy:
 
-- `minimal`: catalog progress and explicit artifacts only.
-- `state`: lightweight restart state such as RNG or counters.
-- `full`: all supported restart state, including tensors needed to resume inside a rollout.
+- `minimal`: catalog progress and explicit artifacts passed to `write`;
+  components should skip extra state.
+- `workflow`: lightweight state needed to resume at workflow boundaries, such as
+  the next time range, ensemble member or batch index. This does
+  not promise restart from the middle of a forecast rollout.
+- `rollout`: all component-supported restart state needed to resume inside an
+  active forecast rollout. This can include tensors and is usually larger than
+  `workflow`.
 
 ## Selecting Rows
 
@@ -60,9 +86,9 @@ latest_time = checkpoint.select(time=-1)
 member = checkpoint.select(time="2024-01-01T00:00:00", ensemble=0)
 ```
 
-`with checkpoint` selects the latest catalog row when one exists, or opens a new
-session when the catalog is empty. Use `with checkpoint.select(...):` when a
-specific row or label set is required.
+By default, the context manager `with checkpoint` selects the latest catalog row
+when one exists, or opens a new session when the catalog is empty. Use
+`with checkpoint.select(...):` when a specific row or label set is required.
 
 ## Custom Loops
 
@@ -89,16 +115,17 @@ restart metadata; large forecast arrays should remain in the IO backend.
 
 ## Workflow Resume
 
-Built-in workflows always fetch the normal initial condition and pass it to the
-prognostic iterator. The checkpoint row tells the workflow which writes already
-completed. Checkpoint-aware models decide whether to restore their own dataclass
-state and, if restored, should yield the next forecast state rather than the
-saved boundary.
+Built-in workflows, like `run.deterministic`, always fetch the normal initial
+condition and pass it to the prognostic iterator.
+The checkpoint session tells the workflow what has been already completed.
+Checkpoint-aware models decide whether to restore their own state and, if restored,
+should yield the next forecast state rather than the existing saved boundary.
 
-This avoids assuming that user-facing IO output is restart-complete. It matters
-when IO stores only selected variables but a model needs more internal state to
-continue a rollout. Ensemble workflows use the `ensemble_batch` label so each
-mini-batch can resume independently.
+This decouples user-facing IO from what might be required to resume a run via a
+checkpoint: users often save only a subset of generated forecast variables, but
+continuing a rollout may require all fields and possibly internal model state.
+Ensemble workflows use the `ensemble_batch` label so each mini-batch can resume
+independently.
 
 ## Component State
 
@@ -140,8 +167,8 @@ properties such as `checkpoint_enabled`, `checkpoint_state_policy`,
 `device`. Use `device` for staging tensor state, for example
 `x.detach().clone().to(self.checkpoint.device)`.
 
-Construct restart-aware components inside the checkpoint context when hydration
-must happen during initialization:
+Construct restart-aware components inside the checkpoint context when saved
+state must be restored during initialization:
 
 ```python
 checkpoint = Checkpoint("my-forecast")
@@ -151,7 +178,7 @@ with checkpoint.select(-1) as ckpt:
     deterministic(..., checkpoint=ckpt)
 ```
 
-If a component binds before an existing session is active, Earth2Studio hydrates
+If a component binds before an existing session is active, Earth2Studio restores
 it when the session opens and warns because constructor side effects may already
 have used default state.
 
@@ -168,7 +195,7 @@ containers, dataclasses, `datetime`, `date`, `timedelta`, `numpy.datetime64`,
 separate `.npy` files with pickle disabled.
 
 Unsupported values raise `CheckpointSerializationError`. Incompatible dataclass
-schema changes raise `CheckpointStateSchemaError` during hydration.
+schema changes raise `CheckpointStateSchemaError` during restore.
 
 ## Storage
 
