@@ -366,7 +366,7 @@ class Checkpoint:
         """Directory for this process checkpoint writes."""
         if self.world_size == 1:
             return self.path
-        return self.path / f"rank_{self.rank:06d}"
+        return self.path / f"rank_{self.rank:d}"
 
     @property
     def catalog(self) -> tuple[CheckpointEntry, ...]:

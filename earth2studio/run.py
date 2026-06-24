@@ -93,8 +93,6 @@ def deterministic(
     )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
-    # sphinx - fetch data start
-    # Fetch data from data source and load onto device
     prognostic_ic = prognostic.input_coords()
     time = to_time_array(time)
 
@@ -134,6 +132,8 @@ def deterministic(
                 logger.success("\nInference complete")
                 return io
 
+        # sphinx - fetch data start
+        # Fetch data from data source and load onto device
         if hasattr(prognostic, "interp_method"):
             interp_to = prognostic_ic
             interp_method = prognostic.interp_method
