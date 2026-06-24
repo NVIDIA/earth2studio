@@ -233,6 +233,7 @@ class NullCheckpoint:
     lead_time = None
     device = torch.device("cpu")
     checkpoint_device = torch.device("cpu")
+    level: CheckpointLevel = 0
 
     @property
     def metadata(self) -> Mapping[str, Any]:
@@ -249,10 +250,19 @@ class NullCheckpoint:
         """Number of checkpoint writes accepted by the no-op session."""
         return 0
 
+    @write_count.setter
+    def write_count(self, value: int) -> None:
+        return None
+
     @property
     def is_active(self) -> bool:
         """Whether this checkpoint session is active in the current context."""
         return False
+
+    @property
+    def catalog(self) -> NullCheckpoint:
+        """Catalog-like no-op handle for workflow checkpoint checks."""
+        return self
 
     def write(self, **metadata: Any) -> None:
         """Accept a checkpoint boundary without committing anything."""
@@ -543,7 +553,7 @@ class Checkpoint:
             shutil.rmtree(tmp_path)
         tmp_path.mkdir(parents=True)
 
-        manifest = {
+        manifest: dict[str, Any] = {
             "version": _CHECKPOINT_VERSION,
             "checkpoint": self.name,
             "commit_id": commit_id,
