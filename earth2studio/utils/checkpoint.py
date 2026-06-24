@@ -599,13 +599,18 @@ class Checkpoint:
             for name, value in metadata.items():
                 if not isinstance(name, str):
                     raise CheckpointSerializationError(
-                        "checkpoint metadata names must be strings."
+                        f"Invalid checkpoint metadata key {name!r}; metadata keys must be strings."
                     )
-                manifest["metadata"][name] = _CheckpointCodec.dump_value(
-                    _CheckpointCodec.normalize_metadata_value(value),
-                    metadata_path,
-                    (sha256(name.encode("utf-8")).hexdigest()[:24],),
-                )
+                try:
+                    manifest["metadata"][name] = _CheckpointCodec.dump_value(
+                        value,
+                        metadata_path,
+                        (sha256(name.encode("utf-8")).hexdigest()[:24],),
+                    )
+                except CheckpointSerializationError as exc:
+                    raise CheckpointSerializationError(
+                        f"Invalid checkpoint metadata {name!r}: {exc}"
+                    ) from exc
 
         _write_json(tmp_path / "manifest.json", manifest)
         tmp_path.rename(commit_path)
@@ -862,17 +867,23 @@ class CheckpointSession:
             The committed catalog entry when this call triggers a flush;
             otherwise ``None``.
         """
+        sanitized_metadata = _CheckpointCodec.sanitize_metadata(metadata)
+        previous_metadata = dict(self._pending_metadata)
+        previous_dirty = self._pending_dirty
+        previous_write_count = self.write_count
+
         self.write_count += 1
-        self._pending_metadata.update(
-            {
-                name: _CheckpointCodec.normalize_metadata_value(value)
-                for name, value in metadata.items()
-            }
-        )
+        self._pending_metadata.update(sanitized_metadata)
         self._pending_dirty = True
         interval = self.catalog.flush_interval
         if interval is not None and self.write_count % interval == 0:
-            return self.flush()
+            try:
+                return self.flush()
+            except Exception:
+                self.write_count = previous_write_count
+                self._pending_metadata = previous_metadata
+                self._pending_dirty = previous_dirty
+                raise
         return None
 
     def flush(self, **metadata: Any) -> CheckpointEntry | None:
@@ -891,12 +902,7 @@ class CheckpointSession:
         """
         commit_metadata = dict(self._pending_metadata)
         if metadata:
-            commit_metadata.update(
-                {
-                    name: _CheckpointCodec.normalize_metadata_value(value)
-                    for name, value in metadata.items()
-                }
-            )
+            commit_metadata.update(_CheckpointCodec.sanitize_metadata(metadata))
         if not self._pending_dirty and not metadata:
             return None
 
@@ -1412,6 +1418,22 @@ class _CheckpointCodec:
             "value": int(value.astype(f"timedelta64[{unit}]").astype("int64")),
             "unit": unit,
         }
+
+    @classmethod
+    def sanitize_metadata(cls, metadata: Mapping[str, Any]) -> dict[str, Any]:
+        sanitized: dict[str, Any] = {}
+        for name, value in metadata.items():
+            if not isinstance(name, str):
+                raise CheckpointSerializationError(
+                    f"Invalid checkpoint metadata key {name!r}; metadata keys must be strings."
+                )
+            try:
+                sanitized[name] = cls.normalize_metadata_value(value)
+            except CheckpointSerializationError as exc:
+                raise CheckpointSerializationError(
+                    f"Invalid checkpoint metadata {name!r}: {exc}"
+                ) from exc
+        return sanitized
 
     @staticmethod
     def normalize_metadata_value(value: Any) -> Any:

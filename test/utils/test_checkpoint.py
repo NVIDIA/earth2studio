@@ -398,10 +398,12 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
     with pytest.raises(IndexError):
         checkpoint.select(-1)
     with checkpoint as ckpt:
-        with pytest.raises(CheckpointSerializationError):
+        with pytest.raises(CheckpointSerializationError, match="bad"):
             ckpt.flush(bad={1: 2})
-        with pytest.raises(CheckpointSerializationError):
-            ckpt.flush(bad={1: 2})
+        with pytest.raises(
+            CheckpointSerializationError, match="Invalid checkpoint metadata 'bad'"
+        ):
+            ckpt.write(bad={1: 2})
         bind_checkpoint_state(RequiredState(1))
         ckpt.flush(lead_time=torch.tensor([6]))
         assert ckpt.flush() is None
@@ -443,8 +445,9 @@ def test_metadata_round_trip_and_unsupported_objects_reject(tmp_path):
         with pytest.raises(CheckpointSerializationError):
             ckpt.flush(lead_time=_lead_time(0))
 
-    with checkpoint as ckpt:
-        with pytest.raises(CheckpointSerializationError):
+    metadata_checkpoint = Checkpoint("metadata", path=tmp_path / "metadata")
+    with metadata_checkpoint as ckpt:
+        with pytest.raises(CheckpointSerializationError, match="bad"):
             ckpt.flush(bad=np.asarray([object()], dtype=object))
 
 
