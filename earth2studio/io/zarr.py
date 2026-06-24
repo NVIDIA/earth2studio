@@ -84,9 +84,11 @@ class ZarrBackend:
                     self.coords[dim] = self.root[dim][:]
 
         for array in self.root:
-            if array not in self.coords:
-                # https://github.com/pydata/xarray/pull/9669
-                dims = self.root[array].metadata.dimension_names
+            # https://github.com/pydata/xarray/pull/9669
+            dims = self.root[array].metadata.dimension_names
+            if array in self.coords:
+                continue
+
             for c, d in zip(self.root[array].chunks, dims):
                 self.chunks[d] = c
 
