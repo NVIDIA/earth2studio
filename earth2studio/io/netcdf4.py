@@ -210,7 +210,10 @@ class NetCDF4Backend:
         for name, di in zip(array_name, data):
             if name in self.root.variables:
                 logger.warning(
-                    "{} is already in NetCDF Store. Skipping add_array.", name
+                    "{} is already in NetCDF Store. Skipping add_array."
+                    + "To overwrite entire NetCDF, create object with "
+                    + r"backend_kwargs=\{'mode': 'w'\}",
+                    name,
                 )
                 continue
 
