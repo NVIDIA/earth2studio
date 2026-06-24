@@ -26,8 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added IBTrACS tropical cyclone track DataFrame source (`IBTrACS`)
 - Added checkpoint/session utilities and restart support for deterministic,
   diagnostic, and ensemble inference workflows
-- Added checkpoint state policy hints exposed through bound state proxies
-- Added FCN/FourCastNet checkpoint state support for mid-rollout deterministic forecast restarts
 - Added EUMETNET OPERA European weather radar composite DataSource for DBZH
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
