@@ -80,6 +80,7 @@ first = checkpoint.select(0)
 By default, the context manager `with checkpoint` selects the latest catalog row
 when one exists, or opens a new session when the catalog is empty. Use
 `with checkpoint.select(-1):` when a specific saved row should be restored.
+
 ## Custom Loops
 
 Call `write` after a safe restart boundary, usually after forecast fields have
