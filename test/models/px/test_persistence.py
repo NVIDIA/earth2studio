@@ -152,9 +152,7 @@ def test_persistence_checkpoint_state_round_trip(tmp_path):
     lead_time = np.asarray([np.timedelta64(-6, "h"), np.timedelta64(0, "h")])
     data = Random(domain_coords)
     x, coords = fetch_data(data, time, np.asarray(variable), lead_time, device="cpu")
-    checkpoint = Checkpoint(
-        "persistence", path=tmp_path, mode="append", state_policy="rollout"
-    )
+    checkpoint = Checkpoint("persistence", path=tmp_path, mode="append", level=2)
 
     with checkpoint as ckpt:
         model = Persistence(variable, domain_coords, history=2)

@@ -33,7 +33,7 @@ import numpy as np
 import torch
 
 T = TypeVar("T")
-CheckpointStatePolicy = Literal["minimal", "workflow", "rollout"]
+CheckpointLevel = Literal[0, 1, 2]
 
 _CHECKPOINT_VERSION = 1
 _ACTIVE_SESSION: ContextVar[CheckpointSession | None] = ContextVar(
@@ -120,11 +120,11 @@ class CheckpointState(Generic[T]):
         return self._checkpoint is not None
 
     @property
-    def checkpoint_state_policy(self) -> CheckpointStatePolicy:
-        """Checkpoint state policy requested by the user."""
+    def checkpoint_level(self) -> CheckpointLevel:
+        """Checkpoint component logging level requested by the user."""
         if self._checkpoint is None:
-            return "minimal"
-        return self._checkpoint.state_policy
+            return 0
+        return self._checkpoint.level
 
     @property
     def checkpoint_device(self) -> torch.device:
@@ -320,11 +320,11 @@ class Checkpoint:
     history_size : int | None, optional
         Maximum number of rows to keep when ``mode="append"``. In overwrite mode
         this is ignored and treated as one latest row, by default None.
-    state_policy : CheckpointStatePolicy, optional
-        Requested component-state level. ``"minimal"`` records catalog progress
-        and explicit artifacts only, ``"workflow"`` allows boundary-level resume
-        state, and ``"rollout"`` allows component state needed to resume inside a
-        forecast rollout, by default "rollout".
+    level : CheckpointLevel, optional
+        Requested component logging level. ``0`` records workflow progress and
+        explicit artifacts only, ``1`` allows component state needed to restart
+        workflow items such as ensemble members, and ``2`` allows component
+        state needed to resume inside a forecast rollout, by default 2.
     rank : int | None, optional
         Distributed rank for this process. If ``None``, Earth2Studio attempts to
         detect the rank from PhysicsNeMo or common distributed environment
@@ -344,7 +344,7 @@ class Checkpoint:
         mode: Literal["overwrite", "append"] = "overwrite",
         flush_interval: int | None = 1,
         history_size: int | None = None,
-        state_policy: CheckpointStatePolicy = "rollout",
+        level: CheckpointLevel = 2,
         rank: int | None = None,
         world_size: int | None = None,
         device: str | torch.device = torch.device("cpu"),
@@ -355,10 +355,8 @@ class Checkpoint:
             raise ValueError("flush_interval must be a positive integer or None.")
         if history_size is not None and history_size < 1:
             raise ValueError("history_size must be a positive integer or None.")
-        if state_policy not in ("minimal", "workflow", "rollout"):
-            raise ValueError(
-                "state_policy must be 'minimal', 'workflow', or 'rollout'."
-            )
+        if isinstance(level, bool) or level not in (0, 1, 2):
+            raise ValueError("level must be 0, 1, or 2.")
 
         detected_rank, detected_world_size = 0, 1
         detected_distributed = False
@@ -402,7 +400,7 @@ class Checkpoint:
         self.mode = mode
         self.flush_interval = flush_interval
         self.history_size = 1 if mode == "overwrite" else history_size
-        self.state_policy = state_policy
+        self.level = level
         self.device = torch.device(device)
         self.rank = detected_rank if rank is None else rank
         self.world_size = detected_world_size if world_size is None else world_size
@@ -483,7 +481,7 @@ class Checkpoint:
             f'Checkpoint("{self.name}")',
             f"path: {self.path}",
             f"mode: {self.mode}",
-            f"state_policy: {self.state_policy}",
+            f"level: {self.level}",
             f"rank: {self.rank}/{self.world_size}",
         ]
         if not entries:
@@ -549,25 +547,30 @@ class Checkpoint:
         }
 
         states_path = tmp_path / "states"
-        for state_id, state in session.bound_states.items():
-            dataclass_state = _unwrap_checkpoint_state(state)
-            state_path = states_path / sha256(state_id.encode("utf-8")).hexdigest()[:24]
-            state_path.mkdir(parents=True, exist_ok=True)
-            state_manifest = {
-                "state_id": state_id,
-                "schema_hash": _schema_hash(dataclass_state),
-                "fields": {
-                    field.name: _CheckpointCodec.dump_value(
-                        getattr(dataclass_state, field.name), state_path, (field.name,)
-                    )
-                    for field in fields(dataclass_state)
-                },
-            }
-            _write_json(state_path / "metadata.json", state_manifest)
-            manifest["states"][state_id] = {
-                "path": str(state_path.relative_to(tmp_path)),
-                "schema_hash": _schema_hash(dataclass_state),
-            }
+        if self.level > 0:
+            for state_id, state in session.bound_states.items():
+                dataclass_state = _unwrap_checkpoint_state(state)
+                state_path = (
+                    states_path / sha256(state_id.encode("utf-8")).hexdigest()[:24]
+                )
+                state_path.mkdir(parents=True, exist_ok=True)
+                state_manifest = {
+                    "state_id": state_id,
+                    "schema_hash": _schema_hash(dataclass_state),
+                    "fields": {
+                        field.name: _CheckpointCodec.dump_value(
+                            getattr(dataclass_state, field.name),
+                            state_path,
+                            (field.name,),
+                        )
+                        for field in fields(dataclass_state)
+                    },
+                }
+                _write_json(state_path / "metadata.json", state_manifest)
+                manifest["states"][state_id] = {
+                    "path": str(state_path.relative_to(tmp_path)),
+                    "schema_hash": _schema_hash(dataclass_state),
+                }
 
         if artifacts:
             artifacts_path = tmp_path / "artifacts"
@@ -909,7 +912,7 @@ class CheckpointSession:
         return _read_json(self._commit_path / "manifest.json")
 
     def _load_selected_states(self) -> dict[str, LoadedState]:
-        if self._entry is None:
+        if self._entry is None or self.catalog.level == 0:
             return {}
         manifest = self._read_manifest()
         return _load_state_index(self._commit_path, manifest)

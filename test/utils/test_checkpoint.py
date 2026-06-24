@@ -107,7 +107,7 @@ def test_checkpoint_contexts_and_no_checkpoint_session(tmp_path):
 def test_checkpoint_state_proxy_metadata_and_rebinding(tmp_path):
     proxy = CheckpointState(ToyState())
     assert repr(proxy) == repr(proxy.checkpoint_dataclass)
-    assert proxy.checkpoint_state_policy == "minimal"
+    assert proxy.checkpoint_level == 0
     assert proxy.checkpoint_device == torch.device("cpu")
     assert proxy.device == torch.device("cpu")
     assert proxy.checkpoint_flush_interval is None
@@ -242,6 +242,22 @@ def test_bind_round_trip_hydrates_dataclass_and_catalog(tmp_path):
     assert "6 hours" in repr(ns_checkpoint)
 
 
+def test_level_zero_skips_component_state(tmp_path):
+    checkpoint = Checkpoint("forecast", path=tmp_path, level=0)
+
+    with checkpoint as ckpt:
+        state = bind_checkpoint_state(ToyState())
+        state.calls = 5
+        ckpt.flush(lead_time=_lead_time(0))
+
+    assert checkpoint.catalog[0].state_ids == ()
+
+    with Checkpoint("forecast", path=tmp_path, level=0).select(-1):
+        restored = bind_checkpoint_state(ToyState())
+        assert not restored.checkpoint_state_loaded
+        assert restored.calls == 0
+
+
 def test_duplicate_state_type_errors(tmp_path):
     checkpoint = Checkpoint("forecast", path=tmp_path)
 
@@ -300,9 +316,7 @@ def test_append_history_size_and_positional_selection(tmp_path):
 
 
 def test_bind_before_new_session_is_adopted_on_enter(tmp_path):
-    checkpoint = Checkpoint(
-        "forecast", path=tmp_path, flush_interval=2, state_policy="workflow"
-    )
+    checkpoint = Checkpoint("forecast", path=tmp_path, flush_interval=2, level=1)
 
     dataclass_state = ToyState()
     state = bind_checkpoint_state(dataclass_state)
@@ -310,10 +324,10 @@ def test_bind_before_new_session_is_adopted_on_enter(tmp_path):
     assert state.checkpoint_dataclass is dataclass_state
     assert bind_checkpoint_state(dataclass_state) is state
     assert state.checkpoint_enabled
-    assert state.checkpoint_state_policy == "workflow"
+    assert state.checkpoint_level == 1
     assert state.checkpoint_flush_interval == 2
     with pytest.raises(AttributeError):
-        state.checkpoint_state_policy = "rollout"
+        state.checkpoint_level = 2
     state.calls = 5
 
     with checkpoint as ckpt:
@@ -373,11 +387,11 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
     with pytest.raises(ValueError):
         Checkpoint("bad", path=tmp_path, history_size=0)
     with pytest.raises(ValueError):
-        Checkpoint("bad", path=tmp_path, state_policy="bad")
+        Checkpoint("bad", path=tmp_path, level=3)
     with pytest.raises(ValueError):
-        Checkpoint("legacy-replay", path=tmp_path, state_policy="replay")
+        Checkpoint("bad-bool", path=tmp_path, level=True)
     with pytest.raises(ValueError):
-        Checkpoint("legacy-direct", path=tmp_path, state_policy="direct")
+        Checkpoint("bad-string", path=tmp_path, level="bad")
 
     checkpoint = Checkpoint("forecast", path=tmp_path / "catalog", mode="append")
     assert "catalog: empty" in repr(checkpoint)

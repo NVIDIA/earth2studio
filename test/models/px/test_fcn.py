@@ -134,7 +134,7 @@ def test_fcn_iter(ensemble, device):
             break
 
 
-def test_fcn_checkpoint_rollout_state_round_trip(tmp_path):
+def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
     center = torch.zeros(26, 1, 1)
     scale = torch.ones(26, 1, 1)
     source_model = FCN(IncrementFCNModel(), center, scale)
@@ -150,9 +150,7 @@ def test_fcn_checkpoint_rollout_state_round_trip(tmp_path):
     )
     x = torch.zeros(1, 1, 26, 720, 1440)
 
-    checkpoint = Checkpoint(
-        "fcn", path=tmp_path, flush_interval=1, state_policy="rollout"
-    )
+    checkpoint = Checkpoint("fcn", path=tmp_path, flush_interval=1, level=2)
     with checkpoint as ckpt:
         model = FCN(IncrementFCNModel(), center, scale)
         iterator = model.create_iterator(x, coords)
@@ -162,7 +160,7 @@ def test_fcn_checkpoint_rollout_state_round_trip(tmp_path):
         assert saved_x[0, 0, 0, 0, 0] == 1
         ckpt.write(lead_time=saved_coords["lead_time"][-1])
 
-    checkpoint = Checkpoint("fcn", path=tmp_path, state_policy="rollout")
+    checkpoint = Checkpoint("fcn", path=tmp_path, level=2)
     with checkpoint.select(-1):
         model = FCN(IncrementFCNModel(), center, scale)
         assert model.checkpoint.checkpoint_state_loaded

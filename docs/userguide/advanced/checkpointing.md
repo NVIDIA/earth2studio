@@ -9,9 +9,9 @@ Checkpoint storage is independent of the user-facing IO backend and independent
 of any particular model implementation. Forecast fields remain in the IO backend
 you choose, model weights are not copied into checkpoints, and the checkpoint
 catalog stores only the restart metadata and component state requested by the
-configured state policy. Exactly what gets logged is user-configurable through
-the checkpoint options and through the checkpoint support implemented by each
-component.
+configured checkpoint level. Exactly what gets logged is user-configurable
+through the checkpoint options and through the checkpoint support implemented
+by each component.
 
 ```{warning}
 Checkpointing support is opt-in for every component. Not all models,
@@ -27,7 +27,7 @@ a [feature request](https://github.com/NVIDIA/earth2studio/issues).
 from earth2studio.run import deterministic
 from earth2studio.utils.checkpoint import Checkpoint
 
-checkpoint = Checkpoint("my-forecast", flush_interval=6, state_policy="rollout")
+checkpoint = Checkpoint("my-forecast", flush_interval=6, level=2)
 
 with checkpoint as ckpt:
     deterministic(
@@ -55,19 +55,13 @@ checkpoint session: they call `write` after successful IO writes and call
 - `mode="append"`: keep a row history; cap it with `history_size`.
 - `device=torch.device("cpu")`: device used by components for staged tensor state.
 
-Components can opt into supporting checkpoint states when they need restart information
-(rng-states, state tensors, etc).
-The user chooses the requested state policy, and each component decides what it supports
-for that policy:
+Components can opt into checkpoint state when they need restart information
+(RNG state, counters, tensors, etc.). The user chooses the requested level,
+and each component decides what it supports:
 
-- `minimal`: catalog progress and explicit artifacts passed to `write`;
-  components should skip extra state.
-- `workflow`: lightweight state needed to resume at workflow boundaries, such as
-  the next time range, ensemble member or batch index. This does
-  not promise restart from the middle of a forecast rollout.
-- `rollout`: all component-supported restart state needed to resume inside an
-  active forecast rollout. This can include tensors and is usually larger than
-  `workflow`.
+- `0`: no component logging; workflows still record catalog progress and explicit artifacts.
+- `1`: enough component state to restart a workflow item such as an ensemble member.
+- `2`: full component state for restarting inside a rollout when the component supports it.
 
 ## Selecting Rows
 
@@ -150,14 +144,14 @@ class NoisePerturbation:
 
     def __call__(self, x):
         y = add_noise(x, generator=self.generator)
-        if self.checkpoint.checkpoint_enabled:
+        if self.checkpoint.checkpoint_level >= 1:
             self.checkpoint.rng_state = self.generator.get_state()
         return y
 ```
 
 `bind_checkpoint_state` returns a proxy around the dataclass. Normal dataclass
 fields are accessed directly. Checkpoint metadata is available through read-only
-properties such as `checkpoint_enabled`, `checkpoint_state_policy`,
+properties such as `checkpoint_enabled`, `checkpoint_level`,
 `checkpoint_state_loaded`, `checkpoint_lead_time`, and `device`. Use `device` for
 staging tensor state, for example
 `x.detach().clone().to(self.checkpoint.device)`.

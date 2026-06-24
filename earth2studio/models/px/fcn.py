@@ -188,7 +188,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self, x: torch.Tensor, coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem, bool]:
         if (
-            self.checkpoint.checkpoint_state_policy == "rollout"
+            self.checkpoint.checkpoint_level == 2
             and self.checkpoint.checkpoint_state_loaded
             and self.checkpoint.x is not None
             and self.checkpoint.coord_keys
@@ -204,10 +204,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x, coords, False
 
     def _save_checkpoint_state(self, x: torch.Tensor, coords: CoordSystem) -> None:
-        if (
-            self.checkpoint.checkpoint_enabled
-            and self.checkpoint.checkpoint_state_policy == "rollout"
-        ):
+        if self.checkpoint.checkpoint_enabled and self.checkpoint.checkpoint_level == 2:
             self.checkpoint.x = x.detach().clone().to(self.checkpoint.device)
             self.checkpoint.coord_keys = tuple(coords.keys())
             self.checkpoint.coord_values = tuple(

@@ -92,7 +92,7 @@ for path in (forecast_store, checkpoint_store):
 # Rollout checkpoint state can be staged on the same device used for inference.
 # Setting ``device`` to the current CUDA device can reduce CPU/GPU transfers for
 # restart tensors during a run. Set it to ``torch.device("cpu")`` for CPU-only
-# development. Since FCN ``rollout`` checkpoints store the complete autoregressive
+# development. Since FCN level 2 checkpoints store the complete autoregressive
 # state, keep ``history_size`` small when using ``mode="append"``.
 
 # %%
@@ -113,7 +113,7 @@ first_attempt_nsteps = 1
 # this before the first model step. We do it explicitly here because this example
 # simulates a mid-run stop by intentionally running only the first forecast step.
 # The IO store writes only two variables, while the checkpoint keeps FCN's complete
-# restart state internally when ``state_policy="rollout"`` is used.
+# restart state internally when ``level=2`` is used.
 
 # %%
 
@@ -161,7 +161,7 @@ checkpoint = Checkpoint(
     mode="append",
     flush_interval=1,
     history_size=4,
-    state_policy="rollout",
+    level=2,
     device=compute_device,
 )
 
@@ -208,7 +208,7 @@ checkpoint = Checkpoint(
     path=checkpoint_store,
     mode="append",
     history_size=4,
-    state_policy="rollout",
+    level=2,
     device=compute_device,
 )
 
