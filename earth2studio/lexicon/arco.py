@@ -108,6 +108,7 @@ class ARCOLexicon(metaclass=LexiconType):
         "lsm": "land_sea_mask::",
         "z": "geopotential_at_surface::",
         "mtdwswrf": "mean_top_downward_short_wave_radiation_flux::",
+        "ttr": "top_net_thermal_radiation::",
         "skt": "skin_temperature::",
         "sic": "sea_ice_cover::",
         # AIFS/AIFS ENS and AIFS2 aliases backed by ARCO ERA5 single-level fields.

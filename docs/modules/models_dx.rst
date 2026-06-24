@@ -48,6 +48,7 @@ etc.
       DerivedTCWV
       DerivedVPD
       DerivedWS
+      DLESyMv0_ISCCP_ERA5Precip
       OrbitGlobalPrecip
       PrecipitationAFNO
       PrecipitationAFNOv2
