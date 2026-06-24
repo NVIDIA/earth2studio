@@ -2,9 +2,8 @@
 
 Earth2Studio checkpoints enable users to restart inference workflows. A
 checkpoint is a catalog of restart points for one named run. Each row in that
-catalog is a checkpoint session: it records the labels, completed lead time,
-optional artifacts, and opt-in component state(s) needed to restart that particular
-workflow selection.
+catalog is a checkpoint session: it records the completed lead time, optional
+artifacts, and opt-in component state(s) needed to restart the workflow.
 
 Checkpoint storage is independent of the user-facing IO backend and independent
 of any particular model implementation. Forecast fields remain in the IO backend
@@ -52,7 +51,7 @@ checkpoint session: they call `write` after successful IO writes and call
 
 - `flush_interval=1`: commit every workflow write.
 - `flush_interval=None`: keep writes pending until `flush()`.
-- `mode="overwrite"`: keep the latest row for a label set.
+- `mode="overwrite"`: keep only the latest row.
 - `mode="append"`: keep a row history; cap it with `history_size`.
 - `device=torch.device("cpu")`: device used by components for staged tensor state.
 
@@ -72,9 +71,8 @@ for that policy:
 
 ## Selecting Rows
 
-Print a checkpoint to inspect its catalog, then select a row by index or labels.
-Negative indexing is supported. Label value `-1` means the latest saved value for
-that label after applying any other label filters.
+Print a checkpoint to inspect its catalog, then select a row by integer index.
+Negative indexing is supported.
 
 ```python
 checkpoint = Checkpoint("my-forecast")
@@ -82,13 +80,12 @@ checkpoint = Checkpoint("my-forecast")
 print(checkpoint)
 
 latest = checkpoint.select(-1)
-latest_time = checkpoint.select(time=-1)
-member = checkpoint.select(time="2024-01-01T00:00:00", ensemble=0)
+first = checkpoint.select(0)
 ```
 
 By default, the context manager `with checkpoint` selects the latest catalog row
 when one exists, or opens a new session when the catalog is empty. Use
-`with checkpoint.select(...):` when a specific row or label set is required.
+`with checkpoint.select(-1):` when a specific saved row should be restored.
 
 ## Custom Loops
 
@@ -96,9 +93,9 @@ Call `write` after a safe restart boundary, usually after forecast fields have
 been written to IO. Call `flush()` to force the latest pending write to disk.
 
 ```python
-checkpoint = Checkpoint("ensemble-forecast", mode="append", history_size=8)
+checkpoint = Checkpoint("forecast", mode="append", history_size=8)
 
-with checkpoint.select(time=time, ensemble=member) as ckpt:
+with checkpoint as ckpt:
     for lead_time in lead_times:
         x, coords = step_model(...)
         io.write(*split_coords(x, coords))
@@ -124,8 +121,6 @@ should yield the next forecast state rather than the existing saved boundary.
 This decouples user-facing IO from what might be required to resume a run via a
 checkpoint: users often save only a subset of generated forecast variables, but
 continuing a rollout may require all fields and possibly internal model state.
-Ensemble workflows use the `ensemble_batch` label so each mini-batch can resume
-independently.
 
 ## Component State
 
@@ -163,8 +158,8 @@ class NoisePerturbation:
 `bind_checkpoint_state` returns a proxy around the dataclass. Normal dataclass
 fields are accessed directly. Checkpoint metadata is available through read-only
 properties such as `checkpoint_enabled`, `checkpoint_state_policy`,
-`checkpoint_state_loaded`, `checkpoint_lead_time`, `checkpoint_labels`, and
-`device`. Use `device` for staging tensor state, for example
+`checkpoint_state_loaded`, `checkpoint_lead_time`, and `device`. Use `device` for
+staging tensor state, for example
 `x.detach().clone().to(self.checkpoint.device)`.
 
 Construct restart-aware components inside the checkpoint context when saved

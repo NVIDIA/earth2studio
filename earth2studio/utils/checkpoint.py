@@ -296,8 +296,45 @@ def bind_checkpoint_state(state: T | CheckpointState[T]) -> CheckpointState[T]:
 class Checkpoint:
     """Catalog of restart checkpoints for a named inference run.
 
-    Checkpoints store small restart metadata, optional artifacts, and component
-    state bound through :func:`bind_checkpoint_state`.
+    A checkpoint owns the on-disk catalog and commit directories for one logical
+    inference run. Each committed catalog row stores the latest completed lead
+    time, optional artifacts, and component state bound through
+    :func:`bind_checkpoint_state`.
+
+    Parameters
+    ----------
+    name : str
+        Name of the checkpoint store. Used in the default checkpoint path and in
+        commit manifests.
+    path : str | Path | None, optional
+        Directory where checkpoint files are stored. If ``None``, checkpoints are
+        written under the default Earth2Studio cache location, by default None.
+    mode : Literal["overwrite", "append"], optional
+        Catalog update mode. ``"overwrite"`` keeps only the latest row;
+        ``"append"`` preserves row history for repeated writes, by default
+        "overwrite".
+    flush_interval : int | None, optional
+        Number of workflow ``write`` calls between durable commits. Use ``None``
+        to keep updates pending until ``flush`` is called explicitly, by default
+        1.
+    history_size : int | None, optional
+        Maximum number of rows to keep when ``mode="append"``. In overwrite mode
+        this is ignored and treated as one latest row, by default None.
+    state_policy : CheckpointStatePolicy, optional
+        Requested component-state level. ``"minimal"`` records catalog progress
+        and explicit artifacts only, ``"workflow"`` allows boundary-level resume
+        state, and ``"rollout"`` allows component state needed to resume inside a
+        forecast rollout, by default "rollout".
+    rank : int | None, optional
+        Distributed rank for this process. If ``None``, Earth2Studio attempts to
+        detect the rank from PhysicsNeMo or common distributed environment
+        variables, by default None.
+    world_size : int | None, optional
+        Distributed world size. If ``None``, Earth2Studio attempts to detect the
+        world size from PhysicsNeMo or ``WORLD_SIZE``, by default None.
+    device : str | torch.device, optional
+        Device where components should stage live tensor state before it is
+        serialized into the checkpoint, by default torch.device("cpu").
     """
 
     def __init__(
@@ -366,7 +403,7 @@ class Checkpoint:
         """Directory for this process checkpoint writes."""
         if self.world_size == 1:
             return self.path
-        return self.path / f"rank_{self.rank:d}"
+        return self.path / f"rank_{self.rank:06d}"
 
     @property
     def catalog(self) -> tuple[CheckpointEntry, ...]:
@@ -386,59 +423,33 @@ class Checkpoint:
         """Refresh the checkpoint catalog from disk."""
         self._catalog = _read_catalog(self.rank_path)
 
-    def select(self, row: int | None = None, **labels: Any) -> CheckpointSession:
-        """Select a checkpoint row or label set.
+    def select(self, row: int) -> CheckpointSession:
+        """Select an existing checkpoint row by position.
 
-        A positional integer selects a catalog row, with negative indexing supported.
-        Keyword labels select the latest matching row and also define labels for
-        future writes. A keyword value of ``-1`` selects the latest saved value for
-        that label after all other labels are applied.
+        The selected session can be used as a context manager. Bound component
+        state and artifacts are restored from the selected catalog row when the
+        session becomes active.
+
+        Parameters
+        ----------
+        row : int
+            Positional row index. Negative indexing is supported.
+
+        Returns
+        -------
+        CheckpointSession
+            Session representing the selected catalog row.
+
+        Raises
+        ------
+        IndexError
+            If no catalog row matches the selection.
         """
         self.refresh()
         entries = list(self._catalog or [])
-        encoded_labels = {
-            key: _CheckpointCodec.encode_json_value(value)
-            for key, value in labels.items()
-        }
-        latest_keys = [
-            key
-            for key, value in labels.items()
-            if isinstance(value, int) and not isinstance(value, bool) and value == -1
-        ]
-        if latest_keys:
-            filtered = entries
-            for key, value in encoded_labels.items():
-                if key not in latest_keys:
-                    filtered = [
-                        entry for entry in filtered if entry.labels.get(key) == value
-                    ]
-            if filtered:
-                latest = filtered[-1]
-                for key in latest_keys:
-                    if key in latest.labels:
-                        encoded_labels[key] = latest.labels[key]
-
-        if encoded_labels:
-            entries = [
-                entry
-                for entry in entries
-                if all(
-                    entry.labels.get(key) == value
-                    for key, value in encoded_labels.items()
-                )
-            ]
-
-        selected_entry: CheckpointEntry | None = None
-        if row is not None:
-            if not entries:
-                raise IndexError("No checkpoint entries match this selection.")
-            selected_entry = entries[row]
-            if not encoded_labels:
-                encoded_labels = selected_entry.labels.copy()
-        elif entries:
-            selected_entry = entries[-1]
-
-        return CheckpointSession(self, encoded_labels, selected_entry)
+        if not entries:
+            raise IndexError("No checkpoint entries match this selection.")
+        return CheckpointSession(self, entries[row])
 
     def __enter__(self) -> CheckpointSession:
         active = self.active
@@ -446,7 +457,7 @@ class Checkpoint:
             session = active
         else:
             self.refresh()
-            session = self.select(-1) if self._catalog else self.select()
+            session = self.select(-1) if self._catalog else CheckpointSession(self)
         self._context_sessions.append(session)
         return session.__enter__()
 
@@ -616,16 +627,30 @@ class Checkpoint:
 
 
 class CheckpointSession:
-    """Active checkpoint row or future label set."""
+    """Active checkpoint row or new checkpoint session.
+
+    A session is the context-bound handle used by workflows and components to
+    restore bound state, record completed restart boundaries, and commit new
+    checkpoint rows. Sessions created from :meth:`Checkpoint.select` restore an
+    existing catalog row; sessions opened by ``with checkpoint`` on an empty
+    catalog create the first row for the checkpoint.
+
+    Parameters
+    ----------
+    catalog : Checkpoint
+        Checkpoint catalog that owns this session.
+    entry : CheckpointEntry | None, optional
+        Existing catalog row to restore. If ``None``, the session starts as a new
+        write target, by default None.
+    """
 
     def __init__(
         self,
         catalog: Checkpoint,
-        labels: dict[str, Any],
-        entry: CheckpointEntry | None,
+        entry: CheckpointEntry | None = None,
     ) -> None:
         self.catalog = catalog
-        self.labels = labels
+        self.labels = dict(entry.labels) if entry is not None else {}
         self._entry = entry
         self.bound_states: dict[str, Any] = {}
         self._reusable_state_ids: set[str] = set()
@@ -749,7 +774,7 @@ class CheckpointSession:
                 "was active. Saved dataclass state is being restored late; "
                 "constructor side effects that depended on that state will not be "
                 "replayed. Construct restartable components inside "
-                "`with checkpoint.select(...):` when state must be restored during "
+                "`with checkpoint.select(-1):` when state must be restored during "
                 "initialization.",
                 UserWarning,
                 stacklevel=3,
@@ -769,7 +794,30 @@ class CheckpointSession:
         lead_time: Any | None = None,
         artifacts: Mapping[str, Any] | None = None,
     ) -> CheckpointEntry | None:
-        """Record a safe checkpoint boundary and flush if due."""
+        """Record a safe restart boundary for the active session.
+
+        ``write`` increments the session write count and stores the latest
+        pending lead time and artifacts. If the parent checkpoint's
+        ``flush_interval`` is reached, the pending update is committed to disk;
+        otherwise it remains in memory until a later ``write`` or ``flush``.
+
+        Parameters
+        ----------
+        lead_time : Any | None, optional
+            Latest completed lead time or restart boundary for this session. NumPy
+            and Python time-like values are normalized before commit, by default
+            None.
+        artifacts : Mapping[str, Any] | None, optional
+            Small explicit metadata to store with this checkpoint row. Artifact
+            names must be strings, and values must use the checkpoint serializer's
+            supported pickle-free types, by default None.
+
+        Returns
+        -------
+        CheckpointEntry | None
+            The committed catalog entry when this call triggers a flush;
+            otherwise ``None``.
+        """
         self.write_count += 1
         self._pending_lead_time = _CheckpointCodec.normalize_lead_time(lead_time)
         self._pending_artifacts = artifacts
@@ -784,7 +832,28 @@ class CheckpointSession:
         lead_time: Any | None = None,
         artifacts: Mapping[str, Any] | None = None,
     ) -> CheckpointEntry | None:
-        """Force an atomic checkpoint commit for the current session."""
+        """Commit the current session state to the checkpoint catalog.
+
+        ``flush`` writes an atomic commit directory containing the manifest,
+        bound component state, and any explicit artifacts, then updates the
+        catalog row for this session. If no write is pending and no override
+        values are supplied, no commit is created.
+
+        Parameters
+        ----------
+        lead_time : Any | None, optional
+            Lead time to commit. When omitted, the latest pending lead time from
+            ``write`` is used, by default None.
+        artifacts : Mapping[str, Any] | None, optional
+            Artifacts to commit. When omitted, the latest pending artifacts from
+            ``write`` are used, by default None.
+
+        Returns
+        -------
+        CheckpointEntry | None
+            The committed catalog entry, or ``None`` when there was nothing new to
+            commit.
+        """
         has_updates = lead_time is not None or artifacts is not None
         commit_lead_time = (
             self._pending_lead_time
@@ -1183,7 +1252,7 @@ class _CheckpointCodec:
         if isinstance(value, np.ndarray):
             if value.dtype == object:
                 raise CheckpointSerializationError(
-                    "object dtype arrays cannot be used as checkpoint labels."
+                    "object dtype arrays cannot be used as checkpoint metadata."
                 )
             return {
                 "kind": "ndarray_label",

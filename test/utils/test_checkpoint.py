@@ -31,7 +31,6 @@ from earth2studio.models.px import Persistence
 from earth2studio.perturbation import Zero
 from earth2studio.utils.checkpoint import (
     Checkpoint,
-    CheckpointError,
     CheckpointSerializationError,
     CheckpointState,
     CheckpointStateCollision,
@@ -40,7 +39,6 @@ from earth2studio.utils.checkpoint import (
     bind_checkpoint_state,
     default_checkpoint_path,
 )
-from earth2studio.utils.time import to_time_array
 
 
 @dataclass
@@ -95,7 +93,7 @@ def test_checkpoint_contexts_and_no_checkpoint_session(tmp_path):
         assert ckpt.flush() is None
 
     checkpoint = Checkpoint("forecast", path=tmp_path, mode="append", flush_interval=1)
-    with checkpoint.select(time="2024-01-01") as selected:
+    with checkpoint as selected:
         with checkpoint as active:
             assert active is selected
             assert active.write(lead_time=_lead_time(0)) is not None
@@ -128,14 +126,14 @@ def test_checkpoint_state_proxy_metadata_and_rebinding(tmp_path):
         "forecast", path=tmp_path, flush_interval=None, device="cpu"
     )
     assert checkpoint.device == torch.device("cpu")
-    with checkpoint.select(time="2024-01-01") as ckpt:
+    with checkpoint as ckpt:
         rebound = bind_checkpoint_state(proxy)
         assert rebound is proxy
         assert ckpt.device == torch.device("cpu")
         assert proxy.device == torch.device("cpu")
         assert bind_checkpoint_state(proxy) is proxy
         assert ckpt.is_active
-        assert proxy.checkpoint_labels == {"time": "2024-01-01"}
+        assert proxy.checkpoint_labels == {}
         assert ckpt.artifacts == {}
         with pytest.raises(TypeError):
             ckpt.bind(object())
@@ -196,9 +194,7 @@ def _lead_time(hours: int):
 
 def test_bind_round_trip_hydrates_dataclass_and_catalog(tmp_path):
     checkpoint = Checkpoint("forecast", path=tmp_path, mode="overwrite")
-    time = np.asarray([np.datetime64("2024-01-01T00")])
-
-    with checkpoint.select(time=time, ensemble=0) as ckpt:
+    with checkpoint as ckpt:
         state = bind_checkpoint_state(ToyState())
         state.calls = 7
         state.rng = torch.arange(4, dtype=torch.uint8)
@@ -209,7 +205,7 @@ def test_bind_round_trip_hydrates_dataclass_and_catalog(tmp_path):
         ckpt.write(lead_time=_lead_time(6), artifacts={"sample": 3})
 
     checkpoint = Checkpoint("forecast", path=tmp_path)
-    with checkpoint.select(time=time, ensemble=0) as ckpt:
+    with checkpoint as ckpt:
         restored = bind_checkpoint_state(ToyState())
 
         assert ckpt.exists
@@ -236,25 +232,17 @@ def test_bind_round_trip_hydrates_dataclass_and_catalog(tmp_path):
 
     text = repr(checkpoint)
     assert 'Checkpoint("forecast")' in text
-    assert "ensemble" in text
     assert "6 hours" in text
 
 
-def test_duplicate_state_type_errors_but_different_selections_are_independent(tmp_path):
+def test_duplicate_state_type_errors(tmp_path):
     checkpoint = Checkpoint("forecast", path=tmp_path)
 
-    with checkpoint.select(time="2024-01-01") as ckpt:
+    with checkpoint as ckpt:
         bind_checkpoint_state(ToyState())
         with pytest.raises(CheckpointStateCollision):
             bind_checkpoint_state(ToyState())
         ckpt.flush(lead_time=_lead_time(0))
-
-    with checkpoint.select(time="2024-01-02") as ckpt:
-        state = bind_checkpoint_state(ToyState())
-        state.calls = 2
-        ckpt.flush(lead_time=_lead_time(6))
-
-    assert len(checkpoint.catalog) == 2
 
 
 def test_write_interval_overwrite_and_manual_flush_prune_old_commits(tmp_path):
@@ -262,7 +250,7 @@ def test_write_interval_overwrite_and_manual_flush_prune_old_commits(tmp_path):
         "forecast", path=tmp_path, mode="overwrite", flush_interval=2
     )
 
-    with checkpoint.select(time="2024-01-01") as ckpt:
+    with checkpoint as ckpt:
         state = bind_checkpoint_state(ToyState())
         state.calls = 1
         assert ckpt.write(lead_time=_lead_time(6)) is None
@@ -280,7 +268,7 @@ def test_write_interval_overwrite_and_manual_flush_prune_old_commits(tmp_path):
     commits = list((checkpoint.rank_path / "commits").iterdir())
     assert [commit.name for commit in commits] == [final.commit_id]
 
-    with checkpoint.select(time="2024-01-01") as ckpt:
+    with checkpoint as ckpt:
         state = bind_checkpoint_state(ToyState())
         assert ckpt.lead_time == np.timedelta64(18, "h")
         assert state.calls == 3
@@ -292,17 +280,16 @@ def test_append_history_size_and_positional_selection(tmp_path):
     )
 
     for hours in (6, 12, 18):
-        with checkpoint.select(time="2024-01-01", ensemble=0) as ckpt:
+        with checkpoint as ckpt:
             bind_checkpoint_state(ToyState()).calls = hours
             ckpt.write(lead_time=_lead_time(hours))
 
     assert len(checkpoint.catalog) == 2
     assert checkpoint.select(-1).lead_time == np.timedelta64(18, "h")
     assert checkpoint.select(-2).lead_time == np.timedelta64(12, "h")
-    assert checkpoint.select(time=-1, ensemble=0).lead_time == np.timedelta64(18, "h")
     with checkpoint as ckpt:
         assert ckpt.lead_time == np.timedelta64(18, "h")
-        assert ckpt.labels == {"time": "2024-01-01", "ensemble": 0}
+        assert ckpt.labels == {}
 
 
 def test_bind_before_new_session_is_adopted_on_enter(tmp_path):
@@ -322,7 +309,7 @@ def test_bind_before_new_session_is_adopted_on_enter(tmp_path):
         state.checkpoint_state_policy = "rollout"
     state.calls = 5
 
-    with checkpoint.select(time="2024-01-01") as ckpt:
+    with checkpoint as ckpt:
         assert list(ckpt.bound_states.values()) == [state]
         assert not state.checkpoint_selected
         assert not state.checkpoint_state_loaded
@@ -333,7 +320,7 @@ def test_bind_before_new_session_is_adopted_on_enter(tmp_path):
         assert state.checkpoint_is_flush_due
         ckpt.flush(lead_time=_lead_time(6))
 
-    with Checkpoint("forecast", path=tmp_path).select(time="2024-01-01"):
+    with Checkpoint("forecast", path=tmp_path).select(-1):
         restored = bind_checkpoint_state(ToyState())
         assert restored.checkpoint_selected
         assert restored.checkpoint_state_loaded
@@ -346,7 +333,7 @@ def test_bind_before_new_session_is_adopted_on_enter(tmp_path):
 
 def test_bind_before_existing_session_warns_and_hydrates_late(tmp_path):
     checkpoint = Checkpoint("forecast", path=tmp_path)
-    with checkpoint.select(time="2024-01-01") as ckpt:
+    with checkpoint as ckpt:
         state = bind_checkpoint_state(ToyState())
         state.calls = 9
         ckpt.flush(lead_time=_lead_time(6))
@@ -356,7 +343,7 @@ def test_bind_before_existing_session_warns_and_hydrates_late(tmp_path):
     assert state.calls == 0
 
     with pytest.warns(UserWarning, match="bound before an existing checkpoint session"):
-        with checkpoint.select(time="2024-01-01") as ckpt:
+        with checkpoint as ckpt:
             assert ckpt.exists
             assert state.checkpoint_state_loaded
             assert state.calls == 9
@@ -389,19 +376,7 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
     assert "catalog: empty" in repr(checkpoint)
     with pytest.raises(IndexError):
         checkpoint.select(-1)
-    assert checkpoint.select(time="missing").artifacts == {}
-    assert not checkpoint.select(time="missing")
-    with pytest.raises(CheckpointError):
-        checkpoint.select(time="missing")._commit_path
-
-    with pytest.raises(CheckpointSerializationError):
-        checkpoint.select(meta={1: 2})
-    with pytest.raises(CheckpointSerializationError):
-        checkpoint.select(meta=object())
-    with pytest.raises(CheckpointSerializationError):
-        checkpoint.select(meta=np.asarray([object()], dtype=object))
-
-    with checkpoint.select(time="2024-01-01") as ckpt:
+    with checkpoint as ckpt:
         with pytest.raises(CheckpointSerializationError):
             ckpt.flush(artifacts={1: 2})
         with pytest.raises(CheckpointSerializationError):
@@ -410,19 +385,6 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
         ckpt.flush(lead_time=torch.tensor([6]))
         assert ckpt.flush() is None
         ckpt.write(lead_time=torch.tensor([7]))
-
-    meta_checkpoint = Checkpoint("metadata", path=tmp_path / "metadata")
-    with meta_checkpoint.select(
-        day=date(2024, 1, 1),
-        window=timedelta(hours=2),
-        device=torch.device("cpu"),
-        dtype=torch.float32,
-        np_dtype=np.dtype("float32"),
-        values=[np.int64(1)],
-        meta={"ok": np.float32(1.0)},
-    ) as ckpt:
-        ckpt.flush(lead_time=np.asarray([1, 2]))
-    assert Checkpoint("metadata", path=tmp_path / "metadata").select(-1).exists
 
     assert len(checkpoint.catalog) == 2
     (checkpoint.rank_path / "catalog.json").write_text("{")
@@ -438,7 +400,7 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
 def test_artifacts_round_trip_and_unsupported_objects_reject(tmp_path):
     checkpoint = Checkpoint("forecast", path=tmp_path)
 
-    with checkpoint.select(time="2024-01-01") as ckpt:
+    with checkpoint as ckpt:
         ckpt.write(
             lead_time=_lead_time(6),
             artifacts={
@@ -448,7 +410,7 @@ def test_artifacts_round_trip_and_unsupported_objects_reject(tmp_path):
             },
         )
 
-    selected = checkpoint.select(time="2024-01-01")
+    selected = checkpoint.select(-1)
     assert torch.equal(selected.artifact("mask"), torch.tensor([True, False]))
     assert np.array_equal(
         selected.artifact("scores"), np.asarray([1.0, 2.0], dtype=np.float32)
@@ -457,12 +419,12 @@ def test_artifacts_round_trip_and_unsupported_objects_reject(tmp_path):
     with pytest.raises(KeyError):
         selected.artifact("missing")
 
-    with checkpoint.select(time="bad") as ckpt:
+    with checkpoint as ckpt:
         bind_checkpoint_state(BadState())
         with pytest.raises(CheckpointSerializationError):
             ckpt.flush(lead_time=_lead_time(0))
 
-    with checkpoint.select(time="bad-array") as ckpt:
+    with checkpoint as ckpt:
         with pytest.raises(CheckpointSerializationError):
             ckpt.flush(artifacts={"bad": np.asarray([object()], dtype=object)})
 
@@ -470,7 +432,7 @@ def test_artifacts_round_trip_and_unsupported_objects_reject(tmp_path):
 def test_schema_mismatch_errors_before_hydration(tmp_path):
     checkpoint = Checkpoint("forecast", path=tmp_path)
 
-    with checkpoint.select(time="2024-01-01") as ckpt:
+    with checkpoint as ckpt:
         state = bind_checkpoint_state(ToyState())
         state.calls = 4
         ckpt.flush(lead_time=_lead_time(6))
@@ -483,7 +445,7 @@ def test_schema_mismatch_errors_before_hydration(tmp_path):
     metadata = original_metadata.copy()
     metadata["state_id"] = "bad"
     metadata_path.write_text(json.dumps(metadata))
-    with Checkpoint("forecast", path=tmp_path).select(time="2024-01-01"):
+    with Checkpoint("forecast", path=tmp_path).select(-1):
         with pytest.raises(CheckpointStateSchemaError):
             bind_checkpoint_state(ToyState())
 
@@ -491,14 +453,14 @@ def test_schema_mismatch_errors_before_hydration(tmp_path):
     metadata["fields"] = metadata["fields"].copy()
     metadata["fields"].pop("calls")
     metadata_path.write_text(json.dumps(metadata))
-    with Checkpoint("forecast", path=tmp_path).select(time="2024-01-01"):
+    with Checkpoint("forecast", path=tmp_path).select(-1):
         with pytest.raises(CheckpointStateSchemaError):
             bind_checkpoint_state(ToyState())
 
     metadata = original_metadata.copy()
     metadata["schema_hash"] = "bad"
     metadata_path.write_text(json.dumps(metadata))
-    with Checkpoint("forecast", path=tmp_path).select(time="2024-01-01"):
+    with Checkpoint("forecast", path=tmp_path).select(-1):
         with pytest.raises(CheckpointStateSchemaError):
             bind_checkpoint_state(ToyState())
 
@@ -509,7 +471,7 @@ def test_default_path_and_rank_directory_detection(tmp_path, monkeypatch):
     assert default_checkpoint_path("forecast") == tmp_path / "checkpoints" / "forecast"
 
     serial = Checkpoint("serial", path=tmp_path / "serial", rank=0, world_size=1)
-    with serial.select(time="2024-01-01") as ckpt:
+    with serial as ckpt:
         ckpt.flush(lead_time=_lead_time(0))
 
     assert serial.rank_path == serial.path
@@ -519,7 +481,7 @@ def test_default_path_and_rank_directory_detection(tmp_path, monkeypatch):
     monkeypatch.setenv("RANK", "2")
     monkeypatch.setenv("WORLD_SIZE", "4")
     checkpoint = Checkpoint("forecast")
-    with checkpoint.select(time="2024-01-01") as ckpt:
+    with checkpoint as ckpt:
         ckpt.flush(lead_time=_lead_time(0))
 
     assert checkpoint.rank == 2
@@ -682,7 +644,7 @@ def test_diagnostic_workflow_resumes_from_checkpoint(tmp_path):
         "diagnostic", path=tmp_path, mode="append", flush_interval=1
     )
 
-    with checkpoint.select(time=to_time_array(["2024-01-01"])) as ckpt:
+    with checkpoint as ckpt:
         data = Random(domain_coords=coords)
         model = Persistence(variables, coords)
         diagnostic = Identity()
@@ -743,7 +705,7 @@ def test_diagnostic_checkpoint_tracks_prognostic_lead_time(tmp_path):
     assert checkpoint.select(-1).lead_time == np.timedelta64(6, "h")
 
 
-def test_ensemble_workflow_resumes_each_batch_from_checkpoint(tmp_path):
+def test_ensemble_workflow_records_checkpoint(tmp_path):
     coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
     variables = ["u10m", "v10m"]
     nensemble = 2
@@ -789,9 +751,8 @@ def test_ensemble_workflow_resumes_each_batch_from_checkpoint(tmp_path):
         checkpoint=checkpoint,
     )
 
-    for batch_id in range(nensemble):
-        selected = checkpoint.select(ensemble_batch=batch_id)
-        assert selected.lead_time == np.timedelta64(18, "h")
-        assert selected.write_count == 4
-    assert len(checkpoint.catalog) == 8
+    selected = checkpoint.select(-1)
+    assert selected.lead_time == np.timedelta64(18, "h")
+    assert selected.write_count == 4
+    assert len(checkpoint.catalog) == 4
     assert io["u10m"].shape[:3] == (nensemble, 1, 4)

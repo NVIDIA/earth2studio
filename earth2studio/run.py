@@ -469,11 +469,10 @@ def ensemble(
         batch_checkpoint = checkpoint
         if isinstance(batch_checkpoint, Checkpoint):
             active = batch_checkpoint.active
-            batch_checkpoint = (
-                active
-                if active is not None
-                else batch_checkpoint.select(ensemble_batch=batch_id)
-            )
+            if active is not None:
+                batch_checkpoint = active
+            elif batch_id > 0:
+                batch_checkpoint = NullCheckpoint()
 
         with batch_checkpoint as ckpt:
             restart_step = None
