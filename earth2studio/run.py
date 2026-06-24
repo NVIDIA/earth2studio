@@ -121,10 +121,18 @@ def deterministic(
     with checkpoint as ckpt:
         restart_step = None
         if ckpt.exists and ckpt.write_count > 0:
-            restart_step = ckpt.write_count - 1
-            if restart_step >= nsteps:
-                logger.success("\nInference complete")
-                return io
+            if ckpt.catalog.level < 2:
+                logger.warning(
+                    "deterministic received checkpoint level "
+                    f"{ckpt.catalog.level}; component state may not be "
+                    "complete enough to resume a rollout. Re-running from "
+                    "lead time zero."
+                )
+            else:
+                restart_step = ckpt.write_count - 1
+                if restart_step >= nsteps:
+                    logger.success("\nInference complete")
+                    return io
 
         # sphinx - fetch data start
         # Fetch data from data source and load onto device
@@ -271,10 +279,18 @@ def diagnostic(
     with checkpoint as ckpt:
         restart_step = None
         if ckpt.exists and ckpt.write_count > 0:
-            restart_step = ckpt.write_count - 1
-            if restart_step >= nsteps:
-                logger.success("\nInference complete")
-                return io
+            if ckpt.catalog.level < 2:
+                logger.warning(
+                    "diagnostic received checkpoint level "
+                    f"{ckpt.catalog.level}; component state may not be "
+                    "complete enough to resume a rollout. Re-running from "
+                    "lead time zero."
+                )
+            else:
+                restart_step = ckpt.write_count - 1
+                if restart_step >= nsteps:
+                    logger.success("\nInference complete")
+                    return io
 
         if hasattr(prognostic, "interp_method"):
             interp_to = prognostic_ic
@@ -459,9 +475,17 @@ def ensemble(
         with batch_checkpoint as ckpt:
             restart_step = None
             if ckpt.exists and ckpt.write_count > 0:
-                restart_step = ckpt.write_count - 1
-                if restart_step >= nsteps:
-                    continue
+                if ckpt.catalog.level < 2:
+                    logger.warning(
+                        "ensemble received checkpoint level "
+                        f"{ckpt.catalog.level}; component state may not be "
+                        "complete enough to resume a rollout. Re-running from "
+                        "lead time zero."
+                    )
+                else:
+                    restart_step = ckpt.write_count - 1
+                    if restart_step >= nsteps:
+                        continue
 
             x = x0.to(device)
             coords = OrderedDict({"ensemble": ensemble_coords}) | coords0.copy()

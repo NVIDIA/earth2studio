@@ -552,6 +552,80 @@ def test_default_path_and_rank_directory_detection(tmp_path, monkeypatch):
     assert checkpoint.catalog[0].rank == 2
 
 
+def test_deterministic_checkpoint_below_level_two_reruns_from_zero(tmp_path):
+    coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
+    variables = ["u10m", "v10m"]
+    io = RecordingIO()
+    checkpoint = Checkpoint(
+        "deterministic", path=tmp_path, mode="append", flush_interval=1, level=1
+    )
+
+    run.deterministic(
+        ["2024-01-01"],
+        1,
+        Persistence(variables, coords),
+        Random(domain_coords=coords),
+        io,
+        device=torch.device("cpu"),
+        verbose=False,
+        checkpoint=checkpoint,
+    )
+
+    run.deterministic(
+        ["2024-01-01"],
+        3,
+        Persistence(variables, coords),
+        Random(domain_coords=coords),
+        io,
+        device=torch.device("cpu"),
+        verbose=False,
+        checkpoint=checkpoint,
+    )
+
+    assert len(io.writes) == 6
+    assert io.writes[2][1]["lead_time"][0] == np.timedelta64(0, "h")
+
+
+def test_ensemble_checkpoint_below_level_two_reruns_batch_from_zero(tmp_path):
+    coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
+    variables = ["u10m", "v10m"]
+    io = RecordingIO()
+    checkpoint = Checkpoint(
+        "ensemble", path=tmp_path, mode="append", flush_interval=1, level=1
+    )
+
+    run.ensemble(
+        ["2024-01-01"],
+        1,
+        1,
+        Persistence(variables, coords),
+        Random(domain_coords=coords),
+        io,
+        Zero(),
+        batch_size=1,
+        device=torch.device("cpu"),
+        verbose=False,
+        checkpoint=checkpoint,
+    )
+
+    run.ensemble(
+        ["2024-01-01"],
+        3,
+        1,
+        Persistence(variables, coords),
+        Random(domain_coords=coords),
+        io,
+        Zero(),
+        batch_size=1,
+        device=torch.device("cpu"),
+        verbose=False,
+        checkpoint=checkpoint,
+    )
+
+    assert len(io.writes) == 6
+    assert io.writes[2][1]["lead_time"][0] == np.timedelta64(0, "h")
+
+
 def test_deterministic_workflow_records_checkpoint(tmp_path):
     coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
     variables = ["u10m", "v10m"]
