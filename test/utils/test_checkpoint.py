@@ -136,7 +136,7 @@ def test_checkpoint_state_proxy_metadata_and_rebinding(tmp_path):
         assert bind_checkpoint_state(proxy) is proxy
         assert ckpt.is_active
         assert proxy.checkpoint_labels == {}
-        assert ckpt.artifacts == {}
+        assert ckpt.metadata == {}
         with pytest.raises(TypeError):
             ckpt.bind(object())
         assert ckpt.write(lead_time=torch.tensor([6])) is None
@@ -204,7 +204,7 @@ def test_bind_round_trip_hydrates_dataclass_and_catalog(tmp_path):
         state.delta = np.timedelta64(6, "h")
         state.nested.count = 2
         state.loose = NestedState(count=5)
-        ckpt.write(lead_time=_lead_time(6), artifacts={"sample": 3})
+        ckpt.write(lead_time=_lead_time(6), sample=3)
 
     checkpoint = Checkpoint("forecast", path=tmp_path)
     with checkpoint as ckpt:
@@ -230,7 +230,7 @@ def test_bind_round_trip_hydrates_dataclass_and_catalog(tmp_path):
         assert restored.nested.count == 2
         assert restored.loose == {"label": "inner", "count": 5}
         assert ckpt.commit_id is not None
-        assert ckpt.artifact("sample") == 3
+        assert ckpt.metadata_value("sample") == 3
 
     text = repr(checkpoint)
     assert 'Checkpoint("forecast")' in text
@@ -399,9 +399,9 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
         checkpoint.select(-1)
     with checkpoint as ckpt:
         with pytest.raises(CheckpointSerializationError):
-            ckpt.flush(artifacts={1: 2})
+            ckpt.flush(bad={1: 2})
         with pytest.raises(CheckpointSerializationError):
-            ckpt.flush(artifacts={"bad": {1: 2}})
+            ckpt.flush(bad={1: 2})
         bind_checkpoint_state(RequiredState(1))
         ckpt.flush(lead_time=torch.tensor([6]))
         assert ckpt.flush() is None
@@ -418,27 +418,25 @@ def test_defensive_paths_and_catalog_rebuild(tmp_path):
     assert len(Checkpoint("forecast", path=tmp_path / "catalog").catalog) == 2
 
 
-def test_artifacts_round_trip_and_unsupported_objects_reject(tmp_path):
+def test_metadata_round_trip_and_unsupported_objects_reject(tmp_path):
     checkpoint = Checkpoint("forecast", path=tmp_path)
 
     with checkpoint as ckpt:
         ckpt.write(
             lead_time=_lead_time(6),
-            artifacts={
-                "mask": torch.tensor([True, False]),
-                "scores": np.asarray([1.0, 2.0], dtype=np.float32),
-                "meta": {"name": "sample"},
-            },
+            mask=torch.tensor([True, False]),
+            scores=np.asarray([1.0, 2.0], dtype=np.float32),
+            meta={"name": "sample"},
         )
 
     selected = checkpoint.select(-1)
-    assert torch.equal(selected.artifact("mask"), torch.tensor([True, False]))
+    assert torch.equal(selected.metadata_value("mask"), torch.tensor([True, False]))
     assert np.array_equal(
-        selected.artifact("scores"), np.asarray([1.0, 2.0], dtype=np.float32)
+        selected.metadata_value("scores"), np.asarray([1.0, 2.0], dtype=np.float32)
     )
-    assert selected.artifact("meta") == {"name": "sample"}
+    assert selected.metadata_value("meta") == {"name": "sample"}
     with pytest.raises(KeyError):
-        selected.artifact("missing")
+        selected.metadata_value("missing")
 
     with checkpoint as ckpt:
         bind_checkpoint_state(BadState())
@@ -447,7 +445,7 @@ def test_artifacts_round_trip_and_unsupported_objects_reject(tmp_path):
 
     with checkpoint as ckpt:
         with pytest.raises(CheckpointSerializationError):
-            ckpt.flush(artifacts={"bad": np.asarray([object()], dtype=object)})
+            ckpt.flush(bad=np.asarray([object()], dtype=object))
 
 
 def test_schema_mismatch_errors_before_hydration(tmp_path):
@@ -594,6 +592,9 @@ def test_ensemble_checkpoint_below_level_two_reruns_batch_from_zero(tmp_path):
         "ensemble", path=tmp_path, mode="append", flush_interval=1, level=1
     )
 
+    with checkpoint as ckpt:
+        ckpt.write(lead_time=np.timedelta64(0, "h"), completed_ensembles=[])
+
     run.ensemble(
         ["2024-01-01"],
         1,
@@ -608,22 +609,8 @@ def test_ensemble_checkpoint_below_level_two_reruns_batch_from_zero(tmp_path):
         checkpoint=checkpoint,
     )
 
-    run.ensemble(
-        ["2024-01-01"],
-        3,
-        1,
-        Persistence(variables, coords),
-        Random(domain_coords=coords),
-        io,
-        Zero(),
-        batch_size=1,
-        device=torch.device("cpu"),
-        verbose=False,
-        checkpoint=checkpoint,
-    )
-
-    assert len(io.writes) == 6
-    assert io.writes[2][1]["lead_time"][0] == np.timedelta64(0, "h")
+    assert len(io.writes) == 2
+    assert io.writes[0][1]["lead_time"][0] == np.timedelta64(0, "h")
 
 
 def test_deterministic_workflow_records_checkpoint(tmp_path):
@@ -844,25 +831,13 @@ def test_diagnostic_checkpoint_tracks_prognostic_lead_time(tmp_path):
 def test_ensemble_workflow_records_checkpoint(tmp_path):
     coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
     variables = ["u10m", "v10m"]
-    nensemble = 2
-    io = ZarrBackend()
-    io.add_array(
-        OrderedDict(
-            {
-                "ensemble": np.arange(nensemble),
-                "time": np.asarray(["2024-01-01T00"], dtype="datetime64[ns]"),
-                "lead_time": np.asarray([np.timedelta64(6 * i, "h") for i in range(4)]),
-                **coords,
-            }
-        ),
-        variables,
-    )
+    io = RecordingIO()
     checkpoint = Checkpoint("ensemble", path=tmp_path, mode="append", flush_interval=1)
 
     run.ensemble(
         ["2024-01-01"],
         1,
-        nensemble,
+        1,
         Persistence(variables, coords),
         Random(domain_coords=coords),
         io,
@@ -872,11 +847,13 @@ def test_ensemble_workflow_records_checkpoint(tmp_path):
         verbose=False,
         checkpoint=checkpoint,
     )
+
+    assert checkpoint.select(-1).metadata_value("completed_ensembles") == [0]
 
     run.ensemble(
         ["2024-01-01"],
-        3,
-        nensemble,
+        1,
+        2,
         Persistence(variables, coords),
         Random(domain_coords=coords),
         io,
@@ -887,8 +864,6 @@ def test_ensemble_workflow_records_checkpoint(tmp_path):
         checkpoint=checkpoint,
     )
 
-    selected = checkpoint.select(-1)
-    assert selected.lead_time == np.timedelta64(18, "h")
-    assert selected.write_count == 4
-    assert len(checkpoint.catalog) == 4
-    assert io["u10m"].shape[:3] == (nensemble, 1, 4)
+    written_ensembles = [int(coords["ensemble"][0]) for _, coords, _ in io.writes]
+    assert written_ensembles == [0, 0, 1, 1]
+    assert checkpoint.select(-1).metadata_value("completed_ensembles") == [0, 1]

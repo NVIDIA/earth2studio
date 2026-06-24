@@ -3,7 +3,7 @@
 Earth2Studio checkpoints enable users to restart inference workflows. A
 checkpoint is a catalog of restart points for one named run. Each row in that
 catalog is a checkpoint session: it records the completed lead time, optional
-artifacts, and opt-in component state(s) needed to restart the workflow.
+metadata, and opt-in component state(s) needed to restart the workflow.
 
 Checkpoint storage is independent of the user-facing IO backend and independent
 of any particular model implementation. Forecast fields remain in the IO backend
@@ -59,7 +59,7 @@ Components can opt into checkpoint state when they need restart information
 (RNG state, counters, tensors, etc.). The user chooses the requested level,
 and each component decides what it supports:
 
-- `0`: no component logging; workflows still record catalog progress and explicit artifacts.
+- `0`: no component logging; workflows still record catalog progress and explicit metadata.
 - `1`: enough component state to restart a workflow item such as an ensemble member.
 - `2`: full component state for restarting inside a rollout when the component supports it.
 
@@ -80,7 +80,6 @@ first = checkpoint.select(0)
 By default, the context manager `with checkpoint` selects the latest catalog row
 when one exists, or opens a new session when the catalog is empty. Use
 `with checkpoint.select(-1):` when a specific saved row should be restored.
-
 ## Custom Loops
 
 Call `write` after a safe restart boundary, usually after forecast fields have
@@ -95,20 +94,22 @@ with checkpoint as ckpt:
         io.write(*split_coords(x, coords))
         ckpt.write(
             lead_time=lead_time,
-            artifacts={"last_complete_lead_time": lead_time},
+            last_complete_lead_time=lead_time,
         )
 
     ckpt.flush()
 ```
 
-`write` accepts only `lead_time` and `artifacts`. Artifacts are for small explicit
-restart metadata; large forecast arrays should remain in the IO backend.
+`write` and `flush` accept generic keyword metadata. Use metadata for small
+restart properties; large forecast arrays should remain in the IO backend.
 
 ## Workflow Resume
 
 Built-in workflows, like `run.deterministic`, always fetch the normal initial
 condition and pass it to the prognostic iterator.
 The checkpoint session tells the workflow what has been already completed.
+For ensemble runs, the workflow records `completed_ensembles` metadata
+and resumes from the first incomplete member.
 Checkpoint-aware models decide whether to restore their own state and, if restored,
 should yield the next forecast state rather than the existing saved boundary.
 
@@ -152,8 +153,8 @@ class NoisePerturbation:
 `bind_checkpoint_state` returns a proxy around the dataclass. Normal dataclass
 fields are accessed directly. Checkpoint metadata is available through read-only
 properties such as `checkpoint_enabled`, `checkpoint_level`,
-`checkpoint_state_loaded`, `checkpoint_lead_time`, and `device`. Use `device` for
-staging tensor state, for example
+`checkpoint_state_loaded`, `checkpoint_metadata`, `checkpoint_lead_time`, and
+`device`. Use `device` for staging tensor state, for example
 `x.detach().clone().to(self.checkpoint.device)`.
 
 Construct restart-aware components inside the checkpoint context when saved

@@ -79,13 +79,23 @@ class CheckpointEntry:
 
     commit_id: str
     labels: dict[str, Any]
-    lead_time: Any | None
+    metadata: dict[str, Any]
+    metadata_keys: tuple[str, ...]
     write_count: int
     saved_at: str
     rank: int
     world_size: int
     state_ids: tuple[str, ...]
-    artifacts: tuple[str, ...]
+
+    @property
+    def lead_time(self) -> Any | None:
+        """Forecast lead time metadata, when present."""
+        return self.metadata.get("lead_time")
+
+    @property
+    def artifacts(self) -> tuple[str, ...]:
+        """Compatibility alias for metadata keys."""
+        return self.metadata_keys
 
 
 class CheckpointState(Generic[T]):
@@ -172,10 +182,17 @@ class CheckpointState(Generic[T]):
 
     @property
     def checkpoint_lead_time(self) -> Any | None:
-        """Selected checkpoint lead time, if one exists."""
+        """Selected checkpoint lead time metadata, if one exists."""
         if self._session is None:
             return None
         return self._session.lead_time
+
+    @property
+    def checkpoint_metadata(self) -> Mapping[str, Any]:
+        """Metadata recorded for the selected checkpoint row."""
+        if self._session is None:
+            return {}
+        return self._session.metadata
 
     @property
     def checkpoint_labels(self) -> Mapping[str, Any]:
@@ -218,6 +235,11 @@ class NullCheckpoint:
     checkpoint_device = torch.device("cpu")
 
     @property
+    def metadata(self) -> Mapping[str, Any]:
+        """Metadata for the no-op session."""
+        return {}
+
+    @property
     def labels(self) -> Mapping[str, Any]:
         """Labels for the no-op session."""
         return {}
@@ -232,19 +254,11 @@ class NullCheckpoint:
         """Whether this checkpoint session is active in the current context."""
         return False
 
-    def write(
-        self,
-        lead_time: Any | None = None,
-        artifacts: Mapping[str, Any] | None = None,
-    ) -> None:
+    def write(self, **metadata: Any) -> None:
         """Accept a checkpoint boundary without committing anything."""
         return None
 
-    def flush(
-        self,
-        lead_time: Any | None = None,
-        artifacts: Mapping[str, Any] | None = None,
-    ) -> None:
+    def flush(self, **metadata: Any) -> None:
         """Accept a flush request without committing anything."""
         return None
 
@@ -297,8 +311,8 @@ class Checkpoint:
     """Catalog of restart checkpoints for a named inference run.
 
     A checkpoint owns the on-disk catalog and commit directories for one logical
-    inference run. Each committed catalog row stores the latest completed lead
-    time, optional artifacts, and component state bound through
+    inference run. Each committed catalog row stores generic workflow metadata
+    and component state bound through
     :func:`bind_checkpoint_state`.
 
     Parameters
@@ -322,7 +336,7 @@ class Checkpoint:
         this is ignored and treated as one latest row, by default None.
     level : CheckpointLevel, optional
         Requested component logging level. ``0`` records workflow progress and
-        explicit artifacts only, ``1`` allows component state needed to restart
+        explicit metadata only, ``1`` allows component state needed to restart
         workflow items such as ensemble members, and ``2`` allows component
         state needed to resume inside a forecast rollout, by default 2.
     rank : int | None, optional
@@ -437,7 +451,7 @@ class Checkpoint:
         """Select an existing checkpoint row by position.
 
         The selected session can be used as a context manager. Bound component
-        state and artifacts are restored from the selected catalog row when the
+        state and metadata are restored from the selected catalog row when the
         session becomes active.
 
         Parameters
@@ -488,12 +502,13 @@ class Checkpoint:
             return "\n".join(lines + ["catalog: empty"])
 
         label_names = sorted({key for entry in entries for key in entry.labels})
-        columns = ["id", *label_names, "lead_time", "write_count", "saved_at"]
+        metadata_names = sorted({key for entry in entries for key in entry.metadata})
+        columns = ["id", *label_names, *metadata_names, "write_count", "saved_at"]
         rows = [
             [
                 str(index),
                 *[_display_value(entry.labels.get(name)) for name in label_names],
-                _display_value(entry.lead_time),
+                *[_display_value(entry.metadata.get(name)) for name in metadata_names],
                 str(entry.write_count),
                 entry.saved_at,
             ]
@@ -515,8 +530,7 @@ class Checkpoint:
     def _commit(
         self,
         session: CheckpointSession,
-        lead_time: Any | None,
-        artifacts: Mapping[str, Any] | None,
+        metadata: Mapping[str, Any],
     ) -> CheckpointEntry:
         self.rank_path.mkdir(parents=True, exist_ok=True)
         commits_path = self.rank_path / "commits"
@@ -537,13 +551,10 @@ class Checkpoint:
             "rank": self.rank,
             "world_size": self.world_size,
             "labels": session.labels,
-            "lead_time": _CheckpointCodec.encode_json_value(
-                _CheckpointCodec.normalize_lead_time(lead_time)
-            ),
+            "metadata": {},
             "write_count": session.write_count,
             "saved_at": datetime.now(timezone.utc).isoformat(),
             "states": {},
-            "artifacts": {},
         }
 
         states_path = tmp_path / "states"
@@ -572,24 +583,24 @@ class Checkpoint:
                     "schema_hash": _schema_hash(dataclass_state),
                 }
 
-        if artifacts:
-            artifacts_path = tmp_path / "artifacts"
-            artifacts_path.mkdir(parents=True, exist_ok=True)
-            for name, value in artifacts.items():
+        if metadata:
+            metadata_path = tmp_path / "metadata"
+            metadata_path.mkdir(parents=True, exist_ok=True)
+            for name, value in metadata.items():
                 if not isinstance(name, str):
                     raise CheckpointSerializationError(
-                        "checkpoint artifact names must be strings."
+                        "checkpoint metadata names must be strings."
                     )
-                manifest["artifacts"][name] = _CheckpointCodec.dump_value(
-                    value,
-                    artifacts_path,
+                manifest["metadata"][name] = _CheckpointCodec.dump_value(
+                    _CheckpointCodec.normalize_metadata_value(value),
+                    metadata_path,
                     (sha256(name.encode("utf-8")).hexdigest()[:24],),
                 )
 
         _write_json(tmp_path / "manifest.json", manifest)
         tmp_path.rename(commit_path)
 
-        entry = _entry_from_manifest(manifest)
+        entry = _entry_from_manifest(manifest, commit_path)
         self._update_catalog(entry)
         session._entry = entry
         session._loaded_states = _load_state_index(commit_path, manifest)
@@ -616,13 +627,16 @@ class Checkpoint:
                 {
                     "commit_id": item.commit_id,
                     "labels": item.labels,
-                    "lead_time": _CheckpointCodec.encode_json_value(item.lead_time),
+                    "metadata": {
+                        key: _CheckpointCodec.encode_json_value(value)
+                        for key, value in item.metadata.items()
+                    },
+                    "metadata_keys": list(item.metadata_keys),
                     "write_count": item.write_count,
                     "saved_at": item.saved_at,
                     "rank": item.rank,
                     "world_size": item.world_size,
                     "state_ids": list(item.state_ids),
-                    "artifacts": list(item.artifacts),
                 }
                 for item in entries
             ],
@@ -670,8 +684,7 @@ class CheckpointSession:
         self.bound_states: dict[str, Any] = {}
         self._reusable_state_ids: set[str] = set()
         self.write_count = entry.write_count if entry is not None else 0
-        self._pending_lead_time: Any | None = None
-        self._pending_artifacts: Mapping[str, Any] | None = None
+        self._pending_metadata: dict[str, Any] = {}
         self._pending_dirty = False
         self._tokens: list[Token[CheckpointSession | None]] = []
         self._pending_adopted = False
@@ -694,8 +707,8 @@ class CheckpointSession:
 
     @property
     def lead_time(self) -> Any | None:
-        """Lead time recorded for this session, if present."""
-        return None if self._entry is None else self._entry.lead_time
+        """Forecast lead time metadata, when present."""
+        return self.metadata.get("lead_time")
 
     @property
     def device(self) -> torch.device:
@@ -703,23 +716,44 @@ class CheckpointSession:
         return self.catalog.device
 
     @property
-    def artifacts(self) -> dict[str, Any]:
-        """Load artifacts recorded for the selected checkpoint row."""
+    def metadata(self) -> dict[str, Any]:
+        """Load metadata recorded for the selected checkpoint row."""
         if self._entry is None:
             return {}
         manifest = self._read_manifest()
+        if "metadata" in manifest:
+            metadata_path = self._commit_path / "metadata"
+            return {
+                name: _CheckpointCodec.load_value(payload, metadata_path)
+                for name, payload in manifest.get("metadata", {}).items()
+            }
+
         artifacts_path = self._commit_path / "artifacts"
-        return {
+        metadata = {
             name: _CheckpointCodec.load_value(payload, artifacts_path)
             for name, payload in manifest.get("artifacts", {}).items()
         }
+        if "lead_time" in manifest:
+            metadata["lead_time"] = _CheckpointCodec.decode_json_value(
+                manifest.get("lead_time")
+            )
+        return metadata
+
+    @property
+    def artifacts(self) -> dict[str, Any]:
+        """Compatibility alias for checkpoint metadata."""
+        return self.metadata
+
+    def metadata_value(self, name: str) -> Any:
+        """Load one metadata value by name."""
+        metadata = self.metadata
+        if name not in metadata:
+            raise KeyError(f"Metadata {name!r} not found in checkpoint session.")
+        return metadata[name]
 
     def artifact(self, name: str) -> Any:
-        """Load one artifact by name."""
-        artifacts = self.artifacts
-        if name not in artifacts:
-            raise KeyError(f"Artifact {name!r} not found in checkpoint session.")
-        return artifacts[name]
+        """Compatibility alias for :meth:`metadata_value`."""
+        return self.metadata_value(name)
 
     def bind(self, state: T | CheckpointState[T]) -> CheckpointState[T]:
         """Bind and restore a dataclass state object."""
@@ -804,28 +838,13 @@ class CheckpointSession:
             tuple(item for item in pending if item.checkpoint is not self.catalog)
         )
 
-    def write(
-        self,
-        lead_time: Any | None = None,
-        artifacts: Mapping[str, Any] | None = None,
-    ) -> CheckpointEntry | None:
+    def write(self, **metadata: Any) -> CheckpointEntry | None:
         """Record a safe restart boundary for the active session.
 
         ``write`` increments the session write count and stores the latest
-        pending lead time and artifacts. If the parent checkpoint's
-        ``flush_interval`` is reached, the pending update is committed to disk;
-        otherwise it remains in memory until a later ``write`` or ``flush``.
-
-        Parameters
-        ----------
-        lead_time : Any | None, optional
-            Latest completed lead time or restart boundary for this session. NumPy
-            and Python time-like values are normalized before commit, by default
-            None.
-        artifacts : Mapping[str, Any] | None, optional
-            Small explicit metadata to store with this checkpoint row. Artifact
-            names must be strings, and values must use the checkpoint serializer's
-            supported pickle-free types, by default None.
+        checkpoint metadata. If the parent checkpoint's ``flush_interval`` is
+        reached, the pending update is committed to disk; otherwise it remains in
+        memory until a later ``write`` or ``flush``.
 
         Returns
         -------
@@ -834,34 +853,25 @@ class CheckpointSession:
             otherwise ``None``.
         """
         self.write_count += 1
-        self._pending_lead_time = _CheckpointCodec.normalize_lead_time(lead_time)
-        self._pending_artifacts = artifacts
+        self._pending_metadata.update(
+            {
+                name: _CheckpointCodec.normalize_metadata_value(value)
+                for name, value in metadata.items()
+            }
+        )
         self._pending_dirty = True
         interval = self.catalog.flush_interval
         if interval is not None and self.write_count % interval == 0:
             return self.flush()
         return None
 
-    def flush(
-        self,
-        lead_time: Any | None = None,
-        artifacts: Mapping[str, Any] | None = None,
-    ) -> CheckpointEntry | None:
+    def flush(self, **metadata: Any) -> CheckpointEntry | None:
         """Commit the current session state to the checkpoint catalog.
 
         ``flush`` writes an atomic commit directory containing the manifest,
-        bound component state, and any explicit artifacts, then updates the
-        catalog row for this session. If no write is pending and no override
-        values are supplied, no commit is created.
-
-        Parameters
-        ----------
-        lead_time : Any | None, optional
-            Lead time to commit. When omitted, the latest pending lead time from
-            ``write`` is used, by default None.
-        artifacts : Mapping[str, Any] | None, optional
-            Artifacts to commit. When omitted, the latest pending artifacts from
-            ``write`` are used, by default None.
+        bound component state, and checkpoint metadata, then updates the catalog
+        row for this session. If no write is pending and no metadata overrides
+        are supplied, no commit is created.
 
         Returns
         -------
@@ -869,19 +879,19 @@ class CheckpointSession:
             The committed catalog entry, or ``None`` when there was nothing new to
             commit.
         """
-        has_updates = lead_time is not None or artifacts is not None
-        commit_lead_time = (
-            self._pending_lead_time
-            if lead_time is None
-            else _CheckpointCodec.normalize_lead_time(lead_time)
-        )
-        commit_artifacts = self._pending_artifacts if artifacts is None else artifacts
-        if not self._pending_dirty and not has_updates:
+        commit_metadata = dict(self._pending_metadata)
+        if metadata:
+            commit_metadata.update(
+                {
+                    name: _CheckpointCodec.normalize_metadata_value(value)
+                    for name, value in metadata.items()
+                }
+            )
+        if not self._pending_dirty and not metadata:
             return None
 
-        entry = self.catalog._commit(self, commit_lead_time, commit_artifacts)
-        self._pending_lead_time = commit_lead_time
-        self._pending_artifacts = commit_artifacts
+        entry = self.catalog._commit(self, commit_metadata)
+        self._pending_metadata = commit_metadata
         self._pending_dirty = False
         return entry
 
@@ -964,13 +974,18 @@ def _read_catalog(rank_path: Path) -> list[CheckpointEntry]:
                 CheckpointEntry(
                     commit_id=str(item["commit_id"]),
                     labels=dict(item.get("labels", {})),
-                    lead_time=_CheckpointCodec.decode_json_value(item.get("lead_time")),
+                    metadata=_catalog_metadata(item),
+                    metadata_keys=tuple(
+                        item.get(
+                            "metadata_keys",
+                            item.get("artifacts", tuple(_catalog_metadata(item))),
+                        )
+                    ),
                     write_count=int(item.get("write_count", 0)),
                     saved_at=str(item["saved_at"]),
                     rank=int(item.get("rank", 0)),
                     world_size=int(item.get("world_size", 1)),
                     state_ids=tuple(item.get("state_ids", ())),
-                    artifacts=tuple(item.get("artifacts", ())),
                 )
                 for item in payload.get("entries", [])
             ]
@@ -983,23 +998,71 @@ def _read_catalog(rank_path: Path) -> list[CheckpointEntry]:
     entries: list[CheckpointEntry] = []
     for manifest_path in sorted(commits_path.glob("*/manifest.json")):
         try:
-            entries.append(_entry_from_manifest(_read_json(manifest_path)))
+            entries.append(
+                _entry_from_manifest(_read_json(manifest_path), manifest_path.parent)
+            )
         except (OSError, json.JSONDecodeError, KeyError, TypeError):
             continue
     return sorted(entries, key=lambda entry: entry.saved_at)
 
 
-def _entry_from_manifest(manifest: Mapping[str, Any]) -> CheckpointEntry:
+def _catalog_metadata(item: Mapping[str, Any]) -> dict[str, Any]:
+    metadata = {
+        key: _CheckpointCodec.decode_json_value(value)
+        for key, value in item.get("metadata", {}).items()
+    }
+    if "lead_time" in item and "lead_time" not in metadata:
+        metadata["lead_time"] = _CheckpointCodec.decode_json_value(
+            item.get("lead_time")
+        )
+    return metadata
+
+
+def _entry_from_manifest(
+    manifest: Mapping[str, Any], commit_path: Path | None = None
+) -> CheckpointEntry:
+    metadata_payload = manifest.get("metadata", {})
+    metadata_base = None if commit_path is None else commit_path / "metadata"
+    metadata = {}
+    if metadata_payload and metadata_base is not None:
+        metadata = {
+            key: _CheckpointCodec.load_value(value, metadata_base)
+            for key, value in metadata_payload.items()
+        }
+    elif metadata_payload:
+        metadata = {
+            key: _CheckpointCodec.decode_json_value(value)
+            for key, value in metadata_payload.items()
+        }
+
+    legacy_artifacts = manifest.get("artifacts", {})
+    if legacy_artifacts and commit_path is not None:
+        artifacts_base = commit_path / "artifacts"
+        metadata.update(
+            {
+                key: _CheckpointCodec.load_value(value, artifacts_base)
+                for key, value in legacy_artifacts.items()
+            }
+        )
+    if "lead_time" in manifest and "lead_time" not in metadata:
+        metadata["lead_time"] = _CheckpointCodec.decode_json_value(
+            manifest.get("lead_time")
+        )
+
+    metadata_keys = tuple(metadata_payload.keys() or legacy_artifacts.keys())
+    if "lead_time" in metadata and "lead_time" not in metadata_keys:
+        metadata_keys = (*metadata_keys, "lead_time")
+
     return CheckpointEntry(
         commit_id=str(manifest["commit_id"]),
         labels=dict(manifest.get("labels", {})),
-        lead_time=_CheckpointCodec.decode_json_value(manifest.get("lead_time")),
+        metadata=metadata,
+        metadata_keys=metadata_keys,
         write_count=int(manifest.get("write_count", 0)),
         saved_at=str(manifest["saved_at"]),
         rank=int(manifest.get("rank", 0)),
         world_size=int(manifest.get("world_size", 1)),
         state_ids=tuple(manifest.get("states", {}).keys()),
-        artifacts=tuple(manifest.get("artifacts", {}).keys()),
     )
 
 
@@ -1264,6 +1327,8 @@ class _CheckpointCodec:
             return {"kind": "np_dtype", "value": str(value)}
         if isinstance(value, np.generic):
             return cls.encode_json_value(value.item())
+        if isinstance(value, torch.Tensor):
+            return cls.encode_json_value(value.detach().cpu().numpy())
         if isinstance(value, np.ndarray):
             if value.dtype == object:
                 raise CheckpointSerializationError(
@@ -1339,7 +1404,7 @@ class _CheckpointCodec:
         }
 
     @staticmethod
-    def normalize_lead_time(value: Any | None) -> Any | None:
+    def normalize_metadata_value(value: Any) -> Any:
         if isinstance(value, np.ndarray) and value.size == 1:
             return value.reshape(-1)[0]
         if isinstance(value, torch.Tensor) and value.numel() == 1:

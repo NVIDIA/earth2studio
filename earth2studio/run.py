@@ -449,32 +449,44 @@ def ensemble(
     if batch_size is None:
         batch_size = nensemble
     batch_size = min(nensemble, batch_size)
-    number_of_batches = ceil(nensemble / batch_size)
+    with checkpoint as ckpt:
+        completed_ensembles = []
+        if ckpt.exists and not isinstance(ckpt, NullCheckpoint):
+            completed_ensembles = [
+                int(value) for value in ckpt.metadata.get("completed_ensembles", [])
+            ]
 
-    logger.info(
-        f"Starting {nensemble} Member Ensemble Inference with \
+        completed = set(completed_ensembles)
+        start_batch_id = next(
+            (index for index in range(nensemble) if index not in completed),
+            nensemble,
+        )
+        number_of_batches = ceil((nensemble - start_batch_id) / batch_size)
+        restart_first_batch = (
+            ckpt.exists
+            and ckpt.write_count > 0
+            and start_batch_id < nensemble
+            and ckpt.lead_time != total_coords["lead_time"][-1]
+        )
+
+        logger.info(
+            f"Starting {nensemble} Member Ensemble Inference with \
             {number_of_batches} number of batches."
-    )
-    for batch_id in tqdm(
-        range(0, nensemble, batch_size),
-        total=number_of_batches,
-        desc="Total Ensemble Batches",
-        position=2,
-        disable=(not verbose),
-    ):
-        mini_batch_size = min(batch_size, nensemble - batch_id)
-        ensemble_coords = np.arange(batch_id, batch_id + mini_batch_size)
-        batch_checkpoint = checkpoint
-        if isinstance(batch_checkpoint, Checkpoint):
-            active = batch_checkpoint.active
-            if active is not None:
-                batch_checkpoint = active
-            elif batch_id > 0:
-                batch_checkpoint = NullCheckpoint()
-
-        with batch_checkpoint as ckpt:
+        )
+        for batch_index, batch_id in enumerate(
+            tqdm(
+                range(start_batch_id, nensemble, batch_size),
+                total=number_of_batches,
+                desc="Total Ensemble Batches",
+                position=2,
+                disable=(not verbose),
+            )
+        ):
+            mini_batch_size = min(batch_size, nensemble - batch_id)
+            ensemble_coords = np.arange(batch_id, batch_id + mini_batch_size)
+            ensemble_members = [int(value) for value in ensemble_coords]
             restart_step = None
-            if ckpt.exists and ckpt.write_count > 0:
+            if batch_index == 0 and restart_first_batch:
                 if ckpt.catalog.level < 2:
                     logger.warning(
                         "ensemble received checkpoint level "
@@ -482,10 +494,13 @@ def ensemble(
                         "complete enough to resume a rollout. Re-running from "
                         "lead time zero."
                     )
+                    ckpt.write_count = 0
                 else:
                     restart_step = ckpt.write_count - 1
                     if restart_step >= nsteps:
                         continue
+            elif not isinstance(ckpt, NullCheckpoint):
+                ckpt.write_count = 0
 
             x = x0.to(device)
             coords = OrderedDict({"ensemble": ensemble_coords}) | coords0.copy()
@@ -513,7 +528,13 @@ def ensemble(
                     current_lead_time = coords["lead_time"][-1]
                     x, coords = map_coords(x, coords, output_coords)
                     io.write(*split_coords(x, coords))
-                    ckpt.write(lead_time=current_lead_time)
+                    if step == nsteps:
+                        completed.update(ensemble_members)
+                        completed_ensembles = sorted(completed)
+                    ckpt.write(
+                        lead_time=current_lead_time,
+                        completed_ensembles=completed_ensembles,
+                    )
                     pbar.update(1)
                     if step == nsteps:
                         break
