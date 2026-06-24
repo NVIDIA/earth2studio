@@ -19,7 +19,9 @@
 Checkpointing a Deterministic Forecast
 ======================================
 
-Basic inference workflow checkpointing.
+Basic inference workflow checkpointing. See the
+:doc:`checkpointing user guide </userguide/advanced/checkpointing>` for more
+background on checkpoint catalogs and restart policies.
 
 This example shows how to use :py:class:`earth2studio.utils.checkpoint.Checkpoint`
 to restart a deterministic forecast after it stops partway through a run.
@@ -83,9 +85,9 @@ for path in (forecast_store, checkpoint_store):
         shutil.rmtree(path)
 
 # %%
-# Load the packaged FCN/AFNO forecast model. The default package points at the
-# FourCastNet model artifacts, and ``load_model`` constructs an FCN instance from
-# those artifacts.
+# Load the packaged FCN/AFNO forecast model package. The default package points
+# at the FourCastNet model artifacts. Instantiate FCN inside checkpoint contexts
+# so its restart state binds to the active checkpoint session.
 #
 # Rollout checkpoint state can be staged on the same device used for inference.
 # Setting ``device`` to the current CUDA device can reduce CPU/GPU transfers for
@@ -98,10 +100,7 @@ compute_device = torch.device(
     f"cuda:{torch.cuda.current_device()}" if torch.cuda.is_available() else "cpu"
 )
 
-model = FCN.load_model(FCN.load_default_package())
-domain_coords = model.input_coords().copy()
-for key in ("batch", "lead_time", "variable"):
-    domain_coords.pop(key)
+model_package = FCN.load_default_package()
 
 output_variables = np.array(["t2m", "u10m"])
 time = ["2024-01-01T00:00:00"]
@@ -137,10 +136,12 @@ def deterministic_output_coords(model, time, nsteps, variables):
     return output_coords
 
 
-io = ZarrBackend(str(forecast_store), backend_kwargs={"overwrite": True})
-coords = deterministic_output_coords(model, time, final_nsteps, output_variables)
-var_names = coords.pop("variable")
-io.add_array(coords, var_names)
+def model_domain_coords(model):
+    coords = model.input_coords().copy()
+    for key in ("batch", "lead_time", "variable"):
+        coords.pop(key)
+    return coords
+
 
 # %%
 # First Attempt
@@ -164,6 +165,12 @@ checkpoint = Checkpoint(
 )
 
 with checkpoint as ckpt:
+    model = FCN.load_model(model_package)
+    domain_coords = model_domain_coords(model)
+    io = ZarrBackend(str(forecast_store), backend_kwargs={"overwrite": True})
+    coords = deterministic_output_coords(model, time, final_nsteps, output_variables)
+    var_names = coords.pop("variable")
+    io.add_array(coords, var_names)
     data = Random(domain_coords=domain_coords)
     run.deterministic(
         time=time,
@@ -205,6 +212,8 @@ checkpoint = Checkpoint(
 )
 
 with checkpoint.select(-1) as ckpt:
+    model = FCN.load_model(model_package)
+    domain_coords = model_domain_coords(model)
     data = Random(domain_coords=domain_coords)
     run.deterministic(
         time=time,

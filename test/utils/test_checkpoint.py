@@ -236,6 +236,11 @@ def test_bind_round_trip_hydrates_dataclass_and_catalog(tmp_path):
     assert 'Checkpoint("forecast")' in text
     assert "6 hours" in text
 
+    ns_checkpoint = Checkpoint("ns-forecast", path=tmp_path / "ns")
+    with ns_checkpoint as ckpt:
+        ckpt.flush(lead_time=np.timedelta64(21600000000000, "ns"))
+    assert "6 hours" in repr(ns_checkpoint)
+
 
 def test_duplicate_state_type_errors(tmp_path):
     checkpoint = Checkpoint("forecast", path=tmp_path)

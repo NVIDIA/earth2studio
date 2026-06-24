@@ -1364,4 +1364,21 @@ def _display_value(value: Any) -> str:
     value = _CheckpointCodec.decode_json_value(value)
     if isinstance(value, np.ndarray):
         return np.array2string(value, separator=", ")
+    if isinstance(value, np.timedelta64):
+        return _display_timedelta(value)
     return "" if value is None else str(value)
+
+
+def _display_timedelta(value: np.timedelta64) -> str:
+    if np.isnat(value):
+        return str(value)
+    if value == np.timedelta64(0, "ns"):
+        return "0 hours"
+    for unit in ("h", "m", "s", "ms", "us", "ns"):
+        try:
+            count = value / np.timedelta64(1, unit)
+        except TypeError:
+            continue
+        if np.isfinite(count) and count == int(count):
+            return str(np.timedelta64(int(count), unit))
+    return str(value)
