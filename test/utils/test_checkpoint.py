@@ -15,9 +15,11 @@
 # limitations under the License.
 
 import json
+import sys
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
+from types import ModuleType
 
 import numpy as np
 import pytest
@@ -463,6 +465,47 @@ def test_schema_mismatch_errors_before_hydration(tmp_path):
     with Checkpoint("forecast", path=tmp_path).select(-1):
         with pytest.raises(CheckpointStateSchemaError):
             bind_checkpoint_state(ToyState())
+
+
+def test_checkpoint_initializes_physicsnemo_manager_for_rank_detection(
+    tmp_path, monkeypatch
+):
+    physicsnemo = ModuleType("physicsnemo")
+    physicsnemo.__path__ = []
+    distributed = ModuleType("physicsnemo.distributed")
+
+    class FakeDistributedManager:
+        initialized = False
+        initialize_calls = 0
+        constructed = 0
+
+        @classmethod
+        def is_initialized(cls):
+            return cls.initialized
+
+        @classmethod
+        def initialize(cls):
+            cls.initialize_calls += 1
+            cls.initialized = True
+
+        def __init__(self):
+            if not type(self).initialized:
+                raise AssertionError("manager was constructed before initialization")
+            type(self).constructed += 1
+            self.rank = 3
+            self.world_size = 4
+
+    distributed.DistributedManager = FakeDistributedManager
+    physicsnemo.distributed = distributed
+    monkeypatch.setitem(sys.modules, "physicsnemo", physicsnemo)
+    monkeypatch.setitem(sys.modules, "physicsnemo.distributed", distributed)
+
+    checkpoint = Checkpoint("forecast", path=tmp_path)
+
+    assert checkpoint.rank == 3
+    assert checkpoint.world_size == 4
+    assert FakeDistributedManager.initialize_calls == 1
+    assert FakeDistributedManager.constructed == 1
 
 
 def test_default_path_and_rank_directory_detection(tmp_path, monkeypatch):

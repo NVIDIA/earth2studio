@@ -362,22 +362,34 @@ class Checkpoint:
 
         detected_rank, detected_world_size = 0, 1
         detected_distributed = False
-        try:
-            from physicsnemo.distributed import DistributedManager
+        if rank is None or world_size is None:
+            try:
+                from physicsnemo.distributed import DistributedManager
 
-            manager = DistributedManager()
-            manager_rank = getattr(manager, "rank", None)
-            manager_world_size = getattr(manager, "world_size", None)
-            if manager_rank is not None and manager_world_size is not None:
-                detected_rank = int(manager_rank)
-                detected_world_size = int(manager_world_size)
-                detected_distributed = True
-        except ImportError:
-            pass
-        except (AttributeError, RuntimeError, ValueError, TypeError):
-            pass
+                if not DistributedManager.is_initialized():
+                    DistributedManager.initialize()
+                manager = DistributedManager()
+                manager_rank = getattr(manager, "rank", None)
+                manager_world_size = getattr(manager, "world_size", None)
+                if manager_rank is not None and manager_world_size is not None:
+                    detected_rank = int(manager_rank)
+                    detected_world_size = int(manager_world_size)
+                    detected_distributed = detected_world_size > 1 or bool(
+                        getattr(manager, "distributed", False)
+                    )
+            except ImportError:
+                pass
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+                Warning,
+                ZeroDivisionError,
+            ):
+                pass
 
-        if not detected_distributed:
+        if not detected_distributed and (rank is None or world_size is None):
             for rank_name in ("RANK", "LOCAL_RANK", "SLURM_PROCID"):
                 rank_value = os.environ.get(rank_name)
                 if rank_value is not None:

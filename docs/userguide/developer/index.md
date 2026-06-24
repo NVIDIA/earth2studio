@@ -11,5 +11,4 @@ testing
 build
 recipes
 skills
-checkpointing
 ```
