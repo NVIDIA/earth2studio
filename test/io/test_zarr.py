@@ -307,16 +307,16 @@ def test_zarr_file(overwrite: bool, device: str, tmp_path: str) -> None:
     if overwrite:
         z.add_array(total_coords, array_name, data=dummy, overwrite=True)
     else:
-        with pytest.raises(RuntimeError):
-            z.add_array(total_coords, array_name, data=dummy)
+        z.add_array(total_coords, array_name, data=dummy + 1.0)
+        assert np.allclose(z[array_name][:], dummy.cpu().numpy())
 
     z = ZarrBackend(tmp_path / "test.zarr", backend_kwargs={"overwrite": overwrite})
     # Check to see if write overwrite in constructor allows redefintion Zarr
     if overwrite:
         z.add_array(total_coords, array_name, data=dummy)
     else:
-        with pytest.raises(RuntimeError):
-            z.add_array(total_coords, array_name, data=dummy)
+        z.add_array(total_coords, array_name, data=dummy + 1.0)
+        assert np.allclose(z[array_name][:], dummy.cpu().numpy())
 
 
 def test_zarr_reopen_skips_coordinate_arrays_when_loading_chunks(
@@ -419,13 +419,13 @@ def test_zarr_exceptions(
         data=[dummy],
         overwrite=False,
     )
-    with pytest.raises(RuntimeError):
-        z.add_array(
-            total_coords,
-            ["dummy_1"],
-            data=[dummy],
-            overwrite=False,
-        )
+    z.add_array(
+        total_coords,
+        ["dummy_1"],
+        data=[dummy + 1.0],
+        overwrite=False,
+    )
+    assert np.allclose(z["dummy_1"][:], dummy.cpu().numpy())
 
     # Try to write with bad coords
     bad_coords = {"ensemble": np.arange(0)} | total_coords
