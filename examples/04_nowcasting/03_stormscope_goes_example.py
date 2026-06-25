@@ -96,8 +96,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_name = "3km_10min"
 
-# Set STORMSCOPE_MODEL_PKG to the shared package location during the pre-release
-# period; load_default_package() reads it.
 package = StormScopeBase.load_default_package()
 
 # GOES nowcast model: pure-obs, no external conditioning source needed.

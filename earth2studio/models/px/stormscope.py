@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import json
-import os
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
 from datetime import datetime, timezone
@@ -286,41 +285,19 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     # every StormScope model without name collisions.
     _REGISTRY_KEY: str | None = None
 
-    # Hugging Face package to fall back on once the checkpoints are public.
-    # TODO(public-release): update the commit hash to the released nowcasting
-    # checkpoints and restore this as the default in load_default_package.
-    _HF_PACKAGE = "hf://nvidia/stormscope-goes-mrms@6ee31e07afe3decb012740f3be17531207c3db5e"
-
     @classmethod
     def load_default_package(cls) -> Package:
-        """Load the default package for StormScope models.
+        """Load the default StormScope package from Hugging Face.
 
-        While the updated CONUS nowcasting checkpoints are shared under NDA ahead
-        of public release, they are not yet hosted on the public Hugging Face
-        repo. Point the ``STORMSCOPE_MODEL_PKG`` environment variable at the
-        shared package (e.g. a local directory or an ``s3://`` URL) to load them::
-
-            export STORMSCOPE_MODEL_PKG=/path/to/stormscope-package
-
-        Once the checkpoints are public this will default back to Hugging Face.
+        Downloads and caches checkpoints from the public
+        ``nvidia/stormscope-goes-mrms`` repository on Hugging Face. The cache
+        lives in ``~/.cache/earth2studio/stormscope`` (overridable via the
+        ``EARTH2STUDIO_CACHE`` or ``EARTH2STUDIO_MODEL_CACHE`` environment
+        variables).
         """
-        pkg_root = os.environ.get("STORMSCOPE_MODEL_PKG")
-        if pkg_root is not None:
-            return Package(
-                pkg_root,
-                cache_options={
-                    "cache_storage": Package.default_cache("stormscope"),
-                    "same_names": True,
-                },
-            )
-        # TODO(public-release): drop this error and return the Hugging Face
-        # package below once the nowcasting checkpoints are published.
-        raise RuntimeError(
-            "StormScope checkpoints are currently distributed under NDA ahead of "
-            "their public release and are not yet available on Hugging Face. Set "
-            "the STORMSCOPE_MODEL_PKG environment variable to the location of the "
-            "shared model package to load them, e.g. "
-            "`export STORMSCOPE_MODEL_PKG=/path/to/stormscope-package`."
+        return Package(
+            "hf://nvidia/stormscope-goes-mrms@62f0fd2fa52c3cff67c931daac18cdc0d9f58d2a",
+            cache_options={"cache_storage": Package.default_cache("stormscope")},
         )
 
     @staticmethod
