@@ -206,12 +206,12 @@ def test_xarray_exceptions(
         ["dummy_1"],
         data=[dummy],
     )
-    with pytest.raises(AssertionError):
-        z.add_array(
-            total_coords,
-            ["dummy_1"],
-            data=[dummy],
-        )
+    z.add_array(
+        total_coords,
+        ["dummy_1"],
+        data=[dummy + 1.0],
+    )
+    assert np.allclose(z["dummy_1"].values, dummy.cpu().numpy())
 
     # Try to write with bad coords
     bad_coords = {"ensemble": np.arange(0)} | total_coords
