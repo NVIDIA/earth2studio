@@ -74,7 +74,7 @@
 
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Batch Dimension" href="batch.html" />
+    <link rel="next" title="Checkpointing" href="checkpointing.html" />
     <link rel="prev" title="Statistics and Metrics" href="../components/statistics.html" />
 
 
@@ -385,6 +385,7 @@
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">Advanced Usage</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="checkpointing.html">Checkpointing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="batch.html">Batch Dimension</a></li>
 <li class="toctree-l3"><a class="reference internal" href="auto.html">AutoModels</a></li>
 <li class="toctree-l3"><a class="reference internal" href="lexicon.html">Lexicon</a></li>
@@ -594,6 +595,11 @@
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.to_time_array.html">to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.Checkpoint.html">Checkpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html">CheckpointSession</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html">CheckpointState</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html">NullCheckpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.bind_checkpoint_state.html">bind_checkpoint_state</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.datasource_to_file.html">datasource_to_file</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.fetch_data.html">fetch_data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.prep_data_array.html">prep_data_array</a></li>
@@ -610,6 +616,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/01_deterministic_workflow.html">Running Deterministic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/04_checkpoint_restart.html">Checkpointing a Deterministic Forecast</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../examples/02_medium_range/index.html">Medium Range</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -718,6 +725,7 @@
 <h1>Advanced Usage<a class="headerlink" href="#advanced-usage" title="Link to this heading">#</a></h1>
 <div class="toctree-wrapper compound">
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="checkpointing.html">Checkpointing</a></li>
 <li class="toctree-l1"><a class="reference internal" href="batch.html">Batch Dimension</a></li>
 <li class="toctree-l1"><a class="reference internal" href="auto.html">AutoModels</a></li>
 <li class="toctree-l1"><a class="reference internal" href="lexicon.html">Lexicon</a></li>
@@ -745,11 +753,11 @@
       </div>
     </a>
     <a class="right-next"
-       href="batch.html"
+       href="checkpointing.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Batch Dimension</p>
+        <p class="prev-next-title">Checkpointing</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

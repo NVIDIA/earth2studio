@@ -389,6 +389,7 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../advanced/checkpointing.html">Checkpointing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../advanced/batch.html">Batch Dimension</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../advanced/auto.html">AutoModels</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../advanced/lexicon.html">Lexicon</a></li>
@@ -598,6 +599,11 @@
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.to_time_array.html">to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.Checkpoint.html">Checkpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html">CheckpointSession</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html">CheckpointState</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html">NullCheckpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.bind_checkpoint_state.html">bind_checkpoint_state</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.datasource_to_file.html">datasource_to_file</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.fetch_data.html">fetch_data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.prep_data_array.html">prep_data_array</a></li>
@@ -614,6 +620,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/01_deterministic_workflow.html">Running Deterministic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/04_checkpoint_restart.html">Checkpointing a Deterministic Forecast</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../examples/02_medium_range/index.html">Medium Range</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -1346,8 +1353,7 @@ entries in the pipeline configuration must reference the full path to the
 Docker container, the binaries are copied to <code class="docutils literal notranslate"><span class="pre">/usr/local/bin</span></code> and are therefore
 available on the <code class="docutils literal notranslate"><span class="pre">PATH</span></code>; in that case only the executable names are needed
 (e.g. <code class="docutils literal notranslate"><span class="pre">DetectNodes</span> <span class="pre">...</span></code>). Examples for both commands are provided in the
-docstring of the <code class="docutils literal notranslate"><span class="pre">TempestExtremes</span></code> class and in the
-<a class="reference internal" href="#../../recipes/tc_tracking/README.md"><span class="xref myst">TC tracking recipe</span></a>.</p>
+docstring of the <code class="docutils literal notranslate"><span class="pre">TempestExtremes</span></code> class and in the TC tracking recipe.</p>
 </div>
 </div>
 </div>

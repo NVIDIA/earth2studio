@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:00.000** total execution time for 3 files **from examples/01_getting_started**:
+**00:00.000** total execution time for 4 files **from examples/01_getting_started**:
 
 .. container::
 
@@ -39,5 +39,8 @@ Computation times
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_01_getting_started_03_ensemble_workflow.py` (``03_ensemble_workflow.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_01_getting_started_04_checkpoint_restart.py` (``04_checkpoint_restart.py``)
      - 00:00.000
      - 0.0

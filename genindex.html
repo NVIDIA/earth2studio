@@ -382,6 +382,7 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="userguide/advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="userguide/advanced/checkpointing.html">Checkpointing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="userguide/advanced/batch.html">Batch Dimension</a></li>
 <li class="toctree-l3"><a class="reference internal" href="userguide/advanced/auto.html">AutoModels</a></li>
 <li class="toctree-l3"><a class="reference internal" href="userguide/advanced/lexicon.html">Lexicon</a></li>
@@ -591,6 +592,11 @@
 <li class="toctree-l3"><a class="reference internal" href="modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="modules/generated/utils/earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
 <li class="toctree-l3"><a class="reference internal" href="modules/generated/utils/earth2studio.utils.time.to_time_array.html">to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="modules/generated/utils/earth2studio.utils.checkpoint.Checkpoint.html">Checkpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html">CheckpointSession</a></li>
+<li class="toctree-l3"><a class="reference internal" href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html">CheckpointState</a></li>
+<li class="toctree-l3"><a class="reference internal" href="modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html">NullCheckpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="modules/generated/utils/earth2studio.utils.checkpoint.bind_checkpoint_state.html">bind_checkpoint_state</a></li>
 <li class="toctree-l3"><a class="reference internal" href="modules/generated/data/earth2studio.data.datasource_to_file.html">datasource_to_file</a></li>
 <li class="toctree-l3"><a class="reference internal" href="modules/generated/data/earth2studio.data.fetch_data.html">fetch_data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="modules/generated/data/earth2studio.data.prep_data_array.html">prep_data_array</a></li>
@@ -607,6 +613,7 @@
 <li class="toctree-l3"><a class="reference internal" href="examples/01_getting_started/01_deterministic_workflow.html">Running Deterministic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="examples/01_getting_started/02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="examples/01_getting_started/03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="examples/01_getting_started/04_checkpoint_restart.html">Checkpointing a Deterministic Forecast</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="examples/02_medium_range/index.html">Medium Range</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -996,6 +1003,8 @@
 </li>
       <li><a href="modules/generated/models/px/earth2studio.models.px.ACE2ERA5.html#earth2studio.models.px.ACE2ERA5">ACE2ERA5 (class in earth2studio.models.px)</a>
 </li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.Checkpoint.html#earth2studio.utils.checkpoint.Checkpoint.active">active (earth2studio.utils.checkpoint.Checkpoint property)</a>
+</li>
       <li><a href="modules/generated/io/earth2studio.io.AsyncZarrBackend.html#earth2studio.io.AsyncZarrBackend.add_array">add_array() (earth2studio.io.AsyncZarrBackend method)</a>
 
       <ul>
@@ -1021,6 +1030,10 @@
       <li><a href="modules/generated/models/px/earth2studio.models.px.AIFSENS.html#earth2studio.models.px.AIFSENS">AIFSENS (class in earth2studio.models.px)</a>
 </li>
       <li><a href="modules/generated/data/earth2studio.data.ARCO.html#earth2studio.data.ARCO">ARCO (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession.artifact">artifact() (earth2studio.utils.checkpoint.CheckpointSession method)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession.artifacts">artifacts (earth2studio.utils.checkpoint.CheckpointSession property)</a>
 </li>
       <li><a href="modules/generated/io/earth2studio.io.AsyncZarrBackend.html#earth2studio.io.AsyncZarrBackend">AsyncZarrBackend (class in earth2studio.io)</a>
 </li>
@@ -1094,10 +1107,14 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/models/earth2studio.models.batch.batch_func.html#earth2studio.models.batch.batch_func">batch_func (class in earth2studio.models.batch)</a>
 </li>
-      <li><a href="modules/generated/perturbation/earth2studio.perturbation.BredVector.html#earth2studio.perturbation.BredVector">BredVector (class in earth2studio.perturbation)</a>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession.bind">bind() (earth2studio.utils.checkpoint.CheckpointSession method)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.bind_checkpoint_state.html#earth2studio.utils.checkpoint.bind_checkpoint_state">bind_checkpoint_state() (in module earth2studio.utils.checkpoint)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/perturbation/earth2studio.perturbation.BredVector.html#earth2studio.perturbation.BredVector">BredVector (class in earth2studio.perturbation)</a>
+</li>
       <li><a href="modules/generated/statistics/earth2studio.statistics.brier.html#earth2studio.statistics.brier">brier (in module earth2studio.statistics)</a>
 </li>
       <li><a href="modules/generated/perturbation/earth2studio.perturbation.Brown.html#earth2studio.perturbation.Brown">Brown (class in earth2studio.perturbation)</a>
@@ -1112,6 +1129,12 @@
 </li>
       <li><a href="modules/generated/data/earth2studio.data.CAMS_FX.html#earth2studio.data.CAMS_FX">CAMS_FX (class in earth2studio.data)</a>
 </li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.Checkpoint.html#earth2studio.utils.checkpoint.Checkpoint.catalog">catalog (earth2studio.utils.checkpoint.Checkpoint property)</a>
+
+      <ul>
+        <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html#earth2studio.utils.checkpoint.NullCheckpoint.catalog">(earth2studio.utils.checkpoint.NullCheckpoint property)</a>
+</li>
+      </ul></li>
       <li><a href="modules/generated/data/earth2studio.data.CBottle3D.html#earth2studio.data.CBottle3D">CBottle3D (class in earth2studio.data)</a>
 </li>
       <li><a href="modules/generated/models/dx/earth2studio.models.dx.CBottleInfill.html#earth2studio.models.dx.CBottleInfill">CBottleInfill (class in earth2studio.models.dx)</a>
@@ -1132,16 +1155,50 @@
 </li>
       <li><a href="modules/generated/data/earth2studio.data.CFS_Reforecast_FX_Flux.html#earth2studio.data.CFS_Reforecast_FX_Flux">CFS_Reforecast_FX_Flux (class in earth2studio.data)</a>
 </li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.Checkpoint.html#earth2studio.utils.checkpoint.Checkpoint">Checkpoint (class in earth2studio.utils.checkpoint)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState.checkpoint_dataclass">checkpoint_dataclass (earth2studio.utils.checkpoint.CheckpointState property)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState.checkpoint_device">checkpoint_device (earth2studio.utils.checkpoint.CheckpointState property)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState.checkpoint_enabled">checkpoint_enabled (earth2studio.utils.checkpoint.CheckpointState property)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState.checkpoint_flush_interval">checkpoint_flush_interval (earth2studio.utils.checkpoint.CheckpointState property)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState.checkpoint_is_flush_due">checkpoint_is_flush_due (earth2studio.utils.checkpoint.CheckpointState property)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState.checkpoint_labels">checkpoint_labels (earth2studio.utils.checkpoint.CheckpointState property)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState.checkpoint_lead_time">checkpoint_lead_time (earth2studio.utils.checkpoint.CheckpointState property)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState.checkpoint_level">checkpoint_level (earth2studio.utils.checkpoint.CheckpointState property)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState.checkpoint_metadata">checkpoint_metadata (earth2studio.utils.checkpoint.CheckpointState property)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState.checkpoint_selected">checkpoint_selected (earth2studio.utils.checkpoint.CheckpointState property)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState.checkpoint_state_loaded">checkpoint_state_loaded (earth2studio.utils.checkpoint.CheckpointState property)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState.checkpoint_write_count">checkpoint_write_count (earth2studio.utils.checkpoint.CheckpointState property)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession">CheckpointSession (class in earth2studio.utils.checkpoint)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState">CheckpointState (class in earth2studio.utils.checkpoint)</a>
+</li>
       <li><a href="modules/generated/models/dx/earth2studio.models.dx.ClimateNet.html#earth2studio.models.dx.ClimateNet">ClimateNet (class in earth2studio.models.dx)</a>
 </li>
       <li><a href="modules/generated/data/earth2studio.data.CMIP6.html#earth2studio.data.CMIP6">CMIP6 (class in earth2studio.data)</a>
 </li>
       <li><a href="modules/generated/data/earth2studio.data.CMIP6MultiRealm.html#earth2studio.data.CMIP6MultiRealm">CMIP6MultiRealm (class in earth2studio.data)</a>
 </li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession.commit_id">commit_id (earth2studio.utils.checkpoint.CheckpointSession property)</a>
+</li>
       <li><a href="modules/generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html#earth2studio.models.dx.CorrDiffCMIP6">CorrDiffCMIP6 (class in earth2studio.models.dx)</a>
 </li>
       <li><a href="modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html#earth2studio.models.dx.CorrDiffTaiwan">CorrDiffTaiwan (class in earth2studio.models.dx)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/perturbation/earth2studio.perturbation.CorrelatedSphericalGaussian.html#earth2studio.perturbation.CorrelatedSphericalGaussian">CorrelatedSphericalGaussian (class in earth2studio.perturbation)</a>
 </li>
       <li><a href="modules/generated/models/da/earth2studio.models.da.HealDA.html#earth2studio.models.da.HealDA.create_generator">create_generator() (earth2studio.models.da.HealDA method)</a>
@@ -1216,8 +1273,6 @@
         <li><a href="modules/generated/models/px/earth2studio.models.px.UCast.html#earth2studio.models.px.UCast.create_iterator">(earth2studio.models.px.UCast method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/statistics/earth2studio.statistics.crps.html#earth2studio.statistics.crps">crps (class in earth2studio.statistics)</a>
 </li>
   </ul></td>
@@ -1248,14 +1303,20 @@
 </li>
       <li><a href="modules/generated/models/dx/earth2studio.models.dx.DerivedTCWV.html#earth2studio.models.dx.DerivedTCWV">DerivedTCWV (class in earth2studio.models.dx)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/models/dx/earth2studio.models.dx.DerivedVPD.html#earth2studio.models.dx.DerivedVPD">DerivedVPD (class in earth2studio.models.dx)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/models/dx/earth2studio.models.dx.DerivedWS.html#earth2studio.models.dx.DerivedWS">DerivedWS (class in earth2studio.models.dx)</a>
 </li>
       <li><a href="modules/generated/workflows/earth2studio.run.deterministic.html#earth2studio.run.deterministic">deterministic() (in module earth2studio.run)</a>
 </li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession.device">device (earth2studio.utils.checkpoint.CheckpointSession property)</a>
+
+      <ul>
+        <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState.device">(earth2studio.utils.checkpoint.CheckpointState property)</a>
+</li>
+      </ul></li>
       <li><a href="modules/generated/workflows/earth2studio.run.diagnostic.html#earth2studio.run.diagnostic">diagnostic() (in module earth2studio.run)</a>
 </li>
       <li><a href="modules/generated/models/px/earth2studio.models.px.DiagnosticWrapper.html#earth2studio.models.px.DiagnosticWrapper">DiagnosticWrapper (class in earth2studio.models.px)</a>
@@ -1353,6 +1414,8 @@
       <li><a href="modules/generated/statistics/earth2studio.statistics.energy_score.html#earth2studio.statistics.energy_score">energy_score (class in earth2studio.statistics)</a>
 </li>
       <li><a href="modules/generated/workflows/earth2studio.run.ensemble.html#earth2studio.run.ensemble">ensemble() (in module earth2studio.run)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession.exists">exists (earth2studio.utils.checkpoint.CheckpointSession property)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -1470,6 +1533,12 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/data/earth2studio.data.fetch_data.html#earth2studio.data.fetch_data">fetch_data() (in module earth2studio.data)</a>
 </li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession.flush">flush() (earth2studio.utils.checkpoint.CheckpointSession method)</a>
+
+      <ul>
+        <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html#earth2studio.utils.checkpoint.NullCheckpoint.flush">(earth2studio.utils.checkpoint.NullCheckpoint method)</a>
+</li>
+      </ul></li>
       <li><a href="modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html#earth2studio.utils.interp.LatLonInterpolation.forward">forward() (earth2studio.utils.interp.LatLonInterpolation method)</a>
 </li>
       <li><a href="modules/generated/statistics/earth2studio.statistics.fss.html#earth2studio.statistics.fss">fss (class in earth2studio.statistics)</a>
@@ -1546,16 +1615,22 @@
 </li>
       <li><a href="modules/generated/data/earth2studio.data.IFS_ENS.html#earth2studio.data.IFS_ENS">IFS_ENS (class in earth2studio.data)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/data/earth2studio.data.IFS_ENS_FX.html#earth2studio.data.IFS_ENS_FX">IFS_ENS_FX (class in earth2studio.data)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/data/earth2studio.data.IFS_FX.html#earth2studio.data.IFS_FX">IFS_FX (class in earth2studio.data)</a>
 </li>
       <li><a href="modules/generated/models/da/earth2studio.models.da.InterpEquirectangular.html#earth2studio.models.da.InterpEquirectangular">InterpEquirectangular (class in earth2studio.models.da)</a>
 </li>
       <li><a href="modules/generated/models/px/earth2studio.models.px.InterpModAFNO.html#earth2studio.models.px.InterpModAFNO">InterpModAFNO (class in earth2studio.models.px)</a>
 </li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession.is_active">is_active (earth2studio.utils.checkpoint.CheckpointSession property)</a>
+
+      <ul>
+        <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html#earth2studio.utils.checkpoint.NullCheckpoint.is_active">(earth2studio.utils.checkpoint.NullCheckpoint property)</a>
+</li>
+      </ul></li>
       <li><a href="modules/generated/data/earth2studio.data.ISD.html#earth2studio.data.ISD">ISD (class in earth2studio.data)</a>
 </li>
   </ul></td>
@@ -1586,11 +1661,15 @@
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html#earth2studio.utils.checkpoint.NullCheckpoint.labels">labels (earth2studio.utils.checkpoint.NullCheckpoint property)</a>
+</li>
       <li><a href="modules/generated/perturbation/earth2studio.perturbation.LaggedEnsemble.html#earth2studio.perturbation.LaggedEnsemble">LaggedEnsemble (class in earth2studio.perturbation)</a>
 </li>
       <li><a href="modules/generated/statistics/earth2studio.statistics.weights.lat_weight.html#earth2studio.statistics.weights.lat_weight">lat_weight() (in module earth2studio.statistics.weights)</a>
 </li>
       <li><a href="modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html#earth2studio.utils.interp.LatLonInterpolation">LatLonInterpolation (class in earth2studio.utils.interp)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession.lead_time">lead_time (earth2studio.utils.checkpoint.CheckpointSession property)</a>
 </li>
       <li><a href="modules/generated/data/earth2studio.data.CBottle3D.html#earth2studio.data.CBottle3D.load_default_package">load_default_package() (earth2studio.data.CBottle3D class method)</a>
 
@@ -1792,6 +1871,14 @@
 </li>
       <li><a href="modules/generated/statistics/earth2studio.statistics.mean.html#earth2studio.statistics.mean">mean (class in earth2studio.statistics)</a>
 </li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession.metadata">metadata (earth2studio.utils.checkpoint.CheckpointSession property)</a>
+
+      <ul>
+        <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html#earth2studio.utils.checkpoint.NullCheckpoint.metadata">(earth2studio.utils.checkpoint.NullCheckpoint property)</a>
+</li>
+      </ul></li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession.metadata_value">metadata_value() (earth2studio.utils.checkpoint.CheckpointSession method)</a>
+</li>
       <li><a href="modules/generated/data/earth2studio.data.MeteosatFCI.html#earth2studio.data.MeteosatFCI">MeteosatFCI (class in earth2studio.data)</a>
 </li>
       <li><a href="modules/generated/data/earth2studio.data.MetOpAMSUA.html#earth2studio.data.MetOpAMSUA">MetOpAMSUA (class in earth2studio.data)</a>
@@ -1802,6 +1889,8 @@
 </li>
       <li><a href="modules/generated/data/earth2studio.data.MetOpMHS.html#earth2studio.data.MetOpMHS">MetOpMHS (class in earth2studio.data)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     module
 
@@ -1827,8 +1916,6 @@
         <li><a href="modules/utils_all.html#module-earth2studio.utils">earth2studio.utils</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/data/earth2studio.data.MRMS.html#earth2studio.data.MRMS">MRMS (class in earth2studio.data)</a>
 </li>
   </ul></td>
@@ -1841,13 +1928,15 @@
 </li>
       <li><a href="modules/generated/data/earth2studio.data.NClimGridDaily.html#earth2studio.data.NClimGridDaily">NClimGridDaily (class in earth2studio.data)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/io/earth2studio.io.NetCDF4Backend.html#earth2studio.io.NetCDF4Backend">NetCDF4Backend (class in earth2studio.io)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/data/earth2studio.data.NNJAObsConv.html#earth2studio.data.NNJAObsConv">NNJAObsConv (class in earth2studio.data)</a>
 </li>
       <li><a href="modules/generated/data/earth2studio.data.NomadsGDASObsConv.html#earth2studio.data.NomadsGDASObsConv">NomadsGDASObsConv (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html#earth2studio.utils.checkpoint.NullCheckpoint">NullCheckpoint (class in earth2studio.utils.checkpoint)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -1907,9 +1996,13 @@
 </li>
       <li><a href="modules/generated/data/earth2studio.data.RandomDataFrame.html#earth2studio.data.RandomDataFrame">RandomDataFrame (class in earth2studio.data)</a>
 </li>
+      <li><a href="modules/generated/statistics/earth2studio.statistics.rank_histogram.html#earth2studio.statistics.rank_histogram">rank_histogram (class in earth2studio.statistics)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="modules/generated/statistics/earth2studio.statistics.rank_histogram.html#earth2studio.statistics.rank_histogram">rank_histogram (class in earth2studio.statistics)</a>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.Checkpoint.html#earth2studio.utils.checkpoint.Checkpoint.rank_path">rank_path (earth2studio.utils.checkpoint.Checkpoint property)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.Checkpoint.html#earth2studio.utils.checkpoint.Checkpoint.refresh">refresh() (earth2studio.utils.checkpoint.Checkpoint method)</a>
 </li>
       <li><a href="modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.resolve">resolve() (earth2studio.models.auto.Package method)</a>
 </li>
@@ -1921,6 +2014,8 @@
 <h2 id="S">S</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.Checkpoint.html#earth2studio.utils.checkpoint.Checkpoint.select">select() (earth2studio.utils.checkpoint.Checkpoint method)</a>
+</li>
       <li><a href="modules/generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO">SFNO (class in earth2studio.models.px)</a>
 </li>
       <li><a href="modules/generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO1H.html#earth2studio.models.dx.SolarRadiationAFNO1H">SolarRadiationAFNO1H (class in earth2studio.models.dx)</a>
@@ -1999,8 +2094,6 @@
 </li>
       <li><a href="modules/generated/models/dx/earth2studio.models.dx.WindgustAFNO.html#earth2studio.models.dx.WindgustAFNO">WindgustAFNO (class in earth2studio.models.dx)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/io/earth2studio.io.AsyncZarrBackend.html#earth2studio.io.AsyncZarrBackend.write">write() (earth2studio.io.AsyncZarrBackend method)</a>
 
       <ul>
@@ -2012,7 +2105,15 @@
 </li>
         <li><a href="modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend.write">(earth2studio.io.ZarrBackend method)</a>
 </li>
+        <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession.write">(earth2studio.utils.checkpoint.CheckpointSession method)</a>
+</li>
+        <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html#earth2studio.utils.checkpoint.NullCheckpoint.write">(earth2studio.utils.checkpoint.NullCheckpoint method)</a>
+</li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html#earth2studio.utils.checkpoint.NullCheckpoint.write_count">write_count (earth2studio.utils.checkpoint.NullCheckpoint property)</a>
+</li>
   </ul></td>
 </tr></table>
 

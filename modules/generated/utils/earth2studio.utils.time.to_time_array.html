@@ -74,7 +74,7 @@
 
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="datasource_to_file" href="../data/earth2studio.data.datasource_to_file.html" />
+    <link rel="next" title="Checkpoint" href="earth2studio.utils.checkpoint.Checkpoint.html" />
     <link rel="prev" title="timearray_to_datetime" href="earth2studio.utils.time.timearray_to_datetime.html" />
 
 
@@ -389,6 +389,7 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../../userguide/advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../userguide/advanced/checkpointing.html">Checkpointing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../userguide/advanced/batch.html">Batch Dimension</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../userguide/advanced/auto.html">AutoModels</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../userguide/advanced/lexicon.html">Lexicon</a></li>
@@ -598,6 +599,11 @@
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.checkpoint.Checkpoint.html">Checkpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.checkpoint.CheckpointSession.html">CheckpointSession</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.checkpoint.CheckpointState.html">CheckpointState</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.checkpoint.NullCheckpoint.html">NullCheckpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.checkpoint.bind_checkpoint_state.html">bind_checkpoint_state</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/earth2studio.data.datasource_to_file.html">datasource_to_file</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/earth2studio.data.fetch_data.html">fetch_data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/earth2studio.data.prep_data_array.html">prep_data_array</a></li>
@@ -614,6 +620,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../examples/01_getting_started/01_deterministic_workflow.html">Running Deterministic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../examples/01_getting_started/02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../examples/01_getting_started/03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../examples/01_getting_started/04_checkpoint_restart.html">Checkpointing a Deterministic Forecast</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../../examples/02_medium_range/index.html">Medium Range</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -745,7 +752,10 @@
 
 <section id="examples-using-earth2studio-utils-time-to-time-array">
 <span id="sphx-glr-backref-earth2studio-utils-time-to-time-array"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.utils.time.to_time_array</span></code><a class="headerlink" href="#examples-using-earth2studio-utils-time-to-time-array" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Tropical cyclone tracking with tracker diagnostic models."><img alt="" src="../../../_images/sphx_glr_05_cyclone_tracking_thumb.png" />
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Basic inference workflow checkpointing."><img alt="" src="../../../_images/sphx_glr_04_checkpoint_restart_thumb.png" />
+<p><a class="reference internal" href="../../../examples/01_getting_started/04_checkpoint_restart.html"><span class="doc">Checkpointing a Deterministic Forecast</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Checkpointing a Deterministic Forecast</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Tropical cyclone tracking with tracker diagnostic models."><img alt="" src="../../../_images/sphx_glr_05_cyclone_tracking_thumb.png" />
 <p><a class="reference internal" href="../../../examples/02_medium_range/05_cyclone_tracking.html"><span class="doc">Tropical Cyclone Tracking</span></a></p>
   <div class="sphx-glr-thumbnail-title">Tropical Cyclone Tracking</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Generative downscaling over Taiwan using CorrDiff diffusion model."><img alt="" src="../../../_images/sphx_glr_01_corrdiff_inference_thumb.png" />
@@ -783,11 +793,11 @@
       </div>
     </a>
     <a class="right-next"
-       href="../data/earth2studio.data.datasource_to_file.html"
+       href="earth2studio.utils.checkpoint.Checkpoint.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">datasource_to_file</p>
+        <p class="prev-next-title">Checkpoint</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

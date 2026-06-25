@@ -389,6 +389,7 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../userguide/advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../userguide/advanced/checkpointing.html">Checkpointing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../userguide/advanced/batch.html">Batch Dimension</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../userguide/advanced/auto.html">AutoModels</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../userguide/advanced/lexicon.html">Lexicon</a></li>
@@ -598,6 +599,11 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/utils/earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/utils/earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/utils/earth2studio.utils.time.to_time_array.html">to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/utils/earth2studio.utils.checkpoint.Checkpoint.html">Checkpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html">CheckpointSession</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/utils/earth2studio.utils.checkpoint.CheckpointState.html">CheckpointState</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html">NullCheckpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/utils/earth2studio.utils.checkpoint.bind_checkpoint_state.html">bind_checkpoint_state</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.datasource_to_file.html">datasource_to_file</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.fetch_data.html">fetch_data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.prep_data_array.html">prep_data_array</a></li>
@@ -614,6 +620,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../examples/01_getting_started/01_deterministic_workflow.html">Running Deterministic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../examples/01_getting_started/02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../examples/01_getting_started/03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../examples/01_getting_started/04_checkpoint_restart.html">Checkpointing a Deterministic Forecast</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../examples/02_medium_range/index.html">Medium Range</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -769,6 +776,38 @@ The following functions can be used to convert to and from these numpy arrays.</
 </table>
 </div>
 </section>
+<section id="earth2studio-utils-checkpointing">
+<span id="earth2studio-utils-checkpoint"></span><h2><a class="reference internal" href="#module-earth2studio.utils" title="earth2studio.utils"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils</span></code></a>: Checkpointing<a class="headerlink" href="#earth2studio-utils-checkpointing" title="Link to this heading">#</a></h2>
+<p>Checkpoint utilities for restartable inference workflows. Checkpoints track
+workflow progress, restart rows, optional artifacts, and component state needed
+to resume long-running workflows while forecast fields remain in the selected
+IO backend.</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/utils/earth2studio.utils.checkpoint.Checkpoint.html#earth2studio.utils.checkpoint.Checkpoint" title="earth2studio.utils.checkpoint.Checkpoint"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.checkpoint.Checkpoint</span></code></a>(name[, path, ...])</p></td>
+<td><p>Catalog of restart checkpoints for a named inference run.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html#earth2studio.utils.checkpoint.CheckpointSession" title="earth2studio.utils.checkpoint.CheckpointSession"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.checkpoint.CheckpointSession</span></code></a>(catalog)</p></td>
+<td><p>Active checkpoint row or new checkpoint session.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/utils/earth2studio.utils.checkpoint.CheckpointState.html#earth2studio.utils.checkpoint.CheckpointState" title="earth2studio.utils.checkpoint.CheckpointState"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.checkpoint.CheckpointState</span></code></a>(state[, ...])</p></td>
+<td><p>Bound checkpoint state proxy returned by <code class="xref py py-func docutils literal notranslate"><span class="pre">bind_checkpoint_state()</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html#earth2studio.utils.checkpoint.NullCheckpoint" title="earth2studio.utils.checkpoint.NullCheckpoint"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.checkpoint.NullCheckpoint</span></code></a>()</p></td>
+<td><p>No-op checkpoint used when checkpointing is disabled.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/utils/earth2studio.utils.checkpoint.bind_checkpoint_state.html#earth2studio.utils.checkpoint.bind_checkpoint_state" title="earth2studio.utils.checkpoint.bind_checkpoint_state"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.checkpoint.bind_checkpoint_state</span></code></a>(state)</p></td>
+<td><p>Bind a dataclass instance to checkpoint state metadata.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
 <section id="earth2studio-data-data">
 <span id="earth2studio-data-functions"></span><h2><a class="reference internal" href="datasources_analysis.html#module-earth2studio.data" title="earth2studio.data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code></a>: Data<a class="headerlink" href="#earth2studio-data-data" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
@@ -855,6 +894,9 @@ The following functions can be used to convert to and from these numpy arrays.</
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-utils-time"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils</span></code>: Time</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-utils-checkpointing"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils</span></code>: Checkpointing</a><ul class="nav section-nav flex-column">
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-data-data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-earth2studio.models"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models</span></code>: Models</a></li>
 </ul>

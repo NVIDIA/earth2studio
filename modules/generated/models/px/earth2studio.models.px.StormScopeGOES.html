@@ -389,6 +389,7 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../../../userguide/advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/advanced/checkpointing.html">Checkpointing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../userguide/advanced/batch.html">Batch Dimension</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../userguide/advanced/auto.html">AutoModels</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../userguide/advanced/lexicon.html">Lexicon</a></li>
@@ -598,6 +599,11 @@
 <li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.time.to_time_array.html">to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.checkpoint.Checkpoint.html">Checkpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.checkpoint.CheckpointSession.html">CheckpointSession</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.checkpoint.CheckpointState.html">CheckpointState</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.checkpoint.NullCheckpoint.html">NullCheckpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.checkpoint.bind_checkpoint_state.html">bind_checkpoint_state</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.datasource_to_file.html">datasource_to_file</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.fetch_data.html">fetch_data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.prep_data_array.html">prep_data_array</a></li>
@@ -614,6 +620,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../../examples/01_getting_started/01_deterministic_workflow.html">Running Deterministic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../examples/01_getting_started/02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../examples/01_getting_started/03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/01_getting_started/04_checkpoint_restart.html">Checkpointing a Deterministic Forecast</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../../../examples/02_medium_range/index.html">Medium Range</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -747,7 +754,7 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">conditioning_interp_max_dist_km</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">26.0</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L964-L1292"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeGOES" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L964-L1294"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeGOES" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:na" style="background-color:#1565c0;color:#fff;" title="North America"><span class="sphinx-badge-icon"><i class="fa-solid fa-earth-americas"></i></span><span class="sphinx-badge-label">NA</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="class:nwc" style="background-color:#198754;color:#fff;" title="Nowcasting">NWC</span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:sat" style="background-color:#1c7ed6;color:#fff;" title="Satellite"><i class="fa-solid fa-satellite"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="year:2026" style="background-color:#1A1A1A;color:#fff;">2026</span><span class="sphinx-badge sphinx-badge-square" data-badge-id="gpu:80gb" style="background-color:#5aac44;color:#fff;" title="80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)">80 GB</span></span><p>StormScope model forecasting GOES data on the HRRR grid.</p>
 <p>This model supports multiple variants at different spatiotemporal resolutions:</p>
 <blockquote>
@@ -861,17 +868,20 @@ output data tensor and coordinate system dictionary.</p>
 <dd><em class="sig-param"><span class="n"><span class="pre">conditioning_data_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;earth2studio.data.gfs.GFS_FX</span> <span class="pre">object&gt;</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L1170-L1292"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeGOES.load_model" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L1170-L1294"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeGOES.load_model" title="Link to this definition">#</a></dt>
 <dd><p>Load model from package.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package"><em>Package</em></a>) – Package to load model from</p></li>
-<li><p><strong>model_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Model name to load; allows for selection between different variants of the model:
-- “6km_60min_natten_cos_zenith_input_eoe_v2”: 6km resolution, 60 minute timestep
-- “6km_10min_natten_pure_obs_zenith_6steps”: 6km resolution, 10 minute timestep, sliding window of 6 input timesteps
-- “6km_10min_natten_pure_obs_zenith_eoe”: 6km resolution, 10 minute timestep, single input timestep
-- “3km_10min_natten_pure_obs_cos_zenith_input_eoe”: 3km resolution, 10 minute timestep</p></li>
+<li><p><strong>model_name</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>Model name to load; allows for selection between different variants of the model:</p>
+<ul>
+<li><p>”6km_60min_natten_cos_zenith_input_eoe_v2”: 6km resolution, 60 minute timestep</p></li>
+<li><p>”6km_10min_natten_pure_obs_zenith_6steps”: 6km resolution, 10 minute timestep, sliding window of 6 input timesteps</p></li>
+<li><p>”6km_10min_natten_pure_obs_zenith_eoe”: 6km resolution, 10 minute timestep, single input timestep</p></li>
+<li><p>”3km_10min_natten_pure_obs_cos_zenith_input_eoe”: 3km resolution, 10 minute timestep</p></li>
+</ul>
+</p></li>
 <li><p><strong>conditioning_data_source</strong> (<em>DataSource</em><em> | </em><em>ForecastSource</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Data source to use for conditioning, by default None.</p></li>
 </ul>
 </dd>

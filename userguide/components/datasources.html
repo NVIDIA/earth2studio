@@ -389,6 +389,7 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../advanced/checkpointing.html">Checkpointing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../advanced/batch.html">Batch Dimension</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../advanced/auto.html">AutoModels</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../advanced/lexicon.html">Lexicon</a></li>
@@ -598,6 +599,11 @@
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.to_time_array.html">to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.Checkpoint.html">Checkpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html">CheckpointSession</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html">CheckpointState</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html">NullCheckpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.bind_checkpoint_state.html">bind_checkpoint_state</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.datasource_to_file.html">datasource_to_file</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.fetch_data.html">fetch_data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.prep_data_array.html">prep_data_array</a></li>
@@ -614,6 +620,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/01_deterministic_workflow.html">Running Deterministic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/04_checkpoint_restart.html">Checkpointing a Deterministic Forecast</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../examples/02_medium_range/index.html">Medium Range</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -891,28 +898,25 @@ This utility fetches data for an array of times and lead times for the specified
 variables.
 For example, in the deterministic workflow <a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.deterministic.html#earth2studio.run.deterministic" title="earth2studio.run.deterministic"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run.deterministic</span></code></a>, it is
 used to get the initial state for the provided prognostic.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="c1"># Fetch data from data source and load onto device</span>
-    <span class="n">prognostic_ic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
-    <span class="n">time</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>        <span class="c1"># Fetch data from data source and load onto device</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">prognostic</span><span class="p">,</span> <span class="s2">&quot;interp_method&quot;</span><span class="p">):</span>
+            <span class="n">interp_to</span> <span class="o">=</span> <span class="n">prognostic_ic</span>
+            <span class="n">interp_method</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">interp_method</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">interp_to</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">interp_method</span> <span class="o">=</span> <span class="s2">&quot;nearest&quot;</span>
 
-    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">prognostic</span><span class="p">,</span> <span class="s2">&quot;interp_method&quot;</span><span class="p">):</span>
-        <span class="n">interp_to</span> <span class="o">=</span> <span class="n">prognostic_ic</span>
-        <span class="n">interp_method</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">interp_method</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">interp_to</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">interp_method</span> <span class="o">=</span> <span class="s2">&quot;nearest&quot;</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+            <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span>
+            <span class="n">variable</span><span class="o">=</span><span class="n">prognostic_ic</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+            <span class="n">lead_time</span><span class="o">=</span><span class="n">prognostic_ic</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+            <span class="n">interp_to</span><span class="o">=</span><span class="n">interp_to</span><span class="p">,</span>
+            <span class="n">interp_method</span><span class="o">=</span><span class="n">interp_method</span><span class="p">,</span>
+        <span class="p">)</span>
 
-    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
-        <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
-        <span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span>
-        <span class="n">variable</span><span class="o">=</span><span class="n">prognostic_ic</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
-        <span class="n">lead_time</span><span class="o">=</span><span class="n">prognostic_ic</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
-        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
-        <span class="n">interp_to</span><span class="o">=</span><span class="n">interp_to</span><span class="p">,</span>
-        <span class="n">interp_method</span><span class="o">=</span><span class="n">interp_method</span><span class="p">,</span>
-    <span class="p">)</span>
-
-    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched data from </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched data from </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>

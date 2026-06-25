@@ -8,6 +8,8 @@ Getting Started
 ---------------
 
 Introductory examples demonstrating the core inference workflows in Earth2Studio.
+This section includes deterministic, diagnostic, ensemble, and checkpoint restart
+examples for basic forecast workflows.
 
 
 
@@ -68,6 +70,23 @@ Introductory examples demonstrating the core inference workflows in Earth2Studio
     </div>
 
 
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic inference workflow checkpointing.">
+
+.. only:: html
+
+  .. image:: /examples/01_getting_started/images/thumb/sphx_glr_04_checkpoint_restart_thumb.png
+    :alt:
+
+  :doc:`/examples/01_getting_started/04_checkpoint_restart`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Checkpointing a Deterministic Forecast</div>
+    </div>
+
+
 .. thumbnail-parent-div-close
 
 .. raw:: html
@@ -81,4 +100,5 @@ Introductory examples demonstrating the core inference workflows in Earth2Studio
    /examples/01_getting_started/01_deterministic_workflow
    /examples/01_getting_started/02_diagnostic_workflow
    /examples/01_getting_started/03_ensemble_workflow
+   /examples/01_getting_started/04_checkpoint_restart
 
