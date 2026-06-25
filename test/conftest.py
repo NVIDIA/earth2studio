@@ -51,6 +51,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/data/test_cds.py": ["data"],
     "test/data/test_cams.py": ["data"],
     "test/data/test_cmip6.py": ["data"],
+    "test/data/test_dynamical.py": ["data"],
     "test/data/test_gdas.py": ["data"],
     "test/data/test_planetary_computer.py": ["data"],
     "test/data/test_hrrr.py": ["data"],

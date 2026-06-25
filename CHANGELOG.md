@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added IBTrACS tropical cyclone track DataFrame source (`IBTrACS`)
 - Added EUMETNET OPERA European weather radar composite DataSource for DBZH
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
+- Added dynamical.org analysis and forecast data sources (`Dynamical`,
+  `DynamicalForecast`) driven directly off the public STAC catalog
+  (`stac.dynamical.org`), reading anonymous Icechunk repositories
 - Added support for cumulative variables in ARCO data source
 
 ### Changed
