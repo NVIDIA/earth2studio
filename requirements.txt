@@ -338,7 +338,7 @@ typing-extensions==4.15.0
     #   zarr
 tzdata==2025.3 ; sys_platform == 'emscripten' or sys_platform == 'win32'
     # via pandas
-urllib3==2.6.3
+urllib3==2.7.0
     # via
     #   botocore
     #   distributed
