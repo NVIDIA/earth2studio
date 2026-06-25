@@ -127,9 +127,8 @@ class AsyncZarrBackend:
 
         self.overwrite = False  # Not formally supported
         self.parallel_coords = self._scrub_coordinates(parallel_coords)
-        self.chunked_coords: dict[str, int] = (
-            {}
-        )  # Parameter to also chunk some of the other dims if needed
+        # Parameter to also chunk some of the other dims if needed
+        self.chunked_coords: dict[str, int] = {}
         self.zarr_codecs = zarr_codecs
 
         # Async / multi-thread items
@@ -307,9 +306,13 @@ class AsyncZarrBackend:
                 if key in array_coords:
                     array_coords[key] = value
                     chunked[key] = 1
-            for key, value in self.chunked_coords.items():
-                if key in array_coords:
-                    chunked[key] = value
+            chunked.update(
+                {
+                    key: value
+                    for key, value in self.chunked_coords.items()
+                    if key in array_coords
+                }
+            )
 
             shape: tuple[int] = tuple(value.shape[0] for value in array_coords.values())
             chunks = tuple(value for value in chunked.values())

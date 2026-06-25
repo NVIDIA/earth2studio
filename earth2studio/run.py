@@ -28,6 +28,11 @@ from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
+from earth2studio.utils.checkpoint import (
+    Checkpoint,
+    CheckpointSession,
+    NullCheckpoint,
+)
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
@@ -45,6 +50,7 @@ def deterministic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
+    checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
 ) -> IOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
@@ -68,6 +74,9 @@ def deterministic(
         Device to run inference on, by default None
     verbose : bool, optional
         Print inference progress, by default True
+    checkpoint : Checkpoint, optional
+        Checkpoint manager or checkpoint session used to record and resume workflow
+        progress, by default no checkpoint
 
     Returns
     -------
@@ -84,30 +93,8 @@ def deterministic(
     )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
-    # sphinx - fetch data start
-    # Fetch data from data source and load onto device
     prognostic_ic = prognostic.input_coords()
     time = to_time_array(time)
-
-    if hasattr(prognostic, "interp_method"):
-        interp_to = prognostic_ic
-        interp_method = prognostic.interp_method
-    else:
-        interp_to = None
-        interp_method = "nearest"
-
-    x, coords = fetch_data(
-        source=data,
-        time=time,
-        variable=prognostic_ic["variable"],
-        lead_time=prognostic_ic["lead_time"],
-        device=device,
-        interp_to=interp_to,
-        interp_method=interp_method,
-    )
-
-    logger.success(f"Fetched data from {data.__class__.__name__}")
-    # sphinx - fetch data end
 
     # Set up IO backend
     total_coords = prognostic.output_coords(prognostic.input_coords()).copy()
@@ -131,22 +118,75 @@ def deterministic(
     var_names = total_coords.pop("variable")
     io.add_array(total_coords, var_names)
 
-    # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic.input_coords())
-    # Create prognostic iterator
-    model = prognostic.create_iterator(x, coords)
+    with checkpoint as ckpt:
+        restart_step = None
+        if ckpt.exists and ckpt.write_count > 0:
+            if ckpt.catalog.level < 2:
+                logger.warning(
+                    "deterministic received checkpoint level "
+                    f"{ckpt.catalog.level}; component state may not be "
+                    "complete enough to resume a rollout. Re-running from "
+                    "lead time zero."
+                )
+            else:
+                restart_step = ckpt.write_count - 1
+                if restart_step >= nsteps:
+                    logger.success("\nInference complete")
+                    return io
 
-    logger.info("Inference starting!")
-    with tqdm(
-        total=nsteps + 1, desc="Running inference", position=1, disable=(not verbose)
-    ) as pbar:
-        for step, (x, coords) in enumerate(model):
-            # Subselect domain/variables as indicated in output_coords
-            x, coords = map_coords(x, coords, output_coords)
-            io.write(*split_coords(x, coords))
-            pbar.update(1)
-            if step == nsteps:
-                break
+        # sphinx - fetch data start
+        # Fetch data from data source and load onto device
+        if hasattr(prognostic, "interp_method"):
+            interp_to = prognostic_ic
+            interp_method = prognostic.interp_method
+        else:
+            interp_to = None
+            interp_method = "nearest"
+
+        x, coords = fetch_data(
+            source=data,
+            time=time,
+            variable=prognostic_ic["variable"],
+            lead_time=prognostic_ic["lead_time"],
+            device=device,
+            interp_to=interp_to,
+            interp_method=interp_method,
+        )
+
+        logger.success(f"Fetched data from {data.__class__.__name__}")
+        # sphinx - fetch data end
+
+        # Map lat and lon if needed
+        x, coords = map_coords(x, coords, prognostic.input_coords())
+        # Create prognostic iterator
+        model = prognostic.create_iterator(x, coords)
+
+        logger.info("Inference starting!")
+        initial_progress = 0 if restart_step is None else restart_step + 1
+        with tqdm(
+            total=nsteps + 1,
+            initial=initial_progress,
+            desc="Running inference",
+            position=1,
+            disable=(not verbose),
+        ) as pbar:
+            for local_step, (x, coords) in enumerate(model):
+                step = (
+                    local_step
+                    if restart_step is None
+                    else restart_step + local_step + 1
+                )
+
+                current_lead_time = coords["lead_time"][-1]
+                # Subselect domain/variables as indicated in output_coords
+                x, coords = map_coords(x, coords, output_coords)
+                io.write(*split_coords(x, coords))
+                ckpt.write(lead_time=current_lead_time)
+                pbar.update(1)
+                if step == nsteps:
+                    break
+
+        ckpt.flush()
 
     logger.success("\nInference complete")
     return io
@@ -163,6 +203,7 @@ def diagnostic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
+    checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
 ) -> IOBackend:
     """Built in diagnostic workflow.
     This workflow creates a determinstic inference pipeline that couples a prognostic
@@ -188,6 +229,9 @@ def diagnostic(
         Device to run inference on, by default None
     verbose : bool, optional
         Print inference progress, by default True
+    checkpoint : Checkpoint, optional
+        Checkpoint manager or checkpoint session used to record and resume workflow
+        progress, by default no checkpoint
 
     Returns
     -------
@@ -196,7 +240,6 @@ def diagnostic(
     """
     # sphinx - diagnostic end
     logger.info("Running diagnostic workflow!")
-    # Load model onto the device
     device = (
         device
         if device is not None
@@ -205,29 +248,11 @@ def diagnostic(
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
     diagnostic = diagnostic.to(device)
-    # Fetch data from data source and load onto device
+
     prognostic_ic = prognostic.input_coords()
     diagnostic_ic = diagnostic.input_coords()
     time = to_time_array(time)
-    if hasattr(prognostic, "interp_method"):
-        interp_to = prognostic_ic
-        interp_method = prognostic.interp_method
-    else:
-        interp_to = None
-        interp_method = "nearest"
 
-    x, coords = fetch_data(
-        source=data,
-        time=time,
-        variable=prognostic_ic["variable"],
-        lead_time=prognostic_ic["lead_time"],
-        device=device,
-        interp_to=interp_to,
-        interp_method=interp_method,
-    )
-    logger.success(f"Fetched data from {data.__class__.__name__}")
-
-    # Set up IO backend
     total_coords = prognostic.output_coords(prognostic.input_coords())
     for key, value in prognostic.output_coords(
         prognostic.input_coords()
@@ -251,27 +276,70 @@ def diagnostic(
     var_names = total_coords.pop("variable")
     io.add_array(total_coords, var_names)
 
-    # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic_ic)
+    with checkpoint as ckpt:
+        restart_step = None
+        if ckpt.exists and ckpt.write_count > 0:
+            if ckpt.catalog.level < 2:
+                logger.warning(
+                    "diagnostic received checkpoint level "
+                    f"{ckpt.catalog.level}; component state may not be "
+                    "complete enough to resume a rollout. Re-running from "
+                    "lead time zero."
+                )
+            else:
+                restart_step = ckpt.write_count - 1
+                if restart_step >= nsteps:
+                    logger.success("\nInference complete")
+                    return io
 
-    # Create prognostic iterator
-    model = prognostic.create_iterator(x, coords)
+        if hasattr(prognostic, "interp_method"):
+            interp_to = prognostic_ic
+            interp_method = prognostic.interp_method
+        else:
+            interp_to = None
+            interp_method = "nearest"
 
-    logger.info("Inference starting!")
-    with tqdm(
-        total=nsteps + 1, desc="Running inference", position=1, disable=(not verbose)
-    ) as pbar:
-        for step, (x, coords) in enumerate(model):
+        x, coords = fetch_data(
+            source=data,
+            time=time,
+            variable=prognostic_ic["variable"],
+            lead_time=prognostic_ic["lead_time"],
+            device=device,
+            interp_to=interp_to,
+            interp_method=interp_method,
+        )
+        logger.success(f"Fetched data from {data.__class__.__name__}")
 
-            # Run diagnostic
-            x, coords = map_coords(x, coords, diagnostic_ic)
-            x, coords = diagnostic(x, coords)
-            # Subselect domain/variables as indicated in output_coords
-            x, coords = map_coords(x, coords, output_coords)
-            io.write(*split_coords(x, coords))
-            pbar.update(1)
-            if step == nsteps:
-                break
+        x, coords = map_coords(x, coords, prognostic_ic)
+        model = prognostic.create_iterator(x, coords)
+
+        logger.info("Inference starting!")
+        initial_progress = 0 if restart_step is None else restart_step + 1
+        with tqdm(
+            total=nsteps + 1,
+            initial=initial_progress,
+            desc="Running inference",
+            position=1,
+            disable=(not verbose),
+        ) as pbar:
+            for local_step, (x, coords) in enumerate(model):
+                step = (
+                    local_step
+                    if restart_step is None
+                    else restart_step + local_step + 1
+                )
+
+                current_lead_time = coords["lead_time"][-1]
+                x, coords = map_coords(x, coords, diagnostic_ic)
+                x, coords = diagnostic(x, coords)
+                x, coords = map_coords(x, coords, output_coords)
+                io.write(*split_coords(x, coords))
+                ckpt.write(lead_time=current_lead_time)
+                pbar.update(1)
+                if step == nsteps:
+                    break
+
+        ckpt.flush()
 
     logger.success("\nInference complete")
     return io
@@ -290,6 +358,7 @@ def ensemble(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
+    checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
 ) -> IOBackend:
     """Built in ensemble workflow.
 
@@ -318,6 +387,9 @@ def ensemble(
         Device to run inference on, by default None
     verbose : bool, optional
         Print inference progress, by default True
+    checkpoint : Checkpoint, optional
+        Checkpoint manager or checkpoint session used to record and resume workflow
+        progress, by default no checkpoint
 
     Returns
     -------
@@ -327,7 +399,6 @@ def ensemble(
     # sphinx - ensemble end
     logger.info("Running ensemble inference!")
 
-    # Load model onto the device
     device = (
         device
         if device is not None
@@ -336,7 +407,6 @@ def ensemble(
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
 
-    # Fetch data from data source and load onto device
     prognostic_ic = prognostic.input_coords()
     time = to_time_array(time)
     if hasattr(prognostic, "interp_method"):
@@ -357,7 +427,6 @@ def ensemble(
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
-    # Set up IO backend with information from output_coords (if applicable).
     total_coords = prognostic.output_coords(prognostic.input_coords()).copy()
     if "batch" in total_coords:
         del total_coords["batch"]
@@ -377,64 +446,100 @@ def ensemble(
     variables_to_save = total_coords.pop("variable")
     io.add_array(total_coords, variables_to_save)
 
-    # Compute batch sizes
     if batch_size is None:
         batch_size = nensemble
     batch_size = min(nensemble, batch_size)
-    number_of_batches = ceil(nensemble / batch_size)
+    with checkpoint as ckpt:
+        completed_ensembles = []
+        if ckpt.exists and not isinstance(ckpt, NullCheckpoint):
+            completed_ensembles = [
+                int(value) for value in ckpt.metadata.get("completed_ensembles", [])
+            ]
 
-    logger.info(
-        f"Starting {nensemble} Member Ensemble Inference with \
-            {number_of_batches} number of batches."
-    )
-    batch_id = 0
-    for batch_id in tqdm(
-        range(0, nensemble, batch_size),
-        total=number_of_batches,
-        desc="Total Ensemble Batches",
-        position=2,
-        disable=(not verbose),
-    ):
-
-        # Get fresh batch data
-        x = x0.to(device)
-
-        # Expand x, coords for ensemble
-        mini_batch_size = min(batch_size, nensemble - batch_id)
-        coords = (
-            OrderedDict({"ensemble": np.arange(batch_id, batch_id + mini_batch_size)})
-            | coords0.copy()
+        completed = set(completed_ensembles)
+        start_batch_id = next(
+            (index for index in range(nensemble) if index not in completed),
+            nensemble,
+        )
+        number_of_batches = ceil((nensemble - start_batch_id) / batch_size)
+        restart_first_batch = (
+            ckpt.exists
+            and ckpt.write_count > 0
+            and start_batch_id < nensemble
+            and ckpt.lead_time != total_coords["lead_time"][-1]
         )
 
-        # Unsqueeze x for batching ensemble
-        x = x.unsqueeze(0).repeat(mini_batch_size, *([1] * x.ndim))
+        logger.info(
+            f"Starting {nensemble} Member Ensemble Inference with \
+            {number_of_batches} number of batches."
+        )
+        for batch_index, batch_id in enumerate(
+            tqdm(
+                range(start_batch_id, nensemble, batch_size),
+                total=number_of_batches,
+                desc="Total Ensemble Batches",
+                position=2,
+                disable=(not verbose),
+            )
+        ):
+            mini_batch_size = min(batch_size, nensemble - batch_id)
+            ensemble_coords = np.arange(batch_id, batch_id + mini_batch_size)
+            ensemble_members = [int(value) for value in ensemble_coords]
+            restart_step = None
+            if batch_index == 0 and restart_first_batch:
+                if ckpt.catalog.level < 2:
+                    logger.warning(
+                        "ensemble received checkpoint level "
+                        f"{ckpt.catalog.level}; component state may not be "
+                        "complete enough to resume a rollout. Re-running from "
+                        "lead time zero."
+                    )
+                    ckpt.write_count = 0
+                else:
+                    restart_step = ckpt.write_count - 1
+                    if restart_step >= nsteps:
+                        continue
+            elif not isinstance(ckpt, NullCheckpoint):
+                ckpt.write_count = 0
 
-        # Map lat and lon if needed
-        x, coords = map_coords(x, coords, prognostic_ic)
+            x = x0.to(device)
+            coords = OrderedDict({"ensemble": ensemble_coords}) | coords0.copy()
+            x = x.unsqueeze(0).repeat(mini_batch_size, *([1] * x.ndim))
+            x, coords = map_coords(x, coords, prognostic_ic)
+            x, coords = perturbation(x, coords)
 
-        # Perturb ensemble
-        x, coords = perturbation(x, coords)
+            model = prognostic.create_iterator(x, coords)
+            initial_progress = 0 if restart_step is None else restart_step + 1
+            with tqdm(
+                total=nsteps + 1,
+                initial=initial_progress,
+                desc=f"Running batch {batch_id} inference",
+                position=1,
+                leave=False,
+                disable=(not verbose),
+            ) as pbar:
+                for local_step, (x, coords) in enumerate(model):
+                    step = (
+                        local_step
+                        if restart_step is None
+                        else restart_step + local_step + 1
+                    )
 
-        # Create prognostic iterator
-        model = prognostic.create_iterator(x, coords)
+                    current_lead_time = coords["lead_time"][-1]
+                    x, coords = map_coords(x, coords, output_coords)
+                    io.write(*split_coords(x, coords))
+                    if step == nsteps:
+                        completed.update(ensemble_members)
+                        completed_ensembles = sorted(completed)
+                    ckpt.write(
+                        lead_time=current_lead_time,
+                        completed_ensembles=completed_ensembles,
+                    )
+                    pbar.update(1)
+                    if step == nsteps:
+                        break
 
-        with tqdm(
-            total=nsteps + 1,
-            desc=f"Running batch {batch_id} inference",
-            position=1,
-            leave=False,
-            disable=(not verbose),
-        ) as pbar:
-            for step, (x, coords) in enumerate(model):
-                # Subselect domain/variables as indicated in output_coords
-                x, coords = map_coords(x, coords, output_coords)
-
-                io.write(*split_coords(x, coords))
-                pbar.update(1)
-                if step == nsteps:
-                    break
-
-        batch_id += 1
+            ckpt.flush()
 
     logger.success("\nInference complete")
     return io

@@ -157,10 +157,10 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         "q700",
         "q850",
         "q925",
-        "ro",
+        "ro06",
         "sd",
         "sdor",
-        "sf",
+        "sf06",
         "sin_julian_day",
         "sin_latitude",
         "sin_local_time",
@@ -584,6 +584,8 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         }
         accum_6h_map = {
             "cp": "cp06",
+            "ro": "ro06",
+            "sf": "sf06",
             "tp": "tp06",
             "ssrd": "ssrd06",
             "strd": "strd06",

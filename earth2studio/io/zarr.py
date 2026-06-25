@@ -21,6 +21,7 @@ from typing import Any
 import numpy as np
 import torch
 import zarr
+from loguru import logger
 from zarr.core.array import Array as ZarrArray
 from zarr.core.array import CompressorsLike
 
@@ -84,9 +85,11 @@ class ZarrBackend:
                     self.coords[dim] = self.root[dim][:]
 
         for array in self.root:
-            if array not in self.coords:
-                # https://github.com/pydata/xarray/pull/9669
-                dims = self.root[array].metadata.dimension_names
+            # https://github.com/pydata/xarray/pull/9669
+            dims = self.root[array].metadata.dimension_names
+            if array in self.coords:
+                continue
+
             for c, d in zip(self.root[array].chunks, dims):
                 self.chunks[d] = c
 
@@ -200,11 +203,8 @@ class ZarrBackend:
 
         for name, di in zip(array_name, data):
             if name in self.root and not kwargs.get("overwrite", False):
-                raise RuntimeError(
-                    f"{name} is already in Zarr Store. "
-                    + "To overwrite Zarr array pass overwrite=True to this function or"
-                    + " backend_kwargs = {'overwrite': True} to the ZarrBackend constructor"
-                )
+                logger.warning("{} is already in Zarr Store. Skipping add_array.", name)
+                continue
 
             di = di.cpu().numpy() if di is not None else None
             dtype = di.dtype if di is not None else "float32"

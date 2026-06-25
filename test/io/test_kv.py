@@ -212,12 +212,12 @@ def test_kv_exceptions(
         ["dummy_1"],
         data=[dummy],
     )
-    with pytest.raises(AssertionError):
-        z.add_array(
-            total_coords,
-            ["dummy_1"],
-            data=[dummy],
-        )
+    z.add_array(
+        total_coords,
+        ["dummy_1"],
+        data=[dummy + 1.0],
+    )
+    assert torch.allclose(z["dummy_1"], dummy)
 
     # Try to write with bad coords
     bad_coords = {"ensemble": np.arange(0)} | total_coords

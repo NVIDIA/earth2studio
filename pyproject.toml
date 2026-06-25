@@ -20,6 +20,7 @@ dependencies = [
     "huggingface-hub>=0.27.0",
     "loguru",
     "netCDF4>=1.6.4,<1.7.3", # https://github.com/Unidata/netcdf4-python/issues/1438
+    "obstore>=0.8",
     "pygrib",
     "python-dotenv",
     "pandas",
@@ -224,6 +225,7 @@ stormscope = [
     "nvtx>=0.2.11",
     "earth2studio[utils]",
 ]
+ucast = []
 # DX Models
 cbottle = [
     "earth2grid",
@@ -260,7 +262,7 @@ windgust-afno = [
 # DA Models
 da-healda = [
     "earth2grid",
-    "nvidia-physicsnemo>=2.0",
+    "nvidia-physicsnemo>=2.0,<=2.1.1",
     "cupy-cuda13x",
     "cudf-cu13>=26.2.0",
 ]
@@ -276,7 +278,7 @@ da-stormcast = [
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
-    "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast]",
+    "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",
     "earth2studio[cbottle,climatenet,corrdiff,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda]",
 ]
@@ -410,7 +412,7 @@ exclude = [".claude"]
 [tool.ruff.per-file-ignores]
 # Ignore `F401` (import violations) in all `__init__.py` files, and in `docs/*.py`.
 "__init__.py" = ["F401"]
-"docs/*.py" = ["F401"]
+"docs/*.py" = ["F401", "S603"]
 "examples/*.py" = ["E402"]
 "recipes/**/*_notebook.py" = ["E402"]
 # Ignore `S101` (assertions) in all `test` files.

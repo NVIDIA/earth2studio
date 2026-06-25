@@ -477,6 +477,28 @@ uv add earth2studio --extra stormscope
 :::
 ::::
 :::::
+:::::{tab-item} UCast
+Notes: The UCast model does not require additional Python packages beyond the
+base Earth2Studio install. Install the model extra anyway so environments can
+select the UCast dependency group consistently.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[ucast]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra ucast
+```
+
+:::
+::::
+:::::
 :::::{tab-item} InterpModAFNO
 Notes: Requires a base prognostic model to be installed.
 
@@ -598,8 +620,7 @@ entries in the pipeline configuration must reference the full path to the
 Docker container, the binaries are copied to `/usr/local/bin` and are therefore
 available on the `PATH`; in that case only the executable names are needed
 (e.g. `DetectNodes ...`). Examples for both commands are provided in the
-docstring of the `TempestExtremes` class and in the
-[TC tracking recipe](../../recipes/tc_tracking/README.md).
+docstring of the `TempestExtremes` class and in the TC tracking recipe.
 
 :::
 ::::

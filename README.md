@@ -23,7 +23,7 @@ climate science.
 [Install][e2studio_install_url] | [User-Guide][e2studio_userguide_url] |
 [Examples][e2studio_examples_url] | [API][e2studio_api_url]
 
-![Earth2Studio Banner](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio_feature_banner.png?id=1)
+![Earth2Studio README hero](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-hero.png?v2)
 
 </div>
 
@@ -37,6 +37,35 @@ Running AI weather prediction can be done with just a few lines of code.
     workflow samples.
 - Swap out [data sources][e2studio_data_api] or [models][e2studio_px_api] depending on
     your use case!
+
+### Tutorial
+
+[![Earth2Studio Tutorial](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-quickstart-video.png?v1)](https://www.youtube.com/watch?v=Sog6aCapZeA)
+
+### Agent-assisted setup
+
+Automate setup with your preferred coding agent using NVIDIA Earth2Studio skills.
+Install the Earth2Studio skill set, then ask your favorite agent (Claude, Codex, OpenCode, etc) to
+recommend a model, configure an environment, or run a first deterministic forecast.
+Find more Earth2Studio skills in the [NVIDIA Skills catalog](https://build.nvidia.com/skills?q=earth2studio).
+
+![Earth2Studio agentic setup](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-agent-setup.png?v1)
+
+```bash
+npx skills add NVIDIA/skills --skill earth2studio-install
+npx skills add NVIDIA/skills --skill earth2studio-discover
+npx skills add NVIDIA/skills --skill earth2studio-data-fetch
+npx skills add NVIDIA/skills --skill earth2studio-deterministic-forecast
+```
+
+Example agent prompts:
+
+```text
+Use the Earth2Studio discover skill to recommend a starter forecast workflow.
+Use the Earth2Studio install skill to set up my environment for FourCastNet3 inference.
+Create a script to fetch ERA5 surface winds data for March 2024.
+Create a deterministic forecast workflow with GFS, FourCastNet3, and a Zarr output store.
+```
 
 ### NVIDIA FourCastNet3
 
@@ -89,8 +118,6 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > Links to the original license and source are often provided in the API docs for each
 > model/data source.
 
-[![Watch the video](https://img.youtube.com/vi/Sog6aCapZeA/hqdefault.jpg)](https://www.youtube.com/watch?v=Sog6aCapZeA)
-
 ## Latest News
 
 > [!NOTE]
@@ -119,7 +146,8 @@ architectures, data sources and SciML tooling while providing a unified API.
 
 <div align="center">
 
-![Earth2Studio Overview 1](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio-readme-overview-1.png?id=1)
+![Earth2Studio model zoo](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-model-zoo.png?v3)
+![Earth2Studio data sources](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-data-sources.png?v3)
 
 </div>
 
@@ -129,7 +157,7 @@ data sources, AI models and other modules together.
 
 <div align="center">
 
-![Earth2Studio Overview 1](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio-readme-overview-2.png?id=1)
+![Earth2Studio composable pipelines](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/v2/earth2studio-readme-composability.png?v2)
 
 </div>
 
@@ -138,12 +166,6 @@ swap out components for alternatives.
 In addition to the largest model zoo of weather/climate AI models, Earth2Studio is
 packed with useful functionality such as optimized data access to cloud data stores,
 statistical operations and more to accelerate your pipelines.
-
-<div align="center">
-
-![Earth2Studio Overview 1](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio-readme-overview-3.webp?id=1)
-
-</div>
 
 ### Earth-2 Open Models
 
