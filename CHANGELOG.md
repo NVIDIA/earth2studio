@@ -24,9 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through 2011-03-27 with cycles every 5 days, served from the NCEI HTTPS
   archive
 - Added IBTrACS tropical cyclone track DataFrame source (`IBTrACS`)
+- Added checkpoint/session utilities and restart support for deterministic,
+  diagnostic, and ensemble inference workflows
 - Added EUMETNET OPERA European weather radar composite DataSource for DBZH
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
+- Added DLESyM-v0-ISCCP-ERA5 climate model
 
 ### Changed
 

@@ -1182,10 +1182,12 @@ class StormScopeGOES(StormScopeBase):
             Package to load model from
         model_name : str, optional
             Model name to load; allows for selection between different variants of the model:
+
             - "6km_60min_natten_cos_zenith_input_eoe_v2": 6km resolution, 60 minute timestep
             - "6km_10min_natten_pure_obs_zenith_6steps": 6km resolution, 10 minute timestep, sliding window of 6 input timesteps
             - "6km_10min_natten_pure_obs_zenith_eoe": 6km resolution, 10 minute timestep, single input timestep
             - "3km_10min_natten_pure_obs_cos_zenith_input_eoe": 3km resolution, 10 minute timestep
+
         conditioning_data_source : DataSource | ForecastSource | None, optional
             Data source to use for conditioning, by default None.
 
@@ -1296,8 +1298,10 @@ class StormScopeMRMS(StormScopeBase):
     """StormScope model forecasting MRMS data on the HRRR grid.
 
     This model supports multiple variants at different temporal resolutions:
+
       - 6km resolution, 60 minute timestep
       - 6km resolution, 10 minute timestep
+
     Selection between these can be made by passing the ``model_name argument`` to this
     class's ``load_model`` method.
 
@@ -1534,8 +1538,10 @@ class StormScopeMRMS(StormScopeBase):
             Package to load model from
         model_name : str, optional
             Model name to load; allows for selection between different variants of the model:
-              - "6km_60min_natten_cos_zenith_input_mrms_eoe": 6km resolution, 60 minute timestep
-              - "6km_10min_natten_pure_obs_mrms_obs_6steps": 6km resolution, 10 minute timestep
+
+            - "6km_60min_natten_cos_zenith_input_mrms_eoe": 6km resolution, 60 minute timestep
+            - "6km_10min_natten_pure_obs_mrms_obs_6steps": 6km resolution, 10 minute timestep
+
         conditioning_data_source : DataSource | ForecastSource | None, optional
             Data source to use for conditioning, by default None.
 

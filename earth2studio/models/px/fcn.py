@@ -16,6 +16,7 @@
 
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
+from dataclasses import dataclass
 
 import numpy as np
 import torch
@@ -25,6 +26,7 @@ from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -67,7 +69,13 @@ VARIABLES = [
 ]
 
 
-@check_optional_dependencies()
+@dataclass
+class _FCNCheckpointState:
+    x: torch.Tensor | None = None
+    coord_keys: tuple[str, ...] = ()
+    coord_values: tuple[np.ndarray, ...] = ()
+
+
 class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FourCastNet global prognostic model. Consists of a single model with a time-step
     size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole
@@ -105,6 +113,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.model = core_model
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
+        self.checkpoint = bind_checkpoint_state(_FCNCheckpointState())
 
     # sphinx - coords start
     def input_coords(self) -> CoordSystem:
@@ -175,6 +184,37 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> str:
         return "fcn"
 
+    def _restore_checkpoint_state(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem, bool]:
+        if (
+            self.checkpoint.checkpoint_level == 2
+            and self.checkpoint.checkpoint_state_loaded
+            and self.checkpoint.x is not None
+            and self.checkpoint.coord_keys
+        ):
+            x = self.checkpoint.x.to(x.device)
+            coords = OrderedDict(
+                (key, np.asarray(value).copy())
+                for key, value in zip(
+                    self.checkpoint.coord_keys, self.checkpoint.coord_values
+                )
+            )
+            return x, coords, True
+        return x, coords, False
+
+    def _save_checkpoint_state(self, x: torch.Tensor, coords: CoordSystem) -> None:
+        if self.checkpoint.checkpoint_enabled and self.checkpoint.checkpoint_level == 2:
+            self.checkpoint.x = x.detach().clone().to(self.checkpoint.device)
+            self.checkpoint.coord_keys = tuple(coords.keys())
+            self.checkpoint.coord_values = tuple(
+                np.asarray(value).copy() for value in coords.values()
+            )
+        else:
+            self.checkpoint.x = None
+            self.checkpoint.coord_keys = ()
+            self.checkpoint.coord_values = ()
+
     @classmethod
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
@@ -235,9 +275,11 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
+        x, coords, _ = self._restore_checkpoint_state(x, coords)
         output_coords = self.output_coords(coords)
 
         x = self._forward(x)
+        self._save_checkpoint_state(x, output_coords)
 
         return x, output_coords
 
@@ -246,10 +288,13 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
+        x, coords, restored = self._restore_checkpoint_state(x, coords)
 
         self.output_coords(coords)
 
-        yield x, coords
+        if not restored:
+            self._save_checkpoint_state(x, coords)
+            yield x, coords
 
         while True:
             # Front hook
@@ -261,6 +306,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Rear hook
             x, coords = self.rear_hook(x, coords)
+            self._save_checkpoint_state(x, coords)
 
             yield x, coords.copy()
 
