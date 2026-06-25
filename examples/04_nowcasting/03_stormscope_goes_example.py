@@ -69,7 +69,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from tqdm import trange
-from earth2studio.data import GOES, GOESGLMGrid, MRMS, fetch_data
+
+from earth2studio.data import GOES, MRMS, GOESGLMGrid, fetch_data
 from earth2studio.models.px.stormscope import (
     StormScopeBase,
     StormScopeGOES,

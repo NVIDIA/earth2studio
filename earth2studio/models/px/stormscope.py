@@ -391,7 +391,16 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if package is None:
             package = cls.load_default_package()
+        if cls._REGISTRY_KEY is None:
+            raise NotImplementedError(
+                "StormScope subclasses must set _REGISTRY_KEY to select a "
+                "section of registry.json."
+            )
         registry = cls._load_registry(package)
+        if cls._REGISTRY_KEY not in registry:
+            raise KeyError(
+                f"registry.json has no '{cls._REGISTRY_KEY}' section for {cls.__name__}."
+            )
         section = registry[cls._REGISTRY_KEY]
         return {
             name: {
@@ -843,7 +852,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if self.sliding_window:
             # Reshape each block to (..., 1, n_lt * n_vars, y, x)
             x_main, main_coords = self._stack_lead_times(x_main, main_coords)
-            if x_glm is not None:
+            if x_glm is not None and glm_coords is not None:
                 x_glm, glm_coords = self._stack_lead_times(x_glm, glm_coords)
             if conditioning is not None:
                 if conditioning_coords is None:
@@ -945,7 +954,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self._buffers.get("topo", None),
         ):
             if invariant is not None:
-                parts.append(
+                parts.append(  # noqa: PERF401
                     invariant.to(device=x.device, dtype=x.dtype)[None, None].repeat(
                         b * t, 1, 1, 1
                     )
