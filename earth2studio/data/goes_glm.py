@@ -318,8 +318,12 @@ class GOESGLM:
         pd.DataFrame
             Event-level lightning observations.
         """
-        if self.fs is None:
-            await self._async_init()
+        # Always build a fresh asynchronous filesystem for this fetch. The
+        # instance is created with ``skip_instance_cache=True`` and its aiohttp
+        # session is closed by ``managed_session`` below; reusing it across
+        # repeated calls (e.g. one per 5-min bin from ``GOESGLMGrid``) would
+        # hand later calls a torn-down aiobotocore client.
+        await self._async_init()
 
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
@@ -333,14 +337,17 @@ class GOESGLM:
         schema = self.resolve_fields(fields)
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
-        files = await self._discover_files(time_list)
-        unique_uris = sorted({f.s3_uri for f in files})
-        logger.info(
-            f"[{self.SOURCE_ID}] discovered {len(unique_uris)} unique GLM "
-            f"files across {len(time_list)} requested times"
-        )
-
+        # Listing and fetching share a single managed session so prefix
+        # discovery does not leak an unclosed s3fs session and both use the
+        # same refreshed client.
         async with managed_session(self.fs):
+            files = await self._discover_files(time_list)
+            unique_uris = sorted({f.s3_uri for f in files})
+            logger.info(
+                f"[{self.SOURCE_ID}] discovered {len(unique_uris)} unique GLM "
+                f"files across {len(time_list)} requested times"
+            )
+
             coros = [
                 async_retry(
                     self._fetch_remote_file,

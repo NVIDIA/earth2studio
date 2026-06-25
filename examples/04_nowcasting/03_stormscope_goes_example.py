@@ -68,7 +68,7 @@ import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-
+from tqdm import trange
 from earth2studio.data import GOES, GOESGLMGrid, MRMS, fetch_data
 from earth2studio.models.px.stormscope import (
     StormScopeBase,
@@ -101,10 +101,13 @@ model_name = "3km_10min"
 package = StormScopeBase.load_default_package()
 
 # GOES nowcast model: pure-obs, no external conditioning source needed.
+# We enable automatic mixed precision (autocast) and compile the model for faster inference.
 model = StormScopeGOES.load_model(
     package=package,
     conditioning_data_source=None,
     model_name=model_name,
+    amp=True,
+    compile=True,
 )
 model = model.to(device)
 model.eval()
@@ -117,6 +120,8 @@ model_mrms = StormScopeMRMS.load_model(
     conditioning_data_source=GOES(),
     glm_data_source=GOESGLMGrid(satellite="east"),
     model_name=model_name,
+    amp=True,
+    compile=True,
 )
 model_mrms = model_mrms.to(device)
 model_mrms.eval()
@@ -131,7 +136,7 @@ model_mrms.eval()
 # the regridding functionality.
 
 # %%
-start_date = [np.datetime64(datetime(2023, 12, 5, 12, 00, 0))]
+start_date = [np.datetime64(datetime(2024, 1, 8, 18, 0, 0))]
 goes_satellite = "goes16"
 scan_mode = "C"
 
@@ -244,7 +249,7 @@ y, y_coords = x, x_coords
 y_mrms, y_coords_mrms = x_mrms, x_coords_mrms
 
 n_steps = 2
-for step_idx in range(n_steps):
+for step_idx in trange(n_steps, desc="Forecast steps"):
     # Run one prognostic step with the GOES model
     y_pred, y_pred_coords = model(y, y_coords)
 
@@ -253,18 +258,14 @@ for step_idx in range(n_steps):
         y_mrms, y_coords_mrms, conditioning=y, conditioning_coords=y_coords
     )
 
-    # Update sliding window with new prediction
-    y_pred, y_pred_coords = model.next_input(y_pred, y_pred_coords, y, y_coords)
-    y_mrms_pred, y_coords_mrms_pred = model_mrms.next_input(
+    # Advance the sliding window for the next step: drop the oldest input frame
+    # and append the new prediction. We assign directly into the loop carry
+    # variables (y/y_mrms) and keep y_pred/y_mrms_pred pointing at the single
+    # latest prediction (lead time +step), which is what we plot below.
+    y, y_coords = model.next_input(y_pred, y_pred_coords, y, y_coords)
+    y_mrms, y_coords_mrms = model_mrms.next_input(
         y_mrms_pred, y_coords_mrms_pred, y_mrms, y_coords_mrms
     )
-
-    # Update the input tensors and coordinate systems for the next step
-    y = y_pred
-    y_coords = y_pred_coords
-    y_mrms = y_mrms_pred
-    y_coords_mrms = y_coords_mrms_pred
-
 # %%
 # Post Processing
 # ---------------
@@ -340,12 +341,12 @@ plt.colorbar(
     shrink=0.5,
 )
 
-time = y_coords["time"][0].item()
-lead_time = y_coords["lead_time"][0]
+time = y_pred_coords["time"][0].item()
+lead_time = y_pred_coords["lead_time"][0]
 plt.title(
     f"Predicted GOES {goes_channel} with MRMS overlay from {time} UTC "
     f"initialization (lead {lead_time.astype('timedelta64[m]').item()})"
 )
 
 plt.tight_layout()
-plt.savefig("outputs/20_stormscope_goes_example.png", dpi=300)
+plt.savefig("outputs/03_stormscope_goes_example.png", dpi=300)

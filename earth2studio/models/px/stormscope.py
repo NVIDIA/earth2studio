@@ -128,6 +128,16 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     conditioning_interp_max_dist_km : float, optional
         Maximum distance in kilometers for nearest neighbor interpolation of conditioning data.
         Points beyond this distance are masked as invalid. Default is 26.0.
+    amp : bool, optional
+        Enable automatic mixed precision (autocast) for the diffusion sampler's
+        network forward passes. The sampler's latent/state math is kept in
+        ``_SAMPLER_DTYPE`` (fp64); only the DiT forward passes run under
+        autocast. Can also be toggled after construction via the ``amp``
+        attribute. Default is False.
+    compile : bool, optional
+        Compile each staged denoising expert with ``torch.compile`` (using the
+        ``"reduce-overhead"`` mode) for faster repeated sampling. Can also be
+        invoked after construction via :meth:`compile_experts`. Default is False.
     """
 
     # Constants used to normalize lat/lon input features
@@ -142,14 +152,12 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     # Dtype to use in the EDM sampler
     _SAMPLER_DTYPE = torch.float64
 
+    # Dtype expected by the diffusion network (the PhysicsNeMo preconditioner
+    # does not down-cast its model input, so the sampler feeds it this dtype)
+    _MODEL_DTYPE = torch.float32
+
     # Constant to fill invalid gridpoints in the input after normalization
     _INPUT_INVALID_FILL_CONSTANT = 0.0
-
-    # Observation-stacking conventions this loader can assemble. The current
-    # time-major `_stack_lead_times` implements "time_interleaved"; the reserved
-    # "source_blocks_var_major" token is intentionally unsupported until a
-    # checkpoint needs it (see STORMSCOPE_PACKAGE_LAYOUT.md).
-    _SUPPORTED_OBS_LAYOUTS = ("time_interleaved",)
 
     def __init__(
         self,
@@ -174,6 +182,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x_coords: np.ndarray | None = None,
         input_interp_max_dist_km: float = 12.0,
         conditioning_interp_max_dist_km: float = 26.0,
+        amp: bool = False,
+        compile: bool = False,
     ):
         super().__init__()
         # Validate and store staged models
@@ -260,6 +270,17 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.input_interp = None
         self.conditioning_interp = None
 
+        # Mixed-precision toggle for the diffusion sampler. When True the DiT
+        # forward passes run under torch.autocast; the sampler's latent/state
+        # math stays in _SAMPLER_DTYPE (fp64). Mutable so it can be toggled
+        # after construction.
+        self.amp = amp
+
+        # Optionally torch.compile each staged expert ("reduce-overhead" mode).
+        self._experts_compiled = False
+        if compile:
+            self.compile_experts()
+
     # Top-level key in registry.json that holds this model's variants. Set by
     # subclasses (e.g. "goes", "mrms") so a single shared registry can describe
     # every StormScope model without name collisions.
@@ -307,21 +328,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Load and parse the package ``registry.json``."""
         with open(package.resolve("registry.json")) as f:
             return json.load(f)
-
-    @classmethod
-    def _check_obs_layout(cls, pkg: dict[str, Any]) -> None:
-        """Raise if a variant's observation-stacking layout is unsupported.
-
-        Defaults to ``"time_interleaved"`` for packages predating the
-        ``obs_layout`` field (the layout all current checkpoints use).
-        """
-        layout = pkg.get("obs_layout", "time_interleaved")
-        if layout not in cls._SUPPORTED_OBS_LAYOUTS:
-            raise NotImplementedError(
-                f"StormScope variant declares obs_layout='{layout}', which this "
-                f"Earth2Studio version does not support (supported: "
-                f"{', '.join(cls._SUPPORTED_OBS_LAYOUTS)})."
-            )
 
     @classmethod
     def _resolve_model_entry(
@@ -1006,9 +1012,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         b, t, lt, _, _, _ = x.shape
 
         # Scale input and fill invalid gridpoints. GLM-style channels use log1p;
-        # all others use the affine (x-mean)/std. The invalid-gridpoint fill is
-        # per-channel: the class background constant for mean/std channels, and
-        # log1p(0)=0 for GLM channels.
+        # all others use the affine (x-mean)/std. Invalid mean/std channels are
+        # filled with _INPUT_INVALID_FILL_CONSTANT (0.0 by default); GLM channels
+        # use log1p(0)=0.
         x_norm = self._normalize_state(x)
         fill = torch.where(
             self.glm_mask.view(1, -1, 1, 1),
@@ -1040,14 +1046,19 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             b * t, *x.shape[3:], device=x.device, dtype=x.dtype
         )  # shape [B*T, C, H, W]
 
-        # Run diffusion sampler
-        out = self._edm_sampler(
-            latents=latents,
-            condition=condition,
-            sigma_min=self.start_sigma,
-            sigma_max=self.end_sigma,
-            **self.sampler_args,
-        ).to(output_dtype)
+        # Run diffusion sampler. When AMP is enabled, autocast accelerates the
+        # DiT forward passes inside the sampler; the latent/state math stays in
+        # _SAMPLER_DTYPE (fp64) since autocast only affects autocast-eligible
+        # network ops, not the explicit fp64 pointwise updates. autocast is a
+        # no-op when self.amp is False, so the default path is unchanged.
+        with torch.autocast(device_type=x.device.type, enabled=self.amp):
+            out = self._edm_sampler(
+                latents=latents,
+                condition=condition,
+                sigma_min=self.start_sigma,
+                sigma_max=self.end_sigma,
+                **self.sampler_args,
+            ).to(output_dtype)
 
         out = out.reshape(b, t, len(self.output_times), *out.shape[1:])
 
@@ -1121,10 +1132,19 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             t_hat = torch.as_tensor(t_cur + gamma * t_cur)
             x_hat = x_cur + (t_hat**2 - t_cur**2).sqrt() * S_noise * randn_like(x_cur)
 
+            # The PhysicsNeMo preconditioner expects the noise level ``t`` to be
+            # a 1-D tensor matching the batch dimension of ``x``; broadcast the
+            # scalar sigma across the batch for the network calls. The sampling
+            # loop runs in float64 for stability, but the preconditioner does
+            # not down-cast its model input, so feed the network float32 and
+            # cast the denoised output back to the sampler dtype.
+            batch_size = x_hat.shape[0]
+            t_hat_b = t_hat.reshape(1).expand(batch_size).to(self._MODEL_DTYPE)
+
             # Euler step.
-            denoised = active_net(x_hat, t_hat, condition=condition).to(
-                self._SAMPLER_DTYPE
-            )
+            denoised = active_net(
+                x_hat.to(self._MODEL_DTYPE), t_hat_b, condition=condition
+            ).to(self._SAMPLER_DTYPE)
             d_cur = (x_hat - denoised) / t_hat
             x_next = x_hat + (t_next - t_hat) * d_cur
 
@@ -1133,9 +1153,15 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 # Select the active network for the next step
                 active_net_prime = self._select_expert(t_next)
 
-                denoised = active_net_prime(x_next, t_next, condition=condition).to(
-                    self._SAMPLER_DTYPE
+                t_next_b = (
+                    torch.as_tensor(t_next)
+                    .reshape(1)
+                    .expand(batch_size)
+                    .to(self._MODEL_DTYPE)
                 )
+                denoised = active_net_prime(
+                    x_next.to(self._MODEL_DTYPE), t_next_b, condition=condition
+                ).to(self._SAMPLER_DTYPE)
                 d_prime = (x_next - denoised) / t_next
                 x_next = x_hat + (t_next - t_hat) * (0.5 * d_cur + 0.5 * d_prime)
 
@@ -1154,6 +1180,25 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         raise ValueError(
             f"No denoising expert found for time step {t_cur.cpu().item()}, {stage['sigma_min']}"
         )
+
+    def compile_experts(self, mode: str = "reduce-overhead") -> None:
+        """Compile each staged denoising expert in place with ``torch.compile``.
+
+        Compilation is lazy (each expert compiles on its first forward pass), so
+        this is safe to call before or after moving the model to a device.
+        Repeated calls are a no-op.
+
+        Parameters
+        ----------
+        mode : str, optional
+            ``torch.compile`` mode, by default ``"reduce-overhead"`` (matching
+            the StormScope reference inference scripts).
+        """
+        if self._experts_compiled:
+            return
+        for i in range(len(self.stage_models)):
+            self.stage_models[i] = torch.compile(self.stage_models[i], mode=mode)
+        self._experts_compiled = True
 
     def prep_input(
         self, x: torch.Tensor, coords: CoordSystem, conditioning: bool = False
@@ -1517,6 +1562,8 @@ class StormScopeGOES(StormScopeBase):
         x_coords: np.ndarray | None = None,
         input_interp_max_dist_km: float = 12.0,
         conditioning_interp_max_dist_km: float = 26.0,
+        amp: bool = False,
+        compile: bool = False,
     ):
 
         super().__init__(
@@ -1541,6 +1588,8 @@ class StormScopeGOES(StormScopeBase):
             x_coords=x_coords,
             input_interp_max_dist_km=input_interp_max_dist_km,
             conditioning_interp_max_dist_km=conditioning_interp_max_dist_km,
+            amp=amp,
+            compile=compile,
         )
 
     def input_coords(self) -> CoordSystem:
@@ -1629,6 +1678,8 @@ class StormScopeGOES(StormScopeBase):
         package: Package,
         model_name: str = "3km_10min",
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
+        amp: bool = False,
+        compile: bool = False,
     ) -> PrognosticModel:
         """Load model from package.
 
@@ -1649,6 +1700,12 @@ class StormScopeGOES(StormScopeBase):
             Legacy training-style names are accepted as aliases.
         conditioning_data_source : DataSource | ForecastSource | None, optional
             Data source to use for conditioning, by default None.
+        amp : bool, optional
+            Enable automatic mixed precision (autocast) for the sampler's network
+            forward passes. Default is False.
+        compile : bool, optional
+            Compile each staged expert with ``torch.compile`` ("reduce-overhead").
+            Default is False.
 
         Returns
         -------
@@ -1662,7 +1719,6 @@ class StormScopeGOES(StormScopeBase):
 
         registry = cls._load_registry(package)
         _, pkg = cls._resolve_model_entry(package, model_name)
-        cls._check_obs_layout(pkg)
         model_spec = cls._load_checkpoints(package, pkg)
         (
             latitudes,
@@ -1717,6 +1773,8 @@ class StormScopeGOES(StormScopeBase):
             y_coords=y,
             x_coords=x,
             input_interp_max_dist_km=6.0 * spatial_downsample,
+            amp=amp,
+            compile=compile,
         )
 
 
@@ -1785,6 +1843,13 @@ class StormScopeMRMS(StormScopeBase):
     conditioning_interp_max_dist_km : float, optional
         Maximum distance in kilometers for nearest neighbor interpolation of conditioning data.
         Points beyond this distance are masked as invalid. Default is 26.0.
+    mrms_coverage_mask : torch.Tensor | None, optional
+        Boolean NEXRAD-coverage mask of shape ``[H, W]`` on the model grid, True
+        where MRMS data is considered valid (inside NEXRAD circular coverage).
+        When provided, it is used as the initial ``valid_mask`` and is ANDed with
+        any interpolator-derived mask built by :meth:`build_input_interpolator`.
+        Loaded automatically from the package for non-deprecated variants.
+        Default is None.
 
     Note
     ----
@@ -1799,9 +1864,9 @@ class StormScopeMRMS(StormScopeBase):
 
     _REGISTRY_KEY = "mrms"
     _STATE_FIRST = False
-    _INPUT_INVALID_FILL_CONSTANT = (
-        -0.25285158
-    )  # reflectivity of -10 is normalized to this
+    # Legacy 6 km / 1 hr nearcast checkpoints were trained with -10 dBZ infill
+    # (physical space) before normalization; that maps to this normalized value.
+    _LEGACY_INPUT_INVALID_FILL_CONSTANT = -0.25285158
 
     def __init__(
         self,
@@ -1830,6 +1895,7 @@ class StormScopeMRMS(StormScopeBase):
         conditioning_glm_mask: torch.Tensor | None = None,
         topo: torch.Tensor | None = None,
         nexrad_proximity: torch.Tensor | None = None,
+        mrms_coverage_mask: torch.Tensor | None = None,
         glm_data_source: Any | None = None,
         sampler_args: dict[str, float | int] | None = {"num_steps": 100, "S_churn": 10},
         y_coords: np.ndarray | None = None,
@@ -1839,6 +1905,8 @@ class StormScopeMRMS(StormScopeBase):
         input_interp_max_dist_km: float = 12.0,
         conditioning_interp_max_dist_km: float = 12.0,
         glm_interp_max_dist_km: float = 14.0,
+        amp: bool = False,
+        compile: bool = False,
     ):
 
         super().__init__(
@@ -1863,7 +1931,16 @@ class StormScopeMRMS(StormScopeBase):
             output_times=output_times,
             input_interp_max_dist_km=input_interp_max_dist_km,
             conditioning_interp_max_dist_km=conditioning_interp_max_dist_km,
+            amp=amp,
+            compile=compile,
         )
+        # NEXRAD circular coverage mask. When set, it defines which pixels are
+        # valid MRMS observations (matching training-time infilling boundaries).
+        # Used as the initial valid_mask and ANDed into any interpolator mask.
+        if mrms_coverage_mask is not None:
+            self.register_buffer("mrms_coverage_mask", mrms_coverage_mask)
+            self.register_buffer("valid_mask", mrms_coverage_mask.clone())
+
         # GLM is a state channel (`glm_density`) normalized with log1p/expm1; it is
         # fetched from its own 0.1-degree gridded source and bilinearly regridded to
         # the model grid via `build_glm_interpolator`. ``n_glm_channels`` counts the
@@ -2048,6 +2125,27 @@ class StormScopeMRMS(StormScopeBase):
         )
         return conditioning, conditioning_coords
 
+    def build_input_interpolator(
+        self,
+        input_lats: torch.Tensor,
+        input_lons: torch.Tensor,
+        max_dist_km: float | None = None,
+    ) -> None:
+        """Build the nearest-neighbor input interpolator and AND it with the
+        NEXRAD coverage mask (if loaded from the package).
+
+        After the base-class interpolator sets ``valid_mask`` from grid proximity,
+        any pixels outside the NEXRAD circular coverage area are additionally
+        masked so that infilling matches the training-time boundary.
+        """
+        super().build_input_interpolator(input_lats, input_lons, max_dist_km=max_dist_km)
+        coverage = self._buffers.get("mrms_coverage_mask", None)
+        if coverage is not None:
+            self.register_buffer(
+                "valid_mask",
+                self.valid_mask & coverage.to(device=self.valid_mask.device),
+            )
+
     def prep_input(
         self, x: torch.Tensor, coords: CoordSystem, conditioning: bool = False
     ) -> tuple[torch.Tensor, CoordSystem]:
@@ -2068,9 +2166,11 @@ class StormScopeMRMS(StormScopeBase):
     def load_model(
         cls,
         package: Package,
-        model_name: str = "6km_10min",
+        model_name: str = "3km_10min",
         conditioning_data_source: DataSource | ForecastSource | None = None,
         glm_data_source: DataSource | None = None,
+        amp: bool = False,
+        compile: bool = False,
     ) -> PrognosticModel:
         """Load model from package.
 
@@ -2079,7 +2179,7 @@ class StormScopeMRMS(StormScopeBase):
         package : Package
             Package to load model from
         model_name : str, optional
-            Variant to load, by default ``"6km_10min"``. Available variants (see
+            Variant to load. Available variants (see
             :py:meth:`list_available_models`):
 
             - ``"3km_10min"``: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting
@@ -2087,6 +2187,7 @@ class StormScopeMRMS(StormScopeBase):
             - ``"6km_1hr"``: 6km resolution, 60 minute timestep (legacy nearcasting)
 
             Legacy training-style names are accepted as aliases.
+            Default is ``"3km_10min"``.
         conditioning_data_source : DataSource | ForecastSource | None, optional
             Data source to use for conditioning (GOES), by default None.
         glm_data_source : DataSource | None, optional
@@ -2094,6 +2195,12 @@ class StormScopeMRMS(StormScopeBase):
             for variants with a ``glm_density`` channel. The model bilinearly
             regrids it to the model grid (see :py:meth:`build_glm_interpolator` /
             :py:meth:`interpolate_glm`). By default None.
+        amp : bool, optional
+            Enable automatic mixed precision (autocast) for the sampler's network
+            forward passes. Default is False.
+        compile : bool, optional
+            Compile each staged expert with ``torch.compile`` ("reduce-overhead").
+            Default is False.
 
         Returns
         -------
@@ -2107,7 +2214,6 @@ class StormScopeMRMS(StormScopeBase):
 
         registry = cls._load_registry(package)
         _, pkg = cls._resolve_model_entry(package, model_name)
-        cls._check_obs_layout(pkg)
         model_spec = cls._load_checkpoints(package, pkg)
         (
             latitudes,
@@ -2142,7 +2248,20 @@ class StormScopeMRMS(StormScopeBase):
             else None
         )
 
-        return cls(
+        # NEXRAD circular coverage mask: defines which pixels were valid MRMS
+        # observations during training (inside NEXRAD radar coverage). Loaded as
+        # bool so that it ANDs cleanly with the interpolator-derived valid_mask.
+        if pkg.get("mrms_coverage_mask"):
+            arr = ~torch.from_numpy(
+                np.load(package.resolve("mrms_coverage_mask.npy"))
+            ).bool()
+            mrms_coverage_mask = cls._crop_invariant(
+                arr, pkg["image_size"], pkg["spatial_downsample"]
+            )
+        else:
+            mrms_coverage_mask = None
+
+        model = cls(
             model_spec=model_spec,
             means=means.to(dtype=torch.float32),
             stds=stds.to(dtype=torch.float32),
@@ -2157,6 +2276,7 @@ class StormScopeMRMS(StormScopeBase):
             conditioning_glm_mask=conditioning_glm_mask,
             topo=topo,
             nexrad_proximity=nexrad_proximity,
+            mrms_coverage_mask=mrms_coverage_mask,
             glm_data_source=glm_data_source,
             y_coords=y,
             x_coords=x,
@@ -2164,4 +2284,9 @@ class StormScopeMRMS(StormScopeBase):
             output_times=output_times,
             input_interp_max_dist_km=6.0 * spatial_downsample,
             conditioning_interp_max_dist_km=6.0 * spatial_downsample,
+            amp=amp,
+            compile=compile,
         )
+        if pkg.get("deprecated", False):
+            model._INPUT_INVALID_FILL_CONSTANT = cls._LEGACY_INPUT_INVALID_FILL_CONSTANT
+        return model
