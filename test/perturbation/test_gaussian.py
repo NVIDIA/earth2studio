@@ -123,22 +123,30 @@ def test_gaussian_checkpoint_state_round_trip(tmp_path):
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
-def test_gaussian_checkpoint_state_restores_across_input_devices(tmp_path):
-    x = torch.zeros(2, 3)
+def test_gaussian_checkpoint_state_uses_input_device_with_checkpoint_device(tmp_path):
+    x = torch.zeros(2, 3, device=torch.device("cuda"))
     coords = OrderedDict([("batch", []), ("variable", [])])
-    checkpoint = Checkpoint("gaussian-device", path=tmp_path, level=1)
+    checkpoint = Checkpoint(
+        "gaussian-device", path=tmp_path, level=1, device=torch.device("cpu")
+    )
 
     with checkpoint as ckpt:
         perturbation = Gaussian(1.0)
         expected, _ = perturbation(x, coords)
+        assert perturbation.generator is not None
+        assert perturbation.generator.device == x.device
+        assert perturbation.checkpoint.generator_state is not None
+        assert perturbation.checkpoint.generator_state.device.type == "cpu"
         ckpt.write(lead_time=np.timedelta64(0, "h"))
 
     with checkpoint.select(-1):
         perturbation = Gaussian(1.0)
-        output, _ = perturbation(x.cuda(), coords)
+        output, _ = perturbation(x, coords)
 
-    assert output.device.type == "cuda"
-    assert torch.allclose(output.cpu(), expected)
+    assert perturbation.generator is not None
+    assert perturbation.generator.device == x.device
+    assert output.device == x.device
+    assert torch.allclose(output, expected)
 
 
 def test_correlated_spherical_gaussian_no_amplitude():
