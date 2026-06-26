@@ -1437,8 +1437,6 @@ class StormScopeGOES(StormScopeBase):
     legacy checkpoints. Variant names are semantic (``<resolution>_<cadence>``):
 
       - ``3km_10min``  : 3km resolution, 10 minute timestep (CONUS nowcasting)
-      - ``6km_10min``  : 6km resolution, 10 minute timestep, sliding window of 6 inputs
-      - ``6km_10min_single`` : 6km resolution, 10 minute timestep, single input timestep
       - ``6km_1hr``    : 6km resolution, 60 minute timestep (legacy nearcasting)
 
     Use :py:meth:`list_available_models` to inspect the variants in a given package
@@ -1672,8 +1670,6 @@ class StormScopeGOES(StormScopeBase):
             :py:meth:`list_available_models`):
 
             - ``"3km_10min"``: 3km resolution, 10 minute timestep (CONUS nowcasting)
-            - ``"6km_10min"``: 6km resolution, 10 minute timestep, sliding window of 6 inputs
-            - ``"6km_10min_single"``: 6km resolution, 10 minute timestep, single input timestep
             - ``"6km_1hr"``: 6km resolution, 60 minute timestep (legacy nearcasting)
 
             Legacy training-style names are accepted as aliases.
