@@ -214,6 +214,12 @@ sphinx_gallery_conf = {
     "show_memory": False,
     "exclude_implicit_doc": {r"load_model", r"load_default_package"},
     "log_level": {"backreference_missing": "warning", "gallery_examples": "debug"},
+    # COSMO-REA weights are not yet publicly hosted, so this example raises without
+    # a local $COSMO_REA_PACKAGE. Whitelist it so the full gallery build does not
+    # fail; remove this entry once the package is hosted (load_default_package).
+    "expected_failing_examples": [
+        "../examples/03_downscaling/04_cosmo_rea_downscaling.py",
+    ],
 }
 
 # -- sphinx-badges configuration ----------------------------------------------
