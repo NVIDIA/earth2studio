@@ -26,7 +26,7 @@ import torch.nn as nn
 from loguru import logger
 from numpy.typing import ArrayLike
 
-from earth2studio.data import GFS_FX, HRRR
+from earth2studio.data import HRRR
 from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.data.utils import fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -1654,7 +1654,7 @@ class StormScopeGOES(StormScopeBase):
         cls,
         package: Package,
         model_name: str = "3km_10min",
-        conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
+        conditioning_data_source: DataSource | ForecastSource | None = None,
         amp: bool = False,
         compile: bool = False,
     ) -> PrognosticModel:
