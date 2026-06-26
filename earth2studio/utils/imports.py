@@ -14,11 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import inspect
+import re
 import sys
 import tomllib
 from collections.abc import Callable
 from functools import lru_cache, wraps
-from importlib.metadata import PackageNotFoundError, version
+from importlib.metadata import PackageNotFoundError, requires, version
 from pathlib import Path
 from types import TracebackType
 from typing import Any, TypeVar, cast
@@ -188,6 +189,10 @@ def check_optional_dependencies(
 def _find_pyproject_toml() -> Path:
     """Locate pyproject.toml relative to this module.
 
+    This only works for editable/source installs. For wheel installs,
+    use :func:`_parse_optional_dependencies` which prefers
+    ``importlib.metadata``.
+
     Returns
     -------
     Path
@@ -209,15 +214,58 @@ def _find_pyproject_toml() -> Path:
     )
 
 
+_EXTRA_RE = re.compile(r"""extra\s*==\s*['"]([^'"]+)['"]""")
+
+
 @lru_cache(maxsize=1)
-def _parse_optional_dependencies() -> dict[str, list[str]]:
-    """Parse and cache optional-dependencies from pyproject.toml.
+def _parse_optional_dependencies_from_metadata() -> dict[str, list[str]]:
+    """Parse optional-dependencies from installed package metadata.
+
+    Uses ``importlib.metadata.requires()`` which reads the ``.dist-info/METADATA``
+    file present in both editable and wheel installs.
 
     Returns
     -------
     dict[str, list[str]]
         Mapping of group name to list of package specs
     """
+    reqs = requires("earth2studio") or []
+    groups: dict[str, list[str]] = {}
+    for req_str in reqs:
+        # Each entry looks like: "package_spec; extra == 'group'"
+        # or just "package_spec" for core dependencies
+        parts = req_str.split(";", 1)
+        spec = parts[0].strip()
+        if len(parts) == 2:
+            marker = parts[1].strip()
+            m = _EXTRA_RE.search(marker)
+            if m:
+                group = m.group(1)
+                groups.setdefault(group, []).append(spec)
+        # Core deps (no extra marker) are not included in optional-dependencies
+    return groups
+
+
+@lru_cache(maxsize=1)
+def _parse_optional_dependencies() -> dict[str, list[str]]:
+    """Parse and cache optional-dependencies for the earth2studio package.
+
+    Prefers ``importlib.metadata`` (works for both wheel and editable installs).
+    Falls back to reading ``pyproject.toml`` directly if metadata is unavailable.
+
+    Returns
+    -------
+    dict[str, list[str]]
+        Mapping of group name to list of package specs
+    """
+    try:
+        deps = _parse_optional_dependencies_from_metadata()
+        if deps:
+            return deps
+    except PackageNotFoundError:
+        pass
+
+    # Fallback: read pyproject.toml (editable/source installs only)
     pyproject_path = _find_pyproject_toml()
     with open(pyproject_path, "rb") as f:
         data = tomllib.load(f)
