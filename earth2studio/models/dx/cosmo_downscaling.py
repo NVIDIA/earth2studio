@@ -250,10 +250,10 @@ def interp_levels_to_height(
     for j in range(k - 1):
         lo, hi = h[j], h[j + 1]  # [H, W]
         w = ((t - lo) / (hi - lo).clamp_min(1e-6)).clamp(0.0, 1.0)
-        interp = (
+        interp_val = (
             values[..., j, :, :] + (values[..., j + 1, :, :] - values[..., j, :, :]) * w
         )
-        out = torch.where((t >= lo) & (t < hi), interp, out)
+        out = torch.where((t >= lo) & (t < hi), interp_val, out)
     return torch.where(t >= h[k - 1], values[..., k - 1, :, :], out)
 
 
@@ -1145,6 +1145,8 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         attention's latent grid and the detokenizer's patch counts -- and nothing
         else: no learnable weight depends on the grid, so this is all that differs
         per resolution. Shared by the regression forward and the diffusion sampler.
+        Mutates ``dit`` in place, so callers sharing one network (e.g. sub-domains
+        from ``set_domain``) must not run concurrently -- see ``set_domain``.
         """
         ph, pw = dit.tokenizer.patch_size
         latent_hw = (H // ph, W // pw)  # pixel grid -> latent (post-patchify) grid
@@ -1368,6 +1370,12 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         ``input_coords``/``output_coords``, so it composes with the standard run
         pipelines. The ERA5 input grid is recomputed to cover it (+ ``margin_deg``).
 
+        The network is shared by reference and each forward rebinds its latent-grid
+        state on it in place, so the parent and its sub-domains are safe to run
+        sequentially but NOT concurrently against the same network (two threads or
+        async tasks would overwrite each other's grid binding -> wrong-grid output);
+        run concurrent domains in separate processes.
+
         Three-tier coverage (when the package ships extended invariants):
 
         * bbox inside the **native** trained footprint -> proceed (validated);
@@ -1375,7 +1383,13 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
           it is outside the trained footprint) -> proceed + a one-time OOD warning;
         * bbox beyond the **extended extent** -> ``ValueError`` (no invariants).
 
-        Without extended invariants only the native footprint is supported.
+        Without extended invariants only the native footprint is supported. A
+        returned sub-domain keeps only its own (cropped) grid, not the full or
+        extended one, so call ``set_domain`` once on the full loaded model: a
+        second ``set_domain`` on a returned sub-domain cannot reach back to the
+        full or extended footprint (a bbox outside the sub-domain's grid raises).
+        For several sub-regions, call ``set_domain`` multiple times on the full
+        model instead.
 
         ``halo`` (px, default 0 = off): run on a block expanded by ``halo`` real
         cells per side and trim it off the output, keeping the returned bbox
@@ -1498,13 +1512,17 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
                 for k, name in enumerate(self._static_names)
             )
         lo, ln = lat_out.cpu().numpy(), lon_out.cpu().numpy()
+        # Rebuild the ERA5 input axes at the package's own (validated-uniform) input
+        # spacing rather than a hardcoded value, so a non-0.25-deg package works too.
+        dlat = float(self.lat_input_numpy[1] - self.lat_input_numpy[0])
+        dlon = float(self.lon_input_numpy[1] - self.lon_input_numpy[0])
 
-        def _reg(a0: float, a1: float) -> torch.Tensor:
-            """Regular 0.25-deg axis spanning [a0, a1] padded by margin_deg."""
+        def _reg(a0: float, a1: float, step: float) -> torch.Tensor:
+            """Regular axis at the input-grid spacing, spanning [a0, a1] + margin_deg."""
             return torch.arange(
                 float(np.floor(a0) - margin_deg),
-                float(np.ceil(a1) + margin_deg + 0.25),
-                0.25,
+                float(np.ceil(a1) + margin_deg + step),
+                step,
                 dtype=torch.float32,
                 device=dev,
             )
@@ -1516,8 +1534,8 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
             diffusion_model=self.diffusion_model,
             resolution=self.resolution,
             mode=self.mode,
-            lat_input_grid=_reg(lo.min(), lo.max()),
-            lon_input_grid=_reg(ln.min(), ln.max()),
+            lat_input_grid=_reg(lo.min(), lo.max(), dlat),
+            lon_input_grid=_reg(ln.min(), ln.max(), dlon),
             lat_output_grid=lat_out,
             lon_output_grid=lon_out,
             era5_center=self.era5_center.flatten(),
