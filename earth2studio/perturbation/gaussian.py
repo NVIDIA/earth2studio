@@ -60,7 +60,6 @@ class Gaussian:
         )
         self.generator: torch.Generator | None = None
         self.checkpoint = bind_checkpoint_state(_GaussianCheckpointState())
-        self._restore_generator_state()
 
     @torch.inference_mode()
     def __call__(
@@ -85,36 +84,42 @@ class Gaussian:
         generator = self._get_generator(x.device)
         pre_state = generator.get_state()
         noise_amplitude = self.noise_amplitude.to(x.device)
-        y = x + noise_amplitude * torch.randn(
-            x.shape, dtype=x.dtype, device=x.device, generator=generator
+        noise = torch.randn(
+            x.shape, dtype=x.dtype, device=generator.device, generator=generator
         )
+        y = x + noise_amplitude * noise.to(x.device)
         self._save_generator_state(pre_state, generator.get_state(), generator)
         return y, coords
 
     def _get_generator(self, device: torch.device) -> torch.Generator:
         if self.generator is None:
             self.generator = torch.Generator(device=device)
-            self.generator.seed()
+            if not self._restore_generator_state():
+                self.generator.seed()
         return self.generator
 
-    def _restore_generator_state(self) -> None:
-        if not self.checkpoint.checkpoint_state_loaded:
-            return
-        if self.checkpoint.generator_state is None:
-            return
-        if self.checkpoint.generator_device_type is None:
-            raise RuntimeError("Gaussian checkpoint generator device is missing.")
+    def _restore_generator_state(self) -> bool:
+        if (
+            not self.checkpoint.checkpoint_state_loaded
+            or self.checkpoint.generator_state is None
+        ):
+            return False
+
+        generator_state = self.checkpoint.generator_state.cpu()
         if self.generator is None:
+            self.generator = torch.Generator(
+                device=self.checkpoint.generator_device_type or "cpu"
+            )
+        try:
+            self.generator.set_state(generator_state)
+        except RuntimeError:
+            if self.checkpoint.generator_device_type is None:
+                raise
             self.generator = torch.Generator(
                 device=self.checkpoint.generator_device_type
             )
-        if self.generator.device.type != self.checkpoint.generator_device_type:
-            raise RuntimeError(
-                "Gaussian checkpoint generator state was saved for "
-                f"{self.checkpoint.generator_device_type!r}, but generator is on "
-                f"{self.generator.device.type!r}."
-            )
-        self.generator.set_state(self.checkpoint.generator_state.cpu())
+            self.generator.set_state(generator_state)
+        return True
 
     def _save_generator_state(
         self,
@@ -122,10 +127,7 @@ class Gaussian:
         post_state: torch.Tensor,
         generator: torch.Generator,
     ) -> None:
-        if not (
-            self.checkpoint.checkpoint_enabled
-            and self.checkpoint.checkpoint_is_flush_due
-        ):
+        if not self.checkpoint.checkpoint_enabled:
             return
 
         level = self.checkpoint.checkpoint_level
