@@ -849,8 +849,15 @@ class GOESGLMGrid:
         out = np.zeros((len(time_list), len(variable_list), ny, nx), dtype=np.float32)
 
         underlying = sorted({self._VARIABLE_MAP[v] for v in variable_list})
+        # Fetch all requested times in a single GOESGLM call so that S3 session
+        # setup, prefix listing, and file downloads are amortised across the
+        # entire sliding window rather than paying per-timestep.
+        bin_delta = np.timedelta64(self.BIN_MINUTES, "m")
+        df_all = self._events(time_list, underlying)
         for ti, t in enumerate(time_list):
-            df = self._events(t, underlying)
+            t_ts = pd.Timestamp(t)
+            t_end = pd.Timestamp(t + bin_delta)
+            df = df_all[(df_all["time"] >= t_ts) & (df_all["time"] < t_end)]
             for vi, v in enumerate(variable_list):
                 uvar = self._VARIABLE_MAP[v]
                 sub = df[df["variable"] == uvar]

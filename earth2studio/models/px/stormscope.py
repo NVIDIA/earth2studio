@@ -287,14 +287,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Load the default StormScope package from Hugging Face.
-
-        Downloads and caches checkpoints from the public
-        ``nvidia/stormscope-goes-mrms`` repository on Hugging Face. The cache
-        lives in ``~/.cache/earth2studio/stormscope`` (overridable via the
-        ``EARTH2STUDIO_CACHE`` or ``EARTH2STUDIO_MODEL_CACHE`` environment
-        variables).
-        """
+        """Load the default StormScope package from Hugging Face."""
         return Package(
             "hf://nvidia/stormscope-goes-mrms@62f0fd2fa52c3cff67c931daac18cdc0d9f58d2a",
             cache_options={"cache_storage": Package.default_cache("stormscope")},
@@ -1768,10 +1761,10 @@ class StormScopeMRMS(StormScopeBase):
     """StormScope model forecasting MRMS data on the HRRR grid.
 
     This model supports multiple variants at different temporal resolutions,
-    selected by passing ``model_name`` to ``load_model`` (default: ``"6km_10min"``).
+    selected by passing ``model_name`` to ``load_model`` (default: ``"3km_10min"``).
     Variant names are semantic (``<resolution>_<cadence>``):
 
-      - ``6km_10min``: 6km resolution, 10 minute timestep, sliding window of 6 inputs
+      - ``3km_10min``: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting (default)
       - ``6km_1hr``: 6km resolution, 60 minute timestep (legacy nearcasting)
 
     Use :py:meth:`list_available_models` to inspect the variants in a given package.
@@ -2169,8 +2162,7 @@ class StormScopeMRMS(StormScopeBase):
             :py:meth:`list_available_models`):
 
             - ``"3km_10min"``: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting
-            - ``"6km_10min"``: 6km resolution, 10 minute timestep, sliding window of 6 inputs
-            - ``"6km_1hr"``: 6km resolution, 60 minute timestep (legacy nearcasting)
+            - ``"6km_1hr"``: 6km resolution, 60 minute timestep, MRMS+GLM nearcasting
 
             Legacy training-style names are accepted as aliases.
             Default is ``"3km_10min"``.
@@ -2237,6 +2229,8 @@ class StormScopeMRMS(StormScopeBase):
         # NEXRAD circular coverage mask: defines which pixels were valid MRMS
         # observations during training (inside NEXRAD radar coverage). Loaded as
         # bool so that it ANDs cleanly with the interpolator-derived valid_mask.
+        # File convention: True = outside coverage / void pixel. Inverted here
+        # so the buffer and constructor use True = valid (data present).
         if pkg.get("mrms_coverage_mask"):
             arr = ~torch.from_numpy(
                 np.load(package.resolve("mrms_coverage_mask.npy"))
