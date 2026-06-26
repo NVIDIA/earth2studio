@@ -81,26 +81,28 @@ def test_gaussian_checkpoint_state_round_trip(tmp_path):
     x = torch.zeros(2, 3)
     coords = OrderedDict([("batch", []), ("variable", [])])
 
-    replay_checkpoint = Checkpoint("gaussian-state", path=tmp_path / "state", level=1)
-    with replay_checkpoint as ckpt:
+    level_one_checkpoint = Checkpoint(
+        "gaussian-level-1", path=tmp_path / "level-1", level=1
+    )
+    with level_one_checkpoint as ckpt:
         perturbation = Gaussian(1.0)
-        expected_replay, _ = perturbation(x, coords)
+        expected_level_one, _ = perturbation(x, coords)
         assert perturbation.checkpoint.generator_state is not None
         ckpt.write(lead_time=np.timedelta64(0, "h"))
 
-    with replay_checkpoint.select(-1):
+    with level_one_checkpoint.select(-1):
         perturbation = Gaussian(1.0)
-        replayed, _ = perturbation(x, coords)
+        level_one_output, _ = perturbation(x, coords)
         assert perturbation.checkpoint.checkpoint_state_loaded
-        assert torch.allclose(replayed, expected_replay)
+        assert torch.allclose(level_one_output, expected_level_one)
 
-    direct_checkpoint = Checkpoint(
-        "gaussian-full",
-        path=tmp_path / "full",
+    level_two_checkpoint = Checkpoint(
+        "gaussian-level-2",
+        path=tmp_path / "level-2",
         flush_interval=2,
         level=2,
     )
-    with direct_checkpoint as ckpt:
+    with level_two_checkpoint as ckpt:
         perturbation = Gaussian(1.0)
         perturbation(x, coords)
         assert perturbation.checkpoint.generator_state is None
@@ -108,16 +110,16 @@ def test_gaussian_checkpoint_state_round_trip(tmp_path):
         perturbation(x, coords)
         assert perturbation.checkpoint.generator_state is not None
         ckpt.write(lead_time=np.timedelta64(6, "h"))
-        expected_direct_next, _ = perturbation(x, coords)
-        expected_direct_third, _ = perturbation(x, coords)
+        expected_level_two_next, _ = perturbation(x, coords)
+        expected_level_two_third, _ = perturbation(x, coords)
 
-    with direct_checkpoint.select(-1):
+    with level_two_checkpoint.select(-1):
         perturbation = Gaussian(1.0)
         resumed, _ = perturbation(x, coords)
         assert perturbation.checkpoint.checkpoint_state_loaded
-        assert torch.allclose(resumed, expected_direct_next)
+        assert torch.allclose(resumed, expected_level_two_next)
         next_perturbed, _ = perturbation(x, coords)
-        assert torch.allclose(next_perturbed, expected_direct_third)
+        assert torch.allclose(next_perturbed, expected_level_two_third)
 
 
 def test_correlated_spherical_gaussian_no_amplitude():

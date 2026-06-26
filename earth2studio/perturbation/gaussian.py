@@ -128,15 +128,17 @@ class Gaussian:
         ):
             return
 
-        if self.checkpoint.checkpoint_level == 1:
-            self.checkpoint.generator_state = pre_state.cpu().clone()
-            self.checkpoint.generator_device_type = generator.device.type
-        elif self.checkpoint.checkpoint_level == 2:
-            self.checkpoint.generator_state = post_state.cpu().clone()
-            self.checkpoint.generator_device_type = generator.device.type
-        else:
+        level = self.checkpoint.checkpoint_level
+        if level < 1:
             self.checkpoint.generator_state = None
             self.checkpoint.generator_device_type = None
+            return
+
+        generator_state = pre_state if level == 1 else post_state
+        self.checkpoint.generator_state = generator_state.to(
+            self.checkpoint.device
+        ).clone()
+        self.checkpoint.generator_device_type = generator.device.type
 
 
 @check_optional_dependencies()
