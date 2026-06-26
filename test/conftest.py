@@ -205,9 +205,7 @@ def pytest_collection_modifyitems(config, items):
         for dep in _TEST_DEPENDENCIES[rel_str]:
             if not _group_available(dep) and not _package_available(dep):
                 item.add_marker(
-                    pytest.mark.skip(
-                        reason=f"missing dependency '{dep}' for {rel_str}"
-                    )
+                    pytest.mark.skip(reason=f"missing dependency '{dep}' for {rel_str}")
                 )
                 break
 
