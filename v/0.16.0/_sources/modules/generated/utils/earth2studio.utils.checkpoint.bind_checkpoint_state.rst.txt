@@ -1,0 +1,16 @@
+﻿bind_checkpoint_state
+=======================================================================
+
+.. currentmodule:: earth2studio.utils.checkpoint
+
+.. autofunction:: bind_checkpoint_state
+
+.. _sphx_glr_backref_earth2studio.utils.checkpoint.bind_checkpoint_state:
+
+.. minigallery:: earth2studio.utils.checkpoint.bind_checkpoint_state
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

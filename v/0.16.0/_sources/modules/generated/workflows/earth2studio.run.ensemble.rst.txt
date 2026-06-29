@@ -1,0 +1,16 @@
+﻿ensemble
+=============================================
+
+.. currentmodule:: earth2studio.run
+
+.. autofunction:: ensemble
+
+.. _sphx_glr_backref_earth2studio.run.ensemble:
+
+.. minigallery:: earth2studio.run.ensemble
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

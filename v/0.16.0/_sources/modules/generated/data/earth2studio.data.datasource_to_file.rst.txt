@@ -1,0 +1,16 @@
+﻿datasource_to_file
+========================================================
+
+.. currentmodule:: earth2studio.data
+
+.. autofunction:: datasource_to_file
+
+.. _sphx_glr_backref_earth2studio.data.datasource_to_file:
+
+.. minigallery:: earth2studio.data.datasource_to_file
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

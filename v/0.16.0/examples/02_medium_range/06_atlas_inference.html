@@ -1,0 +1,1704 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>Running Atlas Inference &#8212; Earth2Studio</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=933278ad" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx_badges.css?v=4a657082" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=bba532a7" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+
+
+    <script src="../../_static/documentation_options.js?v=205df16a"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/badge-data.js?v=14be73a5"></script>
+    <script src="../../_static/badge-filter.js?v=bda7ac9e"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/02_medium_range/06_atlas_inference';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.16.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+
+    <link rel="icon" href="../../_static/favicon.png"/>
+
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Downscaling" href="../03_downscaling/index.html" />
+    <link rel="prev" title="Tropical Cyclone Tracking" href="05_cyclone_tracking.html" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.16" />
+
+
+  </head>
+
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="Earth2Studio - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="Earth2Studio - Home"/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+
+
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+      <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="Earth2Studio - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="Earth2Studio - Home"/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../userguide/index.html">User Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/about/index.html">Getting Started</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/about/install.html">Install</a></li>
+
+
+
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/about/intro.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/about/data.html">Data Movement</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/components/index.html">Core Components</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/prognostic.html">Prognostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/datasources.html">Data and Forecast Sources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/perturbation.html">Perturbations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/io.html">Output Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/statistics.html">Statistics and Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/checkpointing.html">Checkpointing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/batch.html">Batch Dimension</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/auto.html">AutoModels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/lexicon.html">Lexicon</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/developer/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/overview.html">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/dependency.html">Dependency Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/style.html">Style Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/documentation.html">Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/testing.html">Testing Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/build.html">Build Process</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/recipes.html">Recipe Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/skills.html">AI Agent Skills</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/support/index.html">Support</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/support/troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/support/faq.html">Frequently Asked Questions</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules/index.html">API</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_px.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>: Prognostics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.ACE2ERA5.html">ACE2ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFS.html">AIFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFS2.html">AIFS2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFS2ENS.html">AIFS2ENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFSENS.html">AIFSENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Atlas.html">Atlas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Aurora.html">Aurora</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.CBottleVideo.html">CBottleVideo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DiagnosticWrapper.html">DiagnosticWrapper</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyM.html">DLESyM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyMLatLon.html">DLESyMLatLon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyMv0_ISCCP_ERA5.html">DLESyMv0_ISCCP_ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon.html">DLESyMv0_ISCCP_ERA5LatLon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLWP.html">DLWP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FCN.html">FCN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FCN3.html">FCN3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FengWu.html">FengWu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FuXi.html">FuXi</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GenCastMini.html">GenCastMini</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastOperational.html">GraphCastOperational</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastSmall.html">GraphCastSmall</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.InterpModAFNO.html">InterpModAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu24.html">Pangu24</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu6.html">Pangu6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu3.html">Pangu3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Persistence.html">Persistence</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.SFNO.html">SFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormCast.html">StormCast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormScopeGOES.html">StormScopeGOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormScopeMRMS.html">StormScopeMRMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.UCast.html">UCast</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_dx.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>: Diagnostics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleInfill.html">CBottleInfill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleSR.html">CBottleSR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleTCGuidance.html">CBottleTCGuidance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html">CorrDiffCMIP6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html">CorrDiffTaiwan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.ClimateNet.html">ClimateNet</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedRH.html">DerivedRH</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint.html">DerivedRHDewpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedSurfacePressure.html">DerivedSurfacePressure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedTCWV.html">DerivedTCWV</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedVPD.html">DerivedVPD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedWS.html">DerivedWS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.html">DLESyMv0_ISCCP_ERA5Precip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.OrbitGlobalPrecip.html">OrbitGlobalPrecip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html">PrecipitationAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html">PrecipitationAFNOv2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO1H.html">SolarRadiationAFNO1H</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO6H.html">SolarRadiationAFNO6H</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.TCTrackerWuDuan.html">TCTrackerWuDuan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.TCTrackerVitart.html">TCTrackerVitart</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.WindgustAFNO.html">WindgustAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.Identity.html">Identity</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_da.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.da</span></code>: Data Assimilation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.HealDA.html">HealDA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.InterpEquirectangular.html">InterpEquirectangular</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.StormCastSDA.html">StormCastSDA</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_analysis.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.ARCO.html">ARCO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CDS.html">CDS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CMIP6.html">CMIP6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CMIP6MultiRealm.html">CMIP6MultiRealm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS.html">GFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GOES.html">GOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HimawariAHI.html">HimawariAHI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HRRR.html">HRRR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS.html">IFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_ENS.html">IFS_ENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS.html">JPSS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MRMS.html">MRMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MeteosatFCI.html">MeteosatFCI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NClimGridDaily.html">NClimGridDaily</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NCAR_ERA5.html">NCAR_ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.OPERA.html">OPERA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerECMWFOpenDataIFS.html">PlanetaryComputerECMWFOpenDataIFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerGOES.html">PlanetaryComputerGOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerMODISFire.html">PlanetaryComputerMODISFire</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerOISST.html">PlanetaryComputerOISST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerSentinel3AOD.html">PlanetaryComputerSentinel3AOD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.Random.html">Random</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5.html">WB2ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5_121x240.html">WB2ERA5_121x240</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5_32x64.html">WB2ERA5_32x64</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2Climatology.html">WB2Climatology</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataArrayFile.html">DataArrayFile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataSetFile.html">DataSetFile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataArrayPathList.html">DataArrayPathList</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CBottle3D.html">CBottle3D</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_forecast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Forecast Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_FX.html">AIFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CAMS_FX.html">CAMS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_ENS_FX.html">AIFS_ENS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CFS_FX.html">CFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CFS_FX_Flux.html">CFS_FX_Flux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CFS_Reforecast_FX.html">CFS_Reforecast_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CFS_Reforecast_FX_Flux.html">CFS_Reforecast_FX_Flux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS_FX.html">GFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GEFS_FX.html">GEFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GEFS_FX_721x1440.html">GEFS_FX_721x1440</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HRRR_FX.html">HRRR_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_FX.html">IFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_ENS_FX.html">IFS_ENS_FX</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_dataframe.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GHCNDaily.html">GHCNDaily</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GOESGLM.html">GOESGLM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IBTrACS.html">IBTrACS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.ISD.html">ISD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS_ATMS.html">JPSS_ATMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS_CRIS.html">JPSS_CRIS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpAMSUA.html">MetOpAMSUA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpAVHRR.html">MetOpAVHRR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpIASI.html">MetOpIASI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpMHS.html">MetOpMHS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NNJAObsConv.html">NNJAObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NomadsGDASObsConv.html">NomadsGDASObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.RandomDataFrame.html">RandomDataFrame</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsConv.html">UFSObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsSat.html">UFSObsSat</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.AsyncZarrBackend.html">AsyncZarrBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.KVBackend.html">KVBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.NetCDF4Backend.html">NetCDF4Backend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.XarrayBackend.html">XarrayBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.ZarrBackend.html">ZarrBackend</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/perturbation.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>: Perturbations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Brown.html">Brown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.BredVector.html">BredVector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.CorrelatedSphericalGaussian.html">CorrelatedSphericalGaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Gaussian.html">Gaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.HemisphericCentredBredVector.html">HemisphericCentredBredVector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.LaggedEnsemble.html">LaggedEnsemble</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.SphericalGaussian.html">SphericalGaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Zero.html">Zero</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.acc.html">acc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.brier.html">brier</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.crps.html">crps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.energy_score.html">energy_score</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.fss.html">fss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.lsd.html">lsd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.mae.html">mae</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.mean.html">mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.rank_histogram.html">rank_histogram</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.rmse.html">rmse</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.spread_skill_ratio.html">spread_skill_ratio</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.std.html">std</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.variance.html">variance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.weights.lat_weight.html">lat_weight</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.deterministic.html">deterministic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.diagnostic.html">diagnostic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.ensemble.html">ensemble</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/utils_all.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio</span></code>: Utilities</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_dim.html">handshake_dim</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_coords.html">handshake_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_size.html">handshake_size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.map_coords.html">map_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.split_coords.html">split_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.to_time_array.html">to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.Checkpoint.html">Checkpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html">CheckpointSession</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html">CheckpointState</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html">NullCheckpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.bind_checkpoint_state.html">bind_checkpoint_state</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.datasource_to_file.html">datasource_to_file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.fetch_data.html">fetch_data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.prep_data_array.html">prep_data_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/earth2studio.models.auto.Package.html">Package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/earth2studio.models.batch.batch_func.html">batch_func</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">Examples</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../01_getting_started/index.html">Getting Started</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/04_checkpoint_restart.html">Checkpointing a Deterministic Forecast</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Medium Range</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="01_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l3"><a class="reference internal" href="02_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_huge_ensembles.html">Huge Ensembles (HENS) Checkpoints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="04_temporal_interpolation.html">Temporal Interpolation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="05_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">Running Atlas Inference</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../03_downscaling/index.html">Downscaling</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../03_downscaling/01_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../03_downscaling/02_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../03_downscaling/03_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../04_nowcasting/index.html">Nowcasting</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../04_nowcasting/01_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04_nowcasting/02_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04_nowcasting/03_stormscope_goes_example.html">StormScope Satellite and Radar Nowcasting</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../05_data_assimilation/index.html">Data Assimilation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../05_data_assimilation/01_stormcast_sda.html">StormCast Score-Based Data Assimilation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../05_data_assimilation/02_healda.html">HealDA Global Data Assimilation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../06_seasonal/index.html">Subseasonal to Seasonal</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../06_seasonal/01_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../06_seasonal/02_dlesym_example.html">Running DLESyM Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../06_seasonal/03_dlesym_climate.html">Running the DLESyM ISCCP-ERA5 Model</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../07_misc/index.html">Miscellaneous</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/01_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/02_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/03_io_performance.html">IO Backend Performance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/04_local_datasource.html">Creating a Local Data Source</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/05_cbottle_tc_guidance.html">CBottle Tropical Cyclone Guidance</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../08_extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../08_extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../08_extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../08_extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Examples</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Medium Range</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Running Atlas Inference</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-examples-02-medium-range-06-atlas-inference-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="running-atlas-inference">
+<span id="sphx-glr-examples-02-medium-range-06-atlas-inference-py"></span><h1>Running Atlas Inference<a class="headerlink" href="#running-atlas-inference" title="Link to this heading">#</a></h1>
+<p>Deterministic inference using the Atlas prognostic model.</p>
+<p>This example demonstrates how to run a single-member forecast using the Atlas model,
+a generative AI weather model that uses stochastic interpolants and autoencoders to
+produce 6-hour forecasts on a 0.25 degree global grid. Atlas requires two input lead
+times (t-6h and t) and maintains an internal latent state for autoregressive rollouts.</p>
+<p>In this example you will learn:</p>
+<ul class="simple">
+<li><p>How to instantiate the Atlas prognostic model</p></li>
+<li><p>How to run a single-member forecast with Atlas</p></li>
+<li><p>How to visualize predicted 10m u-wind and total column water vapour</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># /// script</span>
+<span class="c1"># dependencies = [</span>
+<span class="c1">#   &quot;torch==2.11.0&quot;, # Match lock file to avoid torch-harmonics issue</span>
+<span class="c1">#   &quot;earth2studio[atlas] @ git+https://github.com/NVIDIA/earth2studio.git@0.16.0&quot;,</span>
+<span class="c1">#   &quot;cartopy&quot;,</span>
+<span class="c1">#   &quot;matplotlib&quot;,</span>
+<span class="c1"># ]</span>
+<span class="c1"># ///</span>
+</pre></div>
+</div>
+<p>We need the following:</p>
+<ul class="simple">
+<li><p>Prognostic Model: Use the Atlas model <a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Atlas.html#earth2studio.models.px.Atlas" title="earth2studio.models.px.Atlas"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.Atlas</span></code></a>.</p></li>
+<li><p>Datasource: Pull data from the ARCO data source <a class="reference internal" href="../../modules/generated/data/earth2studio.data.ARCO.html#earth2studio.data.ARCO" title="earth2studio.data.ARCO"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.ARCO</span></code></a>.</p></li>
+<li><p>IO Backend: Save the outputs into a Zarr store <a class="reference internal" href="../../modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend" title="earth2studio.io.ZarrBackend"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.io.ZarrBackend</span></code></a>.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Atlas requires two input lead times (t-6h and t) to produce a forecast.
+The deterministic workflow handles this automatically via the model’s
+<code class="docutils literal notranslate"><span class="pre">input_coords</span></code> definition.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Atlas was trained on ERA5 data and in-filled NaNs in SST over landmasses with a value
+of 0 K using the ERA5 land-sea mask. If you are using a different SST dataset, you will
+need to in-fill the NaNs using the appropriate land-sea mask.</p>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="c1"># Performance optimization for Atlas model</span>
+<span class="c1"># This is on by default in NGC containers, but other environments may need to set it manually.</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TORCH_ALLOW_TF32_CUBLAS_OVERRIDE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;1&quot;</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCO</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">fetch_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">Atlas</span>
+
+<span class="c1"># Load the default model package which downloads the checkpoint from HuggingFace</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">Atlas</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">Atlas</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
+
+<span class="c1"># Create the data source</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">ARCO</span><span class="p">()</span>
+
+<span class="c1"># Create the IO handler</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading config.json: 0%|          | 0.00/2.16k [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 2.16k/2.16k [00:00&lt;00:00, 11.2kB/s]
+Downloading config.json: 100%|██████████| 2.16k/2.16k [00:00&lt;00:00, 11.1kB/s]
+
+Downloading model_best.mdlus: 0%|          | 0.00/7.38G [00:00&lt;?, ?B/s]
+Downloading model_best.mdlus: 0%|          | 10.0M/7.38G [00:00&lt;02:39, 49.8MB/s]
+Downloading model_best.mdlus: 1%|          | 40.0M/7.38G [00:00&lt;00:51, 154MB/s]
+Downloading model_best.mdlus: 1%|          | 70.0M/7.38G [00:00&lt;00:37, 210MB/s]
+Downloading model_best.mdlus: 1%|▏         | 100M/7.38G [00:00&lt;00:32, 244MB/s]
+Downloading model_best.mdlus: 2%|▏         | 140M/7.38G [00:00&lt;00:27, 278MB/s]
+Downloading model_best.mdlus: 2%|▏         | 180M/7.38G [00:00&lt;00:25, 303MB/s]
+Downloading model_best.mdlus: 3%|▎         | 220M/7.38G [00:00&lt;00:23, 321MB/s]
+Downloading model_best.mdlus: 3%|▎         | 260M/7.38G [00:00&lt;00:23, 333MB/s]
+Downloading model_best.mdlus: 4%|▍         | 300M/7.38G [00:01&lt;00:22, 346MB/s]
+Downloading model_best.mdlus: 4%|▍         | 340M/7.38G [00:01&lt;00:21, 359MB/s]
+Downloading model_best.mdlus: 5%|▌         | 380M/7.38G [00:01&lt;00:20, 372MB/s]
+Downloading model_best.mdlus: 6%|▌         | 420M/7.38G [00:01&lt;00:19, 378MB/s]
+Downloading model_best.mdlus: 6%|▌         | 460M/7.38G [00:01&lt;00:19, 386MB/s]
+Downloading model_best.mdlus: 7%|▋         | 500M/7.38G [00:01&lt;00:18, 390MB/s]
+Downloading model_best.mdlus: 7%|▋         | 540M/7.38G [00:01&lt;00:18, 388MB/s]
+Downloading model_best.mdlus: 8%|▊         | 580M/7.38G [00:01&lt;00:18, 391MB/s]
+Downloading model_best.mdlus: 8%|▊         | 620M/7.38G [00:01&lt;00:18, 393MB/s]
+Downloading model_best.mdlus: 9%|▊         | 660M/7.38G [00:02&lt;00:18, 388MB/s]
+Downloading model_best.mdlus: 9%|▉         | 700M/7.38G [00:02&lt;00:18, 386MB/s]
+Downloading model_best.mdlus: 10%|▉         | 740M/7.38G [00:02&lt;00:18, 389MB/s]
+Downloading model_best.mdlus: 10%|█         | 780M/7.38G [00:02&lt;00:18, 391MB/s]
+Downloading model_best.mdlus: 11%|█         | 820M/7.38G [00:02&lt;00:17, 393MB/s]
+Downloading model_best.mdlus: 11%|█▏        | 860M/7.38G [00:02&lt;00:17, 395MB/s]
+Downloading model_best.mdlus: 12%|█▏        | 900M/7.38G [00:02&lt;00:17, 395MB/s]
+Downloading model_best.mdlus: 12%|█▏        | 940M/7.38G [00:02&lt;00:17, 398MB/s]
+Downloading model_best.mdlus: 13%|█▎        | 980M/7.38G [00:02&lt;00:17, 394MB/s]
+Downloading model_best.mdlus: 13%|█▎        | 1.00G/7.38G [00:03&lt;00:17, 392MB/s]
+Downloading model_best.mdlus: 14%|█▍        | 1.04G/7.38G [00:03&lt;00:17, 389MB/s]
+Downloading model_best.mdlus: 15%|█▍        | 1.07G/7.38G [00:03&lt;00:17, 388MB/s]
+Downloading model_best.mdlus: 15%|█▌        | 1.11G/7.38G [00:03&lt;00:17, 377MB/s]
+Downloading model_best.mdlus: 16%|█▌        | 1.15G/7.38G [00:03&lt;00:18, 363MB/s]
+Downloading model_best.mdlus: 16%|█▌        | 1.19G/7.38G [00:03&lt;00:20, 322MB/s]
+Downloading model_best.mdlus: 17%|█▋        | 1.23G/7.38G [00:03&lt;00:19, 336MB/s]
+Downloading model_best.mdlus: 17%|█▋        | 1.27G/7.38G [00:03&lt;00:18, 348MB/s]
+Downloading model_best.mdlus: 18%|█▊        | 1.31G/7.38G [00:03&lt;00:18, 362MB/s]
+Downloading model_best.mdlus: 18%|█▊        | 1.35G/7.38G [00:04&lt;00:17, 369MB/s]
+Downloading model_best.mdlus: 19%|█▉        | 1.39G/7.38G [00:04&lt;00:16, 379MB/s]
+Downloading model_best.mdlus: 19%|█▉        | 1.43G/7.38G [00:04&lt;00:16, 385MB/s]
+Downloading model_best.mdlus: 20%|█▉        | 1.46G/7.38G [00:04&lt;00:16, 391MB/s]
+Downloading model_best.mdlus: 20%|██        | 1.50G/7.38G [00:04&lt;00:16, 390MB/s]
+Downloading model_best.mdlus: 21%|██        | 1.54G/7.38G [00:04&lt;00:16, 391MB/s]
+Downloading model_best.mdlus: 21%|██▏       | 1.58G/7.38G [00:04&lt;00:15, 393MB/s]
+Downloading model_best.mdlus: 22%|██▏       | 1.62G/7.38G [00:04&lt;00:16, 379MB/s]
+Downloading model_best.mdlus: 23%|██▎       | 1.67G/7.38G [00:04&lt;00:15, 396MB/s]
+Downloading model_best.mdlus: 23%|██▎       | 1.72G/7.38G [00:05&lt;00:14, 412MB/s]
+Downloading model_best.mdlus: 24%|██▍       | 1.76G/7.38G [00:05&lt;00:14, 410MB/s]
+Downloading model_best.mdlus: 24%|██▍       | 1.80G/7.38G [00:05&lt;00:15, 384MB/s]
+Downloading model_best.mdlus: 25%|██▍       | 1.84G/7.38G [00:05&lt;00:15, 373MB/s]
+Downloading model_best.mdlus: 25%|██▌       | 1.88G/7.38G [00:05&lt;00:16, 367MB/s]
+Downloading model_best.mdlus: 26%|██▌       | 1.91G/7.38G [00:05&lt;00:16, 366MB/s]
+Downloading model_best.mdlus: 26%|██▋       | 1.95G/7.38G [00:05&lt;00:16, 364MB/s]
+Downloading model_best.mdlus: 27%|██▋       | 1.99G/7.38G [00:05&lt;00:16, 349MB/s]
+Downloading model_best.mdlus: 28%|██▊       | 2.03G/7.38G [00:06&lt;00:16, 352MB/s]
+Downloading model_best.mdlus: 28%|██▊       | 2.07G/7.38G [00:06&lt;00:15, 358MB/s]
+Downloading model_best.mdlus: 29%|██▊       | 2.11G/7.38G [00:06&lt;00:16, 353MB/s]
+Downloading model_best.mdlus: 29%|██▉       | 2.15G/7.38G [00:06&lt;00:15, 356MB/s]
+Downloading model_best.mdlus: 30%|██▉       | 2.19G/7.38G [00:06&lt;00:15, 359MB/s]
+Downloading model_best.mdlus: 30%|███       | 2.23G/7.38G [00:06&lt;00:15, 368MB/s]
+Downloading model_best.mdlus: 31%|███       | 2.28G/7.38G [00:06&lt;00:14, 386MB/s]
+Downloading model_best.mdlus: 31%|███▏      | 2.32G/7.38G [00:06&lt;00:13, 400MB/s]
+Downloading model_best.mdlus: 32%|███▏      | 2.37G/7.38G [00:06&lt;00:13, 408MB/s]
+Downloading model_best.mdlus: 33%|███▎      | 2.42G/7.38G [00:07&lt;00:12, 414MB/s]
+Downloading model_best.mdlus: 33%|███▎      | 2.46G/7.38G [00:07&lt;00:12, 414MB/s]
+Downloading model_best.mdlus: 34%|███▍      | 2.51G/7.38G [00:07&lt;00:12, 417MB/s]
+Downloading model_best.mdlus: 35%|███▍      | 2.55G/7.38G [00:07&lt;00:12, 416MB/s]
+Downloading model_best.mdlus: 35%|███▌      | 2.59G/7.38G [00:07&lt;00:12, 416MB/s]
+Downloading model_best.mdlus: 36%|███▌      | 2.63G/7.38G [00:07&lt;00:12, 417MB/s]
+Downloading model_best.mdlus: 36%|███▌      | 2.68G/7.38G [00:07&lt;00:12, 420MB/s]
+Downloading model_best.mdlus: 37%|███▋      | 2.71G/7.38G [00:07&lt;00:12, 397MB/s]
+Downloading model_best.mdlus: 37%|███▋      | 2.75G/7.38G [00:08&lt;00:13, 357MB/s]
+Downloading model_best.mdlus: 38%|███▊      | 2.79G/7.38G [00:08&lt;00:14, 348MB/s]
+Downloading model_best.mdlus: 38%|███▊      | 2.83G/7.38G [00:08&lt;00:13, 361MB/s]
+Downloading model_best.mdlus: 39%|███▉      | 2.87G/7.38G [00:08&lt;00:13, 370MB/s]
+Downloading model_best.mdlus: 39%|███▉      | 2.91G/7.38G [00:08&lt;00:12, 379MB/s]
+Downloading model_best.mdlus: 40%|███▉      | 2.95G/7.38G [00:08&lt;00:12, 385MB/s]
+Downloading model_best.mdlus: 40%|████      | 2.99G/7.38G [00:08&lt;00:13, 352MB/s]
+Downloading model_best.mdlus: 41%|████      | 3.03G/7.38G [00:08&lt;00:13, 335MB/s]
+Downloading model_best.mdlus: 42%|████▏     | 3.07G/7.38G [00:08&lt;00:13, 332MB/s]
+Downloading model_best.mdlus: 42%|████▏     | 3.11G/7.38G [00:09&lt;00:13, 341MB/s]
+Downloading model_best.mdlus: 43%|████▎     | 3.14G/7.38G [00:09&lt;00:16, 274MB/s]
+Downloading model_best.mdlus: 43%|████▎     | 3.17G/7.38G [00:09&lt;00:16, 278MB/s]
+Downloading model_best.mdlus: 44%|████▎     | 3.21G/7.38G [00:09&lt;00:14, 306MB/s]
+Downloading model_best.mdlus: 44%|████▍     | 3.25G/7.38G [00:09&lt;00:13, 334MB/s]
+Downloading model_best.mdlus: 45%|████▍     | 3.30G/7.38G [00:09&lt;00:11, 368MB/s]
+Downloading model_best.mdlus: 45%|████▌     | 3.35G/7.38G [00:09&lt;00:11, 381MB/s]
+Downloading model_best.mdlus: 46%|████▌     | 3.39G/7.38G [00:10&lt;00:12, 349MB/s]
+Downloading model_best.mdlus: 47%|████▋     | 3.44G/7.38G [00:10&lt;00:11, 376MB/s]
+Downloading model_best.mdlus: 47%|████▋     | 3.48G/7.38G [00:10&lt;00:16, 260MB/s]
+Downloading model_best.mdlus: 48%|████▊     | 3.52G/7.38G [00:10&lt;00:15, 276MB/s]
+Downloading model_best.mdlus: 48%|████▊     | 3.55G/7.38G [00:10&lt;00:14, 288MB/s]
+Downloading model_best.mdlus: 49%|████▊     | 3.59G/7.38G [00:10&lt;00:13, 299MB/s]
+Downloading model_best.mdlus: 49%|████▉     | 3.63G/7.38G [00:10&lt;00:13, 307MB/s]
+Downloading model_best.mdlus: 50%|████▉     | 3.67G/7.38G [00:11&lt;00:12, 311MB/s]
+Downloading model_best.mdlus: 50%|█████     | 3.71G/7.38G [00:11&lt;00:12, 313MB/s]
+Downloading model_best.mdlus: 51%|█████     | 3.75G/7.38G [00:11&lt;00:12, 314MB/s]
+Downloading model_best.mdlus: 51%|█████▏    | 3.79G/7.38G [00:11&lt;00:12, 316MB/s]
+Downloading model_best.mdlus: 52%|█████▏    | 3.83G/7.38G [00:11&lt;00:12, 318MB/s]
+Downloading model_best.mdlus: 52%|█████▏    | 3.87G/7.38G [00:11&lt;00:11, 329MB/s]
+Downloading model_best.mdlus: 53%|█████▎    | 3.91G/7.38G [00:11&lt;00:11, 323MB/s]
+Downloading model_best.mdlus: 53%|█████▎    | 3.95G/7.38G [00:11&lt;00:10, 342MB/s]
+Downloading model_best.mdlus: 54%|█████▍    | 3.98G/7.38G [00:12&lt;00:10, 355MB/s]
+Downloading model_best.mdlus: 54%|█████▍    | 4.02G/7.38G [00:12&lt;00:09, 370MB/s]
+Downloading model_best.mdlus: 55%|█████▌    | 4.06G/7.38G [00:12&lt;00:09, 380MB/s]
+Downloading model_best.mdlus: 56%|█████▌    | 4.10G/7.38G [00:12&lt;00:09, 376MB/s]
+Downloading model_best.mdlus: 56%|█████▌    | 4.14G/7.38G [00:12&lt;00:09, 376MB/s]
+Downloading model_best.mdlus: 57%|█████▋    | 4.18G/7.38G [00:12&lt;00:09, 374MB/s]
+Downloading model_best.mdlus: 57%|█████▋    | 4.22G/7.38G [00:12&lt;00:09, 375MB/s]
+Downloading model_best.mdlus: 58%|█████▊    | 4.26G/7.38G [00:12&lt;00:08, 373MB/s]
+Downloading model_best.mdlus: 58%|█████▊    | 4.30G/7.38G [00:12&lt;00:08, 369MB/s]
+Downloading model_best.mdlus: 59%|█████▊    | 4.34G/7.38G [00:13&lt;00:08, 364MB/s]
+Downloading model_best.mdlus: 59%|█████▉    | 4.38G/7.38G [00:13&lt;00:09, 359MB/s]
+Downloading model_best.mdlus: 60%|█████▉    | 4.41G/7.38G [00:13&lt;00:09, 345MB/s]
+Downloading model_best.mdlus: 60%|██████    | 4.46G/7.38G [00:13&lt;00:08, 377MB/s]
+Downloading model_best.mdlus: 61%|██████    | 4.51G/7.38G [00:13&lt;00:07, 398MB/s]
+Downloading model_best.mdlus: 62%|██████▏   | 4.56G/7.38G [00:13&lt;00:07, 406MB/s]
+Downloading model_best.mdlus: 62%|██████▏   | 4.60G/7.38G [00:13&lt;00:07, 406MB/s]
+Downloading model_best.mdlus: 63%|██████▎   | 4.65G/7.38G [00:13&lt;00:07, 418MB/s]
+Downloading model_best.mdlus: 64%|██████▎   | 4.70G/7.38G [00:14&lt;00:06, 426MB/s]
+Downloading model_best.mdlus: 64%|██████▍   | 4.75G/7.38G [00:14&lt;00:07, 400MB/s]
+Downloading model_best.mdlus: 65%|██████▍   | 4.79G/7.38G [00:14&lt;00:06, 405MB/s]
+Downloading model_best.mdlus: 65%|██████▌   | 4.83G/7.38G [00:14&lt;00:06, 414MB/s]
+Downloading model_best.mdlus: 66%|██████▌   | 4.88G/7.38G [00:14&lt;00:06, 424MB/s]
+Downloading model_best.mdlus: 67%|██████▋   | 4.93G/7.38G [00:14&lt;00:06, 420MB/s]
+Downloading model_best.mdlus: 67%|██████▋   | 4.98G/7.38G [00:14&lt;00:06, 427MB/s]
+Downloading model_best.mdlus: 68%|██████▊   | 5.03G/7.38G [00:14&lt;00:05, 433MB/s]
+Downloading model_best.mdlus: 69%|██████▉   | 5.08G/7.38G [00:14&lt;00:05, 436MB/s]
+Downloading model_best.mdlus: 69%|██████▉   | 5.13G/7.38G [00:15&lt;00:05, 440MB/s]
+Downloading model_best.mdlus: 70%|███████   | 5.18G/7.38G [00:15&lt;00:06, 386MB/s]
+Downloading model_best.mdlus: 71%|███████   | 5.21G/7.38G [00:15&lt;00:06, 364MB/s]
+Downloading model_best.mdlus: 71%|███████   | 5.25G/7.38G [00:15&lt;00:06, 352MB/s]
+Downloading model_best.mdlus: 72%|███████▏  | 5.29G/7.38G [00:15&lt;00:09, 239MB/s]
+Downloading model_best.mdlus: 72%|███████▏  | 5.33G/7.38G [00:15&lt;00:08, 269MB/s]
+Downloading model_best.mdlus: 73%|███████▎  | 5.37G/7.38G [00:16&lt;00:07, 297MB/s]
+Downloading model_best.mdlus: 73%|███████▎  | 5.41G/7.38G [00:16&lt;00:06, 321MB/s]
+Downloading model_best.mdlus: 74%|███████▍  | 5.45G/7.38G [00:16&lt;00:06, 340MB/s]
+Downloading model_best.mdlus: 74%|███████▍  | 5.49G/7.38G [00:16&lt;00:05, 355MB/s]
+Downloading model_best.mdlus: 75%|███████▍  | 5.53G/7.38G [00:16&lt;00:05, 368MB/s]
+Downloading model_best.mdlus: 75%|███████▌  | 5.57G/7.38G [00:16&lt;00:05, 379MB/s]
+Downloading model_best.mdlus: 76%|███████▌  | 5.61G/7.38G [00:16&lt;00:04, 387MB/s]
+Downloading model_best.mdlus: 76%|███████▋  | 5.64G/7.38G [00:16&lt;00:05, 370MB/s]
+Downloading model_best.mdlus: 77%|███████▋  | 5.68G/7.38G [00:16&lt;00:05, 339MB/s]
+Downloading model_best.mdlus: 78%|███████▊  | 5.72G/7.38G [00:17&lt;00:05, 339MB/s]
+Downloading model_best.mdlus: 78%|███████▊  | 5.76G/7.38G [00:17&lt;00:04, 353MB/s]
+Downloading model_best.mdlus: 79%|███████▊  | 5.80G/7.38G [00:17&lt;00:04, 365MB/s]
+Downloading model_best.mdlus: 79%|███████▉  | 5.84G/7.38G [00:17&lt;00:04, 375MB/s]
+Downloading model_best.mdlus: 80%|███████▉  | 5.88G/7.38G [00:17&lt;00:04, 383MB/s]
+Downloading model_best.mdlus: 80%|████████  | 5.92G/7.38G [00:17&lt;00:04, 388MB/s]
+Downloading model_best.mdlus: 81%|████████  | 5.96G/7.38G [00:17&lt;00:04, 364MB/s]
+Downloading model_best.mdlus: 81%|████████  | 6.00G/7.38G [00:17&lt;00:04, 335MB/s]
+Downloading model_best.mdlus: 82%|████████▏ | 6.04G/7.38G [00:18&lt;00:04, 323MB/s]
+Downloading model_best.mdlus: 82%|████████▏ | 6.07G/7.38G [00:18&lt;00:04, 343MB/s]
+Downloading model_best.mdlus: 83%|████████▎ | 6.12G/7.38G [00:18&lt;00:03, 369MB/s]
+Downloading model_best.mdlus: 84%|████████▎ | 6.17G/7.38G [00:18&lt;00:03, 388MB/s]
+Downloading model_best.mdlus: 84%|████████▍ | 6.22G/7.38G [00:18&lt;00:03, 400MB/s]
+Downloading model_best.mdlus: 85%|████████▍ | 6.26G/7.38G [00:18&lt;00:02, 405MB/s]
+Downloading model_best.mdlus: 85%|████████▌ | 6.31G/7.38G [00:18&lt;00:02, 414MB/s]
+Downloading model_best.mdlus: 86%|████████▌ | 6.36G/7.38G [00:18&lt;00:02, 421MB/s]
+Downloading model_best.mdlus: 87%|████████▋ | 6.41G/7.38G [00:18&lt;00:02, 426MB/s]
+Downloading model_best.mdlus: 87%|████████▋ | 6.46G/7.38G [00:19&lt;00:02, 428MB/s]
+Downloading model_best.mdlus: 88%|████████▊ | 6.50G/7.38G [00:19&lt;00:02, 431MB/s]
+Downloading model_best.mdlus: 89%|████████▊ | 6.55G/7.38G [00:19&lt;00:02, 427MB/s]
+Downloading model_best.mdlus: 89%|████████▉ | 6.60G/7.38G [00:19&lt;00:02, 399MB/s]
+Downloading model_best.mdlus: 90%|████████▉ | 6.64G/7.38G [00:19&lt;00:01, 401MB/s]
+Downloading model_best.mdlus: 90%|█████████ | 6.68G/7.38G [00:19&lt;00:01, 400MB/s]
+Downloading model_best.mdlus: 91%|█████████ | 6.72G/7.38G [00:19&lt;00:01, 401MB/s]
+Downloading model_best.mdlus: 92%|█████████▏| 6.76G/7.38G [00:19&lt;00:01, 401MB/s]
+Downloading model_best.mdlus: 92%|█████████▏| 6.80G/7.38G [00:20&lt;00:01, 394MB/s]
+Downloading model_best.mdlus: 93%|█████████▎| 6.84G/7.38G [00:20&lt;00:01, 393MB/s]
+Downloading model_best.mdlus: 93%|█████████▎| 6.88G/7.38G [00:20&lt;00:01, 391MB/s]
+Downloading model_best.mdlus: 94%|█████████▎| 6.91G/7.38G [00:20&lt;00:01, 393MB/s]
+Downloading model_best.mdlus: 94%|█████████▍| 6.95G/7.38G [00:20&lt;00:01, 275MB/s]
+Downloading model_best.mdlus: 95%|█████████▍| 6.99G/7.38G [00:20&lt;00:01, 296MB/s]
+Downloading model_best.mdlus: 95%|█████████▌| 7.03G/7.38G [00:20&lt;00:01, 320MB/s]
+Downloading model_best.mdlus: 96%|█████████▌| 7.07G/7.38G [00:20&lt;00:00, 341MB/s]
+Downloading model_best.mdlus: 96%|█████████▋| 7.11G/7.38G [00:21&lt;00:00, 356MB/s]
+Downloading model_best.mdlus: 97%|█████████▋| 7.15G/7.38G [00:21&lt;00:00, 365MB/s]
+Downloading model_best.mdlus: 97%|█████████▋| 7.19G/7.38G [00:21&lt;00:00, 376MB/s]
+Downloading model_best.mdlus: 98%|█████████▊| 7.23G/7.38G [00:21&lt;00:00, 381MB/s]
+Downloading model_best.mdlus: 98%|█████████▊| 7.27G/7.38G [00:21&lt;00:00, 386MB/s]
+Downloading model_best.mdlus: 99%|█████████▉| 7.30G/7.38G [00:21&lt;00:00, 391MB/s]
+Downloading model_best.mdlus: 99%|█████████▉| 7.34G/7.38G [00:21&lt;00:00, 395MB/s]
+Downloading model_best.mdlus: 100%|█████████▉| 7.38G/7.38G [00:21&lt;00:00, 400MB/s]
+Downloading model_best.mdlus: 100%|██████████| 7.38G/7.38G [00:21&lt;00:00, 364MB/s]
+
+Downloading data_processor_best.mdlus: 0%|          | 0.00/11.9M [00:00&lt;?, ?B/s]
+Downloading data_processor_best.mdlus: 84%|████████▍ | 10.0M/11.9M [00:00&lt;00:00, 68.8MB/s]
+Downloading data_processor_best.mdlus: 100%|██████████| 11.9M/11.9M [00:00&lt;00:00, 78.0MB/s]
+
+Downloading model_best.mdlus: 0%|          | 0.00/9.19G [00:00&lt;?, ?B/s]
+Downloading model_best.mdlus: 0%|          | 10.0M/9.19G [00:00&lt;02:42, 60.7MB/s]
+Downloading model_best.mdlus: 1%|          | 50.0M/9.19G [00:00&lt;00:48, 203MB/s]
+Downloading model_best.mdlus: 1%|          | 90.0M/9.19G [00:00&lt;00:34, 282MB/s]
+Downloading model_best.mdlus: 1%|▏         | 130M/9.19G [00:00&lt;00:29, 328MB/s]
+Downloading model_best.mdlus: 2%|▏         | 170M/9.19G [00:00&lt;00:27, 358MB/s]
+Downloading model_best.mdlus: 2%|▏         | 210M/9.19G [00:00&lt;00:29, 331MB/s]
+Downloading model_best.mdlus: 3%|▎         | 250M/9.19G [00:00&lt;00:29, 329MB/s]
+Downloading model_best.mdlus: 3%|▎         | 290M/9.19G [00:00&lt;00:28, 337MB/s]
+Downloading model_best.mdlus: 4%|▎         | 330M/9.19G [00:01&lt;00:27, 340MB/s]
+Downloading model_best.mdlus: 4%|▍         | 370M/9.19G [00:01&lt;00:27, 342MB/s]
+Downloading model_best.mdlus: 4%|▍         | 410M/9.19G [00:01&lt;00:27, 344MB/s]
+Downloading model_best.mdlus: 5%|▍         | 450M/9.19G [00:01&lt;00:27, 339MB/s]
+Downloading model_best.mdlus: 5%|▌         | 490M/9.19G [00:01&lt;00:28, 332MB/s]
+Downloading model_best.mdlus: 6%|▌         | 530M/9.19G [00:01&lt;00:28, 327MB/s]
+Downloading model_best.mdlus: 6%|▌         | 570M/9.19G [00:01&lt;00:28, 321MB/s]
+Downloading model_best.mdlus: 6%|▋         | 610M/9.19G [00:02&lt;00:29, 318MB/s]
+Downloading model_best.mdlus: 7%|▋         | 650M/9.19G [00:02&lt;00:29, 313MB/s]
+Downloading model_best.mdlus: 7%|▋         | 690M/9.19G [00:02&lt;00:28, 317MB/s]
+Downloading model_best.mdlus: 8%|▊         | 730M/9.19G [00:02&lt;00:28, 321MB/s]
+Downloading model_best.mdlus: 8%|▊         | 770M/9.19G [00:02&lt;00:27, 333MB/s]
+Downloading model_best.mdlus: 9%|▊         | 810M/9.19G [00:02&lt;00:26, 344MB/s]
+Downloading model_best.mdlus: 9%|▉         | 850M/9.19G [00:02&lt;00:25, 351MB/s]
+Downloading model_best.mdlus: 9%|▉         | 890M/9.19G [00:02&lt;00:25, 357MB/s]
+Downloading model_best.mdlus: 10%|▉         | 930M/9.19G [00:02&lt;00:24, 363MB/s]
+Downloading model_best.mdlus: 10%|█         | 970M/9.19G [00:03&lt;00:24, 359MB/s]
+Downloading model_best.mdlus: 11%|█         | 0.99G/9.19G [00:03&lt;00:25, 344MB/s]
+Downloading model_best.mdlus: 11%|█         | 1.03G/9.19G [00:03&lt;00:26, 334MB/s]
+Downloading model_best.mdlus: 12%|█▏        | 1.06G/9.19G [00:03&lt;00:25, 337MB/s]
+Downloading model_best.mdlus: 12%|█▏        | 1.11G/9.19G [00:03&lt;00:23, 364MB/s]
+Downloading model_best.mdlus: 13%|█▎        | 1.16G/9.19G [00:03&lt;00:22, 388MB/s]
+Downloading model_best.mdlus: 13%|█▎        | 1.20G/9.19G [00:03&lt;00:22, 375MB/s]
+Downloading model_best.mdlus: 14%|█▎        | 1.25G/9.19G [00:03&lt;00:21, 393MB/s]
+Downloading model_best.mdlus: 14%|█▍        | 1.30G/9.19G [00:04&lt;00:21, 403MB/s]
+Downloading model_best.mdlus: 15%|█▍        | 1.35G/9.19G [00:04&lt;00:20, 417MB/s]
+Downloading model_best.mdlus: 15%|█▌        | 1.40G/9.19G [00:04&lt;00:19, 429MB/s]
+Downloading model_best.mdlus: 16%|█▌        | 1.45G/9.19G [00:04&lt;00:20, 415MB/s]
+Downloading model_best.mdlus: 16%|█▌        | 1.48G/9.19G [00:04&lt;00:20, 411MB/s]
+Downloading model_best.mdlus: 17%|█▋        | 1.52G/9.19G [00:04&lt;00:19, 412MB/s]
+Downloading model_best.mdlus: 17%|█▋        | 1.56G/9.19G [00:04&lt;00:19, 410MB/s]
+Downloading model_best.mdlus: 17%|█▋        | 1.60G/9.19G [00:04&lt;00:19, 411MB/s]
+Downloading model_best.mdlus: 18%|█▊        | 1.64G/9.19G [00:04&lt;00:19, 409MB/s]
+Downloading model_best.mdlus: 18%|█▊        | 1.68G/9.19G [00:05&lt;00:19, 409MB/s]
+Downloading model_best.mdlus: 19%|█▊        | 1.72G/9.19G [00:05&lt;00:19, 411MB/s]
+Downloading model_best.mdlus: 19%|█▉        | 1.76G/9.19G [00:05&lt;00:19, 410MB/s]
+Downloading model_best.mdlus: 20%|█▉        | 1.80G/9.19G [00:05&lt;00:19, 405MB/s]
+Downloading model_best.mdlus: 20%|█▉        | 1.84G/9.19G [00:05&lt;00:19, 401MB/s]
+Downloading model_best.mdlus: 20%|██        | 1.88G/9.19G [00:05&lt;00:19, 398MB/s]
+Downloading model_best.mdlus: 21%|██        | 1.91G/9.19G [00:05&lt;00:19, 400MB/s]
+Downloading model_best.mdlus: 21%|██        | 1.95G/9.19G [00:05&lt;00:19, 402MB/s]
+Downloading model_best.mdlus: 22%|██▏       | 1.99G/9.19G [00:05&lt;00:19, 405MB/s]
+Downloading model_best.mdlus: 22%|██▏       | 2.03G/9.19G [00:06&lt;00:19, 396MB/s]
+Downloading model_best.mdlus: 23%|██▎       | 2.07G/9.19G [00:06&lt;00:20, 382MB/s]
+Downloading model_best.mdlus: 23%|██▎       | 2.11G/9.19G [00:06&lt;00:19, 382MB/s]
+Downloading model_best.mdlus: 23%|██▎       | 2.15G/9.19G [00:06&lt;00:20, 375MB/s]
+Downloading model_best.mdlus: 24%|██▍       | 2.19G/9.19G [00:06&lt;00:19, 378MB/s]
+Downloading model_best.mdlus: 24%|██▍       | 2.23G/9.19G [00:06&lt;00:19, 386MB/s]
+Downloading model_best.mdlus: 25%|██▍       | 2.27G/9.19G [00:06&lt;00:18, 392MB/s]
+Downloading model_best.mdlus: 25%|██▌       | 2.30G/9.19G [00:06&lt;00:18, 396MB/s]
+Downloading model_best.mdlus: 25%|██▌       | 2.34G/9.19G [00:06&lt;00:19, 380MB/s]
+Downloading model_best.mdlus: 26%|██▌       | 2.38G/9.19G [00:07&lt;00:20, 358MB/s]
+Downloading model_best.mdlus: 26%|██▋       | 2.42G/9.19G [00:07&lt;00:20, 361MB/s]
+Downloading model_best.mdlus: 27%|██▋       | 2.46G/9.19G [00:07&lt;00:19, 362MB/s]
+Downloading model_best.mdlus: 27%|██▋       | 2.50G/9.19G [00:07&lt;00:19, 365MB/s]
+Downloading model_best.mdlus: 28%|██▊       | 2.54G/9.19G [00:07&lt;00:19, 371MB/s]
+Downloading model_best.mdlus: 28%|██▊       | 2.58G/9.19G [00:07&lt;00:18, 374MB/s]
+Downloading model_best.mdlus: 28%|██▊       | 2.62G/9.19G [00:07&lt;00:18, 376MB/s]
+Downloading model_best.mdlus: 29%|██▉       | 2.66G/9.19G [00:07&lt;00:18, 380MB/s]
+Downloading model_best.mdlus: 29%|██▉       | 2.70G/9.19G [00:07&lt;00:18, 381MB/s]
+Downloading model_best.mdlus: 30%|██▉       | 2.73G/9.19G [00:08&lt;00:18, 376MB/s]
+Downloading model_best.mdlus: 30%|███       | 2.77G/9.19G [00:08&lt;00:18, 371MB/s]
+Downloading model_best.mdlus: 31%|███       | 2.81G/9.19G [00:08&lt;00:18, 369MB/s]
+Downloading model_best.mdlus: 31%|███       | 2.85G/9.19G [00:08&lt;00:18, 366MB/s]
+Downloading model_best.mdlus: 31%|███▏      | 2.89G/9.19G [00:08&lt;00:18, 364MB/s]
+Downloading model_best.mdlus: 32%|███▏      | 2.93G/9.19G [00:08&lt;00:18, 359MB/s]
+Downloading model_best.mdlus: 32%|███▏      | 2.97G/9.19G [00:08&lt;00:18, 357MB/s]
+Downloading model_best.mdlus: 33%|███▎      | 3.01G/9.19G [00:08&lt;00:18, 358MB/s]
+Downloading model_best.mdlus: 33%|███▎      | 3.05G/9.19G [00:08&lt;00:18, 355MB/s]
+Downloading model_best.mdlus: 34%|███▎      | 3.09G/9.19G [00:09&lt;00:18, 356MB/s]
+Downloading model_best.mdlus: 34%|███▍      | 3.12G/9.19G [00:09&lt;00:18, 356MB/s]
+Downloading model_best.mdlus: 34%|███▍      | 3.16G/9.19G [00:09&lt;00:18, 358MB/s]
+Downloading model_best.mdlus: 35%|███▍      | 3.20G/9.19G [00:09&lt;00:18, 355MB/s]
+Downloading model_best.mdlus: 35%|███▌      | 3.24G/9.19G [00:09&lt;00:17, 356MB/s]
+Downloading model_best.mdlus: 36%|███▌      | 3.28G/9.19G [00:09&lt;00:17, 357MB/s]
+Downloading model_best.mdlus: 36%|███▌      | 3.32G/9.19G [00:09&lt;00:17, 358MB/s]
+Downloading model_best.mdlus: 37%|███▋      | 3.36G/9.19G [00:09&lt;00:17, 365MB/s]
+Downloading model_best.mdlus: 37%|███▋      | 3.40G/9.19G [00:10&lt;00:16, 369MB/s]
+Downloading model_best.mdlus: 37%|███▋      | 3.44G/9.19G [00:10&lt;00:19, 314MB/s]
+Downloading model_best.mdlus: 38%|███▊      | 3.48G/9.19G [00:10&lt;00:24, 250MB/s]
+Downloading model_best.mdlus: 38%|███▊      | 3.52G/9.19G [00:10&lt;00:22, 274MB/s]
+Downloading model_best.mdlus: 39%|███▊      | 3.55G/9.19G [00:10&lt;00:20, 297MB/s]
+Downloading model_best.mdlus: 39%|███▉      | 3.59G/9.19G [00:10&lt;00:18, 320MB/s]
+Downloading model_best.mdlus: 40%|███▉      | 3.63G/9.19G [00:10&lt;00:17, 334MB/s]
+Downloading model_best.mdlus: 40%|███▉      | 3.67G/9.19G [00:11&lt;00:16, 349MB/s]
+Downloading model_best.mdlus: 40%|████      | 3.71G/9.19G [00:11&lt;00:16, 361MB/s]
+Downloading model_best.mdlus: 41%|████      | 3.75G/9.19G [00:11&lt;00:15, 368MB/s]
+Downloading model_best.mdlus: 41%|████      | 3.79G/9.19G [00:11&lt;00:15, 376MB/s]
+Downloading model_best.mdlus: 42%|████▏     | 3.83G/9.19G [00:11&lt;00:15, 381MB/s]
+Downloading model_best.mdlus: 42%|████▏     | 3.87G/9.19G [00:11&lt;00:14, 383MB/s]
+Downloading model_best.mdlus: 42%|████▏     | 3.91G/9.19G [00:11&lt;00:14, 383MB/s]
+Downloading model_best.mdlus: 43%|████▎     | 3.95G/9.19G [00:11&lt;00:14, 383MB/s]
+Downloading model_best.mdlus: 43%|████▎     | 3.98G/9.19G [00:11&lt;00:14, 385MB/s]
+Downloading model_best.mdlus: 44%|████▍     | 4.02G/9.19G [00:11&lt;00:14, 388MB/s]
+Downloading model_best.mdlus: 44%|████▍     | 4.06G/9.19G [00:12&lt;00:14, 390MB/s]
+Downloading model_best.mdlus: 45%|████▍     | 4.10G/9.19G [00:12&lt;00:13, 392MB/s]
+Downloading model_best.mdlus: 45%|████▌     | 4.14G/9.19G [00:12&lt;00:13, 393MB/s]
+Downloading model_best.mdlus: 45%|████▌     | 4.18G/9.19G [00:12&lt;00:15, 359MB/s]
+Downloading model_best.mdlus: 46%|████▌     | 4.22G/9.19G [00:12&lt;00:15, 349MB/s]
+Downloading model_best.mdlus: 46%|████▋     | 4.27G/9.19G [00:12&lt;00:13, 379MB/s]
+Downloading model_best.mdlus: 47%|████▋     | 4.31G/9.19G [00:12&lt;00:13, 386MB/s]
+Downloading model_best.mdlus: 47%|████▋     | 4.35G/9.19G [00:12&lt;00:13, 393MB/s]
+Downloading model_best.mdlus: 48%|████▊     | 4.38G/9.19G [00:13&lt;00:14, 368MB/s]
+Downloading model_best.mdlus: 48%|████▊     | 4.42G/9.19G [00:13&lt;00:14, 346MB/s]
+Downloading model_best.mdlus: 49%|████▊     | 4.46G/9.19G [00:13&lt;00:14, 353MB/s]
+Downloading model_best.mdlus: 49%|████▉     | 4.50G/9.19G [00:13&lt;00:14, 340MB/s]
+Downloading model_best.mdlus: 49%|████▉     | 4.54G/9.19G [00:13&lt;00:14, 349MB/s]
+Downloading model_best.mdlus: 50%|████▉     | 4.58G/9.19G [00:13&lt;00:14, 348MB/s]
+Downloading model_best.mdlus: 50%|█████     | 4.62G/9.19G [00:13&lt;00:14, 347MB/s]
+Downloading model_best.mdlus: 51%|█████     | 4.66G/9.19G [00:13&lt;00:13, 352MB/s]
+Downloading model_best.mdlus: 51%|█████     | 4.70G/9.19G [00:13&lt;00:13, 351MB/s]
+Downloading model_best.mdlus: 52%|█████▏    | 4.74G/9.19G [00:14&lt;00:13, 350MB/s]
+Downloading model_best.mdlus: 52%|█████▏    | 4.78G/9.19G [00:14&lt;00:15, 313MB/s]
+Downloading model_best.mdlus: 52%|█████▏    | 4.81G/9.19G [00:14&lt;00:15, 305MB/s]
+Downloading model_best.mdlus: 53%|█████▎    | 4.86G/9.19G [00:14&lt;00:13, 341MB/s]
+Downloading model_best.mdlus: 53%|█████▎    | 4.91G/9.19G [00:14&lt;00:12, 369MB/s]
+Downloading model_best.mdlus: 54%|█████▍    | 4.96G/9.19G [00:14&lt;00:11, 391MB/s]
+Downloading model_best.mdlus: 55%|█████▍    | 5.01G/9.19G [00:14&lt;00:11, 407MB/s]
+Downloading model_best.mdlus: 55%|█████▌    | 5.06G/9.19G [00:15&lt;00:10, 421MB/s]
+Downloading model_best.mdlus: 56%|█████▌    | 5.11G/9.19G [00:15&lt;00:10, 431MB/s]
+Downloading model_best.mdlus: 56%|█████▌    | 5.16G/9.19G [00:15&lt;00:10, 429MB/s]
+Downloading model_best.mdlus: 57%|█████▋    | 5.21G/9.19G [00:15&lt;00:09, 435MB/s]
+Downloading model_best.mdlus: 57%|█████▋    | 5.25G/9.19G [00:15&lt;00:09, 440MB/s]
+Downloading model_best.mdlus: 58%|█████▊    | 5.30G/9.19G [00:15&lt;00:09, 442MB/s]
+Downloading model_best.mdlus: 58%|█████▊    | 5.35G/9.19G [00:15&lt;00:09, 445MB/s]
+Downloading model_best.mdlus: 59%|█████▉    | 5.40G/9.19G [00:15&lt;00:09, 448MB/s]
+Downloading model_best.mdlus: 59%|█████▉    | 5.45G/9.19G [00:15&lt;00:08, 451MB/s]
+Downloading model_best.mdlus: 60%|█████▉    | 5.50G/9.19G [00:16&lt;00:10, 385MB/s]
+Downloading model_best.mdlus: 60%|██████    | 5.54G/9.19G [00:16&lt;00:10, 390MB/s]
+Downloading model_best.mdlus: 61%|██████    | 5.58G/9.19G [00:16&lt;00:09, 391MB/s]
+Downloading model_best.mdlus: 61%|██████    | 5.62G/9.19G [00:16&lt;00:09, 390MB/s]
+Downloading model_best.mdlus: 62%|██████▏   | 5.65G/9.19G [00:16&lt;00:09, 387MB/s]
+Downloading model_best.mdlus: 62%|██████▏   | 5.69G/9.19G [00:16&lt;00:09, 387MB/s]
+Downloading model_best.mdlus: 62%|██████▏   | 5.73G/9.19G [00:16&lt;00:09, 386MB/s]
+Downloading model_best.mdlus: 63%|██████▎   | 5.77G/9.19G [00:16&lt;00:09, 386MB/s]
+Downloading model_best.mdlus: 63%|██████▎   | 5.81G/9.19G [00:16&lt;00:09, 388MB/s]
+Downloading model_best.mdlus: 64%|██████▎   | 5.85G/9.19G [00:17&lt;00:09, 389MB/s]
+Downloading model_best.mdlus: 64%|██████▍   | 5.89G/9.19G [00:17&lt;00:09, 384MB/s]
+Downloading model_best.mdlus: 64%|██████▍   | 5.93G/9.19G [00:17&lt;00:09, 381MB/s]
+Downloading model_best.mdlus: 65%|██████▍   | 5.97G/9.19G [00:17&lt;00:09, 384MB/s]
+Downloading model_best.mdlus: 65%|██████▌   | 6.01G/9.19G [00:17&lt;00:08, 387MB/s]
+Downloading model_best.mdlus: 66%|██████▌   | 6.04G/9.19G [00:17&lt;00:08, 390MB/s]
+Downloading model_best.mdlus: 66%|██████▌   | 6.08G/9.19G [00:17&lt;00:08, 388MB/s]
+Downloading model_best.mdlus: 67%|██████▋   | 6.12G/9.19G [00:17&lt;00:08, 383MB/s]
+Downloading model_best.mdlus: 67%|██████▋   | 6.16G/9.19G [00:17&lt;00:08, 379MB/s]
+Downloading model_best.mdlus: 67%|██████▋   | 6.20G/9.19G [00:18&lt;00:08, 382MB/s]
+Downloading model_best.mdlus: 68%|██████▊   | 6.24G/9.19G [00:18&lt;00:08, 386MB/s]
+Downloading model_best.mdlus: 68%|██████▊   | 6.28G/9.19G [00:18&lt;00:08, 367MB/s]
+Downloading model_best.mdlus: 69%|██████▊   | 6.32G/9.19G [00:18&lt;00:08, 347MB/s]
+Downloading model_best.mdlus: 69%|██████▉   | 6.36G/9.19G [00:18&lt;00:08, 341MB/s]
+Downloading model_best.mdlus: 70%|██████▉   | 6.40G/9.19G [00:18&lt;00:08, 355MB/s]
+Downloading model_best.mdlus: 70%|███████   | 6.44G/9.19G [00:18&lt;00:08, 366MB/s]
+Downloading model_best.mdlus: 70%|███████   | 6.47G/9.19G [00:18&lt;00:07, 374MB/s]
+Downloading model_best.mdlus: 71%|███████   | 6.51G/9.19G [00:19&lt;00:07, 371MB/s]
+Downloading model_best.mdlus: 71%|███████▏  | 6.55G/9.19G [00:19&lt;00:07, 377MB/s]
+Downloading model_best.mdlus: 72%|███████▏  | 6.59G/9.19G [00:19&lt;00:07, 381MB/s]
+Downloading model_best.mdlus: 72%|███████▏  | 6.63G/9.19G [00:19&lt;00:07, 383MB/s]
+Downloading model_best.mdlus: 73%|███████▎  | 6.67G/9.19G [00:19&lt;00:07, 384MB/s]
+Downloading model_best.mdlus: 73%|███████▎  | 6.71G/9.19G [00:19&lt;00:06, 386MB/s]
+Downloading model_best.mdlus: 73%|███████▎  | 6.75G/9.19G [00:19&lt;00:06, 389MB/s]
+Downloading model_best.mdlus: 74%|███████▍  | 6.79G/9.19G [00:19&lt;00:06, 389MB/s]
+Downloading model_best.mdlus: 74%|███████▍  | 6.83G/9.19G [00:19&lt;00:06, 391MB/s]
+Downloading model_best.mdlus: 75%|███████▍  | 6.88G/9.19G [00:20&lt;00:06, 400MB/s]
+Downloading model_best.mdlus: 75%|███████▌  | 6.91G/9.19G [00:20&lt;00:06, 397MB/s]
+Downloading model_best.mdlus: 76%|███████▌  | 6.95G/9.19G [00:20&lt;00:06, 370MB/s]
+Downloading model_best.mdlus: 76%|███████▌  | 6.99G/9.19G [00:20&lt;00:06, 375MB/s]
+Downloading model_best.mdlus: 76%|███████▋  | 7.03G/9.19G [00:20&lt;00:08, 277MB/s]
+Downloading model_best.mdlus: 77%|███████▋  | 7.07G/9.19G [00:20&lt;00:07, 299MB/s]
+Downloading model_best.mdlus: 77%|███████▋  | 7.11G/9.19G [00:20&lt;00:07, 314MB/s]
+Downloading model_best.mdlus: 78%|███████▊  | 7.15G/9.19G [00:20&lt;00:06, 332MB/s]
+Downloading model_best.mdlus: 78%|███████▊  | 7.19G/9.19G [00:21&lt;00:06, 347MB/s]
+Downloading model_best.mdlus: 79%|███████▊  | 7.23G/9.19G [00:21&lt;00:05, 354MB/s]
+Downloading model_best.mdlus: 79%|███████▉  | 7.27G/9.19G [00:21&lt;00:05, 359MB/s]
+Downloading model_best.mdlus: 79%|███████▉  | 7.30G/9.19G [00:21&lt;00:05, 367MB/s]
+Downloading model_best.mdlus: 80%|███████▉  | 7.34G/9.19G [00:21&lt;00:05, 372MB/s]
+Downloading model_best.mdlus: 80%|████████  | 7.38G/9.19G [00:21&lt;00:05, 378MB/s]
+Downloading model_best.mdlus: 81%|████████  | 7.42G/9.19G [00:21&lt;00:04, 382MB/s]
+Downloading model_best.mdlus: 81%|████████  | 7.46G/9.19G [00:21&lt;00:04, 387MB/s]
+Downloading model_best.mdlus: 82%|████████▏ | 7.50G/9.19G [00:21&lt;00:04, 392MB/s]
+Downloading model_best.mdlus: 82%|████████▏ | 7.54G/9.19G [00:22&lt;00:04, 381MB/s]
+Downloading model_best.mdlus: 82%|████████▏ | 7.58G/9.19G [00:22&lt;00:04, 371MB/s]
+Downloading model_best.mdlus: 83%|████████▎ | 7.62G/9.19G [00:22&lt;00:04, 379MB/s]
+Downloading model_best.mdlus: 83%|████████▎ | 7.66G/9.19G [00:22&lt;00:04, 382MB/s]
+Downloading model_best.mdlus: 84%|████████▎ | 7.70G/9.19G [00:22&lt;00:04, 388MB/s]
+Downloading model_best.mdlus: 84%|████████▍ | 7.73G/9.19G [00:22&lt;00:04, 389MB/s]
+Downloading model_best.mdlus: 85%|████████▍ | 7.77G/9.19G [00:22&lt;00:03, 391MB/s]
+Downloading model_best.mdlus: 85%|████████▍ | 7.81G/9.19G [00:22&lt;00:03, 393MB/s]
+Downloading model_best.mdlus: 85%|████████▌ | 7.85G/9.19G [00:22&lt;00:03, 396MB/s]
+Downloading model_best.mdlus: 86%|████████▌ | 7.89G/9.19G [00:23&lt;00:03, 385MB/s]
+Downloading model_best.mdlus: 86%|████████▋ | 7.93G/9.19G [00:23&lt;00:03, 380MB/s]
+Downloading model_best.mdlus: 87%|████████▋ | 7.97G/9.19G [00:23&lt;00:03, 382MB/s]
+Downloading model_best.mdlus: 87%|████████▋ | 8.01G/9.19G [00:23&lt;00:03, 362MB/s]
+Downloading model_best.mdlus: 88%|████████▊ | 8.05G/9.19G [00:23&lt;00:03, 354MB/s]
+Downloading model_best.mdlus: 88%|████████▊ | 8.09G/9.19G [00:23&lt;00:03, 357MB/s]
+Downloading model_best.mdlus: 88%|████████▊ | 8.12G/9.19G [00:23&lt;00:03, 360MB/s]
+Downloading model_best.mdlus: 89%|████████▉ | 8.16G/9.19G [00:23&lt;00:03, 368MB/s]
+Downloading model_best.mdlus: 89%|████████▉ | 8.20G/9.19G [00:23&lt;00:02, 376MB/s]
+Downloading model_best.mdlus: 90%|████████▉ | 8.24G/9.19G [00:24&lt;00:02, 373MB/s]
+Downloading model_best.mdlus: 90%|█████████ | 8.28G/9.19G [00:24&lt;00:02, 380MB/s]
+Downloading model_best.mdlus: 91%|█████████ | 8.32G/9.19G [00:24&lt;00:02, 370MB/s]
+Downloading model_best.mdlus: 91%|█████████ | 8.36G/9.19G [00:24&lt;00:02, 336MB/s]
+Downloading model_best.mdlus: 91%|█████████▏| 8.40G/9.19G [00:24&lt;00:02, 311MB/s]
+Downloading model_best.mdlus: 92%|█████████▏| 8.44G/9.19G [00:24&lt;00:02, 312MB/s]
+Downloading model_best.mdlus: 92%|█████████▏| 8.48G/9.19G [00:24&lt;00:02, 304MB/s]
+Downloading model_best.mdlus: 93%|█████████▎| 8.52G/9.19G [00:24&lt;00:02, 329MB/s]
+Downloading model_best.mdlus: 93%|█████████▎| 8.56G/9.19G [00:25&lt;00:01, 362MB/s]
+Downloading model_best.mdlus: 94%|█████████▎| 8.61G/9.19G [00:25&lt;00:01, 388MB/s]
+Downloading model_best.mdlus: 94%|█████████▍| 8.66G/9.19G [00:25&lt;00:01, 403MB/s]
+Downloading model_best.mdlus: 95%|█████████▍| 8.70G/9.19G [00:25&lt;00:01, 404MB/s]
+Downloading model_best.mdlus: 95%|█████████▌| 8.74G/9.19G [00:25&lt;00:01, 406MB/s]
+Downloading model_best.mdlus: 96%|█████████▌| 8.78G/9.19G [00:25&lt;00:01, 408MB/s]
+Downloading model_best.mdlus: 96%|█████████▌| 8.83G/9.19G [00:25&lt;00:00, 416MB/s]
+Downloading model_best.mdlus: 97%|█████████▋| 8.88G/9.19G [00:25&lt;00:00, 420MB/s]
+Downloading model_best.mdlus: 97%|█████████▋| 8.93G/9.19G [00:25&lt;00:00, 422MB/s]
+Downloading model_best.mdlus: 98%|█████████▊| 8.97G/9.19G [00:26&lt;00:00, 428MB/s]
+Downloading model_best.mdlus: 98%|█████████▊| 9.02G/9.19G [00:26&lt;00:00, 435MB/s]
+Downloading model_best.mdlus: 99%|█████████▊| 9.07G/9.19G [00:26&lt;00:00, 442MB/s]
+Downloading model_best.mdlus: 99%|█████████▉| 9.12G/9.19G [00:26&lt;00:00, 407MB/s]
+Downloading model_best.mdlus: 100%|█████████▉| 9.16G/9.19G [00:26&lt;00:00, 371MB/s]
+Downloading model_best.mdlus: 100%|██████████| 9.19G/9.19G [00:26&lt;00:00, 369MB/s]
+
+Downloading data_processor_best.mdlus: 0%|          | 0.00/11.9M [00:00&lt;?, ?B/s]
+Downloading data_processor_best.mdlus: 84%|████████▍ | 10.0M/11.9M [00:00&lt;00:00, 55.8MB/s]
+Downloading data_processor_best.mdlus: 100%|██████████| 11.9M/11.9M [00:00&lt;00:00, 63.1MB/s]
+</pre></div>
+</div>
+<section id="manual-forward-pass">
+<h2>Manual Forward Pass<a class="headerlink" href="#manual-forward-pass" title="Link to this heading">#</a></h2>
+<p>For more control over the inference loop, Atlas can be called directly using
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">earth2studio.data.utils.fetch_data()</span></code> for initial conditions and
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">earth2studio.models.px.Atlas.prep_next_input()</span></code> to advance the sliding
+window between steps. This is useful when you need access to intermediate tensors
+or want to customize the rollout logic.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For autoregressive rollouts longer than one step, prefer
+<code class="docutils literal notranslate"><span class="pre">create_iterator</span></code> which correctly manages the internal latent state.</p>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+<span class="c1"># Get model input coordinate requirements</span>
+<span class="n">input_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+
+<span class="c1"># Fetch initial conditions matching the model&#39;s expected variables and lead times</span>
+<span class="n">time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">&quot;2024-01-01T00:00&quot;</span><span class="p">)])</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+    <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+    <span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span>
+    <span class="n">variable</span><span class="o">=</span><span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+    <span class="n">lead_time</span><span class="o">=</span><span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Add a batch dimension</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="c1"># Run two forward steps manually</span>
+<span class="n">n_manual_steps</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_manual_steps</span><span class="p">):</span>
+    <span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+    <span class="n">lead_hrs</span> <span class="o">=</span> <span class="n">y_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">step</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">: lead_time = </span><span class="si">{</span><span class="n">lead_hrs</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">h, shape = </span><span class="si">{</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prep_next_input</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-06-29 17:33:02.117 | DEBUG    | earth2studio.data.arco:_async_init:128 - Using Multi-Storage Client for ARCO data access
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.852 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/1086954.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.862 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/1086954.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.862 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/1086954.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.866 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/1086954.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.868 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_precipitation/1086954.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.873 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/100m_v_component_of_wind/1086954.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.919 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/1086954.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.932 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/100m_u_component_of_wind/1086954.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.935 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/1086954.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.940 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/1086954.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.941 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/1086954.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.944 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/sea_surface_temperature/1086954.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.944 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/1086954.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.947 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/surface_pressure/1086954.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:02.973 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/1086954.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+Fetching ARCO data:   7%|▋         | 1/15 [00:00&lt;00:07,  1.98it/s]
+Fetching ARCO data:  20%|██        | 3/15 [00:00&lt;00:02,  5.45it/s]
+Fetching ARCO data:  33%|███▎      | 5/15 [00:00&lt;00:01,  5.61it/s]
+Fetching ARCO data:  47%|████▋     | 7/15 [00:01&lt;00:01,  7.76it/s]
+Fetching ARCO data:  60%|██████    | 9/15 [00:01&lt;00:00,  6.39it/s]
+Fetching ARCO data:  67%|██████▋   | 10/15 [00:01&lt;00:00,  5.08it/s]
+Fetching ARCO data:  73%|███████▎  | 11/15 [00:02&lt;00:01,  2.46it/s]
+Fetching ARCO data:  87%|████████▋ | 13/15 [00:03&lt;00:00,  2.55it/s]
+Fetching ARCO data:  93%|█████████▎| 14/15 [00:03&lt;00:00,  2.86it/s]
+Fetching ARCO data: 100%|██████████| 15/15 [00:04&lt;00:00,  2.39it/s]
+Fetching ARCO data: 100%|██████████| 15/15 [00:04&lt;00:00,  3.30it/s]
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.397 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/1086960.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.400 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/1086960.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.403 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/1086960.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.405 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/surface_pressure/1086960.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.409 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/1086960.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.412 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_precipitation/1086960.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.414 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/1086960.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.441 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/100m_v_component_of_wind/1086960.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.447 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/1086960.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.452 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/100m_u_component_of_wind/1086960.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.466 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/sea_surface_temperature/1086960.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.468 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/1086960.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.478 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/1086960.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.488 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/1086960.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+
+2026-06-29 17:33:07.496 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/1086960.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+Fetching ARCO data:   7%|▋         | 1/15 [00:00&lt;00:05,  2.51it/s]
+Fetching ARCO data:  20%|██        | 3/15 [00:00&lt;00:01,  6.89it/s]
+Fetching ARCO data:  40%|████      | 6/15 [00:00&lt;00:00, 11.13it/s]
+Fetching ARCO data:  53%|█████▎    | 8/15 [00:00&lt;00:00, 10.07it/s]
+Fetching ARCO data:  67%|██████▋   | 10/15 [00:01&lt;00:00,  9.39it/s]
+Fetching ARCO data:  80%|████████  | 12/15 [00:02&lt;00:00,  3.06it/s]
+Fetching ARCO data:  87%|████████▋ | 13/15 [00:04&lt;00:01,  1.75it/s]
+Fetching ARCO data: 100%|██████████| 15/15 [00:05&lt;00:00,  1.75it/s]
+Fetching ARCO data: 100%|██████████| 15/15 [00:05&lt;00:00,  2.76it/s]
+2026-06-29 17:33:13.561 | INFO     | earth2studio.models.px.atlas:__call__:422 - Atlas input contains NaNs, replacing with 0.0
+Step 1: lead_time = 6h, shape = torch.Size([1, 1, 1, 75, 721, 1440])
+2026-06-29 17:34:03.605 | INFO     | earth2studio.models.px.atlas:__call__:422 - Atlas input contains NaNs, replacing with 0.0
+Step 2: lead_time = 12h, shape = torch.Size([1, 1, 1, 75, 721, 1440])
+</pre></div>
+</div>
+</section>
+<section id="using-the-model-iterator-interface">
+<h2>Using the model iterator interface<a class="headerlink" href="#using-the-model-iterator-interface" title="Link to this heading">#</a></h2>
+<p>For a less verbose approach, we can use the model iterator interface directly,
+which automatically handles the internal latent state during autoregressive rollout.
+Simply pass the model and other instantiated components to the workflow, which will
+automatically use the iterator interface internally and return outputs to the IO handler.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">earth2studio.run</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">run</span>
+
+<span class="n">nsteps</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">deterministic</span><span class="p">(</span>
+    <span class="p">[</span><span class="s2">&quot;2024-01-01&quot;</span><span class="p">],</span>
+    <span class="n">nsteps</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">,</span>
+    <span class="n">io</span><span class="p">,</span>
+    <span class="n">output_coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;u10m&quot;</span><span class="p">,</span> <span class="s2">&quot;tcwv&quot;</span><span class="p">])},</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-06-29 17:34:51.645 | INFO     | earth2studio.run:deterministic:87 - Running simple workflow!
+2026-06-29 17:34:51.645 | INFO     | earth2studio.run:deterministic:94 - Inference device: cuda
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+Fetching ARCO data:   7%|▋         | 1/15 [00:00&lt;00:04,  3.38it/s]
+Fetching ARCO data:  73%|███████▎  | 11/15 [00:00&lt;00:00, 21.64it/s]
+Fetching ARCO data: 100%|██████████| 15/15 [00:00&lt;00:00, 23.69it/s]
+
+Fetching ARCO data:   0%|          | 0/15 [00:00&lt;?, ?it/s]
+Fetching ARCO data:   7%|▋         | 1/15 [00:00&lt;00:04,  3.45it/s]
+Fetching ARCO data:  73%|███████▎  | 11/15 [00:00&lt;00:00, 21.57it/s]
+Fetching ARCO data: 100%|██████████| 15/15 [00:00&lt;00:00, 23.71it/s]
+2026-06-29 17:34:53.188 | SUCCESS  | earth2studio.run:deterministic:156 - Fetched data from ARCO
+2026-06-29 17:34:53.190 | INFO     | earth2studio.run:deterministic:164 - Inference starting!
+
+
+Running inference:   0%|          | 0/4 [00:00&lt;?, ?it/s]
+
+
+2026-06-29 17:34:53.192 | INFO     | earth2studio.models.px.atlas:_default_generator:501 - Atlas input contains NaNs, replacing with 0.0
+
+
+Running inference:   0%|          | 0/4 [00:00&lt;?, ?it/s]
+
+Running inference:  50%|█████     | 2/4 [00:49&lt;00:49, 24.80s/it]
+
+Running inference:  75%|███████▌  | 3/4 [01:39&lt;00:35, 35.25s/it]
+
+Running inference: 100%|██████████| 4/4 [02:29&lt;00:00, 40.75s/it]
+Running inference: 100%|██████████| 4/4 [02:29&lt;00:00, 37.37s/it]
+2026-06-29 17:37:22.671 | SUCCESS  | earth2studio.run:deterministic:191 -
+Inference complete
+/
+├── lat (721,) float32
+├── lead_time (4,) timedelta64
+├── lon (1440,) float32
+├── tcwv (1, 4, 721, 1440) float32
+├── time (1,) datetime64
+└── u10m (1, 4, 721, 1440) float32
+</pre></div>
+</div>
+</section>
+<section id="post-processing">
+<h2>Post Processing<a class="headerlink" href="#post-processing" title="Link to this heading">#</a></h2>
+<p>The last step is to post process our results. We will plot the predicted 10m u-wind
+component (u10m) and total column water vapour (tcwv) at 12 hours into the forecast.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">forecast</span> <span class="o">=</span> <span class="s2">&quot;2024-01-01&quot;</span>
+<span class="n">step</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># lead time = 12 hrs into the forecast</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<span class="n">projection</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">Robinson</span><span class="p">()</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">projection</span><span class="p">},</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+
+<span class="c1"># Plot u10m</span>
+<span class="n">im0</span> <span class="o">=</span> <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+    <span class="n">io</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">][:],</span>
+    <span class="n">io</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">][:],</span>
+    <span class="n">io</span><span class="p">[</span><span class="s2">&quot;u10m&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">],</span>
+    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
+    <span class="n">vmin</span><span class="o">=-</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">vmax</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2"> - u10m - Lead time: </span><span class="si">{</span><span class="mi">6</span><span class="o">*</span><span class="n">step</span><span class="si">}</span><span class="s2">hrs&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">gridlines</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im0</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;m/s&quot;</span><span class="p">)</span>
+
+<span class="c1"># Plot tcwv</span>
+<span class="n">im1</span> <span class="o">=</span> <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+    <span class="n">io</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">][:],</span>
+    <span class="n">io</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">][:],</span>
+    <span class="n">io</span><span class="p">[</span><span class="s2">&quot;tcwv&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">],</span>
+    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;Blues&quot;</span><span class="p">,</span>
+    <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">vmax</span><span class="o">=</span><span class="mi">70</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2"> - tcwv - Lead time: </span><span class="si">{</span><span class="mi">6</span><span class="o">*</span><span class="n">step</span><span class="si">}</span><span class="s2">hrs&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+<span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">gridlines</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im1</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;kg/m²&quot;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/06_atlas_u10m_tcwv.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../../_images/sphx_glr_06_atlas_inference_001.png" srcset="../../_images/sphx_glr_06_atlas_inference_001.png" alt="2024-01-01 - u10m - Lead time: 12hrs, 2024-01-01 - tcwv - Lead time: 12hrs" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (6 minutes 31.623 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-02-medium-range-06-atlas-inference-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/a3f750134c2613f12da166d908560d5f/06_atlas_inference.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">06_atlas_inference.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/924cceb5105566fa4d34a8251bf067bd/06_atlas_inference.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">06_atlas_inference.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/ec722eb500a4a83b52c8cd82c2f4473a/06_atlas_inference.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">06_atlas_inference.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="05_cyclone_tracking.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Tropical Cyclone Tracking</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../03_downscaling/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Downscaling</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#manual-forward-pass">Manual Forward Pass</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#using-the-model-iterator-interface">Using the model iterator interface</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-processing">Post Processing</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+<div class="footer-links">
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-policy/">Privacy Policy</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-center/">Your Privacy Choices</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/terms-of-service/">Terms of Service</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/accessibility/">Accessibility</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/company-policies/">Corporate Policies</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/product-security/">Product Security</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/contact/">Contact</a>
+  
+  
+  
+</div>
+</div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2026, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

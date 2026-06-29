@@ -1,0 +1,1066 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>Lexicon &#8212; Earth2Studio</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=933278ad" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx_badges.css?v=4a657082" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=bba532a7" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+
+
+    <script src="../../_static/documentation_options.js?v=205df16a"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/badge-data.js?v=14be73a5"></script>
+    <script src="../../_static/badge-filter.js?v=bda7ac9e"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/advanced/lexicon';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.16.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+
+    <link rel="icon" href="../../_static/favicon.png"/>
+
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Developer Guide" href="../developer/index.html" />
+    <link rel="prev" title="AutoModels" href="auto.html" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.16" />
+
+
+  </head>
+
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="Earth2Studio - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="Earth2Studio - Home"/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+
+
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+      <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="Earth2Studio - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="Earth2Studio - Home"/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">User Guide</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../about/index.html">Getting Started</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../about/install.html">Install</a></li>
+
+
+
+<li class="toctree-l3"><a class="reference internal" href="../about/intro.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../about/data.html">Data Movement</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../components/index.html">Core Components</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../components/prognostic.html">Prognostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../components/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../components/datasources.html">Data and Forecast Sources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../components/perturbation.html">Perturbations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../components/io.html">Output Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../components/statistics.html">Statistics and Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Advanced Usage</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="checkpointing.html">Checkpointing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch.html">Batch Dimension</a></li>
+<li class="toctree-l3"><a class="reference internal" href="auto.html">AutoModels</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">Lexicon</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../developer/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../developer/overview.html">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer/dependency.html">Dependency Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer/style.html">Style Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer/documentation.html">Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer/testing.html">Testing Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer/build.html">Build Process</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer/recipes.html">Recipe Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer/skills.html">AI Agent Skills</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../support/index.html">Support</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../support/troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../support/faq.html">Frequently Asked Questions</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules/index.html">API</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_px.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>: Prognostics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.ACE2ERA5.html">ACE2ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFS.html">AIFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFS2.html">AIFS2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFS2ENS.html">AIFS2ENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFSENS.html">AIFSENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Atlas.html">Atlas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Aurora.html">Aurora</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.CBottleVideo.html">CBottleVideo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DiagnosticWrapper.html">DiagnosticWrapper</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyM.html">DLESyM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyMLatLon.html">DLESyMLatLon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyMv0_ISCCP_ERA5.html">DLESyMv0_ISCCP_ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon.html">DLESyMv0_ISCCP_ERA5LatLon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLWP.html">DLWP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FCN.html">FCN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FCN3.html">FCN3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FengWu.html">FengWu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FuXi.html">FuXi</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GenCastMini.html">GenCastMini</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastOperational.html">GraphCastOperational</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastSmall.html">GraphCastSmall</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.InterpModAFNO.html">InterpModAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu24.html">Pangu24</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu6.html">Pangu6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu3.html">Pangu3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Persistence.html">Persistence</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.SFNO.html">SFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormCast.html">StormCast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormScopeGOES.html">StormScopeGOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormScopeMRMS.html">StormScopeMRMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.UCast.html">UCast</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_dx.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>: Diagnostics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleInfill.html">CBottleInfill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleSR.html">CBottleSR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleTCGuidance.html">CBottleTCGuidance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html">CorrDiffCMIP6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html">CorrDiffTaiwan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.ClimateNet.html">ClimateNet</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedRH.html">DerivedRH</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint.html">DerivedRHDewpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedSurfacePressure.html">DerivedSurfacePressure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedTCWV.html">DerivedTCWV</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedVPD.html">DerivedVPD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedWS.html">DerivedWS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.html">DLESyMv0_ISCCP_ERA5Precip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.OrbitGlobalPrecip.html">OrbitGlobalPrecip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html">PrecipitationAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html">PrecipitationAFNOv2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO1H.html">SolarRadiationAFNO1H</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO6H.html">SolarRadiationAFNO6H</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.TCTrackerWuDuan.html">TCTrackerWuDuan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.TCTrackerVitart.html">TCTrackerVitart</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.WindgustAFNO.html">WindgustAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.Identity.html">Identity</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_da.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.da</span></code>: Data Assimilation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.HealDA.html">HealDA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.InterpEquirectangular.html">InterpEquirectangular</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.StormCastSDA.html">StormCastSDA</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_analysis.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.ARCO.html">ARCO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CDS.html">CDS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CMIP6.html">CMIP6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CMIP6MultiRealm.html">CMIP6MultiRealm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS.html">GFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GOES.html">GOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HimawariAHI.html">HimawariAHI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HRRR.html">HRRR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS.html">IFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_ENS.html">IFS_ENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS.html">JPSS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MRMS.html">MRMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MeteosatFCI.html">MeteosatFCI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NClimGridDaily.html">NClimGridDaily</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NCAR_ERA5.html">NCAR_ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.OPERA.html">OPERA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerECMWFOpenDataIFS.html">PlanetaryComputerECMWFOpenDataIFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerGOES.html">PlanetaryComputerGOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerMODISFire.html">PlanetaryComputerMODISFire</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerOISST.html">PlanetaryComputerOISST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerSentinel3AOD.html">PlanetaryComputerSentinel3AOD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.Random.html">Random</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5.html">WB2ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5_121x240.html">WB2ERA5_121x240</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5_32x64.html">WB2ERA5_32x64</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2Climatology.html">WB2Climatology</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataArrayFile.html">DataArrayFile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataSetFile.html">DataSetFile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataArrayPathList.html">DataArrayPathList</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CBottle3D.html">CBottle3D</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_forecast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Forecast Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_FX.html">AIFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CAMS_FX.html">CAMS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_ENS_FX.html">AIFS_ENS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CFS_FX.html">CFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CFS_FX_Flux.html">CFS_FX_Flux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CFS_Reforecast_FX.html">CFS_Reforecast_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CFS_Reforecast_FX_Flux.html">CFS_Reforecast_FX_Flux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS_FX.html">GFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GEFS_FX.html">GEFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GEFS_FX_721x1440.html">GEFS_FX_721x1440</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HRRR_FX.html">HRRR_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_FX.html">IFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_ENS_FX.html">IFS_ENS_FX</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_dataframe.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GHCNDaily.html">GHCNDaily</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GOESGLM.html">GOESGLM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IBTrACS.html">IBTrACS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.ISD.html">ISD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS_ATMS.html">JPSS_ATMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS_CRIS.html">JPSS_CRIS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpAMSUA.html">MetOpAMSUA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpAVHRR.html">MetOpAVHRR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpIASI.html">MetOpIASI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpMHS.html">MetOpMHS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NNJAObsConv.html">NNJAObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NomadsGDASObsConv.html">NomadsGDASObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.RandomDataFrame.html">RandomDataFrame</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsConv.html">UFSObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsSat.html">UFSObsSat</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.AsyncZarrBackend.html">AsyncZarrBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.KVBackend.html">KVBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.NetCDF4Backend.html">NetCDF4Backend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.XarrayBackend.html">XarrayBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.ZarrBackend.html">ZarrBackend</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/perturbation.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>: Perturbations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Brown.html">Brown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.BredVector.html">BredVector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.CorrelatedSphericalGaussian.html">CorrelatedSphericalGaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Gaussian.html">Gaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.HemisphericCentredBredVector.html">HemisphericCentredBredVector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.LaggedEnsemble.html">LaggedEnsemble</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.SphericalGaussian.html">SphericalGaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Zero.html">Zero</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.acc.html">acc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.brier.html">brier</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.crps.html">crps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.energy_score.html">energy_score</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.fss.html">fss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.lsd.html">lsd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.mae.html">mae</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.mean.html">mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.rank_histogram.html">rank_histogram</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.rmse.html">rmse</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.spread_skill_ratio.html">spread_skill_ratio</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.std.html">std</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.variance.html">variance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.weights.lat_weight.html">lat_weight</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.deterministic.html">deterministic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.diagnostic.html">diagnostic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.ensemble.html">ensemble</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/utils_all.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio</span></code>: Utilities</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_dim.html">handshake_dim</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_coords.html">handshake_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_size.html">handshake_size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.map_coords.html">map_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.split_coords.html">split_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.to_time_array.html">to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.Checkpoint.html">Checkpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html">CheckpointSession</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html">CheckpointState</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html">NullCheckpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.bind_checkpoint_state.html">bind_checkpoint_state</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.datasource_to_file.html">datasource_to_file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.fetch_data.html">fetch_data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.prep_data_array.html">prep_data_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/earth2studio.models.auto.Package.html">Package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/earth2studio.models.batch.batch_func.html">batch_func</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../examples/index.html">Examples</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../examples/01_getting_started/index.html">Getting Started</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/01_getting_started/04_checkpoint_restart.html">Checkpointing a Deterministic Forecast</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../examples/02_medium_range/index.html">Medium Range</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/02_medium_range/01_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/02_medium_range/02_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/02_medium_range/03_huge_ensembles.html">Huge Ensembles (HENS) Checkpoints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/02_medium_range/04_temporal_interpolation.html">Temporal Interpolation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/02_medium_range/05_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/02_medium_range/06_atlas_inference.html">Running Atlas Inference</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../examples/03_downscaling/index.html">Downscaling</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/03_downscaling/01_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/03_downscaling/02_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/03_downscaling/03_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../examples/04_nowcasting/index.html">Nowcasting</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/04_nowcasting/01_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/04_nowcasting/02_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/04_nowcasting/03_stormscope_goes_example.html">StormScope Satellite and Radar Nowcasting</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../examples/05_data_assimilation/index.html">Data Assimilation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/05_data_assimilation/01_stormcast_sda.html">StormCast Score-Based Data Assimilation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/05_data_assimilation/02_healda.html">HealDA Global Data Assimilation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../examples/06_seasonal/index.html">Subseasonal to Seasonal</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/06_seasonal/01_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/06_seasonal/02_dlesym_example.html">Running DLESyM Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/06_seasonal/03_dlesym_climate.html">Running the DLESyM ISCCP-ERA5 Model</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../examples/07_misc/index.html">Miscellaneous</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/07_misc/01_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/07_misc/02_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/07_misc/03_io_performance.html">IO Backend Performance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/07_misc/04_local_datasource.html">Creating a Local Data Source</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/07_misc/05_cbottle_tc_guidance.html">CBottle Tropical Cyclone Guidance</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../examples/08_extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/08_extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/08_extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../examples/08_extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">User Guide</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Advanced Usage</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Lexicon</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="lexicon">
+<span id="lexicon-userguide"></span><h1>Lexicon<a class="headerlink" href="#lexicon" title="Link to this heading">#</a></h1>
+<p>As discussed in the <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">Data Movement</span></a> section, Earth2Studio tracks the
+geo-physical representation of tensor data inside workflows.
+This includes the name of the variable, parameter, and property the data represents, which
+is tracked explicitly using the Earth2Studios lexicon.
+Similar to ECMWF’s <a class="reference external" href="https://codes.ecmwf.int/grib/param-db/">parameter database</a>,
+Earth2Studio’s lexicon aims to provide an opinioned and explicit list of short variables
+names that is used across the package found in <code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.lexicon.base.E2STUDIO_VOCAB</span></code>.
+Many of these names are based on ECMWF’s parameter database but not all.</p>
+<p>Below are a few examples:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">t2m</span></code>: Temperature in Kelvin at 2 meters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">u10m</span></code>: u-component (eastward/zonal) of winds at 10 meters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">v10m</span></code>: v-component (northward/meridional) of winds at 10 meters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">u200</span></code>: u-component of winds at 200 hPa</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">z250</span></code>: Geo-potential at 250 hPa</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">z500</span></code>: Geo-potential at 500 hPa</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tcwv</span></code>: Total column water vapor</p></li>
+</ul>
+<p>Additionally, the lexicon may also be used to track various metadata / coordinate
+fields.
+This is particularly relevant for <code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.data.base.DataFrameSource</span></code> where
+tabular data is used and variables map to the columns of a data frame.
+Earth2Studio takes a best-effort approach to make these metadata fields standardized
+across the package.</p>
+<p>Some examples include:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">lat</span></code>: Latitude coordinate of data, observation, and sensor</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lon</span></code>: Longitude coordinate of data, observation, and sensor</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">elev</span></code>: Elevation (meters) relative to mean sea level of data, observation, and sensor</p></li>
+</ul>
+<section id="altitude-and-pressure-levels">
+<h2>Altitude and Pressure Levels<a class="headerlink" href="#altitude-and-pressure-levels" title="Link to this heading">#</a></h2>
+<p>There are a variety of ways to represent the vertical coordinates for 3D
+atmospheric variables. The most common method is to slice variables along pressure
+levels (surfaces of constant pressure), and this is considered the “default” in terms
+of variable names within the lexicon (for example, <code class="docutils literal notranslate"><span class="pre">z500</span></code> is the geo-potential) at the 500 hPa
+pressure level. Variables which are represented based on altitude above the surface
+contain an “m” at the end, to denote height in meters, such as <code class="docutils literal notranslate"><span class="pre">u10m</span></code>.</p>
+<p>Some models or workflows, however, require using their own custom vertical coordinate
+which is neither pressure-level nor terrain-following. These are typically referred to
+as “native” or “hybrid” vertical levels, and are defined differently for different
+use-cases. The lexicon supports these custom levels by indexing the vertical level and
+appending a suffix to the variable name to denote it is a custom vertical level, as in
+<code class="docutils literal notranslate"><span class="pre">u100k</span></code> to indicate the u-component of winds at the custom vertical level with index
+100 (indexed by <code class="docutils literal notranslate"><span class="pre">k</span></code>). We leave the choice of suffix up to each use-case, and reserve
+the following special-case suffixes:</p>
+<ul class="simple">
+<li><p>No suffix: assumed to be pressure-level, as in <code class="docutils literal notranslate"><span class="pre">z500</span></code> for geo-potential at 500 hPa level</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">m</span></code>: altitude in meters above the surface</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Only use custom vertical level data with caution. The definition of these vertical
+levels changes with each data source, model, or use-case, and thus they are not
+necessarily interoperable. Transforming between different custom vertical levels will
+likely require custom interpolation schemes, possibly using pressure-levels as an
+intermediate step.</p>
+</div>
+</section>
+<section id="datasource-lexicon">
+<h2>Datasource Lexicon<a class="headerlink" href="#datasource-lexicon" title="Link to this heading">#</a></h2>
+<p>A common challenge when working with different sources of weather and climate data is that
+variables used may be named or denoted in different ways.
+The Lexicon is also used to track the translation between Earth2Studios naming scheme
+and the scheme needed to parse the remote data source.
+Each remote data store has its own lexicon, which is a dictionary that has the
+Earth2Studio variable name as the keys and a string used to parse the remote data store.
+Typically, this value is a string that corresponds to the variable name inside the remote
+data store.</p>
+<p>The following snippet is part of the lexicon for the GFS dataset.
+The class has a <code class="docutils literal notranslate"><span class="pre">metaclass=LexiconType</span></code>, which is present in
+<code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.lexicon.base</span></code> used for type checking.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">GFSLexicon</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">LexiconType</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Global Forecast System Lexicon</span>
+<span class="sd">    GFS specified &lt;Parameter ID&gt;::&lt;Level/ Layer&gt;</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    Some variables are only present for lead time greater than 0</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Additional resources:</span>
+<span class="sd">    https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f000.shtml</span>
+<span class="sd">    https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f003.shtml</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">VOCAB</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;u10m&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::10 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v10m&quot;</span><span class="p">:</span> <span class="s2">&quot;VGRD::10 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u100m&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::100 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v100m&quot;</span><span class="p">:</span> <span class="s2">&quot;VGRD::100 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t2m&quot;</span><span class="p">:</span> <span class="s2">&quot;TMP::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;d2m&quot;</span><span class="p">:</span> <span class="s2">&quot;DPT::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;r2m&quot;</span><span class="p">:</span> <span class="s2">&quot;RH::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q2m&quot;</span><span class="p">:</span> <span class="s2">&quot;SPFH::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sp&quot;</span><span class="p">:</span> <span class="s2">&quot;PRES::surface&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;msl&quot;</span><span class="p">:</span> <span class="s2">&quot;PRMSL::mean sea level&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tcwv&quot;</span><span class="p">:</span> <span class="s2">&quot;PWAT::entire atmosphere (considered as a single layer)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tp&quot;</span><span class="p">:</span> <span class="s2">&quot;596::APCP::surface&quot;</span><span class="p">,</span>  <span class="c1"># 3 hour acc</span>
+        <span class="s2">&quot;2d&quot;</span><span class="p">:</span> <span class="s2">&quot;DPT::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fg10m&quot;</span><span class="p">:</span> <span class="s2">&quot;GUST::surface&quot;</span><span class="p">,</span>  <span class="c1"># Surface</span>
+        <span class="s2">&quot;refc&quot;</span><span class="p">:</span> <span class="s2">&quot;REFC::entire atmosphere&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u1&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::1 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u2&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::2 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u3&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::3 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u5&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::5 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u7&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::7 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u10&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::10 mb&quot;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Values of each variable is left up to the data source.
+The present pattern is to split by the string based on the separator <code class="docutils literal notranslate"><span class="pre">::</span></code>, and then used
+to access the required data.
+For example, the variable <code class="docutils literal notranslate"><span class="pre">u100</span></code>, zonal winds at 100 hPa, the value <code class="docutils literal notranslate"><span class="pre">UGRD::100</span> <span class="pre">mb</span></code> is
+split into <code class="docutils literal notranslate"><span class="pre">UGRD</span></code> and <code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">mb</span></code> which are then used with the remote Grib index file to
+fetch the correct data.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">gfs_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">GFSLexicon</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>
+                    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> not found in GFS lexicon, good luck&quot;</span>
+                        <span class="p">)</span>
+                        <span class="n">gfs_name</span> <span class="o">=</span> <span class="n">v</span>
+
+                        <span class="k">def</span><span class="w"> </span><span class="nf">modifier</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+<span class="w">                            </span><span class="sd">&quot;&quot;&quot;Modify data (if necessary).&quot;&quot;&quot;</span>
+                            <span class="k">return</span> <span class="n">x</span>
+
+                    <span class="n">byte_offset</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">byte_length</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">index_file</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="k">if</span> <span class="n">gfs_name</span> <span class="ow">in</span> <span class="n">key</span><span class="p">:</span>
+                            <span class="n">byte_offset</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                            <span class="n">byte_length</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                            <span class="k">break</span>
+
+                    <span class="k">if</span> <span class="n">byte_length</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">byte_offset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Variable </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> not found in index file for time </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">lt</span><span class="si">}</span><span class="s2">, values will be unset&quot;</span>
+                        <span class="p">)</span>
+                        <span class="k">continue</span>
+</pre></div>
+</div>
+<p>It is a common pattern for data source lexicons to contain a modifier function that is
+used to apply adjustments to align data more uniformly with the package.
+A good example of this is the GFS dataset which uses the modifier function to transform
+GFS-supplied geo-potential height to geopotential to better align with other
+sources inside Earth2Studio.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_item</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get item from GFS vocabulary.&quot;&quot;&quot;</span>
+        <span class="n">gfs_key</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">VOCAB</span><span class="p">[</span><span class="n">val</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">gfs_key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;HGT&quot;</span><span class="p">:</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">mod</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Modify data value (if necessary).&quot;&quot;&quot;</span>
+                <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="mf">9.81</span>
+
+        <span class="k">elif</span> <span class="n">gfs_key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;APCP&quot;</span><span class="p">:</span>
+
+            <span class="c1"># TP in GFS is (kg m-2) param id 228228, convert to (m) param id 228</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">mod</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+                <span class="c1"># Assume density of water is 1000 kg m-3</span>
+                <span class="c1"># x (kg m-2) / 1000 (kg m-3) = (m)</span>
+                <span class="k">return</span> <span class="n">x</span> <span class="o">/</span> <span class="mf">1000.0</span>
+
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">mod</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Modify data value (if necessary).&quot;&quot;&quot;</span>
+                <span class="k">return</span> <span class="n">x</span>
+
+        <span class="k">return</span> <span class="n">gfs_key</span><span class="p">,</span> <span class="n">mod</span>
+
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The lexicon does not necessarily contain every variable inside the remote data store.
+Rather it explicitly lists what is available inside Earth2Studio. Observe a missing
+variable you would like to add? Open an issue!</p>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="auto.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">AutoModels</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../developer/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Developer Guide</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#altitude-and-pressure-levels">Altitude and Pressure Levels</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#datasource-lexicon">Datasource Lexicon</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+<div class="footer-links">
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-policy/">Privacy Policy</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-center/">Your Privacy Choices</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/terms-of-service/">Terms of Service</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/accessibility/">Accessibility</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/company-policies/">Corporate Policies</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/product-security/">Product Security</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/contact/">Contact</a>
+  
+  
+  
+</div>
+</div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2026, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

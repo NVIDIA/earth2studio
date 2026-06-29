@@ -1,0 +1,16 @@
+﻿prep_data_array
+=====================================================
+
+.. currentmodule:: earth2studio.data
+
+.. autofunction:: prep_data_array
+
+.. _sphx_glr_backref_earth2studio.data.prep_data_array:
+
+.. minigallery:: earth2studio.data.prep_data_array
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

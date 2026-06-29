@@ -1,0 +1,1332 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>Running the DLESyM ISCCP-ERA5 Model &#8212; Earth2Studio</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=933278ad" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx_badges.css?v=4a657082" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=bba532a7" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+
+
+    <script src="../../_static/documentation_options.js?v=205df16a"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/badge-data.js?v=14be73a5"></script>
+    <script src="../../_static/badge-filter.js?v=bda7ac9e"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/06_seasonal/03_dlesym_climate';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.16.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+
+    <link rel="icon" href="../../_static/favicon.png"/>
+
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Miscellaneous" href="../07_misc/index.html" />
+    <link rel="prev" title="Running DLESyM Inference" href="02_dlesym_example.html" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.16" />
+
+
+  </head>
+
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="Earth2Studio - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="Earth2Studio - Home"/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+
+
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+      <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="Earth2Studio - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="Earth2Studio - Home"/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../userguide/index.html">User Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/about/index.html">Getting Started</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/about/install.html">Install</a></li>
+
+
+
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/about/intro.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/about/data.html">Data Movement</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/components/index.html">Core Components</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/prognostic.html">Prognostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/datasources.html">Data and Forecast Sources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/perturbation.html">Perturbations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/io.html">Output Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/statistics.html">Statistics and Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/checkpointing.html">Checkpointing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/batch.html">Batch Dimension</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/auto.html">AutoModels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/lexicon.html">Lexicon</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/developer/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/overview.html">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/dependency.html">Dependency Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/style.html">Style Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/documentation.html">Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/testing.html">Testing Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/build.html">Build Process</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/recipes.html">Recipe Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/skills.html">AI Agent Skills</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/support/index.html">Support</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/support/troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/support/faq.html">Frequently Asked Questions</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules/index.html">API</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_px.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>: Prognostics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.ACE2ERA5.html">ACE2ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFS.html">AIFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFS2.html">AIFS2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFS2ENS.html">AIFS2ENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFSENS.html">AIFSENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Atlas.html">Atlas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Aurora.html">Aurora</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.CBottleVideo.html">CBottleVideo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DiagnosticWrapper.html">DiagnosticWrapper</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyM.html">DLESyM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyMLatLon.html">DLESyMLatLon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyMv0_ISCCP_ERA5.html">DLESyMv0_ISCCP_ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon.html">DLESyMv0_ISCCP_ERA5LatLon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLWP.html">DLWP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FCN.html">FCN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FCN3.html">FCN3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FengWu.html">FengWu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FuXi.html">FuXi</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GenCastMini.html">GenCastMini</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastOperational.html">GraphCastOperational</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastSmall.html">GraphCastSmall</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.InterpModAFNO.html">InterpModAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu24.html">Pangu24</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu6.html">Pangu6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu3.html">Pangu3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Persistence.html">Persistence</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.SFNO.html">SFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormCast.html">StormCast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormScopeGOES.html">StormScopeGOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormScopeMRMS.html">StormScopeMRMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.UCast.html">UCast</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_dx.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>: Diagnostics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleInfill.html">CBottleInfill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleSR.html">CBottleSR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleTCGuidance.html">CBottleTCGuidance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html">CorrDiffCMIP6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html">CorrDiffTaiwan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.ClimateNet.html">ClimateNet</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedRH.html">DerivedRH</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint.html">DerivedRHDewpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedSurfacePressure.html">DerivedSurfacePressure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedTCWV.html">DerivedTCWV</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedVPD.html">DerivedVPD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedWS.html">DerivedWS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.html">DLESyMv0_ISCCP_ERA5Precip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.OrbitGlobalPrecip.html">OrbitGlobalPrecip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html">PrecipitationAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html">PrecipitationAFNOv2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO1H.html">SolarRadiationAFNO1H</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO6H.html">SolarRadiationAFNO6H</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.TCTrackerWuDuan.html">TCTrackerWuDuan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.TCTrackerVitart.html">TCTrackerVitart</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.WindgustAFNO.html">WindgustAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.Identity.html">Identity</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_da.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.da</span></code>: Data Assimilation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.HealDA.html">HealDA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.InterpEquirectangular.html">InterpEquirectangular</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.StormCastSDA.html">StormCastSDA</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_analysis.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.ARCO.html">ARCO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CDS.html">CDS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CMIP6.html">CMIP6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CMIP6MultiRealm.html">CMIP6MultiRealm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS.html">GFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GOES.html">GOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HimawariAHI.html">HimawariAHI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HRRR.html">HRRR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS.html">IFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_ENS.html">IFS_ENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS.html">JPSS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MRMS.html">MRMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MeteosatFCI.html">MeteosatFCI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NClimGridDaily.html">NClimGridDaily</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NCAR_ERA5.html">NCAR_ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.OPERA.html">OPERA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerECMWFOpenDataIFS.html">PlanetaryComputerECMWFOpenDataIFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerGOES.html">PlanetaryComputerGOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerMODISFire.html">PlanetaryComputerMODISFire</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerOISST.html">PlanetaryComputerOISST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerSentinel3AOD.html">PlanetaryComputerSentinel3AOD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.Random.html">Random</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5.html">WB2ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5_121x240.html">WB2ERA5_121x240</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5_32x64.html">WB2ERA5_32x64</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2Climatology.html">WB2Climatology</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataArrayFile.html">DataArrayFile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataSetFile.html">DataSetFile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataArrayPathList.html">DataArrayPathList</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CBottle3D.html">CBottle3D</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_forecast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Forecast Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_FX.html">AIFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CAMS_FX.html">CAMS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_ENS_FX.html">AIFS_ENS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CFS_FX.html">CFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CFS_FX_Flux.html">CFS_FX_Flux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CFS_Reforecast_FX.html">CFS_Reforecast_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CFS_Reforecast_FX_Flux.html">CFS_Reforecast_FX_Flux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS_FX.html">GFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GEFS_FX.html">GEFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GEFS_FX_721x1440.html">GEFS_FX_721x1440</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HRRR_FX.html">HRRR_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_FX.html">IFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_ENS_FX.html">IFS_ENS_FX</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_dataframe.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GHCNDaily.html">GHCNDaily</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GOESGLM.html">GOESGLM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IBTrACS.html">IBTrACS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.ISD.html">ISD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS_ATMS.html">JPSS_ATMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS_CRIS.html">JPSS_CRIS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpAMSUA.html">MetOpAMSUA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpAVHRR.html">MetOpAVHRR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpIASI.html">MetOpIASI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MetOpMHS.html">MetOpMHS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NNJAObsConv.html">NNJAObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NomadsGDASObsConv.html">NomadsGDASObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.RandomDataFrame.html">RandomDataFrame</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsConv.html">UFSObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsSat.html">UFSObsSat</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.AsyncZarrBackend.html">AsyncZarrBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.KVBackend.html">KVBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.NetCDF4Backend.html">NetCDF4Backend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.XarrayBackend.html">XarrayBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.ZarrBackend.html">ZarrBackend</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/perturbation.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>: Perturbations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Brown.html">Brown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.BredVector.html">BredVector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.CorrelatedSphericalGaussian.html">CorrelatedSphericalGaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Gaussian.html">Gaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.HemisphericCentredBredVector.html">HemisphericCentredBredVector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.LaggedEnsemble.html">LaggedEnsemble</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.SphericalGaussian.html">SphericalGaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Zero.html">Zero</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.acc.html">acc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.brier.html">brier</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.crps.html">crps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.energy_score.html">energy_score</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.fss.html">fss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.lsd.html">lsd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.mae.html">mae</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.mean.html">mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.rank_histogram.html">rank_histogram</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.rmse.html">rmse</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.spread_skill_ratio.html">spread_skill_ratio</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.std.html">std</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.variance.html">variance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.weights.lat_weight.html">lat_weight</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.deterministic.html">deterministic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.diagnostic.html">diagnostic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.ensemble.html">ensemble</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/utils_all.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio</span></code>: Utilities</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_dim.html">handshake_dim</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_coords.html">handshake_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_size.html">handshake_size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.map_coords.html">map_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.split_coords.html">split_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.to_time_array.html">to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.Checkpoint.html">Checkpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.CheckpointSession.html">CheckpointSession</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.CheckpointState.html">CheckpointState</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.NullCheckpoint.html">NullCheckpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.checkpoint.bind_checkpoint_state.html">bind_checkpoint_state</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.datasource_to_file.html">datasource_to_file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.fetch_data.html">fetch_data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.prep_data_array.html">prep_data_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/earth2studio.models.auto.Package.html">Package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/earth2studio.models.batch.batch_func.html">batch_func</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">Examples</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../01_getting_started/index.html">Getting Started</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/04_checkpoint_restart.html">Checkpointing a Deterministic Forecast</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../02_medium_range/index.html">Medium Range</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../02_medium_range/01_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../02_medium_range/02_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../02_medium_range/03_huge_ensembles.html">Huge Ensembles (HENS) Checkpoints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../02_medium_range/04_temporal_interpolation.html">Temporal Interpolation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../02_medium_range/05_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../02_medium_range/06_atlas_inference.html">Running Atlas Inference</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../03_downscaling/index.html">Downscaling</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../03_downscaling/01_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../03_downscaling/02_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../03_downscaling/03_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../04_nowcasting/index.html">Nowcasting</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../04_nowcasting/01_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04_nowcasting/02_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04_nowcasting/03_stormscope_goes_example.html">StormScope Satellite and Radar Nowcasting</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../05_data_assimilation/index.html">Data Assimilation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../05_data_assimilation/01_stormcast_sda.html">StormCast Score-Based Data Assimilation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../05_data_assimilation/02_healda.html">HealDA Global Data Assimilation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Subseasonal to Seasonal</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="01_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="02_dlesym_example.html">Running DLESyM Inference</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">Running the DLESyM ISCCP-ERA5 Model</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../07_misc/index.html">Miscellaneous</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/01_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/02_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/03_io_performance.html">IO Backend Performance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/04_local_datasource.html">Creating a Local Data Source</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/05_cbottle_tc_guidance.html">CBottle Tropical Cyclone Guidance</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../08_extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../08_extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../08_extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../08_extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Examples</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Subseasonal to Seasonal</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Running the DLESyM ISCCP-ERA5 Model</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-examples-06-seasonal-03-dlesym-climate-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="running-the-dlesym-isccp-era5-model">
+<span id="sphx-glr-examples-06-seasonal-03-dlesym-climate-py"></span><h1>Running the DLESyM ISCCP-ERA5 Model<a class="headerlink" href="#running-the-dlesym-isccp-era5-model" title="Link to this heading">#</a></h1>
+<p>Coupled inference with the upstream DLESyM checkpoints, including precipitation.</p>
+<p>This example demonstrates the upstream DLESyM model distributed by the
+<a class="reference external" href="https://github.com/AtmosSci-DLESM/DLESyM">AtmosSci-DLESM/DLESyM</a> group
+(the University of Washington team behind Cresswell-Clay et al. 2024). It shares
+the coupled atmosphere/ocean HEALPix architecture of the base
+<a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyM.html#earth2studio.models.px.DLESyM" title="earth2studio.models.px.DLESyM"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.DLESyM</span></code></a> model, but differs in a few ways that
+are worth highlighting:</p>
+<ul class="simple">
+<li><p>The atmosphere carries an outgoing longwave radiation (OLR) channel. The model
+was trained on ISCCP-distributed OLR, so the wrapper accepts ERA5 <code class="docutils literal notranslate"><span class="pre">ttr</span></code> and
+applies a per-day-of-year moment-matching transform to convert it to OLR
+internally (controlled by the <code class="docutils literal notranslate"><span class="pre">use_ttr</span></code> flag).</p></li>
+<li><p>A separate <a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.html#earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip" title="earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip</span></code></a>
+diagnostic predicts 6-hourly accumulated precipitation (<code class="docutils literal notranslate"><span class="pre">tp06</span></code>) from the
+full coupled state.</p></li>
+</ul>
+<p>In this example you will learn:</p>
+<ul class="simple">
+<li><p>How to instantiate the upstream prognostic and precipitation models</p></li>
+<li><p>How the <code class="docutils literal notranslate"><span class="pre">ttr</span></code> -&gt; OLR transform shows up in the input/output variable sets</p></li>
+<li><p>How to run a coupled forecast with the lat/lon convenience wrapper</p></li>
+<li><p>How to chain the precipitation diagnostic off the prognostic output</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># /// script</span>
+<span class="c1"># dependencies = [</span>
+<span class="c1">#   &quot;earth2studio[dlesym] @ git+https://github.com/NVIDIA/earth2studio.git@0.16.0&quot;,</span>
+<span class="c1">#   &quot;cartopy&quot;,</span>
+<span class="c1"># ]</span>
+<span class="c1"># ///</span>
+</pre></div>
+</div>
+<section id="set-up">
+<h2>Set Up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
+<p>As with the base DLESyM model, the upstream checkpoints run on a HEALPix
+<code class="docutils literal notranslate"><span class="pre">nside=64</span></code> grid internally and there are two ways to drive them:</p>
+<ul class="simple">
+<li><p>Use <a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon.html#earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon" title="earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon</span></code></a>. This
+variant accepts ERA5 inputs on the lat/lon grid, regrids them to HEALPix
+internally, and returns lat/lon outputs. This is the recommended entry point
+and is what we use throughout this example.</p></li>
+<li><p>Use <a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyMv0_ISCCP_ERA5.html#earth2studio.models.px.DLESyMv0_ISCCP_ERA5" title="earth2studio.models.px.DLESyMv0_ISCCP_ERA5"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.DLESyMv0_ISCCP_ERA5</span></code></a> directly with
+HEALPix inputs, handling the regridding and derived-variable preparation
+yourself (see the base DLESyM example for that lower-level pattern).</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCO</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">fetch_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.dx</span><span class="w"> </span><span class="kn">import</span> <span class="n">DLESyMv0_ISCCP_ERA5Precip</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">DLESyMv0_ISCCP_ERA5LatLon</span>
+
+<span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;GPU/CUDA required for DLESyM&quot;</span><span class="p">)</span>
+
+<span class="c1"># Create the data source</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">ARCO</span><span class="p">()</span>
+
+<span class="c1"># Load the coupled prognostic (lat/lon variant) and the precip diagnostic.</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">DLESyMv0_ISCCP_ERA5LatLon</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">DLESyMv0_ISCCP_ERA5LatLon</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+<span class="c1"># The prognostic output is already in OLR space, so we load the precip</span>
+<span class="c1"># diagnostic with ``use_ttr=False`` -- no further TTR -&gt; OLR transform is needed</span>
+<span class="c1"># when chaining off the model&#39;s own output. (Pass ``use_ttr=True`` to run the</span>
+<span class="c1"># diagnostic standalone from an ERA5 initial condition instead.)</span>
+<span class="n">precip</span> <span class="o">=</span> <span class="n">DLESyMv0_ISCCP_ERA5Precip</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">use_ttr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading config.yaml: 0%|          | 0.00/2.42k [00:00&lt;?, ?B/s]
+Downloading config.yaml: 100%|██████████| 2.42k/2.42k [00:00&lt;00:00, 11.9kB/s]
+Downloading config.yaml: 100%|██████████| 2.42k/2.42k [00:00&lt;00:00, 11.9kB/s]
+
+Downloading atmos_model_0.mdlus: 0%|          | 0.00/13.4M [00:00&lt;?, ?B/s]
+Downloading atmos_model_0.mdlus: 74%|███████▍  | 10.0M/13.4M [00:00&lt;00:00, 12.7MB/s]
+Downloading atmos_model_0.mdlus: 100%|██████████| 13.4M/13.4M [00:00&lt;00:00, 16.5MB/s]
+
+Downloading ocean_model_0.mdlus: 0%|          | 0.00/2.97M [00:00&lt;?, ?B/s]
+Downloading ocean_model_0.mdlus: 100%|██████████| 2.97M/2.97M [00:00&lt;00:00, 6.26MB/s]
+Downloading ocean_model_0.mdlus: 100%|██████████| 2.97M/2.97M [00:00&lt;00:00, 6.24MB/s]
+
+Downloading hpx_lat.npy: 0%|          | 0.00/384k [00:00&lt;?, ?B/s]
+Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 963kB/s]
+Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 960kB/s]
+
+Downloading hpx_lon.npy: 0%|          | 0.00/384k [00:00&lt;?, ?B/s]
+Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 871kB/s]
+Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 869kB/s]
+
+Downloading land_sea_mask.npy: 0%|          | 0.00/192k [00:00&lt;?, ?B/s]
+Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 577kB/s]
+Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 575kB/s]
+
+Downloading topography.npy: 0%|          | 0.00/192k [00:00&lt;?, ?B/s]
+Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 604kB/s]
+Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 601kB/s]
+
+Downloading era5_ttr_doy_stats_hpx64.nc: 0%|          | 0.00/137M [00:00&lt;?, ?B/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 7%|▋         | 10.0M/137M [00:00&lt;00:10, 12.2MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 15%|█▍        | 20.0M/137M [00:00&lt;00:04, 24.7MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 22%|██▏       | 30.0M/137M [00:01&lt;00:03, 36.7MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 29%|██▉       | 40.0M/137M [00:01&lt;00:03, 32.0MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 36%|███▋      | 50.0M/137M [00:01&lt;00:02, 40.1MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 44%|████▎     | 60.0M/137M [00:01&lt;00:01, 49.1MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 51%|█████     | 70.0M/137M [00:02&lt;00:01, 37.7MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 58%|█████▊    | 80.0M/137M [00:02&lt;00:01, 46.0MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 66%|██████▌   | 90.0M/137M [00:02&lt;00:00, 54.0MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 73%|███████▎  | 100M/137M [00:02&lt;00:00, 61.1MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 80%|████████  | 110M/137M [00:02&lt;00:00, 61.3MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 87%|████████▋ | 120M/137M [00:02&lt;00:00, 67.3MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 95%|█████████▍| 130M/137M [00:02&lt;00:00, 72.3MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 100%|██████████| 137M/137M [00:03&lt;00:00, 47.6MB/s]
+
+Downloading isccp_olr_doy_stats_hpx64.nc: 0%|          | 0.00/137M [00:00&lt;?, ?B/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 7%|▋         | 10.0M/137M [00:00&lt;00:11, 11.3MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 15%|█▍        | 20.0M/137M [00:01&lt;00:05, 23.2MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 22%|██▏       | 30.0M/137M [00:01&lt;00:03, 35.0MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 29%|██▉       | 40.0M/137M [00:01&lt;00:02, 45.9MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 36%|███▋      | 50.0M/137M [00:01&lt;00:01, 55.6MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 44%|████▎     | 60.0M/137M [00:01&lt;00:01, 63.6MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 51%|█████     | 70.0M/137M [00:01&lt;00:01, 60.4MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 58%|█████▊    | 80.0M/137M [00:01&lt;00:00, 67.2MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 66%|██████▌   | 90.0M/137M [00:01&lt;00:00, 72.7MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 73%|███████▎  | 100M/137M [00:02&lt;00:00, 76.9MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 80%|████████  | 110M/137M [00:02&lt;00:00, 80.1MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 87%|████████▋ | 120M/137M [00:02&lt;00:00, 82.0MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 95%|█████████▍| 130M/137M [00:02&lt;00:00, 84.5MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 100%|██████████| 137M/137M [00:02&lt;00:00, 57.2MB/s]
+
+Downloading precip_model_0.mdlus: 0%|          | 0.00/5.45M [00:00&lt;?, ?B/s]
+Downloading precip_model_0.mdlus: 100%|██████████| 5.45M/5.45M [00:00&lt;00:00, 13.8MB/s]
+Downloading precip_model_0.mdlus: 100%|██████████| 5.45M/5.45M [00:00&lt;00:00, 13.7MB/s]
+</pre></div>
+</div>
+</section>
+<section id="inspecting-the-variable-sets">
+<h2>Inspecting the Variable Sets<a class="headerlink" href="#inspecting-the-variable-sets" title="Link to this heading">#</a></h2>
+<p>Note that <code class="docutils literal notranslate"><span class="pre">ttr</span></code> appears in the prognostic input variables (the wrapper
+converts it to OLR internally), while the output variables report <code class="docutils literal notranslate"><span class="pre">rlut</span></code>
+(OLR) – the model variable space. The precip diagnostic consumes the full
+10-variable coupled state and emits a single <code class="docutils literal notranslate"><span class="pre">tp06</span></code> field.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">in_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+<span class="n">out_coords_vars</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">in_coords</span><span class="p">)[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Prognostic input variables: &quot;</span><span class="p">,</span> <span class="n">in_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Prognostic output variables:&quot;</span><span class="p">,</span> <span class="n">out_coords_vars</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Precip input variables:     &quot;</span><span class="p">,</span> <span class="n">precip</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Prognostic input variables:  [&#39;z500&#39; &#39;z1000&#39; &#39;t2m&#39; &#39;tcwv&#39; &#39;t850&#39; &#39;z250&#39; &#39;ttr&#39; &#39;sst&#39; &#39;u10m&#39; &#39;v10m&#39;
+ &#39;z300&#39; &#39;z700&#39;]
+Prognostic output variables: [&#39;z500&#39; &#39;tau300-700&#39; &#39;z1000&#39; &#39;t2m&#39; &#39;tcwv&#39; &#39;t850&#39; &#39;z250&#39; &#39;ws10m&#39; &#39;rlut&#39;
+ &#39;sst&#39;]
+Precip input variables:      [&#39;z500&#39; &#39;tau300-700&#39; &#39;z1000&#39; &#39;t2m&#39; &#39;tcwv&#39; &#39;t850&#39; &#39;z250&#39; &#39;rlut&#39; &#39;ws10m&#39;
+ &#39;sst&#39;]
+</pre></div>
+</div>
+</section>
+<section id="making-a-coupled-prediction">
+<h2>Making a Coupled Prediction<a class="headerlink" href="#making-a-coupled-prediction" title="Link to this heading">#</a></h2>
+<p>We fetch an ERA5 initial condition on the lat/lon grid and run the model
+directly. As with the base DLESyM model, the atmosphere is predicted every
+6 hours while the ocean only advances every 48 hours, so we use the
+<code class="docutils literal notranslate"><span class="pre">retrieve_valid_*</span></code> helpers to select the valid lead times for each component.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">ic_date</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">&quot;2021-06-15&quot;</span><span class="p">)</span>
+
+<span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+    <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+    <span class="n">time</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ic_date</span><span class="p">]),</span>
+    <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">in_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]),</span>
+    <span class="n">lead_time</span><span class="o">=</span><span class="n">in_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Run a single coupled step (lat/lon in, lat/lon out)</span>
+<span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+
+<span class="n">y_atmos</span><span class="p">,</span> <span class="n">y_atmos_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">retrieve_valid_atmos_outputs</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">)</span>
+<span class="n">y_ocean</span><span class="p">,</span> <span class="n">y_ocean_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">retrieve_valid_ocean_outputs</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span>
+    <span class="s2">&quot;Atmosphere outputs (variables, lead_time [hrs]):&quot;</span><span class="p">,</span>
+    <span class="n">y_atmos_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+    <span class="n">y_atmos_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span>
+    <span class="s2">&quot;Ocean outputs (variables, lead_time [hrs]):&quot;</span><span class="p">,</span>
+    <span class="n">y_ocean_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+    <span class="n">y_ocean_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-06-29 18:02:29.282 | DEBUG    | earth2studio.data.arco:_async_init:128 - Using Multi-Storage Client for ARCO data access
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+
+2026-06-29 18:02:30.088 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/top_net_thermal_radiation/1064592.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  12%|█▎        | 1/8 [00:00&lt;00:00,  7.79it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 22.25it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 12.67it/s]
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+
+2026-06-29 18:02:30.721 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/top_net_thermal_radiation/1064598.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 22.99it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 18.74it/s]
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  12%|█▎        | 1/8 [00:00&lt;00:00,  9.25it/s]
+
+2026-06-29 18:02:31.157 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/top_net_thermal_radiation/1064604.0.0 to local cache
+
+Fetching ARCO data:  12%|█▎        | 1/8 [00:00&lt;00:00,  9.25it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 21.97it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 10.98it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 12.20it/s]
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+
+2026-06-29 18:02:31.788 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/top_net_thermal_radiation/1064610.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  38%|███▊      | 3/8 [00:00&lt;00:00, 29.99it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 19.41it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 14.10it/s]
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+
+2026-06-29 18:02:32.395 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/top_net_thermal_radiation/1064616.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 21.83it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 12.55it/s]
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+
+2026-06-29 18:02:33.087 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/top_net_thermal_radiation/1064622.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 23.47it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 16.03it/s]
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+
+2026-06-29 18:02:33.534 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/top_net_thermal_radiation/1064628.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 20.73it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 16.82it/s]
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+
+2026-06-29 18:02:34.019 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/top_net_thermal_radiation/1064634.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 22.92it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 12.39it/s]
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+
+2026-06-29 18:02:34.719 | DEBUG    | earth2studio.data.utils:_make_local_details:1070 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/top_net_thermal_radiation/1064640.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 23.39it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 15.63it/s]
+Atmosphere outputs (variables, lead_time [hrs]): [&#39;z500&#39; &#39;tau300-700&#39; &#39;z1000&#39; &#39;t2m&#39; &#39;tcwv&#39; &#39;t850&#39; &#39;z250&#39; &#39;ws10m&#39; &#39;rlut&#39;] [ 6 12 18 24 30 36 42 48 54 60 66 72 78 84 90 96]
+Ocean outputs (variables, lead_time [hrs]): [&#39;sst&#39;] [48 96]
+</pre></div>
+</div>
+</section>
+<section id="rolling-out-to-a-16-day-forecast">
+<h2>Rolling Out to a 16-Day Forecast<a class="headerlink" href="#rolling-out-to-a-16-day-forecast" title="Link to this heading">#</a></h2>
+<p>A single coupled step advances 96 hours (4 days), so to reach a 16-day lead
+time we roll the iterator forward four steps. The iterator yields the initial
+condition first, then one coupled step per iteration; we keep the final step
+and re-select the valid atmosphere/ocean outputs from it.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">forecast_days</span> <span class="o">=</span> <span class="mi">16</span>
+<span class="n">hours_per_step</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">atmos_output_times</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">))</span>  <span class="c1"># 96h</span>
+<span class="n">n_steps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">forecast_days</span> <span class="o">*</span> <span class="mi">24</span> <span class="o">/</span> <span class="n">hours_per_step</span><span class="p">))</span>
+
+<span class="n">model_iter</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+<span class="nb">next</span><span class="p">(</span><span class="n">model_iter</span><span class="p">)</span>  <span class="c1"># initial condition</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
+    <span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">model_iter</span><span class="p">)</span>
+
+<span class="n">y_atmos</span><span class="p">,</span> <span class="n">y_atmos_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">retrieve_valid_atmos_outputs</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">)</span>
+<span class="n">y_ocean</span><span class="p">,</span> <span class="n">y_ocean_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">retrieve_valid_ocean_outputs</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span>
+    <span class="s2">&quot;Final forecast lead time:&quot;</span><span class="p">,</span>
+    <span class="n">y_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Final forecast lead time: 384 hours
+</pre></div>
+</div>
+</section>
+<section id="diagnosing-precipitation">
+<h2>Diagnosing Precipitation<a class="headerlink" href="#diagnosing-precipitation" title="Link to this heading">#</a></h2>
+<p>The precip diagnostic predicts 6-hourly accumulated precipitation from two
+consecutive 6-hourly atmosphere timesteps of the full coupled state. The
+16-day prognostic output <code class="docutils literal notranslate"><span class="pre">y</span></code> already contains exactly the 10 coupled
+variables the diagnostic expects (in OLR / <code class="docutils literal notranslate"><span class="pre">rlut</span></code> space), so we take its
+last two atmosphere lead times as the <code class="docutils literal notranslate"><span class="pre">[-6,</span> <span class="pre">0]</span></code> history window and regrid
+them onto the HEALPix grid using the prognostic’s regridding helpers.</p>
+<p>The prognostic output carries the coupled variables in the prognostic’s
+channel order, which differs from the order the precip diagnostic expects
+(e.g. <code class="docutils literal notranslate"><span class="pre">ws10m</span></code> and <code class="docutils literal notranslate"><span class="pre">rlut</span></code> are swapped). Reorder the variable axis to match
+the diagnostic’s input variables before feeding it.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">precip_vars</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">precip</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+<span class="n">y_vars</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">y_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+<span class="n">var_order</span> <span class="o">=</span> <span class="p">[</span><span class="n">y_vars</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">precip_vars</span><span class="p">]</span>
+
+<span class="c1"># Last two atmosphere lead times form the [-6h, 0h] window relative to the</span>
+<span class="c1"># diagnosed valid time; relative spacing is what the diagnostic validates.</span>
+<span class="n">precip_in</span> <span class="o">=</span> <span class="n">y</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">2</span><span class="p">:][:,</span> <span class="p">:,</span> <span class="n">var_order</span><span class="p">]</span>
+<span class="n">precip_coords</span> <span class="o">=</span> <span class="n">y_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">precip_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span>
+<span class="n">precip_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">precip_vars</span><span class="p">)</span>
+
+<span class="c1"># Regrid the coupled state onto HEALPix using the prognostic&#39;s regridder</span>
+<span class="n">precip_in_hpx</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to_hpx</span><span class="p">(</span><span class="n">precip_in</span><span class="p">)</span>
+<span class="n">precip_coords_hpx</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">coords_to_hpx</span><span class="p">(</span><span class="n">precip_coords</span><span class="p">)</span>
+
+<span class="n">tp</span><span class="p">,</span> <span class="n">tp_coords</span> <span class="o">=</span> <span class="n">precip</span><span class="p">(</span><span class="n">precip_in_hpx</span><span class="p">,</span> <span class="n">precip_coords_hpx</span><span class="p">)</span>
+
+<span class="c1"># Regrid the precip output back to lat/lon for plotting</span>
+<span class="n">tp_ll</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to_ll</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span>
+    <span class="s2">&quot;Precip output (variable, valid lead_time [hrs]):&quot;</span><span class="p">,</span>
+    <span class="n">tp_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+    <span class="n">tp_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Precip output (variable, valid lead_time [hrs]): [&#39;tp06&#39;] [384]
+</pre></div>
+</div>
+</section>
+<section id="plotting-the-outputs">
+<h2>Plotting the Outputs<a class="headerlink" href="#plotting-the-outputs" title="Link to this heading">#</a></h2>
+<p>We plot a forecasted atmosphere field, the ocean SST, and the diagnosed
+precipitation.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.feature</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cfeature</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.colors</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogNorm</span>
+
+<span class="n">lat</span> <span class="o">=</span> <span class="n">y_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span>
+<span class="n">lon</span> <span class="o">=</span> <span class="n">y_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span>
+<span class="n">atmos_var</span><span class="p">,</span> <span class="n">atmos_units</span> <span class="o">=</span> <span class="s2">&quot;ws10m&quot;</span><span class="p">,</span> <span class="s2">&quot;m/s&quot;</span>
+<span class="n">ocean_var</span><span class="p">,</span> <span class="n">ocean_units</span> <span class="o">=</span> <span class="s2">&quot;sst&quot;</span><span class="p">,</span> <span class="s2">&quot;K&quot;</span>
+<span class="n">atmos_idx</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">y_atmos_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">atmos_var</span><span class="p">)</span>
+<span class="n">ocean_idx</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">y_ocean_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">ocean_var</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<span class="n">projection</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">Robinson</span><span class="p">()</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axs</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">projection</span><span class="p">},</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+
+<span class="c1"># Atmosphere: 10m wind speed at the final atmos lead time</span>
+<span class="n">atmos_lead</span> <span class="o">=</span> <span class="n">y_atmos_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">im</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+    <span class="n">lon</span><span class="p">,</span>
+    <span class="n">lat</span><span class="p">,</span>
+    <span class="n">y_atmos</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">atmos_idx</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>
+    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;cividis&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">atmos_var</span><span class="si">}</span><span class="s2"> @ </span><span class="si">{</span><span class="n">atmos_lead</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;timedelta64[h]&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">gridlines</span><span class="p">()</span>
+<span class="n">cbar</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;horizontal&quot;</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+<span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">atmos_var</span><span class="si">}</span><span class="s2"> [</span><span class="si">{</span><span class="n">atmos_units</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+
+<span class="c1"># Ocean: SST at the final ocean lead time</span>
+<span class="n">ocean_lead</span> <span class="o">=</span> <span class="n">y_ocean_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">im</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+    <span class="n">lon</span><span class="p">,</span>
+    <span class="n">lat</span><span class="p">,</span>
+    <span class="n">y_ocean</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">ocean_idx</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>
+    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;Spectral_r&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ocean_var</span><span class="si">}</span><span class="s2"> @ </span><span class="si">{</span><span class="n">ocean_lead</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;timedelta64[h]&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span><span class="n">cfeature</span><span class="o">.</span><span class="n">LAND</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;grey&quot;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">gridlines</span><span class="p">()</span>
+<span class="n">cbar</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;horizontal&quot;</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+<span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ocean_var</span><span class="si">}</span><span class="s2"> [</span><span class="si">{</span><span class="n">ocean_units</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+
+<span class="c1"># Precip: 6-hourly accumulated precipitation on a log color scale. We pin the</span>
+<span class="c1"># color range to a fixed physical window (0.1 mm .. 50 mm per 6 h) rather than</span>
+<span class="c1"># auto-scaling: the log-precip inverse transform can produce a handful of</span>
+<span class="c1"># grid-scale outliers, and an auto-scaled norm would chase those and wash out</span>
+<span class="c1"># the real field. Values are clipped into the window for display only.</span>
+<span class="n">precip_lead</span> <span class="o">=</span> <span class="n">tp_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">precip_field</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">tp_ll</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span> <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span> <span class="mf">5e-2</span>  <span class="c1"># metres of accumulated precip over 6 h</span>
+<span class="n">im</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+    <span class="n">lon</span><span class="p">,</span>
+    <span class="n">lat</span><span class="p">,</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">precip_field</span><span class="p">,</span> <span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="p">),</span>
+    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;GnBu&quot;</span><span class="p">,</span>
+    <span class="n">norm</span><span class="o">=</span><span class="n">LogNorm</span><span class="p">(</span><span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tp06 @ </span><span class="si">{</span><span class="n">precip_lead</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;timedelta64[h]&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">gridlines</span><span class="p">()</span>
+<span class="n">cbar</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axs</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;horizontal&quot;</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">extend</span><span class="o">=</span><span class="s2">&quot;both&quot;</span><span class="p">)</span>
+<span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="s2">&quot;tp06 [m] (log scale)&quot;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Upstream DLESyM forecast - Initialization: </span><span class="si">{</span><span class="n">ic_date</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/03_dlesym_climate_prediction.png&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../../_images/sphx_glr_03_dlesym_climate_001.png" srcset="../../_images/sphx_glr_03_dlesym_climate_001.png" alt="Upstream DLESyM forecast - Initialization: 2021-06-15, ws10m @ 384 hours, sst @ 384 hours, tp06 @ 384 hours" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (1 minutes 17.573 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-06-seasonal-03-dlesym-climate-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/b6606e717bbde21def9eda08ae73901f/03_dlesym_climate.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">03_dlesym_climate.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/df3306d66907768124b99f012766ee17/03_dlesym_climate.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">03_dlesym_climate.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/2fb4ae8735664d350ba244ec3fc3ad24/03_dlesym_climate.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">03_dlesym_climate.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="02_dlesym_example.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Running DLESyM Inference</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../07_misc/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Miscellaneous</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set Up</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#inspecting-the-variable-sets">Inspecting the Variable Sets</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#making-a-coupled-prediction">Making a Coupled Prediction</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rolling-out-to-a-16-day-forecast">Rolling Out to a 16-Day Forecast</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#diagnosing-precipitation">Diagnosing Precipitation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#plotting-the-outputs">Plotting the Outputs</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+<div class="footer-links">
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-policy/">Privacy Policy</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-center/">Your Privacy Choices</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/terms-of-service/">Terms of Service</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/accessibility/">Accessibility</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/company-policies/">Corporate Policies</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/product-security/">Product Security</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/contact/">Contact</a>
+  
+  
+  
+</div>
+</div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2026, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

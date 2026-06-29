@@ -1,0 +1,49 @@
+
+:orphan:
+
+.. _sphx_glr_examples_07_misc_sg_execution_times:
+
+
+Computation times
+=================
+**13:12.641** total execution time for 5 files **from examples/07_misc**:
+
+.. container::
+
+  .. raw:: html
+
+    <style scoped>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet" />
+    </style>
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script type="text/javascript" class="init">
+    $(document).ready( function () {
+        $('table.sg-datatable').DataTable({order: [[1, 'desc']]});
+    } );
+    </script>
+
+  .. list-table::
+   :header-rows: 1
+   :class: table table-striped sg-datatable
+
+   * - Example
+     - Time
+     - Mem (MB)
+   * - :ref:`sphx_glr_examples_07_misc_05_cbottle_tc_guidance.py` (``05_cbottle_tc_guidance.py``)
+     - 06:28.506
+     - 0.0
+   * - :ref:`sphx_glr_examples_07_misc_04_local_datasource.py` (``04_local_datasource.py``)
+     - 03:33.515
+     - 0.0
+   * - :ref:`sphx_glr_examples_07_misc_02_cbottle_generation.py` (``02_cbottle_generation.py``)
+     - 01:59.719
+     - 0.0
+   * - :ref:`sphx_glr_examples_07_misc_03_io_performance.py` (``03_io_performance.py``)
+     - 00:59.855
+     - 0.0
+   * - :ref:`sphx_glr_examples_07_misc_01_distributed_manager.py` (``01_distributed_manager.py``)
+     - 00:11.047
+     - 0.0
