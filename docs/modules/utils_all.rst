@@ -48,6 +48,31 @@ The following functions can be used to convert to and from these numpy arrays.
    utils.time.timearray_to_datetime
    utils.time.to_time_array
 
+.. _earth2studio.utils.checkpoint:
+
+:mod:`earth2studio.utils`: Checkpointing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Checkpoint utilities for restartable inference workflows. Checkpoints track
+workflow progress, restart rows, optional artifacts, and component state needed
+to resume long-running workflows while forecast fields remain in the selected
+IO backend.
+
+.. autosummary::
+   :toctree: generated/utils/
+   :template: class.rst
+
+   utils.checkpoint.Checkpoint
+   utils.checkpoint.CheckpointSession
+   utils.checkpoint.CheckpointState
+   utils.checkpoint.NullCheckpoint
+
+.. autosummary::
+   :toctree: generated/utils/
+   :template: function.rst
+
+   utils.checkpoint.bind_checkpoint_state
+
 .. _earth2studio.data.functions:
 
 :mod:`earth2studio.data`: Data

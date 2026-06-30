@@ -262,7 +262,7 @@ windgust-afno = [
 # DA Models
 da-healda = [
     "earth2grid",
-    "nvidia-physicsnemo>=2.0",
+    "nvidia-physicsnemo>=2.0,<=2.1.1",
     "cupy-cuda13x",
     "cudf-cu13>=26.2.0",
 ]
