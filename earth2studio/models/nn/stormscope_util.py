@@ -194,6 +194,25 @@ class EDMPrecond(torch.nn.Module):
         return torch.as_tensor(sigma)
 
 
+class MaskedModel(nn.Module):
+    """Wraps a denoiser to zero outputs at invalid pixels after every forward pass.
+
+    Drop-in replacement: preserves the ``round_sigma`` interface expected by
+    the EDM sampler so the base ``_edm_sampler`` works unchanged.
+    """
+
+    def __init__(self, model: nn.Module, mask: torch.Tensor):
+        super().__init__()
+        self.model = model
+        self.register_buffer("mask", mask)
+
+    def forward(self, *args, **kwargs) -> torch.Tensor:
+        return self.model(*args, **kwargs) * self.mask
+
+    def round_sigma(self, sigma: torch.Tensor) -> torch.Tensor:
+        return self.model.round_sigma(sigma)
+
+
 class DropInDiT(nn.Module):
     """
     Wrapper that exposes the old DiT API while delegating to PhysicsNeMo DiT.
