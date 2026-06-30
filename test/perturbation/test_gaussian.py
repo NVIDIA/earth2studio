@@ -77,7 +77,7 @@ def test_gaussian(x, coords, amplitude, device):
     assert dx.device == x.device
 
 
-def test_gaussian_checkpoint_state_round_trip(tmp_path):
+def test_gaussian_checkpoint(tmp_path):
     x = torch.zeros(2, 3)
     coords = OrderedDict([("batch", []), ("variable", [])])
 
