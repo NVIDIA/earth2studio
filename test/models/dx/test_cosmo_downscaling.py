@@ -24,6 +24,7 @@ args by hand, so a field can be silently dropped if one is missed.
 """
 
 import inspect
+import math
 import os
 import types
 import warnings
@@ -34,18 +35,16 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.models.dx.cosmo_downscaling import (
-    COSMO_OUTPUT_LEXICON,
-    CosmoDownscaling,
-)
+from earth2studio.lexicon import CosmoLexicon
+from earth2studio.models.dx.cosmo_downscaling import CosmoDownscaling
 
-# The real (un-mocked) DiT (diffusion transformer) builders need upstream
-# physicsnemo's natten2d_rope
-# (PR #1731). On an older physicsnemo this symbol is absent -> the structural
-# builder test below is skipped (the fast suite otherwise mocks the nets).
-# Temporary: #1731 isn't in a physicsnemo release yet. REMOVE this skip (run the
-# builder test unconditionally) once the physicsnemo pin is bumped to a release
-# containing #1731 (Phase 3).
+# The real (un-mocked) DiT (diffusion transformer) needs upstream physicsnemo's
+# natten2d_rope (PR #1731). On an older physicsnemo this symbol is absent -> the
+# real-weight package tests below are skipped (the fast suite otherwise mocks the
+# nets).
+# TODO(cosmo): #1731 isn't in a physicsnemo release yet. Remove this skip (run the
+# package tests unconditionally) once the physicsnemo pin is bumped to a release
+# containing #1731.
 try:
     from physicsnemo.nn.module.dit_layers import (  # noqa: F401
         RopeNatten2DSelfAttention,
@@ -198,8 +197,12 @@ def test_output_coords_lexicon_mapping():
     assert coord == ["u10m", "t2m", "tot_precip", "tcc", "aswdir_s", "tke_l40"]
     # internal indexing is unchanged (interior names)
     assert dx.output_variables == OUTPUT_VARIABLES
-    assert COSMO_OUTPUT_LEXICON["TD_2M"] == "d2m"  # clean same-units canonical match
-    assert COSMO_OUTPUT_LEXICON["CLCT"] == "tcc"  # cloud cover -> tcc (with rescale)
+    # mapping comes from CosmoLexicon (name + unit scale)
+    assert CosmoLexicon.to_e2studio("TD_2M") == ("d2m", 1.0)  # same-units canonical
+    assert CosmoLexicon.to_e2studio("CLCT") == ("tcc", 0.01)  # % -> 0-1 fraction
+    # both resolution spellings of the same field resolve to one E2S name
+    assert CosmoLexicon.to_e2studio("U_10M")[0] == "u10m"  # REA6 spelling
+    assert CosmoLexicon.to_e2studio("10U")[0] == "u10m"  # REA2 spelling
     # CLCT carries a % -> fraction value rescale at the right channel index
     assert dx._output_unit_scale == [(OUTPUT_VARIABLES.index("CLCT"), 0.01)]
 
@@ -427,8 +430,9 @@ def test_set_domain_halo_clamps_at_grid_edge():
 
 
 def test_set_domain_small_region():
-    """Both models are DiT-RoPE (resolution-agnostic), so a sub-region just slices
-    the small block: any size works -- no minimum size, no padding, and no halo by
+    """Both models are DiT-RoPE (crop-size agnostic at the fixed resolution), so a
+    sub-region just slices the small block: any size works -- no minimum size, no
+    padding, and no halo by
     default."""
     dx = _build()  # mean
     cr = dx.set_domain(lat_min=49.5, lat_max=51.0, lon_min=9.5, lon_max=11.5)
@@ -490,46 +494,6 @@ def test_regression_forward_dit():
         dx.regression_model.detokenizer.h_patches,
         dx.regression_model.detokenizer.w_patches,
     ) == (8, 12)
-
-
-@pytest.mark.skipif(
-    not _UPSTREAM_ROPE, reason="needs upstream physicsnemo natten2d_rope (PR #1731)"
-)
-def test_upstream_dit_builders():
-    """CPU structural smoke for the real (un-mocked) DiT builders: the upstream
-    construction accepts our kwargs (catches a renamed/dropped kwarg or metadata
-    field the mocked suite misses), the detokenizer choice is right per mode, the
-    EDM sigma_data wires through, and the regression `dit.*` prefix strips to a
-    non-empty match (what _finalize relies on to load the reg checkpoint)."""
-    rp = {
-        "hidden_size": 64,
-        "depth": 2,
-        "num_heads": 2,
-        "patch_size": 2,
-        "attn_kernel_size": 3,
-        "detok_conv_layers": 2,
-        "img_resolution": [16, 16],
-    }
-    reg = CosmoDownscaling._build_regression_dit(out_channels=5, cond_channels=7, rp=rp)
-    assert hasattr(reg.detokenizer, "proj")  # ConvDetokenizer (conv head)
-    dp = {
-        "hidden_size": 64,
-        "depth": 2,
-        "num_heads": 2,
-        "patch_size": 2,
-        "attn_kernel_size": 3,
-        "img_resolution": [16, 16],
-        "sigma_data": 1.0,
-    }
-    diff = CosmoDownscaling._build_diffusion_dit(out_channels=5, cond_channels=7, dp=dp)
-    assert float(diff.sigma_data) == 1.0
-    assert not hasattr(diff.model.model.detokenizer, "proj")  # plain proj_reshape_2d
-    # the reg checkpoint stores dit.* keys; _finalize strips the prefix into the bare DiT
-    prefixed = {f"dit.{k}": v for k, v in reg.state_dict().items()}
-    stripped = {
-        k[len("dit.") :]: v for k, v in prefixed.items() if k.startswith("dit.")
-    }
-    assert stripped and set(stripped) == set(reg.state_dict())
 
 
 def test_nonfinite_input_warns():
@@ -1014,6 +978,40 @@ def test_diffusion_sampler_telescopes_to_zero():
     assert torch.allclose(out, torch.zeros_like(out), atol=1e-4)
 
 
+def test_diffusion_euler_differs_from_heun():
+    """The ``solver="euler"`` (1st-order) branch runs and produces a DIFFERENT
+    result than ``"heun"`` (2nd-order) for the same seed -- pinning that ``solver``
+    actually switches the integrator (the euler path is otherwise unexercised).
+    With the linear mock denoiser ``D_x = 0.5*x`` Heun's corrector slope differs
+    from the Euler slope at every step but the last (the corrector is skipped at
+    ``t_next = 0``), so the endpoints must differ."""
+    ov = OUTPUT_VARIABLES
+
+    def _build_solver(solver):
+        return _build(
+            mode="diffusion",
+            regression_model=None,
+            diffusion_model=_MockDiffusionDiT(len(ov), gain=0.5),
+            number_of_samples=1,
+            seed=0,
+            solver=solver,
+            channel_transforms={},
+            constraints={},
+        )
+
+    dx_heun = _build_solver("heun")
+    dx_euler = _build_solver("euler")
+    x, coords = _diffusion_coords(dx_heun)
+    out_heun, _ = dx_heun(x, coords)
+    out_euler, _ = dx_euler(x, coords)
+    H, W = dx_heun.lat_output_numpy.shape
+    # euler branch runs end-to-end: right shape, finite
+    assert out_euler.shape == (1, 1, 1, len(ov), H, W)
+    assert torch.isfinite(out_euler).all()
+    # 1st-order != 2nd-order for the same seed (genuinely takes the euler branch)
+    assert not torch.allclose(out_heun, out_euler)
+
+
 def test_check_bounds_rejects_out_of_range_target():
     """Targets outside, or exactly on, any ERA5 input-grid edge are rejected
     (strict containment, both axes) so the interpolator never indexes past the
@@ -1040,8 +1038,6 @@ def test_transform_round_trip_incl_asinh():
     pin the de-norm-before-invert order (a swap would fail), and a negative asinh
     input checks the only signed inverse -- sinh must carry the sign and the
     nonnegativity clamp (physical_clamp=True) must skip it."""
-    import math
-
     ov = ["CH_LOG", "CH_LOGIT", "CH_ASINH"]
     n = len(ov)
     ct = {
@@ -1256,8 +1252,10 @@ def test_cosmo_downscaling_package(mode, resolution):
     if not pkg_path:
         pytest.skip("set COSMO_REA_PACKAGE to a built package dir to run")
     if not _UPSTREAM_ROPE:
-        # load_model builds the real DiT, which needs natten2d_rope (PR #1731);
-        # skip (don't fail) on a physicsnemo without it. REMOVE at Phase 3.
+        # load_model reconstructs the real DiT (from_checkpoint), which needs
+        # natten2d_rope (PR #1731);
+        # skip (don't fail) on a physicsnemo without it.
+        # TODO(cosmo): remove once the physicsnemo pin includes #1731.
         pytest.skip("needs upstream physicsnemo natten2d_rope (PR #1731)")
     from earth2studio.models.auto import Package
 

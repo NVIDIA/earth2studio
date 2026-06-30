@@ -397,8 +397,9 @@ plt.savefig(
 # the diffusion captures the full distribution and uncertainty. They are scored on
 # different metrics and are a tradeoff, not a ranking.
 #
-# The regression is also a DiT (diffusion transformer) and resolution-agnostic, so
-# it runs directly on the sub-domain Germany region in a single forward (no tiling).
+# The regression is also a DiT (diffusion transformer) and crop-size agnostic at the
+# fixed resolution, so it runs directly on the sub-domain Germany region in a single
+# forward (no tiling).
 # We restrict the mean model
 # to the same bbox and reuse the SFNO state, so its grid matches lat_de/lon_de.
 dx_mean_de = dx_mean.set_domain(**GERMANY)

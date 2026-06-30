@@ -19,10 +19,11 @@
 Earth2Studio :class:`DiagnosticModel` wrapper for the ``cosmo-rea-downscaling``
 package. One class: ``mode`` selects mean (deterministic) or diffusion (sampled
 with the EDM/Karras scheme); ``resolution`` selects the rea6/rea2 checkpoint. Both
-modes are DiT-RoPE (a diffusion transformer with rotary position embedding) and
-resolution-agnostic (single forward at any grid size).
+modes use a DiT-RoPE network (a diffusion transformer with rotary position
+embeddings) at a fixed output resolution; the network is crop-size agnostic, so a
+sub-region of any size runs in a single forward.
 
-Domain handling (see the integration handoff + design memory):
+Domain handling:
 
 * The model consumes an ERA5 crop and downscales onto a **rotated-pole** target
   grid. ``time`` is a leading coordinate dimension (not folded into batch)
@@ -36,20 +37,25 @@ Domain handling (see the integration handoff + design memory):
   exact invariants to a bounding box (no aggregation). The bbox may lie inside the
   native trained footprint, or reach into the extended invariant margin -- the
   latter proceeds with a one-time out-of-distribution warning; beyond the extended
-  extent raises. Both the mean and diffusion models are DiT-RoPE
-  (resolution-agnostic), so a sub-domain runs at any size in a single forward.
+  extent raises. Both the mean and diffusion models are DiT-RoPE (crop-size
+  agnostic at the fixed resolution), so a sub-domain runs at any size in a single
+  forward.
 """
 
+import json
 import warnings
 from collections import OrderedDict
 from collections.abc import Sequence
 from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
 
+from earth2studio.lexicon import CosmoLexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
@@ -63,13 +69,17 @@ from earth2studio.utils.type import CoordSystem
 
 try:
     import natten  # noqa: F401  # the DiT needs NATTEN (neighborhood attention)
+    from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
+    from physicsnemo.diffusion.preconditioners import EDMPreconditioner
+    from physicsnemo.diffusion.samplers import sample
+    from physicsnemo.models.dit import DiT
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 except ImportError:
     OptionalDependencyFailure("cosmo")
     cos_zenith_angle = None
 
 
-# Fixed background channel layout (see cosmo_rea2_era5.py::_load_full_frame).
+# Fixed background channel layout.
 # The order must match the network's trained channel layout -- do not reorder:
 #   [ ERA5 (z-scored) | sin_lat cos_lat sin_lon cos_lon | elevation_norm
 #     | land_fraction | cos_zenith | *extra invariants (z0 surface roughness
@@ -83,37 +93,12 @@ COS_ZENITH_VARIABLE = "cos_zenith"
 # this so a shortwave channel can never be left without night handling.
 SHORTWAVE_VARIABLES = ("ASWDIR_S", "ASWDIFD_S")
 
-# COSMO outputs -> E2S lexicon names, applied ONLY at output_coords (internal
-# indexing keeps the interior names). Entries below are SAME-physical-variable,
-# SAME-UNITS matches against the canonical base vocab (earth2studio/lexicon/
-# base.py) — name-only relabel, no value conversion, so units must already agree.
-# Anything not listed falls back to its lowercased interior name (E2S house
-# style) — see output_coords. COSMO-only channels with no canonical equivalent
-# (TKE_Lxx, model-level winds/temps, fluxes LHFL_S/SHFL_S, longwave ALWU_S/
-# ATHD_S, H_PBL, ...) thus keep a descriptive lowercase name until a COSMO-REA
-# data source defines a canonical lexicon for them. Mirrors CorrDiff.OUT_VARIABLES
-# (lexicon names mixed with model-specific ones).
-# CLCT (total cloud cover, %) maps to canonical `tcc`, which is defined as a 0-1
-# FRACTION — so it additionally carries a value rescale (COSMO_OUTPUT_UNIT_SCALE)
-# applied after constraints. It's the only channel where a scalar reconciles the
-# units to a canonical name (precip/radiation differ by rate-vs-accumulation, not
-# a scalar, so they stay raw).
-COSMO_OUTPUT_LEXICON = {
-    "U_10M": "u10m",
-    "10U": "u10m",
-    "V_10M": "v10m",
-    "10V": "v10m",
-    "T_2M": "t2m",
-    "2MT": "t2m",
-    "TD_2M": "d2m",  # 2 m dewpoint, K — canonical, identical units
-    "CLCT": "tcc",  # total cloud cover; % -> 0-1 fraction (COSMO_OUTPUT_UNIT_SCALE)
-    "PS": "sp",
-    "PMSL": "msl",
-}
-# Per-channel output value rescale (interior name -> factor), applied at the END
-# of postprocess (after de-norm, inverse transform, and constraints) so the value
-# matches its canonical lexicon name's units. CLCT %  ->  tcc fraction.
-COSMO_OUTPUT_UNIT_SCALE = {"CLCT": 0.01}
+# COSMO output names -> Earth2Studio names live in ``CosmoLexicon``
+# (earth2studio/lexicon/cosmo.py). It is consumed ONLY at output_coords (internal
+# indexing keeps the interior COSMO names) via ``CosmoLexicon.to_e2studio``, which
+# returns the Earth2Studio name plus a unit scale (e.g. CLCT % -> tcc 0-1 fraction,
+# applied at the end of postprocess). Names with no canonical equivalent fall back
+# to their lowercased COSMO name.
 
 # Supported COSMO-REA variants — "rea6" (~6 km) and "rea2" (~2.2 km). Each is a
 # distinct product with its own native grid, model, invariants, and transforms.
@@ -180,40 +165,19 @@ def _points_in_grid_footprint(
     return inside
 
 
-# ---------------------------------------------------------------------------
-# Height-interpolated outputs (optional, derived) — design note: why these are
-# computed on the model rather than as a separate composable diagnostic.
-# ---------------------------------------------------------------------------
-# The model emits 3D fields on COSMO model levels (rea6 U_L35..L40 / V_*/T_*/Q_*/
-# TKE_*; rea2 U3D_L45..L50 / V3D_*). The only derived output is hub-height wind
-# components ``u{H}m``/``v{H}m``, from vertical interpolation of the model-level
-# winds to a requested height (:func:`interp_levels_to_height`, variable-agnostic;
-# T/Q/... are not wired up). Configured via the opt-in ``hub_heights`` /
-# ``hub_interp`` / ``wind_levels`` constructor args, computed in
-# ``postprocess_output``, appended to ``output_coords``. Wind speed ``ws{H}m`` is
-# not produced here -- compose the stock ``DerivedWS`` (Earth2Studio's wind-speed
-# diagnostic) as ``DerivedWS(levels=["{H}m"])`` on the output.
-#
-# It stays on the model because the interpolation needs grid-tied per-pixel data
-# the model owns and slices on ``set_domain``. Level heights are
-# ``a_L + b_L*elevation`` (per-level coefficients fit in the builder); the
-# ``elevation`` invariant is on the extended
-# grid, so heights stay aligned wherever ``set_domain`` restricts -- which an
-# externally chained diagnostic would not track (cf.
-# ``derived.py::DerivedSurfacePressure``, a frozen full-domain aux grid). The
-# model also owns ``z0``/``SHFL_S`` and the resolution-specific level->channel
-# map. ``corrdiff.py`` is the precedent for keeping grid-tied invariants on the
-# model.
-#
-# Scope: the shipped ``"linear"`` (in z) and ``"log"`` (in ln z) methods are
-# z0-free (roughness cancels between the bracketing levels).
+# Optional derived output: hub-height wind components ``u{H}m``/``v{H}m``, from
+# vertical interpolation of the model-level winds to a requested height (opt-in via
+# the ``hub_heights``/``hub_interp``/``wind_levels`` constructor args; computed in
+# ``postprocess_output`` and appended to ``output_coords``). Wind speed ``ws{H}m``
+# is not produced here: compose the stock ``DerivedWS(levels=["{H}m"])`` on the
+# output.
 
 
-def interp_levels_to_height(
+def _interp_levels_to_height(
     values: torch.Tensor,
     level_heights: torch.Tensor,
     target: float,
-    method: str = "linear",
+    method: Literal["linear", "log"] = "linear",
 ) -> torch.Tensor:
     """Per-pixel vertical interpolation of a profile to one target height.
 
@@ -261,6 +225,34 @@ def interp_levels_to_height(
 class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
     """COSMO-REA downscaling model: ERA5 -> high-resolution COSMO-REA.
 
+    Diagnostic model that downscales a global ERA5 state to high-resolution
+    COSMO-REA regional reanalysis over Europe -- COSMO-REA6 (~6 km) or COSMO-REA2
+    (~2.2 km), selected with ``resolution``. The input is an ERA5 state, so it can
+    downscale an ERA5 analysis directly or run behind a global forecast model
+    (e.g. SFNO -> CosmoDownscaling).
+
+    ``mode`` selects one of two networks trained per resolution:
+
+    * ``"mean"`` -- a deterministic regression predicting the conditional mean
+      ``E[y | x]``: a single smooth field in one forward pass. Fast; a good first
+      high-resolution look or a deterministic conditional-mean baseline.
+    * ``"diffusion"`` -- a generative model sampling the conditional distribution
+      ``p(y | x)``: an ensemble of ``number_of_samples`` realizations (seeded for
+      reproducibility) that also captures the spread the mean cannot represent.
+
+    Both networks are PhysicsNeMo DiTs at a fixed grid resolution but crop-size
+    agnostic, so :meth:`set_domain` returns an instance restricted to any lat/lon
+    sub-region without retraining (bounded to the trained footprint). Each
+    resolution ships an extended grid beyond its native footprint; for COSMO-REA2
+    -- whose native footprint is central-European -- the extended grid reaches a
+    broad European domain, enabling 2.2 km downscaling across it. Outputs are
+    surface and model-level (3D) fields -- winds,
+    temperature, humidity, precipitation, cloud cover, fluxes, TKE, PBL height;
+    variables with a canonical Earth2Studio name are relabelled via
+    :class:`~earth2studio.lexicon.CosmoLexicon` and COSMO-specific fields keep a
+    descriptive name. Optionally emits derived hub-height wind components (see
+    ``hub_heights``).
+
     Parameters
     ----------
     era5_variables : Sequence[str]
@@ -293,15 +285,17 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         Names of the invariant channels before / after ``cos_zenith`` in the
         background channel order.
     channel_transforms : dict | None
-        Per-output-channel nonlinear transform spec (from the training
-        ``channel_transforms`` zarr attr), used to invert after de-normalizing.
+        Per-output-channel nonlinear transform spec (from the package metadata),
+        used to invert after de-normalizing.
     constraints : dict | None
         Physical-constraint spec (``metadata["constraints"]``): per-channel
         ``bounds`` (min/max clamps) and a shortwave ``sza_gate`` (the dawn/dusk
         solar gate), applied in physical space in postprocess for both modes.
     number_of_samples : int
         Number of samples (diffusion); the ``sample`` dim is kept (size 1) for
-        ``mode="mean"`` so both modes share an output contract.
+        ``mode="mean"`` so both modes share an output contract. The constructor
+        value is the default; it is settable at runtime between calls
+        (``model.number_of_samples = N``).
     physical_clamp : bool
         Apply physical-bounds + the shortwave dawn/dusk solar gate to outputs.
     number_of_steps : int
@@ -310,8 +304,9 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         Diffusion noise-schedule bounds. Default to 0.002 / 800.0.
     rho : float
         Karras noise-schedule exponent. Defaults to 7.0.
-    solver : str
-        Diffusion ODE solver. Defaults to ``"heun"``.
+    solver : {"heun", "euler"}
+        Diffusion ODE solver: ``"heun"`` (2nd-order, default) or ``"euler"``
+        (1st-order).
     seed : int | None
         Base RNG seed for diffusion sampling (a per-sample offset is added).
         ``None`` (default) leaves sampling unseeded.
@@ -331,7 +326,7 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         ``u100m``); arbitrary ``H`` need not be pre-registered in the lexicon
         (outputs are produced, not fetched). A height outside the levels' range
         is clamped (not extrapolated) and warns.
-    hub_interp : str, optional
+    hub_interp : {"linear", "log"}, optional
         Interpolation method for the hub-height wind components: ``"linear"`` (in
         geometric height) or ``"log"`` (in ``ln(height)``). Both are
         roughness-free between levels. Defaults to ``"linear"``.
@@ -341,9 +336,17 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         (``height = a + b*elevation_invariant``) and the elevation invariant name.
         Supplied by the package; required when ``hub_heights`` is set.
 
+    Notes
+    -----
+    The diffusion sampler controls (``number_of_steps``, ``sigma_min``,
+    ``sigma_max``, ``rho``, ``solver``) default to the package metadata but are
+    exposed for inference tuning rather than fixed: as with any diffusion sampler,
+    these settings can shape the sampled output distribution (e.g. ensemble spread
+    and the representation of extremes).
+
     Badges
     ------
-    region:eu class:ds product:wind product:precip product:temp product:atmos year:2024 gpu:80gb
+    region:eu class:ds product:wind product:precip product:temp product:atmos year:2026 gpu:80gb
     """
 
     def __init__(
@@ -352,8 +355,8 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         output_variables: Sequence[str],
         regression_model: torch.nn.Module | None,
         diffusion_model: torch.nn.Module | None,
-        resolution: str,
-        mode: str,
+        resolution: Literal["rea6", "rea2"],
+        mode: Literal["mean", "diffusion"],
         lat_input_grid: torch.Tensor,
         lon_input_grid: torch.Tensor,
         lat_output_grid: torch.Tensor,
@@ -373,11 +376,11 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         sigma_min: float = 0.002,
         sigma_max: float = 800.0,
         rho: float = 7.0,
-        solver: str = "heun",
+        solver: Literal["heun", "euler"] = "heun",
         seed: int | None = None,
         amp: bool = False,
         hub_heights: Sequence[float] | None = None,
-        hub_interp: str = "linear",
+        hub_interp: Literal["linear", "log"] = "linear",
         wind_levels: dict | None = None,
     ):
         super().__init__()
@@ -482,11 +485,12 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         self._constraints = constraints or {}
         self._parse_constraints(self._constraints)
         # Output value rescales to match a canonical lexicon name's units (e.g.
-        # CLCT % -> tcc fraction). Applied at the end of postprocess.
+        # CLCT % -> tcc fraction). From CosmoLexicon; applied at end of postprocess.
         self._output_unit_scale = [
-            (i, float(COSMO_OUTPUT_UNIT_SCALE[v]))
+            (i, scale)
             for i, v in enumerate(self.output_variables)
-            if v in COSMO_OUTPUT_UNIT_SCALE
+            for scale in (CosmoLexicon.to_e2studio(v)[1],)
+            if scale != 1.0
         ]
         # Optional hub-height wind (derived; see the design note above). Off by
         # default -> behavior + output_variables unchanged. When requested, the
@@ -524,10 +528,10 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         self._derived_variables = [
             f"{c}{lbl}" for lbl in self._hub_labels for c in ("u", "v")
         ]
-        # Output coord labels: overlapping vars -> E2S lexicon, COSMO-only stay raw
+        # Output coord labels: COSMO names -> Earth2Studio names via CosmoLexicon
         # (internal indexing uses interior names); derived u/v{H}m appended last.
         self._output_coord_variables = np.array(
-            [COSMO_OUTPUT_LEXICON.get(v, v.lower()) for v in self.output_variables]
+            [CosmoLexicon.to_e2studio(v)[0] for v in self.output_variables]
             + self._derived_variables
         )
         # check_inputs: user-flippable runtime toggle (an attribute, not a
@@ -943,7 +947,7 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
             }
 
         Per-level above-ground height (m) is ``a + b * elevation_invariant`` — fit
-        (in the builder) against the NORMALIZED elevation, so the wrapper reuses
+        against the NORMALIZED elevation, so the wrapper reuses
         the elevation invariant it already holds and slices (valid on the
         extended grid too).
         Levels are stored ascending by nominal height.
@@ -1005,7 +1009,7 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         self.register_buffer(
             "_hub_b", torch.tensor([e[3] for e in entries], device=dev)
         )
-        # ``interp_levels_to_height`` assumes the PER-PIXEL heights ``a+b*elev``
+        # ``_interp_levels_to_height`` assumes the PER-PIXEL heights ``a+b*elev``
         # are ascending in the level axis. Levels are sorted by nominal ``a``, but
         # a large ``b`` spread could in principle invert the order at extreme
         # terrain — validate over the actual elevation range so a bad metadata
@@ -1059,10 +1063,10 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         for h in self._hub_heights:
             # u{H}m then v{H}m -- matches DerivedWS's expected [u, v] pair order.
             comps.append(
-                interp_levels_to_height(u, heights, h, self._hub_interp).unsqueeze(1)
+                _interp_levels_to_height(u, heights, h, self._hub_interp).unsqueeze(1)
             )
             comps.append(
-                interp_levels_to_height(v, heights, h, self._hub_interp).unsqueeze(1)
+                _interp_levels_to_height(v, heights, h, self._hub_interp).unsqueeze(1)
             )
         return torch.cat([x, *comps], dim=1)
 
@@ -1179,9 +1183,9 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         in postprocess_output, as for the diffusion path).
 
         The mean is a DiT-RoPE net: a single full-domain forward. LayerNorm is
-        per-token (no spatial reduction) and RoPE/NATTEN are local, so it is
-        resolution-agnostic; only the latent reshape metadata is rebound per grid
-        (constant t=0 is applied inside the net).
+        per-token (no spatial reduction) and RoPE/NATTEN are local, so it runs at
+        any crop size (the resolution is fixed); only the latent reshape metadata
+        is rebound per grid (constant t=0 is applied inside the net).
         """
         H, W = background.shape[-2:]
         self._rebind_latent(self.regression_model, H, W)
@@ -1202,8 +1206,8 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         regression path).
 
         Full-domain single-forward — the DiT's NATTEN neighborhood attention +
-        axial RoPE are resolution-agnostic. This is the single overridable seam
-        for per-step cross-domain blending.
+        axial RoPE run at any crop size (the resolution is fixed). This is the
+        single overridable seam for per-step cross-domain blending.
         """
         net = self.diffusion_model
         dev = background.device
@@ -1224,30 +1228,32 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
             generator=gen,
         )
 
-        # EDM Karras noise schedule (deterministic, S_churn=0); the solver below is
-        # Heun (2nd-order) or Euler (1st-order) per ``self.solver``.
-        n = self.number_of_steps
-        rho, smin, smax = self.rho, self.sigma_min, self.sigma_max
-        step = torch.arange(n, device=dev, dtype=torch.float64)
-        t = (
-            smax ** (1 / rho) + step / (n - 1) * (smin ** (1 / rho) - smax ** (1 / rho))
-        ) ** rho
-        t = torch.cat([t, t.new_zeros(1)])  # t_n = 0
-        x = latents.double() * t[0]
+        # Deterministic EDM/Karras sampling via physicsnemo's standard sampler.
+        # The preconditioner ``net(x, sigma, condition)`` returns the denoised (x0)
+        # estimate; with the EDM schedule sigma(t)=t it is the x0-predictor.
+        # ``EDMNoiseScheduler`` builds the Karras timesteps (sigma_min/sigma_max/rho,
+        # appending the terminal t=0 step) and ``sample`` runs ``number_of_steps`` of
+        # the chosen ODE solver (heun 2nd-order / euler 1st-order). Initial latents
+        # are scaled to sigma_max; bookkeeping is fp64 (net forwards stay fp32).
+        scheduler = EDMNoiseScheduler(
+            sigma_min=self.sigma_min, sigma_max=self.sigma_max, rho=self.rho
+        )
+
+        def x0_predictor(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+            return net(
+                x.float(), t.to(torch.float32).reshape(-1), condition=cond
+            ).double()
+
+        denoiser = scheduler.get_denoiser(x0_predictor=x0_predictor)
         with self._inference_context():
-            for i in range(n):
-                t_cur, t_next = t[i], t[i + 1]
-                sig = t_cur.to(torch.float32).repeat(x.shape[0])
-                d_cur = (x - net(x.float(), sig, condition=cond).double()) / t_cur
-                x_next = x + (t_next - t_cur) * d_cur
-                if self.solver == "heun" and i < n - 1:
-                    sig_n = t_next.to(torch.float32).repeat(x.shape[0])
-                    d_prime = (
-                        x_next - net(x_next.float(), sig_n, condition=cond).double()
-                    ) / t_next
-                    x_next = x + (t_next - t_cur) * 0.5 * (d_cur + d_prime)
-                x = x_next
-        return x.float()
+            out = sample(
+                denoiser,
+                latents.double() * self.sigma_max,
+                scheduler,
+                num_steps=self.number_of_steps,
+                solver=self.solver,
+            )
+        return out.float()
 
     @torch.inference_mode()
     def _forward(
@@ -1394,8 +1400,9 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         ``halo`` (px, default 0 = off): run on a block expanded by ``halo`` real
         cells per side and trim it off the output, keeping the returned bbox
         interior clear of the DiT's boundary artifact (~32 px); clamps + warns at
-        the grid edge. Both models are DiT-RoPE (resolution-agnostic), so any size
-        runs in a single forward — but the run grid is snapped to a multiple of
+        the grid edge. Both models are DiT-RoPE (crop-size agnostic at the fixed
+        resolution), so any size runs in a single forward — but the run grid is
+        snapped to a multiple of
         the DiT ``patch_size`` (an odd extent would floor to extent-1) and must be
         at least ``attn_kernel*patch`` cells per side (NATTEN must fit the latent),
         so very small bboxes raise.
@@ -1596,88 +1603,11 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
     @staticmethod
     def _load_json(package: Package, filename: str) -> dict:
         """Resolve and parse a JSON file from the package."""
-        import json
-
         with open(package.resolve(filename), encoding="utf-8") as f:
             content = f.read()
         if not content.strip():
             raise ValueError(f"{filename} is empty")
         return json.loads(content)
-
-    @staticmethod
-    def _build_regression_dit(
-        out_channels: int, cond_channels: int, rp: dict
-    ) -> torch.nn.Module:
-        """Build the regression DiT (axial-2D-RoPE NATTEN, conv detokenizer when
-        configured) from upstream physicsnemo. ``in_channels = cond_channels``
-        (conditional only), constant t=0 applied by the caller. Checkpoint keys
-        are ``dit.*``."""
-        from physicsnemo.models.dit import DiT
-
-        attn = {
-            "attn_kernel": rp["attn_kernel_size"],
-            "rope_theta": rp.get("rope_theta", 10000.0),
-            "qk_norm": rp.get("qk_norm", False),
-        }
-        backend = rp.get("natten_backend", "cutlass-fna")
-        if backend is not None:
-            attn["na2d_kwargs"] = {"backend": backend}
-        conv_layers = rp.get("detok_conv_layers", 0)
-        return DiT(
-            input_size=list(rp.get("img_resolution", [256, 256])),
-            in_channels=cond_channels,
-            out_channels=out_channels,
-            patch_size=rp["patch_size"],
-            hidden_size=rp["hidden_size"],
-            depth=rp["depth"],
-            num_heads=rp["num_heads"],
-            attention_backend="natten2d_rope",
-            attn_kwargs=attn,
-            detokenizer="proj_reshape_2d_conv" if conv_layers else "proj_reshape_2d",
-            detokenizer_kwargs={"conv_layers": conv_layers} if conv_layers else {},
-            condition_dim=None,
-            conditioning_embedder="dit",
-            layernorm_backend=rp.get("layernorm_backend", "torch"),
-        )
-
-    @staticmethod
-    def _build_diffusion_dit(
-        out_channels: int, cond_channels: int, dp: dict
-    ) -> torch.nn.Module:
-        """Build the EDM-preconditioned diffusion DiT from upstream physicsnemo:
-        ``EDMPreconditioner(ConcatConditionWrapper(DiT))``. The DiT sees
-        ``out_channels + cond_channels`` (noised target concat with the condition);
-        checkpoint keys are ``model.model.*`` plus ``sigma_data``."""
-        from physicsnemo.diffusion.preconditioners import EDMPreconditioner
-        from physicsnemo.diffusion.utils import ConcatConditionWrapper
-        from physicsnemo.models.dit import DiT
-
-        attn = {
-            "attn_kernel": dp["attn_kernel_size"],
-            "rope_theta": dp.get("rope_theta", 10000.0),
-            "qk_norm": dp.get("qk_norm", False),
-        }
-        backend = dp.get("natten_backend", "cutlass-fna")
-        if backend is not None:
-            attn["na2d_kwargs"] = {"backend": backend}
-        dit = DiT(
-            input_size=list(dp.get("img_resolution", [256, 256])),
-            in_channels=out_channels + cond_channels,
-            out_channels=out_channels,
-            patch_size=dp["patch_size"],
-            hidden_size=dp["hidden_size"],
-            depth=dp["depth"],
-            num_heads=dp["num_heads"],
-            attention_backend="natten2d_rope",
-            attn_kwargs=attn,
-            detokenizer="proj_reshape_2d",
-            condition_dim=0,
-            conditioning_embedder="dit",
-            layernorm_backend=dp.get("layernorm_backend", "torch"),
-        )
-        return EDMPreconditioner(
-            model=ConcatConditionWrapper(dit), sigma_data=dp.get("sigma_data", 1.0)
-        )
 
     @classmethod
     @check_optional_dependencies()
@@ -1685,15 +1615,15 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         device: str | None = None,
-        mode: str = "mean",
-        resolution: str = "rea6",
+        mode: Literal["mean", "diffusion"] = "mean",
+        resolution: Literal["rea6", "rea2"] = "rea6",
         hub_heights: Sequence[float] | None = None,
-        hub_interp: str = "linear",
+        hub_interp: Literal["linear", "log"] = "linear",
     ) -> DiagnosticModel:
         """Load a COSMO-REA downscaling model from a package.
 
         ``mode`` ({"mean", "diffusion"}) and ``resolution`` ({"rea6", "rea2"})
-        select the checkpoint within one package (stormscope pattern). All other
+        select the checkpoint within one package. All other
         configuration (sampler, normalization, transforms) comes from the package
         metadata.
 
@@ -1708,7 +1638,13 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
             raise ValueError(f"resolution must be one of {list(SUPPORTED_VARIANTS)}")
         if mode not in ("mean", "diffusion"):
             raise ValueError(f"mode must be 'mean' or 'diffusion' (got {mode!r}).")
-        import xarray as xr
+
+        # Resolve the package-root config.json so HuggingFace records the download
+        # (its content is not used here); tolerate its absence.
+        try:
+            package.resolve("config.json")
+        except (FileNotFoundError, ValueError):
+            pass
 
         # Resolution-subfolder layout: the package nests each resolution under
         # its own subfolder (``rea6/``, ``rea2/``) so all four models share one
@@ -1748,75 +1684,6 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         number_of_samples = metadata.get("number_of_samples", 1)
         sampler = metadata.get("sampler", {})
 
-        import io
-        import zipfile
-
-        # Background conditioning channels: ERA5 + pre-invariants + cos_zenith
-        # (the +1) + post-invariants -- matches background_variables in __init__.
-        n_background = (
-            len(era5_variables)
-            + len(pre_invariant_variables)
-            + 1  # cos_zenith
-            + len(post_invariant_variables)
-        )
-
-        def _load_mdlus_sd(rel: str) -> dict:
-            """Load the state_dict from a .mdlus checkpoint zip in the package."""
-            path = package.resolve(prefix + rel)
-            try:
-                with zipfile.ZipFile(path) as z:
-                    # .mdlus model.pt is a pure state_dict, so weights_only=True is
-                    # safe (avoids arbitrary-pickle execution when loading a
-                    # downloaded package).
-                    sd = torch.load(
-                        io.BytesIO(z.read("model.pt")),
-                        map_location="cpu",
-                        weights_only=True,
-                    )
-            except (zipfile.BadZipFile, KeyError, OSError) as e:
-                raise ValueError(
-                    f"could not read model weights from {rel!r} (resolved {path}): "
-                    f"{e}. Expected a physicsnemo .mdlus (a zip containing 'model.pt')."
-                ) from e
-            return sd
-
-        def _finalize(
-            model: torch.nn.Module,
-            ckpt_rel: str,
-            label: str,
-            strip_prefix: str | None = None,
-        ) -> torch.nn.Module:
-            """Load weights into a freshly-built net, then eval/freeze/move. Turns a
-            channel/shape mismatch (metadata var lists disagreeing with the
-            checkpoint) into a clear error instead of a deep ``load_state_dict``
-            traceback. ``strip_prefix`` drops a leading key namespace (the regression
-            checkpoint stores ``dit.*``; the bare upstream DiT keys have no prefix)."""
-            sd = _load_mdlus_sd(ckpt_rel)
-            if strip_prefix:
-                sd = {
-                    k[len(strip_prefix) :]: v
-                    for k, v in sd.items()
-                    if k.startswith(strip_prefix)
-                }
-                if not sd:
-                    raise ValueError(
-                        f"{label} checkpoint has no keys under prefix "
-                        f"{strip_prefix!r}; the saved key layout changed."
-                    )
-            try:
-                model.load_state_dict(sd, strict=True)
-            except RuntimeError as e:
-                raise ValueError(
-                    f"{label} checkpoint does not match the architecture/channel "
-                    f"layout built from metadata (resolution/mode "
-                    f"'{resolution}/{mode}'); the package's era5/output/invariant "
-                    f"variable lists likely disagree with the trained checkpoint. "
-                    f"Underlying error: {e}"
-                ) from e
-            model = model.eval()
-            model.requires_grad_(False)
-            return model.to(device) if device is not None else model
-
         ckpt_key = f"{resolution}_{mode}"
         try:
             ckpt = metadata["checkpoints"][ckpt_key]
@@ -1827,25 +1694,32 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
             ) from e
         regression_model = None
         diffusion_model = None
-        # Build the DiT with upstream physicsnemo's axial-2D-RoPE NATTEN backend
-        # (attention_backend="natten2d_rope" in _build_*_dit). RoPE adds no
-        # parameters, so a non-RoPE DiT would load the same weights 0/0 yet run a
-        # wrong (un-RoPE'd) forward -- building with the backend avoids that.
+        # Load the network with physicsnemo's standard ``from_checkpoint``. The
+        # package ships a bare ``DiT`` for the regression and an
+        # ``EDMPreconditioner(ConcatConditionWrapper(DiT))`` for the diffusion, each
+        # saved with its architecture (incl. the axial-2D-RoPE NATTEN backend), so
+        # the module is reconstructed faithfully -- no manual rebuild needed.
+        ckpt_path = package.resolve(prefix + ckpt)
         if mode == "mean":
-            # DiT-RoPE regression: resolution-agnostic (LayerNorm, no spatial
-            # reduction) -> single full-domain forward, no tiling. Checkpoint keys
-            # are ``dit.*`` (strip to load into the bare DiT).
-            regression_model = cls._build_regression_dit(
-                len(output_variables), n_background, metadata["regression"]
-            )
-            regression_model = _finalize(
-                regression_model, ckpt, "regression", strip_prefix="dit."
-            )
+            loader, label = DiT.from_checkpoint, "regression"
         else:
-            diffusion_model = cls._build_diffusion_dit(
-                len(output_variables), n_background, metadata["diffusion"]
-            )
-            diffusion_model = _finalize(diffusion_model, ckpt, "diffusion")
+            loader, label = EDMPreconditioner.from_checkpoint, "diffusion"
+        try:
+            model = loader(ckpt_path)
+        except Exception as e:
+            raise ValueError(
+                f"could not load the {label} network from {ckpt!r} (resolved "
+                f"{ckpt_path}) via from_checkpoint: {e}. Expected a physicsnemo "
+                f".mdlus saved by the package builder."
+            ) from e
+        model = model.eval()
+        model.requires_grad_(False)
+        if device is not None:
+            model = model.to(device)
+        if mode == "mean":
+            regression_model = model
+        else:
+            diffusion_model = model
 
         stats = cls._load_json(package, prefix + "stats.json")
         miss_e = [v for v in era5_variables if v not in stats.get("era5", {})]

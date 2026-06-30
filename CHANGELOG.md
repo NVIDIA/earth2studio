@@ -30,9 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
 - Added DLESyM-v0-ISCCP-ERA5 climate model
-- Added COSMO-REA downscaling diagnostic model (`CosmoDownscaling`) for
-  regression (mean) and diffusion downscaling of ERA5 to COSMO-REA6 (6 km) and
-  COSMO-REA2 (2.2 km), with movable sub-domain support via `set_domain`
+- Added COSMO-REA downscaling diagnostic model (`CosmoDownscaling`) and
+  `CosmoLexicon` for regression (mean) and diffusion downscaling of ERA5 to
+  COSMO-REA6 (6 km) and COSMO-REA2 (2.2 km), with sub-domain support via
+  `set_domain`
 
 ### Changed
 
