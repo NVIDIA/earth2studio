@@ -2264,6 +2264,7 @@ requires-dist = [
     { name = "nvidia-physicsnemo", marker = "extra == 'atlas'", specifier = ">=1.3.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'da-healda'", specifier = ">=2.0,<=2.1.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'da-healda'", specifier = ">=2.0,<=2.1.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'da-stormcast'", specifier = ">=2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", specifier = ">=1.0.1" },

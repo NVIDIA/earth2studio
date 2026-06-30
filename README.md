@@ -123,18 +123,19 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > [!NOTE]
 > As of version `0.14.0`, Earth2Studio TOML default installs now target CUDA 13.
 
-- [**Himawari AHI**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.HimawariAHI.html),
-    Himawari-8/9 AHI ISatSS L2 Full Disk satellite data source is now available for
-    geostationary satellite observations over the Western Pacific.
-- [**GHCN-Daily**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.GHCNDaily.html),
-    Global Historical Climatology Network daily station observation data frame source
-    providing access to global surface observations.
-- [**Orbit-2**](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.OrbitGlobalPrecip.html#earth2studio.models.dx.OrbitGlobalPrecip),
-    precipitation downscaling diagnostic model added for high-resolution precipitation
-    estimates.
-- **Conventional Observation Sources**, new data sources for in-situ observations
-    including [NNJA conventional obs](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.NNJAObsConv.html)
-    and real-time [GDAS conventional obs](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.NomadsGDASObsConv.html).
+- [**AIFS 2.0**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.AIFS2.html),
+    ECMWF's AIFS 2.0 prognostic model with wave and 10 hPa pressure level support,
+    plus an ensemble variant (`AIFS2ENS`) with stochastic noise injection.
+- [**U-CAST**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.UCast.html),
+    U-CAST prognostic model with 1.5-degree global ERA5 forecasting support.
+- [**CFS Forecast Sources**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.CFS_FX.html),
+    NCEP CFSv2 operational forecast and 9-month reforecast data sources backed by
+    NOMADS and the AWS Open Data mirror.
+- [**IBTrACS**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.IBTrACS.html),
+    tropical cyclone best-track DataFrame source for historical storm analysis.
+- **Checkpoint/Restart**, session utilities and restart support for deterministic,
+    diagnostic, and ensemble inference workflows. Individual model support is rolling
+    out progressively.
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 
@@ -204,9 +205,12 @@ Available models include but are not limited to:
 | FuXi | 0.25° | Transformer | 6h | Global |
 | AIFS | 0.25° | Transformer | 6h | Global |
 | AIFS Ensemble | 0.25° | Transformer Ensemble | 6h | Global |
+| AIFS 2.0 | 0.25° | Transformer | 6h | Global |
+| AIFS 2.0 Ensemble | 0.25° | Transformer Ensemble | 6h | Global |
+| U-CAST | 1.5° | UNet | 12h | Global |
 | StormCast | 3km | Diffusion + Regression | 1h | Regional (US) |
 | SFNO | 0.25° | Neural Operator | 6h | Global |
-| DLESyM | 0.25° | Convolutional | 6h | Global |
+| DLESyM | 1.0° | Convolutional | 6h | Global |
 
 For a complete list, see the [prognostic model API docs][e2studio_px_api].
 
