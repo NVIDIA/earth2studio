@@ -107,8 +107,8 @@ goes_model.build_input_interpolator(goes_lat, goes_lon)
 # pixels with no GOES coverage as invalid, so ``_forward`` zeroes them after
 # normalization. Building it from the model grid instead leaves off-disk 0.0 fills
 # that normalize to out-of-distribution values, corrupting the denoiser's GroupNorm
-# statistics and biasing GHI high. ``use_ckdtree=True`` matches NSRDB training.
-nsrdb_model.build_conditioning_interpolator(goes_lat, goes_lon, use_ckdtree=True)
+# statistics and biasing GHI high.
+nsrdb_model.build_conditioning_interpolator(goes_lat, goes_lon)
 
 in_coords = goes_model.input_coords()
 x, x_coords = fetch_data(

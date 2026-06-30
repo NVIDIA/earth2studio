@@ -361,7 +361,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_lats: torch.Tensor | ArrayLike,
         conditioning_lons: torch.Tensor | ArrayLike,
         max_dist_km: float | None = None,
-        use_ckdtree: bool = False,
     ) -> nn.Module:
         """Build a module to handle interpolating data on an arbitrary input lat/lon grid
         to the internal lat/lon grid, done via nearest neighbor interpolation.
@@ -376,11 +375,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Maximum great-circle distance (km) to accept a nearest neighbor match.
             Target points farther than this threshold are marked invalid and will
             receive NaNs in the output. By default 6.0.
-        use_ckdtree : bool, optional
-            Use scipy cKDTree (C implementation) instead of KDTree (Python).
-            Set True for StormScopeNSRDB to match its training pipeline which uses
-            cKDTree via KNNS2Interpolator. Default False (matches StormScopeGOES
-            training which used the pure-Python KDTree).
         """
         if max_dist_km is None:
             max_dist_km = self._conditioning_interp_max_dist_km
@@ -390,7 +384,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             target_lats=self.latitudes,
             target_lons=self.longitudes,
             max_dist_km=max_dist_km,
-            use_ckdtree=use_ckdtree,
         ).to(self.latitudes.device)
 
         cinterp = cast(NearestNeighborInterpolator, self.conditioning_interp)

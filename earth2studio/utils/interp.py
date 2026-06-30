@@ -33,13 +33,11 @@ except ImportError:
 try:
     from earth2grid.spatial import ang2vec, haversine_distance
     from scipy.spatial import KDTree
-    from scipy.spatial import cKDTree
 except ImportError:
     OptionalDependencyFailure("utils")
     ang2vec = None
     haversine_distance = None
     KDTree = None
-    cKDTree = None
 
 
 def latlon_interpolation_regular(
@@ -257,7 +255,6 @@ class NearestNeighborInterpolator(nn.Module):
         target_lats: torch.Tensor | ArrayLike,
         target_lons: torch.Tensor | ArrayLike,
         max_dist_km: float = 6.0,
-        use_ckdtree: bool = False,
     ):
         super().__init__()
 
@@ -327,14 +324,9 @@ class NearestNeighborInterpolator(nn.Module):
         tgt_lat_flat = torch.deg2rad(tgt_lat_t.reshape(-1))
         tgt_lon_flat = torch.deg2rad(tgt_lon_t.reshape(-1))
 
-        # Build KDTree in 3D unit-vector space for numerical stability.
-        # use_ckdtree=True selects the C implementation (cKDTree) which matches the
-        # training pipeline of StormScopeNSRDB (solar-stormcast/datasets/goes_nsrdb.py).
-        # StormScopeGOES was trained with KDTree (stormcast-v2/utils/interpolator.py)
-        # so the default False preserves its inference behaviour.
+        # Build KDTree in 3D unit-vector space for numerical stability
         src_vec = torch.stack(ang2vec(valid_src_lon, valid_src_lat), dim=-1).numpy()  # type: ignore[arg-type]
-        TreeCls = cKDTree if use_ckdtree else KDTree  # type: ignore[misc]
-        tree = TreeCls(src_vec)
+        tree = KDTree(src_vec)  # type: ignore[misc]
         tgt_vec = torch.stack(ang2vec(tgt_lon_flat, tgt_lat_flat), dim=-1).numpy()  # type: ignore[arg-type]
         _, nn_idx_valid_subset = tree.query(tgt_vec, k=1)  # indices into valid subset
 
