@@ -238,6 +238,12 @@ corrdiff = [
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
 ]
+cosmo = [
+    "einops>=0.8.1",
+    "natten ; python_version < '3.14'",
+    "nvidia-physicsnemo>=2.2.0",
+    "nvtx>=0.2.11",
+]
 cyclone = [
     "cucim-cu13>=25.4.0",
     "cupy-cuda13x",
@@ -276,6 +282,10 @@ da-stormcast = [
     "cudf-cu13>=26.2.0",
 ]
 # All, must not have conflicts
+# NOTE: `cosmo` is intentionally excluded here. It requires nvidia-physicsnemo
+# >=2.2.0 (RoPE), which conflicts with `da-healda`'s <=2.1.1 cap, so the two
+# cannot co-resolve in `all`. TODO(cosmo): add `cosmo` back once 2.2.0 is
+# released and `da-healda` can move off the 2.1.1 cap.
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
     "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",

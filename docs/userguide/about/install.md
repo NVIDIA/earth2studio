@@ -589,6 +589,26 @@ uv add earth2studio --extra corrdiff
 :::
 ::::
 :::::
+:::::{tab-item} COSMO-REA Downscaling
+Notes: Additional dependencies for the `CosmoDownscaling` model.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[cosmo]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra cosmo
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Cyclone Trackers
 Notes: Additional dependencies for cyclone tracking models `TCTrackerVitart` and `TCTrackerWuDuan`.
 

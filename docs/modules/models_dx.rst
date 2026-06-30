@@ -41,6 +41,7 @@ etc.
       CBottleTCGuidance
       CorrDiffCMIP6
       CorrDiffTaiwan
+      CosmoDownscaling
       ClimateNet
       DerivedRH
       DerivedRHDewpoint
