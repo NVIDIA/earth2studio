@@ -198,7 +198,13 @@ def test_stormscope_amp_compile(amp, compile, device):
     time = np.array([np.datetime64("2020-04-05T00:00")])
 
     model = create_spoof_model(
-        nvar=nvar, nvar_cond=nvar_cond, h=h, w=w, device=device, amp=amp, compile=compile
+        nvar=nvar,
+        nvar_cond=nvar_cond,
+        h=h,
+        w=w,
+        device=device,
+        amp=amp,
+        compile=compile,
     )
 
     # Flags are recorded on the model; compilation is idempotent.
@@ -741,9 +747,9 @@ def test_stormscope_mrms_input_invalid_fill(device):
         inv_vals = filled[0, 0, 0, c][invalid_region]
         assert torch.allclose(inv_vals, torch.zeros_like(inv_vals))
         val_vals = filled[0, 0, 0, c][valid_region]
-        assert torch.allclose(val_vals, x_norm_val[c].expand_as(val_vals)), (
-            f"channel {c}: valid pixels should retain the normalized input value"
-        )
+        assert torch.allclose(
+            val_vals, x_norm_val[c].expand_as(val_vals)
+        ), f"channel {c}: valid pixels should retain the normalized input value"
 
     # Legacy nearcast checkpoints use the -10 dBZ normalized fill constant.
     model_legacy = StormScopeMRMS(
@@ -810,7 +816,9 @@ def test_stormscope_mrms_coverage_mask(device):
     # all-True (every point is within range of itself), so ANDing should yield
     # exactly the coverage mask.
     model.build_input_interpolator(lat, lon, max_dist_km=6.0)
-    assert torch.equal(model.valid_mask.cpu(), coverage.to(device=model.valid_mask.device).cpu())
+    assert torch.equal(
+        model.valid_mask.cpu(), coverage.to(device=model.valid_mask.device).cpu()
+    )
 
     # Build an interpolator whose source grid covers only the left half of the
     # domain (points in the right half will be marked invalid by the interpolator).
@@ -820,6 +828,6 @@ def test_stormscope_mrms_coverage_mask(device):
     # The combined mask should be False everywhere: the coverage mask marks the
     # right half valid, but the interpolator marks the right half invalid (no
     # nearby source points), so the AND is all-False.
-    assert not model.valid_mask.any(), (
-        "Combined mask should be all-False when coverage and interpolator masks are complementary"
-    )
+    assert (
+        not model.valid_mask.any()
+    ), "Combined mask should be all-False when coverage and interpolator masks are complementary"

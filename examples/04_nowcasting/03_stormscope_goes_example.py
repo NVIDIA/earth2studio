@@ -51,8 +51,9 @@ In this example you will learn:
 # In the CONUS nowcasting (``3km_10min``) configuration the GOES model is
 # "pure obs" (no external conditioning), while the MRMS model is conditioned on
 # GOES — the GOES model provides that conditioning during the rollout via
-# ``call_with_conditioning``. The MRMS model additionally consumes a GLM channel
-# (both input history and predicted output).
+# ``call_with_conditioning``. The MRMS model additionally has a GLM lightning
+# channel (``glm_density``) as part of its state, which we assemble for the
+# initial condition and which then evolves autoregressively over the rollout.
 
 # %%
 import os
@@ -111,9 +112,11 @@ model = StormScopeGOES.load_model(
 model = model.to(device)
 model.eval()
 
-# MRMS+GLM nowcast model: conditioned on GOES, with a gridded GLM source. The
-# model owns the (bilinear) GLM regrid; the GLM interpolator is built lazily on
-# the first fetch_glm call.
+# MRMS+GLM nowcast model: conditioned on GOES, with a gridded GLM source. Here
+# we drive it via call_with_conditioning, so glm_data_source is used only to
+# fetch the initial GLM state (via fetch_glm); the bilinear GLM interpolator is
+# built lazily on the first call. (In a standalone __call__/create_iterator run
+# the same glm_data_source would inject GLM automatically each step.)
 model_mrms = StormScopeMRMS.load_model(
     package=package,
     conditioning_data_source=GOES(),
@@ -166,11 +169,15 @@ x, x_coords = fetch_data(
 # ----------------------------------------------------
 # The MRMS+GLM model forecasts ``[refc, refc_base, glm_density]``. The radar
 # channels come from :py:class:`earth2studio.data.MRMS`; the GLM channel comes
-# from :py:class:`earth2studio.data.GOESGLMGrid`. Because the radar and GLM
-# observations live on different native grids (and GLM uses bilinear regridding,
-# unlike the nearest-neighbor radar/satellite path), we regrid each onto the
-# shared model grid and stack them into a single state tensor, in the model's
-# ``variables`` order (radar channels first, GLM last).
+# from :py:class:`earth2studio.data.GOESGLMGrid`. Because we drive the rollout
+# with ``call_with_conditioning`` (the coupled path), we own the full initial
+# state: we fetch radar and GLM, regrid each onto the shared model grid (GLM uses
+# bilinear regridding, unlike the nearest-neighbor radar/satellite path), and
+# stack them in the model's ``variables`` order (radar channels first, GLM last).
+# After the first step GLM flows autoregressively from the model's own
+# predictions, exactly like the radar channels. (If you instead ran the MRMS
+# model standalone via ``__call__`` / ``create_iterator``, ``glm_data_source``
+# would inject GLM automatically and only radar would need to be assembled here.)
 
 # %%
 mrms = MRMS()
@@ -238,10 +245,10 @@ x_mrms = x_mrms.to(dtype=torch.float32)
 # Execute the Workflow
 # --------------------
 # Since the StormScope coupled inference is a bit more involved, we will use
-# a custom forecast loop rather than a bilt-in workflow. Here, the GOES model
+# a custom forecast loop rather than a built-in workflow. Here, the GOES model
 # predicts future satellite imagery, and the MRMS model predicts radar
-# reflectivity conditioned on GOES (initially the raw data, then the forecasted
-# GOES imagery) via `call_with_conditioning`.
+# reflectivity (and GLM) conditioned on GOES (initially the raw data, then the
+# forecasted GOES imagery) via ``call_with_conditioning``.
 
 # %%
 y, y_coords = x, x_coords

@@ -506,9 +506,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         arr = torch.from_numpy(np.load(package.resolve(filename))).to(
             dtype=torch.float32
         )
-        return cls._crop_invariant(
-            arr, pkg["image_size"], pkg["spatial_downsample"]
-        )
+        return cls._crop_invariant(arr, pkg["image_size"], pkg["spatial_downsample"])
 
     @staticmethod
     def _build_grid_and_times(
@@ -558,7 +556,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if pkg["sliding_window"]:
             # N input timesteps, 1 output timestep, with resolution step_interval
             n_steps, step_interval = pkg["n_steps"], pkg["step_interval"]
-            input_times = np.arange(-n_steps + 1, 1) * np.timedelta64(step_interval, "m")
+            input_times = np.arange(-n_steps + 1, 1) * np.timedelta64(
+                step_interval, "m"
+            )
             output_times = np.array([np.timedelta64(step_interval, "m")])
         else:
             # 1 input, 1 output, with resolution step_interval
@@ -746,6 +746,32 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         raise NotImplementedError(
             "StormScopeBase.fetch_conditioning must be implemented by a subclass."
         )
+
+    def _inject_auto_observations(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> torch.Tensor:
+        """Hook to overwrite state channels with freshly-fetched observations.
+
+        Called from :meth:`__call__` (the auto path) after the state has been
+        regridded onto the model grid, and intentionally **not** from
+        :meth:`call_with_conditioning` so the coupled-rollout caller retains full
+        control of the state. Subclasses override this to inject channels sourced
+        from a separate data source/grid (e.g. GLM in :class:`StormScopeMRMS`);
+        the base implementation is a no-op.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            State tensor on the model grid, shape ``[B, T, L, C, H, W]``.
+        coords : CoordSystem
+            Coordinate system for ``x``.
+
+        Returns
+        -------
+        torch.Tensor
+            Possibly-modified state tensor.
+        """
+        return x
 
     def normalize_conditioning(
         self, conditioning: torch.Tensor | None
@@ -999,7 +1025,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.glm_mask.view(1, -1, 1, 1),
             torch.zeros((), dtype=x_norm.dtype, device=x_norm.device),
             torch.full(
-                (), self._INPUT_INVALID_FILL_CONSTANT, dtype=x_norm.dtype, device=x_norm.device
+                (),
+                self._INPUT_INVALID_FILL_CONSTANT,
+                dtype=x_norm.dtype,
+                device=x_norm.device,
             ),
         )
         x_norm = torch.where(self.valid_mask, x_norm, fill)
@@ -1298,6 +1327,12 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         x, x_coords = self.prep_input(x, coords)
+
+        # Auto-fetch hook for state observations that live on their own source
+        # grid (e.g. StormScopeMRMS GLM). This fires only in the auto path; the
+        # coupled path (call_with_conditioning) leaves the full state to the
+        # caller, mirroring how conditioning is sourced. Base is a no-op.
+        x = self._inject_auto_observations(x, x_coords)
 
         # Fetch and prep conditioning data if needed
         if (
@@ -1721,7 +1756,9 @@ class StormScopeGOES(StormScopeBase):
             conditioning_glm_mask = None
 
         # Static invariant channels (loaded only when the variant requests them)
-        topo = cls._load_invariant(package, "topo.npy", pkg) if pkg.get("topo") else None
+        topo = (
+            cls._load_invariant(package, "topo.npy", pkg) if pkg.get("topo") else None
+        )
         nexrad_proximity = (
             cls._load_invariant(package, "nexrad_proximity.npy", pkg)
             if pkg.get("nexrad_proximity")
@@ -1832,6 +1869,35 @@ class StormScopeMRMS(StormScopeBase):
     As a result, there are portions of the domain which go beyond the extent of the MRMS data,
     so these portions are masked as invalid (set to NaN).
 
+    Note
+    ----
+    **GLM state channel.**  The ``3km_10min`` variant includes a ``glm_density``
+    channel (gridded GLM lightning counts, normalized with ``log1p``) as part of
+    its *state* — both an input observation and a predicted output (the
+    ``6km_1hr`` variant has no GLM channel).  Because the GLM source lives on a
+    different native grid from MRMS, ``glm_density`` is handled separately from
+    the radar channels and is the GLM analogue of the GOES ``conditioning``:
+
+    * **Auto path** (:meth:`__call__` / :meth:`~StormScopeBase.create_iterator`):
+      pass ``glm_data_source`` (e.g. :py:class:`earth2studio.data.GOESGLMGrid`)
+      to ``load_model`` and GLM is fetched, bilinearly regridded, and injected
+      into the state automatically on every step — exactly as
+      ``conditioning_data_source`` is fetched via :meth:`fetch_conditioning`.
+      The GLM bilinear interpolator is built lazily on the first call. The input
+      state ``x`` only needs its radar channels populated (the GLM channels are
+      overwritten); a zero placeholder is fine. In this case, the model will be
+      using ground-truth GLM observations during the rollout, so is not doing
+      pure forecasting (and can only be run for dates in the past where the full
+      timeseries of GLM observations is available).
+
+    * **Coupled path** (:meth:`~StormScopeBase.call_with_conditioning`): just as
+      this method takes ``conditioning`` from the caller rather than the data
+      source, it leaves the *entire* state — GLM included — to the caller and
+      never touches ``glm_data_source``.  Populate the GLM channels of ``x``
+      yourself (e.g. via :meth:`fetch_glm` for the initial state); during the
+      rollout GLM then flows autoregressively from the model's own predictions,
+      like the radar channels. This is the more typical pure-forecast use case.
+
     Badges
     ------
     region:na class:nwc product:radar year:2026 gpu:80gb
@@ -1922,10 +1988,15 @@ class StormScopeMRMS(StormScopeBase):
         # log1p (GLM) channels among `variables`.
         self.n_glm_channels = int(self.glm_mask.sum().item())
         # Names of the GLM (log1p) state channels, in `variables` order.
-        self.glm_variables = np.asarray(self.variables)[
-            self.glm_mask.cpu().numpy()
-        ]
+        self.glm_variables = np.asarray(self.variables)[self.glm_mask.cpu().numpy()]
         self.glm_data_source = glm_data_source
+        if self.n_glm_channels > 0 and glm_data_source is None:
+            logger.warning(
+                "StormScopeMRMS has GLM state channels but no glm_data_source was "
+                "provided. GLM channels must be manually populated in the input state "
+                "before inference (e.g. via fetch_glm), or pass a glm_data_source "
+                "(e.g. earth2studio.data.GOESGLMGrid) to enable automatic injection."
+            )
         self.glm_interp: nn.Module | None = None
         self._glm_interp_max_dist_km = glm_interp_max_dist_km
 
@@ -1972,12 +2043,48 @@ class StormScopeMRMS(StormScopeBase):
         out = self.glm_interp(glm)
         return torch.nan_to_num(out, nan=0.0)
 
+    def _inject_glm(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+        """Fetch GLM observations and overwrite the GLM-channel slots in ``x``.
+
+        Called from :meth:`_inject_auto_observations` (the :meth:`__call__` auto
+        path) when ``glm_data_source`` is set. ``x`` must already be on the model
+        grid (as returned by :meth:`~StormScopeBase.prep_input`), shaped
+        ``[B, T, L, C, H, W]``. The GLM interpolator
+        (:meth:`build_glm_interpolator`) is built lazily on the first call.
+        Returns a cloned tensor — the original is not mutated.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            State tensor on the model grid, shape ``[B, T, L, C, H, W]``.
+        coords : CoordSystem
+            Coordinate system for ``x``, used to supply ``time`` and
+            ``lead_time`` to :meth:`fetch_glm`.
+
+        Returns
+        -------
+        torch.Tensor
+            Copy of ``x`` with GLM channels replaced by fetched observations.
+        """
+        glm, _ = self.fetch_glm(coords, device=x.device)  # [T, L, n_glm, H, W]
+        # Expand to batch dimension: [T, L, n_glm, H, W] -> [B, T, L, n_glm, H, W]
+        glm = glm.unsqueeze(0).expand(x.shape[0], *[-1] * glm.dim())
+        x = x.clone()
+        glm_indices = self.glm_mask.nonzero(as_tuple=True)[0]
+        x[:, :, :, glm_indices, :, :] = glm.to(dtype=x.dtype)
+        return x
+
     def fetch_glm(
         self, coords: CoordSystem, device: torch.device
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Fetch the GLM observation window from ``glm_data_source`` and bilinearly
-        regrid it onto the model grid, ready to be stacked as the ``glm_density``
-        channel(s) of the state ``x``.
+        regrid it onto the model grid.
+
+        In the auto path this is called for you by :meth:`_inject_auto_observations`
+        during :meth:`__call__`. Call it directly to assemble the GLM channels of
+        the input state yourself — e.g. for the initial state of a coupled rollout
+        driven by :meth:`~StormScopeBase.call_with_conditioning`, which does not
+        fetch GLM automatically.
 
         The GLM interpolator is built lazily from the source grid on first call.
         Returned values are **physical event counts** (the model applies ``log1p``
@@ -2113,7 +2220,9 @@ class StormScopeMRMS(StormScopeBase):
         any pixels outside the NEXRAD circular coverage area are additionally
         masked so that infilling matches the training-time boundary.
         """
-        super().build_input_interpolator(input_lats, input_lons, max_dist_km=max_dist_km)
+        super().build_input_interpolator(
+            input_lats, input_lons, max_dist_km=max_dist_km
+        )
         coverage = self._buffers.get("mrms_coverage_mask", None)
         if coverage is not None:
             self.register_buffer(
@@ -2136,6 +2245,22 @@ class StormScopeMRMS(StormScopeBase):
             )  # Impute -10 for low reflectivity values
 
         return x, x_coords
+
+    def _inject_auto_observations(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> torch.Tensor:
+        """Inject freshly-fetched GLM observations into the GLM state channels.
+
+        Fires from :meth:`~StormScopeBase.__call__` (and therefore
+        :meth:`~StormScopeBase.create_iterator`) when a ``glm_data_source`` is
+        configured and the variant has GLM channels. The coupled path
+        (:meth:`~StormScopeBase.call_with_conditioning`) does not call this, so a
+        coupled rollout carries GLM through ``x`` autoregressively just as it
+        carries conditioning explicitly. See :meth:`_inject_glm`.
+        """
+        if self.n_glm_channels > 0 and self.glm_data_source is not None:
+            return self._inject_glm(x, coords)
+        return x
 
     @classmethod
     def load_model(
@@ -2165,10 +2290,15 @@ class StormScopeMRMS(StormScopeBase):
         conditioning_data_source : DataSource | ForecastSource | None, optional
             Data source to use for conditioning (GOES), by default None.
         glm_data_source : DataSource | None, optional
-            Gridded GLM source (e.g. :py:class:`earth2studio.data.GOESGLMGrid`) used
-            for variants with a ``glm_density`` channel. The model bilinearly
-            regrids it to the model grid (see :py:meth:`build_glm_interpolator` /
-            :py:meth:`interpolate_glm`). By default None.
+            Gridded GLM source (e.g. :py:class:`earth2studio.data.GOESGLMGrid`)
+            used for variants with a ``glm_density`` state channel (``3km_10min``
+            only — the ``6km_1hr`` variant has no GLM channel). The GLM analogue
+            of ``conditioning_data_source``: when set, :py:meth:`__call__`
+            (and :py:meth:`~StormScopeBase.create_iterator`) fetch, regrid, and
+            inject GLM into the state automatically. The coupled path
+            (:py:meth:`~StormScopeBase.call_with_conditioning`) does not use it —
+            there the caller populates the GLM channels of ``x`` (e.g. via
+            :py:meth:`fetch_glm`). By default None.
         amp : bool, optional
             Enable automatic mixed precision (autocast) for the sampler's network
             forward passes. Default is False.
@@ -2215,7 +2345,9 @@ class StormScopeMRMS(StormScopeBase):
             conditioning_glm_mask = None
 
         # Static invariant channels (loaded only when the variant requests them)
-        topo = cls._load_invariant(package, "topo.npy", pkg) if pkg.get("topo") else None
+        topo = (
+            cls._load_invariant(package, "topo.npy", pkg) if pkg.get("topo") else None
+        )
         nexrad_proximity = (
             cls._load_invariant(package, "nexrad_proximity.npy", pkg)
             if pkg.get("nexrad_proximity")
