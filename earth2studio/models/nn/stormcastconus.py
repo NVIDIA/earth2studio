@@ -37,7 +37,6 @@ from earth2studio.utils import (
     handshake_size,
 )
 from earth2studio.utils.coords import map_coords
-from earth2studio.utils.cos_zenith import cos_zenith_angle
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -54,6 +53,7 @@ try:
     from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
     from physicsnemo.diffusion.preconditioners import EDMPreconditioner
     from physicsnemo.diffusion.samplers import sample
+    from physicsnemo.utils.zenith_angle import cos_zenith_angle
 except ImportError:
     OptionalDependencyFailure("stormcast")
     OmegaConf = None
