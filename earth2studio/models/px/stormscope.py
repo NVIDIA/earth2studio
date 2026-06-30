@@ -115,8 +115,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         longitude grid shapes.
     glm_mask : torch.Tensor | None, optional
         Boolean mask of shape [C] over the state channels, True where a channel is
-        normalized with log1p/expm1 (GLM-style) rather than mean/std. Default is
-        None, in which case all channels use mean/std.
+        normalized with log1p/expm1 (GLM — Geostationary Lightning Mapper — style)
+        rather than mean/std. Default is None, in which case all channels use mean/std.
     conditioning_glm_mask : torch.Tensor | None, optional
         Boolean mask of shape [C_cond] over the conditioning channels, True where a
         channel is log1p-normalized. Default is None (all conditioning channels use
@@ -132,7 +132,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         network forward passes. The sampler's latent/state math is kept in
         ``_SAMPLER_DTYPE`` (fp64); only the DiT forward passes run under
         autocast. Can also be toggled after construction via the ``amp``
-        attribute. Default is False.
+        attribute. Default is True.
     compile : bool, optional
         Compile each staged denoising expert with ``torch.compile`` (using the
         ``"reduce-overhead"`` mode) for faster repeated sampling. Can also be
@@ -181,7 +181,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x_coords: np.ndarray | None = None,
         input_interp_max_dist_km: float = 12.0,
         conditioning_interp_max_dist_km: float = 26.0,
-        amp: bool = False,
+        amp: bool = True,
         compile: bool = False,
     ):
         super().__init__()
@@ -1574,7 +1574,7 @@ class StormScopeGOES(StormScopeBase):
         x_coords: np.ndarray | None = None,
         input_interp_max_dist_km: float = 12.0,
         conditioning_interp_max_dist_km: float = 26.0,
-        amp: bool = False,
+        amp: bool = True,
         compile: bool = False,
     ):
 
@@ -1690,7 +1690,7 @@ class StormScopeGOES(StormScopeBase):
         package: Package,
         model_name: str = "3km_10min",
         conditioning_data_source: DataSource | ForecastSource | None = None,
-        amp: bool = False,
+        amp: bool = True,
         compile: bool = False,
     ) -> PrognosticModel:
         """Load model from package.
@@ -1712,7 +1712,7 @@ class StormScopeGOES(StormScopeBase):
             Data source to use for conditioning, by default None.
         amp : bool, optional
             Enable automatic mixed precision (autocast) for the sampler's network
-            forward passes. Default is False.
+            forward passes. Default is True.
         compile : bool, optional
             Compile each staged expert with ``torch.compile`` ("reduce-overhead").
             Default is False.
@@ -1862,6 +1862,13 @@ class StormScopeMRMS(StormScopeBase):
         any interpolator-derived mask built by :meth:`build_input_interpolator`.
         Loaded automatically from the package for non-deprecated variants.
         Default is None.
+    glm_data_source : DataSource | None, optional
+        Gridded GLM source (e.g. :py:class:`earth2studio.data.GOESGLMGrid`) for
+        variants with a ``glm_density`` state channel (``3km_10min`` only). When
+        set, :meth:`__call__` (and :meth:`~StormScopeBase.create_iterator`) fetch,
+        regrid, and inject GLM into the state automatically on every step. Not used
+        by the coupled path (:meth:`~StormScopeBase.call_with_conditioning`), where
+        the caller is responsible for populating GLM channels. Default is None.
 
     Note
     ----
@@ -1946,7 +1953,7 @@ class StormScopeMRMS(StormScopeBase):
         input_interp_max_dist_km: float = 12.0,
         conditioning_interp_max_dist_km: float = 12.0,
         glm_interp_max_dist_km: float = 14.0,
-        amp: bool = False,
+        amp: bool = True,
         compile: bool = False,
     ):
 
@@ -2269,7 +2276,7 @@ class StormScopeMRMS(StormScopeBase):
         model_name: str = "3km_10min",
         conditioning_data_source: DataSource | ForecastSource | None = None,
         glm_data_source: DataSource | None = None,
-        amp: bool = False,
+        amp: bool = True,
         compile: bool = False,
     ) -> PrognosticModel:
         """Load model from package.
@@ -2301,7 +2308,7 @@ class StormScopeMRMS(StormScopeBase):
             :py:meth:`fetch_glm`). By default None.
         amp : bool, optional
             Enable automatic mixed precision (autocast) for the sampler's network
-            forward passes. Default is False.
+            forward passes. Default is True.
         compile : bool, optional
             Compile each staged expert with ``torch.compile`` ("reduce-overhead").
             Default is False.
