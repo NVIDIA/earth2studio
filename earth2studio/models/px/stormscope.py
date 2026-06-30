@@ -18,7 +18,7 @@ import json
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import numpy as np
 import torch
@@ -1688,7 +1688,7 @@ class StormScopeGOES(StormScopeBase):
     def load_model(
         cls,
         package: Package,
-        model_name: str = "3km_10min",
+        model_name: Literal["3km_10min", "6km_1hr"] = "3km_10min",
         conditioning_data_source: DataSource | ForecastSource | None = None,
         amp: bool = True,
         compile: bool = False,
@@ -1699,7 +1699,7 @@ class StormScopeGOES(StormScopeBase):
         ----------
         package : Package
             Package to load model from
-        model_name : str, optional
+        model_name : Literal["3km_10min", "6km_1hr"], optional
             Variant to load, by default ``"3km_10min"`` (the recommended CONUS
             nowcasting variant). Available variants (see
             :py:meth:`list_available_models`):
@@ -2273,7 +2273,7 @@ class StormScopeMRMS(StormScopeBase):
     def load_model(
         cls,
         package: Package,
-        model_name: str = "3km_10min",
+        model_name: Literal["3km_10min", "6km_1hr"] = "3km_10min",
         conditioning_data_source: DataSource | ForecastSource | None = None,
         glm_data_source: DataSource | None = None,
         amp: bool = True,
@@ -2285,7 +2285,7 @@ class StormScopeMRMS(StormScopeBase):
         ----------
         package : Package
             Package to load model from
-        model_name : str, optional
+        model_name : Literal["3km_10min", "6km_1hr"], optional
             Variant to load. Available variants (see
             :py:meth:`list_available_models`):
 
