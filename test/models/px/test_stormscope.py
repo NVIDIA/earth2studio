@@ -67,11 +67,14 @@ def create_spoof_model(
     # Create spoof models
     diffusion = PhooStormScopeDiffusionModel(nvar=nvar)
 
-    # Model spec for staged denoising
+    # Model spec for staged denoising. Use a small positive sigma_min (as the real
+    # packaged checkpoints do, e.g. 0.001) rather than exactly 0.0: a zero sigma_min
+    # puts a real 0 into the EDM noise schedule, making the Euler update divide by
+    # t_hat == 0 and producing NaNs. Only the appended t_N == 0 is meant to be zero.
     model_spec = [
         {
             "model": diffusion,
-            "sigma_min": 0.0,
+            "sigma_min": 0.001,
             "sigma_max": 88.0,
         }
     ]
@@ -210,8 +213,12 @@ def test_stormscope_amp_compile(amp, compile, device):
     # Flags are recorded on the model; compilation is idempotent.
     assert model.amp == amp
     assert model._experts_compiled == compile
-    model.compile_experts()  # no-op the second time / when already compiled
-    assert model._experts_compiled == compile
+    if compile:
+        # Re-compiling an already-compiled model is a no-op (idempotent). We only
+        # check this when compile=True; calling compile_experts() on an
+        # uncompiled model would (correctly) compile it and flip the flag.
+        model.compile_experts()
+        assert model._experts_compiled == compile
 
     dc = OrderedDict([("y", model.y), ("x", model.x)])
     r = Random(dc)
@@ -821,10 +828,13 @@ def test_stormscope_mrms_coverage_mask(device):
     )
 
     # Build an interpolator whose source grid covers only the left half of the
-    # domain (points in the right half will be marked invalid by the interpolator).
+    # domain. With a tight max_dist_km, every right-half target point (>~45 km
+    # from the nearest left-half source point) is out of range and marked invalid
+    # by the interpolator, while left-half points (distance 0) stay valid --
+    # making the interpolator mask exactly complementary to the coverage mask.
     lat_left = lat[:, : w // 2]
     lon_left = lon[:, : w // 2]
-    model.build_input_interpolator(lat_left, lon_left, max_dist_km=200.0)
+    model.build_input_interpolator(lat_left, lon_left, max_dist_km=20.0)
     # The combined mask should be False everywhere: the coverage mask marks the
     # right half valid, but the interpolator marks the right half invalid (no
     # nearby source points), so the AND is all-False.
