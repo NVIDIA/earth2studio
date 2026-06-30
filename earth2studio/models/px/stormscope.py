@@ -59,7 +59,7 @@ except ImportError:
     DiT = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
     pnm_insolation = None  # type: ignore[assignment]
-    
+
 from earth2studio.models.nn.stormscope_util import (
     DropInDiT,
     EDMPrecond,
@@ -226,16 +226,14 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 if key not in spec:
                     raise KeyError(f"model_spec[{i}] missing required key '{key}'.")
 
-        # Keep registry order (ascending sigma) so that _select_expert picks
-        # the lowest-sigma expert first in overlap regions, matching the
-        # inferencer's select_expert() iteration order.
+        # Sort stages by descending sigma_max to ensure large->small sampling schedule
         self.model_spec = sorted(
-            model_spec, key=lambda s: float(s["sigma_min"]), reverse=False
+            model_spec, key=lambda s: float(s["sigma_max"]), reverse=True
         )
         # Store in ModuleList so `.to(device)` works
         self.stage_models = nn.ModuleList([spec["model"] for spec in self.model_spec])
-        self.start_sigma = self.model_spec[0]["sigma_min"]
-        self.end_sigma = self.model_spec[-1]["sigma_max"]
+        self.start_sigma = self.model_spec[-1]["sigma_min"]
+        self.end_sigma = self.model_spec[0]["sigma_max"]
 
         self.register_buffer("means", means)
         self.register_buffer("stds", stds)
@@ -278,7 +276,11 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         image_size = pkg["image_size"]
         spatial_downsample = int(pkg.get("spatial_downsample", 1))
         latitudes = torch.from_numpy(np.load(package.resolve("lat.npy")))
-        longitudes = torch.from_numpy(np.load(package.resolve("lon.npy")))
+        # Wrap to [0, 360) to match trained-model convention (consumers such as
+        # cos_zenith_angle and insolation are periodic in longitude).
+        longitudes = (
+            torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0
+        ) % 360.0
         hrrr_y, hrrr_x = HRRR.HRRR_Y, HRRR.HRRR_X
         full_y, full_x = latitudes.shape[0], longitudes.shape[1] if longitudes.dim() > 1 else latitudes.shape[0]
         anchor_y = int((full_y - image_size[0]) / 2)
@@ -811,23 +813,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         else:
             x_coords = coords.copy()
 
-        # Detect NaN/Inf in source data and update the valid mask accordingly.
-        # This handles predicted GOES which has NaN at out-of-coverage pixels
-        # but lands on the native grid (so the interpolation mask is trivially 100%).
-        any_nan = torch.isnan(x) | torch.isinf(x)
-        if any_nan.any():
-            # Reduce to spatial [H, W]: a pixel is invalid if ANY channel is NaN
-            spatial_nan = any_nan
-            while spatial_nan.dim() > 2:
-                spatial_nan = spatial_nan.any(dim=0)
-            if spatial_nan.dim() == 3:
-                spatial_nan = spatial_nan.any(dim=0)
-            valid_mask = valid_mask & ~spatial_nan
-            if conditioning:
-                self.conditioning_valid_mask = valid_mask.to(device=self.latitudes.device)
-            else:
-                self.valid_mask = valid_mask.to(device=self.latitudes.device)
-
+        # Handle invalid gridpoints: initially zero-fill any NaNs so they don't cause problems in concat/prep ops
+        # Data will be zero-filled again after normalization in the forward method.
+        # if not (conditioning and torch.any(self.conditioning_valid_mask)):
         x = torch.where(~valid_mask, 0.0, x)
 
         return x, x_coords
