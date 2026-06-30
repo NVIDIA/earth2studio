@@ -206,21 +206,12 @@ test-px-models:
         compare_to: 'refs/heads/main'
     - <<: *test_rule_never
 
-<<<<<<< HEAD
 # TODO: REMOVE, CONFLICT CURRENTLY
 test-px-ace2:
   extends:
     - .test:base
   variables:
     TOX_ENV: test-px-models-ace2
-=======
-# TODO: REMOVE
-test-px-makani:
-  extends:
-    - .test:base
-  variables:
-    TOX_ENV: test-px-models-makani
->>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
   rules:
     - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes

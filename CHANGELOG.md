@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
 - Added DLESyM-v0-ISCCP-ERA5 climate model
+- Added StormScope NSRDB solar irradiance (GHI) nowcasting model
+  (`StormScopeNSRDB`) that estimates surface GHI from StormScope GOES imagery,
+  with a solar nowcasting example
 
 ### Changed
 

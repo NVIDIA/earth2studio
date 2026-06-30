@@ -21,15 +21,15 @@ StormScope Satellite and Radar Nowcasting
 
 StormScope inference workflow with GOES satellite imagery and MRMS radar data.
 
-This example demonstrates coupled inference to generate predictions using
-StormScope GOES, MRMS, and NSRDB models.
+This example will demonstrate how to run coupled inference to generate
+predictions using StormScope models with both GOES and MRMS data sources.
 
 In this example you will learn:
 
-- How to instantiate StormScope models for GOES, MRMS, and NSRDB
+- How to instantiate StormScope models for GOES and MRMS
 - Creating GOES and MRMS data sources
 - Running iterative prognostic forecasts
-- Plotting GOES with MRMS overlay and NSRDB (GHI)
+- Plotting a single GOES channel with MRMS overlay
 """
 # /// script
 # dependencies = [
@@ -46,7 +46,6 @@ In this example you will learn:
 #
 # - :py:class:`earth2studio.models.px.StormScopeGOES` to forecast GOES channels.
 # - :py:class:`earth2studio.models.px.StormScopeMRMS` to forecast radar reflectivity.
-# - :py:class:`earth2studio.models.px.StormScopeNSRDB` to forecast solar irradiance.
 #
 # Each model also needs a conditioning data source. For GOES we use
 # :py:class:`earth2studio.data.GFS_FX`, so it can be conditioned on synoptic-scale
@@ -70,12 +69,10 @@ import numpy as np
 import torch
 
 from earth2studio.data import GFS_FX, GOES, MRMS, fetch_data
-from earth2studio.models.auto import Package
 from earth2studio.models.px.stormscope import (
     StormScopeBase,
     StormScopeGOES,
     StormScopeMRMS,
-    StormScopeNSRDB,
 )
 
 # %%
@@ -96,9 +93,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 goes_model_name = "6km_60min_natten_cos_zenith_input_eoe_v2"
 mrms_model_name = "6km_60min_natten_cos_zenith_input_mrms_eoe"
+
 package = StormScopeBase.load_default_package()
-solar_package = Package("/output/solar_stormscope_package")
-print("solar_package: ", solar_package)
 
 # Load GOES model with GFS_FX conditioning (should be set to None for 10min models)
 model = StormScopeGOES.load_model(
@@ -118,13 +114,6 @@ model_mrms = StormScopeMRMS.load_model(
 model_mrms = model_mrms.to(device)
 model_mrms.eval()
 
-# Load NSRDB model (conditioning comes from GOES in the rollout loop)
-model_nsrdb = StormScopeNSRDB.load_model(
-    package=solar_package,
-    conditioning_data_source=None,
-)
-model_nsrdb = model_nsrdb.to(device)
-model_nsrdb.eval()
 # %%
 # Setup GOES Data Source and Interpolators
 # ----------------------------------------
@@ -213,7 +202,6 @@ x_mrms = x_mrms.to(dtype=torch.float32)
 # %%
 y, y_coords = x, x_coords
 y_mrms, y_coords_mrms = x_mrms, x_coords_mrms
-y_nsrdb, y_coords_nsrdb = None, None
 
 n_steps = 2
 for step_idx in range(n_steps):
@@ -225,33 +213,11 @@ for step_idx in range(n_steps):
         y_mrms, y_coords_mrms, conditioning=y, conditioning_coords=y_coords
     )
 
-    # Run one prognostic step with the NSRDB model conditioned on GOES.
-    # First step uses a zero-valued NSRDB initial condition inferred from GOES coords.
-    if step_idx == 0 or y_nsrdb is None or y_coords_nsrdb is None:
-        y_nsrdb_pred, y_coords_nsrdb_pred = model_nsrdb.estimate_from_goes(
-            y,
-            y_coords,
-        )
-    else:
-        y_nsrdb_pred, y_coords_nsrdb_pred = model_nsrdb.call_with_conditioning(
-            y_nsrdb,
-            y_coords_nsrdb,
-            conditioning=y,
-            conditioning_coords=y_coords,
-        )
-
     # Update sliding window with new prediction
     y_pred, y_pred_coords = model.next_input(y_pred, y_pred_coords, y, y_coords)
     y_mrms_pred, y_coords_mrms_pred = model_mrms.next_input(
         y_mrms_pred, y_coords_mrms_pred, y_mrms, y_coords_mrms
     )
-    if y_nsrdb is None or y_coords_nsrdb is None:
-        # For the bootstrap step, the estimate itself becomes the next input state.
-        y_nsrdb, y_coords_nsrdb = y_nsrdb_pred, y_coords_nsrdb_pred
-    else:
-        y_nsrdb, y_coords_nsrdb = model_nsrdb.next_input(
-            y_nsrdb_pred, y_coords_nsrdb_pred, y_nsrdb, y_coords_nsrdb
-        )
 
     # Update the input tensors and coordinate systems for the next step
     y = y_pred
@@ -269,12 +235,10 @@ for step_idx in range(n_steps):
 goes_channel = "abi13c"
 goes_ch_idx = list(model.variables).index(goes_channel)
 mrms_ch_idx = list(model_mrms.variables).index("refc")
-nsrdb_ch_idx = list(model_nsrdb.variables).index("ghi")
 
 # Nan-fill invalid gridpoints
 y_pred = torch.where(model.valid_mask, y_pred, torch.nan)
 y_mrms_pred = torch.where(model_mrms.valid_mask, y_mrms_pred, torch.nan)
-y_nsrdb = torch.where(model_nsrdb.valid_mask, y_nsrdb, torch.nan)
 
 # Prepare HRRR Lambert Conformal projection
 proj_hrrr = ccrs.LambertConformal(
@@ -345,39 +309,3 @@ plt.title(
 
 plt.tight_layout()
 plt.savefig("outputs/20_stormscope_goes_example.png", dpi=300)
-
-# %%
-# Plot NSRDB (GHI) prediction
-lon_out_nsrdb = model_nsrdb.longitudes.detach().cpu().numpy()
-lat_out_nsrdb = model_nsrdb.latitudes.detach().cpu().numpy()
-field_nsrdb = y_nsrdb[0, 0, 0, nsrdb_ch_idx].detach().cpu().numpy()
-field_nsrdb = np.where(np.isfinite(field_nsrdb), field_nsrdb, np.nan)
-
-plt.figure(figsize=(9, 6))
-ax = plt.axes(projection=proj_hrrr)
-ax.coastlines(color="black", linewidth=1.2)
-ax.add_feature(cfeature.STATES, edgecolor="black", linewidth=1.0)
-ax.coastlines(color="white", linewidth=0.4)
-ax.add_feature(cfeature.STATES, edgecolor="white", linewidth=0.3)
-
-im_nsrdb = ax.pcolormesh(
-    lon_out_nsrdb,
-    lat_out_nsrdb,
-    field_nsrdb,
-    transform=ccrs.PlateCarree(),
-    cmap="viridis",
-    shading="auto",
-)
-plt.colorbar(
-    im_nsrdb,
-    label="NSRDB GHI [W/m^2]",
-    orientation="horizontal",
-    pad=0.05,
-    shrink=0.6,
-)
-plt.title(
-    f"Predicted NSRDB GHI from {time} UTC initialization "
-    f"(lead {lead_time.astype('timedelta64[m]').item()})"
-)
-plt.tight_layout()
-plt.savefig("outputs/20_stormscope_nsrdb_example.png", dpi=300)

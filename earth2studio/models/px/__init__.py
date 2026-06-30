@@ -49,6 +49,8 @@ from earth2studio.models.px.stormscope import (
     StormScopeMRMS,
     StormScopeNSRDB,
 )
+from earth2studio.models.px.ucast import UCast
+
 # Silence warning spam from various models
 warnings.filterwarnings("ignore")
 warnings.filterwarnings("ignore", category=FutureWarning)
