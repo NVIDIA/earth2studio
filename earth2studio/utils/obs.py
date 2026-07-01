@@ -36,9 +36,12 @@ except ImportError:
 
 try:
     import cupy as cp
-    from cupyx.scipy.interpolate import LinearNDInterpolator
 except ImportError:
     cp = None
+
+try:
+    from cupyx.scipy.interpolate import LinearNDInterpolator
+except ImportError:
     try:
         from scipy.interpolate import LinearNDInterpolator
     except ImportError:
@@ -176,8 +179,16 @@ class ObsGridMapping:
                 in_points = self.xp.stack(
                     (self.grid_lat.ravel(), self.grid_lon.ravel()), axis=-1
                 )
-                self.i_interp = LinearNDInterpolator(in_points, grid_i.ravel())
-                self.j_interp = LinearNDInterpolator(in_points, grid_j.ravel())
+                # scipy's LinearNDInterpolator requires NumPy arrays; convert
+                # explicitly when the arrays live on GPU (CuPy blocks implicit
+                # conversion via __array__).
+                to_np = cp.asnumpy if cp is not None else np.asarray
+                self.i_interp = LinearNDInterpolator(
+                    to_np(in_points), to_np(grid_i.ravel())
+                )
+                self.j_interp = LinearNDInterpolator(
+                    to_np(in_points), to_np(grid_j.ravel())
+                )
             elif grid_lat.ndim != 1:
                 raise ValueError("grid_lat and grid_lon must be either 1D or 2D.")
 
@@ -229,8 +240,9 @@ class ObsGridMapping:
                 )
             else:
                 obs_latlon = self.xp.stack((obs_lat.ravel(), obs_lon.ravel()), axis=-1)
-                obs_i = self.i_interp(obs_latlon)
-                obs_j = self.j_interp(obs_latlon)
+                to_np = cp.asnumpy if cp is not None else np.asarray
+                obs_i = self.xp.asarray(self.i_interp(to_np(obs_latlon)))
+                obs_j = self.xp.asarray(self.j_interp(to_np(obs_latlon)))
 
             obs_in_bounds = (
                 (obs_c != -1)

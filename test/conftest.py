@@ -135,6 +135,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/perturbation/test_gaussian.py": ["perturbation"],
     # Utils tests
     "test/utils/test_interp.py": ["utils"],
+    "test/utils/test_obs.py": ["utils"],
 }
 
 
