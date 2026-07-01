@@ -1,0 +1,93 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from collections.abc import Callable
+
+import numpy as np
+
+from .base import LexiconType
+
+# Pressure levels (hPa) currently served by dynamical.org collections as named
+# variables (e.g. ``geopotential_height_500hpa``). Requesting a level a given
+# collection does not provide raises a clear error in the data source after it
+# checks the collection's STAC ``cube:variables``.
+LEVELS = [500, 850, 925]
+
+
+class DynamicalLexicon(metaclass=LexiconType):
+    """dynamical.org Lexicon.
+
+    Maps Earth2Studio variable ids to the descriptive variable names used by
+    dynamical.org datasets (e.g. ``t2m`` -> ``temperature_2m``,
+    ``z500`` -> ``geopotential_height_500hpa``). dynamical.org bakes the
+    vertical level into the variable name rather than using a level dimension,
+    so pressure-level fields map to dedicated ``*_<level>hpa`` names.
+
+    Unit conversions are intentionally NOT handled here. The
+    :class:`earth2studio.data.Dynamical` data source reads each collection's
+    STAC ``cube:variables`` ``unit`` field and converts to the Earth2Studio
+    convention at fetch time. Variable names absent from this lexicon may still
+    be requested by their native dynamical.org name as a pass-through.
+
+    Note
+    ----
+    Variable inventory varies per collection. See the dynamical.org STAC catalog
+    for the authoritative per-dataset variable list:
+
+    - https://stac.dynamical.org/catalog.json
+    """
+
+    VOCAB = {
+        # Single-level / surface
+        "u10m": "wind_u_10m",
+        "v10m": "wind_v_10m",
+        "u100m": "wind_u_100m",
+        "v100m": "wind_v_100m",
+        "t2m": "temperature_2m",
+        "d2m": "dew_point_temperature_2m",
+        "r2m": "relative_humidity_2m",
+        "sp": "pressure_surface",
+        "msl": "pressure_reduced_to_mean_sea_level",
+        "tcc": "total_cloud_cover_atmosphere",
+        "tcwv": "precipitable_water_atmosphere",
+    }
+    # Pressure-level fields (level baked into the dynamical.org variable name).
+    VOCAB.update({f"z{level}": f"geopotential_height_{level}hpa" for level in LEVELS})
+    VOCAB.update({f"t{level}": f"temperature_{level}hpa" for level in LEVELS})
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable]:
+        """Return the dynamical.org variable name and an identity modifier.
+
+        Unit conversion is performed by the data source using the STAC-reported
+        unit, so the modifier returned here is always the identity function.
+
+        Parameters
+        ----------
+        val : str
+            Earth2Studio variable id.
+
+        Returns
+        -------
+        tuple[str, Callable]
+            The dynamical.org variable name and an identity modifier.
+        """
+        dynamical_name = cls.VOCAB[val]
+
+        def mod(x: np.ndarray) -> np.ndarray:
+            return x
+
+        return dynamical_name, mod
