@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -21,6 +22,7 @@ import torch
 from typing_extensions import Self
 
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -32,6 +34,11 @@ try:
 except ImportError:
     OptionalDependencyFailure("perturbation")
     InverseRealSHT = None
+
+
+@dataclass
+class _GaussianCheckpointState:
+    generator_state: torch.Tensor | None = None
 
 
 class Gaussian:
@@ -50,6 +57,8 @@ class Gaussian:
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor([noise_amplitude])
         )
+        self.generator: torch.Generator | None = None
+        self.checkpoint = bind_checkpoint_state(_GaussianCheckpointState())
 
     @torch.inference_mode()
     def __call__(
@@ -71,8 +80,45 @@ class Gaussian:
         tuple[torch.Tensor, CoordSystem]:
             Output tensor and respective coordinate system dictionary
         """
+        generator = self._get_generator(x.device)
+        pre_state = generator.get_state()
         noise_amplitude = self.noise_amplitude.to(x.device)
-        return x + noise_amplitude * torch.randn_like(x), coords
+        y = x + noise_amplitude * torch.randn(
+            x.shape, dtype=x.dtype, device=x.device, generator=generator
+        )
+        self._save_generator_state(pre_state, generator.get_state(), generator)
+        return y, coords
+
+    def _get_generator(self, device: torch.device) -> torch.Generator:
+        if self.generator is None or self.generator.device != device:
+            self.generator = torch.Generator(device=device)
+            if (
+                self.checkpoint.checkpoint_state_loaded
+                and self.checkpoint.generator_state is not None
+            ):
+                self.generator.set_state(self.checkpoint.generator_state.cpu())
+            else:
+                self.generator.seed()
+        return self.generator
+
+    def _save_generator_state(
+        self,
+        pre_state: torch.Tensor,
+        post_state: torch.Tensor,
+        generator: torch.Generator,
+    ) -> None:
+        if not self.checkpoint.checkpoint_enabled:
+            return
+
+        level = self.checkpoint.checkpoint_level
+        if level < 1:
+            self.checkpoint.generator_state = None
+            return
+
+        generator_state = pre_state if level == 1 else post_state
+        self.checkpoint.generator_state = generator_state.to(
+            self.checkpoint.device
+        ).clone()
 
 
 @check_optional_dependencies()

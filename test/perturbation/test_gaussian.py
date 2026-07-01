@@ -16,10 +16,12 @@
 
 from collections import OrderedDict
 
+import numpy as np
 import pytest
 import torch
 
 from earth2studio.perturbation import CorrelatedSphericalGaussian, Gaussian
+from earth2studio.utils.checkpoint import Checkpoint
 
 
 @pytest.mark.parametrize(
@@ -73,6 +75,51 @@ def test_gaussian(x, coords, amplitude, device):
             torch.std(dx), torch.Tensor([amplitude]).to(device), rtol=1e-2, atol=1e-1
         )
     assert dx.device == x.device
+
+
+def test_gaussian_checkpoint(tmp_path):
+    x = torch.zeros(2, 3)
+    coords = OrderedDict([("batch", []), ("variable", [])])
+
+    level_one_checkpoint = Checkpoint(
+        "gaussian-level-1", path=tmp_path / "level-1", level=1
+    )
+    with level_one_checkpoint as ckpt:
+        perturbation = Gaussian(1.0)
+        expected_level_one, _ = perturbation(x, coords)
+        assert perturbation.checkpoint.generator_state is not None
+        ckpt.write(lead_time=np.timedelta64(0, "h"))
+
+    with level_one_checkpoint.select(-1):
+        perturbation = Gaussian(1.0)
+        level_one_output, _ = perturbation(x, coords)
+        assert perturbation.checkpoint.checkpoint_state_loaded
+        assert torch.allclose(level_one_output, expected_level_one)
+
+    level_two_checkpoint = Checkpoint(
+        "gaussian-level-2",
+        path=tmp_path / "level-2",
+        flush_interval=2,
+        level=2,
+    )
+    with level_two_checkpoint as ckpt:
+        perturbation = Gaussian(1.0)
+        perturbation(x, coords)
+        assert perturbation.checkpoint.generator_state is not None
+        ckpt.write(lead_time=np.timedelta64(0, "h"))
+        perturbation(x, coords)
+        assert perturbation.checkpoint.generator_state is not None
+        ckpt.write(lead_time=np.timedelta64(6, "h"))
+        expected_level_two_next, _ = perturbation(x, coords)
+        expected_level_two_third, _ = perturbation(x, coords)
+
+    with level_two_checkpoint.select(-1):
+        perturbation = Gaussian(1.0)
+        resumed, _ = perturbation(x, coords)
+        assert perturbation.checkpoint.checkpoint_state_loaded
+        assert torch.allclose(resumed, expected_level_two_next)
+        next_perturbed, _ = perturbation(x, coords)
+        assert torch.allclose(next_perturbed, expected_level_two_third)
 
 
 def test_correlated_spherical_gaussian_no_amplitude():
