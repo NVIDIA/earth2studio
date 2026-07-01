@@ -28,14 +28,14 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
-<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+  <link href="../_static/styles/theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/nvidia-sphinx-theme.css?v=933278ad" />
     <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx_badges.css?v=4a657082" />
-    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=fd6457a4" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
@@ -43,32 +43,34 @@
     <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=bba532a7" />
   
   <!-- So that users can add custom icons -->
-  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="../_static/scripts/fontawesome.js?digest=a95f357e85573c9b56d5"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
-<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5" />
 
 
 
     <script src="../_static/documentation_options.js?v=a0490c7d"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/sg-tags.js?v=d80f6fa4"></script>
     <script src="../_static/badge-data.js"></script>
     <script src="../_static/badge-filter.js?v=bda7ac9e"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../_static/togglebutton.js?v=b8b12719"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'modules/datasources_analysis';</script>
     <script>
-        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_version = '0.19.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             false;
         </script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
 
     <link rel="icon" href="../_static/favicon.png"/>
 
@@ -81,25 +83,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.17" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
 
 
   </head>
 
-  
-  
-  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+  <body data-default-mode="">
+
 
   
   
   <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
-
 
   
   <div id="pst-scroll-pixel-helper"></div>
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
-
+  
+  
+  
   
   <dialog id="pst-search-dialog">
     
@@ -125,7 +133,7 @@
 </div>
 
   
-    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
 <div class="bd-header__inner bd-page-width">
   <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
     <span class="fa-solid fa-bars"></span>
@@ -242,11 +250,18 @@
       
         <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
       
         <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -259,8 +274,7 @@
           
           
           
-          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">Github</span></a>
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">Github</span></a>
         </li>
 </ul></div>
       
@@ -334,11 +348,18 @@
         
           <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
         
           <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -351,8 +372,7 @@
           
           
           
-          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">Github</span></a>
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">Github</span></a>
         </li>
 </ul></div>
         
@@ -488,6 +508,7 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.CMIP6MultiRealm.html">CMIP6MultiRealm</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.GFS.html">GFS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.GOES.html">GOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.GOESGLMGrid.html">GOESGLMGrid</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.HimawariAHI.html">HimawariAHI</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.HRRR.html">HRRR</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.IFS.html">IFS</a></li>
@@ -756,73 +777,76 @@ it may impose on their use case.</p>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.GOES.html#earth2studio.data.GOES" title="earth2studio.data.GOES"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.GOES</span></code></a></p></td>
 <td><p>GOES (Geostationary Operational Environmental Satellite) data source.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.HimawariAHI.html#earth2studio.data.HimawariAHI" title="earth2studio.data.HimawariAHI"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.HimawariAHI</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.GOESGLMGrid.html#earth2studio.data.GOESGLMGrid" title="earth2studio.data.GOESGLMGrid"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.GOESGLMGrid</span></code></a></p></td>
+<td><p>Gridded GOES GLM (Geostationary Lightning Mapper) lightning product for StormScope.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.HimawariAHI.html#earth2studio.data.HimawariAHI" title="earth2studio.data.HimawariAHI"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.HimawariAHI</span></code></a></p></td>
 <td><p>Himawari-8/9 AHI (Advanced Himawari Imager) data source.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.HRRR.html#earth2studio.data.HRRR" title="earth2studio.data.HRRR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.HRRR</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.HRRR.html#earth2studio.data.HRRR" title="earth2studio.data.HRRR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.HRRR</span></code></a></p></td>
 <td><p>High-Resolution Rapid Refresh (HRRR) data source provides hourly North-American weather analysis data developed by NOAA (used to initialize the HRRR forecast model).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.IFS.html#earth2studio.data.IFS" title="earth2studio.data.IFS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.IFS</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.IFS.html#earth2studio.data.IFS" title="earth2studio.data.IFS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.IFS</span></code></a></p></td>
 <td><p>Integrated forecast system (IFS) HRES initial state (analysis) data source on an equirectangular grid at 0.25 degree resolution.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.IFS_ENS.html#earth2studio.data.IFS_ENS" title="earth2studio.data.IFS_ENS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.IFS_ENS</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.IFS_ENS.html#earth2studio.data.IFS_ENS" title="earth2studio.data.IFS_ENS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.IFS_ENS</span></code></a></p></td>
 <td><p>Integrated forecast system (IFS) ensemble (ENS) initial state data source on an equirectangular grid at 0.25 degree resolution.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.JPSS.html#earth2studio.data.JPSS" title="earth2studio.data.JPSS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.JPSS</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.JPSS.html#earth2studio.data.JPSS" title="earth2studio.data.JPSS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.JPSS</span></code></a></p></td>
 <td><p>JPSS VIIRS data source for NOAA-20, NOAA-21, and Suomi-NPP supporting both SDR (L1) and EDR (L2) products.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.MRMS.html#earth2studio.data.MRMS" title="earth2studio.data.MRMS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.MRMS</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.MRMS.html#earth2studio.data.MRMS" title="earth2studio.data.MRMS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.MRMS</span></code></a></p></td>
 <td><p>NOAA Multi-Radar/Multi-Sensor (MRMS) products via AWS S3.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.MeteosatFCI.html#earth2studio.data.MeteosatFCI" title="earth2studio.data.MeteosatFCI"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.MeteosatFCI</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.MeteosatFCI.html#earth2studio.data.MeteosatFCI" title="earth2studio.data.MeteosatFCI"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.MeteosatFCI</span></code></a></p></td>
 <td><p>EUMETSAT MTG-I FCI Level-1C Full Disk calibrated radiance data source.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.NClimGridDaily.html#earth2studio.data.NClimGridDaily" title="earth2studio.data.NClimGridDaily"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.NClimGridDaily</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.NClimGridDaily.html#earth2studio.data.NClimGridDaily" title="earth2studio.data.NClimGridDaily"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.NClimGridDaily</span></code></a></p></td>
 <td><p>NOAA NClimGrid daily gridded climate data source.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.NCAR_ERA5.html#earth2studio.data.NCAR_ERA5" title="earth2studio.data.NCAR_ERA5"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.NCAR_ERA5</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.NCAR_ERA5.html#earth2studio.data.NCAR_ERA5" title="earth2studio.data.NCAR_ERA5"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.NCAR_ERA5</span></code></a></p></td>
 <td><p>ERA5 data provided by NSF NCAR via the AWS Open Data Sponsorship Program.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.OPERA.html#earth2studio.data.OPERA" title="earth2studio.data.OPERA"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.OPERA</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.OPERA.html#earth2studio.data.OPERA" title="earth2studio.data.OPERA"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.OPERA</span></code></a></p></td>
 <td><p>EUMETNET OPERA European weather radar composite data source.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.PlanetaryComputerECMWFOpenDataIFS.html#earth2studio.data.PlanetaryComputerECMWFOpenDataIFS" title="earth2studio.data.PlanetaryComputerECMWFOpenDataIFS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.PlanetaryComputerECMWFOpenDataIFS</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.PlanetaryComputerECMWFOpenDataIFS.html#earth2studio.data.PlanetaryComputerECMWFOpenDataIFS" title="earth2studio.data.PlanetaryComputerECMWFOpenDataIFS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.PlanetaryComputerECMWFOpenDataIFS</span></code></a></p></td>
 <td><p>IFS analysis data from the ECMWF Open Data repository.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.PlanetaryComputerGOES.html#earth2studio.data.PlanetaryComputerGOES" title="earth2studio.data.PlanetaryComputerGOES"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.PlanetaryComputerGOES</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.PlanetaryComputerGOES.html#earth2studio.data.PlanetaryComputerGOES" title="earth2studio.data.PlanetaryComputerGOES"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.PlanetaryComputerGOES</span></code></a></p></td>
 <td><p>GOES-R ABI L2 Cloud and Moisture Imagery on Planetary Computer.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.PlanetaryComputerMODISFire.html#earth2studio.data.PlanetaryComputerMODISFire" title="earth2studio.data.PlanetaryComputerMODISFire"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.PlanetaryComputerMODISFire</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.PlanetaryComputerMODISFire.html#earth2studio.data.PlanetaryComputerMODISFire" title="earth2studio.data.PlanetaryComputerMODISFire"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.PlanetaryComputerMODISFire</span></code></a></p></td>
 <td><p>MODIS Thermal Anomalies/Fire Daily (FireMask, MaxFRP, QA).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.PlanetaryComputerOISST.html#earth2studio.data.PlanetaryComputerOISST" title="earth2studio.data.PlanetaryComputerOISST"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.PlanetaryComputerOISST</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.PlanetaryComputerOISST.html#earth2studio.data.PlanetaryComputerOISST" title="earth2studio.data.PlanetaryComputerOISST"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.PlanetaryComputerOISST</span></code></a></p></td>
 <td><p>Daily 0.25° NOAA Optimum Interpolation SST from Microsoft Planetary Computer.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.PlanetaryComputerSentinel3AOD.html#earth2studio.data.PlanetaryComputerSentinel3AOD" title="earth2studio.data.PlanetaryComputerSentinel3AOD"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.PlanetaryComputerSentinel3AOD</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.PlanetaryComputerSentinel3AOD.html#earth2studio.data.PlanetaryComputerSentinel3AOD" title="earth2studio.data.PlanetaryComputerSentinel3AOD"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.PlanetaryComputerSentinel3AOD</span></code></a></p></td>
 <td><p>Sentinel-3 SYNERGY Level-2 aerosol optical depth and surface reflectance.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.Random.html#earth2studio.data.Random" title="earth2studio.data.Random"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.Random</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.Random.html#earth2studio.data.Random" title="earth2studio.data.Random"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.Random</span></code></a></p></td>
 <td><p>A randomly generated normally distributed data.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5.html#earth2studio.data.WB2ERA5" title="earth2studio.data.WB2ERA5"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2ERA5</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5.html#earth2studio.data.WB2ERA5" title="earth2studio.data.WB2ERA5"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2ERA5</span></code></a></p></td>
 <td><p>ERA5 reanalysis data with several derived variables on a 0.25 degree lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5_121x240.html#earth2studio.data.WB2ERA5_121x240" title="earth2studio.data.WB2ERA5_121x240"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2ERA5_121x240</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5_121x240.html#earth2studio.data.WB2ERA5_121x240" title="earth2studio.data.WB2ERA5_121x240"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2ERA5_121x240</span></code></a></p></td>
 <td><p>ERA5 reanalysis data with several derived variables down sampled to a 1.5 degree lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5_32x64.html#earth2studio.data.WB2ERA5_32x64" title="earth2studio.data.WB2ERA5_32x64"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2ERA5_32x64</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5_32x64.html#earth2studio.data.WB2ERA5_32x64" title="earth2studio.data.WB2ERA5_32x64"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2ERA5_32x64</span></code></a></p></td>
 <td><p>ERA5 reanalysis data with several derived variables down sampled to a 5.625 degree lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2Climatology.html#earth2studio.data.WB2Climatology" title="earth2studio.data.WB2Climatology"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2Climatology</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2Climatology.html#earth2studio.data.WB2Climatology" title="earth2studio.data.WB2Climatology"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2Climatology</span></code></a></p></td>
 <td><p>Climatology provided by WeatherBench2,</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DataArrayFile.html#earth2studio.data.DataArrayFile" title="earth2studio.data.DataArrayFile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DataArrayFile</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DataArrayFile.html#earth2studio.data.DataArrayFile" title="earth2studio.data.DataArrayFile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DataArrayFile</span></code></a></p></td>
 <td><p>A local xarray dataarray file data source.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DataSetFile.html#earth2studio.data.DataSetFile" title="earth2studio.data.DataSetFile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DataSetFile</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DataSetFile.html#earth2studio.data.DataSetFile" title="earth2studio.data.DataSetFile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DataSetFile</span></code></a></p></td>
 <td><p>A local xarray dataset file data source.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DataArrayPathList.html#earth2studio.data.DataArrayPathList" title="earth2studio.data.DataArrayPathList"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DataArrayPathList</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DataArrayPathList.html#earth2studio.data.DataArrayPathList" title="earth2studio.data.DataArrayPathList"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DataArrayPathList</span></code></a></p></td>
 <td><p>A local xarray dataarray directory data source that handles multiple files.</p></td>
 </tr>
 </tbody>
@@ -892,8 +916,8 @@ for subsequent predictions.</p>
     class="page-toc tocsection onthispage">
     <i class="fa-solid fa-list"></i> On this page
   </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-data-ai-sources"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: AI Sources</a></li>
 </ul>
   </nav></div>
@@ -913,8 +937,8 @@ for subsequent predictions.</p>
   
 
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
-<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5"></script>
 
 
   <footer class="bd-footer">

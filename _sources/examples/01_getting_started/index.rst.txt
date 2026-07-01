@@ -12,6 +12,10 @@ This section includes deterministic, diagnostic, ensemble, and checkpoint restar
 examples for basic forecast workflows.
 
 
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
+
 
 .. raw:: html
 

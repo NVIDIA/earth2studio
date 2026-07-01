@@ -28,14 +28,14 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
-<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+  <link href="../../../../_static/styles/theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/nvidia-sphinx-theme.css?v=933278ad" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx_badges.css?v=4a657082" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css?v=fd6457a4" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
@@ -43,32 +43,34 @@
     <link rel="stylesheet" type="text/css" href="../../../../_static/css/custom.css?v=bba532a7" />
   
   <!-- So that users can add custom icons -->
-  <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="../../../../_static/scripts/fontawesome.js?digest=a95f357e85573c9b56d5"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
-<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5" />
+<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5" />
 
 
 
     <script src="../../../../_static/documentation_options.js?v=a0490c7d"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../_static/sg-tags.js?v=d80f6fa4"></script>
     <script src="../../../../_static/badge-data.js"></script>
     <script src="../../../../_static/badge-filter.js?v=bda7ac9e"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../../../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../../../_static/togglebutton.js?v=b8b12719"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/px/earth2studio.models.px.StormScopeMRMS';</script>
     <script>
-        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_version = '0.19.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             false;
         </script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
 
     <link rel="icon" href="../../../../_static/favicon.png"/>
 
@@ -81,25 +83,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.17" />
+  
+    
+    <script src="../../../../_static/searchtools.js"></script>
+    <script src="../../../../_static/language_data.js"></script>
+    <script src="../../../../searchindex.js"></script>
+  
 
 
   </head>
 
-  
-  
-  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+  <body data-default-mode="">
+
 
   
   
   <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
-
 
   
   <div id="pst-scroll-pixel-helper"></div>
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
-
+  
+  
+  
   
   <dialog id="pst-search-dialog">
     
@@ -125,7 +133,7 @@
 </div>
 
   
-    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
 <div class="bd-header__inner bd-page-width">
   <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
     <span class="fa-solid fa-bars"></span>
@@ -242,11 +250,18 @@
       
         <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
       
         <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -259,8 +274,7 @@
           
           
           
-          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">Github</span></a>
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">Github</span></a>
         </li>
 </ul></div>
       
@@ -334,11 +348,18 @@
         
           <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
         
           <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -351,8 +372,7 @@
           
           
           
-          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">Github</span></a>
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">Github</span></a>
         </li>
 </ul></div>
         
@@ -488,6 +508,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.CMIP6MultiRealm.html">CMIP6MultiRealm</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.GFS.html">GFS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.GOES.html">GOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.GOESGLMGrid.html">GOESGLMGrid</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.HimawariAHI.html">HimawariAHI</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.HRRR.html">HRRR</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.IFS.html">IFS</a></li>
@@ -745,6 +766,12 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">conditioning_means</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">conditioning_stds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">conditioning_data_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">glm_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">conditioning_glm_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">topo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">nexrad_proximity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">mrms_coverage_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">glm_data_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">sampler_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'S_churn':</span> <span class="pre">10,</span> <span class="pre">'num_steps':</span> <span class="pre">100}</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">y_coords</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">x_coords</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
@@ -752,22 +779,27 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">output_times</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array([1],</span> <span class="pre">dtype='timedelta64[h]')</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">input_interp_max_dist_km</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">12.0</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">conditioning_interp_max_dist_km</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">12.0</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">glm_interp_max_dist_km</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">14.0</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">amp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">compile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L1297-L1649"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L1793-L2407"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:na" style="background-color:#1565c0;color:#fff;" title="North America"><span class="sphinx-badge-icon"><i class="fa-solid fa-earth-americas"></i></span><span class="sphinx-badge-label">NA</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="class:nwc" style="background-color:#198754;color:#fff;" title="Nowcasting">NWC</span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:radar" style="background-color:#7048e8;color:#fff;" title="Radar"><i class="fa-solid fa-satellite-dish"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="year:2026" style="background-color:#1A1A1A;color:#fff;">2026</span><span class="sphinx-badge sphinx-badge-square" data-badge-id="gpu:80gb" style="background-color:#5aac44;color:#fff;" title="80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)">80 GB</span></span><p>StormScope model forecasting MRMS data on the HRRR grid.</p>
-<p>This model supports multiple variants at different temporal resolutions:</p>
+<p>This model supports multiple variants at different temporal resolutions,
+selected by passing <code class="docutils literal notranslate"><span class="pre">model_name</span></code> to <code class="docutils literal notranslate"><span class="pre">load_model</span></code> (default: <code class="docutils literal notranslate"><span class="pre">&quot;3km_10min&quot;</span></code>).
+Variant names are semantic (<code class="docutils literal notranslate"><span class="pre">&lt;resolution&gt;_&lt;cadence&gt;</span></code>):</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>6km resolution, 60 minute timestep</p></li>
-<li><p>6km resolution, 10 minute timestep</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">3km_10min</span></code>: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting (default)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">6km_1hr</span></code>: 6km resolution, 60 minute timestep (legacy nearcasting)</p></li>
 </ul>
 </div></blockquote>
-<p>Selection between these can be made by passing the <code class="docutils literal notranslate"><span class="pre">model_name</span> <span class="pre">argument</span></code> to this
-class’s <code class="docutils literal notranslate"><span class="pre">load_model</span></code> method.</p>
-<p>The 6km/10min model uses a sliding window of 6 input timesteps and predicts one
-output timestep; other models use a single input timestep and predict one output
-timestep. All StormScopeMRMS models by default expect GOES-East data as
+<p>Use <code class="xref py py-meth docutils literal notranslate"><span class="pre">list_available_models()</span></code> to inspect the variants in a given package.
+Legacy training-style names are still accepted as aliases.</p>
+<p>Variants whose input cadence is finer than their output cadence use a sliding
+window of input timesteps and predict one output timestep; others use a single
+input timestep and predict one output timestep. All StormScopeMRMS models by default expect GOES-East data as
 conditioning; typically in a forecasting run this can be provided by passing the
 predictions from a StormScopeGOES model to this model’s <code class="docutils literal notranslate"><span class="pre">call_with_conditioning</span></code>
 method. Otherwise, the user must provide a conditioning data source for the model
@@ -800,6 +832,25 @@ longitude grid shapes.</p></li>
 Points beyond this distance are masked as invalid. Default is 12.0.</p></li>
 <li><p><strong>conditioning_interp_max_dist_km</strong> (<em>float</em><em>, </em><em>optional</em>) – Maximum distance in kilometers for nearest neighbor interpolation of conditioning data.
 Points beyond this distance are masked as invalid. Default is 26.0.</p></li>
+<li><p><strong>mrms_coverage_mask</strong> (<em>torch.Tensor</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Boolean NEXRAD-coverage mask of shape <code class="docutils literal notranslate"><span class="pre">[H,</span> <span class="pre">W]</span></code> on the model grid, True
+where MRMS data is considered valid (inside NEXRAD circular coverage).
+When provided, it is used as the initial <code class="docutils literal notranslate"><span class="pre">valid_mask</span></code> and is ANDed with
+any interpolator-derived mask built by <code class="xref py py-meth docutils literal notranslate"><span class="pre">build_input_interpolator()</span></code>.
+Loaded automatically from the package for non-deprecated variants.
+Default is None.</p></li>
+<li><p><strong>glm_data_source</strong> (<em>DataSource</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Gridded GLM source (e.g. <a class="reference internal" href="../../data/earth2studio.data.GOESGLMGrid.html#earth2studio.data.GOESGLMGrid" title="earth2studio.data.GOESGLMGrid"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.GOESGLMGrid</span></code></a>) for
+variants with a <code class="docutils literal notranslate"><span class="pre">glm_density</span></code> state channel (<code class="docutils literal notranslate"><span class="pre">3km_10min</span></code> only). When
+set, <a class="reference internal" href="#earth2studio.models.px.StormScopeMRMS.__call__" title="earth2studio.models.px.StormScopeMRMS.__call__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">__call__()</span></code></a> (and <code class="xref py py-meth docutils literal notranslate"><span class="pre">create_iterator()</span></code>) fetch,
+regrid, and inject GLM into the state automatically on every step. Not used
+by the coupled path (<code class="xref py py-meth docutils literal notranslate"><span class="pre">call_with_conditioning()</span></code>), where
+the caller is responsible for populating GLM channels. Default is None.</p></li>
+<li><p><strong>glm_mask</strong> (<em>Tensor</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>conditioning_glm_mask</strong> (<em>Tensor</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>topo</strong> (<em>Tensor</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>nexrad_proximity</strong> (<em>Tensor</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>glm_interp_max_dist_km</strong> (<em>float</em>)</p></li>
+<li><p><strong>amp</strong> (<em>bool</em>)</p></li>
+<li><p><strong>compile</strong> (<em>bool</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -809,9 +860,38 @@ Points beyond this distance are masked as invalid. Default is 26.0.</p></li>
 As a result, there are portions of the domain which go beyond the extent of the MRMS data,
 so these portions are masked as invalid (set to NaN).</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>GLM state channel.</strong>  The <code class="docutils literal notranslate"><span class="pre">3km_10min</span></code> variant includes a <code class="docutils literal notranslate"><span class="pre">glm_density</span></code>
+channel (gridded GLM lightning counts, normalized with <code class="docutils literal notranslate"><span class="pre">log1p</span></code>) as part of
+its <em>state</em> — both an input observation and a predicted output (the
+<code class="docutils literal notranslate"><span class="pre">6km_1hr</span></code> variant has no GLM channel).  Because the GLM source lives on a
+different native grid from MRMS, <code class="docutils literal notranslate"><span class="pre">glm_density</span></code> is handled separately from
+the radar channels and is the GLM analogue of the GOES <code class="docutils literal notranslate"><span class="pre">conditioning</span></code>:</p>
+<ul class="simple">
+<li><p><strong>Auto path</strong> (<a class="reference internal" href="#earth2studio.models.px.StormScopeMRMS.__call__" title="earth2studio.models.px.StormScopeMRMS.__call__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">__call__()</span></code></a> / <code class="xref py py-meth docutils literal notranslate"><span class="pre">create_iterator()</span></code>):
+pass <code class="docutils literal notranslate"><span class="pre">glm_data_source</span></code> (e.g. <a class="reference internal" href="../../data/earth2studio.data.GOESGLMGrid.html#earth2studio.data.GOESGLMGrid" title="earth2studio.data.GOESGLMGrid"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.GOESGLMGrid</span></code></a>)
+to <code class="docutils literal notranslate"><span class="pre">load_model</span></code> and GLM is fetched, bilinearly regridded, and injected
+into the state automatically on every step — exactly as
+<code class="docutils literal notranslate"><span class="pre">conditioning_data_source</span></code> is fetched via <code class="xref py py-meth docutils literal notranslate"><span class="pre">fetch_conditioning()</span></code>.
+The GLM bilinear interpolator is built lazily on the first call. The input
+state <code class="docutils literal notranslate"><span class="pre">x</span></code> only needs its radar channels populated (the GLM channels are
+overwritten); a zero placeholder is fine. In this case, the model will be
+using ground-truth GLM observations during the rollout, so is not doing
+pure forecasting (and can only be run for dates in the past where the full
+timeseries of GLM observations is available).</p></li>
+<li><p><strong>Coupled path</strong> (<code class="xref py py-meth docutils literal notranslate"><span class="pre">call_with_conditioning()</span></code>): just as
+this method takes <code class="docutils literal notranslate"><span class="pre">conditioning</span></code> from the caller rather than the data
+source, it leaves the <em>entire</em> state — GLM included — to the caller and
+never touches <code class="docutils literal notranslate"><span class="pre">glm_data_source</span></code>.  Populate the GLM channels of <code class="docutils literal notranslate"><span class="pre">x</span></code>
+yourself (e.g. via <code class="xref py py-meth docutils literal notranslate"><span class="pre">fetch_glm()</span></code> for the initial state); during the
+rollout GLM then flows autoregressively from the model’s own predictions,
+like the radar channels. This is the more typical pure-forecast use case.</p></li>
+</ul>
+</div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.StormScopeMRMS.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L812-L864"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L1307-L1365"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Runs the prognostic model one step. Assumes the last two dimensions of the input tensor are the spatial dimensions.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -831,7 +911,7 @@ so these portions are masked as invalid (set to NaN).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.StormScopeMRMS.create_iterator">
-<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L943-L961"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.create_iterator" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L1444-L1462"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.create_iterator" title="Link to this definition">#</a></dt>
 <dd><p>Creates an iterator to perform time-integration of the prognostic model.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -852,8 +932,8 @@ output data tensor and coordinate system dictionary.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.StormScopeMRMS.load_default_package">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L238-L248"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.load_default_package" title="Link to this definition">#</a></dt>
-<dd><p>Load a default local package for StormScope models.</p>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L288-L294"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.load_default_package" title="Link to this definition">#</a></dt>
+<dd><p>Load the default StormScope package from Hugging Face.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.package.Package"><em>Package</em></a></p>
@@ -867,23 +947,42 @@ output data tensor and coordinate system dictionary.</p>
 
 <dl>
 <dd><em class="sig-param"><span class="n"><span class="pre">package</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">model_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'6km_60min_natten_cos_zenith_input_mrms_eoe'</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">model_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'3km_10min'</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">conditioning_data_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">glm_data_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">amp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">compile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L1526-L1649"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.load_model" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L2272-L2407"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.load_model" title="Link to this definition">#</a></dt>
 <dd><p>Load model from package.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package"><em>Package</em></a>) – Package to load model from</p></li>
-<li><p><strong>model_name</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>Model name to load; allows for selection between different variants of the model:</p>
+<li><p><strong>model_name</strong> (<em>Literal</em><em>[</em><em>&quot;3km_10min&quot;</em><em>, </em><em>&quot;6km_1hr&quot;</em><em>]</em><em>, </em><em>optional</em>) – <p>Variant to load. Available variants (see
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">list_available_models()</span></code>):</p>
 <ul>
-<li><p>”6km_60min_natten_cos_zenith_input_mrms_eoe”: 6km resolution, 60 minute timestep</p></li>
-<li><p>”6km_10min_natten_pure_obs_mrms_obs_6steps”: 6km resolution, 10 minute timestep</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;3km_10min&quot;</span></code>: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;6km_1hr&quot;</span></code>: 6km resolution, 60 minute timestep, MRMS+GLM nearcasting</p></li>
 </ul>
+<p>Legacy training-style names are accepted as aliases.
+Default is <code class="docutils literal notranslate"><span class="pre">&quot;3km_10min&quot;</span></code>.</p>
 </p></li>
-<li><p><strong>conditioning_data_source</strong> (<em>DataSource</em><em> | </em><em>ForecastSource</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Data source to use for conditioning, by default None.</p></li>
+<li><p><strong>conditioning_data_source</strong> (<em>DataSource</em><em> | </em><em>ForecastSource</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Data source to use for conditioning (GOES), by default None.</p></li>
+<li><p><strong>glm_data_source</strong> (<em>DataSource</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Gridded GLM source (e.g. <a class="reference internal" href="../../data/earth2studio.data.GOESGLMGrid.html#earth2studio.data.GOESGLMGrid" title="earth2studio.data.GOESGLMGrid"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.GOESGLMGrid</span></code></a>)
+used for variants with a <code class="docutils literal notranslate"><span class="pre">glm_density</span></code> state channel (<code class="docutils literal notranslate"><span class="pre">3km_10min</span></code>
+only — the <code class="docutils literal notranslate"><span class="pre">6km_1hr</span></code> variant has no GLM channel). The GLM analogue
+of <code class="docutils literal notranslate"><span class="pre">conditioning_data_source</span></code>: when set, <a class="reference internal" href="#earth2studio.models.px.StormScopeMRMS.__call__" title="earth2studio.models.px.StormScopeMRMS.__call__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">__call__()</span></code></a>
+(and <code class="xref py py-meth docutils literal notranslate"><span class="pre">create_iterator()</span></code>) fetch, regrid, and
+inject GLM into the state automatically. The coupled path
+(<code class="xref py py-meth docutils literal notranslate"><span class="pre">call_with_conditioning()</span></code>) does not use it —
+there the caller populates the GLM channels of <code class="docutils literal notranslate"><span class="pre">x</span></code> (e.g. via
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">fetch_glm()</span></code>). By default None.</p></li>
+<li><p><strong>amp</strong> (<em>bool</em><em>, </em><em>optional</em>) – Enable automatic mixed precision (autocast) for the sampler’s network
+forward passes. Default is True.</p></li>
+<li><p><strong>compile</strong> (<em>bool</em><em>, </em><em>optional</em>) – Compile each staged expert with <code class="docutils literal notranslate"><span class="pre">torch.compile</span></code> (“reduce-overhead”).
+Default is False.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -952,8 +1051,8 @@ output data tensor and coordinate system dictionary.</p>
     class="page-toc tocsection onthispage">
     <i class="fa-solid fa-list"></i> On this page
   </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormScopeMRMS"><code class="docutils literal notranslate"><span class="pre">StormScopeMRMS</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormScopeMRMS.__call__"><code class="docutils literal notranslate"><span class="pre">__call__()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormScopeMRMS.create_iterator"><code class="docutils literal notranslate"><span class="pre">create_iterator()</span></code></a></li>
@@ -980,8 +1079,8 @@ output data tensor and coordinate system dictionary.</p>
   
 
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
-<script defer src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="../../../../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5"></script>
+<script defer src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5"></script>
 
 
   <footer class="bd-footer">

@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>NCAR_ERA5 &#8212; Earth2Studio</title>
+    <title>GOESGLMGrid &#8212; Earth2Studio</title>
   
   
   
@@ -62,7 +62,7 @@
     <script src="../../../_static/togglebutton.js?v=b8b12719"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/data/earth2studio.data.NCAR_ERA5';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/data/earth2studio.data.GOESGLMGrid';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.19.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -76,8 +76,8 @@
 
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="OPERA" href="earth2studio.data.OPERA.html" />
-    <link rel="prev" title="NClimGridDaily" href="earth2studio.data.NClimGridDaily.html" />
+    <link rel="next" title="HimawariAHI" href="earth2studio.data.HimawariAHI.html" />
+    <link rel="prev" title="GOES" href="earth2studio.data.GOES.html" />
 
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -508,7 +508,7 @@
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.CMIP6MultiRealm.html">CMIP6MultiRealm</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.GFS.html">GFS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.GOES.html">GOES</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.data.GOESGLMGrid.html">GOESGLMGrid</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">GOESGLMGrid</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.HimawariAHI.html">HimawariAHI</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.HRRR.html">HRRR</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.IFS.html">IFS</a></li>
@@ -517,7 +517,7 @@
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.MRMS.html">MRMS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.MeteosatFCI.html">MeteosatFCI</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.NClimGridDaily.html">NClimGridDaily</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">NCAR_ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.data.NCAR_ERA5.html">NCAR_ERA5</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.OPERA.html">OPERA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.PlanetaryComputerECMWFOpenDataIFS.html">PlanetaryComputerECMWFOpenDataIFS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.PlanetaryComputerGOES.html">PlanetaryComputerGOES</a></li>
@@ -732,7 +732,7 @@
     
     <li class="breadcrumb-item"><a href="../../datasources_analysis.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">NCAR_ERA5</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">GOESGLMGrid</span></li>
   </ul>
 </nav>
 </div>
@@ -749,49 +749,68 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="ncar-era5">
-<h1>NCAR_ERA5<a class="headerlink" href="#ncar-era5" title="Link to this heading">#</a></h1>
+  <section id="goesglmgrid">
+<h1>GOESGLMGrid<a class="headerlink" href="#goesglmgrid" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.data.NCAR_ERA5">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">NCAR_ERA5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ncar.py#L61-L518"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NCAR_ERA5" title="Link to this definition">#</a></dt>
-<dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:reanalysis" style="background-color:#1d4ed8;color:#fff;" title="Reanalysis"><i class="fa-solid fa-rotate"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:wind" style="background-color:#4dabf7;color:#fff;" title="Surface Winds"><i class="fa-solid fa-wind"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:precip" style="background-color:#339af0;color:#fff;" title="Surface Precipitation"><i class="fa-solid fa-cloud-rain"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:temp" style="background-color:#fd7e14;color:#fff;" title="Surface Temperature"><i class="fa-solid fa-temperature-half"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:atmos" style="background-color:#74c0fc;color:#fff;" title="Atmosphere"><i class="fa-solid fa-cloud"></i></span></span><p>ERA5 data provided by NSF NCAR via the AWS Open Data Sponsorship Program. ERA5
-is the fifth generation of the ECMWF global reanalysis and available on a 0.25
-degree WGS84 grid at hourly intervals spanning from 1940 to the present.</p>
+<dt class="sig sig-object py" id="earth2studio.data.GOESGLMGrid">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">GOESGLMGrid</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">satellite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'east'</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">async_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">retries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/goes_glm.py#L734-L959"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GOESGLMGrid" title="Link to this definition">#</a></dt>
+<dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:na" style="background-color:#1565c0;color:#fff;" title="North America"><span class="sphinx-badge-icon"><i class="fa-solid fa-earth-americas"></i></span><span class="sphinx-badge-label">NA</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:observation" style="background-color:#15803d;color:#fff;" title="Direct Observations"><i class="fa-solid fa-binoculars"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:sat" style="background-color:#1c7ed6;color:#fff;" title="Satellite"><i class="fa-solid fa-satellite"></i></span></span><p>Gridded GOES GLM (Geostationary Lightning Mapper) lightning product for StormScope.</p>
+<p>Wraps <a class="reference internal" href="earth2studio.data.GOESGLM.html#earth2studio.data.GOESGLM" title="earth2studio.data.GOESGLM"><code class="xref py py-class docutils literal notranslate"><span class="pre">GOESGLM</span></code></a> (a per-event LCFA source) and accumulates events
+into a regular <strong>0.1-degree</strong> lat/lon grid via 5-minute binning and 2D
+histogramming, matching the GLM grid the StormScope MRMS+GLM nowcast model
+was trained on.</p>
+<p>Available variables:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">glm_density</span></code>        : raw event count per cell (unweighted, matching training).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">glm_energy_density</span></code> : summed event energy (J) per cell.</p></li>
+</ul>
+<p>Counts are not mean/std normalized; the StormScope model applies <code class="docutils literal notranslate"><span class="pre">log1p</span></code>
+internally. This source emits raw counts/sums on the 0.1-degree grid; the
+model bilinearly regrids to its own native grid.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>max_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Max works in async io thread pool. Only applied when using sync call function
-and will modify the default async loop if one exists, by default 24</p></li>
-<li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source on local memory, by default True</p></li>
-<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress, by default True</p></li>
-<li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Timeout in seconds for async operations, by default 600</p></li>
+<li><p><strong>satellite</strong> (<em>str</em><em>, </em><em>optional</em>) – GOES platform selector passed to <a class="reference internal" href="earth2studio.data.GOESGLM.html#earth2studio.data.GOESGLM" title="earth2studio.data.GOESGLM"><code class="xref py py-class docutils literal notranslate"><span class="pre">GOESGLM</span></code></a> (<code class="docutils literal notranslate"><span class="pre">&quot;east&quot;</span></code> default).</p></li>
+<li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache downloaded NetCDFs, by default True.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Show progress, by default True.</p></li>
+<li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Total timeout in seconds for each fetch operation, by default 600.</p></li>
+<li><p><strong>async_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum number of concurrent S3 fetch tasks, by default 24.</p></li>
+<li><p><strong>retries</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of retry attempts per failed fetch task, by default 3.</p></li>
 </ul>
 </dd>
 </dl>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>This is a remote data source and can potentially download a large amount of data
-to your local machine for large requests.</p>
-</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Additional resources:
-<a class="reference external" href="https://registry.opendata.aws/nsf-ncar-era5/">https://registry.opendata.aws/nsf-ncar-era5/</a></p>
+<p>Grid geometry (must match training): regular 0.1-degree grid over
+lat <code class="docutils literal notranslate"><span class="pre">[20,</span> <span class="pre">55]</span></code> / lon <code class="docutils literal notranslate"><span class="pre">[-130,</span> <span class="pre">-60]</span></code> (350 x 700 cells), with cell centres at
+<code class="docutils literal notranslate"><span class="pre">edge</span> <span class="pre">+</span> <span class="pre">0.5</span> <span class="pre">*</span> <span class="pre">resolution</span></code>. Output longitudes are returned in the Earth2Studio
+<code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">360)</span></code> convention. The accumulation window is fixed at 5 minutes,
+bin-start labeled (the training cadence); do not substitute a 10-minute window.</p>
 </div>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.data.NCAR_ERA5.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ncar.py#L110-L140"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NCAR_ERA5.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Function to get data</p>
+<dt class="sig sig-object py" id="earth2studio.data.GOESGLMGrid.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/goes_glm.py#L823-L887"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GOESGLMGrid.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Fetch the gridded GLM product for the requested times and variables.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
-<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
-return. Must be in the NCAR lexicon.</p></li>
+<li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – 5-minute-aligned timestamps (UTC). Each labels a <code class="docutils literal notranslate"><span class="pre">[t,</span> <span class="pre">t+5min)</span></code> bin.</p></li>
+<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – One or more of <code class="docutils literal notranslate"><span class="pre">&quot;glm_density&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;glm_energy_density&quot;</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>ERA5 weather data array from NCAR ERA5</p>
+<dd class="field-even"><p>Array with dims <code class="docutils literal notranslate"><span class="pre">[time,</span> <span class="pre">variable,</span> <span class="pre">lat,</span> <span class="pre">lon]</span></code> on the 0.1-degree grid.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>xr.DataArray</p>
@@ -800,19 +819,18 @@ return. Must be in the NCAR lexicon.</p></li>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.data.NCAR_ERA5.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ncar.py#L142-L212"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NCAR_ERA5.fetch" title="Link to this definition">#</a></dt>
-<dd><p>Async function to get data</p>
+<dt class="sig sig-object py" id="earth2studio.data.GOESGLMGrid.fetch">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/goes_glm.py#L889-L949"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GOESGLMGrid.fetch" title="Link to this definition">#</a></dt>
+<dd><p>Async function to fetch the gridded GLM product.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
-<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
-return. Must be in the ARCO lexicon.</p></li>
+<li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – 5-minute-aligned timestamps (UTC). Each labels a <code class="docutils literal notranslate"><span class="pre">[t,</span> <span class="pre">t+5min)</span></code> bin.</p></li>
+<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – One or more of <code class="docutils literal notranslate"><span class="pre">&quot;glm_density&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;glm_energy_density&quot;</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>ERA5 weather data array from ARCO</p>
+<dd class="field-even"><p>Array with dims <code class="docutils literal notranslate"><span class="pre">[time,</span> <span class="pre">variable,</span> <span class="pre">lat,</span> <span class="pre">lon]</span></code> on the 0.1-degree grid.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>xr.DataArray</p>
@@ -822,11 +840,11 @@ return. Must be in the ARCO lexicon.</p></li>
 
 </dd></dl>
 
-<section id="examples-using-earth2studio-data-ncar-era5">
-<span id="sphx-glr-backref-earth2studio-data-ncar-era5"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.data.NCAR_ERA5</span></code><a class="headerlink" href="#examples-using-earth2studio-data-ncar-era5" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Producing a global weather analysis from satellite and in-situ observations."><img alt="" src="../../../_images/sphx_glr_02_healda_thumb.png" />
-<p><a class="reference internal" href="../../../examples/05_data_assimilation/02_healda.html"><span class="doc">HealDA Global Data Assimilation</span></a></p>
-  <div class="sphx-glr-thumbnail-title">HealDA Global Data Assimilation</div>
+<section id="examples-using-earth2studio-data-goesglmgrid">
+<span id="sphx-glr-backref-earth2studio-data-goesglmgrid"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.data.GOESGLMGrid</span></code><a class="headerlink" href="#examples-using-earth2studio-data-goesglmgrid" title="Link to this heading">#</a></h2>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="StormScope inference workflow with GOES satellite imagery and MRMS radar data."><img alt="" src="../../../_images/sphx_glr_03_stormscope_goes_example_thumb.png" />
+<p><a class="reference internal" href="../../../examples/04_nowcasting/03_stormscope_goes_example.html"><span class="doc">StormScope Satellite and Radar Nowcasting</span></a></p>
+  <div class="sphx-glr-thumbnail-title">StormScope Satellite and Radar Nowcasting</div>
 </div></div><div class="clearer"></div></section>
 </section>
 
@@ -841,20 +859,20 @@ return. Must be in the ARCO lexicon.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.data.NClimGridDaily.html"
+       href="earth2studio.data.GOES.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">NClimGridDaily</p>
+        <p class="prev-next-title">GOES</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.data.OPERA.html"
+       href="earth2studio.data.HimawariAHI.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">OPERA</p>
+        <p class="prev-next-title">HimawariAHI</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -879,12 +897,12 @@ return. Must be in the ARCO lexicon.</p></li>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.NCAR_ERA5"><code class="docutils literal notranslate"><span class="pre">NCAR_ERA5</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.NCAR_ERA5.__call__"><code class="docutils literal notranslate"><span class="pre">__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.NCAR_ERA5.fetch"><code class="docutils literal notranslate"><span class="pre">fetch()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.GOESGLMGrid"><code class="docutils literal notranslate"><span class="pre">GOESGLMGrid</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.GOESGLMGrid.__call__"><code class="docutils literal notranslate"><span class="pre">__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.GOESGLMGrid.fetch"><code class="docutils literal notranslate"><span class="pre">fetch()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-data-ncar-era5">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.data.NCAR_ERA5</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-data-goesglmgrid">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.data.GOESGLMGrid</span></code></a></li>
 </ul>
   </nav></div>
 

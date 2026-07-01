@@ -11,6 +11,10 @@ Miscellaneous examples covering IO performance, custom data sources, and other
 utility workflows.
 
 
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
+
 
 .. raw:: html
 

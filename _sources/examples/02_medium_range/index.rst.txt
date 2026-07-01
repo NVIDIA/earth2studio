@@ -11,6 +11,10 @@ Examples focused on medium-range global weather forecasting, ensemble methods,
 and post-processing workflows.
 
 
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
+
 
 .. raw:: html
 

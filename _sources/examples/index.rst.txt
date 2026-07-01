@@ -36,6 +36,10 @@ and commonly used workflows.
     ``python <example_script>.py``
 
 
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
+
 
 .. raw:: html
 
@@ -57,6 +61,10 @@ Introductory examples demonstrating the core inference workflows in Earth2Studio
 This section includes deterministic, diagnostic, ensemble, and checkpoint restart
 examples for basic forecast workflows.
 
+
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
 
 
 .. raw:: html
@@ -146,6 +154,10 @@ Medium Range
 Examples focused on medium-range global weather forecasting, ensemble methods,
 and post-processing workflows.
 
+
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
 
 
 .. raw:: html
@@ -270,6 +282,10 @@ Examples demonstrating generative and ensemble downscaling workflows for
 producing high-resolution outputs from global model forecasts.
 
 
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
+
 
 .. raw:: html
 
@@ -342,6 +358,10 @@ Examples demonstrating high-resolution nowcasting and short-range forecasting
 with models such as StormCast and StormScope.
 
 
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
+
 
 .. raw:: html
 
@@ -413,6 +433,10 @@ Data Assimilation
 Examples demonstrating data assimilation workflows in Earth2Studio.
 
 
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
+
 
 .. raw:: html
 
@@ -467,6 +491,10 @@ Subseasonal to Seasonal
 Examples demonstrating subseasonal to seasonal (s2s) inference workflows with typical
 prediction timescales of two weeks to two years.
 
+
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
 
 
 .. raw:: html
@@ -539,6 +567,10 @@ Miscellaneous
 Miscellaneous examples covering IO performance, custom data sources, and other
 utility workflows.
 
+
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
 
 
 .. raw:: html
@@ -645,6 +677,10 @@ Extending Earth2Studio
 Examples focused on demonstrating how to extend Earth2Studio with user-defined
 components.
 
+
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
 
 
 .. raw:: html

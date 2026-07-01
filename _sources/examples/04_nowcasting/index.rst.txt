@@ -11,6 +11,10 @@ Examples demonstrating high-resolution nowcasting and short-range forecasting
 with models such as StormCast and StormScope.
 
 
+.. raw:: html
+
+  <div id='sg-tag-list' class='sphx-glr-tag-list'></div>
+
 
 .. raw:: html
 
