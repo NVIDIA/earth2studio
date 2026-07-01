@@ -204,6 +204,51 @@ def test_dynamical_exceptions(monkeypatch):
 
 
 @pytest.mark.timeout(30)
+def test_dynamical_available(monkeypatch):
+    times = np.array(["2024-01-01T00:00", "2024-01-01T06:00"], dtype="datetime64[ns]")
+    dims = _analysis_dims(times)
+    ds_obj = _make_dataset(
+        {"time": times, "latitude": _LAT, "longitude": _LON},
+        ("time", "latitude", "longitude"),
+    )
+    _patch(monkeypatch, Dynamical, "test-analysis", dims, ds_obj)
+
+    source = Dynamical("test-analysis")
+    # Within the collection's temporal extent (start 2024-01-01, no end)
+    assert source.available(np.datetime64("2024-06-01T00:00")) is True
+    assert source.available(datetime.datetime(2024, 1, 1)) is True
+    # Before the collection's start
+    assert source.available(np.datetime64("1900-01-01T00:00")) is False
+
+
+@pytest.mark.timeout(30)
+def test_dynamical_forecast_available(monkeypatch):
+    init_times = np.array(["2024-01-01T00:00"], dtype="datetime64[ns]")
+    leads = np.array([0, 6 * 3600], dtype="timedelta64[s]").astype("timedelta64[ns]")
+    dims = {
+        "init_time": {"type": "temporal", "extent": [str(init_times[0]) + "Z", None]},
+        "lead_time": {"type": "other"},
+        "latitude": {"type": "spatial"},
+        "longitude": {"type": "spatial"},
+    }
+    ds_obj = _make_dataset(
+        {
+            "init_time": init_times,
+            "lead_time": leads,
+            "latitude": _LAT,
+            "longitude": _LON,
+        },
+        ("init_time", "lead_time", "latitude", "longitude"),
+    )
+    _patch(monkeypatch, DynamicalForecast, "test-forecast", dims, ds_obj)
+
+    source = DynamicalForecast("test-forecast")
+    # Availability is checked against the init_time extent
+    assert source.available(np.datetime64("2024-06-01T00:00")) is True
+    assert source.available(np.datetime64("1900-01-01T00:00")) is False
+
+
+@pytest.mark.timeout(30)
 def test_dynamical_unknown_collection(monkeypatch):
     monkeypatch.setattr(
         "earth2studio.data.dynamical._fetch_json",

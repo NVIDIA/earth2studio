@@ -25,6 +25,7 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import numpy as np
+import tqdm
 import xarray as xr
 from loguru import logger
 
@@ -89,6 +90,9 @@ class _DynamicalBase:
     """
 
     STAC_CATALOG_URL = "https://stac.dynamical.org/catalog.json"
+    # Name of the temporal STAC dimension used for time validation and
+    # availability checks (overridden by forecast collections).
+    _TIME_DIMENSION = "time"
 
     def __init__(
         self,
@@ -384,6 +388,36 @@ class _DynamicalBase:
         """Return the normalized (latitude, longitude) coordinate arrays."""
         return self._lat, self._lon
 
+    def available(self, time: datetime | np.datetime64) -> bool:
+        """Check if a given time is available in this dynamical.org collection.
+
+        Unlike most Earth2Studio sources, availability is collection-dependent
+        (each collection advertises its own temporal extent in its STAC
+        metadata), so this is an instance method rather than a classmethod: it
+        opens the collection and checks the requested time against the extent of
+        the collection's temporal dimension (``time`` for analysis,
+        ``init_time`` for forecast collections).
+
+        Parameters
+        ----------
+        time : datetime | np.datetime64
+            Time to check. For forecast collections this is the forecast
+            initialization time.
+
+        Returns
+        -------
+        bool
+            Whether the time falls within the collection's temporal extent.
+        """
+        if isinstance(time, np.datetime64):
+            time = time.astype("datetime64[ns]").astype("datetime64[us]").item()
+        self._open()
+        try:
+            self._validate_time([time], self._TIME_DIMENSION)
+        except ValueError:
+            return False
+        return True
+
 
 @check_optional_dependencies()
 class Dynamical(_DynamicalBase):
@@ -446,7 +480,7 @@ class Dynamical(_DynamicalBase):
         """
         ds = self._open()
         times, variables = prep_data_inputs(time, variable)
-        self._validate_time(times, "time")
+        self._validate_time(times, self._TIME_DIMENSION)
 
         lat, lon = self._coords()
         times_np = np.array(times, dtype="datetime64[ns]")
@@ -458,7 +492,13 @@ class Dynamical(_DynamicalBase):
             coords={"time": times_np, "variable": variables, "lat": lat, "lon": lon},
         )
 
-        for j, var in enumerate(variables):
+        for j, var in enumerate(
+            tqdm.tqdm(
+                variables,
+                desc=f"Fetching dynamical.org {self.collection} data",
+                disable=(not self._verbose),
+            )
+        ):
             dynamical_name, modifier = self._resolve_variable(var)
             logger.debug(f"Fetching dynamical.org variable {var} ({dynamical_name})")
             da = ds[dynamical_name].sel(time=times_np)
@@ -512,6 +552,8 @@ class DynamicalForecast(_DynamicalBase):
     region:global dataclass:forecast product:wind product:temp product:atmos
     """
 
+    _TIME_DIMENSION = "init_time"
+
     def __init__(
         self,
         collection: str,
@@ -547,7 +589,7 @@ class DynamicalForecast(_DynamicalBase):
         """
         ds = self._open()
         times, lead_times, variables = prep_forecast_inputs(time, lead_time, variable)
-        self._validate_time(times, "init_time")
+        self._validate_time(times, self._TIME_DIMENSION)
 
         lat, lon = self._coords()
         times_np = np.array(times, dtype="datetime64[ns]")
@@ -567,7 +609,13 @@ class DynamicalForecast(_DynamicalBase):
             },
         )
 
-        for j, var in enumerate(variables):
+        for j, var in enumerate(
+            tqdm.tqdm(
+                variables,
+                desc=f"Fetching dynamical.org {self.collection} data",
+                disable=(not self._verbose),
+            )
+        ):
             dynamical_name, modifier = self._resolve_variable(var)
             logger.debug(f"Fetching dynamical.org variable {var} ({dynamical_name})")
             da = ds[dynamical_name].sel(init_time=times_np, lead_time=leads_np)
