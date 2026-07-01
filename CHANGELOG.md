@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated StormScope model package to use improved higher resolution checkpoints. Model
+  now defaults to using 3 km and 10 minute spatiotemporal resolution, and includes
+  predictions for GOES GLM Lightning density.
+
 ### Deprecated
 
 ### Removed
