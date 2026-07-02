@@ -26,7 +26,6 @@ import pandas as pd
 import torch
 import xarray as xr
 import zarr
-from tensordict import TensorDict
 
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -54,6 +53,7 @@ try:
     from physicsnemo.diffusion.preconditioners import EDMPreconditioner
     from physicsnemo.diffusion.samplers import sample
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
+    from tensordict import TensorDict
 except ImportError:
     OptionalDependencyFailure("stormcast")
     OmegaConf = None
