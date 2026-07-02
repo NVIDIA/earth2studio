@@ -57,6 +57,7 @@ try:
 except ImportError:
     OptionalDependencyFailure("stormcast")
     OmegaConf = None
+    TensorDict = None
 
 
 # Variables used in StormCastCONUS
