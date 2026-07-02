@@ -16,6 +16,7 @@
 import json
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
+from dataclasses import dataclass
 from datetime import datetime
 
 import numpy as np
@@ -27,6 +28,7 @@ from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -129,6 +131,14 @@ VARIABLES = [
 ]
 
 
+@dataclass
+class _FCN3CheckpointState:
+    x: torch.Tensor | None = None
+    coord_keys: tuple[str, ...] = ()
+    coord_values: tuple[np.ndarray, ...] = ()
+    internal_noise_states: tuple[tuple[torch.Tensor | None, ...], ...] = ()
+
+
 @check_optional_dependencies()
 class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FourCastNet 3 advances global weather modeling by implementing a scalable,
@@ -177,6 +187,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.variables[self.variables == "2d"] = "d2m"
 
         self.set_rng(reset=True, seed=seed)
+        self.checkpoint = bind_checkpoint_state(_FCN3CheckpointState())
 
     def __str__(self) -> str:
         return "fcn3"
@@ -307,6 +318,71 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return cls(model, variables=variables)
 
+    def _restore_checkpoint_state(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem, bool]:
+        if not self.checkpoint.checkpoint_state_loaded:
+            return x, coords, False
+        if self.checkpoint.checkpoint_level < 2:
+            return x, coords, False
+        if self.checkpoint.x is None or not self.checkpoint.coord_keys:
+            return x, coords, False
+        if len(self.checkpoint.coord_keys) != len(self.checkpoint.coord_values):
+            raise RuntimeError("FCN3 checkpoint coordinate state is incomplete.")
+        if not self.checkpoint.internal_noise_states:
+            raise RuntimeError(
+                "FCN3 checkpoint is missing internal noise state required for full restart."
+            )
+
+        restored_x = self.checkpoint.x.to(x.device)
+        restored_coords = OrderedDict(
+            (key, np.asarray(value).copy())
+            for key, value in zip(
+                self.checkpoint.coord_keys, self.checkpoint.coord_values
+            )
+        )
+        restored_states = [
+            [None if state is None else state.to(restored_x.device) for state in states]
+            for states in self.checkpoint.internal_noise_states
+        ]
+        if len(restored_states) != len(restored_coords["batch"]) or any(
+            len(states) != len(restored_coords["time"]) for states in restored_states
+        ):
+            raise RuntimeError(
+                "FCN3 checkpoint internal noise state does not match saved coordinates."
+            )
+
+        self._internal_noise_states = restored_states
+        return restored_x, restored_coords, True
+
+    def _save_checkpoint_state(self, x: torch.Tensor, coords: CoordSystem) -> None:
+        if not self.checkpoint.checkpoint_enabled:
+            return
+        if self.checkpoint.checkpoint_level < 2:
+            self.checkpoint.x = None
+            self.checkpoint.coord_keys = ()
+            self.checkpoint.coord_values = ()
+            self.checkpoint.internal_noise_states = ()
+            return
+
+        def checkpoint_tensor(tensor: torch.Tensor) -> torch.Tensor:
+            tensor = tensor.detach()
+            if tensor.device == self.checkpoint.device:
+                return tensor.clone()
+            return tensor.to(self.checkpoint.device)
+
+        self.checkpoint.x = checkpoint_tensor(x)
+        self.checkpoint.coord_keys = tuple(coords.keys())
+        self.checkpoint.coord_values = tuple(
+            np.asarray(value).copy() for value in coords.values()
+        )
+        self.checkpoint.internal_noise_states = tuple(
+            tuple(
+                None if state is None else checkpoint_tensor(state) for state in states
+            )
+            for states in getattr(self, "_internal_noise_states", ())
+        )
+
     def _get_internal_state(self, ensemble_index: int, time_index: int) -> torch.Tensor:
         """Get the internal RNG state for the given ensemble and time index
 
@@ -391,6 +467,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 self._set_internal_state(j, i)
 
         x = x.unsqueeze(2)
+        self._save_checkpoint_state(x, output_coords)
         return x, output_coords
 
     @batch_func()
@@ -413,11 +490,12 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system
         """
-        # Initialize the internal noise states
-        # for each batch index, we will have a list of noise states for each separate time
-        self._reset_internal_state(len(coords["batch"]), len(coords["time"]))
-        output, coords = self._forward(x, coords)
-        return output, coords
+        x, coords, restored = self._restore_checkpoint_state(x, coords)
+        if not restored:
+            # Initialize the internal noise states for each batch and time.
+            self._reset_internal_state(len(coords["batch"]), len(coords["time"]))
+
+        return self._forward(x, coords)
 
     @batch_func()
     def _default_generator(
@@ -426,15 +504,17 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords = coords.copy()
         self.output_coords(coords)
 
-        # Initialize the internal noise states
-        self._reset_internal_state(len(coords["batch"]), len(coords["time"]))
+        x, coords, restored = self._restore_checkpoint_state(x, coords)
+        if not restored:
+            # Initialize the internal noise states for each batch and time.
+            self._reset_internal_state(len(coords["batch"]), len(coords["time"]))
+            self._save_checkpoint_state(x, coords)
+            yield x, coords
 
-        # Yield the initial condition
-        yield x, coords
         while True:
             # Front hook
             x, coords = self.front_hook(x, coords)
-            # Forward is identity operator
+            # Advance FCN3 one forecast step. Restored checkpoints resume here.
             x, coords = self._forward(x, coords)
             # Rear hook
             x, coords = self.rear_hook(x, coords)
