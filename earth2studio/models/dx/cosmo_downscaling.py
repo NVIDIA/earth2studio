@@ -344,6 +344,13 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
     these settings can shape the sampled output distribution (e.g. ensemble spread
     and the representation of extremes).
 
+    The models are trained on ERA5 (global input) paired with COSMO-REA regional
+    reanalysis (high-resolution target) over Europe:
+
+    * COSMO-REA6 (~6 km), DWD: https://reanalysis.meteo.uni-bonn.de/?COSMO-REA6
+    * COSMO-REA2 (~2.2 km), DWD: https://reanalysis.meteo.uni-bonn.de/?COSMO-REA2
+    * ERA5, ECMWF: https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5
+
     Badges
     ------
     region:eu class:ds product:wind product:precip product:temp product:atmos year:2026 gpu:80gb

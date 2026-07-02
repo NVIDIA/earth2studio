@@ -37,6 +37,11 @@ class CosmoLexicon(metaclass=LexiconType):
     field differently, e.g. ``U_10M`` in REA6 vs ``10U`` in REA2), and ``scale``
     converts the COSMO value to the Earth2Studio name's units (e.g. ``CLCT`` is a
     percentage and ``tcc`` is a 0-1 fraction, so ``scale = 0.01``).
+
+    The COSMO-REA regional reanalyses are DWD products:
+
+    * COSMO-REA6 (~6 km): https://reanalysis.meteo.uni-bonn.de/?COSMO-REA6
+    * COSMO-REA2 (~2.2 km): https://reanalysis.meteo.uni-bonn.de/?COSMO-REA2
     """
 
     @staticmethod

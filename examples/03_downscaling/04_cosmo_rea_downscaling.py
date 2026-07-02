@@ -44,6 +44,14 @@ In this example you will learn to:
    built package directory (set ``$COSMO_REA_PACKAGE``); once the package is
    hosted, model loading becomes ``CosmoDownscaling.from_pretrained()``.
 
+.. note::
+   With the SFNO weights and ERA5 inputs already cached, this runs in a few
+   minutes on an RTX 6000 Ada; the first run is longer, as it also downloads
+   those (network-dependent). Either way most of the wall time is setup --
+   imports, loading the model checkpoints, and fetching the SFNO/ERA5 data --
+   rather than downscaling compute. GPU memory peaks around 18 GB, from the
+   full-domain COSMO-REA6 diffusion pass; the sub-domain passes need far less.
+
 The package bundles, per resolution, a generative *diffusion* downscaler and a
 deterministic *regression* (mean) model, selected via ``mode`` on ``load_model``.
 """
