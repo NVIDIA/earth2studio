@@ -49,10 +49,13 @@ from zarr.abc.store import Store
 from earth2studio.utils.type import CoordSystem, VariableArray
 
 try:
-    from insitubatch import open_geometries, split_by_chunk
-    from insitubatch.frameworks import to_torch
-    from insitubatch.source import InSituDataset
-    from insitubatch.types import Batch
+    from insitubatch import (
+        Batch,
+        InSituDataset,
+        open_geometries,
+        split_by_chunk,
+        to_torch,
+    )
 except ImportError as exc:  # pragma: no cover - optional integration
     raise ImportError(
         "earth2studio.data.insitu needs insitubatch; install it with: pip install insitubatch"
