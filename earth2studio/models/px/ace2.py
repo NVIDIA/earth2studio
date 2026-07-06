@@ -179,7 +179,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.lexicon.get_e2s_from_fme(v) for v in self._all_out_variables_fme
         ]
 
-        self._forcing_vars_fme = list(self.stepper._input_only_names)
+        self._forcing_vars_fme = sorted(self.stepper._input_only_names)
         if (
             "surface_temperature" in self._all_out_variables_fme
             and "surface_temperature" not in self._forcing_vars_fme
@@ -191,7 +191,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._forcing_vars_e2s = [
             self.lexicon.get_e2s_from_fme(v) for v in self._forcing_vars_fme
         ]
-        self._prog_vars_fme = list(self.stepper.prognostic_names)
+        self._prog_vars_fme = sorted(self.stepper.prognostic_names)
         self._prog_vars_e2s = [
             self.lexicon.get_e2s_from_fme(v) for v in self._prog_vars_fme
         ]
