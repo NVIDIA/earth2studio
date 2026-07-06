@@ -228,7 +228,10 @@ def _make_mock_hdf5_pair(sdr_path, geo_path, n_scan=2, n_for=30, n_fov=9, seed=4
     beginning_utc = base_dt + timedelta(microseconds=time_offset + 983_975)
 
     with h5py.File(geo_path, "w") as f:
-        granule = f.create_group("Data_Products/CrIS-SDR-GEO/CrIS-SDR-GEO_Gran_0")
+        product = f.create_group("Data_Products/CrIS-SDR-GEO")
+        granule = product.create_dataset(
+            "CrIS-SDR-GEO_Gran_0", data=np.zeros(28, dtype=np.uint8)
+        )
         granule.attrs["Beginning_Date"] = np.asarray(
             [[beginning_utc.strftime("%Y%m%d").encode()]], dtype="S9"
         )

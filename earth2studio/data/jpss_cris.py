@@ -357,8 +357,10 @@ def _read_hdf_dataset(file: h5py.File, path: str, selection: Any = ()) -> np.nda
 def _read_cris_time_anchor(geo: h5py.File) -> tuple[np.datetime64, int]:
     """Read the paired UTC/IET beginning anchor carried by a GEO granule."""
     granule = geo[_GEO_GRANULE_GROUP]
-    if not isinstance(granule, h5py.Group):
-        raise ValueError(f"CrIS HDF5 path {_GEO_GRANULE_GROUP!r} must contain a group")
+    if not isinstance(granule, (h5py.Dataset, h5py.Group)):
+        raise ValueError(
+            f"CrIS HDF5 path {_GEO_GRANULE_GROUP!r} must contain an HDF5 object"
+        )
     attributes = granule.attrs
     date = _hdf_text(attributes["Beginning_Date"], "Beginning_Date")
     time = _hdf_text(attributes["Beginning_Time"], "Beginning_Time")
@@ -499,14 +501,12 @@ class JPSS_CRIS:
 
         .. note::
 
-           The spectral-domain 3-tap kernel matches interferogram-domain
-           Hamming for smooth spectral regions (window channels,
-           ``sensor_chan`` ≥ 200: agreement < 0.5 K with UFS/GSI).
-           Channels on sharp CO₂ Q-branch features near 667 cm⁻¹ and
-           720 cm⁻¹ may show residuals of 5–20 K because the 3-tap
-           discrete convolution does not fully replicate the
-           interferogram-domain apodization applied by NESDIS upstream
-           of GSI.
+           NOAA's CrIS SDR ATBD defines Hamming apodization on the Nyquist
+           grid as this exact three-point radiance-space operator. NCEP's
+           aggregate CrIS reader receives the resulting apodized radiances;
+           GSI does not repeat the operation. Brightness-temperature
+           agreement additionally depends on using the same Planck
+           conversion as the comparison product.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
@@ -1300,9 +1300,10 @@ class JPSS_CRIS:
         channel_positions, _, wn = self._channel_projection()
         radiance_valid = radiance_valid[:, channel_positions]
 
-        # Convert spectral radiance → brightness temperature (K) so that
-        # the observation column is in the same units as UFSObsSat.
-        # CrIS uses pure inverse Planck (no band correction).
+        # Convert spectral radiance to monochromatic brightness temperature
+        # at the channel wavenumber. GSI uses CRTM's channel-aware Planck
+        # conversion, so exact radiance parity and exact diagnostic-BT parity
+        # are separate validation claims.
         brightness_temperature = radiance_to_bt(radiance_valid, wn).astype(np.float32)
 
         return _CrISDecodedGranule(
