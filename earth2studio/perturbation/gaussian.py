@@ -49,15 +49,20 @@ class Gaussian:
     noise_amplitude : float | Tensor, optional
         Noise amplitude, by default 0.05. If a tensor,
         this must be broadcastable with the input data.
+    seed : int | None, optional
+        Seed for the internal generator, by default None.
     """
 
-    def __init__(self, noise_amplitude: float | torch.Tensor = 0.05):
+    def __init__(
+        self, noise_amplitude: float | torch.Tensor = 0.05, seed: int | None = None
+    ):
         self.noise_amplitude = (
             noise_amplitude
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor([noise_amplitude])
         )
         self.generator: torch.Generator | None = None
+        self.seed = seed
         self.checkpoint = bind_checkpoint_state(_GaussianCheckpointState())
 
     @torch.inference_mode()
@@ -91,12 +96,19 @@ class Gaussian:
 
     def _get_generator(self, device: torch.device) -> torch.Generator:
         if self.generator is None or self.generator.device != device:
+            generator_state = (
+                None if self.generator is None else self.generator.get_state()
+            )
             self.generator = torch.Generator(device=device)
-            if (
+            if generator_state is not None:
+                self.generator.set_state(generator_state.cpu())
+            elif (
                 self.checkpoint.checkpoint_state_loaded
                 and self.checkpoint.generator_state is not None
             ):
                 self.generator.set_state(self.checkpoint.generator_state.cpu())
+            elif self.seed is not None:
+                self.generator.manual_seed(self.seed)
             else:
                 self.generator.seed()
         return self.generator
