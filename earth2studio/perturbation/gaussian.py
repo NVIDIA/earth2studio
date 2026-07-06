@@ -96,13 +96,8 @@ class Gaussian:
 
     def _get_generator(self, device: torch.device) -> torch.Generator:
         if self.generator is None or self.generator.device != device:
-            generator_state = (
-                None if self.generator is None else self.generator.get_state()
-            )
             self.generator = torch.Generator(device=device)
-            if generator_state is not None:
-                self.generator.set_state(generator_state.cpu())
-            elif (
+            if (
                 self.checkpoint.checkpoint_state_loaded
                 and self.checkpoint.generator_state is not None
             ):
