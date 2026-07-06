@@ -227,10 +227,9 @@ _CRIS_WAVENUMBER_APOD: np.ndarray = np.concatenate(
 # ---------------------------------------------------------------------------
 # Hamming apodization constants
 # ---------------------------------------------------------------------------
-# CrIS is a Fourier Transform Spectrometer.  The SDR files store unapodized
-# (sinc ILS) spectral radiance.  NCEP applies Hamming apodization before
-# encoding the data into BUFR for GSI assimilation, so UFS/GSI brightness
-# temperatures correspond to apodized spectra.
+# CrIS is a Fourier Transform Spectrometer. The native SDR files store
+# unapodized (sinc ILS) spectral radiance; this operator produces the Hamming-
+# apodized science spectrum defined by the NOAA CrIS SDR ATBD.
 _HAMMING_A0: float = 0.54
 _HAMMING_A1: float = 0.23  # symmetric: a_{-1} = a_{+1}
 
@@ -261,16 +260,15 @@ def _hamming_apodize(radiance: np.ndarray) -> np.ndarray:
     total) are trimmed after convolution, reducing the total from 2223 to
     2211 science channels.
 
-    At band-edge channels (first/last of each band) the filter would need a
-    neighbour outside the band.  We use symmetric (reflect) padding so that
-    the edge value is replicated, which is consistent with the interferogram
-    being even-symmetric.
+    Reflect padding preserves the temporary band length. It affects only the
+    outer guard-channel outputs that are discarded; every retained science
+    channel is convolved with its real neighboring source channels.
 
     References
     ----------
 
     - https://www.star.nesdis.noaa.gov/jpss/documents/UserGuides/CrIS_SDR_Users_Guide1p1_20180405.pdf
-    - https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-002_JPSS_ATBD_CRIS-SDR_nsr_20180614.pdf
+    - https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-002_JPSS_ATBD_CRIS-SDR_fsr_20180614.pdf
     - https://www-cdn.eumetsat.int/files/2022-11/12%20-%20Tobin%20-%20CrIS_spectral_20221019.pdf
 
     """
@@ -502,11 +500,9 @@ class JPSS_CRIS:
         .. note::
 
            NOAA's CrIS SDR ATBD defines Hamming apodization on the Nyquist
-           grid as this exact three-point radiance-space operator. NCEP's
-           aggregate CrIS reader receives the resulting apodized radiances;
-           GSI does not repeat the operation. Brightness-temperature
-           agreement additionally depends on using the same Planck
-           conversion as the comparison product.
+           grid as this exact three-point radiance-space operator. Comparisons
+           in brightness-temperature space additionally depend on using the
+           same Planck conversion as the comparison product.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
@@ -524,9 +520,10 @@ class JPSS_CRIS:
     sensor_indices : list[int] | np.ndarray | None, optional
         Science-channel ``sensor_index`` values to return (1--2211).  Values
         are normalized to source order and must be unique.  Projection occurs
-        before Planck inversion and long-format expansion.  By default None,
-        all channels are returned; for ``apodize=False`` this includes the 12
-        guard channels whose ``sensor_index`` is 0.
+        after full-band Hamming apodization (when enabled), but before Planck
+        inversion and long-format expansion.  By default None, all channels
+        are returned; for ``apodize=False`` this includes the 12 guard channels
+        whose ``sensor_index`` is 0.
 
     Warning
     -------
@@ -994,25 +991,30 @@ class JPSS_CRIS:
         # (each granule may have different satellite)
         sat_pieces = [np.broadcast_to(g.satellite, g.lat.shape[0]) for g in granules]
         var_pieces = [np.broadcast_to(g.variable, g.lat.shape[0]) for g in granules]
-        source_pieces = [
-            np.broadcast_to(g.source_uri, g.lat.shape[0]) for g in granules
-        ]
+        source_codes: dict[str, int] = {}
+        source_pieces: list[np.ndarray] = []
+        for granule in granules:
+            source_code = source_codes.setdefault(granule.source_uri, len(source_codes))
+            source_pieces.append(
+                np.full(granule.lat.shape[0], source_code, dtype=np.int32)
+            )
         all_sat = np.concatenate(sat_pieces)
         all_var = np.concatenate(var_pieces)
-        all_source = np.concatenate(source_pieces)
+        source_i = np.concatenate(source_pieces)
 
         # Free granule list — data is now in the concatenated arrays
         del granules
 
-        # Deduplicate repeated tasks by exact source footprint identity. Scan
-        # line is granule-local, so the source URI is part of the key.
+        # Deduplicate repeated tasks by exact source footprint identity. Do not
+        # use rounded time/location: distinct detector FOVs can be nearly
+        # collocated. Scan line is granule-local, so source URI is also keyed.
         _, sat_codes = np.unique(all_sat, return_inverse=True)
         _, var_codes = np.unique(all_var, return_inverse=True)
-        _, source_codes = np.unique(all_source, return_inverse=True)
         sat_i = sat_codes.astype(np.int32)
         var_i = var_codes.astype(np.int32)
-        source_i = source_codes.astype(np.int32)
 
+        # np.lexsort uses the last key as primary; this order mirrors the
+        # complete source-identity equality check below.
         order = np.lexsort(
             (
                 all_field_of_view,
@@ -1297,6 +1299,8 @@ class JPSS_CRIS:
         if self._apodize:
             radiance_valid = _hamming_apodize(radiance_valid)
 
+        # Apodization needs neighboring source channels. Project only after
+        # that transform, while the data is still compact radiance spectra.
         channel_positions, _, wn = self._channel_projection()
         radiance_valid = radiance_valid[:, channel_positions]
 
