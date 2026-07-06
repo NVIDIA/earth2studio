@@ -346,9 +346,20 @@ def _hdf_text(value: Any, attribute: str) -> str:
     raise ValueError(f"CrIS GEO attribute {attribute!r} must contain text")
 
 
+def _hdf_array(file: h5py.File, path: str, selection: Any = ()) -> np.ndarray:
+    """Read an HDF5 dataset after narrowing the path to a dataset object."""
+    dataset = file[path]
+    if not isinstance(dataset, h5py.Dataset):
+        raise ValueError(f"CrIS HDF5 path {path!r} must contain a dataset")
+    return np.asarray(dataset[selection])
+
+
 def _read_cris_time_anchor(geo: h5py.File) -> tuple[np.datetime64, int]:
     """Read the paired UTC/IET beginning anchor carried by a GEO granule."""
-    attributes = geo[_GEO_GRANULE_GROUP].attrs
+    granule = geo[_GEO_GRANULE_GROUP]
+    if not isinstance(granule, h5py.Group):
+        raise ValueError(f"CrIS HDF5 path {_GEO_GRANULE_GROUP!r} must contain a group")
+    attributes = granule.attrs
     date = _hdf_text(attributes["Beginning_Date"], "Beginning_Date")
     time = _hdf_text(attributes["Beginning_Time"], "Beginning_Time")
     try:
@@ -1157,7 +1168,7 @@ class JPSS_CRIS:
         # --- Phase 1: Read GEO time first (tiny) to filter scan lines ---
         with h5py.File(geo_path, "r") as geo:
             anchor_utc, anchor_iet = _read_cris_time_anchor(geo)
-            for_time = geo[_GEO_KEYS["for_time"]][:]  # (n_scan, 30) IET µs
+            for_time = _hdf_array(geo, _GEO_KEYS["for_time"])  # (n_scan, 30) IET µs
 
         # Convert IET relative to the source-provided UTC/IET granule anchor.
         time_dt64: np.ndarray = _iet_to_utc(for_time, anchor_utc, anchor_iet)
@@ -1175,24 +1186,24 @@ class JPSS_CRIS:
         # --- Phase 2: Read only the scan lines we need ---
         with h5py.File(sdr_path, "r") as sdr, h5py.File(geo_path, "r") as geo:
             # HDF5 fancy indexing with sorted indices (efficient for contiguous)
-            rad_lw = sdr[_SDR_RADIANCE_KEYS["LW"]][valid_scans]
-            rad_mw = sdr[_SDR_RADIANCE_KEYS["MW"]][valid_scans]
-            rad_sw = sdr[_SDR_RADIANCE_KEYS["SW"]][valid_scans]
+            rad_lw = _hdf_array(sdr, _SDR_RADIANCE_KEYS["LW"], valid_scans)
+            rad_mw = _hdf_array(sdr, _SDR_RADIANCE_KEYS["MW"], valid_scans)
+            rad_sw = _hdf_array(sdr, _SDR_RADIANCE_KEYS["SW"], valid_scans)
 
             try:
-                qf3 = sdr[_SDR_QF_KEYS["QF3"]][valid_scans]
+                qf3 = _hdf_array(sdr, _SDR_QF_KEYS["QF3"], valid_scans)
             except KeyError:
                 qf3 = np.zeros(
                     (len(valid_scans), _CRIS_NUM_FOR, _CRIS_NUM_FOV, 3),
                     dtype=np.uint8,
                 )
 
-            lat = geo[_GEO_KEYS["lat"]][valid_scans]
-            lon = geo[_GEO_KEYS["lon"]][valid_scans]
-            sat_za = geo[_GEO_KEYS["sat_za"]][valid_scans]
-            sat_aza = geo[_GEO_KEYS["sat_aza"]][valid_scans]
-            sol_za = geo[_GEO_KEYS["sol_za"]][valid_scans]
-            sol_aza = geo[_GEO_KEYS["sol_aza"]][valid_scans]
+            lat = _hdf_array(geo, _GEO_KEYS["lat"], valid_scans)
+            lon = _hdf_array(geo, _GEO_KEYS["lon"], valid_scans)
+            sat_za = _hdf_array(geo, _GEO_KEYS["sat_za"], valid_scans)
+            sat_aza = _hdf_array(geo, _GEO_KEYS["sat_aza"], valid_scans)
+            sol_za = _hdf_array(geo, _GEO_KEYS["sol_za"], valid_scans)
+            sol_aza = _hdf_array(geo, _GEO_KEYS["sol_aza"], valid_scans)
 
         # Use the pre-read time but only for valid scans
         for_time = for_time[valid_scans]
@@ -1217,8 +1228,8 @@ class JPSS_CRIS:
         del qf3
 
         # Flatten spatial dims
-        lat_flat = lat.reshape(-1).astype(np.float32)
-        lon_flat = lon.reshape(-1).astype(np.float32)
+        lat_flat: np.ndarray = lat.reshape(-1).astype(np.float32)
+        lon_flat: np.ndarray = lon.reshape(-1).astype(np.float32)
         scan_line_flat: np.ndarray = np.repeat(
             valid_scans.astype(np.uint32) + 1, n_for * n_fov
         )
