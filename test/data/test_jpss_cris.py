@@ -30,7 +30,41 @@ from earth2studio.data.jpss_cris import (
     _CRIS_WAVENUMBER,
     _CrISAsyncTask,
     _hamming_apodize,
+    _iet_to_utc,
 )
+
+
+# ---------------------------------------------------------------------------
+# Unit tests for IET time conversion
+# ---------------------------------------------------------------------------
+def test_iet_to_utc_removes_current_37_second_offset():
+    """A real 2025 FORTime differs from naive epoch arithmetic by 37 seconds."""
+    iet = np.asarray([2_114_380_839_983_975], dtype=np.int64)
+    epoch = np.datetime64("1958-01-01T00:00:00", "us")
+    naive = epoch + iet.astype("timedelta64[us]")
+
+    actual = _iet_to_utc(iet)
+
+    np.testing.assert_array_equal(
+        actual, np.asarray(["2025-01-01T00:00:02.983975"], dtype="datetime64[us]")
+    )
+    np.testing.assert_array_equal(naive - actual, [np.timedelta64(37, "s")])
+
+
+def test_iet_to_utc_across_2016_leap_transition():
+    """The effective offset changes from 36 to 37 seconds at 2017 UTC."""
+    epoch = np.datetime64("1958-01-01T00:00:00", "us")
+    expected = np.asarray(
+        ["2016-12-31T23:59:59", "2017-01-01T00:00:00"],
+        dtype="datetime64[us]",
+    )
+    offsets_us = np.asarray([36_000_000, 37_000_000], dtype=np.int64)
+    iet = (expected - epoch).astype("timedelta64[us]").astype(np.int64) + offsets_us
+
+    actual = _iet_to_utc(iet)
+
+    np.testing.assert_array_equal(actual, expected)
+    assert iet[1] - iet[0] == 2_000_000
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +202,8 @@ def _make_mock_hdf5_pair(sdr_path, geo_path, n_scan=2, n_for=30, n_fov=9, seed=4
     # 2024-06-01 12:00:00 UTC in IET microseconds:
     base_dt = datetime(2024, 6, 1, 12, 0, 0)
     iet_epoch = datetime(1958, 1, 1)
-    base_iet = int((base_dt - iet_epoch).total_seconds() * 1_000_000)
+    # TAI is 37 seconds ahead of UTC for all supported synthetic fixture dates.
+    base_iet = int((base_dt - iet_epoch).total_seconds() * 1_000_000) + 37_000_000
     # Offset by seed so each granule gets distinct times/coords
     time_offset = (seed - 42) * 32_000_000  # ~32s apart per seed step
 

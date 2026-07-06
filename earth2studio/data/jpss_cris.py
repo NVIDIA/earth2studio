@@ -277,6 +277,80 @@ _GEO_KEYS = {
     "for_time": f"{_GEO_GROUP}/FORTime",  # shape (n_scan, 30) IET µs
 }
 
+# IDPS Epoch Time (IET) is a count of TAI-length microseconds from the
+# 1958-01-01 epoch, not elapsed UTC microseconds. NOAA JPSS CDFCB-X Vol. I,
+# Revision F, section 3.3.1:
+# https://www.nesdis.noaa.gov/s3/2024-01/474-00001-01_JPSS-CDFCB-X-Vol-I_F.pdf
+# Effective UTC leap transitions and the current 37-second TAI-UTC offset:
+# https://www.nist.gov/pml/time-and-frequency-division/time-realization/leap-seconds
+_IET_EPOCH = np.datetime64("1958-01-01T00:00:00", "us")
+_TAI_MINUS_UTC_TRANSITIONS: tuple[tuple[str, int], ...] = (
+    ("1972-01-01T00:00:00", 10),
+    ("1972-07-01T00:00:00", 11),
+    ("1973-01-01T00:00:00", 12),
+    ("1974-01-01T00:00:00", 13),
+    ("1975-01-01T00:00:00", 14),
+    ("1976-01-01T00:00:00", 15),
+    ("1977-01-01T00:00:00", 16),
+    ("1978-01-01T00:00:00", 17),
+    ("1979-01-01T00:00:00", 18),
+    ("1980-01-01T00:00:00", 19),
+    ("1981-07-01T00:00:00", 20),
+    ("1982-07-01T00:00:00", 21),
+    ("1983-07-01T00:00:00", 22),
+    ("1985-07-01T00:00:00", 23),
+    ("1988-01-01T00:00:00", 24),
+    ("1990-01-01T00:00:00", 25),
+    ("1991-01-01T00:00:00", 26),
+    ("1992-07-01T00:00:00", 27),
+    ("1993-07-01T00:00:00", 28),
+    ("1994-07-01T00:00:00", 29),
+    ("1996-01-01T00:00:00", 30),
+    ("1997-07-01T00:00:00", 31),
+    ("1999-01-01T00:00:00", 32),
+    ("2006-01-01T00:00:00", 33),
+    ("2009-01-01T00:00:00", 34),
+    ("2012-07-01T00:00:00", 35),
+    ("2015-07-01T00:00:00", 36),
+    ("2017-01-01T00:00:00", 37),
+)
+_IET_TRANSITION_US = np.asarray(
+    [
+        int(
+            (np.datetime64(utc, "us") - _IET_EPOCH)
+            .astype("timedelta64[us]")
+            .astype(np.int64)
+        )
+        + offset_seconds * 1_000_000
+        for utc, offset_seconds in _TAI_MINUS_UTC_TRANSITIONS
+    ],
+    dtype=np.int64,
+)
+_TAI_MINUS_UTC_US = np.asarray(
+    [offset_seconds * 1_000_000 for _, offset_seconds in _TAI_MINUS_UTC_TRANSITIONS],
+    dtype=np.int64,
+)
+
+
+def _iet_to_utc(iet_microseconds: np.ndarray) -> np.ndarray:
+    """Convert JPSS IET microseconds to ``datetime64[us]`` UTC.
+
+    The transition table starts with the integral 10-second TAI-UTC offset on
+    1972-01-01 and covers all leap transitions through the supported JPSS
+    dates. Values before 1972 use direct epoch arithmetic; no supported
+    :class:`JPSS_CRIS` observation predates the table.
+    """
+    iet = np.asarray(iet_microseconds, dtype=np.int64)
+    transition_indices = np.searchsorted(_IET_TRANSITION_US, iet, side="right") - 1
+    clipped_indices = np.maximum(transition_indices, 0)
+    offsets = np.where(
+        transition_indices >= 0,
+        _TAI_MINUS_UTC_US[clipped_indices],
+        0,
+    )
+    utc_microseconds = iet - offsets
+    return _IET_EPOCH + utc_microseconds.astype("timedelta64[us]")
+
 
 @dataclass
 class _CrISAsyncTask:
@@ -1051,8 +1125,6 @@ class JPSS_CRIS:
         task : _CrISAsyncTask
             Task metadata (tolerance bounds, satellite, variable, modifier).
         """
-        # IET epoch for vectorized time conversion
-        iet_epoch = np.datetime64("1958-01-01T00:00:00", "us")
         tmin_dt64 = np.datetime64(task.datetime_min, "ms")
         tmax_dt64 = np.datetime64(task.datetime_max, "ms")
 
@@ -1060,10 +1132,8 @@ class JPSS_CRIS:
         with h5py.File(geo_path, "r") as geo:
             for_time = geo[_GEO_KEYS["for_time"]][:]  # (n_scan, 30) IET µs
 
-        # Convert FORTime to datetime64 for each (scan, FOR)
-        time_dt64 = (iet_epoch + for_time.astype("timedelta64[us]")).astype(
-            "datetime64[ms]"
-        )
+        # Convert monotonic TAI-length IET to UTC for each (scan, FOR).
+        time_dt64: np.ndarray = _iet_to_utc(for_time).astype("datetime64[ms]")
         # A scan line is relevant if ANY FOR in that scan is within window
         scan_has_valid_time = np.any(
             (time_dt64 >= tmin_dt64) & (time_dt64 <= tmax_dt64) & (for_time > 0),
@@ -1139,9 +1209,7 @@ class JPSS_CRIS:
         time_flat = for_time_3d.reshape(-1)
 
         # Convert times for tolerance filtering
-        times_dt64 = (iet_epoch + time_flat.astype("timedelta64[us]")).astype(
-            "datetime64[ms]"
-        )
+        times_dt64: np.ndarray = _iet_to_utc(time_flat).astype("datetime64[ms]")
 
         # Valid spatial mask: good lat/lon, positive time, AND within tolerance
         valid_spatial = (
