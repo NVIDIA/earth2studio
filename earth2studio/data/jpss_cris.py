@@ -22,7 +22,7 @@ import os
 import pathlib
 import shutil
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -83,6 +83,52 @@ _CRIS_NUM_CHANNELS: int = (
 
 _CRIS_NUM_FOR: int = 30  # Fields of Regard per scan line
 _CRIS_NUM_FOV: int = 9  # Fields of View per FOR (3x3 detector array)
+
+# Nominal CrIS look-angle geometry. The FOR center advances across the scan,
+# while each detector FOV is offset by the rotating 3x3 focal-plane geometry.
+# See NOAA JPSS document 474-00032 and GSI read_cris.f90.
+_CRIS_SCAN_START_DEG: float = -48.330
+_CRIS_SCAN_STEP_DEG: float = 3.3331
+_CRIS_FOV_DISTANCE_RAD: np.ndarray = np.asarray(
+    [
+        2.71510e-2,
+        1.91986e-2,
+        2.71510e-2,
+        1.91986e-2,
+        0.0,
+        1.91986e-2,
+        2.71510e-2,
+        1.91986e-2,
+        2.71510e-2,
+    ],
+    dtype=np.float64,
+)
+_CRIS_FOV_DIRECTION_RAD: np.ndarray = np.asarray(
+    [4.77057, 3.98517, 3.19977, 5.55597, 0.0, 2.41437, 0.05818, 0.84358, 1.62897],
+    dtype=np.float64,
+)
+
+
+def _nominal_cris_scan_angle(
+    field_of_regard: np.ndarray, field_of_view: np.ndarray
+) -> np.ndarray:
+    """Return the nominal CrIS look angle in degrees for each footprint."""
+    field_of_regard = np.asarray(field_of_regard, dtype=np.int64)
+    field_of_view = np.asarray(field_of_view, dtype=np.int64)
+    if np.any((field_of_regard < 1) | (field_of_regard > _CRIS_NUM_FOR)):
+        raise ValueError("CrIS field_of_regard must be in the range 1--30")
+    if np.any((field_of_view < 1) | (field_of_view > _CRIS_NUM_FOV)):
+        raise ValueError("CrIS field_of_view must be in the range 1--9")
+
+    for_offset: np.ndarray = field_of_regard - 1
+    fov_offset: np.ndarray = field_of_view - 1
+    for_rotation = np.deg2rad(for_offset * _CRIS_SCAN_STEP_DEG)
+    angle = np.deg2rad(_CRIS_SCAN_START_DEG) + for_rotation
+    angle += _CRIS_FOV_DISTANCE_RAD[fov_offset] * np.sin(
+        _CRIS_FOV_DIRECTION_RAD[fov_offset] - for_rotation
+    )
+    return np.rad2deg(angle).astype(np.float32)
+
 
 # GSI / CRTM sensor_chan numbering for CrIS FSR.
 # https://www.star.nesdis.noaa.gov/jpss/documents/UserGuides/CrIS_SDR_Users_Guide1p1_20180405.pdf
@@ -285,25 +331,11 @@ _GEO_GRANULE_GROUP = "Data_Products/CrIS-SDR-GEO/CrIS-SDR-GEO_Gran_0"
 # https://www.nesdis.noaa.gov/s3/2024-01/474-00001-01_JPSS-CDFCB-X-Vol-I_F.pdf
 
 
-@dataclass(frozen=True)
-class _CrISTimeAnchors:
-    """Paired UTC and IET anchors carried by one CrIS GEO granule."""
-
-    beginning_utc: np.datetime64
-    beginning_iet: int
-    ending_utc: np.datetime64
-    ending_iet: int
-
-
-def _hdf_scalar(value: Any, attribute: str) -> Any:
+def _hdf_text(value: Any, attribute: str) -> str:
     values = np.asarray(value)
     if values.size != 1:
         raise ValueError(f"CrIS GEO attribute {attribute!r} must contain one value")
-    return values.reshape(-1)[0]
-
-
-def _hdf_text(value: Any, attribute: str) -> str:
-    scalar = _hdf_scalar(value, attribute)
+    scalar = values.item()
     if isinstance(scalar, (bytes, np.bytes_)):
         return bytes(scalar).decode("ascii").rstrip("\x00")
     if isinstance(scalar, str):
@@ -311,61 +343,32 @@ def _hdf_text(value: Any, attribute: str) -> str:
     raise ValueError(f"CrIS GEO attribute {attribute!r} must contain text")
 
 
-def _parse_cris_time_anchors(attributes: Mapping[str, Any]) -> _CrISTimeAnchors:
-    """Parse and validate the source UTC/IET anchor pairs for one granule."""
-
-    def required(name: str) -> Any:
-        try:
-            return attributes[name]
-        except KeyError as exc:
-            raise ValueError(f"CrIS GEO granule is missing attribute {name!r}") from exc
-
-    def parse_utc(prefix: str) -> np.datetime64:
-        date = _hdf_text(required(f"{prefix}_Date"), f"{prefix}_Date")
-        time = _hdf_text(required(f"{prefix}_Time"), f"{prefix}_Time")
-        try:
-            parsed = datetime.strptime(f"{date}{time}", "%Y%m%d%H%M%S.%fZ")
-        except ValueError as exc:
-            raise ValueError(
-                f"Invalid CrIS GEO {prefix.lower()} UTC anchor: {date} {time}"
-            ) from exc
-        return np.datetime64(parsed, "us")
-
-    beginning_utc = parse_utc("Beginning")
-    ending_utc = parse_utc("Ending")
-    beginning_iet = int(
-        _hdf_scalar(required("N_Beginning_Time_IET"), "N_Beginning_Time_IET")
-    )
-    ending_iet = int(_hdf_scalar(required("N_Ending_Time_IET"), "N_Ending_Time_IET"))
-
-    utc_elapsed_us = int(
-        (ending_utc - beginning_utc).astype("timedelta64[us]").astype(np.int64)
-    )
-    iet_elapsed_us = ending_iet - beginning_iet
-    if iet_elapsed_us != utc_elapsed_us:
-        raise ValueError(
-            "CrIS GEO beginning/ending UTC and IET anchors disagree; the granule "
-            "may span a leap-second transition and cannot be decoded safely"
+def _read_cris_time_anchor(geo: h5py.File) -> tuple[np.datetime64, int]:
+    """Read the paired UTC/IET beginning anchor carried by a GEO granule."""
+    attributes = geo[_GEO_GRANULE_GROUP].attrs
+    date = _hdf_text(attributes["Beginning_Date"], "Beginning_Date")
+    time = _hdf_text(attributes["Beginning_Time"], "Beginning_Time")
+    try:
+        utc = np.datetime64(
+            datetime.strptime(f"{date}{time}", "%Y%m%d%H%M%S.%fZ"), "us"
         )
+    except ValueError as exc:
+        raise ValueError(f"Invalid CrIS GEO UTC anchor: {date} {time}") from exc
 
-    return _CrISTimeAnchors(
-        beginning_utc=beginning_utc,
-        beginning_iet=beginning_iet,
-        ending_utc=ending_utc,
-        ending_iet=ending_iet,
-    )
-
-
-def _read_cris_time_anchors(geo: h5py.File) -> _CrISTimeAnchors:
-    """Read source UTC/IET anchors from an open CrIS GEO file."""
-    return _parse_cris_time_anchors(geo[_GEO_GRANULE_GROUP].attrs)
+    iet_values = np.asarray(attributes["N_Beginning_Time_IET"])
+    if iet_values.size != 1:
+        raise ValueError(
+            "CrIS GEO attribute 'N_Beginning_Time_IET' must contain one value"
+        )
+    return utc, int(iet_values.item())
 
 
-def _iet_to_utc(iet_microseconds: np.ndarray, anchors: _CrISTimeAnchors) -> np.ndarray:
-    """Convert IET with the granule's source UTC/IET beginning anchor."""
+def _iet_to_utc(
+    iet_microseconds: np.ndarray, anchor_utc: np.datetime64, anchor_iet: int
+) -> np.ndarray:
+    """Convert IET using the UTC/IET anchor published with the granule."""
     iet = np.asarray(iet_microseconds, dtype=np.int64)
-    elapsed = iet - anchors.beginning_iet
-    return anchors.beginning_utc + elapsed.astype("timedelta64[us]")
+    return anchor_utc + (iet - anchor_iet).astype("timedelta64[us]")
 
 
 @dataclass
@@ -397,6 +400,7 @@ class _CrISDecodedGranule:
     quality: np.ndarray  # (n_valid,) uint16
     times: np.ndarray  # (n_valid,) datetime64[us]
     brightness_temperature: np.ndarray  # (n_valid, n_channels) float32, K
+    source_uri: str
     satellite: str
     variable: str
 
@@ -433,10 +437,9 @@ class JPSS_CRIS:
 
     ``scan_line``, ``field_of_regard``, and ``field_of_view`` preserve the
     one-based source-array position of each footprint.  ``scan_line`` is local
-    to its source granule.  The SDR/GEO product does not provide an instrument
-    scan angle, so the compatibility field ``scan_angle`` is null; the
-    separately published ``satellite_za`` field contains
-    ``SatelliteZenithAngle`` from the GEO product.
+    to its source granule. ``scan_angle`` is the nominal CrIS look angle derived
+    from FOR/FOV geometry, while ``satellite_za`` preserves the independently
+    measured ``SatelliteZenithAngle`` from the GEO product.
 
     When ``apodize=False``, the returned :class:`~pandas.DataFrame` has one row
     per FOV per channel including guard channels.  The ``sensor_index`` column
@@ -545,8 +548,7 @@ class JPSS_CRIS:
                 nullable=True,
                 metadata={
                     "description": (
-                        "Unavailable in the native CrIS SDR/GEO product; "
-                        "satellite_za contains SatelliteZenithAngle"
+                        "Nominal CrIS look angle derived from FOR/FOV geometry (deg)"
                     )
                 },
             ),
@@ -978,45 +980,45 @@ class JPSS_CRIS:
         # (each granule may have different satellite)
         sat_pieces = [np.broadcast_to(g.satellite, g.lat.shape[0]) for g in granules]
         var_pieces = [np.broadcast_to(g.variable, g.lat.shape[0]) for g in granules]
+        source_pieces = [
+            np.broadcast_to(g.source_uri, g.lat.shape[0]) for g in granules
+        ]
         all_sat = np.concatenate(sat_pieces)
         all_var = np.concatenate(var_pieces)
+        all_source = np.concatenate(source_pieces)
 
         # Free granule list — data is now in the concatenated arrays
         del granules
 
-        # --- Deduplicate at spatial level (before channel expansion) ---
-        # This really isnt needed, its more of a safety net
-        time_as_i8 = all_times.view(np.int64)
-        lat_i = (all_lat * 100).astype(np.int32)
-        lon_i = (all_lon * 100).astype(np.int32)
-
-        # Encode satellite strings as integer codes for lexsort
-        unique_sats, sat_codes = np.unique(all_sat, return_inverse=True)
+        # Deduplicate repeated tasks by exact source footprint identity. Scan
+        # line is granule-local, so the source URI is part of the key.
+        _, sat_codes = np.unique(all_sat, return_inverse=True)
+        _, var_codes = np.unique(all_var, return_inverse=True)
+        _, source_codes = np.unique(all_source, return_inverse=True)
         sat_i = sat_codes.astype(np.int32)
+        var_i = var_codes.astype(np.int32)
+        source_i = source_codes.astype(np.int32)
 
         order = np.lexsort(
             (
                 all_field_of_view,
                 all_field_of_regard,
                 all_scan_line,
-                lon_i,
-                lat_i,
+                var_i,
                 sat_i,
-                time_as_i8,
+                source_i,
             )
         )
-        sorted_t = time_as_i8[order]
-        sorted_lat = lat_i[order]
-        sorted_lon = lon_i[order]
         sorted_sat = sat_i[order]
+        sorted_var = var_i[order]
+        sorted_source = source_i[order]
         sorted_scan_line = all_scan_line[order]
         sorted_field_of_regard = all_field_of_regard[order]
         sorted_field_of_view = all_field_of_view[order]
         diffs = (
-            (sorted_t[1:] != sorted_t[:-1])
-            | (sorted_lat[1:] != sorted_lat[:-1])
-            | (sorted_lon[1:] != sorted_lon[:-1])
+            (sorted_source[1:] != sorted_source[:-1])
             | (sorted_sat[1:] != sorted_sat[:-1])
+            | (sorted_var[1:] != sorted_var[:-1])
             | (sorted_scan_line[1:] != sorted_scan_line[:-1])
             | (sorted_field_of_regard[1:] != sorted_field_of_regard[:-1])
             | (sorted_field_of_view[1:] != sorted_field_of_view[:-1])
@@ -1046,6 +1048,9 @@ class JPSS_CRIS:
 
         # --- Expand to long-format using PyArrow for efficiency ---
         n_rows = n_total * n_channels
+        all_scan_angle = _nominal_cris_scan_angle(
+            all_field_of_regard, all_field_of_view
+        )
 
         # The compact decoder has already applied this source-ordered projection.
         _, sensor_chan, wavenumber = self._channel_projection()
@@ -1059,7 +1064,9 @@ class JPSS_CRIS:
             ),
             "lat": pa.array(np.repeat(all_lat, n_channels), type=pa.float32()),
             "lon": pa.array(np.repeat(all_lon, n_channels), type=pa.float32()),
-            "scan_angle": pa.nulls(n_rows, type=pa.float32()),
+            "scan_angle": pa.array(
+                np.repeat(all_scan_angle, n_channels), type=pa.float32()
+            ),
             "scan_line": pa.array(
                 np.repeat(all_scan_line, n_channels), type=pa.uint32()
             ),
@@ -1146,11 +1153,11 @@ class JPSS_CRIS:
 
         # --- Phase 1: Read GEO time first (tiny) to filter scan lines ---
         with h5py.File(geo_path, "r") as geo:
-            time_anchors = _read_cris_time_anchors(geo)
+            anchor_utc, anchor_iet = _read_cris_time_anchor(geo)
             for_time = geo[_GEO_KEYS["for_time"]][:]  # (n_scan, 30) IET µs
 
         # Convert IET relative to the source-provided UTC/IET granule anchor.
-        time_dt64: np.ndarray = _iet_to_utc(for_time, time_anchors)
+        time_dt64: np.ndarray = _iet_to_utc(for_time, anchor_utc, anchor_iet)
         # A scan line is relevant if ANY FOR in that scan is within window
         scan_has_valid_time = np.any(
             (time_dt64 >= tmin_dt64) & (time_dt64 <= tmax_dt64) & (for_time > 0),
@@ -1226,7 +1233,7 @@ class JPSS_CRIS:
         time_flat = for_time_3d.reshape(-1)
 
         # Convert times for tolerance filtering
-        times_dt64: np.ndarray = _iet_to_utc(time_flat, time_anchors)
+        times_dt64: np.ndarray = _iet_to_utc(time_flat, anchor_utc, anchor_iet)
 
         # Valid spatial mask: good lat/lon, positive time, AND within tolerance
         valid_spatial = (
@@ -1296,6 +1303,7 @@ class JPSS_CRIS:
             quality=qf_valid,
             times=times_valid,
             brightness_temperature=brightness_temperature,
+            source_uri=task.sdr_uri,
             satellite=task.satellite,
             variable=task.variable,
         )
