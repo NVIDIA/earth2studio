@@ -424,10 +424,10 @@ class JPSS_CRIS:
     Level 1 brightness temperature observations served from NOAA Open Data on
     AWS.
 
-    Raw spectral radiance from the HDF5 SDR files is converted to monochromatic
-    brightness temperature (K) via the inverse Planck function. Exact numerical
-    agreement with :class:`~earth2studio.data.UFSObsSat` additionally depends
-    on the source product stage and its channel-aware Planck conversion.
+    Raw spectral radiance from the HDF5 SDR files is converted to Planck
+    brightness temperature (K) at each channel center wavenumber. Exact
+    numerical agreement with :class:`~earth2studio.data.UFSObsSat` additionally
+    depends on the source product stage and its channel-aware Planck conversion.
 
     By default, Hamming apodization is applied to the unapodized (sinc ILS)
     radiance before the Planck inversion. This follows the NOAA three-point
@@ -1305,10 +1305,10 @@ class JPSS_CRIS:
         channel_positions, _, wn = self._channel_projection()
         radiance_valid = radiance_valid[:, channel_positions]
 
-        # Convert spectral radiance to monochromatic brightness temperature
-        # at the channel wavenumber. GSI uses CRTM's channel-aware Planck
-        # conversion, so exact radiance parity and exact diagnostic-BT parity
-        # are separate validation claims.
+        # Convert spectral radiance to Planck brightness temperature at each
+        # channel center wavenumber. GSI uses CRTM's channel-aware conversion,
+        # so exact radiance parity and exact diagnostic-BT parity are separate
+        # validation claims.
         brightness_temperature = radiance_to_bt(radiance_valid, wn).astype(np.float32)
 
         return _CrISDecodedGranule(
