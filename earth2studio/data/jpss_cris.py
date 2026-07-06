@@ -127,8 +127,7 @@ _CRIS_GSI_SENSOR_CHAN[
 # MWIR: skip 2 low guards, 865 science channels → 714..1578, 2 high guards → 0
 _mw_start = _CRIS_NUM_CHANNELS_LW  # physical index where MWIR begins
 _CRIS_GSI_SENSOR_CHAN[
-    _mw_start
-    + _CRIS_NUM_GUARD_LO : _mw_start
+    _mw_start + _CRIS_NUM_GUARD_LO : _mw_start
     + _CRIS_NUM_GUARD_LO
     + _CRIS_NUM_SCIENCE_MW
 ] = np.arange(
@@ -139,8 +138,7 @@ _CRIS_GSI_SENSOR_CHAN[
 # SWIR: skip 2 low guards, 633 science channels → 1579..2211, 2 high guards → 0
 _sw_start = _CRIS_NUM_CHANNELS_LW + _CRIS_NUM_CHANNELS_MW
 _CRIS_GSI_SENSOR_CHAN[
-    _sw_start
-    + _CRIS_NUM_GUARD_LO : _sw_start
+    _sw_start + _CRIS_NUM_GUARD_LO : _sw_start
     + _CRIS_NUM_GUARD_LO
     + _CRIS_NUM_SCIENCE_SW
 ] = np.arange(
@@ -299,13 +297,16 @@ class _CrISDecodedGranule:
 
     lat: np.ndarray  # (n_valid,) float32
     lon: np.ndarray  # (n_valid,) float32
+    scan_line: np.ndarray  # (n_valid,) uint32, one-based within granule
+    field_of_regard: np.ndarray  # (n_valid,) uint16, one-based
+    field_of_view: np.ndarray  # (n_valid,) uint16, one-based
     sat_za: np.ndarray  # (n_valid,) float32
     sat_aza: np.ndarray  # (n_valid,) float32
     sol_za: np.ndarray  # (n_valid,) float32
     sol_aza: np.ndarray  # (n_valid,) float32
     quality: np.ndarray  # (n_valid,) uint16
     times: np.ndarray  # (n_valid,) datetime64[ms]
-    radiance: np.ndarray  # (n_valid, n_channels) float32  (brightness temp K)
+    brightness_temperature: np.ndarray  # (n_valid, n_channels) float32, K
     satellite: str
     variable: str
 
@@ -339,6 +340,13 @@ class JPSS_CRIS:
 
     When ``apodize=True`` (default), guard channels are trimmed and the output
     has 2211 channels with contiguous ``sensor_index`` 1--2211.
+
+    ``scan_line``, ``field_of_regard``, and ``field_of_view`` preserve the
+    one-based source-array position of each footprint.  ``scan_line`` is local
+    to its source granule.  The SDR/GEO product does not provide an instrument
+    scan angle, so the compatibility field ``scan_angle`` is null; the
+    separately published ``satellite_za`` field contains
+    ``SatelliteZenithAngle`` from the GEO product.
 
     When ``apodize=False``, the returned :class:`~pandas.DataFrame` has one row
     per FOV per channel including guard channels.  The ``sensor_index`` column
@@ -406,6 +414,12 @@ class JPSS_CRIS:
         Maximum number of concurrent S3 fetch tasks, by default 24
     retries : int, optional
         Per-file retry count on transient I/O failures, by default 3
+    sensor_indices : list[int] | np.ndarray | None, optional
+        Science-channel ``sensor_index`` values to return (1--2211).  Values
+        are normalized to source order and must be unique.  Projection occurs
+        before Planck inversion and long-format expansion.  By default None,
+        all channels are returned; for ``apodize=False`` this includes the 12
+        guard channels whose ``sensor_index`` is 0.
 
     Warning
     -------
@@ -439,7 +453,36 @@ class JPSS_CRIS:
                 "scan_angle",
                 pa.float32(),
                 nullable=True,
-                metadata={"description": "SatelliteZenithAngle from CrIS GEO file"},
+                metadata={
+                    "description": (
+                        "Unavailable in the native CrIS SDR/GEO product; "
+                        "satellite_za contains SatelliteZenithAngle"
+                    )
+                },
+            ),
+            pa.field(
+                "scan_line",
+                pa.uint32(),
+                nullable=True,
+                metadata={
+                    "description": (
+                        "One-based scan position within the source SDR/GEO granule"
+                    )
+                },
+            ),
+            pa.field(
+                "field_of_regard",
+                pa.uint16(),
+                nullable=True,
+                metadata={
+                    "description": "One-based CrIS Earth-scene FOR index (1--30)"
+                },
+            ),
+            pa.field(
+                "field_of_view",
+                pa.uint16(),
+                nullable=True,
+                metadata={"description": "One-based CrIS detector FOV index (1--9)"},
             ),
             E2STUDIO_SCHEMA.field("sensor_index"),
             E2STUDIO_SCHEMA.field("wavenumber"),
@@ -465,6 +508,7 @@ class JPSS_CRIS:
         async_timeout: int = 600,
         max_workers: int = 24,
         retries: int = 3,
+        sensor_indices: list[int] | np.ndarray | None = None,
     ) -> None:
         if satellites is None:
             satellites = list(self.VALID_SATELLITES)
@@ -485,11 +529,50 @@ class JPSS_CRIS:
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
 
+        if sensor_indices is None:
+            self._sensor_indices: np.ndarray | None = None
+        else:
+            requested = tuple(sensor_indices)
+            if not requested:
+                raise ValueError("sensor_indices must contain at least one channel")
+            if any(
+                isinstance(index, bool)
+                or not isinstance(index, (int, np.integer))
+                or index < 1
+                or index
+                > _CRIS_NUM_SCIENCE_LW + _CRIS_NUM_SCIENCE_MW + _CRIS_NUM_SCIENCE_SW
+                for index in requested
+            ):
+                raise ValueError(
+                    "sensor_indices must be integer science-channel indices "
+                    "from 1 to 2211"
+                )
+            normalized = np.asarray(
+                sorted(int(index) for index in requested), dtype=np.uint16
+            )
+            if len(np.unique(normalized)) != len(normalized):
+                raise ValueError("sensor_indices must be unique")
+            self._sensor_indices = normalized
+
         self.fs: s3fs.S3FileSystem | None = None
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
         self._tolerance_upper = pd.to_timedelta(upper).to_pytimedelta()
+
+    def _channel_projection(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return source positions, sensor indices, and wavenumbers to publish."""
+        sensor_indices = (
+            _CRIS_GSI_SENSOR_CHAN_APOD if self._apodize else _CRIS_GSI_SENSOR_CHAN
+        )
+        wavenumbers = _CRIS_WAVENUMBER_APOD if self._apodize else _CRIS_WAVENUMBER
+
+        if self._sensor_indices is None:
+            positions: np.ndarray = np.arange(len(sensor_indices), dtype=np.intp)
+        else:
+            positions = np.flatnonzero(np.isin(sensor_indices, self._sensor_indices))
+
+        return positions, sensor_indices[positions], wavenumbers[positions]
 
     # ------------------------------------------------------------------
     # Async initialisation
@@ -745,9 +828,9 @@ class JPSS_CRIS:
         without the serialisation overhead of multiprocessing.
 
         Each granule is decoded into a compact :class:`_CrISDecodedGranule`
-        (spatial arrays + 2-D radiance matrix).  The expensive expansion
-        to long-format (one row per channel per FOV) is done once at the
-        end over all granules combined, avoiding intermediate DataFrame
+        (spatial arrays + 2-D brightness-temperature matrix).  The expensive
+        expansion to long-format (one row per channel per FOV) is done once at
+        the end over all granules combined, avoiding intermediate DataFrame
         allocation per granule.
         """
 
@@ -785,16 +868,21 @@ class JPSS_CRIS:
         # --- Batch: concatenate compact spatial arrays across granules ---
         all_lat = np.concatenate([g.lat for g in granules])
         all_lon = np.concatenate([g.lon for g in granules])
+        all_scan_line = np.concatenate([g.scan_line for g in granules])
+        all_field_of_regard = np.concatenate([g.field_of_regard for g in granules])
+        all_field_of_view = np.concatenate([g.field_of_view for g in granules])
         all_sat_za = np.concatenate([g.sat_za for g in granules])
         all_sat_aza = np.concatenate([g.sat_aza for g in granules])
         all_sol_za = np.concatenate([g.sol_za for g in granules])
         all_sol_aza = np.concatenate([g.sol_aza for g in granules])
         all_quality = np.concatenate([g.quality for g in granules])
         all_times = np.concatenate([g.times for g in granules])
-        all_radiance = np.concatenate([g.radiance for g in granules])  # (N, n_channels)
+        all_brightness_temperature = np.concatenate(
+            [g.brightness_temperature for g in granules]
+        )  # (N, n_channels)
 
         n_total = len(all_lat)
-        n_channels = all_radiance.shape[1]
+        n_channels = all_brightness_temperature.shape[1]
 
         # Build satellite/variable arrays for dedup support
         # (each granule may have different satellite)
@@ -816,16 +904,32 @@ class JPSS_CRIS:
         unique_sats, sat_codes = np.unique(all_sat, return_inverse=True)
         sat_i = sat_codes.astype(np.int32)
 
-        order = np.lexsort((lon_i, lat_i, sat_i, time_as_i8))
+        order = np.lexsort(
+            (
+                all_field_of_view,
+                all_field_of_regard,
+                all_scan_line,
+                lon_i,
+                lat_i,
+                sat_i,
+                time_as_i8,
+            )
+        )
         sorted_t = time_as_i8[order]
         sorted_lat = lat_i[order]
         sorted_lon = lon_i[order]
         sorted_sat = sat_i[order]
+        sorted_scan_line = all_scan_line[order]
+        sorted_field_of_regard = all_field_of_regard[order]
+        sorted_field_of_view = all_field_of_view[order]
         diffs = (
             (sorted_t[1:] != sorted_t[:-1])
             | (sorted_lat[1:] != sorted_lat[:-1])
             | (sorted_lon[1:] != sorted_lon[:-1])
             | (sorted_sat[1:] != sorted_sat[:-1])
+            | (sorted_scan_line[1:] != sorted_scan_line[:-1])
+            | (sorted_field_of_regard[1:] != sorted_field_of_regard[:-1])
+            | (sorted_field_of_view[1:] != sorted_field_of_view[:-1])
         )
         unique_mask: np.ndarray = np.empty(n_total, dtype=bool)
         unique_mask[0] = True
@@ -836,13 +940,16 @@ class JPSS_CRIS:
         if len(keep_idx) < n_total:
             all_lat = all_lat[keep_idx]
             all_lon = all_lon[keep_idx]
+            all_scan_line = all_scan_line[keep_idx]
+            all_field_of_regard = all_field_of_regard[keep_idx]
+            all_field_of_view = all_field_of_view[keep_idx]
             all_sat_za = all_sat_za[keep_idx]
             all_sat_aza = all_sat_aza[keep_idx]
             all_sol_za = all_sol_za[keep_idx]
             all_sol_aza = all_sol_aza[keep_idx]
             all_quality = all_quality[keep_idx]
             all_times = all_times[keep_idx]
-            all_radiance = all_radiance[keep_idx]
+            all_brightness_temperature = all_brightness_temperature[keep_idx]
             all_sat = all_sat[keep_idx]
             all_var = all_var[keep_idx]
             n_total = len(keep_idx)
@@ -850,11 +957,10 @@ class JPSS_CRIS:
         # --- Expand to long-format using PyArrow for efficiency ---
         n_rows = n_total * n_channels
 
-        # Select the correct sensor_chan mapping based on apodization setting
-        sensor_chan = (
-            _CRIS_GSI_SENSOR_CHAN_APOD if self._apodize else _CRIS_GSI_SENSOR_CHAN
-        )
-        wavenumber = _CRIS_WAVENUMBER_APOD if self._apodize else _CRIS_WAVENUMBER
+        # The compact decoder has already applied this source-ordered projection.
+        _, sensor_chan, wavenumber = self._channel_projection()
+        if len(sensor_chan) != n_channels:
+            raise RuntimeError("Decoded CrIS channels do not match the projection")
 
         arrs: dict[str, pa.Array] = {
             "time": pa.array(np.repeat(all_times, n_channels)),
@@ -863,8 +969,15 @@ class JPSS_CRIS:
             ),
             "lat": pa.array(np.repeat(all_lat, n_channels), type=pa.float32()),
             "lon": pa.array(np.repeat(all_lon, n_channels), type=pa.float32()),
-            "scan_angle": pa.array(
-                np.repeat(all_sat_za, n_channels), type=pa.float32()
+            "scan_angle": pa.nulls(n_rows, type=pa.float32()),
+            "scan_line": pa.array(
+                np.repeat(all_scan_line, n_channels), type=pa.uint32()
+            ),
+            "field_of_regard": pa.array(
+                np.repeat(all_field_of_regard, n_channels), type=pa.uint16()
+            ),
+            "field_of_view": pa.array(
+                np.repeat(all_field_of_view, n_channels), type=pa.uint16()
             ),
             "sensor_index": pa.array(
                 np.tile(sensor_chan, n_total),
@@ -883,20 +996,22 @@ class JPSS_CRIS:
                 np.repeat(all_sat_aza, n_channels), type=pa.float32()
             ),
             "quality": pa.array(np.repeat(all_quality, n_channels), type=pa.uint16()),
-            "observation": pa.array(all_radiance.ravel(), type=pa.float32()),
+            "observation": pa.array(
+                all_brightness_temperature.ravel(), type=pa.float32()
+            ),
         }
 
         # Build satellite and variable using DictionaryArray for memory
         unique_sats = list(dict.fromkeys(all_sat))
         sat_codes = {s: i for i, s in enumerate(unique_sats)}
-        sat_indices = np.repeat(
+        sat_indices: np.ndarray = np.repeat(
             np.array([sat_codes[s] for s in all_sat], dtype=np.int8), n_channels
         )
         arrs["satellite"] = pa.DictionaryArray.from_arrays(sat_indices, unique_sats)
 
         unique_vars = list(dict.fromkeys(all_var))
         var_codes = {v: i for i, v in enumerate(unique_vars)}
-        var_indices = np.repeat(
+        var_indices: np.ndarray = np.repeat(
             np.array([var_codes[v] for v in all_var], dtype=np.int8), n_channels
         )
         arrs["variable"] = pa.DictionaryArray.from_arrays(var_indices, unique_vars)
@@ -918,7 +1033,7 @@ class JPSS_CRIS:
         """Decode a CrIS SDR + GEO HDF5 file pair into compact arrays.
 
         Returns a :class:`_CrISDecodedGranule` containing spatial arrays
-        (one element per valid FOV) and a 2-D radiance matrix
+        (one element per valid FOV) and a 2-D brightness-temperature matrix
         ``(n_valid, n_channels)``.  The expensive channel-expansion into
         long-format rows is deferred to
         :py:meth:`_compile_dataframe`.
@@ -1007,6 +1122,15 @@ class JPSS_CRIS:
         # Flatten spatial dims
         lat_flat = lat.reshape(-1).astype(np.float32)
         lon_flat = lon.reshape(-1).astype(np.float32)
+        scan_line_flat: np.ndarray = np.repeat(
+            valid_scans.astype(np.uint32) + 1, n_for * n_fov
+        )
+        field_of_regard_flat = np.tile(
+            np.repeat(np.arange(1, n_for + 1, dtype=np.uint16), n_fov), n_scan
+        )
+        field_of_view_flat = np.tile(
+            np.arange(1, n_fov + 1, dtype=np.uint16), n_scan * n_for
+        )
 
         # Expand for_time to (n_scan, n_for, n_fov)
         for_time_3d = np.broadcast_to(
@@ -1037,6 +1161,9 @@ class JPSS_CRIS:
         lat_valid = lat_flat[valid_spatial]
         lon_valid = lon_flat[valid_spatial] % 360.0
         times_valid = times_dt64[valid_spatial]
+        scan_line_valid = scan_line_flat[valid_spatial]
+        field_of_regard_valid = field_of_regard_flat[valid_spatial]
+        field_of_view_valid = field_of_view_flat[valid_spatial]
 
         sat_za_valid = sat_za.reshape(-1)[valid_spatial].astype(np.float32)
         sat_aza_valid = sat_aza.reshape(-1)[valid_spatial].astype(np.float32)
@@ -1062,25 +1189,28 @@ class JPSS_CRIS:
         # the 2 guard channels at each end of each band.
         if self._apodize:
             radiance_valid = _hamming_apodize(radiance_valid)
-            wn = _CRIS_WAVENUMBER_APOD
-        else:
-            wn = _CRIS_WAVENUMBER
+
+        channel_positions, _, wn = self._channel_projection()
+        radiance_valid = radiance_valid[:, channel_positions]
 
         # Convert spectral radiance → brightness temperature (K) so that
         # the observation column is in the same units as UFSObsSat.
         # CrIS uses pure inverse Planck (no band correction).
-        radiance_valid = radiance_to_bt(radiance_valid, wn).astype(np.float32)
+        brightness_temperature = radiance_to_bt(radiance_valid, wn).astype(np.float32)
 
         return _CrISDecodedGranule(
             lat=lat_valid,
             lon=lon_valid,
+            scan_line=scan_line_valid,
+            field_of_regard=field_of_regard_valid,
+            field_of_view=field_of_view_valid,
             sat_za=sat_za_valid,
             sat_aza=sat_aza_valid,
             sol_za=sol_za_valid,
             sol_aza=sol_aza_valid,
             quality=qf_valid,
             times=times_valid,
-            radiance=radiance_valid,
+            brightness_temperature=brightness_temperature,
             satellite=task.satellite,
             variable=task.variable,
         )

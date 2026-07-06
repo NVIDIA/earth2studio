@@ -28,6 +28,7 @@ from earth2studio.data import JPSS_CRIS
 from earth2studio.data.jpss_cris import (
     _CRIS_GSI_SENSOR_CHAN,
     _CRIS_WAVENUMBER,
+    _CrISAsyncTask,
     _hamming_apodize,
 )
 
@@ -215,6 +216,132 @@ def _make_mock_hdf5_pair(sdr_path, geo_path, n_scan=2, n_for=30, n_fov=9, seed=4
                     base_iet + time_offset + (s * n_for + fi) * 200_000
                 )  # 200 ms step
         grp.create_dataset("FORTime", data=for_time)
+
+
+@pytest.fixture
+def cris_metadata_hdf5_pair(tmp_path):
+    """Small CrIS pair with a spatial collision and one invalid footprint."""
+    n_scan, n_for, n_fov = 2, 3, 2
+    sdr_file = tmp_path / "SCRIF_j01_metadata.h5"
+    geo_file = tmp_path / "GCRSO_j01_metadata.h5"
+    _make_mock_hdf5_pair(
+        str(sdr_file), str(geo_file), n_scan=n_scan, n_for=n_for, n_fov=n_fov
+    )
+
+    with h5py.File(geo_file, "r+") as geo:
+        group = geo["All_Data/CrIS-SDR-GEO_All"]
+        # Same FOR time and exact same location, but a different source FOV.
+        group["Latitude"][0, 0, 1] = group["Latitude"][0, 0, 0]
+        group["Longitude"][0, 0, 1] = group["Longitude"][0, 0, 0]
+        # Exercise identity propagation through the spatial validity filter.
+        group["Latitude"][0, 1, 1] = np.float32(-999.0)
+
+    task = _CrISAsyncTask(
+        sdr_uri=str(sdr_file),
+        geo_uri=str(geo_file),
+        datetime_min=datetime(2024, 6, 1, 11, 0),
+        datetime_max=datetime(2024, 6, 1, 13, 0),
+        satellite="n20",
+        variable="crisfsr",
+        modifier=lambda x: x,
+    )
+    expected_identity = [
+        (scan_line, field_of_regard, field_of_view)
+        for scan_line in range(1, n_scan + 1)
+        for field_of_regard in range(1, n_for + 1)
+        for field_of_view in range(1, n_fov + 1)
+        if (scan_line, field_of_regard, field_of_view) != (1, 2, 2)
+    ]
+    return sdr_file, geo_file, task, expected_identity
+
+
+def test_jpss_cris_decoded_footprint_identity(cris_metadata_hdf5_pair):
+    """Source scan/FOR/FOV positions survive filtering in source order."""
+    sdr_file, geo_file, task, expected_identity = cris_metadata_hdf5_pair
+    ds = JPSS_CRIS(satellites=["n20"], sensor_indices=[1579, 1, 714], verbose=False)
+
+    decoded = ds._decode_hdf5(str(sdr_file), str(geo_file), task)
+
+    assert decoded is not None
+    actual_identity = list(
+        zip(
+            decoded.scan_line.tolist(),
+            decoded.field_of_regard.tolist(),
+            decoded.field_of_view.tolist(),
+            strict=True,
+        )
+    )
+    assert actual_identity == expected_identity
+    assert decoded.brightness_temperature.shape == (len(expected_identity), 3)
+    assert not hasattr(decoded, "radiance")
+
+
+@pytest.mark.parametrize("apodize", [True, False])
+def test_jpss_cris_projection_is_source_ordered(cris_metadata_hdf5_pair, apodize):
+    """Projection order and values are stable on both spectral paths."""
+    sdr_file, geo_file, task, _ = cris_metadata_hdf5_pair
+    full_ds = JPSS_CRIS(satellites=["n20"], apodize=apodize, verbose=False)
+    projected_ds = JPSS_CRIS(
+        satellites=["n20"],
+        apodize=apodize,
+        sensor_indices=[1579, 1, 714],
+        verbose=False,
+    )
+
+    full = full_ds._decode_hdf5(str(sdr_file), str(geo_file), task)
+    projected = projected_ds._decode_hdf5(str(sdr_file), str(geo_file), task)
+
+    assert full is not None
+    assert projected is not None
+    positions, sensor_indices, wavenumbers = projected_ds._channel_projection()
+    np.testing.assert_array_equal(sensor_indices, [1, 714, 1579])
+    np.testing.assert_allclose(wavenumbers, [650.0, 1210.0, 2155.0])
+    np.testing.assert_array_equal(
+        projected.brightness_temperature,
+        full.brightness_temperature[:, positions],
+    )
+
+
+def test_jpss_cris_long_metadata_and_identity_dedup(cris_metadata_hdf5_pair):
+    """Long expansion keeps identity and never aliases zenith to scan angle."""
+    _, _, task, expected_identity = cris_metadata_hdf5_pair
+    ds = JPSS_CRIS(satellites=["n20"], sensor_indices=[1579, 1, 714], verbose=False)
+
+    with patch.object(JPSS_CRIS, "_cache_path", lambda self, uri: uri):
+        # Duplicate tasks must collapse, while collocated source FOVs remain distinct.
+        df = ds._compile_dataframe([task, task], ds.SCHEMA)
+
+    assert len(df) == len(expected_identity) * 3
+    assert df["scan_angle"].isna().all()
+    assert (df["satellite_za"] == np.float32(25.0)).all()
+    actual_identity = list(
+        df[["scan_line", "field_of_regard", "field_of_view"]]
+        .drop_duplicates()
+        .itertuples(index=False, name=None)
+    )
+    assert actual_identity == expected_identity
+    np.testing.assert_array_equal(
+        df["sensor_index"].to_numpy().reshape(-1, 3),
+        np.tile([1, 714, 1579], (len(expected_identity), 1)),
+    )
+
+    collocated = df[
+        (df["scan_line"] == 1)
+        & (df["field_of_regard"] == 1)
+        & (df["sensor_index"] == 1)
+    ]
+    assert len(collocated) == 2
+    assert collocated["lat"].nunique() == 1
+    assert collocated["lon"].nunique() == 1
+
+
+@pytest.mark.parametrize(
+    "sensor_indices",
+    [[], [1, 1], [0], [2212], [True], [1.5]],
+)
+def test_jpss_cris_rejects_invalid_projection(sensor_indices):
+    with pytest.raises(ValueError, match="sensor_indices"):
+        JPSS_CRIS(sensor_indices=sensor_indices)
 
 
 # ---------------------------------------------------------------------------
