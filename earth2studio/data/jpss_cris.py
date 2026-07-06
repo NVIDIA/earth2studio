@@ -86,7 +86,10 @@ _CRIS_NUM_FOV: int = 9  # Fields of View per FOR (3x3 detector array)
 
 # Nominal CrIS look-angle geometry. The FOR center advances across the scan,
 # while each detector FOV is offset by the rotating 3x3 focal-plane geometry.
-# See NOAA JPSS document 474-00032 and GSI read_cris.f90.
+# NOAA CrIS SDR ATBD (successor to JPSS document 474-00032):
+# https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-002_JPSS_ATBD_CRIS-SDR_fsr_20180614.pdf
+# NCEP GSI implementation and geometry constants:
+# https://github.com/NOAA-EMC/GSI/blob/3c1f5fe2fbafd201d5125cfac38056bd7fbc4333/src/gsi/read_cris.f90#L208-L223
 _CRIS_SCAN_START_DEG: float = -48.330
 _CRIS_SCAN_STEP_DEG: float = 3.3331
 _CRIS_FOV_DISTANCE_RAD: np.ndarray = np.asarray(
