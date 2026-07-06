@@ -22,7 +22,7 @@ import os
 import pathlib
 import shutil
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -277,79 +277,95 @@ _GEO_KEYS = {
     "for_time": f"{_GEO_GROUP}/FORTime",  # shape (n_scan, 30) IET µs
 }
 
+_GEO_GRANULE_GROUP = "Data_Products/CrIS-SDR-GEO/CrIS-SDR-GEO_Gran_0"
+
 # IDPS Epoch Time (IET) is a count of TAI-length microseconds from the
 # 1958-01-01 epoch, not elapsed UTC microseconds. NOAA JPSS CDFCB-X Vol. I,
 # Revision F, section 3.3.1:
 # https://www.nesdis.noaa.gov/s3/2024-01/474-00001-01_JPSS-CDFCB-X-Vol-I_F.pdf
-# Effective UTC leap transitions and the current 37-second TAI-UTC offset:
-# https://www.nist.gov/pml/time-and-frequency-division/time-realization/leap-seconds
-_IET_EPOCH = np.datetime64("1958-01-01T00:00:00", "us")
-_TAI_MINUS_UTC_TRANSITIONS: tuple[tuple[str, int], ...] = (
-    ("1972-01-01T00:00:00", 10),
-    ("1972-07-01T00:00:00", 11),
-    ("1973-01-01T00:00:00", 12),
-    ("1974-01-01T00:00:00", 13),
-    ("1975-01-01T00:00:00", 14),
-    ("1976-01-01T00:00:00", 15),
-    ("1977-01-01T00:00:00", 16),
-    ("1978-01-01T00:00:00", 17),
-    ("1979-01-01T00:00:00", 18),
-    ("1980-01-01T00:00:00", 19),
-    ("1981-07-01T00:00:00", 20),
-    ("1982-07-01T00:00:00", 21),
-    ("1983-07-01T00:00:00", 22),
-    ("1985-07-01T00:00:00", 23),
-    ("1988-01-01T00:00:00", 24),
-    ("1990-01-01T00:00:00", 25),
-    ("1991-01-01T00:00:00", 26),
-    ("1992-07-01T00:00:00", 27),
-    ("1993-07-01T00:00:00", 28),
-    ("1994-07-01T00:00:00", 29),
-    ("1996-01-01T00:00:00", 30),
-    ("1997-07-01T00:00:00", 31),
-    ("1999-01-01T00:00:00", 32),
-    ("2006-01-01T00:00:00", 33),
-    ("2009-01-01T00:00:00", 34),
-    ("2012-07-01T00:00:00", 35),
-    ("2015-07-01T00:00:00", 36),
-    ("2017-01-01T00:00:00", 37),
-)
-_IET_TRANSITION_US = np.asarray(
-    [
-        int(
-            (np.datetime64(utc, "us") - _IET_EPOCH)
-            .astype("timedelta64[us]")
-            .astype(np.int64)
-        )
-        + offset_seconds * 1_000_000
-        for utc, offset_seconds in _TAI_MINUS_UTC_TRANSITIONS
-    ],
-    dtype=np.int64,
-)
-_TAI_MINUS_UTC_US = np.asarray(
-    [offset_seconds * 1_000_000 for _, offset_seconds in _TAI_MINUS_UTC_TRANSITIONS],
-    dtype=np.int64,
-)
 
 
-def _iet_to_utc(iet_microseconds: np.ndarray) -> np.ndarray:
-    """Convert JPSS IET microseconds to ``datetime64[us]`` UTC.
+@dataclass(frozen=True)
+class _CrISTimeAnchors:
+    """Paired UTC and IET anchors carried by one CrIS GEO granule."""
 
-    The transition table starts with the integral 10-second TAI-UTC offset on
-    1972-01-01 and covers all leap transitions through the supported JPSS
-    dates. Values before 1972 use direct epoch arithmetic; no supported
-    :class:`JPSS_CRIS` observation predates the table.
-    """
-    iet = np.asarray(iet_microseconds, dtype=np.int64)
-    transition_indices = np.searchsorted(_IET_TRANSITION_US, iet, side="right") - 1
-    clipped_indices = np.maximum(transition_indices, 0)
-    offsets = np.where(
-        transition_indices >= 0,
-        _TAI_MINUS_UTC_US[clipped_indices],
-        0,
+    beginning_utc: np.datetime64
+    beginning_iet: int
+    ending_utc: np.datetime64
+    ending_iet: int
+
+
+def _hdf_scalar(value: Any, attribute: str) -> Any:
+    values = np.asarray(value)
+    if values.size != 1:
+        raise ValueError(f"CrIS GEO attribute {attribute!r} must contain one value")
+    return values.reshape(-1)[0]
+
+
+def _hdf_text(value: Any, attribute: str) -> str:
+    scalar = _hdf_scalar(value, attribute)
+    if isinstance(scalar, (bytes, np.bytes_)):
+        return bytes(scalar).decode("ascii").rstrip("\x00")
+    if isinstance(scalar, str):
+        return scalar.rstrip("\x00")
+    raise ValueError(f"CrIS GEO attribute {attribute!r} must contain text")
+
+
+def _parse_cris_time_anchors(attributes: Mapping[str, Any]) -> _CrISTimeAnchors:
+    """Parse and validate the source UTC/IET anchor pairs for one granule."""
+
+    def required(name: str) -> Any:
+        try:
+            return attributes[name]
+        except KeyError as exc:
+            raise ValueError(f"CrIS GEO granule is missing attribute {name!r}") from exc
+
+    def parse_utc(prefix: str) -> np.datetime64:
+        date = _hdf_text(required(f"{prefix}_Date"), f"{prefix}_Date")
+        time = _hdf_text(required(f"{prefix}_Time"), f"{prefix}_Time")
+        try:
+            parsed = datetime.strptime(f"{date}{time}", "%Y%m%d%H%M%S.%fZ")
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid CrIS GEO {prefix.lower()} UTC anchor: {date} {time}"
+            ) from exc
+        return np.datetime64(parsed, "us")
+
+    beginning_utc = parse_utc("Beginning")
+    ending_utc = parse_utc("Ending")
+    beginning_iet = int(
+        _hdf_scalar(required("N_Beginning_Time_IET"), "N_Beginning_Time_IET")
     )
-    utc_microseconds = iet - offsets
-    return _IET_EPOCH + utc_microseconds.astype("timedelta64[us]")
+    ending_iet = int(_hdf_scalar(required("N_Ending_Time_IET"), "N_Ending_Time_IET"))
+
+    utc_elapsed_us = int(
+        (ending_utc - beginning_utc).astype("timedelta64[us]").astype(np.int64)
+    )
+    iet_elapsed_us = ending_iet - beginning_iet
+    if iet_elapsed_us != utc_elapsed_us:
+        raise ValueError(
+            "CrIS GEO beginning/ending UTC and IET anchors disagree; the granule "
+            "may span a leap-second transition and cannot be decoded safely"
+        )
+
+    return _CrISTimeAnchors(
+        beginning_utc=beginning_utc,
+        beginning_iet=beginning_iet,
+        ending_utc=ending_utc,
+        ending_iet=ending_iet,
+    )
+
+
+def _read_cris_time_anchors(geo: h5py.File) -> _CrISTimeAnchors:
+    """Read source UTC/IET anchors from an open CrIS GEO file."""
+    return _parse_cris_time_anchors(geo[_GEO_GRANULE_GROUP].attrs)
+
+
+def _iet_to_utc(iet_microseconds: np.ndarray, anchors: _CrISTimeAnchors) -> np.ndarray:
+    """Convert IET with the granule's source UTC/IET beginning anchor."""
+    iet = np.asarray(iet_microseconds, dtype=np.int64)
+    elapsed = iet - anchors.beginning_iet
+    return anchors.beginning_utc + elapsed.astype("timedelta64[us]")
 
 
 @dataclass
@@ -379,7 +395,7 @@ class _CrISDecodedGranule:
     sol_za: np.ndarray  # (n_valid,) float32
     sol_aza: np.ndarray  # (n_valid,) float32
     quality: np.ndarray  # (n_valid,) uint16
-    times: np.ndarray  # (n_valid,) datetime64[ms]
+    times: np.ndarray  # (n_valid,) datetime64[us]
     brightness_temperature: np.ndarray  # (n_valid, n_channels) float32, K
     satellite: str
     variable: str
@@ -1037,7 +1053,7 @@ class JPSS_CRIS:
             raise RuntimeError("Decoded CrIS channels do not match the projection")
 
         arrs: dict[str, pa.Array] = {
-            "time": pa.array(np.repeat(all_times, n_channels)),
+            "time": pa.array(np.repeat(all_times, n_channels), type=pa.timestamp("ns")),
             "class": pa.DictionaryArray.from_arrays(
                 np.zeros(n_rows, dtype=np.int8), ["rad"]
             ),
@@ -1125,15 +1141,16 @@ class JPSS_CRIS:
         task : _CrISAsyncTask
             Task metadata (tolerance bounds, satellite, variable, modifier).
         """
-        tmin_dt64 = np.datetime64(task.datetime_min, "ms")
-        tmax_dt64 = np.datetime64(task.datetime_max, "ms")
+        tmin_dt64 = np.datetime64(task.datetime_min, "us")
+        tmax_dt64 = np.datetime64(task.datetime_max, "us")
 
         # --- Phase 1: Read GEO time first (tiny) to filter scan lines ---
         with h5py.File(geo_path, "r") as geo:
+            time_anchors = _read_cris_time_anchors(geo)
             for_time = geo[_GEO_KEYS["for_time"]][:]  # (n_scan, 30) IET µs
 
-        # Convert monotonic TAI-length IET to UTC for each (scan, FOR).
-        time_dt64: np.ndarray = _iet_to_utc(for_time).astype("datetime64[ms]")
+        # Convert IET relative to the source-provided UTC/IET granule anchor.
+        time_dt64: np.ndarray = _iet_to_utc(for_time, time_anchors)
         # A scan line is relevant if ANY FOR in that scan is within window
         scan_has_valid_time = np.any(
             (time_dt64 >= tmin_dt64) & (time_dt64 <= tmax_dt64) & (for_time > 0),
@@ -1209,7 +1226,7 @@ class JPSS_CRIS:
         time_flat = for_time_3d.reshape(-1)
 
         # Convert times for tolerance filtering
-        times_dt64: np.ndarray = _iet_to_utc(time_flat).astype("datetime64[ms]")
+        times_dt64: np.ndarray = _iet_to_utc(time_flat, time_anchors)
 
         # Valid spatial mask: good lat/lon, positive time, AND within tolerance
         valid_spatial = (

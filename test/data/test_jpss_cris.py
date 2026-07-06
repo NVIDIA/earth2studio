@@ -31,40 +31,57 @@ from earth2studio.data.jpss_cris import (
     _CrISAsyncTask,
     _hamming_apodize,
     _iet_to_utc,
+    _parse_cris_time_anchors,
 )
 
 
 # ---------------------------------------------------------------------------
 # Unit tests for IET time conversion
 # ---------------------------------------------------------------------------
-def test_iet_to_utc_removes_current_37_second_offset():
-    """A real 2025 FORTime differs from naive epoch arithmetic by 37 seconds."""
-    iet = np.asarray([2_114_380_839_983_975], dtype=np.int64)
+def test_cris_time_anchors_parse_source_arrays_and_convert_microseconds():
+    attributes = {
+        "Beginning_Date": np.asarray([[b"20250101"]], dtype="S9"),
+        "Beginning_Time": np.asarray([[b"000002.983975Z"]], dtype="S15"),
+        "N_Beginning_Time_IET": np.asarray([[2_114_380_839_983_975]], dtype=np.uint64),
+        "Ending_Date": np.asarray([[b"20250101"]], dtype="S9"),
+        "Ending_Time": np.asarray([[b"000032.783959Z"]], dtype="S15"),
+        "N_Ending_Time_IET": np.asarray([[2_114_380_869_783_959]], dtype=np.uint64),
+    }
+    anchors = _parse_cris_time_anchors(attributes)
+    iet = np.asarray(
+        [anchors.beginning_iet, anchors.beginning_iet + 1_234_567], dtype=np.int64
+    )
     epoch = np.datetime64("1958-01-01T00:00:00", "us")
     naive = epoch + iet.astype("timedelta64[us]")
 
-    actual = _iet_to_utc(iet)
+    actual = _iet_to_utc(iet, anchors)
 
     np.testing.assert_array_equal(
-        actual, np.asarray(["2025-01-01T00:00:02.983975"], dtype="datetime64[us]")
+        actual,
+        np.asarray(
+            ["2025-01-01T00:00:02.983975", "2025-01-01T00:00:04.218542"],
+            dtype="datetime64[us]",
+        ),
     )
-    np.testing.assert_array_equal(naive - actual, [np.timedelta64(37, "s")])
-
-
-def test_iet_to_utc_across_2016_leap_transition():
-    """The effective offset changes from 36 to 37 seconds at 2017 UTC."""
-    epoch = np.datetime64("1958-01-01T00:00:00", "us")
-    expected = np.asarray(
-        ["2016-12-31T23:59:59", "2017-01-01T00:00:00"],
-        dtype="datetime64[us]",
+    np.testing.assert_array_equal(
+        naive - actual,
+        np.asarray([np.timedelta64(37, "s"), np.timedelta64(37, "s")]),
     )
-    offsets_us = np.asarray([36_000_000, 37_000_000], dtype=np.int64)
-    iet = (expected - epoch).astype("timedelta64[us]").astype(np.int64) + offsets_us
 
-    actual = _iet_to_utc(iet)
 
-    np.testing.assert_array_equal(actual, expected)
-    assert iet[1] - iet[0] == 2_000_000
+def test_cris_time_anchors_reject_elapsed_time_mismatch():
+    attributes = {
+        "Beginning_Date": [[b"20161231"]],
+        "Beginning_Time": [[b"235959.000000Z"]],
+        "N_Beginning_Time_IET": [[1_000_000]],
+        "Ending_Date": [[b"20170101"]],
+        "Ending_Time": [[b"000000.000000Z"]],
+        # Two TAI-length seconds across a one-second representable UTC interval.
+        "N_Ending_Time_IET": [[3_000_000]],
+    }
+
+    with pytest.raises(ValueError, match="may span a leap-second transition"):
+        _parse_cris_time_anchors(attributes)
 
 
 # ---------------------------------------------------------------------------
@@ -202,12 +219,38 @@ def _make_mock_hdf5_pair(sdr_path, geo_path, n_scan=2, n_for=30, n_fov=9, seed=4
     # 2024-06-01 12:00:00 UTC in IET microseconds:
     base_dt = datetime(2024, 6, 1, 12, 0, 0)
     iet_epoch = datetime(1958, 1, 1)
-    # TAI is 37 seconds ahead of UTC for all supported synthetic fixture dates.
-    base_iet = int((base_dt - iet_epoch).total_seconds() * 1_000_000) + 37_000_000
+    # TAI is 37 seconds ahead of UTC; retain a non-millisecond source fraction.
+    base_iet = (
+        int((base_dt - iet_epoch).total_seconds() * 1_000_000) + 37_000_000 + 983_975
+    )
     # Offset by seed so each granule gets distinct times/coords
     time_offset = (seed - 42) * 32_000_000  # ~32s apart per seed step
 
+    beginning_utc = base_dt + timedelta(microseconds=time_offset + 983_975)
+    ending_iet = base_iet + time_offset + (n_scan * n_for - 1) * 200_000
+    ending_utc = beginning_utc + timedelta(
+        microseconds=ending_iet - base_iet - time_offset
+    )
+
     with h5py.File(geo_path, "w") as f:
+        granule = f.create_group("Data_Products/CrIS-SDR-GEO/CrIS-SDR-GEO_Gran_0")
+        granule.attrs["Beginning_Date"] = np.asarray(
+            [[beginning_utc.strftime("%Y%m%d").encode()]], dtype="S9"
+        )
+        granule.attrs["Beginning_Time"] = np.asarray(
+            [[beginning_utc.strftime("%H%M%S.%fZ").encode()]], dtype="S15"
+        )
+        granule.attrs["N_Beginning_Time_IET"] = np.asarray(
+            [[base_iet + time_offset]], dtype=np.uint64
+        )
+        granule.attrs["Ending_Date"] = np.asarray(
+            [[ending_utc.strftime("%Y%m%d").encode()]], dtype="S9"
+        )
+        granule.attrs["Ending_Time"] = np.asarray(
+            [[ending_utc.strftime("%H%M%S.%fZ").encode()]], dtype="S15"
+        )
+        granule.attrs["N_Ending_Time_IET"] = np.asarray([[ending_iet]], dtype=np.uint64)
+
         grp = f.create_group("All_Data/CrIS-SDR-GEO_All")
         lat_base = 30.0 + (seed - 42) * 5.0  # shift lat per granule
         grp.create_dataset(
@@ -347,6 +390,15 @@ def test_jpss_cris_long_metadata_and_identity_dedup(cris_metadata_hdf5_pair):
         df = ds._compile_dataframe([task, task], ds.SCHEMA)
 
     assert len(df) == len(expected_identity) * 3
+    assert str(df["time"].dtype) == "datetime64[ns]"
+    np.testing.assert_array_equal(
+        df["time"].to_numpy()[:3],
+        np.full(
+            3,
+            np.datetime64("2024-06-01T12:00:00.983975000", "ns"),
+            dtype="datetime64[ns]",
+        ),
+    )
     assert df["scan_angle"].isna().all()
     assert (df["satellite_za"] == np.float32(25.0)).all()
     actual_identity = list(
@@ -502,6 +554,10 @@ def test_jpss_cris_call_mock(tmp_path):
     assert not df.empty
     assert list(df.columns) == ds.SCHEMA.names
     assert set(df["variable"].unique()) == {"crisfsr"}
+    assert str(df["time"].dtype) == "datetime64[ns]"
+    assert df["time"].to_numpy()[0] == np.datetime64(
+        "2024-06-01T12:00:00.983975000", "ns"
+    )
     # Apodized: contiguous sensor_chan 1..2211 (no guard channel sentinels)
     assert df["sensor_index"].between(1, 2211).all()
     expected_rows = n_scan * n_for * n_fov * n_channels_apod
