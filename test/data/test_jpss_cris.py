@@ -501,24 +501,15 @@ def test_jpss_cris_fetch(time, variable):
         assert (df["observation"] < 400).all()  # < 400 K
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
 def test_jpss_cris_schema_fields():
-    ds = JPSS_CRIS(
-        satellites=["n20"],
-        time_tolerance=timedelta(seconds=30),
-        cache=False,
-        verbose=False,
-    )
-    time = datetime(2025, 1, 1, 0)
+    ds = JPSS_CRIS(satellites=["n20"], cache=False, verbose=False)
 
-    df_full = ds(time, ["crisfsr"], fields=None)
-    assert list(df_full.columns) == ds.SCHEMA.names
+    assert ds.resolve_fields(None).equals(ds.SCHEMA, check_metadata=True)
+    for field in ("scan_line", "field_of_regard", "field_of_view"):
+        assert field in ds.SCHEMA.names
 
     subset_fields = ["time", "lat", "lon", "observation", "variable"]
-    df_subset = ds(time, ["crisfsr"], fields=subset_fields)
-    assert list(df_subset.columns) == subset_fields
+    assert ds.resolve_fields(subset_fields).names == subset_fields
 
 
 @pytest.mark.slow

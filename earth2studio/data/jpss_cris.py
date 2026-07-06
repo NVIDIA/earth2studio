@@ -424,19 +424,18 @@ class JPSS_CRIS:
     Level 1 brightness temperature observations served from NOAA Open Data on
     AWS.
 
-    Raw spectral radiance from the HDF5 SDR files is converted to brightness
-    temperature (K) via the inverse Planck function so that the ``observation``
-    column is directly comparable with :class:`~earth2studio.data.UFSObsSat`.
+    Raw spectral radiance from the HDF5 SDR files is converted to monochromatic
+    brightness temperature (K) via the inverse Planck function. Exact numerical
+    agreement with :class:`~earth2studio.data.UFSObsSat` additionally depends
+    on the source product stage and its channel-aware Planck conversion.
 
     By default, Hamming apodization is applied to the unapodized (sinc ILS)
-    radiance before the Planck inversion.  This matches the processing used by
-    NCEP/GSI (which receives Hamming-apodized CrIS radiance via BUFR) and
-    produces brightness temperatures consistent with
-    :class:`~earth2studio.data.UFSObsSat`.  The 2 guard channels at each end
-    of each band (4 per band, 12 total) are trimmed during apodization,
-    yielding 2211 science channels.  Set ``apodize=False`` to retain the full
-    2223 unapodized channels (including 12 guard channels with
-    ``sensor_index=0``).
+    radiance before the Planck inversion. This follows the NOAA three-point
+    radiance-space Hamming definition. The 2 guard channels at each end of each
+    band (4 per band, 12 total) are trimmed during apodization. With no
+    ``sensor_indices`` projection, this yields 2211 science channels; setting
+    ``apodize=False`` instead retains all 2223 unapodized channels, including
+    12 guard channels with ``sensor_index=0``.
 
     Each HDF5 granule contains a small number of scan lines, each with 30
     Fields of Regard (FOR) and 9 Fields of View (FOV) per FOR (3x3 detector
@@ -446,8 +445,9 @@ class JPSS_CRIS:
     - **MWIR** (5.71--8.26 µm, 1210--1750 cm^-1): 869 channels at 0.625 cm^-1
     - **SWIR** (3.92--4.64 µm, 2155--2550 cm^-1): 637 channels at 0.625 cm^-1
 
-    When ``apodize=True`` (default), guard channels are trimmed and the output
-    has 2211 channels with contiguous ``sensor_index`` 1--2211.
+    With ``sensor_indices=None`` and ``apodize=True`` (default), guard channels
+    are trimmed and the output has 2211 channels with contiguous
+    ``sensor_index`` 1--2211.
 
     ``scan_line``, ``field_of_regard``, and ``field_of_view`` preserve the
     one-based source-array position of each footprint.  ``scan_line`` is local
@@ -455,9 +455,10 @@ class JPSS_CRIS:
     from FOR/FOV geometry, while ``satellite_za`` preserves the independently
     measured ``SatelliteZenithAngle`` from the GEO product.
 
-    When ``apodize=False``, the returned :class:`~pandas.DataFrame` has one row
-    per FOV per channel including guard channels.  The ``sensor_index`` column
-    uses the GSI ``sensor_chan`` numbering convention:
+    With ``sensor_indices=None`` and ``apodize=False``, the returned
+    :class:`~pandas.DataFrame` has one row per FOV per channel including guard
+    channels. The ``sensor_index`` column uses the GSI ``sensor_chan`` numbering
+    convention:
 
     - **LWIR** channels 0--1 (0-based) → sensor_chan 0 (guard; not in GSI)
     - **LWIR** channels 2--714 (0-based) → sensor_chan 1--713
@@ -491,11 +492,11 @@ class JPSS_CRIS:
         converting to brightness temperature.  When ``True`` (default),
         the 3-tap Hamming kernel ``[0.23, 0.54, 0.23]`` is convolved
         per-band in radiance space and the 2 guard channels at each
-        end of each band are trimmed, yielding 2211 science
-        channels that are directly comparable with
-        :class:`~earth2studio.data.UFSObsSat`.  Set to ``False`` to
-        retain the unapodized spectra with all 2223 channels (including
-        12 guard channels with ``sensor_index=0``).
+        end of each band are trimmed, yielding the 2211-channel Hamming-
+        apodized science grid before any ``sensor_indices`` projection. Set to
+        ``False`` to retain the unapodized source grid; with no projection this
+        contains all 2223 channels, including 12 guards with
+        ``sensor_index=0``.
 
         .. note::
 
