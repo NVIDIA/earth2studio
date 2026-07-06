@@ -425,9 +425,9 @@ class JPSS_CRIS:
     AWS.
 
     Raw spectral radiance from the HDF5 SDR files is converted to Planck
-    brightness temperature (K) at each channel center wavenumber. Exact
-    numerical agreement with :class:`~earth2studio.data.UFSObsSat` additionally
-    depends on the source product stage and its channel-aware Planck conversion.
+    brightness temperature (K) at each channel center wavenumber. Reproducing
+    a coefficient-based downstream product exactly also requires that product's
+    release-pinned Planck constants.
 
     By default, Hamming apodization is applied to the unapodized (sinc ILS)
     radiance before the Planck inversion. This follows the NOAA three-point
@@ -501,9 +501,9 @@ class JPSS_CRIS:
         .. note::
 
            NOAA's CrIS SDR ATBD defines Hamming apodization on the Nyquist
-           grid as this exact three-point radiance-space operator. Comparisons
-           in brightness-temperature space additionally depend on using the
-           same Planck conversion as the comparison product.
+           grid as this exact three-point radiance-space operator. Exact
+           brightness-temperature reproduction additionally requires the same
+           Planck constants as the comparison product.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
@@ -1294,9 +1294,9 @@ class JPSS_CRIS:
             radiance_valid = radiance_valid.copy()
             radiance_valid[bad] = np.float32("nan")
 
-        # Optional Hamming apodization: smooth the unapodized (sinc ILS)
-        # radiance to match the apodized spectra used by GSI/CRTM, then trim
-        # the 2 guard channels at each end of each band.
+        # Optional Hamming apodization: apply the NOAA three-point operator to
+        # the unapodized (sinc ILS) radiance, then trim the 2 guard channels at
+        # each end of each band.
         if self._apodize:
             radiance_valid = _hamming_apodize(radiance_valid)
 
@@ -1305,10 +1305,9 @@ class JPSS_CRIS:
         channel_positions, _, wn = self._channel_projection()
         radiance_valid = radiance_valid[:, channel_positions]
 
-        # Convert spectral radiance to Planck brightness temperature at each
-        # channel center wavenumber. GSI uses CRTM's channel-aware conversion,
-        # so exact radiance parity and exact diagnostic-BT parity are separate
-        # validation claims.
+        # Convert spectral radiance at each channel center wavenumber. Products
+        # built with a coefficient package may use release-pinned Planck
+        # constants and therefore differ slightly at numerical precision.
         brightness_temperature = radiance_to_bt(radiance_valid, wn).astype(np.float32)
 
         return _CrISDecodedGranule(
