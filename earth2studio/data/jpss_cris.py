@@ -346,7 +346,7 @@ def _hdf_text(value: Any, attribute: str) -> str:
     raise ValueError(f"CrIS GEO attribute {attribute!r} must contain text")
 
 
-def _hdf_array(file: h5py.File, path: str, selection: Any = ()) -> np.ndarray:
+def _read_hdf_dataset(file: h5py.File, path: str, selection: Any = ()) -> np.ndarray:
     """Read an HDF5 dataset after narrowing the path to a dataset object."""
     dataset = file[path]
     if not isinstance(dataset, h5py.Dataset):
@@ -1168,7 +1168,8 @@ class JPSS_CRIS:
         # --- Phase 1: Read GEO time first (tiny) to filter scan lines ---
         with h5py.File(geo_path, "r") as geo:
             anchor_utc, anchor_iet = _read_cris_time_anchor(geo)
-            for_time = _hdf_array(geo, _GEO_KEYS["for_time"])  # (n_scan, 30) IET µs
+            # Shape: (n_scan, 30), containing IET microseconds.
+            for_time = _read_hdf_dataset(geo, _GEO_KEYS["for_time"])
 
         # Convert IET relative to the source-provided UTC/IET granule anchor.
         time_dt64: np.ndarray = _iet_to_utc(for_time, anchor_utc, anchor_iet)
@@ -1186,24 +1187,24 @@ class JPSS_CRIS:
         # --- Phase 2: Read only the scan lines we need ---
         with h5py.File(sdr_path, "r") as sdr, h5py.File(geo_path, "r") as geo:
             # HDF5 fancy indexing with sorted indices (efficient for contiguous)
-            rad_lw = _hdf_array(sdr, _SDR_RADIANCE_KEYS["LW"], valid_scans)
-            rad_mw = _hdf_array(sdr, _SDR_RADIANCE_KEYS["MW"], valid_scans)
-            rad_sw = _hdf_array(sdr, _SDR_RADIANCE_KEYS["SW"], valid_scans)
+            rad_lw = _read_hdf_dataset(sdr, _SDR_RADIANCE_KEYS["LW"], valid_scans)
+            rad_mw = _read_hdf_dataset(sdr, _SDR_RADIANCE_KEYS["MW"], valid_scans)
+            rad_sw = _read_hdf_dataset(sdr, _SDR_RADIANCE_KEYS["SW"], valid_scans)
 
             try:
-                qf3 = _hdf_array(sdr, _SDR_QF_KEYS["QF3"], valid_scans)
+                qf3 = _read_hdf_dataset(sdr, _SDR_QF_KEYS["QF3"], valid_scans)
             except KeyError:
                 qf3 = np.zeros(
                     (len(valid_scans), _CRIS_NUM_FOR, _CRIS_NUM_FOV, 3),
                     dtype=np.uint8,
                 )
 
-            lat = _hdf_array(geo, _GEO_KEYS["lat"], valid_scans)
-            lon = _hdf_array(geo, _GEO_KEYS["lon"], valid_scans)
-            sat_za = _hdf_array(geo, _GEO_KEYS["sat_za"], valid_scans)
-            sat_aza = _hdf_array(geo, _GEO_KEYS["sat_aza"], valid_scans)
-            sol_za = _hdf_array(geo, _GEO_KEYS["sol_za"], valid_scans)
-            sol_aza = _hdf_array(geo, _GEO_KEYS["sol_aza"], valid_scans)
+            lat = _read_hdf_dataset(geo, _GEO_KEYS["lat"], valid_scans)
+            lon = _read_hdf_dataset(geo, _GEO_KEYS["lon"], valid_scans)
+            sat_za = _read_hdf_dataset(geo, _GEO_KEYS["sat_za"], valid_scans)
+            sat_aza = _read_hdf_dataset(geo, _GEO_KEYS["sat_aza"], valid_scans)
+            sol_za = _read_hdf_dataset(geo, _GEO_KEYS["sol_za"], valid_scans)
+            sol_aza = _read_hdf_dataset(geo, _GEO_KEYS["sol_aza"], valid_scans)
 
         # Use the pre-read time but only for valid scans
         for_time = for_time[valid_scans]
