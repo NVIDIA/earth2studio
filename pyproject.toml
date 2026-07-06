@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Open-source deep-learning framework for exploring, building and deploying AI weather/climate workflows."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.15"
 license = "Apache-2.0"
 dependencies = [
     "cftime",
@@ -219,6 +219,13 @@ stormcast = [
     "scipy>=1.15.2",
     "pyproj>=3.7.1",
 ]
+stormcast-conus = [
+    "natten ; python_version < '3.14'",
+    "nvidia-physicsnemo>=2.2",
+    "nvtx>=0.2.11",
+    "omegaconf>=2.3.0",
+    "scipy>=1.15.2",
+]
 stormscope = [
     "natten ; python_version < '3.14'",
     "nvidia-physicsnemo>=2.1.0",
@@ -262,7 +269,7 @@ windgust-afno = [
 # DA Models
 da-healda = [
     "earth2grid",
-    "nvidia-physicsnemo>=2.0,<=2.1.1",
+    "nvidia-physicsnemo>=2.0,<=2.1.1 ; python_version < '3.14'",
     "cupy-cuda13x",
     "cudf-cu13>=26.2.0",
 ]
@@ -339,6 +346,7 @@ torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
 ]
+nvidia-physicsnemo = { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ced75d93d014f70bb691372788eee2d201171c12", extra = "stormcast-conus" }
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
 

@@ -55,7 +55,7 @@ try:
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
     from tensordict import TensorDict
 except ImportError:
-    OptionalDependencyFailure("stormcast")
+    OptionalDependencyFailure("stormcast-conus")
     OmegaConf = None
     TensorDict = None
 
