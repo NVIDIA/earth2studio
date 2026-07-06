@@ -14,9 +14,7 @@ de-duplication — exactly what insitubatch removes.
 
 ```bash
 # insitubatch is declared in earth2studio's `data` extra (needs Python >= 3.12):
-pip install "earth2studio[data]"
-# or, since earth2studio is already present in this tree, just the loader:
-pip install "insitubatch>=0.1.0"
+uv sync --extra data
 ```
 
 Both stores are anonymous public GCS buckets (WeatherBench2 ERA5, ARCO ERA5); no credentials
