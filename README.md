@@ -396,11 +396,11 @@ Earth2Studio is provided under the Apache License 2.0, refer to the
 [e2studio_api_url]: https://nvidia.github.io/earth2studio/modules/
 [e2studio_customization_url]: https://nvidia.github.io/earth2studio/examples/extend/index.html
 [e2studio_px_url]: https://nvidia.github.io/earth2studio/userguide/components/prognostic.html
-[e2studio_px_api]: https://nvidia.github.io/earth2studio/modules/models.html#earth2studio-models-px-prognostic
+[e2studio_px_api]: https://nvidia.github.io/earth2studio/modules/models_px.html
 [e2studio_dx_url]: https://nvidia.github.io/earth2studio/userguide/components/diagnostic.html
-[e2studio_dx_api]: https://nvidia.github.io/earth2studio/modules/models.html#earth2studio-models-dx-diagnostic
+[e2studio_dx_api]: https://nvidia.github.io/earth2studio/modules/models_dx.html
 [e2studio_data_url]: https://nvidia.github.io/earth2studio/userguide/components/datasources.html
-[e2studio_data_api]: https://nvidia.github.io/earth2studio/modules/datasources.html
+[e2studio_data_api]: https://nvidia.github.io/earth2studio/modules/datasources_analysis.html
 [e2studio_io_url]: https://nvidia.github.io/earth2studio/userguide/components/io.html
 [e2studio_io_api]: https://nvidia.github.io/earth2studio/modules/io.html
 [e2studio_pb_url]: https://nvidia.github.io/earth2studio/userguide/components/perturbation.html

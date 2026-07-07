@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed ACE2 distributed inference failures caused by nondeterministic variable ordering
+  across MPI ranks.
+
 ### Security
 
 ### Dependencies
