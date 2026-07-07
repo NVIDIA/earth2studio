@@ -794,10 +794,10 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 logger.info(
                     "Loading U-CAST static fields from WeatherBench2 public ERA5 zarr"
                 )
-                import gcsfs
+                from earth2studio.data.utils import obstore_zarr_store
 
-                fs = gcsfs.GCSFileSystem(token="anon")  # noqa: S106
-                ds = xr.open_zarr(fs.get_mapper(UCAST_WB2_DATASET), zarr_format=2)
+                zstore = obstore_zarr_store(UCAST_WB2_DATASET, skip_signature=True)
+                ds = xr.open_zarr(zstore, zarr_format=2)
                 try:
                     static_condition = _compute_static_condition(ds)
                 finally:
