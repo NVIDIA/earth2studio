@@ -761,3 +761,36 @@ def test_obstore_zarr_store_cache(local_zarr_array, tmp_path):
     zstore = obstore_zarr_store(url, cache_storage=str(cache_dir))
     arr = zarr.open(zstore, mode="r")
     assert np.array_equal(arr[:], expected)
+
+
+@pytest.mark.asyncio
+async def test_local_caching_store_dedupes_concurrent_fetches(local_zarr_array, tmp_path):
+    """Concurrent reads of the same uncached key must hit the backing store
+    exactly once (regression guard for the cache-stampede fix)."""
+    import zarr
+    import zarr.storage
+    from zarr.core.buffer import default_buffer_prototype
+
+    from earth2studio.data.utils import LocalCachingStore
+
+    class CountingStore(zarr.storage.WrapperStore):
+        def __init__(self, store):
+            super().__init__(store)
+            self.fetches: dict[str, int] = {}
+
+        async def get(self, key, prototype, byte_range=None):
+            self.fetches[key] = self.fetches.get(key, 0) + 1
+            await asyncio.sleep(0.01)  # widen the race window
+            return await self._store.get(key, prototype, byte_range)
+
+    remote = CountingStore(zarr.storage.LocalStore(str(local_zarr_array)))
+    cached = LocalCachingStore(remote, str(tmp_path / "cache"))
+    proto = default_buffer_prototype()
+
+    key = "c/0/0"
+    await asyncio.gather(*[cached.get(key, proto) for _ in range(16)])
+    assert remote.fetches[key] == 1
+
+    # Subsequent read served from cache, no further backing fetch
+    assert await cached.get(key, proto) is not None
+    assert remote.fetches[key] == 1

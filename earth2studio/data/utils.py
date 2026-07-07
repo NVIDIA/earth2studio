@@ -772,6 +772,10 @@ class LocalCachingStore(zarr.storage.WrapperStore):
     LocalStore. Whole-object reads are cached; ranged reads bypass the cache.
     Cached objects do not expire, intended for immutable archive stores.
 
+    Concurrent reads of the same uncached key are de-duplicated with a per-key
+    lock (double-checked against the cache), so a chunk is fetched and written
+    at most once even under Zarr's concurrent chunk fan-out.
+
     Parameters
     ----------
     store : zarr.abc.store.Store
@@ -784,6 +788,9 @@ class LocalCachingStore(zarr.storage.WrapperStore):
     def __init__(self, store: zarr.abc.store.Store, cache_storage: str) -> None:
         super().__init__(store)
         self._cache = zarr.storage.LocalStore(cache_storage)
+        # Per-key locks serialise concurrent fills of the same key. Held only
+        # across a cache miss, so distinct chunks still fetch concurrently.
+        self._fetch_locks: dict[str, asyncio.Lock] = {}
 
     async def get(
         self,
@@ -791,20 +798,38 @@ class LocalCachingStore(zarr.storage.WrapperStore):
         prototype: Any,
         byte_range: Any | None = None,
     ) -> Any | None:
+        # Ranged reads (e.g. sharded stores) are not cached.
         if byte_range is not None:
             return await self._store.get(key, prototype, byte_range)
+
+        # Fast path: cache hit needs no lock.
         cached = await self._cache.get(key, prototype)
         if cached is not None:
             return cached
-        value = await self._store.get(key, prototype)
-        if value is not None:
-            await self._cache.set(key, value)
-        return value
+
+        # Slow path: serialise concurrent fetchers of this same key. Creating
+        # the lock is safe without guarding as asyncio runs single-threaded and
+        # there is no await between lookup and insert.
+        lock = self._fetch_locks.get(key)
+        if lock is None:
+            lock = self._fetch_locks[key] = asyncio.Lock()
+
+        async with lock:
+            # Re-check under the lock: a prior holder may have filled the cache.
+            cached = await self._cache.get(key, prototype)
+            if cached is not None:
+                return cached
+            value = await self._store.get(key, prototype)
+            if value is not None:
+                await self._cache.set(key, value)
+            return value
 
 
 def obstore_zarr_store(
     url: str,
     cache_storage: str | None = None,
+    credential_provider: Any | None = None,
+    auth_token: str | None = None,
     **store_kwargs: Any,
 ) -> zarr.abc.store.Store:
     """Creates a read-only zarr store backed by obstore from a store URL.
@@ -822,6 +847,12 @@ def obstore_zarr_store(
         Local cache directory. If provided, whole-object reads are cached to
         a URL-specific sub-directory via :class:`LocalCachingStore`, by
         default None (no caching)
+    credential_provider : Any | None, optional
+        An obstore credential provider for authenticated access. Takes
+        precedence over ``auth_token``, by default None
+    auth_token : str | None, optional
+        Bearer token sent as an ``Authorization`` header for authenticated
+        access, by default None
     **store_kwargs : Any
         Additional configuration forwarded to :func:`obstore.store.from_url`,
         e.g. ``skip_signature=True`` for anonymous access to public buckets.
@@ -833,9 +864,21 @@ def obstore_zarr_store(
     """
     import obstore.store
 
-    zstore: zarr.abc.store.Store = zarr.storage.ObjectStore(
-        obstore.store.from_url(url, **store_kwargs), read_only=True
-    )
+    # Store construction mirrors titiler-cmr: prefer a credential provider,
+    # fall back to a bearer token, else anonymous / config-driven access.
+    if credential_provider is not None:
+        store = obstore.store.from_url(
+            url, credential_provider=credential_provider, **store_kwargs
+        )
+    elif auth_token:
+        client_options = {"default_headers": {"Authorization": f"Bearer {auth_token}"}}
+        store = obstore.store.from_url(
+            url, client_options=client_options, **store_kwargs
+        )
+    else:
+        store = obstore.store.from_url(url, **store_kwargs)
+
+    zstore: zarr.abc.store.Store = zarr.storage.ObjectStore(store, read_only=True)
     if cache_storage is not None:
         # URL-derived sub-directory to avoid key collisions between stores
         # sharing a cache root
