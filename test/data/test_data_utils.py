@@ -24,7 +24,6 @@ import pandas as pd
 import pytest
 import torch
 import xarray as xr
-from fsspec.implementations.http import HTTPFileSystem
 
 from earth2studio.data import (
     DataArrayFile,
@@ -36,7 +35,6 @@ from earth2studio.data import (
     prep_data_array,
 )
 from earth2studio.data.utils import (
-    AsyncCachingFileSystem,
     async_retry,
     cancellable_to_thread,
     datasource_cache_root,
@@ -530,45 +528,6 @@ def test_datasource_cache(tmp_path, monkeypatch):
             datasource_cache_root()
 
 
-# Async fsspec file system
-@pytest.mark.asyncio
-async def test_init_and_cache_dir(tmp_path):
-    fs = HTTPFileSystem()
-    cache_dir = tmp_path / "cache"
-    acfs = AsyncCachingFileSystem(fs=fs, cache_storage=str(cache_dir))
-    assert os.path.exists(cache_dir)
-    assert acfs.fs is fs
-    assert acfs.storage[-1] == str(cache_dir)
-
-
-def test_cache_size(tmp_path):
-    fs = HTTPFileSystem()
-    cache_dir = tmp_path / "cache"
-    acfs = AsyncCachingFileSystem(fs=fs, cache_storage=str(cache_dir))
-
-    # List files in tmp_path
-    files = os.listdir(cache_dir)
-    assert len(files) == 0  # Should only contain cache directory
-
-    # For some reason empty cache has some populated data in it
-    assert acfs.cache_size() == 4096
-
-
-def test_clear_cache(tmp_path):
-    fs = HTTPFileSystem()
-    cache_dir = tmp_path / "cache"
-    acfs = AsyncCachingFileSystem(fs=fs, cache_storage=str(cache_dir))
-    # Create a dummy file in cache
-    dummy_file = os.path.join(cache_dir, "dummy.txt")
-    with open(dummy_file, "w") as f:
-        f.write("test")
-    assert os.path.exists(dummy_file)
-    acfs.clear_cache()
-    # Cache directory should still exist, but file should be gone
-    assert os.path.exists(cache_dir)
-    assert not os.path.exists(dummy_file)
-
-
 @pytest.mark.parametrize(
     "time, lead_time, variable",
     [
@@ -625,55 +584,6 @@ def test_prep_forecast_inputs(time, lead_time, variable):
         assert len(variable_list) == len(variable)
     else:  # np.ndarray
         assert len(variable_list) == len(variable)
-
-
-@pytest.mark.asyncio
-async def test_async_cache_fs_storage_handling(tmp_path):
-    fs = HTTPFileSystem()
-
-    # Test TMP storage
-    cache_fs = AsyncCachingFileSystem(fs=fs, cache_storage="TMP")
-    assert len(cache_fs.storage) == 1
-    assert cache_fs.storage[0] != "TMP"  # Should be converted to actual temp path
-
-    # Test multiple storage locations
-    multi_storage = [str(tmp_path / "cache1"), str(tmp_path / "cache2")]
-    cache_fs = AsyncCachingFileSystem(fs=fs, cache_storage=multi_storage)
-    assert list(cache_fs.storage) == multi_storage
-    assert os.path.exists(multi_storage[-1])
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("expiry_time,wait_time", [(60, 1.0)])
-async def test_async_cache_fs_cache_operations(tmp_path, expiry_time, wait_time):
-    fs = HTTPFileSystem(asynchronous=True)
-    cache_fs = AsyncCachingFileSystem(
-        fs=fs,
-        cache_storage=str(tmp_path),
-        cache_check=0.1,
-        expiry_time=expiry_time,
-        asynchronous=True,
-    )
-
-    # Test cache size calculation
-    initial_size = cache_fs.cache_size()
-    remote_file = "https://raw.githubusercontent.com/NVIDIA/earth2studio/refs/heads/main/README.md"
-    await cache_fs._cat_file(remote_file)
-    await asyncio.sleep(wait_time)
-
-    cache_fs._check_cache()
-
-    assert initial_size < cache_fs.cache_size()
-    assert cache_fs._check_file(remote_file) is not False
-    # Test clear cache
-    cache_fs.clear_cache()
-    assert cache_fs._check_file(remote_file) is False
-
-    remote_file = "https://raw.githubusercontent.com/NVIDIA/earth2studio/refs/heads/main/README.md"
-    await cache_fs._cat_file(remote_file)
-    await asyncio.sleep(wait_time)
-
-    cache_fs.clear_expired_cache(expiry_time=0.1)
 
 
 @pytest.mark.parametrize(

@@ -47,6 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Removed `AsyncCachingFileSystem` and `get_msc_filesystem` from
+  `earth2studio.data.utils` along with Multi-Storage Client (MSC) support and
+  the `EARTH2STUDIO_DISABLE_MSC` environment variable; the Zarr data sources
+  they served now read via `obstore` (local caching via `LocalCachingStore`)
+
 ### Fixed
 
 - Fixed ARCO data source `ARCO_TIME_STOP` fallback to 2025-12-31,

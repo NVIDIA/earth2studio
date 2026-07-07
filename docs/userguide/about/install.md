@@ -1054,5 +1054,3 @@ this overrides `EARTH2STUDIO_CACHE` for data source caching operations.
     set, this overrides `EARTH2STUDIO_CACHE` for model checkpoint caching operations.
 - `EARTH2STUDIO_PACKAGE_TIMEOUT`: The max number of seconds for a download operation of
 a model package file from a remote store such as NGC, Huggingface or S3.
-- `EARTH2STUDIO_DISABLE_MSC`: Can be used to disable use of the [multi-storage client](https://github.com/NVIDIA/multi-storage-client)
-for relevant data sources.
