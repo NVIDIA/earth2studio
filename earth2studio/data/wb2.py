@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import functools
 import inspect
 import os
@@ -24,21 +23,17 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-import gcsfs
 import numpy as np
 import xarray as xr
 import zarr
-import zarr.abc.store
 from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
-    AsyncCachingFileSystem,
     _sync_async,
     datasource_cache_root,
     obstore_zarr_store,
     prep_data_inputs,
-    zarr_store_backend,
 )
 from earth2studio.lexicon import WB2ClimatetologyLexicon, WB2Lexicon
 from earth2studio.utils.type import TimeArray, VariableArray
@@ -72,41 +67,13 @@ class _WB2Base:
         self.level_coords = None
 
     async def _async_init(self) -> None:
-        """Async initialization of zarr group
-
-        Note
-        ----
-        Async fsspec expects initialization inside of the execution loop
-        """
+        """Async initialization of zarr group"""
         store_path = f"/weatherbench2/datasets/{self._product}/{self._zarr_store_name}"
-        if zarr_store_backend() == "obstore":
-            zstore: zarr.abc.store.Store = obstore_zarr_store(
-                f"gs:/{store_path}",
-                cache_storage=self.cache if self._cache else None,
-                skip_signature=True,
-            )
-        else:
-            fs = gcsfs.GCSFileSystem(
-                cache_timeout=-1,
-                token="anon",  # noqa: S106 # nosec B106
-                access="read_only",
-                block_size=8**20,
-                asynchronous=True,
-                skip_instance_cache=True,
-            )
-            fs._loop = asyncio.get_event_loop()
-
-            if self._cache:
-                cache_options = {
-                    "cache_storage": self.cache,
-                    "expiry_time": 31622400,  # 1 year
-                }
-                fs = AsyncCachingFileSystem(fs=fs, **cache_options, asynchronous=True)
-
-            zstore = zarr.storage.FsspecStore(
-                fs,
-                path=store_path,
-            )
+        zstore = obstore_zarr_store(
+            f"gs:/{store_path}",
+            cache_storage=self.cache if self._cache else None,
+            skip_signature=True,
+        )
         self.zarr_group = await zarr.api.asynchronous.open(store=zstore, mode="r")
         self.level_coords = await (await self.zarr_group.get("level")).getitem(  # type: ignore
             slice(None)

@@ -807,27 +807,6 @@ def get_msc_filesystem() -> filesystem | None:
         return None
 
 
-def zarr_store_backend() -> Literal["obstore", "fsspec"]:
-    """Returns the storage backend used by Zarr-reading data sources.
-
-    Controlled with the environment variable EARTH2STUDIO_ZARR_BACKEND. Valid
-    values are "obstore" (default) and "fsspec". The fsspec backend is kept as
-    a fallback validation gate for the obstore migration.
-
-    Returns
-    -------
-    Literal["obstore", "fsspec"]
-        Backend identifier
-    """
-    backend = os.environ.get("EARTH2STUDIO_ZARR_BACKEND", "obstore").strip().lower()
-    if backend not in ("obstore", "fsspec"):
-        raise ValueError(
-            f"Invalid EARTH2STUDIO_ZARR_BACKEND {backend!r}, "
-            "expected 'obstore' or 'fsspec'"
-        )
-    return backend  # type: ignore[return-value]
-
-
 class LocalCachingStore(zarr.storage.WrapperStore):
     """Wraps a read-only zarr store with a local on-disk cache backed by a zarr
     LocalStore. Whole-object reads are cached; ranged reads bypass the cache.

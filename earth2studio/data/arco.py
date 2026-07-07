@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import functools
 import os
 import pathlib
@@ -29,18 +28,14 @@ import numpy as np
 import xarray as xr
 import zarr
 import zarr.abc.store
-from gcsfs import GCSFileSystem
 from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
-    AsyncCachingFileSystem,
     _sync_async,
     datasource_cache_root,
-    get_msc_filesystem,
     obstore_zarr_store,
     prep_data_inputs,
-    zarr_store_backend,
 )
 from earth2studio.lexicon import ARCOLexicon
 from earth2studio.lexicon.arco import ACCUMULATION_HOURS
@@ -75,10 +70,6 @@ class ARCO:
 
     - https://cloud.google.com/storage/docs/public-datasets/era5
 
-    The data source will automatically use Multi-Storage Client (MSC) if available,
-    otherwise it will fallback to using gcsfs directly. MSC can provide better
-    performance for cloud storage access.
-
     Badges
     ------
     region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos
@@ -110,8 +101,7 @@ class ARCO:
         self.async_timeout = async_timeout
 
     def _zarr_stores(self) -> tuple[zarr.abc.store.Store, zarr.abc.store.Store]:
-        """Creates the pressure/surface and model-level zarr stores using the
-        backend selected by EARTH2STUDIO_ZARR_BACKEND
+        """Creates the pressure/surface and model-level zarr stores
 
         Returns
         -------
@@ -119,67 +109,20 @@ class ARCO:
             Pressure/surface store and model-level store
         """
         cache_storage = self.cache if self._cache else None
-        if zarr_store_backend() == "obstore":
-            zstore = obstore_zarr_store(
-                f"gs:/{self.ARCO_PATH}",
-                cache_storage=cache_storage,
-                skip_signature=True,
-            )
-            ml_zstore = obstore_zarr_store(
-                f"gs:/{self.ARCO_ML_PATH}",
-                cache_storage=cache_storage,
-                skip_signature=True,
-            )
-            return zstore, ml_zstore
-
-        # Common filesystem configuration parameters
-        fs_config = {
-            "cache_timeout": -1,
-            "token": "anon",  # noqa: S106 # nosec B106
-            "access": "read_only",
-            "block_size": 8**20,
-            "asynchronous": True,
-            "skip_instance_cache": True,
-        }
-
-        # Try to use Multi-Storage Client if available, otherwise fallback to gcsfs
-        MSCFileSystem = get_msc_filesystem()
-        if MSCFileSystem:
-            logger.debug("Using Multi-Storage Client for ARCO data access")
-            fs = MSCFileSystem(**fs_config)
-        else:
-            fs = GCSFileSystem(**fs_config)
-
-        # Need to manually set this here, the reason being that when the file system
-        # defines the weak ref of the client, it needs the loop used to create it.
-        # Otherwise it will try to kill the client with another loop, throwing an error
-        # at the end of the script
-        fs._loop = asyncio.get_event_loop()
-
-        if self._cache:
-            cache_options = {
-                "cache_storage": self.cache,
-                "expiry_time": 31622400,  # 1 year
-            }
-            fs = AsyncCachingFileSystem(fs=fs, **cache_options, asynchronous=True)
-
-        zstore = zarr.storage.FsspecStore(
-            fs,
-            path=self.ARCO_PATH,
+        zstore = obstore_zarr_store(
+            f"gs:/{self.ARCO_PATH}",
+            cache_storage=cache_storage,
+            skip_signature=True,
         )
-        ml_zstore = zarr.storage.FsspecStore(
-            fs,
-            path=self.ARCO_ML_PATH,
+        ml_zstore = obstore_zarr_store(
+            f"gs:/{self.ARCO_ML_PATH}",
+            cache_storage=cache_storage,
+            skip_signature=True,
         )
         return zstore, ml_zstore
 
     async def _async_init(self) -> None:
-        """Async initialization of zarr group
-
-        Note
-        ----
-        Async fsspec expects initialization inside of the execution loop
-        """
+        """Async initialization of zarr group"""
         zstore, ml_zstore = self._zarr_stores()
 
         # Pressure/surface store
@@ -544,22 +487,7 @@ class ARCO:
         except ValueError:
             return False
 
-        if zarr_store_backend() == "obstore":
-            gcstore = obstore_zarr_store(f"gs:/{cls.ARCO_PATH}", skip_signature=True)
-        else:
-            # TODO: FIX THIS, FOR ZARR 3.0 THIS IS DANGEROUS NON-ASYNC
-            # Try to use Multi-Storage Client if available, otherwise fallback to gcsfs
-            MSCFileSystem = get_msc_filesystem()
-            if MSCFileSystem:
-                fs = MSCFileSystem(cache_timeout=-1)
-            else:
-                fs = GCSFileSystem(cache_timeout=-1)
-
-            gcstore = zarr.storage.FsspecStore(
-                fs,
-                path=cls.ARCO_PATH,
-            )
-
+        gcstore = obstore_zarr_store(f"gs:/{cls.ARCO_PATH}", skip_signature=True)
         zarr_group = zarr.open(gcstore, mode="r")
         # Load time coordinate system from Zarr store and check
         time_index = cls._get_time_index(time)

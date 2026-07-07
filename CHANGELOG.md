@@ -32,10 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources,
   and the `rx` prescriptive sources) now read from GCS via `obstore`-backed zarr
-  stores by default, replacing per-source fsspec/gcsfs wiring; set
-  `EARTH2STUDIO_ZARR_BACKEND=fsspec` to restore the previous fsspec path
-  (output unchanged; up to ~3x higher concurrent small-read throughput and
-  ~20% faster cached ARCO fetches)
+  stores, replacing the per-source fsspec/gcsfs wiring (output unchanged; up to
+  ~3x higher concurrent small-read throughput and ~20% faster cached ARCO
+  fetches)
 - UFS GSI observation sources (`UFSObsConv`, `UFSObsSat`) now fetch from S3 via native
   `obstore` instead of `s3fs` to avoid the Python-GIL bottleneck that caps fsspec's
   concurrent S3 read throughput (~22% faster obs fetch, ~20% HealDA e2e on B200; output unchanged).

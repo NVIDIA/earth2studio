@@ -19,17 +19,14 @@ import pathlib
 import shutil
 from datetime import datetime, timezone
 
-import gcsfs
 import numpy as np
 import xarray as xr
 import zarr
-import zarr.abc.store
 
 from earth2studio.data.utils import (
     datasource_cache_root,
     obstore_zarr_store,
     prep_data_inputs,
-    zarr_store_backend,
 )
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.type import CoordSystem, TimeArray, VariableArray
@@ -68,22 +65,7 @@ class ARCORxBase:
         store_path = (
             "/gcp-public-data-arco-era5/ar/1959-2022-full_37-1h-0p25deg-chunk-1.zarr-v2"
         )
-        if zarr_store_backend() == "obstore":
-            zstore: zarr.abc.store.Store = obstore_zarr_store(
-                f"gs:/{store_path}", skip_signature=True
-            )
-        else:
-            fs = gcsfs.GCSFileSystem(
-                cache_timeout=-1,
-                token="anon",  # noqa: S106 # nosec B106
-                access="read_only",
-                block_size=2**20,
-            )
-
-            zstore = zarr.storage.FsspecStore(
-                fs,
-                path=store_path,
-            )
+        zstore = obstore_zarr_store(f"gs:/{store_path}", skip_signature=True)
         self.zarr_group = zarr.open(zstore, mode="r")
 
     def __call__(

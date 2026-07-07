@@ -46,7 +46,6 @@ from earth2studio.data.utils import (
     obstore_zarr_store,
     prep_data_inputs,
     prep_forecast_inputs,
-    zarr_store_backend,
 )
 
 
@@ -805,21 +804,6 @@ async def test_cancellable_to_thread():
 
     result = await cancellable_to_thread(blocking_func, 1, 2, timeout=5.0)
     assert result == 3
-
-
-def test_zarr_store_backend(monkeypatch):
-    # Default backend is obstore
-    monkeypatch.delenv("EARTH2STUDIO_ZARR_BACKEND", raising=False)
-    assert zarr_store_backend() == "obstore"
-    # Explicit values, case / whitespace insensitive
-    monkeypatch.setenv("EARTH2STUDIO_ZARR_BACKEND", "fsspec")
-    assert zarr_store_backend() == "fsspec"
-    monkeypatch.setenv("EARTH2STUDIO_ZARR_BACKEND", " OBSTORE ")
-    assert zarr_store_backend() == "obstore"
-    # Invalid value
-    monkeypatch.setenv("EARTH2STUDIO_ZARR_BACKEND", "not-a-backend")
-    with pytest.raises(ValueError):
-        zarr_store_backend()
 
 
 @pytest.fixture
