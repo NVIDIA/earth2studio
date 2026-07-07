@@ -176,7 +176,8 @@ _CRIS_GSI_SENSOR_CHAN[
 # MWIR: skip 2 low guards, 865 science channels → 714..1578, 2 high guards → 0
 _mw_start = _CRIS_NUM_CHANNELS_LW  # physical index where MWIR begins
 _CRIS_GSI_SENSOR_CHAN[
-    _mw_start + _CRIS_NUM_GUARD_LO : _mw_start
+    _mw_start
+    + _CRIS_NUM_GUARD_LO : _mw_start
     + _CRIS_NUM_GUARD_LO
     + _CRIS_NUM_SCIENCE_MW
 ] = np.arange(
@@ -187,7 +188,8 @@ _CRIS_GSI_SENSOR_CHAN[
 # SWIR: skip 2 low guards, 633 science channels → 1579..2211, 2 high guards → 0
 _sw_start = _CRIS_NUM_CHANNELS_LW + _CRIS_NUM_CHANNELS_MW
 _CRIS_GSI_SENSOR_CHAN[
-    _sw_start + _CRIS_NUM_GUARD_LO : _sw_start
+    _sw_start
+    + _CRIS_NUM_GUARD_LO : _sw_start
     + _CRIS_NUM_GUARD_LO
     + _CRIS_NUM_SCIENCE_SW
 ] = np.arange(
