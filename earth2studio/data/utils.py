@@ -39,6 +39,9 @@ import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
+import zarr
+import zarr.abc.store
+import zarr.storage
 from fsspec import filesystem
 from fsspec.asyn import AsyncFileSystem
 from fsspec.callbacks import DEFAULT_CALLBACK
@@ -802,6 +805,106 @@ def get_msc_filesystem() -> filesystem | None:
         return MultiStorageAsyncFileSystem
     except ImportError:
         return None
+
+
+def zarr_store_backend() -> Literal["obstore", "fsspec"]:
+    """Returns the storage backend used by Zarr-reading data sources.
+
+    Controlled with the environment variable EARTH2STUDIO_ZARR_BACKEND. Valid
+    values are "obstore" (default) and "fsspec". The fsspec backend is kept as
+    a fallback validation gate for the obstore migration.
+
+    Returns
+    -------
+    Literal["obstore", "fsspec"]
+        Backend identifier
+    """
+    backend = os.environ.get("EARTH2STUDIO_ZARR_BACKEND", "obstore").strip().lower()
+    if backend not in ("obstore", "fsspec"):
+        raise ValueError(
+            f"Invalid EARTH2STUDIO_ZARR_BACKEND {backend!r}, "
+            "expected 'obstore' or 'fsspec'"
+        )
+    return backend  # type: ignore[return-value]
+
+
+class LocalCachingStore(zarr.storage.WrapperStore):
+    """Wraps a read-only zarr store with a local on-disk cache backed by a zarr
+    LocalStore. Whole-object reads are cached; ranged reads bypass the cache.
+    Cached objects do not expire, intended for immutable archive stores.
+
+    Parameters
+    ----------
+    store : zarr.abc.store.Store
+        Remote store to cache reads from
+    cache_storage : str
+        Local directory to store cached objects in. Must be unique per remote
+        store, cached objects are keyed by their in-store path only.
+    """
+
+    def __init__(self, store: zarr.abc.store.Store, cache_storage: str) -> None:
+        super().__init__(store)
+        self._cache = zarr.storage.LocalStore(cache_storage)
+
+    async def get(
+        self,
+        key: str,
+        prototype: Any,
+        byte_range: Any | None = None,
+    ) -> Any | None:
+        if byte_range is not None:
+            return await self._store.get(key, prototype, byte_range)
+        cached = await self._cache.get(key, prototype)
+        if cached is not None:
+            return cached
+        value = await self._store.get(key, prototype)
+        if value is not None:
+            await self._cache.set(key, value)
+        return value
+
+
+def obstore_zarr_store(
+    url: str,
+    cache_storage: str | None = None,
+    **store_kwargs: Any,
+) -> zarr.abc.store.Store:
+    """Creates a read-only zarr store backed by obstore from a store URL.
+
+    Serves as the single integration point for obstore-backed zarr reads, use
+    this over hand-rolled fsspec stores for cloud Zarr data sources.
+
+    Parameters
+    ----------
+    url : str
+        Store URL, e.g. "gs://bucket/path/to/store.zarr". Scheme dispatch
+        (s3://, gs://, az://, file://, ...) is handled by
+        :func:`obstore.store.from_url`.
+    cache_storage : str | None, optional
+        Local cache directory. If provided, whole-object reads are cached to
+        a URL-specific sub-directory via :class:`LocalCachingStore`, by
+        default None (no caching)
+    **store_kwargs : Any
+        Additional configuration forwarded to :func:`obstore.store.from_url`,
+        e.g. ``skip_signature=True`` for anonymous access to public buckets.
+
+    Returns
+    -------
+    zarr.abc.store.Store
+        Read-only zarr store
+    """
+    import obstore.store
+
+    zstore: zarr.abc.store.Store = zarr.storage.ObjectStore(
+        obstore.store.from_url(url, **store_kwargs), read_only=True
+    )
+    if cache_storage is not None:
+        # URL-derived sub-directory to avoid key collisions between stores
+        # sharing a cache root
+        cache_storage = os.path.join(
+            cache_storage, sha256(url.encode()).hexdigest()[:16]
+        )
+        zstore = LocalCachingStore(zstore, cache_storage)
+    return zstore
 
 
 T = TypeVar("T")

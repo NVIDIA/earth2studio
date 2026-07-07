@@ -43,8 +43,10 @@ from earth2studio.data.utils import (
     ensure_utc,
     gather_with_concurrency,
     managed_session,
+    obstore_zarr_store,
     prep_data_inputs,
     prep_forecast_inputs,
+    zarr_store_backend,
 )
 
 
@@ -803,3 +805,65 @@ async def test_cancellable_to_thread():
 
     result = await cancellable_to_thread(blocking_func, 1, 2, timeout=5.0)
     assert result == 3
+
+
+def test_zarr_store_backend(monkeypatch):
+    # Default backend is obstore
+    monkeypatch.delenv("EARTH2STUDIO_ZARR_BACKEND", raising=False)
+    assert zarr_store_backend() == "obstore"
+    # Explicit values, case / whitespace insensitive
+    monkeypatch.setenv("EARTH2STUDIO_ZARR_BACKEND", "fsspec")
+    assert zarr_store_backend() == "fsspec"
+    monkeypatch.setenv("EARTH2STUDIO_ZARR_BACKEND", " OBSTORE ")
+    assert zarr_store_backend() == "obstore"
+    # Invalid value
+    monkeypatch.setenv("EARTH2STUDIO_ZARR_BACKEND", "not-a-backend")
+    with pytest.raises(ValueError):
+        zarr_store_backend()
+
+
+@pytest.fixture
+def local_zarr_array(tmp_path):
+    import zarr
+
+    src = tmp_path / "src.zarr"
+    arr = zarr.create_array(
+        store=str(src), shape=(8, 8), chunks=(4, 4), dtype="float32"
+    )
+    arr[:] = np.arange(64, dtype=np.float32).reshape(8, 8)
+    return src
+
+
+def test_obstore_zarr_store(local_zarr_array):
+    import zarr
+
+    zstore = obstore_zarr_store(f"file://{local_zarr_array}")
+    assert zstore.read_only
+    arr = zarr.open(zstore, mode="r")
+    assert np.array_equal(arr[:], np.arange(64, dtype=np.float32).reshape(8, 8))
+
+
+def test_obstore_zarr_store_cache(local_zarr_array, tmp_path):
+    import shutil
+
+    import zarr
+
+    cache_dir = tmp_path / "cache"
+    url = f"file://{local_zarr_array}"
+
+    zstore = obstore_zarr_store(url, cache_storage=str(cache_dir))
+    arr = zarr.open(zstore, mode="r")
+    expected = np.arange(64, dtype=np.float32).reshape(8, 8)
+    assert np.array_equal(arr[:], expected)
+
+    # Cache populated under a URL-derived sub-directory
+    subdirs = list(cache_dir.iterdir())
+    assert len(subdirs) == 1
+    assert any(subdirs[0].rglob("*"))
+
+    # Reads should now be served entirely from the cache
+    shutil.rmtree(local_zarr_array)
+    local_zarr_array.mkdir()
+    zstore = obstore_zarr_store(url, cache_storage=str(cache_dir))
+    arr = zarr.open(zstore, mode="r")
+    assert np.array_equal(arr[:], expected)
