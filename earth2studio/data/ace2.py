@@ -99,7 +99,6 @@ class ACE2ERA5Data:
         self.lon = ACE_GRID_LON
         self._co2_fn = co2_fn
         self._hf_fs = HfFileSystem()
-        self._dataset_cache: dict[str, xr.Dataset] = {}
 
     def __call__(
         self,
@@ -159,24 +158,18 @@ class ACE2ERA5Data:
             paths.append(path)
 
         # Open and concat across years
-        dsets = []
-        for path in paths:
-            if self._cache and path in self._dataset_cache:
-                dsets.append(self._dataset_cache[path])
-                continue
-
-            ds = xr.open_dataset(path, engine="netcdf4")
-            rename_coords = {
-                k: v
-                for k, v in {"latitude": "lat", "longitude": "lon"}.items()
-                if k in ds.coords
-            }
-            if rename_coords:
-                ds = ds.rename(rename_coords)
-            if self._cache:
-                self._dataset_cache[path] = ds
-            dsets.append(ds)
+        dsets = [xr.open_dataset(p, engine="netcdf4") for p in paths]
         ds = xr.concat(dsets, dim="time") if len(dsets) > 1 else dsets[0]
+
+        # Standardize lat/lon coord names
+        if "latitude" in ds.coords or "longitude" in ds.coords:
+            ds = ds.rename(
+                {
+                    k: v
+                    for k, v in {"latitude": "lat", "longitude": "lon"}.items()
+                    if k in ds.coords
+                }
+            )
 
         # Subset time and variables; select exact requested timestamps and order
         ds = ds.sel(time=time_list)
@@ -197,7 +190,6 @@ class ACE2ERA5Data:
                 )
             elif "time" in da.dims and self._mode == "forcing":
                 # CO2 is time-only
-                da = da.copy()
                 da = da.expand_dims({"lat": self.lat, "lon": self.lon})
                 da = da.transpose("time", "lat", "lon")
                 if self._co2_fn is not None:
