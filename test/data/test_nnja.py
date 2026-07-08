@@ -16,7 +16,6 @@
 
 import shutil
 from datetime import datetime, timedelta
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -103,7 +102,7 @@ def test_nnja_obs_conv_exceptions():
     with pytest.raises(ValueError):
         NNJAObsConv(source="not_a_source", cache=False, verbose=False)
 
-    with pytest.raises(NotImplementedError, match="raw family archive"):
+    with pytest.raises(NotImplementedError, match="raw dump streams"):
         NNJAObsConv(source="convbufr", cache=False, verbose=False)
 
     # Invalid variable - test via lexicon lookup directly (avoids network)

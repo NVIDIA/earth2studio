@@ -551,7 +551,9 @@ class NNJAObsConv(_NNJAObsBase):
         # Partition variables by lexicon route prefix:
         #   "prepbufr::..." -> conv/prepbufr/ tasks (PrepBUFR decoder)
         #   "gpsro::..."    -> gps/gpsro/ tasks (GPS RO BUFR decoder)
-        prepbufr_plan: dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]] = {}
+        prepbufr_plan: dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]] = (
+            {}
+        )
         gpsro_plan: dict[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]] = {}
 
         for v in variable:
@@ -581,9 +583,7 @@ class NNJAObsConv(_NNJAObsBase):
         # Build one task per unique cycle file; when multiple requested
         # times map to the same cycle the task's window is the union of
         # those time windows (see ``_NNJAObsBase._cycle_windows``).
-        windows = (
-            self._cycle_windows(time_list) if prepbufr_plan or gpsro_plan else {}
-        )
+        windows = self._cycle_windows(time_list) if prepbufr_plan or gpsro_plan else {}
         tasks: list = []
         for cycle_dt, (tmin, tmax) in windows.items():
             if prepbufr_plan:

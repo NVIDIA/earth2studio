@@ -512,7 +512,9 @@ def test_finalize_rows_gpsro_preserves_pressure_and_elevation_units():
         rows, _modifiers(NNJAObsConvLexicon, "gps"), convert_pres_mb_to_pa=False
     )
 
-    assert list(result.columns) == list(utils_ncep.NCEP_CONVENTIONAL_PUBLIC_SCHEMA.names)
+    assert list(result.columns) == list(
+        utils_ncep.NCEP_CONVENTIONAL_PUBLIC_SCHEMA.names
+    )
     assert len(result) == 1
     assert result["pres"].iloc[0] == pytest.approx(25_000.0)
     assert result["elev"].iloc[0] == pytest.approx(2_000.0)
@@ -568,7 +570,9 @@ def test_finalize_rows_adds_missing_columns():
         rows, _modifiers(NNJAObsConvLexicon, "t"), convert_pres_mb_to_pa=True
     )
 
-    assert list(result.columns) == list(utils_ncep.NCEP_CONVENTIONAL_PUBLIC_SCHEMA.names)
+    assert list(result.columns) == list(
+        utils_ncep.NCEP_CONVENTIONAL_PUBLIC_SCHEMA.names
+    )
     assert pd.isna(result["elev"].iloc[0])
     assert result["station"].iloc[0] is None
     assert pd.isna(result["station_elev"].iloc[0])
