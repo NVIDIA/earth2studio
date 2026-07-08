@@ -22,13 +22,12 @@ import pathlib
 import shutil
 import uuid
 from collections.abc import Callable
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
 import pyarrow as pa
 from loguru import logger
 
@@ -39,47 +38,18 @@ from earth2studio.data.utils import (
     gather_with_concurrency,
     prep_data_inputs,
 )
-from earth2studio.data.utils_bufr import (
-    HDR_DHR,
-    HDR_ELV,
-    HDR_SID,
-    HDR_T29,
-    HDR_TYP,
-    HDR_XOB,
-    HDR_YOB,
-    MNEMONIC_TO_DESCR,
-    OBS_CAT,
-    OBS_POB,
-    OBS_QUALITY_MAP,
-    OBS_UOB,
-    OBS_VOB,
-    OBS_WQM,
-    OBSERVATION_DESCR_IDS,
-    PREPBUFR_OBS_TYPES,
+from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
+from earth2studio.data.utils_ncep import (
+    GPSRO_BNDA,
+    NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
+    _empty_dataframe,
+    _NCEPGpsroAdapter,
+    _NCEPPrepbufrAdapter,
 )
-from earth2studio.data.utils_bufr import (
-    create_decoder as _bufr_create_decoder,
-)
-from earth2studio.data.utils_bufr import (
-    parse_prepbufr_messages as _bufr_parse_prepbufr_messages,
-)
-from earth2studio.data.utils_bufr import (
-    register_dx_tables as _bufr_register_dx_tables,
-)
-from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.lexicon.gdas import GDASObsConvLexicon
-from earth2studio.utils.imports import (
-    OptionalDependencyFailure,
-    check_optional_dependencies,
-)
+from earth2studio.utils.imports import check_optional_dependencies
 from earth2studio.utils.time import normalize_time_tolerance, timearray_to_datetime
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
-
-try:
-    from pybufrkit.decoder import Decoder as BufrDecoder
-except ImportError:
-    OptionalDependencyFailure("data")
-    BufrDecoder = None  # type: ignore[assignment,misc]
 
 NOMADS_BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod"
 
@@ -89,31 +59,39 @@ _MAX_AGE_DAYS = 2
 
 @dataclass
 class _GDASAsyncTask:
-    """Async task for fetching a single PrepBUFR cycle file."""
+    """Async task for fetching one conventional cycle file."""
 
     url: str
     datetime_file: datetime
     datetime_min: datetime
     datetime_max: datetime
     variables: list[str]
+    route: Literal["prepbufr", "gpsro"]
 
 
-@check_optional_dependencies()
+@check_optional_dependencies(BUFR_DEPENDENCY_KEY)
 class NomadsGDASObsConv:
-    """Real-time GDAS conventional observation data from NOAA NOMADS PrepBUFR.
+    """Real-time GDAS conventional observations from NOAA NOMADS.
 
     Provides near-real-time access to quality-controlled conventional
     (in-situ) observations from the NOAA Global Data Assimilation System
-    (GDAS). Data is sourced from PrepBUFR files on NOMADS, updated 4 times
-    daily (00z, 06z, 12z, 18z) with approximately 6-10 hours latency.
+    (GDAS). Data is sourced from merged PrepBUFR and separate GPSRO files on
+    NOMADS, updated 4 times daily (00z, 06z, 12z, 18z) with approximately
+    6-10 hours latency.
 
     Observation types include radiosondes (ADPUPA), surface stations (ADPSFC),
     aircraft (AIRCAR/AIRCFT), ships and buoys (SFCSHP), wind profilers
     (PROFLR), satellite-derived winds (SATWND), and GPS precipitable water
-    (GPSIPW).
+    (GPSIPW). The ``gps`` variable reads only the combined ionosphere-corrected
+    bending-angle observation from the separate GPSRO dump.
 
-    The output schema matches :class:`UFSObsConv` with the addition of a
-    ``quality`` field containing the PrepBUFR quality control marker.
+    GPSRO rows use the shared columns with product-specific meanings:
+    ``type`` is receiver ``SAID``, ``station`` combines receiver/transmitter
+    identifiers, ``quality`` is the QFRO flag table, ``pres`` is null, and
+    ``elev`` is impact parameter minus Earth radius of curvature.
+
+    The output schema matches :class:`UFSObsConv` with additional PrepBUFR
+    ``quality``, ``pressure_quality``, and ``level_cat`` metadata.
 
     Parameters
     ----------
@@ -128,7 +106,7 @@ class NomadsGDASObsConv:
         speed up decoding of large PrepBUFR files at the cost of more memory.
         Set to 1 to disable multiprocessing, by default 8.
     cache : bool, optional
-        Cache downloaded PrepBUFR files locally, by default True.
+        Cache downloaded observation files locally, by default True.
     verbose : bool, optional
         Print download progress, by default True.
     async_timeout : int, optional
@@ -141,7 +119,8 @@ class NomadsGDASObsConv:
     -------
     This is a remote data source and can potentially download a large
     amount of data to your local machine for large requests. Each 6-hourly
-    PrepBUFR file is approximately 60-70 MB.
+    PrepBUFR file is approximately 60-100 MB; GPSRO is downloaded only when
+    ``gps`` is requested.
 
     Note
     ----
@@ -162,42 +141,7 @@ class NomadsGDASObsConv:
 
     SOURCE_ID = "NomadsGDASObsConv"
 
-    SCHEMA: pa.Schema = pa.schema(
-        [
-            E2STUDIO_SCHEMA.field("time"),
-            pa.field(
-                "pres",
-                pa.float32(),
-                nullable=True,
-                metadata={"description": "Observation pressure level (Pa)"},
-            ),
-            pa.field(
-                "elev",
-                pa.float32(),
-                nullable=True,
-                metadata={"description": "Observation height / elevation (m)"},
-            ),
-            pa.field(
-                "type",
-                pa.uint16(),
-                nullable=True,
-                metadata={
-                    "description": (
-                        "PrepBUFR observation type code (NCEP Table 2). "
-                        "See https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/table_2.htm"
-                    )
-                },
-            ),
-            E2STUDIO_SCHEMA.field("class"),
-            E2STUDIO_SCHEMA.field("lat"),
-            E2STUDIO_SCHEMA.field("lon"),
-            E2STUDIO_SCHEMA.field("station"),
-            E2STUDIO_SCHEMA.field("station_elev"),
-            E2STUDIO_SCHEMA.field("quality"),
-            E2STUDIO_SCHEMA.field("observation"),
-            E2STUDIO_SCHEMA.field("variable"),
-        ]
-    )
+    SCHEMA: pa.Schema = NCEP_CONVENTIONAL_PUBLIC_SCHEMA
 
     def __init__(
         self,
@@ -223,6 +167,8 @@ class NomadsGDASObsConv:
         self._retries = retries
         self._tmp_cache_hash: str | None = None
         self.fs: Any = None
+        self._prepbufr_adapter = _NCEPPrepbufrAdapter(self._decode_workers)
+        self._gpsro_adapter = _NCEPGpsroAdapter(self._decode_workers)
 
     async def _async_init(self) -> None:
         """Initialize async HTTP filesystem.
@@ -231,7 +177,9 @@ class NomadsGDASObsConv:
         ----
         Async fsspec expects initialization inside the execution loop.
         """
-        from fsspec.implementations.http import HTTPFileSystem
+        from fsspec.implementations.http import (  # type: ignore[import-untyped]
+            HTTPFileSystem,
+        )
 
         self.fs = HTTPFileSystem(asynchronous=True)
 
@@ -307,29 +255,14 @@ class NomadsGDASObsConv:
 
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
-        # Build tasks (one per 6h cycle needed)
-        tasks = self._create_tasks(time_list, variable_list)
-
-        # Deduplicate by URL (multiple time/var combos may share a cycle)
-        unique_urls: dict[str, _GDASAsyncTask] = {}
-        for task in tasks:
-            if task.url in unique_urls:
-                # Merge variables and widen time window
-                existing = unique_urls[task.url]
-                existing.variables = list(set(existing.variables) | set(task.variables))
-                existing.datetime_min = min(existing.datetime_min, task.datetime_min)
-                existing.datetime_max = max(existing.datetime_max, task.datetime_max)
-            else:
-                unique_urls[task.url] = task
-
-        # Download all unique PrepBUFR files
-        fetch_tasks = list(unique_urls.values())
+        # Task construction unions requested windows by cycle and file route.
+        fetch_tasks = self._create_tasks(time_list, variable_list)
 
         coros = [self._fetch_wrapper(t.url) for t in fetch_tasks]
         await gather_with_concurrency(
             coros,
             max_workers=self._max_workers,
-            desc="Fetching GDAS PrepBUFR",
+            desc="Fetching GDAS conventional observations",
             verbose=(not self._verbose),
         )
 
@@ -370,8 +303,41 @@ class NomadsGDASObsConv:
                     f"Available: {list(GDASObsConvLexicon.VOCAB.keys())}"
                 )
 
-        tasks: list[_GDASAsyncTask] = []
-        seen_cycles: set[datetime] = set()
+        prepbufr_variables: list[str] = []
+        gpsro_variables: list[str] = []
+        for variable in variables:
+            source_key, _modifier = GDASObsConvLexicon.get_item(variable)
+            if source_key.startswith("gpsro::"):
+                gpsro_variables.append(variable)
+            else:
+                prepbufr_variables.append(variable)
+
+        tasks: dict[tuple[datetime, str], _GDASAsyncTask] = {}
+
+        def add_task(
+            cycle: datetime,
+            route: Literal["prepbufr", "gpsro"],
+            dt_min: datetime,
+            dt_max: datetime,
+            route_variables: list[str],
+        ) -> None:
+            key = (cycle, route)
+            existing = tasks.get(key)
+            if existing is not None:
+                existing.datetime_min = min(existing.datetime_min, dt_min)
+                existing.datetime_max = max(existing.datetime_max, dt_max)
+                return
+            url = self._build_url(cycle)
+            if route == "gpsro":
+                url = self._build_gpsro_url(cycle)
+            tasks[key] = _GDASAsyncTask(
+                url=url,
+                datetime_file=cycle,
+                datetime_min=dt_min,
+                datetime_max=dt_max,
+                variables=route_variables,
+                route=route,
+            )
 
         for t in times:
             dt_min = t + self._tolerance_lower
@@ -384,21 +350,13 @@ class NomadsGDASObsConv:
             )
             cycle = cycle_start
             while cycle <= dt_max:
-                if cycle not in seen_cycles:
-                    seen_cycles.add(cycle)
-                    url = self._build_url(cycle)
-                    tasks.append(
-                        _GDASAsyncTask(
-                            url=url,
-                            datetime_file=cycle,
-                            datetime_min=dt_min,
-                            datetime_max=dt_max,
-                            variables=list(variables),
-                        )
-                    )
+                if prepbufr_variables:
+                    add_task(cycle, "prepbufr", dt_min, dt_max, prepbufr_variables)
+                if gpsro_variables:
+                    add_task(cycle, "gpsro", dt_min, dt_max, gpsro_variables)
                 cycle += timedelta(hours=6)
 
-        return tasks
+        return list(tasks.values())
 
     async def _fetch_wrapper(self, url: str) -> str:
         """Fetch a single PrepBUFR file with retry logic.
@@ -509,25 +467,27 @@ class NomadsGDASObsConv:
                 continue
 
             try:
-                df = self._decode_prepbufr(
-                    cache_path,
-                    task.variables,
-                    task.datetime_min,
-                    task.datetime_max,
-                )
+                if task.route == "gpsro":
+                    df = self._decode_gpsro(
+                        cache_path,
+                        task.variables,
+                        task.datetime_min,
+                        task.datetime_max,
+                    )
+                else:
+                    df = self._decode_prepbufr(
+                        cache_path,
+                        task.variables,
+                        task.datetime_min,
+                        task.datetime_max,
+                    )
                 if not df.empty:
-                    all_frames.append(df)
+                    all_frames.append(df.reindex(columns=self.SCHEMA.names))
             except Exception as e:
                 logger.warning(f"Error decoding {cache_path}: {e}, skipping")
 
         if not all_frames:
-            # Return empty DataFrame with correct schema
-            return pd.DataFrame(
-                {
-                    name: pd.Series(dtype=self._pa_to_pandas_dtype(field.type))
-                    for name, field in zip(self.SCHEMA.names, self.SCHEMA)
-                }
-            )
+            return self._empty_schema_df()
 
         df = pd.concat(all_frames, ignore_index=True)
         return df
@@ -539,344 +499,36 @@ class NomadsGDASObsConv:
         dt_min: datetime,
         dt_max: datetime,
     ) -> pd.DataFrame:
-        """Decode a PrepBUFR file and extract requested variables.
+        """Decode locally cached PrepBUFR bytes through the shared adapter."""
+        frame = self._prepbufr_adapter.decode_file(
+            path,
+            self._build_extraction_plan(variables),
+            dt_min,
+            dt_max,
+        )
+        return frame[self.SCHEMA.names]
 
-        Uses pybufrkit with custom NCEP descriptor tables extracted from the
-        DX table messages embedded at the start of each PrepBUFR file.
-        Messages are decoded in parallel using a process pool for performance.
-
-        Parameters
-        ----------
-        path : str
-            Path to the local PrepBUFR file.
-        variables : list[str]
-            Earth2Studio variable names to extract.
-        dt_min : datetime
-            Minimum observation time (inclusive).
-        dt_max : datetime
-            Maximum observation time (inclusive).
-
-        Returns
-        -------
-        pd.DataFrame
-            Decoded observations with schema-conformant columns.
-        """
-        var_plan = self._build_extraction_plan(variables)
-
-        with open(path, "rb") as fh:
-            file_data = fh.read()
-
-        # Extract NCEP-local descriptor tables from DX messages and
-        # split file into individual BUFR message byte strings.
-        table_b, table_d, messages = self._parse_prepbufr_messages(file_data)
-
-        # Filter to known message types before decoding
-        work_items: list[tuple[bytes, str]] = []
-        for msg_bytes, data_cat in messages:
-            if data_cat in PREPBUFR_OBS_TYPES:
-                work_items.append((msg_bytes, PREPBUFR_OBS_TYPES[data_cat]))
-
-        if not work_items:
-            return self._empty_schema_df()
-
-        all_rows: list[dict[str, Any]] = []
-
-        if self._decode_workers > 1 and len(work_items) > 1:
-            # Parallel decode using process pool
-            with ProcessPoolExecutor(
-                max_workers=self._decode_workers,
-                initializer=_init_decode_worker,
-                initargs=(table_b, table_d),
-            ) as pool:
-                futures = [
-                    pool.submit(
-                        _decode_message_worker,
-                        msg_bytes,
-                        obs_class_str,
-                        variables,
-                        dt_min,
-                        dt_max,
-                    )
-                    for msg_bytes, obs_class_str in work_items
-                ]
-                for future in futures:
-                    try:
-                        rows = future.result()
-                        if rows:
-                            all_rows.extend(rows)
-                    except Exception:
-                        logger.debug("Worker failed to decode a BUFR message")
-        else:
-            # Sequential decode (single worker or single message)
-            decoder = self._create_decoder(table_b, table_d)
-            for msg_bytes, obs_class_str in work_items:
-                rows = _decode_message(
-                    decoder, msg_bytes, obs_class_str, var_plan, dt_min, dt_max
-                )
-                all_rows.extend(rows)
-
-        if not all_rows:
-            return self._empty_schema_df()
-
-        df = pd.DataFrame(all_rows)
-
-        # Apply variable-specific modifiers (wind decomposition, etc.)
-        result_frames: list[pd.DataFrame] = []
-        for var_name, plan in var_plan.items():
-            _, modifier = plan
-            var_df = df[df["variable"] == var_name].copy()
-            if not var_df.empty:
-                var_df = modifier(var_df)
-                result_frames.append(var_df)
-
-        if not result_frames:
-            return self._empty_schema_df()
-
-        df = pd.concat(result_frames, ignore_index=True)
-
-        # Ensure only schema columns remain (drop internal columns)
-        schema_cols = set(self.SCHEMA.names)
-        for col in list(df.columns):
-            if col not in schema_cols:
-                df = df.drop(columns=[col])
-
-        # Enforce dtypes
-        df["time"] = pd.to_datetime(df["time"])
-        for name, field in zip(self.SCHEMA.names, self.SCHEMA):
-            if name in df.columns and name != "time":
-                try:
-                    dtype = self._pa_to_pandas_dtype(field.type)
-                    if field.nullable and df[name].isna().any():
-                        if dtype == np.uint16:
-                            df[name] = df[name].astype("UInt16")
-                        elif dtype == np.float32:
-                            df[name] = df[name].astype("Float32")
-                    else:
-                        df[name] = df[name].astype(dtype)
-                except (ValueError, TypeError):
-                    pass
-
-        # Reorder columns to match schema
-        df = df[[c for c in self.SCHEMA.names if c in df.columns]]
-
-        return df
-
-    @staticmethod
-    def _parse_prepbufr_messages(
-        file_data: bytes,
-    ) -> tuple[
-        dict[int, tuple[Any, ...]],
-        dict[int, tuple[Any, ...]],
-        list[tuple[bytes, int]],
-    ]:
-        """Split a PrepBUFR byte stream into messages and extract DX tables.
-
-        The first several messages in a PrepBUFR file are DX table messages
-        (dataCategory=11) containing NCEP-local BUFR Table B and Table D
-        definitions needed to decode subsequent data messages.
-
-        Parameters
-        ----------
-        file_data : bytes
-            Entire PrepBUFR file contents.
-
-        Returns
-        -------
-        tuple[dict, dict, list[tuple[bytes, int]]]
-            (table_b_dict, table_d_dict, data_messages) where the dicts
-            are in pybufrkit ``add_extra_entries`` format and
-            data_messages is a list of (message_bytes, data_category) tuples
-            for all non-DX messages.
-        """
-        return _bufr_parse_prepbufr_messages(file_data, silence_noise=False)
-
-    @staticmethod
-    def _create_decoder(
-        table_b: dict[int, tuple[Any, ...]],
-        table_d: dict[int, tuple[Any, ...]],
-    ) -> Any:
-        """Register custom NCEP tables and create a pybufrkit decoder.
-
-        Parameters
-        ----------
-        table_b : dict
-            NCEP Table B entries.
-        table_d : dict
-            NCEP Table D entries.
-
-        Returns
-        -------
-        pybufrkit.decoder.Decoder
-            Configured decoder instance.
-        """
-        return _bufr_create_decoder(table_b, table_d)
-
-    @staticmethod
-    def _extract_subset(
-        descs: list[Any],
-        vals: list[Any],
-        base_time: datetime,
-        obs_class_str: str,
-        var_plan: dict[str, tuple[str, Callable[..., pd.DataFrame]]],
+    def _decode_gpsro(
+        self,
+        path: str,
+        variables: list[str],
         dt_min: datetime,
         dt_max: datetime,
-    ) -> list[dict[str, Any]]:
-        """Extract observation rows from a single decoded PrepBUFR subset.
-
-        Walks descriptor-value pairs, collecting header fields and then
-        yielding one row per (observation level, requested variable) pair.
-
-        Parameters
-        ----------
-        descs : list
-            Decoded descriptor objects for this subset.
-        vals : list
-            Decoded values for this subset.
-        base_time : datetime
-            Message base time (from section 1).
-        obs_class_str : str
-            PREPBUFR observation class string (e.g., "ADPUPA").
-        var_plan : dict
-            Extraction plan from ``_build_extraction_plan``.
-        dt_min : datetime
-            Minimum observation time (inclusive).
-        dt_max : datetime
-            Maximum observation time (inclusive).
-
-        Returns
-        -------
-        list[dict]
-            Observation rows suitable for DataFrame construction.
-        """
-        rows: list[dict[str, Any]] = []
-
-        # ── Pass 1: extract header fields (first ~15 descriptors) ──
-        header: dict[str, Any] = {
-            "sid": "",
-            "xob": None,
-            "yob": None,
-            "dhr": 0.0,
-            "elv": None,
-            "typ": None,
-            "t29": None,
-        }
-        header_done = False
-        for i, (d, v) in enumerate(zip(descs, vals)):
-            did = d.id
-            if did == HDR_SID:
-                header["sid"] = (
-                    v.decode("ascii", errors="replace").strip()
-                    if isinstance(v, bytes)
-                    else str(v).strip()
-                )
-            elif did == HDR_XOB:
-                header["xob"] = v
-            elif did == HDR_YOB:
-                header["yob"] = v
-            elif did == HDR_DHR:
-                header["dhr"] = v if v is not None else 0.0
-            elif did == HDR_ELV:
-                header["elv"] = v
-            elif did == HDR_TYP:
-                header["typ"] = v
-            elif did == HDR_T29:
-                header["t29"] = v
-                header_done = True
-            # Once we hit the first CAT, header is done
-            if did == OBS_CAT:
-                header_done = True
-                break
-            if header_done:
-                break
-
-        lat = header["yob"]
-        lon = header["xob"]
-        if lat is None or lon is None:
-            return rows
-        if lat < -90.0 or lat > 90.0:
-            return rows
-
-        # Compute observation time = base_time + DHR (hours)
-        try:
-            dhr_hours = float(header["dhr"])
-            obs_time = base_time + timedelta(hours=dhr_hours)
-        except (ValueError, OverflowError, TypeError):
-            obs_time = base_time
-
-        # Time filter
-        if obs_time < dt_min or obs_time > dt_max:
-            return rows
-
-        # Normalize longitude to [0, 360)
-        lon_360 = float(lon) % 360.0
-
-        # Build requested mnemonic IDs set
-        needed_ids: dict[str, int] = {}
-        for var_name, (bufr_key, _) in var_plan.items():
-            desc_id = MNEMONIC_TO_DESCR.get(bufr_key)
-            if desc_id is not None:
-                needed_ids[var_name] = desc_id
-
-        # Wind variables need special handling (u/v from UOB/VOB or DDO/FFO)
-        need_wind = any(
-            bufr_key.startswith("wind") for _, (bufr_key, _) in var_plan.items()
+    ) -> pd.DataFrame:
+        """Decode locally cached GPSRO bytes through the shared adapter."""
+        frame = self._gpsro_adapter.decode_file(
+            path,
+            self._build_gpsro_plan(variables),
+            dt_min,
+            dt_max,
         )
-
-        # ── Pass 2: walk observation levels ──
-        # PrepBUFR repeats CAT blocks; within each CAT block the levels
-        # are delimited by a pressure observation (POB) descriptor.
-        current_level: dict[int, Any] = {}
-        in_obs = False
-
-        for i in range(len(descs)):
-            did = descs[i].id
-            val = vals[i]
-
-            # Start of a new observation level: POB
-            if did == OBS_POB:
-                # Flush previous level
-                if in_obs and current_level:
-                    _emit_rows(
-                        rows,
-                        current_level,
-                        header,
-                        obs_time,
-                        obs_class_str,
-                        lat,
-                        lon_360,
-                        var_plan,
-                        needed_ids,
-                        need_wind,
-                    )
-                current_level = {OBS_POB: val}
-                in_obs = True
-            elif in_obs and did in OBSERVATION_DESCR_IDS:
-                # Only store first occurrence per descriptor per level
-                if did not in current_level:
-                    current_level[did] = val
-
-        # Flush last level
-        if in_obs and current_level:
-            _emit_rows(
-                rows,
-                current_level,
-                header,
-                obs_time,
-                obs_class_str,
-                lat,
-                lon_360,
-                var_plan,
-                needed_ids,
-                need_wind,
-            )
-
-        return rows
+        return frame[self.SCHEMA.names]
 
     @staticmethod
     def _build_extraction_plan(
         variables: list[str],
-    ) -> dict[str, tuple[str, Callable[..., pd.DataFrame]]]:
-        """Build extraction plan mapping variable names to PrepBUFR info.
+    ) -> dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]]:
+        """Map public variable names to PrepBUFR extraction keys.
 
         Parameters
         ----------
@@ -885,13 +537,31 @@ class NomadsGDASObsConv:
 
         Returns
         -------
-        dict[str, tuple[str, Callable]]
-            Map of var_name -> (prepbufr_mnemonic, modifier_function).
+        dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]]
+            Map of variable name to (PrepBUFR mnemonic or wind key, modifier).
         """
-        plan: dict[str, tuple[str, Callable[..., pd.DataFrame]]] = {}
+        plan: dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]] = {}
         for var in variables:
             bufr_key, modifier = GDASObsConvLexicon.get_item(var)
+            if bufr_key.startswith("gpsro::"):
+                raise ValueError(f"Variable '{var}' is not a PrepBUFR variable")
             plan[var] = (bufr_key, modifier)
+        return plan
+
+    @staticmethod
+    def _build_gpsro_plan(
+        variables: list[str],
+    ) -> dict[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]]:
+        plan: dict[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]] = {}
+        for variable in variables:
+            source_key, modifier = GDASObsConvLexicon.get_item(variable)
+            route, separator, descriptor = source_key.partition("::")
+            if not separator or route != "gpsro":
+                raise ValueError(f"Variable '{variable}' is not a GPSRO variable")
+            descriptor_id = int(descriptor)
+            if descriptor_id != GPSRO_BNDA:
+                raise ValueError(f"Unsupported GPSRO descriptor {descriptor_id}")
+            plan[variable] = (descriptor_id, modifier)
         return plan
 
     def _empty_schema_df(self) -> pd.DataFrame:
@@ -902,37 +572,7 @@ class NomadsGDASObsConv:
         pd.DataFrame
             Empty DataFrame matching ``self.SCHEMA``.
         """
-        return pd.DataFrame(
-            {
-                name: pd.Series(dtype=self._pa_to_pandas_dtype(field.type))
-                for name, field in zip(self.SCHEMA.names, self.SCHEMA)
-            }
-        )
-
-    @staticmethod
-    def _pa_to_pandas_dtype(pa_type: pa.DataType) -> object:
-        """Convert PyArrow type to pandas/numpy dtype.
-
-        Parameters
-        ----------
-        pa_type : pa.DataType
-            PyArrow data type.
-
-        Returns
-        -------
-        object
-            Corresponding pandas/numpy dtype.
-        """
-        if pa.types.is_timestamp(pa_type):
-            return "datetime64[ns]"
-        elif pa.types.is_float32(pa_type):
-            return np.float32
-        elif pa.types.is_uint16(pa_type):
-            return np.uint16
-        elif pa.types.is_string(pa_type) or pa.types.is_large_string(pa_type):
-            return object
-        else:
-            return object
+        return _empty_dataframe(self.SCHEMA)
 
     @staticmethod
     def _build_url(cycle: datetime) -> str:
@@ -951,6 +591,15 @@ class NomadsGDASObsConv:
         date_str = cycle.strftime("%Y%m%d")
         hour_str = f"{cycle.hour:02d}"
         return f"{NOMADS_BASE_URL}/gdas.{date_str}/gdas.t{hour_str}z.prepbufr.nr"
+
+    @staticmethod
+    def _build_gpsro_url(cycle: datetime) -> str:
+        """Build the NOMADS URL for the matching GPSRO cycle dump."""
+        date_str = cycle.strftime("%Y%m%d")
+        hour_str = f"{cycle.hour:02d}"
+        return (
+            f"{NOMADS_BASE_URL}/gdas.{date_str}/gdas.t{hour_str}z.gpsro.tm00.bufr_d.nr"
+        )
 
     def _cache_path(self, url: str) -> str:
         """Compute deterministic cache path for a URL.
@@ -1044,238 +693,3 @@ class NomadsGDASObsConv:
                     f"Available: {cls.SCHEMA.names}"
                 )
         return list(fields)
-
-
-# ── Module-level helper functions for PrepBUFR decoding ──────────────
-
-
-# ── Process-pool worker functions for parallel decode ────────────────
-
-# Module-level decoder for worker processes, set by _init_decode_worker.
-_worker_decoder: Any = None
-
-
-def _init_decode_worker(
-    table_b: dict[int, tuple[Any, ...]],
-    table_d: dict[int, tuple[Any, ...]],
-) -> None:
-    """Initializer for process pool workers.
-
-    Registers NCEP-local descriptor tables with pybufrkit in each
-    worker process and creates a reusable decoder instance stored
-    as a module-level global.
-    """
-    global _worker_decoder  # noqa: PLW0603
-    _bufr_register_dx_tables(table_b, table_d)
-    _worker_decoder = BufrDecoder()
-
-
-def _decode_message_worker(
-    msg_bytes: bytes,
-    obs_class_str: str,
-    variables: list[str],
-    dt_min: datetime,
-    dt_max: datetime,
-) -> list[dict[str, Any]]:
-    """Decode a single BUFR message in a worker process.
-
-    Uses the decoder created by :func:`_init_decode_worker`.
-
-    Parameters
-    ----------
-    msg_bytes : bytes
-        Raw BUFR message bytes.
-    obs_class_str : str
-        Observation class string (e.g. ``"ADPSFC"``).
-    variables : list[str]
-        Earth2Studio variable names to extract.
-    dt_min : datetime
-        Minimum observation time.
-    dt_max : datetime
-        Maximum observation time.
-
-    Returns
-    -------
-    list[dict]
-        Observation rows for this message.
-    """
-    var_plan = NomadsGDASObsConv._build_extraction_plan(variables)
-    return _decode_message(
-        _worker_decoder, msg_bytes, obs_class_str, var_plan, dt_min, dt_max
-    )
-
-
-def _decode_message(
-    decoder: Any,
-    msg_bytes: bytes,
-    obs_class_str: str,
-    var_plan: dict[str, tuple[str, Callable[..., pd.DataFrame]]],
-    dt_min: datetime,
-    dt_max: datetime,
-) -> list[dict[str, Any]]:
-    """Decode a single BUFR message and extract observation rows.
-
-    Parameters
-    ----------
-    decoder : pybufrkit.decoder.Decoder
-        Configured pybufrkit decoder.
-    msg_bytes : bytes
-        Raw BUFR message bytes.
-    obs_class_str : str
-        Observation class string (e.g. ``"ADPSFC"``).
-    var_plan : dict
-        Variable extraction plan.
-    dt_min : datetime
-        Minimum observation time.
-    dt_max : datetime
-        Maximum observation time.
-
-    Returns
-    -------
-    list[dict]
-        Observation rows for this message.
-    """
-    try:
-        msg = decoder.process(msg_bytes)
-    except Exception:
-        return []
-
-    n_subsets = msg.n_subsets.value
-    if n_subsets == 0:
-        return []
-
-    td = msg.template_data.value
-    ddas = td.decoded_descriptors_all_subsets
-    dvas = td.decoded_values_all_subsets
-
-    # Message-level date from section 1.
-    # BUFR edition 3 stores a 2-digit year (year of century),
-    # so we must expand it to a 4-digit year.
-    msg_year = msg.year.value
-    if msg_year < 100:
-        msg_year += 2000 if msg_year < 70 else 1900
-
-    try:
-        base_time = datetime(
-            msg_year,
-            msg.month.value,
-            msg.day.value,
-            msg.hour.value,
-            msg.minute.value,
-        )
-    except (ValueError, OverflowError):
-        return []
-
-    rows: list[dict[str, Any]] = []
-    for subset_idx in range(n_subsets):
-        rows.extend(
-            NomadsGDASObsConv._extract_subset(
-                ddas[subset_idx],
-                dvas[subset_idx],
-                base_time,
-                obs_class_str,
-                var_plan,
-                dt_min,
-                dt_max,
-            )
-        )
-    return rows
-
-
-def _emit_rows(
-    rows: list[dict[str, Any]],
-    level: dict[int, Any],
-    header: dict[str, Any],
-    obs_time: datetime,
-    obs_class_str: str,
-    lat: float,
-    lon_360: float,
-    var_plan: dict[str, tuple[str, Callable[..., pd.DataFrame]]],
-    needed_ids: dict[str, int],
-    need_wind: bool,
-) -> None:
-    """Emit observation rows for a single pressure level.
-
-    Mutates ``rows`` in place by appending one dict per requested variable
-    that has a valid (non-None) observation at this level.
-
-    Parameters
-    ----------
-    rows : list[dict]
-        Accumulator list to append rows to.
-    level : dict[int, Any]
-        Descriptor-ID -> value mapping for the current level.
-    header : dict
-        Subset header fields (sid, xob, yob, dhr, elv, typ, t29).
-    obs_time : datetime
-        Observation time for this subset.
-    obs_class_str : str
-        PREPBUFR observation class string.
-    lat : float
-        Latitude.
-    lon_360 : float
-        Longitude in [0, 360).
-    var_plan : dict
-        Variable extraction plan.
-    needed_ids : dict[str, int]
-        Map of variable name to descriptor ID for non-wind variables.
-    need_wind : bool
-        Whether any wind variables are requested.
-    """
-    # Pressure for this level (MB -> Pa: multiply by 100)
-    pob_val = level.get(OBS_POB)
-    pres_pa = np.float32(pob_val * 100.0) if pob_val is not None else None
-
-    # Common row template (quality set per-variable below)
-    base_row: dict[str, Any] = {
-        "time": obs_time,
-        "lat": np.float32(lat),
-        "lon": np.float32(lon_360),
-        "pres": pres_pa,
-        "elev": None,
-        "type": np.uint16(int(header["typ"])) if header["typ"] is not None else None,
-        "class": obs_class_str if obs_class_str else None,
-        "station": header["sid"] if header["sid"] else None,
-        "station_elev": (
-            np.float32(header["elv"]) if header["elv"] is not None else None
-        ),
-        "quality": None,
-    }
-
-    # Non-wind variables
-    for var_name, desc_id in needed_ids.items():
-        val = level.get(desc_id)
-        if val is None:
-            continue
-
-        row = base_row.copy()
-        row["variable"] = var_name
-        row["observation"] = np.float32(val)
-        # Use the correct quality mark for this variable
-        qm_id = OBS_QUALITY_MAP.get(desc_id)
-        qv = level.get(qm_id) if qm_id is not None else None
-        row["quality"] = np.uint16(int(qv)) if qv is not None else None
-        rows.append(row)
-
-    # Wind variables (u/v from UOB/VOB)
-    if need_wind:
-        uob = level.get(OBS_UOB)
-        vob = level.get(OBS_VOB)
-        # Wind quality mark applies to both u and v
-        wqm = level.get(OBS_WQM)
-        wind_quality = np.uint16(int(wqm)) if wqm is not None else None
-
-        if uob is not None and vob is not None:
-            for var_name, (bufr_key, _) in var_plan.items():
-                if bufr_key == "wind::u":
-                    row = base_row.copy()
-                    row["variable"] = var_name
-                    row["observation"] = np.float32(uob)
-                    row["quality"] = wind_quality
-                    rows.append(row)
-                elif bufr_key == "wind::v":
-                    row = base_row.copy()
-                    row["variable"] = var_name
-                    row["observation"] = np.float32(vob)
-                    row["quality"] = wind_quality
-                    rows.append(row)
