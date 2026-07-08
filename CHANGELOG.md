@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed ACE2 distributed inference failures caused by nondeterministic variable ordering
   across MPI ranks.
+- Improved ACE2ERA5 inference performance by caching yearly forcing values
+- Fixed ACE2ERA5 forcing data retrieval for static variables requested across
+  multiple times.
 
 ### Security
 
