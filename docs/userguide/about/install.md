@@ -31,7 +31,7 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.13
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.16.0"
 ```
 
 :::{dropdown} uv Install
@@ -620,8 +620,7 @@ entries in the pipeline configuration must reference the full path to the
 Docker container, the binaries are copied to `/usr/local/bin` and are therefore
 available on the `PATH`; in that case only the executable names are needed
 (e.g. `DetectNodes ...`). Examples for both commands are provided in the
-docstring of the `TempestExtremes` class and in the
-[TC tracking recipe](../../recipes/tc_tracking/README.md).
+docstring of the `TempestExtremes` class and in the TC tracking recipe.
 
 :::
 ::::
@@ -929,14 +928,14 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.13
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.16.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.13
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.16.0"
 ```
 
 (pytorch_container_environment)=
@@ -959,7 +958,7 @@ docker run -it -t nvcr.io/nvidia/pytorch:26.04-py3
     libeccodes-tools libeccodes-dev
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.16.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -972,7 +971,7 @@ do with pip, for example:
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.16.0"
 ```
 
 :::
@@ -1001,7 +1000,7 @@ package tooling.
 conda create -n earth2studio python=3.13
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.16.0"
 ```
 
 # System Recommendations

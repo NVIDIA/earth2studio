@@ -22,6 +22,7 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import Persistence
+from earth2studio.utils.checkpoint import Checkpoint
 
 
 @pytest.mark.parametrize(
@@ -142,6 +143,35 @@ def test_persistence_iter(ensemble, variable, history, device):
 
         if i > 5:
             break
+
+
+def test_persistence_checkpoint_state_round_trip(tmp_path):
+    variable = ["t2m", "tcwv"]
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    domain_coords = OrderedDict({"lat": np.arange(2), "lon": np.arange(3)})
+    lead_time = np.asarray([np.timedelta64(-6, "h"), np.timedelta64(0, "h")])
+    data = Random(domain_coords)
+    x, coords = fetch_data(data, time, np.asarray(variable), lead_time, device="cpu")
+    checkpoint = Checkpoint("persistence", path=tmp_path, mode="append", level=2)
+
+    with checkpoint as ckpt:
+        model = Persistence(variable, domain_coords, history=2)
+        iterator = model.create_iterator(x, coords)
+        _, initial_coords = next(iterator)
+        _, saved_coords = next(iterator)
+        assert initial_coords["lead_time"][0] == np.timedelta64(0, "h")
+        assert saved_coords["lead_time"][0] == np.timedelta64(6, "h")
+        ckpt.write(lead_time=saved_coords["lead_time"][-1])
+        ckpt.flush()
+
+    with checkpoint.select(-1):
+        model = Persistence(variable, domain_coords, history=2)
+        iterator = model.create_iterator(x, coords)
+        out, out_coords = next(iterator)
+        assert model.checkpoint.checkpoint_state_loaded
+
+    assert out_coords["lead_time"][0] == np.timedelta64(12, "h")
+    assert torch.allclose(out, x[:, -1:])
 
 
 @pytest.mark.parametrize(

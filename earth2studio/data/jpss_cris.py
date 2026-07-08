@@ -84,6 +84,55 @@ _CRIS_NUM_CHANNELS: int = (
 _CRIS_NUM_FOR: int = 30  # Fields of Regard per scan line
 _CRIS_NUM_FOV: int = 9  # Fields of View per FOR (3x3 detector array)
 
+# Nominal CrIS look-angle geometry. The FOR center advances across the scan,
+# while each detector FOV is offset by the rotating 3x3 focal-plane geometry.
+# NOAA CrIS SDR ATBD (successor to JPSS document 474-00032):
+# https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-002_JPSS_ATBD_CRIS-SDR_fsr_20180614.pdf
+# NCEP GSI implementation and geometry constants:
+# https://github.com/NOAA-EMC/GSI/blob/3c1f5fe2fbafd201d5125cfac38056bd7fbc4333/src/gsi/read_cris.f90#L208-L223
+_CRIS_SCAN_START_DEG: float = -48.330
+_CRIS_SCAN_STEP_DEG: float = 3.3331
+_CRIS_FOV_DISTANCE_RAD: np.ndarray = np.asarray(
+    [
+        2.71510e-2,
+        1.91986e-2,
+        2.71510e-2,
+        1.91986e-2,
+        0.0,
+        1.91986e-2,
+        2.71510e-2,
+        1.91986e-2,
+        2.71510e-2,
+    ],
+    dtype=np.float64,
+)
+_CRIS_FOV_DIRECTION_RAD: np.ndarray = np.asarray(
+    [4.77057, 3.98517, 3.19977, 5.55597, 0.0, 2.41437, 0.05818, 0.84358, 1.62897],
+    dtype=np.float64,
+)
+
+
+def _nominal_cris_scan_angle(
+    field_of_regard: np.ndarray, field_of_view: np.ndarray
+) -> np.ndarray:
+    """Return the nominal CrIS look angle in degrees for each footprint."""
+    field_of_regard = np.asarray(field_of_regard, dtype=np.int64)
+    field_of_view = np.asarray(field_of_view, dtype=np.int64)
+    if np.any((field_of_regard < 1) | (field_of_regard > _CRIS_NUM_FOR)):
+        raise ValueError("CrIS field_of_regard must be in the range 1--30")
+    if np.any((field_of_view < 1) | (field_of_view > _CRIS_NUM_FOV)):
+        raise ValueError("CrIS field_of_view must be in the range 1--9")
+
+    for_offset: np.ndarray = field_of_regard - 1
+    fov_offset: np.ndarray = field_of_view - 1
+    for_rotation = np.deg2rad(for_offset * _CRIS_SCAN_STEP_DEG)
+    angle = np.deg2rad(_CRIS_SCAN_START_DEG) + for_rotation
+    angle += _CRIS_FOV_DISTANCE_RAD[fov_offset] * np.sin(
+        _CRIS_FOV_DIRECTION_RAD[fov_offset] - for_rotation
+    )
+    return np.rad2deg(angle).astype(np.float32)
+
+
 # GSI / CRTM sensor_chan numbering for CrIS FSR.
 # https://www.star.nesdis.noaa.gov/jpss/documents/UserGuides/CrIS_SDR_Users_Guide1p1_20180405.pdf
 # (Table 4, LWIR, MWIR FSR, SWIR FSR)
@@ -180,10 +229,9 @@ _CRIS_WAVENUMBER_APOD: np.ndarray = np.concatenate(
 # ---------------------------------------------------------------------------
 # Hamming apodization constants
 # ---------------------------------------------------------------------------
-# CrIS is a Fourier Transform Spectrometer.  The SDR files store unapodized
-# (sinc ILS) spectral radiance.  NCEP applies Hamming apodization before
-# encoding the data into BUFR for GSI assimilation, so UFS/GSI brightness
-# temperatures correspond to apodized spectra.
+# CrIS is a Fourier Transform Spectrometer. The native SDR files store
+# unapodized (sinc ILS) spectral radiance; this operator produces the Hamming-
+# apodized science spectrum defined by the NOAA CrIS SDR ATBD.
 _HAMMING_A0: float = 0.54
 _HAMMING_A1: float = 0.23  # symmetric: a_{-1} = a_{+1}
 
@@ -214,16 +262,15 @@ def _hamming_apodize(radiance: np.ndarray) -> np.ndarray:
     total) are trimmed after convolution, reducing the total from 2223 to
     2211 science channels.
 
-    At band-edge channels (first/last of each band) the filter would need a
-    neighbour outside the band.  We use symmetric (reflect) padding so that
-    the edge value is replicated, which is consistent with the interferogram
-    being even-symmetric.
+    Reflect padding preserves the temporary band length. It affects only the
+    outer guard-channel outputs that are discarded; every retained science
+    channel is convolved with its real neighboring source channels.
 
     References
     ----------
 
     - https://www.star.nesdis.noaa.gov/jpss/documents/UserGuides/CrIS_SDR_Users_Guide1p1_20180405.pdf
-    - https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-002_JPSS_ATBD_CRIS-SDR_nsr_20180614.pdf
+    - https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-002_JPSS_ATBD_CRIS-SDR_fsr_20180614.pdf
     - https://www-cdn.eumetsat.int/files/2022-11/12%20-%20Tobin%20-%20CrIS_spectral_20221019.pdf
 
     """
@@ -279,6 +326,66 @@ _GEO_KEYS = {
     "for_time": f"{_GEO_GROUP}/FORTime",  # shape (n_scan, 30) IET µs
 }
 
+_GEO_GRANULE_GROUP = "Data_Products/CrIS-SDR-GEO/CrIS-SDR-GEO_Gran_0"
+
+# IDPS Epoch Time (IET) is a count of TAI-length microseconds from the
+# 1958-01-01 epoch, not elapsed UTC microseconds. NOAA JPSS CDFCB-X Vol. I,
+# Revision F, section 3.3.1:
+# https://www.nesdis.noaa.gov/s3/2024-01/474-00001-01_JPSS-CDFCB-X-Vol-I_F.pdf
+
+
+def _hdf_text(value: Any, attribute: str) -> str:
+    values = np.asarray(value)
+    if values.size != 1:
+        raise ValueError(f"CrIS GEO attribute {attribute!r} must contain one value")
+    scalar = values.item()
+    if isinstance(scalar, (bytes, np.bytes_)):
+        return bytes(scalar).decode("ascii").rstrip("\x00")
+    if isinstance(scalar, str):
+        return scalar.rstrip("\x00")
+    raise ValueError(f"CrIS GEO attribute {attribute!r} must contain text")
+
+
+def _read_hdf_dataset(file: h5py.File, path: str, selection: Any = ()) -> np.ndarray:
+    """Read an HDF5 dataset after narrowing the path to a dataset object."""
+    dataset = file[path]
+    if not isinstance(dataset, h5py.Dataset):
+        raise ValueError(f"CrIS HDF5 path {path!r} must contain a dataset")
+    return np.asarray(dataset[selection])
+
+
+def _read_cris_time_anchor(geo: h5py.File) -> tuple[np.datetime64, int]:
+    """Read the paired UTC/IET beginning anchor carried by a GEO granule."""
+    granule = geo[_GEO_GRANULE_GROUP]
+    if not isinstance(granule, (h5py.Dataset, h5py.Group)):
+        raise ValueError(
+            f"CrIS HDF5 path {_GEO_GRANULE_GROUP!r} must contain an HDF5 object"
+        )
+    attributes = granule.attrs
+    date = _hdf_text(attributes["Beginning_Date"], "Beginning_Date")
+    time = _hdf_text(attributes["Beginning_Time"], "Beginning_Time")
+    try:
+        utc = np.datetime64(
+            datetime.strptime(f"{date}{time}", "%Y%m%d%H%M%S.%fZ"), "us"
+        )
+    except ValueError as exc:
+        raise ValueError(f"Invalid CrIS GEO UTC anchor: {date} {time}") from exc
+
+    iet_values = np.asarray(attributes["N_Beginning_Time_IET"])
+    if iet_values.size != 1:
+        raise ValueError(
+            "CrIS GEO attribute 'N_Beginning_Time_IET' must contain one value"
+        )
+    return utc, int(iet_values.item())
+
+
+def _iet_to_utc(
+    iet_microseconds: np.ndarray, anchor_utc: np.datetime64, anchor_iet: int
+) -> np.ndarray:
+    """Convert IET using the UTC/IET anchor published with the granule."""
+    iet = np.asarray(iet_microseconds, dtype=np.int64)
+    return anchor_utc + (iet - anchor_iet).astype("timedelta64[us]")
+
 
 @dataclass
 class _CrISAsyncTask:
@@ -299,13 +406,17 @@ class _CrISDecodedGranule:
 
     lat: np.ndarray  # (n_valid,) float32
     lon: np.ndarray  # (n_valid,) float32
+    scan_line: np.ndarray  # (n_valid,) uint32, one-based within granule
+    field_of_regard: np.ndarray  # (n_valid,) uint16, one-based
+    field_of_view: np.ndarray  # (n_valid,) uint16, one-based
     sat_za: np.ndarray  # (n_valid,) float32
     sat_aza: np.ndarray  # (n_valid,) float32
     sol_za: np.ndarray  # (n_valid,) float32
     sol_aza: np.ndarray  # (n_valid,) float32
     quality: np.ndarray  # (n_valid,) uint16
-    times: np.ndarray  # (n_valid,) datetime64[ms]
-    radiance: np.ndarray  # (n_valid, n_channels) float32  (brightness temp K)
+    times: np.ndarray  # (n_valid,) datetime64[us]
+    brightness_temperature: np.ndarray  # (n_valid, n_channels) float32, K
+    source_uri: str
     satellite: str
     variable: str
 
@@ -315,19 +426,18 @@ class JPSS_CRIS:
     Level 1 brightness temperature observations served from NOAA Open Data on
     AWS.
 
-    Raw spectral radiance from the HDF5 SDR files is converted to brightness
-    temperature (K) via the inverse Planck function so that the ``observation``
-    column is directly comparable with :class:`~earth2studio.data.UFSObsSat`.
+    Raw spectral radiance from the HDF5 SDR files is converted to Planck
+    brightness temperature (K) at each channel center wavenumber. Reproducing
+    a coefficient-based downstream product exactly also requires that product's
+    release-pinned Planck constants.
 
     By default, Hamming apodization is applied to the unapodized (sinc ILS)
-    radiance before the Planck inversion.  This matches the processing used by
-    NCEP/GSI (which receives Hamming-apodized CrIS radiance via BUFR) and
-    produces brightness temperatures consistent with
-    :class:`~earth2studio.data.UFSObsSat`.  The 2 guard channels at each end
-    of each band (4 per band, 12 total) are trimmed during apodization,
-    yielding 2211 science channels.  Set ``apodize=False`` to retain the full
-    2223 unapodized channels (including 12 guard channels with
-    ``sensor_index=0``).
+    radiance before the Planck inversion. This follows the NOAA three-point
+    radiance-space Hamming definition. The 2 guard channels at each end of each
+    band (4 per band, 12 total) are trimmed during apodization. With no
+    ``sensor_indices`` projection, this yields 2211 science channels; setting
+    ``apodize=False`` instead retains all 2223 unapodized channels, including
+    12 guard channels with ``sensor_index=0``.
 
     Each HDF5 granule contains a small number of scan lines, each with 30
     Fields of Regard (FOR) and 9 Fields of View (FOV) per FOR (3x3 detector
@@ -337,12 +447,20 @@ class JPSS_CRIS:
     - **MWIR** (5.71--8.26 µm, 1210--1750 cm^-1): 869 channels at 0.625 cm^-1
     - **SWIR** (3.92--4.64 µm, 2155--2550 cm^-1): 637 channels at 0.625 cm^-1
 
-    When ``apodize=True`` (default), guard channels are trimmed and the output
-    has 2211 channels with contiguous ``sensor_index`` 1--2211.
+    With ``sensor_indices=None`` and ``apodize=True`` (default), guard channels
+    are trimmed and the output has 2211 channels with contiguous
+    ``sensor_index`` 1--2211.
 
-    When ``apodize=False``, the returned :class:`~pandas.DataFrame` has one row
-    per FOV per channel including guard channels.  The ``sensor_index`` column
-    uses the GSI ``sensor_chan`` numbering convention:
+    ``scan_line``, ``field_of_regard``, and ``field_of_view`` preserve the
+    one-based source-array position of each footprint.  ``scan_line`` is local
+    to its source granule. ``scan_angle`` is the nominal CrIS look angle derived
+    from FOR/FOV geometry, while ``satellite_za`` preserves the independently
+    measured ``SatelliteZenithAngle`` from the GEO product.
+
+    With ``sensor_indices=None`` and ``apodize=False``, the returned
+    :class:`~pandas.DataFrame` has one row per FOV per channel including guard
+    channels. The ``sensor_index`` column uses the GSI ``sensor_chan`` numbering
+    convention:
 
     - **LWIR** channels 0--1 (0-based) → sensor_chan 0 (guard; not in GSI)
     - **LWIR** channels 2--714 (0-based) → sensor_chan 1--713
@@ -376,22 +494,18 @@ class JPSS_CRIS:
         converting to brightness temperature.  When ``True`` (default),
         the 3-tap Hamming kernel ``[0.23, 0.54, 0.23]`` is convolved
         per-band in radiance space and the 2 guard channels at each
-        end of each band are trimmed, yielding 2211 science
-        channels that are directly comparable with
-        :class:`~earth2studio.data.UFSObsSat`.  Set to ``False`` to
-        retain the unapodized spectra with all 2223 channels (including
-        12 guard channels with ``sensor_index=0``).
+        end of each band are trimmed, yielding the 2211-channel Hamming-
+        apodized science grid before any ``sensor_indices`` projection. Set to
+        ``False`` to retain the unapodized source grid; with no projection this
+        contains all 2223 channels, including 12 guards with
+        ``sensor_index=0``.
 
         .. note::
 
-           The spectral-domain 3-tap kernel matches interferogram-domain
-           Hamming for smooth spectral regions (window channels,
-           ``sensor_chan`` ≥ 200: agreement < 0.5 K with UFS/GSI).
-           Channels on sharp CO₂ Q-branch features near 667 cm⁻¹ and
-           720 cm⁻¹ may show residuals of 5–20 K because the 3-tap
-           discrete convolution does not fully replicate the
-           interferogram-domain apodization applied by NESDIS upstream
-           of GSI.
+           NOAA's CrIS SDR ATBD defines Hamming apodization on the Nyquist
+           grid as this exact three-point radiance-space operator. Exact
+           brightness-temperature reproduction additionally requires the same
+           Planck constants as the comparison product.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
@@ -406,6 +520,13 @@ class JPSS_CRIS:
         Maximum number of concurrent S3 fetch tasks, by default 24
     retries : int, optional
         Per-file retry count on transient I/O failures, by default 3
+    sensor_indices : list[int] | np.ndarray | None, optional
+        Science-channel ``sensor_index`` values to return (1--2211).  Values
+        are normalized to source order and must be unique.  Projection occurs
+        after full-band Hamming apodization (when enabled), but before Planck
+        inversion and long-format expansion.  By default None, all channels
+        are returned; for ``apodize=False`` this includes the 12 guard channels
+        whose ``sensor_index`` is 0.
 
     Warning
     -------
@@ -439,7 +560,35 @@ class JPSS_CRIS:
                 "scan_angle",
                 pa.float32(),
                 nullable=True,
-                metadata={"description": "SatelliteZenithAngle from CrIS GEO file"},
+                metadata={
+                    "description": (
+                        "Nominal CrIS look angle derived from FOR/FOV geometry (deg)"
+                    )
+                },
+            ),
+            pa.field(
+                "scan_line",
+                pa.uint32(),
+                nullable=True,
+                metadata={
+                    "description": (
+                        "One-based scan position within the source SDR/GEO granule"
+                    )
+                },
+            ),
+            pa.field(
+                "field_of_regard",
+                pa.uint16(),
+                nullable=True,
+                metadata={
+                    "description": "One-based CrIS Earth-scene FOR index (1--30)"
+                },
+            ),
+            pa.field(
+                "field_of_view",
+                pa.uint16(),
+                nullable=True,
+                metadata={"description": "One-based CrIS detector FOV index (1--9)"},
             ),
             E2STUDIO_SCHEMA.field("sensor_index"),
             E2STUDIO_SCHEMA.field("wavenumber"),
@@ -465,6 +614,7 @@ class JPSS_CRIS:
         async_timeout: int = 600,
         max_workers: int = 24,
         retries: int = 3,
+        sensor_indices: list[int] | np.ndarray | None = None,
     ) -> None:
         if satellites is None:
             satellites = list(self.VALID_SATELLITES)
@@ -485,11 +635,50 @@ class JPSS_CRIS:
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
 
+        if sensor_indices is None:
+            self._sensor_indices: np.ndarray | None = None
+        else:
+            requested = tuple(sensor_indices)
+            if not requested:
+                raise ValueError("sensor_indices must contain at least one channel")
+            if any(
+                isinstance(index, bool)
+                or not isinstance(index, (int, np.integer))
+                or index < 1
+                or index
+                > _CRIS_NUM_SCIENCE_LW + _CRIS_NUM_SCIENCE_MW + _CRIS_NUM_SCIENCE_SW
+                for index in requested
+            ):
+                raise ValueError(
+                    "sensor_indices must be integer science-channel indices "
+                    "from 1 to 2211"
+                )
+            normalized = np.asarray(
+                sorted(int(index) for index in requested), dtype=np.uint16
+            )
+            if len(np.unique(normalized)) != len(normalized):
+                raise ValueError("sensor_indices must be unique")
+            self._sensor_indices = normalized
+
         self.fs: s3fs.S3FileSystem | None = None
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
         self._tolerance_upper = pd.to_timedelta(upper).to_pytimedelta()
+
+    def _channel_projection(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return source positions, sensor indices, and wavenumbers to publish."""
+        sensor_indices = (
+            _CRIS_GSI_SENSOR_CHAN_APOD if self._apodize else _CRIS_GSI_SENSOR_CHAN
+        )
+        wavenumbers = _CRIS_WAVENUMBER_APOD if self._apodize else _CRIS_WAVENUMBER
+
+        if self._sensor_indices is None:
+            positions: np.ndarray = np.arange(len(sensor_indices), dtype=np.intp)
+        else:
+            positions = np.flatnonzero(np.isin(sensor_indices, self._sensor_indices))
+
+        return positions, sensor_indices[positions], wavenumbers[positions]
 
     # ------------------------------------------------------------------
     # Async initialisation
@@ -745,9 +934,9 @@ class JPSS_CRIS:
         without the serialisation overhead of multiprocessing.
 
         Each granule is decoded into a compact :class:`_CrISDecodedGranule`
-        (spatial arrays + 2-D radiance matrix).  The expensive expansion
-        to long-format (one row per channel per FOV) is done once at the
-        end over all granules combined, avoiding intermediate DataFrame
+        (spatial arrays + 2-D brightness-temperature matrix).  The expensive
+        expansion to long-format (one row per channel per FOV) is done once at
+        the end over all granules combined, avoiding intermediate DataFrame
         allocation per granule.
         """
 
@@ -785,47 +974,73 @@ class JPSS_CRIS:
         # --- Batch: concatenate compact spatial arrays across granules ---
         all_lat = np.concatenate([g.lat for g in granules])
         all_lon = np.concatenate([g.lon for g in granules])
+        all_scan_line = np.concatenate([g.scan_line for g in granules])
+        all_field_of_regard = np.concatenate([g.field_of_regard for g in granules])
+        all_field_of_view = np.concatenate([g.field_of_view for g in granules])
         all_sat_za = np.concatenate([g.sat_za for g in granules])
         all_sat_aza = np.concatenate([g.sat_aza for g in granules])
         all_sol_za = np.concatenate([g.sol_za for g in granules])
         all_sol_aza = np.concatenate([g.sol_aza for g in granules])
         all_quality = np.concatenate([g.quality for g in granules])
         all_times = np.concatenate([g.times for g in granules])
-        all_radiance = np.concatenate([g.radiance for g in granules])  # (N, n_channels)
+        all_brightness_temperature = np.concatenate(
+            [g.brightness_temperature for g in granules]
+        )  # (N, n_channels)
 
         n_total = len(all_lat)
-        n_channels = all_radiance.shape[1]
+        n_channels = all_brightness_temperature.shape[1]
 
         # Build satellite/variable arrays for dedup support
         # (each granule may have different satellite)
         sat_pieces = [np.broadcast_to(g.satellite, g.lat.shape[0]) for g in granules]
         var_pieces = [np.broadcast_to(g.variable, g.lat.shape[0]) for g in granules]
+        source_codes: dict[str, int] = {}
+        source_pieces: list[np.ndarray] = []
+        for granule in granules:
+            source_code = source_codes.setdefault(granule.source_uri, len(source_codes))
+            source_pieces.append(
+                np.full(granule.lat.shape[0], source_code, dtype=np.int32)
+            )
         all_sat = np.concatenate(sat_pieces)
         all_var = np.concatenate(var_pieces)
+        source_i = np.concatenate(source_pieces)
 
         # Free granule list — data is now in the concatenated arrays
         del granules
 
-        # --- Deduplicate at spatial level (before channel expansion) ---
-        # This really isnt needed, its more of a safety net
-        time_as_i8 = all_times.view(np.int64)
-        lat_i = (all_lat * 100).astype(np.int32)
-        lon_i = (all_lon * 100).astype(np.int32)
-
-        # Encode satellite strings as integer codes for lexsort
-        unique_sats, sat_codes = np.unique(all_sat, return_inverse=True)
+        # Deduplicate repeated tasks by exact source footprint identity. Do not
+        # use rounded time/location: distinct detector FOVs can be nearly
+        # collocated. Scan line is granule-local, so source URI is also keyed.
+        _, sat_codes = np.unique(all_sat, return_inverse=True)
+        _, var_codes = np.unique(all_var, return_inverse=True)
         sat_i = sat_codes.astype(np.int32)
+        var_i = var_codes.astype(np.int32)
 
-        order = np.lexsort((lon_i, lat_i, sat_i, time_as_i8))
-        sorted_t = time_as_i8[order]
-        sorted_lat = lat_i[order]
-        sorted_lon = lon_i[order]
+        # np.lexsort uses the last key as primary; this order mirrors the
+        # complete source-identity equality check below.
+        order = np.lexsort(
+            (
+                all_field_of_view,
+                all_field_of_regard,
+                all_scan_line,
+                var_i,
+                sat_i,
+                source_i,
+            )
+        )
         sorted_sat = sat_i[order]
+        sorted_var = var_i[order]
+        sorted_source = source_i[order]
+        sorted_scan_line = all_scan_line[order]
+        sorted_field_of_regard = all_field_of_regard[order]
+        sorted_field_of_view = all_field_of_view[order]
         diffs = (
-            (sorted_t[1:] != sorted_t[:-1])
-            | (sorted_lat[1:] != sorted_lat[:-1])
-            | (sorted_lon[1:] != sorted_lon[:-1])
+            (sorted_source[1:] != sorted_source[:-1])
             | (sorted_sat[1:] != sorted_sat[:-1])
+            | (sorted_var[1:] != sorted_var[:-1])
+            | (sorted_scan_line[1:] != sorted_scan_line[:-1])
+            | (sorted_field_of_regard[1:] != sorted_field_of_regard[:-1])
+            | (sorted_field_of_view[1:] != sorted_field_of_view[:-1])
         )
         unique_mask: np.ndarray = np.empty(n_total, dtype=bool)
         unique_mask[0] = True
@@ -836,35 +1051,49 @@ class JPSS_CRIS:
         if len(keep_idx) < n_total:
             all_lat = all_lat[keep_idx]
             all_lon = all_lon[keep_idx]
+            all_scan_line = all_scan_line[keep_idx]
+            all_field_of_regard = all_field_of_regard[keep_idx]
+            all_field_of_view = all_field_of_view[keep_idx]
             all_sat_za = all_sat_za[keep_idx]
             all_sat_aza = all_sat_aza[keep_idx]
             all_sol_za = all_sol_za[keep_idx]
             all_sol_aza = all_sol_aza[keep_idx]
             all_quality = all_quality[keep_idx]
             all_times = all_times[keep_idx]
-            all_radiance = all_radiance[keep_idx]
+            all_brightness_temperature = all_brightness_temperature[keep_idx]
             all_sat = all_sat[keep_idx]
             all_var = all_var[keep_idx]
             n_total = len(keep_idx)
 
         # --- Expand to long-format using PyArrow for efficiency ---
         n_rows = n_total * n_channels
-
-        # Select the correct sensor_chan mapping based on apodization setting
-        sensor_chan = (
-            _CRIS_GSI_SENSOR_CHAN_APOD if self._apodize else _CRIS_GSI_SENSOR_CHAN
+        all_scan_angle = _nominal_cris_scan_angle(
+            all_field_of_regard, all_field_of_view
         )
-        wavenumber = _CRIS_WAVENUMBER_APOD if self._apodize else _CRIS_WAVENUMBER
+
+        # The compact decoder has already applied this source-ordered projection.
+        _, sensor_chan, wavenumber = self._channel_projection()
+        if len(sensor_chan) != n_channels:
+            raise RuntimeError("Decoded CrIS channels do not match the projection")
 
         arrs: dict[str, pa.Array] = {
-            "time": pa.array(np.repeat(all_times, n_channels)),
+            "time": pa.array(np.repeat(all_times, n_channels), type=pa.timestamp("ns")),
             "class": pa.DictionaryArray.from_arrays(
                 np.zeros(n_rows, dtype=np.int8), ["rad"]
             ),
             "lat": pa.array(np.repeat(all_lat, n_channels), type=pa.float32()),
             "lon": pa.array(np.repeat(all_lon, n_channels), type=pa.float32()),
             "scan_angle": pa.array(
-                np.repeat(all_sat_za, n_channels), type=pa.float32()
+                np.repeat(all_scan_angle, n_channels), type=pa.float32()
+            ),
+            "scan_line": pa.array(
+                np.repeat(all_scan_line, n_channels), type=pa.uint32()
+            ),
+            "field_of_regard": pa.array(
+                np.repeat(all_field_of_regard, n_channels), type=pa.uint16()
+            ),
+            "field_of_view": pa.array(
+                np.repeat(all_field_of_view, n_channels), type=pa.uint16()
             ),
             "sensor_index": pa.array(
                 np.tile(sensor_chan, n_total),
@@ -883,20 +1112,22 @@ class JPSS_CRIS:
                 np.repeat(all_sat_aza, n_channels), type=pa.float32()
             ),
             "quality": pa.array(np.repeat(all_quality, n_channels), type=pa.uint16()),
-            "observation": pa.array(all_radiance.ravel(), type=pa.float32()),
+            "observation": pa.array(
+                all_brightness_temperature.ravel(), type=pa.float32()
+            ),
         }
 
         # Build satellite and variable using DictionaryArray for memory
         unique_sats = list(dict.fromkeys(all_sat))
         sat_codes = {s: i for i, s in enumerate(unique_sats)}
-        sat_indices = np.repeat(
+        sat_indices: np.ndarray = np.repeat(
             np.array([sat_codes[s] for s in all_sat], dtype=np.int8), n_channels
         )
         arrs["satellite"] = pa.DictionaryArray.from_arrays(sat_indices, unique_sats)
 
         unique_vars = list(dict.fromkeys(all_var))
         var_codes = {v: i for i, v in enumerate(unique_vars)}
-        var_indices = np.repeat(
+        var_indices: np.ndarray = np.repeat(
             np.array([var_codes[v] for v in all_var], dtype=np.int8), n_channels
         )
         arrs["variable"] = pa.DictionaryArray.from_arrays(var_indices, unique_vars)
@@ -918,7 +1149,7 @@ class JPSS_CRIS:
         """Decode a CrIS SDR + GEO HDF5 file pair into compact arrays.
 
         Returns a :class:`_CrISDecodedGranule` containing spatial arrays
-        (one element per valid FOV) and a 2-D radiance matrix
+        (one element per valid FOV) and a 2-D brightness-temperature matrix
         ``(n_valid, n_channels)``.  The expensive channel-expansion into
         long-format rows is deferred to
         :py:meth:`_compile_dataframe`.
@@ -936,19 +1167,17 @@ class JPSS_CRIS:
         task : _CrISAsyncTask
             Task metadata (tolerance bounds, satellite, variable, modifier).
         """
-        # IET epoch for vectorized time conversion
-        iet_epoch = np.datetime64("1958-01-01T00:00:00", "us")
-        tmin_dt64 = np.datetime64(task.datetime_min, "ms")
-        tmax_dt64 = np.datetime64(task.datetime_max, "ms")
+        tmin_dt64 = np.datetime64(task.datetime_min, "us")
+        tmax_dt64 = np.datetime64(task.datetime_max, "us")
 
         # --- Phase 1: Read GEO time first (tiny) to filter scan lines ---
         with h5py.File(geo_path, "r") as geo:
-            for_time = geo[_GEO_KEYS["for_time"]][:]  # (n_scan, 30) IET µs
+            anchor_utc, anchor_iet = _read_cris_time_anchor(geo)
+            # Shape: (n_scan, 30), containing IET microseconds.
+            for_time = _read_hdf_dataset(geo, _GEO_KEYS["for_time"])
 
-        # Convert FORTime to datetime64 for each (scan, FOR)
-        time_dt64 = (iet_epoch + for_time.astype("timedelta64[us]")).astype(
-            "datetime64[ms]"
-        )
+        # Convert IET relative to the source-provided UTC/IET granule anchor.
+        time_dt64: np.ndarray = _iet_to_utc(for_time, anchor_utc, anchor_iet)
         # A scan line is relevant if ANY FOR in that scan is within window
         scan_has_valid_time = np.any(
             (time_dt64 >= tmin_dt64) & (time_dt64 <= tmax_dt64) & (for_time > 0),
@@ -963,24 +1192,24 @@ class JPSS_CRIS:
         # --- Phase 2: Read only the scan lines we need ---
         with h5py.File(sdr_path, "r") as sdr, h5py.File(geo_path, "r") as geo:
             # HDF5 fancy indexing with sorted indices (efficient for contiguous)
-            rad_lw = sdr[_SDR_RADIANCE_KEYS["LW"]][valid_scans]
-            rad_mw = sdr[_SDR_RADIANCE_KEYS["MW"]][valid_scans]
-            rad_sw = sdr[_SDR_RADIANCE_KEYS["SW"]][valid_scans]
+            rad_lw = _read_hdf_dataset(sdr, _SDR_RADIANCE_KEYS["LW"], valid_scans)
+            rad_mw = _read_hdf_dataset(sdr, _SDR_RADIANCE_KEYS["MW"], valid_scans)
+            rad_sw = _read_hdf_dataset(sdr, _SDR_RADIANCE_KEYS["SW"], valid_scans)
 
             try:
-                qf3 = sdr[_SDR_QF_KEYS["QF3"]][valid_scans]
+                qf3 = _read_hdf_dataset(sdr, _SDR_QF_KEYS["QF3"], valid_scans)
             except KeyError:
                 qf3 = np.zeros(
                     (len(valid_scans), _CRIS_NUM_FOR, _CRIS_NUM_FOV, 3),
                     dtype=np.uint8,
                 )
 
-            lat = geo[_GEO_KEYS["lat"]][valid_scans]
-            lon = geo[_GEO_KEYS["lon"]][valid_scans]
-            sat_za = geo[_GEO_KEYS["sat_za"]][valid_scans]
-            sat_aza = geo[_GEO_KEYS["sat_aza"]][valid_scans]
-            sol_za = geo[_GEO_KEYS["sol_za"]][valid_scans]
-            sol_aza = geo[_GEO_KEYS["sol_aza"]][valid_scans]
+            lat = _read_hdf_dataset(geo, _GEO_KEYS["lat"], valid_scans)
+            lon = _read_hdf_dataset(geo, _GEO_KEYS["lon"], valid_scans)
+            sat_za = _read_hdf_dataset(geo, _GEO_KEYS["sat_za"], valid_scans)
+            sat_aza = _read_hdf_dataset(geo, _GEO_KEYS["sat_aza"], valid_scans)
+            sol_za = _read_hdf_dataset(geo, _GEO_KEYS["sol_za"], valid_scans)
+            sol_aza = _read_hdf_dataset(geo, _GEO_KEYS["sol_aza"], valid_scans)
 
         # Use the pre-read time but only for valid scans
         for_time = for_time[valid_scans]
@@ -1005,8 +1234,17 @@ class JPSS_CRIS:
         del qf3
 
         # Flatten spatial dims
-        lat_flat = lat.reshape(-1).astype(np.float32)
-        lon_flat = lon.reshape(-1).astype(np.float32)
+        lat_flat: np.ndarray = lat.reshape(-1).astype(np.float32)
+        lon_flat: np.ndarray = lon.reshape(-1).astype(np.float32)
+        scan_line_flat: np.ndarray = np.repeat(
+            valid_scans.astype(np.uint32) + 1, n_for * n_fov
+        )
+        field_of_regard_flat = np.tile(
+            np.repeat(np.arange(1, n_for + 1, dtype=np.uint16), n_fov), n_scan
+        )
+        field_of_view_flat = np.tile(
+            np.arange(1, n_fov + 1, dtype=np.uint16), n_scan * n_for
+        )
 
         # Expand for_time to (n_scan, n_for, n_fov)
         for_time_3d = np.broadcast_to(
@@ -1015,9 +1253,7 @@ class JPSS_CRIS:
         time_flat = for_time_3d.reshape(-1)
 
         # Convert times for tolerance filtering
-        times_dt64 = (iet_epoch + time_flat.astype("timedelta64[us]")).astype(
-            "datetime64[ms]"
-        )
+        times_dt64: np.ndarray = _iet_to_utc(time_flat, anchor_utc, anchor_iet)
 
         # Valid spatial mask: good lat/lon, positive time, AND within tolerance
         valid_spatial = (
@@ -1037,6 +1273,9 @@ class JPSS_CRIS:
         lat_valid = lat_flat[valid_spatial]
         lon_valid = lon_flat[valid_spatial] % 360.0
         times_valid = times_dt64[valid_spatial]
+        scan_line_valid = scan_line_flat[valid_spatial]
+        field_of_regard_valid = field_of_regard_flat[valid_spatial]
+        field_of_view_valid = field_of_view_flat[valid_spatial]
 
         sat_za_valid = sat_za.reshape(-1)[valid_spatial].astype(np.float32)
         sat_aza_valid = sat_aza.reshape(-1)[valid_spatial].astype(np.float32)
@@ -1057,30 +1296,36 @@ class JPSS_CRIS:
             radiance_valid = radiance_valid.copy()
             radiance_valid[bad] = np.float32("nan")
 
-        # Optional Hamming apodization: smooth the unapodized (sinc ILS)
-        # radiance to match the apodized spectra used by GSI/CRTM, then trim
-        # the 2 guard channels at each end of each band.
+        # Optional Hamming apodization: apply the NOAA three-point operator to
+        # the unapodized (sinc ILS) radiance, then trim the 2 guard channels at
+        # each end of each band.
         if self._apodize:
             radiance_valid = _hamming_apodize(radiance_valid)
-            wn = _CRIS_WAVENUMBER_APOD
-        else:
-            wn = _CRIS_WAVENUMBER
 
-        # Convert spectral radiance → brightness temperature (K) so that
-        # the observation column is in the same units as UFSObsSat.
-        # CrIS uses pure inverse Planck (no band correction).
-        radiance_valid = radiance_to_bt(radiance_valid, wn).astype(np.float32)
+        # Apodization needs neighboring source channels. Project only after
+        # that transform, while the data is still compact radiance spectra.
+        channel_positions, _, wn = self._channel_projection()
+        radiance_valid = radiance_valid[:, channel_positions]
+
+        # Convert spectral radiance at each channel center wavenumber. Products
+        # built with a coefficient package may use release-pinned Planck
+        # constants and therefore differ slightly at numerical precision.
+        brightness_temperature = radiance_to_bt(radiance_valid, wn).astype(np.float32)
 
         return _CrISDecodedGranule(
             lat=lat_valid,
             lon=lon_valid,
+            scan_line=scan_line_valid,
+            field_of_regard=field_of_regard_valid,
+            field_of_view=field_of_view_valid,
             sat_za=sat_za_valid,
             sat_aza=sat_aza_valid,
             sol_za=sol_za_valid,
             sol_aza=sol_aza_valid,
             quality=qf_valid,
             times=times_valid,
-            radiance=radiance_valid,
+            brightness_temperature=brightness_temperature,
+            source_uri=task.sdr_uri,
             satellite=task.satellite,
             variable=task.variable,
         )

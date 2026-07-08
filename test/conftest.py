@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -46,6 +47,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     # Data tests
     "test/data/test_cbottle.py": ["cbottle"],
     "test/data/test_goes_glm.py": ["netCDF4"],
+    "test/data/test_ncep_conventional.py": ["pybufrkit"],
     "test/data/test_nnja.py": ["pybufrkit"],
     "test/data/test_ecmwf.py": ["data"],
     "test/data/test_cds.py": ["data"],
@@ -70,6 +72,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/dx/test_corrdiff.py": ["corrdiff"],
     "test/models/dx/test_corrdiff_cmip6.py": ["corrdiff"],
     "test/models/dx/test_corrdiff_taiwan.py": ["corrdiff"],
+    "test/models/dx/test_dlesym_v0_isccp_era5_precip.py": ["dlesym"],
     "test/models/dx/test_orbit2_precip.py": ["orbit"],
     "test/models/dx/test_precip_afno.py": ["precip-afno"],
     "test/models/dx/test_precip_afno_v2.py": ["precip-afno-v2"],
@@ -86,6 +89,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/px/test_aurora.py": ["aurora"],
     "test/models/px/test_cbottle_video.py": ["cbottle"],
     "test/models/px/test_dlesym.py": ["dlesym"],
+    "test/models/px/test_dlesym_v0_isccp_era5.py": ["dlesym"],
     "test/models/px/test_dlwp.py": ["dlwp"],
     "test/models/px/test_fcn.py": ["fcn"],
     "test/models/px/test_fcn3.py": ["fcn3"],
@@ -154,6 +158,10 @@ def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool 
     for dep in _TEST_DEPENDENCIES[rel_str]:
         # Check if it's a group name (exists in pyproject.toml) or a package
         if not _group_available(dep) and not _package_available(dep):
+            print(
+                f"WARNING: Ignoring {rel_str}: missing dependency '{dep}'",
+                file=sys.stderr,
+            )
             return True
 
     return None
@@ -185,6 +193,23 @@ def pytest_configure(config):
 
 
 def pytest_collection_modifyitems(config, items):
+
+    # Skip tests whose optional dependency groups are missing.
+    # pytest_ignore_collect handles directory traversal, this is for when individual
+    # files are targeted when testing
+    for item in items:
+        try:
+            rel_str = str(item.path.relative_to(Path.cwd()))
+        except ValueError:
+            continue
+        if rel_str not in _TEST_DEPENDENCIES:
+            continue
+        for dep in _TEST_DEPENDENCIES[rel_str]:
+            if not _group_available(dep) and not _package_available(dep):
+                item.add_marker(
+                    pytest.mark.skip(reason=f"missing dependency '{dep}' for {rel_str}")
+                )
+                break
 
     enable_packages = config.getoption("--package") or os.getenv(
         "EARTH2STUDIO_TEST_PACKAGES", ""

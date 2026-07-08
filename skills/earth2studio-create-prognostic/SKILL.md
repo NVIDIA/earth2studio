@@ -1,6 +1,6 @@
 ---
 name: earth2studio-create-prognostic
-version: 0.17.0
+version: 0.16.0
 license: Apache-2.0
 metadata:
   author: NVIDIA Earth-2 Team <agent-skills@nvidia.com>
