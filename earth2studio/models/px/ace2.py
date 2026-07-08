@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
+from loguru import logger
 
 from earth2studio.data import ACE2ERA5Data
 from earth2studio.data.ace2 import ACE_GRID_LAT, ACE_GRID_LON
@@ -131,6 +132,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     - ACE2-ERA5 paper: https://arxiv.org/abs/2411.11268v1
     - ACE2 code: https://github.com/ai2cm/ace
+    - Huggingface: https://huggingface.co/allenai/ACE2-ERA5
 
     Notes
     -----
@@ -209,7 +211,8 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # External forcing data source
         self.forcing_data_source = forcing_data_source
         self._forcing_cache: dict[
-            tuple[int, tuple[str, ...], str, int], tuple[torch.Tensor, CoordSystem]
+            tuple[int, tuple[str, ...], str, str, int],
+            tuple[torch.Tensor, CoordSystem],
         ] = {}
 
         # Grid handling
@@ -459,15 +462,82 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         y = y.unsqueeze(2)
         return y
 
-    def _fetch_forcing_at_time(
-        self, valid_time: np.datetime64, device: torch.device
+    def _fetch_forcing_year(
+        self, year: int, device: torch.device
     ) -> tuple[torch.Tensor, CoordSystem]:
-        valid_time = valid_time.astype("datetime64[ns]")
         device = torch.device(device)
         cache_key = (
             id(self.forcing_data_source),
             tuple(self._forcing_vars_e2s),
             str(device),
+            "year",
+            year,
+        )
+        if cache_key in self._forcing_cache:
+            return self._forcing_cache[cache_key]
+
+        logger.warning(
+            "Loading ACE2 forcing data for year {} onto {}. This replaces any "
+            "previous cached forcing year.",
+            year,
+            device,
+        )
+        start = np.datetime64(f"{year:04d}-01-01T00:00:00", "ns")
+        end = np.datetime64(f"{year + 1:04d}-01-01T00:00:00", "ns")
+        year_times = np.arange(start, end, self._dt, dtype="datetime64[ns]")
+        lead_time = np.array([np.timedelta64(0, "h")], dtype="timedelta64[ns]")
+
+        forcing_x, year_coords = fetch_data(
+            self.forcing_data_source,
+            time=year_times,
+            lead_time=lead_time,
+            variable=self._forcing_vars_e2s,
+            device=device,
+        )
+        self._forcing_cache.clear()
+        self._forcing_cache[cache_key] = (forcing_x, year_coords)
+        return self._forcing_cache[cache_key]
+
+    def _fetch_forcing_at_time(
+        self, valid_time: np.datetime64, device: torch.device
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        valid_time = valid_time.astype("datetime64[ns]")
+        device = torch.device(device)
+        if isinstance(self.forcing_data_source, ACE2ERA5Data):
+            year = pd.Timestamp(valid_time).year
+            forcing_x, forcing_coords = self._fetch_forcing_year(year, device)
+
+            year_start = np.datetime64(f"{year:04d}-01-01T00:00:00", "ns")
+            delta_ns = (
+                (valid_time - year_start).astype("timedelta64[ns]").astype(np.int64)
+            )
+            step_ns = np.asarray(self._dt).astype("timedelta64[ns]").astype(np.int64)
+            if delta_ns % step_ns != 0:
+                raise ValueError(
+                    f"ACE2 forcing time {valid_time} is not on model step {self._dt}."
+                )
+            time_index = int(delta_ns // step_ns)
+            if time_index < 0 or time_index >= len(forcing_coords["time"]):
+                raise ValueError(
+                    f"ACE2 forcing time {valid_time} is outside cached year {year}."
+                )
+            if (
+                forcing_coords["time"][time_index].astype("datetime64[ns]")
+                != valid_time
+            ):
+                raise ValueError(
+                    f"ACE2 forcing time {valid_time} was not found in cached year {year}."
+                )
+
+            out_coords = forcing_coords.copy()
+            out_coords["time"] = np.array([valid_time], dtype="datetime64[ns]")
+            return forcing_x[time_index : time_index + 1], out_coords
+
+        cache_key = (
+            id(self.forcing_data_source),
+            tuple(self._forcing_vars_e2s),
+            str(device),
+            "time",
             int(valid_time.astype("datetime64[ns]").astype(np.int64)),
         )
         if cache_key not in self._forcing_cache:
