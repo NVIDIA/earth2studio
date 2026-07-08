@@ -16,11 +16,10 @@
 
 """Earthmover IFS lexicon.
 
-The public vocabulary mirrors :class:`earth2studio.lexicon.ecmwf.IFSLexicon` so
-Earthmover IFS data sources expose the same Earth2Studio variable ids as the
-ECMWF open-data IFS source. The extra metadata descriptors are used by the
-Earthmover data source to resolve those variables against Arraylake repository
-metadata.
+The public vocabulary matches the IFS variables currently available in the
+Brightband Earthmover Marketplace forecast dataset. The extra metadata
+descriptors are intentionally broader so additional Earthmover datasets can
+reuse the same resolution utilities.
 """
 
 from __future__ import annotations
@@ -61,6 +60,7 @@ _PARAM_IDS: dict[str, int] = {
     "asn": 32,
     "cp": 143,
     "d": 155,
+    "fdir": 228021,
     "fg10": 49,
     "gh": 129,
     "hcc": 188,
@@ -135,6 +135,7 @@ _CANONICAL_UNITS_BY_SHORT_NAME: dict[str, str] = {
     "2t": "K",
     "cp": "m",
     "d": "s-1",
+    "fdir": "J m-2",
     "gh": "m2 s-2",
     "hcc": "1",
     "lcc": "1",
@@ -193,9 +194,9 @@ def _level(value: str) -> float | None:
     return float(value) if value else None
 
 
-def _build_specs() -> dict[str, VariableSpec]:
+def _build_specs(vocab: dict[str, str]) -> dict[str, VariableSpec]:
     specs: dict[str, VariableSpec] = {}
-    for e2s, ifs_key in IFSLexicon.VOCAB.items():
+    for e2s, ifs_key in vocab.items():
         short_name, raw_level_type, raw_level = ifs_key.split("::")
         aliases = _ALIASES_BY_E2S.get(e2s, ()) + _ALIASES_BY_SHORT_NAME.get(
             short_name, ()
@@ -269,15 +270,35 @@ def make_modifier(spec: VariableSpec, src_units: str | None) -> Callable:
 
 
 class EarthMoverIFSLexicon(metaclass=LexiconType):
-    """Earthmover IFS lexicon matching :class:`IFSLexicon`."""
+    """Earthmover Brightband IFS Marketplace lexicon."""
 
-    VOCAB: dict[str, str] = dict(IFSLexicon.VOCAB)
-    SPECS: dict[str, VariableSpec] = _build_specs()
+    VOCAB: dict[str, str] = {
+        "u100m": "100u::sfc::",
+        "v100m": "100v::sfc::",
+        "u10m": "10u::sfc::",
+        "v10m": "10v::sfc::",
+        "d2m": "2d::sfc::",
+        "t2m": "2t::sfc::",
+        "cp": "cp::sfc::",
+        "fdir": "fdir::sfc::",
+        "hcc": "hcc::sfc::",
+        "lcc": "lcc::sfc::",
+        "mcc": "mcc::sfc::",
+        "msl": "msl::sfc::",
+        "sd": "sd::sfc::",
+        "ssrd": "ssrd::sfc::",
+        "tp": "tp::sfc::",
+    }
+    SPECS: dict[str, VariableSpec] = _build_specs(VOCAB)
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
         """Retrieve name from vocabulary."""
-        return IFSLexicon.get_item(val)
+        if val not in cls.VOCAB:
+            raise KeyError(val)
+        if val in IFSLexicon.VOCAB:
+            return IFSLexicon.get_item(val)
+        return cls.VOCAB[val], lambda x: x
 
     @classmethod
     def spec(cls, val: str) -> VariableSpec:

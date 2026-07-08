@@ -17,22 +17,43 @@
 import numpy as np
 import pytest
 
-from earth2studio.lexicon import EarthMoverIFSLexicon, IFSLexicon
+from earth2studio.lexicon import EarthMoverIFSLexicon
 from earth2studio.lexicon.earthmover import make_modifier, normalize_units
 
+IFS_FORECAST_VOCAB = {
+    "u100m": "100u::sfc::",
+    "v100m": "100v::sfc::",
+    "u10m": "10u::sfc::",
+    "v10m": "10v::sfc::",
+    "d2m": "2d::sfc::",
+    "t2m": "2t::sfc::",
+    "cp": "cp::sfc::",
+    "fdir": "fdir::sfc::",
+    "hcc": "hcc::sfc::",
+    "lcc": "lcc::sfc::",
+    "mcc": "mcc::sfc::",
+    "msl": "msl::sfc::",
+    "sd": "sd::sfc::",
+    "ssrd": "ssrd::sfc::",
+    "tp": "tp::sfc::",
+}
 
-def test_earthmover_ifs_lexicon_matches_ifs_vocab():
-    assert EarthMoverIFSLexicon.VOCAB == IFSLexicon.VOCAB
+
+def test_earthmover_ifs_lexicon_matches_marketplace_variables():
+    assert EarthMoverIFSLexicon.VOCAB == IFS_FORECAST_VOCAB
 
 
 def test_earthmover_ifs_lexicon_specs():
-    assert EarthMoverIFSLexicon.spec("t850").param_id == 130
-    assert EarthMoverIFSLexicon.spec("t850").level == 850
-    assert EarthMoverIFSLexicon.spec("z500").short_name == "gh"
-    assert EarthMoverIFSLexicon.spec("u10").level_type == "isobaric"
+    assert EarthMoverIFSLexicon.spec("t2m").param_id == 167
+    assert EarthMoverIFSLexicon.spec("t2m").short_name == "2t"
+    assert EarthMoverIFSLexicon.spec("fdir").short_name == "fdir"
     assert EarthMoverIFSLexicon.spec("u10m").level_type == "surface"
+    assert all(
+        EarthMoverIFSLexicon.spec(variable).level_type == "surface"
+        for variable in EarthMoverIFSLexicon.VOCAB
+    )
     assert (
-        EarthMoverIFSLexicon.spec("u10").param_id
+        EarthMoverIFSLexicon.spec("u100m").param_id
         != EarthMoverIFSLexicon.spec("u10m").param_id
     )
 
@@ -47,6 +68,8 @@ def test_earthmover_ifs_lexicon_keys():
 def test_earthmover_ifs_lexicon_invalid():
     with pytest.raises(KeyError):
         EarthMoverIFSLexicon.spec("not_a_variable")
+    with pytest.raises(KeyError):
+        EarthMoverIFSLexicon["z500"]
 
 
 def test_earthmover_unit_normalization():
@@ -60,9 +83,9 @@ def test_earthmover_unit_normalization():
     "variable,src_units,raw,expected",
     [
         ("t2m", "degree_Celsius", np.array([0.0]), np.array([273.15])),
-        ("z500", "m", np.array([1.0]), np.array([9.80665])),
-        ("z500", "m2 s-2", np.array([5.0]), np.array([5.0])),
-        ("tcc", "percent", np.array([50.0]), np.array([0.5])),
+        ("cp", "kg m-2", np.array([1000.0]), np.array([1.0])),
+        ("hcc", "percent", np.array([50.0]), np.array([0.5])),
+        ("fdir", "J m**-2", np.array([5.0]), np.array([5.0])),
     ],
 )
 def test_earthmover_unit_conversions(variable, src_units, raw, expected):

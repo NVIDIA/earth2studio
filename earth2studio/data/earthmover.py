@@ -14,15 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Earthmover data sources for Earth2Studio.
-
-This module contains Earthmover Marketplace data sources that read Arraylake
-repositories. Dataset-specific classes share the same repository access and IFS
-metadata-resolution logic.
-"""
-
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -33,6 +27,7 @@ import xarray as xr
 from loguru import logger
 
 from earth2studio.data.utils import (
+    _sync_async,
     datasource_cache_root,
     prep_data_inputs,
     prep_forecast_inputs,
@@ -74,6 +69,7 @@ _VERTICAL_NAMES = (
     "lev",
 )
 _SOIL_NAMES = ("soil_level", "soilLayer", "soil_layer", "depthBelowLandLayer")
+_TOKEN_ENV_VAR = "EARTHMOVER_API_TOKEN"  # noqa: S105
 
 
 @dataclass
@@ -89,23 +85,16 @@ class _Resolved:
 
 
 class _EarthMoverBase:
-    """Shared Earthmover Arraylake connection and resolution logic.
-
-    Dataset-specific child classes define the Earth2Studio ``__call__`` and
-    ``fetch`` signatures.
-    """
+    """Shared Earthmover Arraylake connection and resolution logic."""
 
     def __init__(
         self,
         repo: str,
         group: str | list[str] | None = None,
-        *,
         branch: str = "main",
-        client: "arraylake.Client | None" = None,
+        client: "arraylake.AsyncClient | None" = None,
         cache: bool = True,
         verbose: bool = True,
-        token_env_var: str | None = None,
-        allow_cached_login: bool = False,
         marketplace_url: str | None = None,
     ) -> None:
         self._repo_name = repo
@@ -117,8 +106,6 @@ class _EarthMoverBase:
         self._client = client
         self._cache = cache
         self._verbose = verbose
-        self._token_env_var = token_env_var or "EARTHMOVER_API_TOKEN"
-        self._allow_cached_login = allow_cached_login
         self._marketplace_url = marketplace_url
 
         # Populated lazily on first connect.
@@ -126,56 +113,39 @@ class _EarthMoverBase:
         # repo variable name -> (dataset, variable metadata)
         self._index: dict[str, list[tuple[xr.Dataset, xr.DataArray]]] = {}
 
-    @staticmethod
-    def _group_from_env(
-        raw_group: str | None, default: str | list[str] | None
-    ) -> str | list[str] | None:
-        """Parse a comma-separated group env var, falling back to ``default``."""
-        if raw_group is None or raw_group == "":
-            return default
-        groups = [g.strip() for g in raw_group.split(",") if g.strip()]
-        if len(groups) == 0:
-            return default
-        if len(groups) == 1:
-            return groups[0]
-        return groups
-
     # ------------------------------------------------------------------
     # Connection
     # ------------------------------------------------------------------
-    def _make_client(self) -> "arraylake.Client":
+    def _make_client(self) -> "arraylake.AsyncClient":
         """Create an Arraylake client from an injected client or env token.
 
         Returns
         -------
-        arraylake.Client
-            Authenticated client. Uses an injected ``client`` first, then the API
-            token stored in ``self._token_env_var``. Cached interactive login is
-            available only when explicitly enabled.
+        arraylake.AsyncClient
+            Authenticated client. Uses an injected ``client`` first, then the
+            API token stored in ``EARTHMOVER_API_TOKEN``.
         """
         if self._client is not None:
             return self._client
-        token = os.environ.get(self._token_env_var)
+        token = os.environ.get(_TOKEN_ENV_VAR)
         if token:
-            return arraylake.Client(token=token)
-        if self._allow_cached_login:
-            return arraylake.Client()
+            return arraylake.AsyncClient(token=token)
         marketplace = (
             f" Subscribe on {self._marketplace_url}." if self._marketplace_url else ""
         )
         raise ValueError(
-            f"Set {self._token_env_var} with an Earthmover / Arraylake API token "
+            f"Set {_TOKEN_ENV_VAR} with an Earthmover / Arraylake API token "
             f"before accessing repo '{self._repo_name}'.{marketplace}"
         )
 
-    def _connect(self) -> None:
+    async def _connect(self) -> None:
         """Open the repository's group(s) and build the resolution index."""
         if self._datasets is not None:
             return
 
         client = self._make_client()
         try:
-            repo = client.get_repo(self._repo_name)
+            repo = await client.get_repo(self._repo_name)
             session = repo.readonly_session(branch=self._branch)
         except Exception as err:  # noqa: BLE001 - re-raised with guidance below
             self._raise_access_error(err)
@@ -183,7 +153,12 @@ class _EarthMoverBase:
         datasets: list[xr.Dataset] = []
         for group in self._groups:
             try:
-                ds = xr.open_zarr(session.store, group=group, decode_timedelta=True)
+                ds = await asyncio.to_thread(
+                    xr.open_zarr,
+                    session.store,
+                    group=group,
+                    decode_timedelta=True,
+                )
             except Exception as err:  # noqa: BLE001
                 self._raise_access_error(err, group=group)
             datasets.append(ds)
@@ -205,7 +180,7 @@ class _EarthMoverBase:
                 "Earthmover Marketplace dataset, you must first create a "
                 "subscription on the dataset's listing page "
                 "(https://www.earthmover.io/marketplace), then ensure you are "
-                "authenticated by setting the configured API-token environment variable."
+                f"authenticated by setting {_TOKEN_ENV_VAR}."
             ) from err
         if any(k in msg for k in ("404", "not found", "does not exist")):
             raise ValueError(
@@ -483,7 +458,7 @@ class _EarthMoverBase:
             cache_location = os.path.join(cache_location, "tmp")
         return cache_location
 
-    def available(self, time: datetime | np.datetime64) -> bool:
+    async def _available(self, time: datetime | np.datetime64) -> bool:
         """Check whether ``time`` is present in the repository's time axis.
 
         Parameters
@@ -501,7 +476,7 @@ class _EarthMoverBase:
         Unlike most Earth2Studio sources this is an *instance* method, because
         availability depends on the specific repository being wrapped.
         """
-        self._connect()
+        await self._connect()
         t64 = np.datetime64(time)
         for ds in self._datasets or []:
             time_coord = self._find_coord(ds, _TIME_NAMES)
@@ -511,9 +486,13 @@ class _EarthMoverBase:
                 return True
         return False
 
-    def _validate_times(self, time_list: list[datetime]) -> None:
+    def available(self, time: datetime | np.datetime64) -> bool:
+        """Synchronous wrapper for :meth:`_available`."""
+        return _sync_async(self._available, time)
+
+    async def _validate_times(self, time_list: list[datetime]) -> None:
         """Raise if any requested time is absent from the repository."""
-        missing = [t for t in time_list if not self.available(t)]
+        missing = [t for t in time_list if not await self._available(t)]
         if missing:
             raise ValueError(
                 f"Requested times not available in '{self._repo_name}': {missing}"
@@ -522,33 +501,25 @@ class _EarthMoverBase:
 
 @check_optional_dependencies()
 class EarthMoverBrightBandIFS(_EarthMoverBase):
-    """Brightband ECMWF IFS initial-condition data source on Earthmover Arraylake.
+    """Brightband ECMWF IFS 0.1 degree (10km) initial-condition data source on
+    Earthmover Arraylake.
 
     Parameters
     ----------
     repo : str, optional
-        Arraylake repository name as ``org/repo``. Uses
-        ``EARTHMOVER_BRIGHTBAND_IFS_REPO`` when set, by default
-        ``"brightband/ecmwf-ifs-initial-conditions-open"``.
-    group : str | list[str] | None, optional
-        Zarr group(s) within the repository. Uses
-        ``EARTHMOVER_BRIGHTBAND_IFS_GROUP`` when set, by default None.
+        Arraylake repository name as ``org/repo``. When omitted, derives the
+        repo from ``EARTHMOVER_ORGANIZATION`` as
+        ``<org>/ecmwf-ifs-initial-conditions-open-subscription``, by default None.
     branch : str, optional
         Repository branch to read, by default "main".
-    token_env_var : str, optional
-        Environment variable containing the Earthmover / Arraylake API token, by
-        default "EARTHMOVER_API_TOKEN".
-    client : arraylake.Client, optional
-        Pre-authenticated Arraylake client. Takes precedence over
-        ``token_env_var``, by default None.
+    client : arraylake.AsyncClient, optional
+        Pre-authenticated Arraylake async client. When omitted, this data source
+        uses the API token stored in ``EARTHMOVER_API_TOKEN``, by default None.
     cache : bool, optional
         Retained for API compatibility; Arraylake reads lazily via Icechunk, by
         default True.
     verbose : bool, optional
         Print progress, by default True.
-    allow_cached_login : bool, optional
-        Allow ``arraylake.Client()`` to use cached interactive credentials when no
-        token env var is set, by default False.
 
     Warning
     -------
@@ -557,9 +528,12 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
 
     Note
     ----
-    This data source resolves variables using
-    :class:`earth2studio.lexicon.earthmover.EarthMoverIFSLexicon`, which matches
-    the ECMWF open-data IFS lexicon.
+    Set ``EARTHMOVER_API_TOKEN`` to an Earthmover / Arraylake API token before
+    using this data source, unless passing a pre-authenticated ``client``.
+    This Marketplace dataset must be opened through the ``org/repo`` name
+    created by your Earthmover subscription; pass it with ``repo``. When
+    ``repo`` is omitted, the repo defaults
+    to ``<EARTHMOVER_ORGANIZATION>/ecmwf-ifs-initial-conditions-open-subscription``.
 
     Additional information on the data repository can be referenced here:
 
@@ -571,45 +545,40 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
     """
 
     MARKETPLACE_URL = "https://app.earthmover.io/marketplace/697162921880507a6587c31b"
-    DEFAULT_REPO: str = "brightband/ecmwf-ifs-initial-conditions-open"
-    DEFAULT_GROUP: str | list[str] | None = None
     DEFAULT_BRANCH = "main"
-    TOKEN_ENV_VAR = "EARTHMOVER_API_TOKEN"  # noqa: S105
-    REPO_ENV_VAR = "EARTHMOVER_BRIGHTBAND_IFS_REPO"
-    GROUP_ENV_VAR = "EARTHMOVER_BRIGHTBAND_IFS_GROUP"
+    ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
+    LEGACY_ORG_ENV_VAR = "EARTHMOVER_ORGINIZATION"
+    SUBSCRIPTION_REPO_NAME = "ecmwf-ifs-initial-conditions-open-subscription"
     VARIABLES = tuple(EarthMoverIFSLexicon.VOCAB)
 
     def __init__(
         self,
         repo: str | None = None,
-        group: str | list[str] | None = None,
-        *,
         branch: str = DEFAULT_BRANCH,
-        token_env_var: str = TOKEN_ENV_VAR,
-        client: "arraylake.Client | None" = None,
+        client: "arraylake.AsyncClient | None" = None,
         cache: bool = True,
         verbose: bool = True,
-        allow_cached_login: bool = False,
     ) -> None:
         repo_name = repo
         if repo_name is None:
-            repo_name = os.environ.get(self.REPO_ENV_VAR)
+            org_name = os.environ.get(self.ORG_ENV_VAR) or os.environ.get(
+                self.LEGACY_ORG_ENV_VAR
+            )
+            if org_name:
+                repo_name = f"{org_name}/{self.SUBSCRIPTION_REPO_NAME}"
         if repo_name is None:
-            repo_name = self.DEFAULT_REPO
-        group_value = group
-        if group_value is None:
-            group_value = self._group_from_env(
-                os.environ.get(self.GROUP_ENV_VAR), self.DEFAULT_GROUP
+            raise ValueError(
+                f"Pass repo='org/repo' or set {self.ORG_ENV_VAR} to derive "
+                f"'<org>/{self.SUBSCRIPTION_REPO_NAME}'. Listing: "
+                f"{self.MARKETPLACE_URL}"
             )
         super().__init__(
             repo_name,
-            group=group_value,
+            group=None,
             branch=branch,
             client=client,
             cache=cache,
             verbose=verbose,
-            token_env_var=token_env_var,
-            allow_cached_login=allow_cached_login,
             marketplace_url=self.MARKETPLACE_URL,
         )
 
@@ -632,9 +601,30 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
         xr.DataArray
             Data array with dimensions ``[time, variable, lat, lon]``.
         """
+        return _sync_async(self.fetch, time, variable)
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve IFS analysis data for times and variables asynchronously.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Analysis timestamps (UTC).
+        variable : str | list[str] | VariableArray
+            Earth2Studio variable id(s).
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, lat, lon]``.
+        """
         time_list, variable_list = prep_data_inputs(time, variable)
-        self._connect()
-        self._validate_times(time_list)
+        await self._connect()
+        await self._validate_times(time_list)
 
         time_sel = np.array(time_list, dtype="datetime64[ns]")
 
@@ -653,46 +643,30 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
         out = out.assign_coords(variable=variable_list).transpose(
             "time", "variable", "lat", "lon"
         )
-        return out.load()
-
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async interface to :meth:`__call__`."""
-        return self(time, variable)
+        return await asyncio.to_thread(out.load)
 
 
 @check_optional_dependencies()
 class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
-    """Brightband ECMWF IFS 15-day forecast data source on Earthmover Arraylake.
+    """Brightband ECMWF IFS  0.1 degree (10km) 15-day forecast data source on Earthmover
+    Arraylake.
 
     Parameters
     ----------
     repo : str, optional
-        Arraylake repository name as ``org/repo``. Uses
-        ``EARTHMOVER_BRIGHTBAND_IFS_FX_REPO`` when set, by default
-        ``"brightband/ecmwf-ifs-15-day-forecast-open"``.
-    group : str | list[str] | None, optional
-        Zarr group(s) within the repository. Uses
-        ``EARTHMOVER_BRIGHTBAND_IFS_FX_GROUP`` when set, by default None.
+        Arraylake repository name as ``org/repo``. When omitted, derives the
+        repo from ``EARTHMOVER_ORGANIZATION`` as
+        ``<org>/ecmwf-ifs-15-day-forecast-open-subscription``, by default None.
     branch : str, optional
         Repository branch to read, by default "main".
-    token_env_var : str, optional
-        Environment variable containing the Earthmover / Arraylake API token, by
-        default "EARTHMOVER_API_TOKEN".
-    client : arraylake.Client, optional
-        Pre-authenticated Arraylake client. Takes precedence over
-        ``token_env_var``, by default None.
+    client : arraylake.AsyncClient, optional
+        Pre-authenticated Arraylake async client. When omitted, this data source
+        uses the API token stored in ``EARTHMOVER_API_TOKEN``, by default None.
     cache : bool, optional
         Retained for API compatibility; Arraylake reads lazily via Icechunk, by
         default True.
     verbose : bool, optional
         Print progress, by default True.
-    allow_cached_login : bool, optional
-        Allow ``arraylake.Client()`` to use cached interactive credentials when no
-        token env var is set, by default False.
 
     Warning
     -------
@@ -701,9 +675,12 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
 
     Note
     ----
-    This data source resolves variables using
-    :class:`earth2studio.lexicon.earthmover.EarthMoverIFSLexicon`, which matches
-    the ECMWF open-data IFS lexicon.
+    Set ``EARTHMOVER_API_TOKEN`` to an Earthmover / Arraylake API token before
+    using this data source, unless passing a pre-authenticated ``client``.
+    This Marketplace dataset must be opened through the ``org/repo`` name
+    created by your Earthmover subscription; pass it with ``repo``. When
+    ``repo`` is omitted, the repo defaults
+    to ``<EARTHMOVER_ORGANIZATION>/ecmwf-ifs-15-day-forecast-open-subscription``.
 
     Additional information on the data repository can be referenced here:
 
@@ -715,45 +692,73 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
     """
 
     MARKETPLACE_URL = "https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04"
-    DEFAULT_REPO: str = "brightband/ecmwf-ifs-15-day-forecast-open"
-    DEFAULT_GROUP: str | list[str] | None = None
     DEFAULT_BRANCH = "main"
-    TOKEN_ENV_VAR = "EARTHMOVER_API_TOKEN"  # noqa: S105
-    REPO_ENV_VAR = "EARTHMOVER_BRIGHTBAND_IFS_FX_REPO"
-    GROUP_ENV_VAR = "EARTHMOVER_BRIGHTBAND_IFS_FX_GROUP"
-    VARIABLES = tuple(EarthMoverIFSLexicon.VOCAB)
+    ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
+    LEGACY_ORG_ENV_VAR = "EARTHMOVER_ORGINIZATION"
+    SUBSCRIPTION_REPO_NAME = "ecmwf-ifs-15-day-forecast-open-subscription"
+    DATASET_VARIABLES = (
+        "100u",
+        "100v",
+        "10u",
+        "10v",
+        "2d",
+        "2t",
+        "cp",
+        "fdir",
+        "hcc",
+        "lcc",
+        "mcc",
+        "msl",
+        "sd",
+        "ssrd",
+        "tp",
+    )
+    VARIABLES = (
+        "u100m",
+        "v100m",
+        "u10m",
+        "v10m",
+        "d2m",
+        "t2m",
+        "cp",
+        "fdir",
+        "hcc",
+        "lcc",
+        "mcc",
+        "msl",
+        "sd",
+        "ssrd",
+        "tp",
+    )
 
     def __init__(
         self,
         repo: str | None = None,
-        group: str | list[str] | None = None,
-        *,
         branch: str = DEFAULT_BRANCH,
-        token_env_var: str = TOKEN_ENV_VAR,
-        client: "arraylake.Client | None" = None,
+        client: "arraylake.AsyncClient | None" = None,
         cache: bool = True,
         verbose: bool = True,
-        allow_cached_login: bool = False,
     ) -> None:
         repo_name = repo
         if repo_name is None:
-            repo_name = os.environ.get(self.REPO_ENV_VAR)
+            org_name = os.environ.get(self.ORG_ENV_VAR) or os.environ.get(
+                self.LEGACY_ORG_ENV_VAR
+            )
+            if org_name:
+                repo_name = f"{org_name}/{self.SUBSCRIPTION_REPO_NAME}"
         if repo_name is None:
-            repo_name = self.DEFAULT_REPO
-        group_value = group
-        if group_value is None:
-            group_value = self._group_from_env(
-                os.environ.get(self.GROUP_ENV_VAR), self.DEFAULT_GROUP
+            raise ValueError(
+                f"Pass repo='org/repo' or set {self.ORG_ENV_VAR} to derive "
+                f"'<org>/{self.SUBSCRIPTION_REPO_NAME}'. Listing: "
+                f"{self.MARKETPLACE_URL}"
             )
         super().__init__(
             repo_name,
-            group=group_value,
+            group=None,
             branch=branch,
             client=client,
             cache=cache,
             verbose=verbose,
-            token_env_var=token_env_var,
-            allow_cached_login=allow_cached_login,
             marketplace_url=self.MARKETPLACE_URL,
         )
 
@@ -779,11 +784,35 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
         xr.DataArray
             Data array with dimensions ``[time, lead_time, variable, lat, lon]``.
         """
+        return _sync_async(self.fetch, time, lead_time, variable)
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve IFS forecast data asynchronously.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Forecast initialization timestamps (UTC).
+        lead_time : timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times.
+        variable : str | list[str] | VariableArray
+            Earth2Studio variable id(s).
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, lead_time, variable, lat, lon]``.
+        """
         time_list, lead_list, variable_list = prep_forecast_inputs(
             time, lead_time, variable
         )
-        self._connect()
-        self._validate_times(time_list)
+        await self._connect()
+        await self._validate_times(time_list)
 
         time_sel = np.array(time_list, dtype="datetime64[ns]")
         lead_sel = np.array(lead_list, dtype="timedelta64[ns]")
@@ -811,13 +840,4 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
         out = out.assign_coords(variable=variable_list).transpose(
             "time", "lead_time", "variable", "lat", "lon"
         )
-        return out.load()
-
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        lead_time: timedelta | list[timedelta] | LeadTimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async interface to :meth:`__call__`."""
-        return self(time, lead_time, variable)
+        return await asyncio.to_thread(out.load)
