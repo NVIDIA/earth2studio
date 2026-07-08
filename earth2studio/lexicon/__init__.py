@@ -16,12 +16,12 @@
 
 from .ace import ACELexicon
 from .arco import ARCOLexicon
-from .arraylake import ArraylakeLexicon
 from .cams import CAMSGlobalLexicon
 from .cbottle import CBottleLexicon
 from .cds import CDSLexicon
 from .cfs import CFSFluxLexicon, CFSLexicon
 from .cmip6 import CMIP6Lexicon
+from .earthmover import EarthMoverIFSLexicon
 from .ecmwf import AIFSLexicon, IFSLexicon
 from .gdas import GDASObsConvLexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel

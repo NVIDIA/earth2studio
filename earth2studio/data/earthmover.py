@@ -14,19 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Earthmover Arraylake / Marketplace data sources for Earth2Studio.
+"""Earthmover data sources for Earth2Studio.
 
-``Arraylake`` (analysis) and ``ArraylakeForecast`` (forecast) connect Earth2Studio
-to versioned Zarr/Icechunk datasets hosted on `Arraylake
-<https://docs.earthmover.io>`_, including datasets obtained through the `Earthmover
-Data Marketplace <https://www.earthmover.io/marketplace>`_.
-
-Rather than hard-coding the variable names of any particular dataset, the connector
-locates Earth2Studio variables inside a repository using *established metadata
-conventions* (ECMWF ``GRIB_paramId`` / ``GRIB_shortName`` and CF ``standard_name`` /
-``units`` / vertical-level coordinates). See
-:mod:`earth2studio.lexicon.arraylake` for the standard crosswalk and resolution
-priority.
+This module contains Earthmover Marketplace data sources that read Arraylake
+repositories. Dataset-specific classes share the same repository access and IFS
+metadata-resolution logic.
 """
 
 from __future__ import annotations
@@ -45,7 +37,11 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
 )
-from earth2studio.lexicon.arraylake import ArraylakeLexicon, VariableSpec, make_modifier
+from earth2studio.lexicon.earthmover import (
+    EarthMoverIFSLexicon,
+    VariableSpec,
+    make_modifier,
+)
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -77,6 +73,7 @@ _VERTICAL_NAMES = (
     "plev",
     "lev",
 )
+_SOIL_NAMES = ("soil_level", "soilLayer", "soil_layer", "depthBelowLandLayer")
 
 
 @dataclass
@@ -91,11 +88,11 @@ class _Resolved:
     rule: str  # which metadata rule matched (for diagnostics)
 
 
-class _ArraylakeBase:
-    """Shared connection, indexing and metadata-resolution logic.
+class _EarthMoverBase:
+    """Shared Earthmover Arraylake connection and resolution logic.
 
-    Concrete sources (:class:`Arraylake`, :class:`ArraylakeForecast`) add the
-    ``__call__`` / ``fetch`` methods with the appropriate Earth2Studio signature.
+    Dataset-specific child classes define the Earth2Studio ``__call__`` and
+    ``fetch`` signatures.
     """
 
     def __init__(
@@ -107,6 +104,9 @@ class _ArraylakeBase:
         client: "arraylake.Client | None" = None,
         cache: bool = True,
         verbose: bool = True,
+        token_env_var: str | None = None,
+        allow_cached_login: bool = False,
+        marketplace_url: str | None = None,
     ) -> None:
         self._repo_name = repo
         if group is None or isinstance(group, str):
@@ -117,31 +117,56 @@ class _ArraylakeBase:
         self._client = client
         self._cache = cache
         self._verbose = verbose
+        self._token_env_var = token_env_var or "EARTHMOVER_API_TOKEN"
+        self._allow_cached_login = allow_cached_login
+        self._marketplace_url = marketplace_url
 
         # Populated lazily on first connect.
         self._datasets: list[xr.Dataset] | None = None
         # repo variable name -> (dataset, variable metadata)
         self._index: dict[str, list[tuple[xr.Dataset, xr.DataArray]]] = {}
 
+    @staticmethod
+    def _group_from_env(
+        raw_group: str | None, default: str | list[str] | None
+    ) -> str | list[str] | None:
+        """Parse a comma-separated group env var, falling back to ``default``."""
+        if raw_group is None or raw_group == "":
+            return default
+        groups = [g.strip() for g in raw_group.split(",") if g.strip()]
+        if len(groups) == 0:
+            return default
+        if len(groups) == 1:
+            return groups[0]
+        return groups
+
     # ------------------------------------------------------------------
     # Connection
     # ------------------------------------------------------------------
     def _make_client(self) -> "arraylake.Client":
-        """Create an Arraylake client, honoring explicit > token > cached login.
+        """Create an Arraylake client from an injected client or env token.
 
         Returns
         -------
         arraylake.Client
-            Authenticated client. Uses an injected ``client``, else the
-            ``ARRAYLAKE_TOKEN`` environment variable, else the interactive /
-            cached login at ``~/.config/arraylake``.
+            Authenticated client. Uses an injected ``client`` first, then the API
+            token stored in ``self._token_env_var``. Cached interactive login is
+            available only when explicitly enabled.
         """
         if self._client is not None:
             return self._client
-        token = os.environ.get("ARRAYLAKE_TOKEN")
+        token = os.environ.get(self._token_env_var)
         if token:
             return arraylake.Client(token=token)
-        return arraylake.Client()
+        if self._allow_cached_login:
+            return arraylake.Client()
+        marketplace = (
+            f" Subscribe on {self._marketplace_url}." if self._marketplace_url else ""
+        )
+        raise ValueError(
+            f"Set {self._token_env_var} with an Earthmover / Arraylake API token "
+            f"before accessing repo '{self._repo_name}'.{marketplace}"
+        )
 
     def _connect(self) -> None:
         """Open the repository's group(s) and build the resolution index."""
@@ -180,7 +205,7 @@ class _ArraylakeBase:
                 "Earthmover Marketplace dataset, you must first create a "
                 "subscription on the dataset's listing page "
                 "(https://www.earthmover.io/marketplace), then ensure you are "
-                "authenticated (run `al auth login` or set ARRAYLAKE_TOKEN)."
+                "authenticated by setting the configured API-token environment variable."
             ) from err
         if any(k in msg for k in ("404", "not found", "does not exist")):
             raise ValueError(
@@ -213,7 +238,7 @@ class _ArraylakeBase:
 
     @classmethod
     def _vertical_coord(cls, da: xr.DataArray) -> str | None:
-        """Return the name of a vertical (pressure) coordinate on ``da``, if any.
+        """Return the pressure coordinate on ``da``, if any.
 
         Detected via CF ``axis='Z'`` / ``standard_name='air_pressure'`` first,
         falling back to common coordinate names.
@@ -227,6 +252,15 @@ class _ArraylakeBase:
                 return str(coord)
         return None
 
+    @classmethod
+    def _soil_coord(cls, da: xr.DataArray) -> str | None:
+        """Return the soil-level coordinate on ``da``, if any."""
+        for coord in da.coords:
+            name = str(coord)
+            if name in _SOIL_NAMES or name.lower() in _SOIL_NAMES:
+                return name
+        return None
+
     # ------------------------------------------------------------------
     # Resolution
     # ------------------------------------------------------------------
@@ -238,14 +272,19 @@ class _ArraylakeBase:
         """
         attrs = da.attrs
         param_id = attrs.get("GRIB_paramId")
-        if param_id is not None and int(param_id) == spec.param_id:
-            return "paramId"
-        short = {
+        if param_id is not None and spec.param_id is not None:
+            try:
+                if int(param_id) == spec.param_id:
+                    return "paramId"
+            except (TypeError, ValueError):
+                pass
+        source_names = {
             str(attrs.get("GRIB_shortName", "")),
             str(attrs.get("GRIB_cfVarName", "")),
             str(da.name),
         }
-        if spec.short_name in short:
+        target_names = {spec.short_name, *spec.aliases}
+        if source_names & target_names:
             return "shortName"
         sn = attrs.get("standard_name", "")
         if spec.standard_name and sn == spec.standard_name:
@@ -269,16 +308,17 @@ class _ArraylakeBase:
         ------
         ValueError
             If ``variable`` is unknown to Earth2Studio, or no repository variable
-            satisfies its metadata descriptor.
+        satisfies its metadata descriptor.
         """
         try:
-            spec = ArraylakeLexicon.spec(variable)
+            spec = EarthMoverIFSLexicon.spec(variable)
         except KeyError:
             raise ValueError(
                 f"'{variable}' is not a known Earth2Studio variable id."
             ) from None
 
-        want_level = spec.level_type == "isobaric"
+        want_pressure_level = spec.level_type == "isobaric"
+        want_soil_level = spec.level_type == "soil" and spec.level is not None
         # Collect candidates by rule priority across all groups.
         ranked: list[tuple[int, _Resolved]] = []
         rule_order = {"paramId": 0, "shortName": 1, "standardName": 2}
@@ -287,20 +327,28 @@ class _ArraylakeBase:
             if rule is None:
                 continue
             vcoord = self._vertical_coord(da)
-            if want_level and vcoord is None:
+            scoord = self._soil_coord(da)
+            if want_pressure_level and vcoord is None:
                 continue
-            if not want_level and vcoord is not None and ds[vcoord].size > 1:
+            if not want_pressure_level and vcoord is not None and ds[vcoord].size > 1:
                 # A multi-level field cannot satisfy a surface request.
                 continue
 
             level_selection: dict[str, float] = {}
-            if want_level:
+            if want_pressure_level:
                 if vcoord is None or spec.level is None:
                     continue
                 sel = self._level_value(ds[vcoord], spec.level)
                 if sel is None:
                     continue
                 level_selection[vcoord] = sel
+            elif want_soil_level and scoord is not None:
+                if spec.level is None:
+                    continue
+                sel = self._level_value(ds[scoord], spec.level)
+                if sel is None:
+                    continue
+                level_selection[scoord] = sel
 
             resolved = _Resolved(
                 spec=spec,
@@ -354,8 +402,10 @@ class _ArraylakeBase:
             preview += ", ..."
         return (
             f"Could not resolve Earth2Studio variable '{variable}' in repo "
-            f"'{self._repo_name}'. Searched by GRIB_paramId={spec.param_id}, "
-            f"GRIB_shortName/cfVarName/name='{spec.short_name}', and "
+            f"'{self._repo_name}'. Searched by "
+            f"GRIB_paramId={spec.param_id or '(unknown)'}, "
+            f"GRIB_shortName/cfVarName/name={sorted({spec.short_name, *spec.aliases})}, "
+            "and "
             f"standard_name='{spec.standard_name or '(none)'}'"
             + (
                 f" at pressure level {int(spec.level)} hPa"
@@ -428,7 +478,7 @@ class _ArraylakeBase:
     @property
     def cache(self) -> str:
         """Local cache location (Arraylake reads lazily via Icechunk)."""
-        cache_location = os.path.join(datasource_cache_root(), "arraylake")
+        cache_location = os.path.join(datasource_cache_root(), "earthmover")
         if not self._cache:
             cache_location = os.path.join(cache_location, "tmp")
         return cache_location
@@ -461,45 +511,44 @@ class _ArraylakeBase:
                 return True
         return False
 
+    def _validate_times(self, time_list: list[datetime]) -> None:
+        """Raise if any requested time is absent from the repository."""
+        missing = [t for t in time_list if not self.available(t)]
+        if missing:
+            raise ValueError(
+                f"Requested times not available in '{self._repo_name}': {missing}"
+            )
+
 
 @check_optional_dependencies()
-class Arraylake(_ArraylakeBase):
-    """Earthmover Arraylake analysis/reanalysis data source.
-
-    Wraps a versioned Zarr/Icechunk dataset hosted on Arraylake (including
-    Earthmover Data Marketplace datasets) as an Earth2Studio
-    :class:`~earth2studio.data.base.DataSource`. Earth2Studio variables are located
-    by metadata (ECMWF ``GRIB_paramId`` / ``GRIB_shortName`` and CF
-    ``standard_name``); no per-dataset variable vocabulary is hard-coded.
-
-    Marketplace workflow
-    --------------------
-    1. Create a subscription to the dataset on its listing page at
-       https://www.earthmover.io/marketplace.
-    2. Authenticate: run ``al auth login`` (interactive, cached at
-       ``~/.config/arraylake``) or set the ``ARRAYLAKE_TOKEN`` environment
-       variable.
-    3. Pass the ``org/repo`` name to this data source.
+class EarthMoverBrightBandIFS(_EarthMoverBase):
+    """Brightband ECMWF IFS initial-condition data source on Earthmover Arraylake.
 
     Parameters
     ----------
-    repo : str
-        Arraylake repository name as ``org/repo`` (e.g.
-        ``"vandelay-industries/era5"``).
+    repo : str, optional
+        Arraylake repository name as ``org/repo``. Uses
+        ``EARTHMOVER_BRIGHTBAND_IFS_REPO`` when set, by default
+        ``"brightband/ecmwf-ifs-initial-conditions-open"``.
     group : str | list[str] | None, optional
-        Zarr group(s) within the repository to open. Pass a list to expose
-        variables that live in different groups (e.g. surface and pressure-level
-        groups) from one instance. By default the root group.
+        Zarr group(s) within the repository. Uses
+        ``EARTHMOVER_BRIGHTBAND_IFS_GROUP`` when set, by default None.
     branch : str, optional
-        Repository branch to read, by default ``"main"``.
+        Repository branch to read, by default "main".
+    token_env_var : str, optional
+        Environment variable containing the Earthmover / Arraylake API token, by
+        default "EARTHMOVER_API_TOKEN".
     client : arraylake.Client, optional
-        Pre-authenticated Arraylake client. If omitted, a client is created using
-        ``ARRAYLAKE_TOKEN`` if set, else the cached interactive login.
+        Pre-authenticated Arraylake client. Takes precedence over
+        ``token_env_var``, by default None.
     cache : bool, optional
         Retained for API compatibility; Arraylake reads lazily via Icechunk, by
         default True.
     verbose : bool, optional
         Print progress, by default True.
+    allow_cached_login : bool, optional
+        Allow ``arraylake.Client()`` to use cached interactive credentials when no
+        token env var is set, by default False.
 
     Warning
     -------
@@ -508,23 +557,73 @@ class Arraylake(_ArraylakeBase):
 
     Note
     ----
-    Arraylake / Earthmover documentation:
+    This data source resolves variables using
+    :class:`earth2studio.lexicon.earthmover.EarthMoverIFSLexicon`, which matches
+    the ECMWF open-data IFS lexicon.
 
-    - https://docs.earthmover.io
-    - https://www.earthmover.io/marketplace
+    Additional information on the data repository can be referenced here:
+
+    - https://app.earthmover.io/marketplace/697162921880507a6587c31b
+
+    Badges
+    ------
+    region:global dataclass:analysis product:wind product:precip product:temp product:atmos
     """
+
+    MARKETPLACE_URL = "https://app.earthmover.io/marketplace/697162921880507a6587c31b"
+    DEFAULT_REPO: str = "brightband/ecmwf-ifs-initial-conditions-open"
+    DEFAULT_GROUP: str | list[str] | None = None
+    DEFAULT_BRANCH = "main"
+    TOKEN_ENV_VAR = "EARTHMOVER_API_TOKEN"  # noqa: S105
+    REPO_ENV_VAR = "EARTHMOVER_BRIGHTBAND_IFS_REPO"
+    GROUP_ENV_VAR = "EARTHMOVER_BRIGHTBAND_IFS_GROUP"
+    VARIABLES = tuple(EarthMoverIFSLexicon.VOCAB)
+
+    def __init__(
+        self,
+        repo: str | None = None,
+        group: str | list[str] | None = None,
+        *,
+        branch: str = DEFAULT_BRANCH,
+        token_env_var: str = TOKEN_ENV_VAR,
+        client: "arraylake.Client | None" = None,
+        cache: bool = True,
+        verbose: bool = True,
+        allow_cached_login: bool = False,
+    ) -> None:
+        repo_name = repo
+        if repo_name is None:
+            repo_name = os.environ.get(self.REPO_ENV_VAR)
+        if repo_name is None:
+            repo_name = self.DEFAULT_REPO
+        group_value = group
+        if group_value is None:
+            group_value = self._group_from_env(
+                os.environ.get(self.GROUP_ENV_VAR), self.DEFAULT_GROUP
+            )
+        super().__init__(
+            repo_name,
+            group=group_value,
+            branch=branch,
+            client=client,
+            cache=cache,
+            verbose=verbose,
+            token_env_var=token_env_var,
+            allow_cached_login=allow_cached_login,
+            marketplace_url=self.MARKETPLACE_URL,
+        )
 
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Retrieve analysis data for the given times and variables.
+        """Retrieve IFS analysis data for times and variables.
 
         Parameters
         ----------
         time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
+            Analysis timestamps (UTC).
         variable : str | list[str] | VariableArray
             Earth2Studio variable id(s).
 
@@ -538,6 +637,7 @@ class Arraylake(_ArraylakeBase):
         self._validate_times(time_list)
 
         time_sel = np.array(time_list, dtype="datetime64[ns]")
+
         arrays = []
         for v in variable_list:
             resolved = self._resolve(v)
@@ -560,43 +660,39 @@ class Arraylake(_ArraylakeBase):
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async interface to :meth:`__call__`.
-
-        Arraylake reads lazily through the Icechunk store, so this delegates to
-        the synchronous implementation.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        variable : str | list[str] | VariableArray
-            Earth2Studio variable id(s).
-
-        Returns
-        -------
-        xr.DataArray
-            Data array with dimensions ``[time, variable, lat, lon]``.
-        """
+        """Async interface to :meth:`__call__`."""
         return self(time, variable)
-
-    def _validate_times(self, time_list: list[datetime]) -> None:
-        """Raise if any requested time is absent from the repository."""
-        missing = [t for t in time_list if not self.available(t)]
-        if missing:
-            raise ValueError(
-                f"Requested times not available in '{self._repo_name}': {missing}"
-            )
 
 
 @check_optional_dependencies()
-class ArraylakeForecast(_ArraylakeBase):
-    """Earthmover Arraylake forecast data source.
+class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
+    """Brightband ECMWF IFS 15-day forecast data source on Earthmover Arraylake.
 
-    Like :class:`Arraylake` but for forecast datasets that carry a lead-time (step)
-    axis, exposed as an Earth2Studio
-    :class:`~earth2studio.data.base.ForecastSource`. Variable resolution is
-    identical (metadata-driven); see :class:`Arraylake` for the Marketplace
-    subscription workflow and constructor parameters.
+    Parameters
+    ----------
+    repo : str, optional
+        Arraylake repository name as ``org/repo``. Uses
+        ``EARTHMOVER_BRIGHTBAND_IFS_FX_REPO`` when set, by default
+        ``"brightband/ecmwf-ifs-15-day-forecast-open"``.
+    group : str | list[str] | None, optional
+        Zarr group(s) within the repository. Uses
+        ``EARTHMOVER_BRIGHTBAND_IFS_FX_GROUP`` when set, by default None.
+    branch : str, optional
+        Repository branch to read, by default "main".
+    token_env_var : str, optional
+        Environment variable containing the Earthmover / Arraylake API token, by
+        default "EARTHMOVER_API_TOKEN".
+    client : arraylake.Client, optional
+        Pre-authenticated Arraylake client. Takes precedence over
+        ``token_env_var``, by default None.
+    cache : bool, optional
+        Retained for API compatibility; Arraylake reads lazily via Icechunk, by
+        default True.
+    verbose : bool, optional
+        Print progress, by default True.
+    allow_cached_login : bool, optional
+        Allow ``arraylake.Client()`` to use cached interactive credentials when no
+        token env var is set, by default False.
 
     Warning
     -------
@@ -605,11 +701,61 @@ class ArraylakeForecast(_ArraylakeBase):
 
     Note
     ----
-    Arraylake / Earthmover documentation:
+    This data source resolves variables using
+    :class:`earth2studio.lexicon.earthmover.EarthMoverIFSLexicon`, which matches
+    the ECMWF open-data IFS lexicon.
 
-    - https://docs.earthmover.io
-    - https://www.earthmover.io/marketplace
+    Additional information on the data repository can be referenced here:
+
+    - https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04
+
+    Badges
+    ------
+    region:global dataclass:forecast product:wind product:precip product:temp product:atmos
     """
+
+    MARKETPLACE_URL = "https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04"
+    DEFAULT_REPO: str = "brightband/ecmwf-ifs-15-day-forecast-open"
+    DEFAULT_GROUP: str | list[str] | None = None
+    DEFAULT_BRANCH = "main"
+    TOKEN_ENV_VAR = "EARTHMOVER_API_TOKEN"  # noqa: S105
+    REPO_ENV_VAR = "EARTHMOVER_BRIGHTBAND_IFS_FX_REPO"
+    GROUP_ENV_VAR = "EARTHMOVER_BRIGHTBAND_IFS_FX_GROUP"
+    VARIABLES = tuple(EarthMoverIFSLexicon.VOCAB)
+
+    def __init__(
+        self,
+        repo: str | None = None,
+        group: str | list[str] | None = None,
+        *,
+        branch: str = DEFAULT_BRANCH,
+        token_env_var: str = TOKEN_ENV_VAR,
+        client: "arraylake.Client | None" = None,
+        cache: bool = True,
+        verbose: bool = True,
+        allow_cached_login: bool = False,
+    ) -> None:
+        repo_name = repo
+        if repo_name is None:
+            repo_name = os.environ.get(self.REPO_ENV_VAR)
+        if repo_name is None:
+            repo_name = self.DEFAULT_REPO
+        group_value = group
+        if group_value is None:
+            group_value = self._group_from_env(
+                os.environ.get(self.GROUP_ENV_VAR), self.DEFAULT_GROUP
+            )
+        super().__init__(
+            repo_name,
+            group=group_value,
+            branch=branch,
+            client=client,
+            cache=cache,
+            verbose=verbose,
+            token_env_var=token_env_var,
+            allow_cached_login=allow_cached_login,
+            marketplace_url=self.MARKETPLACE_URL,
+        )
 
     def __call__(
         self,
@@ -617,7 +763,7 @@ class ArraylakeForecast(_ArraylakeBase):
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Retrieve forecast data for given init times, lead times and variables.
+        """Retrieve IFS forecast data for init times, lead times and variables.
 
         Parameters
         ----------
@@ -637,6 +783,7 @@ class ArraylakeForecast(_ArraylakeBase):
             time, lead_time, variable
         )
         self._connect()
+        self._validate_times(time_list)
 
         time_sel = np.array(time_list, dtype="datetime64[ns]")
         lead_sel = np.array(lead_list, dtype="timedelta64[ns]")
@@ -647,8 +794,7 @@ class ArraylakeForecast(_ArraylakeBase):
             lead_coord = self._find_coord(resolved.dataset, _LEAD_NAMES)
             if lead_coord is None:
                 raise ValueError(
-                    f"Repo '{self._repo_name}' has no lead-time/step coordinate; "
-                    "use the Arraylake (analysis) data source instead."
+                    f"Repo '{self._repo_name}' has no lead-time/step coordinate."
                 )
             if self._verbose:
                 logger.debug(
@@ -673,23 +819,5 @@ class ArraylakeForecast(_ArraylakeBase):
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async interface to :meth:`__call__`.
-
-        Arraylake reads lazily through the Icechunk store, so this delegates to
-        the synchronous implementation.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Forecast initialization timestamps (UTC).
-        lead_time : timedelta | list[timedelta] | LeadTimeArray
-            Forecast lead times.
-        variable : str | list[str] | VariableArray
-            Earth2Studio variable id(s).
-
-        Returns
-        -------
-        xr.DataArray
-            Data array with dimensions ``[time, lead_time, variable, lat, lon]``.
-        """
+        """Async interface to :meth:`__call__`."""
         return self(time, lead_time, variable)

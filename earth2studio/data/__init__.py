@@ -16,7 +16,6 @@
 
 from .ace2 import ACE2ERA5Data
 from .arco import ARCO
-from .arraylake import Arraylake, ArraylakeForecast
 from .base import DataSource, ForecastSource
 from .cams import CAMS_FX
 from .cbottle import CBottle3D
@@ -25,6 +24,7 @@ from .cfs import CFS_FX, CFS_FX_Flux
 from .cfs_reforecast import CFS_Reforecast_FX, CFS_Reforecast_FX_Flux
 from .cmip6 import CMIP6, CMIP6MultiRealm
 from .const import Constant, Constant_FX
+from .earthmover import EarthMoverBrightBandIFS, EarthMoverBrightBandIFS_FX
 from .ecmwf import AIFS_ENS_FX, AIFS_FX, IFS, IFS_ENS, IFS_ENS_FX, IFS_FX
 from .gdas import NomadsGDASObsConv
 from .gefs import GEFS_FX, GEFS_FX_721x1440
