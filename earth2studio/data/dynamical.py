@@ -200,6 +200,8 @@ class _DynamicalBase:
             )
         storage_options = asset.get("xarray:storage_options", {})
         region = storage_options.get("client_kwargs", {}).get("region_name")
+        # region may be None if the STAC asset does not advertise it; icechunk
+        # will attempt to auto-detect the AWS region in that case.
         storage = icechunk.s3_storage(
             bucket=parsed.netloc,
             prefix=parsed.path.lstrip("/"),
@@ -365,7 +367,10 @@ class _DynamicalBase:
                 tzinfo=None
             )
 
-        return _parse(extent[0]), _parse(extent[1])
+        return (
+            _parse(extent[0] if len(extent) > 0 else None),
+            _parse(extent[1] if len(extent) > 1 else None),
+        )
 
     def _validate_time(self, times: list[datetime], dimension: str) -> None:
         """Validate requested times against the collection's temporal extent.
