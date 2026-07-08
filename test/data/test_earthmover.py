@@ -259,7 +259,7 @@ def patch_earthmover(monkeypatch):
                 return _FakeRepo(datasets)
 
         client_cls_ = client_cls or _FakeAsyncClient
-        monkeypatch.setenv("EARTHMOVER_API_TOKEN", "test-token")
+        monkeypatch.setenv("EARTHMOVER_API_KEY", "test-key")
         monkeypatch.delitem(
             OptionalDependencyFailure.failures, earthmover.__file__, raising=False
         )
@@ -470,40 +470,40 @@ class TestEarthMoverErrors:
                 raise RuntimeError("403 Forbidden: access denied")
 
         patch_earthmover([era5_surface()], client_cls=_DeniedClient)
-        monkeypatch.setenv("EARTHMOVER_API_TOKEN", "test-token")
+        monkeypatch.setenv("EARTHMOVER_API_KEY", "test-key")
         ds = EarthMoverBrightBandIFS("vandelay-industries/era5")
 
         with pytest.raises(PermissionError, match="subscription"):
             ds(datetime(2022, 1, 1), "t2m")
 
-    def test_env_token_used(self, patch_earthmover):
+    def test_env_api_key_used(self, patch_earthmover):
         seen = {}
 
-        class _TokenClient:
+        class _APIKeyClient:
             def __init__(self, token=None):
-                seen["token"] = token
+                seen["api_key"] = token
 
-        patch_earthmover([era5_surface()], client_cls=_TokenClient)
+        patch_earthmover([era5_surface()], client_cls=_APIKeyClient)
         ds = EarthMoverBrightBandIFS("vandelay-industries/era5")
 
         ds._make_client()
 
-        assert seen["token"] == os.environ["EARTHMOVER_API_TOKEN"]
+        assert seen["api_key"] == os.environ["EARTHMOVER_API_KEY"]
 
     def test_auth_precedence(self, monkeypatch, patch_earthmover):
         earthmover = patch_earthmover([era5_surface()])
         sentinel = earthmover.arraylake.AsyncClient()
-        monkeypatch.delenv("EARTHMOVER_API_TOKEN", raising=False)
+        monkeypatch.delenv("EARTHMOVER_API_KEY", raising=False)
         ds = EarthMoverBrightBandIFS("vandelay-industries/era5", client=sentinel)
 
         assert ds._make_client() is sentinel
 
-    def test_missing_token_requires_env(self, monkeypatch, patch_earthmover):
+    def test_missing_api_key_requires_env(self, monkeypatch, patch_earthmover):
         patch_earthmover([era5_surface()])
-        monkeypatch.delenv("EARTHMOVER_API_TOKEN", raising=False)
+        monkeypatch.delenv("EARTHMOVER_API_KEY", raising=False)
         ds = EarthMoverBrightBandIFS("vandelay-industries/era5")
 
-        with pytest.raises(ValueError, match="EARTHMOVER_API_TOKEN"):
+        with pytest.raises(ValueError, match="EARTHMOVER_API_KEY"):
             ds._make_client()
 
     def test_missing_repo_requires_config(self, monkeypatch, patch_earthmover):

@@ -69,7 +69,7 @@ _VERTICAL_NAMES = (
     "lev",
 )
 _SOIL_NAMES = ("soil_level", "soilLayer", "soil_layer", "depthBelowLandLayer")
-_TOKEN_ENV_VAR = "EARTHMOVER_API_TOKEN"  # noqa: S105
+_API_KEY_ENV_VAR = "EARTHMOVER_API_KEY"  # noqa: S105
 
 
 @dataclass
@@ -117,24 +117,24 @@ class _EarthMoverBase:
     # Connection
     # ------------------------------------------------------------------
     def _make_client(self) -> arraylake.AsyncClient:
-        """Create an Arraylake client from an injected client or env token.
+        """Create an Arraylake client from an injected client or env API key.
 
         Returns
         -------
         arraylake.AsyncClient
             Authenticated client. Uses an injected ``client`` first, then the
-            API token stored in ``EARTHMOVER_API_TOKEN``.
+            API key stored in ``EARTHMOVER_API_KEY``.
         """
         if self._client is not None:
             return self._client
-        token = os.environ.get(_TOKEN_ENV_VAR)
-        if token:
-            return arraylake.AsyncClient(token=token)
+        api_key = os.environ.get(_API_KEY_ENV_VAR)
+        if api_key:
+            return arraylake.AsyncClient(token=api_key)
         marketplace = (
             f" Subscribe on {self._marketplace_url}." if self._marketplace_url else ""
         )
         raise ValueError(
-            f"Set {_TOKEN_ENV_VAR} with an Earthmover / Arraylake API token "
+            f"Set {_API_KEY_ENV_VAR} with an Earthmover / Arraylake API key "
             f"before accessing repo '{self._repo_name}'.{marketplace}"
         )
 
@@ -180,7 +180,7 @@ class _EarthMoverBase:
                 "Earthmover Marketplace dataset, you must first create a "
                 "subscription on the dataset's listing page "
                 "(https://www.earthmover.io/marketplace), then ensure you are "
-                f"authenticated by setting {_TOKEN_ENV_VAR}."
+                f"authenticated by setting {_API_KEY_ENV_VAR}."
             ) from err
         if any(k in msg for k in ("404", "not found", "does not exist")):
             raise ValueError(
@@ -514,7 +514,7 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
         Repository branch to read, by default "main".
     client : arraylake.AsyncClient, optional
         Pre-authenticated Arraylake async client. When omitted, this data source
-        uses the API token stored in ``EARTHMOVER_API_TOKEN``, by default None.
+        uses the API key stored in ``EARTHMOVER_API_KEY``, by default None.
     cache : bool, optional
         Retained for API compatibility; Arraylake reads lazily via Icechunk, by
         default True.
@@ -528,7 +528,7 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
 
     Note
     ----
-    Set ``EARTHMOVER_API_TOKEN`` to an Earthmover / Arraylake API token before
+    Set ``EARTHMOVER_API_KEY`` to an Earthmover / Arraylake API key before
     using this data source, unless passing a pre-authenticated ``client``.
     This Marketplace dataset must be opened through the ``org/repo`` name
     created by your Earthmover subscription; pass it with ``repo``. When
@@ -658,7 +658,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
         Repository branch to read, by default "main".
     client : arraylake.AsyncClient, optional
         Pre-authenticated Arraylake async client. When omitted, this data source
-        uses the API token stored in ``EARTHMOVER_API_TOKEN``, by default None.
+        uses the API key stored in ``EARTHMOVER_API_KEY``, by default None.
     cache : bool, optional
         Retained for API compatibility; Arraylake reads lazily via Icechunk, by
         default True.
@@ -672,7 +672,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
 
     Note
     ----
-    Set ``EARTHMOVER_API_TOKEN`` to an Earthmover / Arraylake API token before
+    Set ``EARTHMOVER_API_KEY`` to an Earthmover / Arraylake API key before
     using this data source, unless passing a pre-authenticated ``client``.
     This Marketplace dataset must be opened through the ``org/repo`` name
     created by your Earthmover subscription; pass it with ``repo``. When
