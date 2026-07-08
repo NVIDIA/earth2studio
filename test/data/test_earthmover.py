@@ -509,7 +509,6 @@ class TestEarthMoverErrors:
     def test_missing_repo_requires_config(self, monkeypatch, patch_earthmover):
         patch_earthmover([era5_surface()])
         monkeypatch.delenv("EARTHMOVER_ORGANIZATION", raising=False)
-        monkeypatch.delenv("EARTHMOVER_ORGINIZATION", raising=False)
 
         with pytest.raises(ValueError, match="EARTHMOVER_ORGANIZATION"):
             EarthMoverBrightBandIFS()

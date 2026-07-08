@@ -547,7 +547,6 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
     MARKETPLACE_URL = "https://app.earthmover.io/marketplace/697162921880507a6587c31b"
     DEFAULT_BRANCH = "main"
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
-    LEGACY_ORG_ENV_VAR = "EARTHMOVER_ORGINIZATION"
     SUBSCRIPTION_REPO_NAME = "ecmwf-ifs-initial-conditions-open-subscription"
     VARIABLES = tuple(EarthMoverIFSLexicon.VOCAB)
 
@@ -561,9 +560,7 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
     ) -> None:
         repo_name = repo
         if repo_name is None:
-            org_name = os.environ.get(self.ORG_ENV_VAR) or os.environ.get(
-                self.LEGACY_ORG_ENV_VAR
-            )
+            org_name = os.environ.get(self.ORG_ENV_VAR)
             if org_name:
                 repo_name = f"{org_name}/{self.SUBSCRIPTION_REPO_NAME}"
         if repo_name is None:
@@ -694,7 +691,6 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
     MARKETPLACE_URL = "https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04"
     DEFAULT_BRANCH = "main"
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
-    LEGACY_ORG_ENV_VAR = "EARTHMOVER_ORGINIZATION"
     SUBSCRIPTION_REPO_NAME = "ecmwf-ifs-15-day-forecast-open-subscription"
     DATASET_VARIABLES = (
         "100u",
@@ -741,9 +737,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
     ) -> None:
         repo_name = repo
         if repo_name is None:
-            org_name = os.environ.get(self.ORG_ENV_VAR) or os.environ.get(
-                self.LEGACY_ORG_ENV_VAR
-            )
+            org_name = os.environ.get(self.ORG_ENV_VAR)
             if org_name:
                 repo_name = f"{org_name}/{self.SUBSCRIPTION_REPO_NAME}"
         if repo_name is None:
