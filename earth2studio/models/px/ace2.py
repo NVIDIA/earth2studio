@@ -111,10 +111,10 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ACE2 (Ai2 Climate Emulator v2) is a 450M-parameter autoregressive emulator
     with 6-hour time steps, 1-degree horizontal resolution, and eight vertical
     layers that exactly conserves global dry air mass and moisture and can be
-    stepped stably for arbitrarily many steps at about 1500 simulated years
-    per wall-clock day. ACE2-ERA5 was trained on the ERA5 dataset and requires
-    forcing data during rollout (see `forcing_data_source` parameter). This
-    wrapper makes use of the ``fme`` package to run model forward passes.
+    stepped stably for arbitrarily many steps. ACE2-ERA5 was trained on the ERA5
+    dataset and requires forcing data during rollout (see `forcing_data_source`
+    parameter). This wrapper makes use of the ``fme`` package to run model forward
+    passes.
 
     Parameters
     ----------
@@ -128,8 +128,18 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     References
     ----------
+
     - ACE2-ERA5 paper: https://arxiv.org/abs/2411.11268v1
     - ACE2 code: https://github.com/ai2cm/ace
+
+    Notes
+    -----
+    For throughput-sensitive GPU inference, enabling TensorFloat-32 matmul kernels
+    before running ACE2 can improve performance on supported NVIDIA GPUs:
+
+        torch.set_float32_matmul_precision("high")
+
+    This setting trades some float32 matmul precision for faster matrix operations.
 
     Warning
     -------
