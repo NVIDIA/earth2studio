@@ -16,7 +16,7 @@
 
 from collections.abc import Callable
 
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 
 from .base import LexiconType
 from .nnja import get_ncep_conventional_item

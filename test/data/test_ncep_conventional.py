@@ -64,6 +64,10 @@ def _gpsro_plan(lexicon: type, variable: str, descriptor: int) -> dict:
     return {variable: (descriptor, modifier)}
 
 
+def _modifiers(lexicon: type, *variables: str) -> dict:
+    return {variable: lexicon.get_item(variable)[1] for variable in variables}
+
+
 def test_same_local_prepbufr_bytes_are_adapter_exact(tmp_path, monkeypatch):
     local_path = tmp_path / "same.prepbufr.nr"
     local_path.write_bytes(b"same-local-prepbufr-bytes")
@@ -443,3 +447,128 @@ def test_extract_gpsro_subset_missing_level_lat_lon_does_not_reuse_stale_values(
     assert rows[0]["lat"] == pytest.approx(np.float32(-9.75))
     assert rows[0]["lon"] == pytest.approx(np.float32(290.5))
     assert rows[0]["observation"] == pytest.approx(np.float32(0.00123))
+
+
+def test_finalize_rows_filters_and_converts_pressure():
+    result = utils_ncep._finalize_rows(
+        [], _modifiers(NNJAObsConvLexicon, "t"), convert_pres_mb_to_pa=True
+    )
+    assert result.empty
+
+    # Rows whose variable is not requested are dropped.
+    rows = [
+        {
+            "time": datetime(2024, 1, 1, 0),
+            "lat": 40.0,
+            "lon": 250.0,
+            "pres": 850.0,
+            "elev": None,
+            "type": 120,
+            "class": "ADPUPA",
+            "station": "72469",
+            "station_elev": 1000.0,
+            "observation": 273.15,
+            "variable": "other_var",
+        }
+    ]
+    result = utils_ncep._finalize_rows(
+        rows, _modifiers(NNJAObsConvLexicon, "t"), convert_pres_mb_to_pa=True
+    )
+    assert result.empty
+
+    rows_match = [{**rows[0], "variable": "t"}]
+    result = utils_ncep._finalize_rows(
+        rows_match, _modifiers(NNJAObsConvLexicon, "t"), convert_pres_mb_to_pa=True
+    )
+    assert len(result) == 1
+    # 850 mb -> 85000 Pa
+    assert result["pres"].iloc[0] == pytest.approx(85000.0)
+
+    result_no_conv = utils_ncep._finalize_rows(
+        rows_match, _modifiers(NNJAObsConvLexicon, "t"), convert_pres_mb_to_pa=False
+    )
+    assert result_no_conv["pres"].iloc[0] == pytest.approx(850.0)
+
+
+def test_finalize_rows_gpsro_preserves_pressure_and_elevation_units():
+    rows = [
+        {
+            "time": datetime(2024, 1, 1, 0),
+            "lat": 40.0,
+            "lon": 250.0,
+            "pres": 25_000.0,
+            "elev": 2_000.0,
+            "type": 3,
+            "class": "GPSRO",
+            "station": "00030027",
+            "station_elev": None,
+            "quality": 12,
+            "observation": 0.00123,
+            "variable": "gps",
+        }
+    ]
+
+    result = utils_ncep._finalize_rows(
+        rows, _modifiers(NNJAObsConvLexicon, "gps"), convert_pres_mb_to_pa=False
+    )
+
+    assert list(result.columns) == list(utils_ncep.NCEP_CONVENTIONAL_PUBLIC_SCHEMA.names)
+    assert len(result) == 1
+    assert result["pres"].iloc[0] == pytest.approx(25_000.0)
+    assert result["elev"].iloc[0] == pytest.approx(2_000.0)
+    assert result["type"].iloc[0] == 3
+    assert result["quality"].iloc[0] == 12
+    assert result["observation"].iloc[0] == pytest.approx(0.00123)
+    assert result["variable"].iloc[0] == "gps"
+
+
+def test_finalize_rows_pres_filters_level_cat():
+    base_row = {
+        "time": datetime(2024, 1, 1, 0),
+        "lat": 40.0,
+        "lon": 250.0,
+        "pres": 850.0,
+        "elev": None,
+        "type": 120,
+        "class": "ADPUPA",
+        "station": "72469",
+        "station_elev": 1000.0,
+        "quality": 2,
+        "variable": "pres",
+    }
+    rows = [
+        {**base_row, "observation": 1000.0, "level_cat": 0},
+        {**base_row, "observation": 850.0, "level_cat": 1},
+    ]
+
+    result = utils_ncep._finalize_rows(
+        rows, _modifiers(NNJAObsConvLexicon, "pres"), convert_pres_mb_to_pa=True
+    )
+
+    assert len(result) == 1
+    assert result["observation"].iloc[0] == pytest.approx(100000.0)
+    assert result["pres"].iloc[0] == pytest.approx(85000.0)
+    assert result["level_cat"].iloc[0] == 0
+
+
+def test_finalize_rows_adds_missing_columns():
+    rows = [
+        {
+            "time": datetime(2024, 1, 1, 0),
+            "lat": 40.0,
+            "lon": 250.0,
+            "pres": 850.0,
+            "type": 120,
+            "class": "ADPUPA",
+            "observation": 273.15,
+            "variable": "t",
+        }
+    ]
+    result = utils_ncep._finalize_rows(
+        rows, _modifiers(NNJAObsConvLexicon, "t"), convert_pres_mb_to_pa=True
+    )
+
+    assert list(result.columns) == list(utils_ncep.NCEP_CONVENTIONAL_PUBLIC_SCHEMA.names)
+    assert pd.isna(result["elev"].iloc[0])
+    assert result["station"].iloc[0] is None
+    assert pd.isna(result["station_elev"].iloc[0])

@@ -28,13 +28,13 @@ import pathlib
 import shutil
 import time
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
 import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 import pyarrow as pa
 import s3fs  # type: ignore[import-untyped]
 from loguru import logger
@@ -51,7 +51,6 @@ from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
 from earth2studio.data.utils_ncep import (
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     _empty_dataframe,
-    _finalize_rows,
     _NCEPGpsroAdapter,
     _NCEPPrepbufrAdapter,
     map_aircraft_profile_types,
@@ -639,22 +638,6 @@ class NNJAObsConv(_NNJAObsBase):
     # Back-compat alias used by tests that targeted the v1 method name.
     def _build_uri(self, cycle: datetime) -> str:
         return self._build_prepbufr_uri(cycle)
-
-    def _finalize_decoded_df(
-        self,
-        all_rows: list[dict[str, Any]],
-        variables: Sequence[str],
-        *,
-        convert_pres_mb_to_pa: bool,
-    ) -> pd.DataFrame:
-        """Apply the shared NCEP finalization contract."""
-        modifiers = {v: NNJAObsConvLexicon[v][1] for v in variables}
-        return _finalize_rows(
-            all_rows,
-            modifiers,
-            convert_pres_mb_to_pa=convert_pres_mb_to_pa,
-            schema=self.SCHEMA,
-        )
 
     def _handle_missing_file(self, path: str) -> None:
         """Warn instead of raising on missing NNJA cycle files.
