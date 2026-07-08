@@ -517,17 +517,6 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     f"ACE2 forcing time {valid_time} is not on model step {self._dt}."
                 )
             time_index = int(delta_ns // step_ns)
-            if time_index < 0 or time_index >= len(forcing_coords["time"]):
-                raise ValueError(
-                    f"ACE2 forcing time {valid_time} is outside cached year {year}."
-                )
-            if (
-                forcing_coords["time"][time_index].astype("datetime64[ns]")
-                != valid_time
-            ):
-                raise ValueError(
-                    f"ACE2 forcing time {valid_time} was not found in cached year {year}."
-                )
 
             out_coords = forcing_coords.copy()
             out_coords["time"] = np.array([valid_time], dtype="datetime64[ns]")
