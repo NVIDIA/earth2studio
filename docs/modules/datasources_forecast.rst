@@ -30,6 +30,11 @@ Typically used in intercomparison workflows.
       data.CFS_Reforecast_FX
       data.CFS_Reforecast_FX_Flux
       data.DynamicalForecast
+      data.DynamicalGFSForecast
+      data.DynamicalGEFSForecast
+      data.DynamicalIFSENSForecast
+      data.DynamicalAIFSForecast
+      data.DynamicalAIFSENSForecast
       data.GFS_FX
       data.GEFS_FX
       data.GEFS_FX_721x1440

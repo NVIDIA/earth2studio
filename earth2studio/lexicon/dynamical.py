@@ -37,7 +37,7 @@ class DynamicalLexicon(metaclass=LexiconType):
     so pressure-level fields map to dedicated ``*_<level>hpa`` names.
 
     Unit conversions are intentionally NOT handled here. The
-    :class:`earth2studio.data.Dynamical` data source reads each collection's
+    :class:`earth2studio.data.DynamicalAnalysis` data source reads each collection's
     STAC ``cube:variables`` ``unit`` field and converts to the Earth2Studio
     convention at fetch time. Variable names absent from this lexicon may still
     be requested by their native dynamical.org name as a pass-through.

@@ -79,6 +79,7 @@ def _fetch_json(url: str) -> dict[str, Any]:
         return json.loads(response.read())
 
 
+@check_optional_dependencies()
 class _DynamicalBase:
     """Shared infrastructure for dynamical.org STAC data sources.
 
@@ -245,6 +246,11 @@ class _DynamicalBase:
         lat = np.asarray(ds["latitude"].values)
         lon = np.asarray(ds["longitude"].values)
         self._lat_idx = np.argsort(-lat, kind="stable")
+        # TODO(regional): the unconditional 0-360 wrap tears a meridian-crossing
+        # regional domain (e.g. DWD ICON-EU, lon -23.5..62.5) into two spatially
+        # discontiguous halves. Only global collections are supported today; when
+        # adding regional ones, make this wrap conditional on global coverage and
+        # keep the native contiguous order otherwise.
         lon_mod = lon % 360
         self._lon_idx = np.argsort(lon_mod, kind="stable")
         self._lat = lat[self._lat_idx]
@@ -364,6 +370,12 @@ class _DynamicalBase:
     def _validate_time(self, times: list[datetime], dimension: str) -> None:
         """Validate requested times against the collection's temporal extent.
 
+        dynamical.org collections advertise an open-ended STAC extent (they are
+        continuously updated), so the upper bound is taken from the last
+        coordinate actually present in the opened store rather than the (absent)
+        STAC end. This keeps :meth:`available` honest and turns out-of-range
+        requests into a clear error instead of an opaque xarray ``KeyError``.
+
         Parameters
         ----------
         times : list[datetime]
@@ -372,6 +384,8 @@ class _DynamicalBase:
             Name of the temporal STAC dimension (``time`` or ``init_time``).
         """
         start, end = self._time_extent(dimension)
+        if end is None and self._ds is not None and dimension in self._ds.coords:
+            end = self._ds[dimension].values.max().astype("datetime64[us]").item()
         for time in times:
             if start is not None and time < start:
                 raise ValueError(
@@ -419,14 +433,17 @@ class _DynamicalBase:
         return True
 
 
-@check_optional_dependencies()
-class Dynamical(_DynamicalBase):
+class DynamicalAnalysis(_DynamicalBase):
     """dynamical.org analysis data source backed by a STAC-described Icechunk store.
 
     Connects to a dynamical.org analysis collection (dimensions
     ``[time, latitude, longitude]``) selected by its STAC collection id, reading
     data directly from the public, anonymously accessible Icechunk repository
     advertised in the collection's STAC metadata.
+
+    For common collections prefer the concrete named subclasses (e.g.
+    :class:`DynamicalGFSAnalysis`), which fix the collection id; this generic
+    class is the escape hatch for any regular lat/lon collection not yet wrapped.
 
     Parameters
     ----------
@@ -508,7 +525,6 @@ class Dynamical(_DynamicalBase):
         return xr_array
 
 
-@check_optional_dependencies()
 class DynamicalForecast(_DynamicalBase):
     """dynamical.org forecast data source backed by a STAC-described Icechunk store.
 
@@ -517,6 +533,10 @@ class DynamicalForecast(_DynamicalBase):
     ``ensemble_member`` dimension) selected by its STAC collection id, reading
     data directly from the public, anonymously accessible Icechunk repository
     advertised in the collection's STAC metadata.
+
+    For common collections prefer the concrete named subclasses (e.g.
+    :class:`DynamicalGFSForecast`), which fix the collection id; this generic
+    class is the escape hatch for any regular lat/lon collection not yet wrapped.
 
     Parameters
     ----------
@@ -549,7 +569,7 @@ class DynamicalForecast(_DynamicalBase):
 
     Badges
     ------
-    region:global dataclass:forecast product:wind product:temp product:atmos
+    region:global dataclass:simulation product:wind product:temp product:atmos
     """
 
     _TIME_DIMENSION = "init_time"
@@ -626,3 +646,279 @@ class DynamicalForecast(_DynamicalBase):
             xr_array[:, :, j] = modifier(self._reorder(np.asarray(da.values)))
 
         return xr_array
+
+
+class DynamicalGFSAnalysis(DynamicalAnalysis):
+    """NOAA GFS analysis from the dynamical.org catalog.
+
+    Best-estimate analysis (dimensions ``[time, lat, lon]``) built from the
+    first hours of successive NOAA Global Forecast System runs, on a global
+    0.25 degree regular latitude/longitude grid.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/noaa-gfs-analysis/
+    - https://stac.dynamical.org/noaa-gfs-analysis/collection.json
+
+    Badges
+    ------
+    region:global dataclass:analysis product:wind product:temp product:atmos
+    """
+
+    def __init__(self, cache: bool = True, verbose: bool = True) -> None:
+        super().__init__("noaa-gfs-analysis", cache=cache, verbose=verbose)
+
+
+class DynamicalGEFSAnalysis(DynamicalAnalysis):
+    """NOAA GEFS analysis from the dynamical.org catalog.
+
+    Best-estimate analysis (dimensions ``[time, lat, lon]``) built from the
+    first hours of successive NOAA Global Ensemble Forecast System runs, on a
+    global 0.25 degree regular latitude/longitude grid.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/noaa-gefs-analysis/
+    - https://stac.dynamical.org/noaa-gefs-analysis/collection.json
+
+    Badges
+    ------
+    region:global dataclass:analysis product:wind product:temp product:atmos
+    """
+
+    def __init__(self, cache: bool = True, verbose: bool = True) -> None:
+        super().__init__("noaa-gefs-analysis", cache=cache, verbose=verbose)
+
+
+class DynamicalGFSForecast(DynamicalForecast):
+    """NOAA GFS forecast from the dynamical.org catalog.
+
+    Deterministic NOAA Global Forecast System forecasts (dimensions
+    ``[time, lead_time, lat, lon]``) on a global 0.25 degree regular
+    latitude/longitude grid.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/noaa-gfs-forecast/
+    - https://stac.dynamical.org/noaa-gfs-forecast/collection.json
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:temp product:atmos
+    """
+
+    def __init__(self, cache: bool = True, verbose: bool = True) -> None:
+        super().__init__("noaa-gfs-forecast", cache=cache, verbose=verbose)
+
+
+class DynamicalGEFSForecast(DynamicalForecast):
+    """NOAA GEFS (35 day) ensemble forecast from the dynamical.org catalog.
+
+    NOAA Global Ensemble Forecast System forecasts (dimensions
+    ``[time, lead_time, lat, lon]``) on a global regular latitude/longitude
+    grid, out to 35 days from the 00 UTC initialization. A single ensemble
+    member is selected via ``member``.
+
+    Parameters
+    ----------
+    member : int, optional
+        Ensemble member index to select, by default 0 (control member).
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/noaa-gefs-forecast-35-day/
+    - https://stac.dynamical.org/noaa-gefs-forecast-35-day/collection.json
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:temp product:atmos
+    """
+
+    def __init__(
+        self, member: int = 0, cache: bool = True, verbose: bool = True
+    ) -> None:
+        super().__init__(
+            "noaa-gefs-forecast-35-day", member=member, cache=cache, verbose=verbose
+        )
+
+
+class DynamicalIFSENSForecast(DynamicalForecast):
+    """ECMWF IFS ENS (15 day, 0.25 degree) ensemble forecast from dynamical.org.
+
+    ECMWF Integrated Forecasting System ensemble forecasts (dimensions
+    ``[time, lead_time, lat, lon]``) on a global 0.25 degree regular
+    latitude/longitude grid, out to 15 days from the 00 UTC initialization. A
+    single ensemble member is selected via ``member``.
+
+    Parameters
+    ----------
+    member : int, optional
+        Ensemble member index to select, by default 0 (control member).
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/ecmwf-ifs-ens-forecast-15-day-0-25-degree/
+    - https://stac.dynamical.org/ecmwf-ifs-ens-forecast-15-day-0-25-degree/collection.json
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:temp product:atmos
+    """
+
+    def __init__(
+        self, member: int = 0, cache: bool = True, verbose: bool = True
+    ) -> None:
+        super().__init__(
+            "ecmwf-ifs-ens-forecast-15-day-0-25-degree",
+            member=member,
+            cache=cache,
+            verbose=verbose,
+        )
+
+
+class DynamicalAIFSForecast(DynamicalForecast):
+    """ECMWF AIFS Single forecast from the dynamical.org catalog.
+
+    Deterministic ECMWF Artificial Intelligence Forecasting System (AIFS)
+    forecasts (dimensions ``[time, lead_time, lat, lon]``) on a global 0.25
+    degree regular latitude/longitude grid, out to 15 days at a 6 hourly step.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/ecmwf-aifs-single-forecast/
+    - https://stac.dynamical.org/ecmwf-aifs-single-forecast/collection.json
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:temp product:atmos
+    """
+
+    def __init__(self, cache: bool = True, verbose: bool = True) -> None:
+        super().__init__("ecmwf-aifs-single-forecast", cache=cache, verbose=verbose)
+
+
+class DynamicalAIFSENSForecast(DynamicalForecast):
+    """ECMWF AIFS ENS ensemble forecast from the dynamical.org catalog.
+
+    Ensemble ECMWF Artificial Intelligence Forecasting System (AIFS ENS)
+    forecasts (dimensions ``[time, lead_time, lat, lon]``) on a global 0.25
+    degree regular latitude/longitude grid, out to 15 days at a 6 hourly step.
+    A single ensemble member is selected via ``member``.
+
+    Parameters
+    ----------
+    member : int, optional
+        Ensemble member index to select, by default 0 (control member).
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/ecmwf-aifs-ens-forecast/
+    - https://stac.dynamical.org/ecmwf-aifs-ens-forecast/collection.json
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:temp product:atmos
+    """
+
+    def __init__(
+        self, member: int = 0, cache: bool = True, verbose: bool = True
+    ) -> None:
+        super().__init__(
+            "ecmwf-aifs-ens-forecast", member=member, cache=cache, verbose=verbose
+        )
