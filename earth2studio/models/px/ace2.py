@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
+from loguru import logger
 
 from earth2studio.data import ACE2ERA5Data
 from earth2studio.data.ace2 import ACE_GRID_LAT, ACE_GRID_LON
@@ -111,10 +112,10 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ACE2 (Ai2 Climate Emulator v2) is a 450M-parameter autoregressive emulator
     with 6-hour time steps, 1-degree horizontal resolution, and eight vertical
     layers that exactly conserves global dry air mass and moisture and can be
-    stepped stably for arbitrarily many steps at about 1500 simulated years
-    per wall-clock day. ACE2-ERA5 was trained on the ERA5 dataset and requires
-    forcing data during rollout (see `forcing_data_source` parameter). This
-    wrapper makes use of the ``fme`` package to run model forward passes.
+    stepped stably for arbitrarily many steps. ACE2-ERA5 was trained on the ERA5
+    dataset and requires forcing data during rollout (see `forcing_data_source`
+    parameter). This wrapper makes use of the ``fme`` package to run model forward
+    passes.
 
     Parameters
     ----------
@@ -128,8 +129,24 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     References
     ----------
+
     - ACE2-ERA5 paper: https://arxiv.org/abs/2411.11268v1
     - ACE2 code: https://github.com/ai2cm/ace
+    - Huggingface: https://huggingface.co/allenai/ACE2-ERA5
+
+    Notes
+    -----
+    For throughput-sensitive GPU inference, enabling TensorFloat-32 matmul kernels
+    before importing PyTorch can improve performance on supported NVIDIA GPUs:
+
+        export TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1
+
+    For in-process control, this can also be enabled with:
+
+        torch.set_float32_matmul_precision("high")
+
+    Both settings trade some float32 matmul precision for faster matrix operations;
+    the environment variable is a process-wide cuBLAS override.
 
     Warning
     -------
@@ -198,6 +215,10 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # External forcing data source
         self.forcing_data_source = forcing_data_source
+        self._forcing_cache: dict[
+            tuple[int, tuple[str, ...], str, str, int],
+            tuple[torch.Tensor, CoordSystem],
+        ] = {}
 
         # Grid handling
         self.lat = ACE_GRID_LAT
@@ -446,6 +467,112 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         y = y.unsqueeze(2)
         return y
 
+    def _fetch_forcing_year(
+        self, year: int, device: torch.device
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        device = torch.device(device)
+        cache_key = (
+            id(self.forcing_data_source),
+            tuple(self._forcing_vars_e2s),
+            str(device),
+            "year",
+            year,
+        )
+        if cache_key in self._forcing_cache:
+            return self._forcing_cache[cache_key]
+
+        logger.warning(
+            "Loading ACE2 forcing data for year {} onto {}. This replaces any "
+            "previous cached forcing year.",
+            year,
+            device,
+        )
+        start = np.datetime64(f"{year:04d}-01-01T00:00:00", "ns")
+        end = np.datetime64(f"{year + 1:04d}-01-01T00:00:00", "ns")
+        year_times = np.arange(start, end, self._dt, dtype="datetime64[ns]")
+        lead_time = np.array([np.timedelta64(0, "h")], dtype="timedelta64[ns]")
+
+        forcing_x, year_coords = fetch_data(
+            self.forcing_data_source,
+            time=year_times,
+            lead_time=lead_time,
+            variable=self._forcing_vars_e2s,
+            device=device,
+        )
+        self._forcing_cache.clear()
+        self._forcing_cache[cache_key] = (forcing_x, year_coords)
+        return self._forcing_cache[cache_key]
+
+    def _fetch_forcing_at_time(
+        self, valid_time: np.datetime64, device: torch.device
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        valid_time = valid_time.astype("datetime64[ns]")
+        device = torch.device(device)
+        if isinstance(self.forcing_data_source, ACE2ERA5Data):
+            year = pd.Timestamp(valid_time).year
+            forcing_x, forcing_coords = self._fetch_forcing_year(year, device)
+
+            year_start = np.datetime64(f"{year:04d}-01-01T00:00:00", "ns")
+            delta_ns = (
+                (valid_time - year_start).astype("timedelta64[ns]").astype(np.int64)
+            )
+            step_ns = np.asarray(self._dt).astype("timedelta64[ns]").astype(np.int64)
+            if delta_ns % step_ns != 0:
+                raise ValueError(
+                    f"ACE2 forcing time {valid_time} is not on model step {self._dt}."
+                )
+            time_index = int(delta_ns // step_ns)
+
+            out_coords = forcing_coords.copy()
+            out_coords["time"] = np.array([valid_time], dtype="datetime64[ns]")
+            return forcing_x[time_index : time_index + 1], out_coords
+
+        cache_key = (
+            id(self.forcing_data_source),
+            tuple(self._forcing_vars_e2s),
+            str(device),
+            "time",
+            int(valid_time.astype("datetime64[ns]").astype(np.int64)),
+        )
+        if cache_key not in self._forcing_cache:
+            self._forcing_cache[cache_key] = fetch_data(
+                self.forcing_data_source,
+                time=np.array([valid_time], dtype="datetime64[ns]"),
+                lead_time=np.array([np.timedelta64(0, "h")], dtype="timedelta64[ns]"),
+                variable=self._forcing_vars_e2s,
+                device=device,
+            )
+        forcing_x, forcing_coords = self._forcing_cache[cache_key]
+        return forcing_x, forcing_coords.copy()
+
+    def _fetch_forcing(
+        self, x: torch.Tensor, coords: CoordSystem, lead_times: np.ndarray
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        forcing_by_lead = []
+        forcing_coords = None
+        for lead_time in lead_times:
+            forcing_by_time = []
+            for time in coords["time"]:
+                forcing_x, forcing_coords = self._fetch_forcing_at_time(
+                    time + lead_time, x.device
+                )
+                forcing_by_time.append(forcing_x)
+            forcing_by_lead.append(torch.cat(forcing_by_time, dim=0))
+
+        forcing_x = torch.cat(forcing_by_lead, dim=1)
+        if forcing_coords is None:
+            raise ValueError("ACE2ERA5 forcing data requires at least one time value.")
+
+        forcing_coords["time"] = coords["time"]
+        forcing_coords["lead_time"] = lead_times.astype("timedelta64[ns]")
+
+        if self.needs_regrid:
+            forcing_x = self.regridder(forcing_x.to(x.device))
+            forcing_coords["lat"] = coords["lat"]
+            forcing_coords["lon"] = coords["lon"]
+
+        return forcing_x, forcing_coords
+
     @torch.inference_mode()
     def _forward(
         self,
@@ -475,18 +602,11 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         lead_times = np.array(
             [coords["lead_time"][0], coords["lead_time"][0] + self._dt]
         )
-        forcing_x, forcing_coords = fetch_data(
-            self.forcing_data_source,
-            time=coords["time"],
-            lead_time=lead_times,
-            variable=self._forcing_vars_e2s,
+        forcing_x, forcing_coords = self._fetch_forcing(
+            x=x, coords=coords, lead_times=lead_times
         )
 
-        # Interp to proper coords and stack along batch dimension as required
-        if self.needs_regrid:
-            forcing_x = self.regridder(forcing_x.to(x.device))
-            forcing_coords["lat"] = coords["lat"]
-            forcing_coords["lon"] = coords["lon"]
+        # Stack along batch dimension as required
         forcing_x = torch.stack([forcing_x] * len(coords["batch"]), dim=0).to(
             device=x.device, dtype=x.dtype
         )
