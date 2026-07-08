@@ -21,15 +21,78 @@ import pandas as pd
 
 from .base import LexiconType
 
-_PRESSURE_REPORT_TYPES = frozenset([120, 180, 181, 187])
-_PRESSURE_CLASSES = frozenset(["ADPUPA", "ADPSFC", "SFCSHP"])
-_PRESSURE_MIN_HPA = 500.0
 # ``POB`` appears on ordinary PrepBUFR levels as the vertical pressure
 # coordinate for t/q/u/v. The Earth2Studio ``pres`` variable is narrower: it
 # represents the GSI-style pressure-observation / ``ps`` diagnostic population,
 # not every level coordinate. Match that read path by selecting pressure-capable
 # report types, requiring CAT == 0, and rejecting POB below 500 hPa before unit
 # conversion to Pa.
+
+_PRESSURE_REPORT_TYPES = frozenset([120, 180, 181, 187])
+_PRESSURE_CLASSES = frozenset(["ADPUPA", "ADPSFC", "SFCSHP"])
+_PRESSURE_MIN_HPA = 500.0
+
+# PrepBUFR CAT is NCEP local descriptor 0-08-193. It identifies the physical
+# level category: 0=surface, 1=mandatory, 2=significant temperature,
+# 3=wind by pressure, 4=wind by height, 5=tropopause, 6=single-level/other,
+# and 7=interpolated. The public ``pres`` variable intentionally selects
+# CAT == 0 station-pressure observations rather than every POB level coordinate.
+# https://emc.ncep.noaa.gov/emc/pages/infrastructure/bufrlib/tables/CodeFlag_0_STDv35_LOC7.html
+
+_SOURCE_KEYS = {
+    "u": "prepbufr::wind::u",
+    "v": "prepbufr::wind::v",
+    "q": "prepbufr::QOB",
+    "t": "prepbufr::TOB",
+    "pres": "prepbufr::POB",
+    "gps": "gpsro::15037",
+}
+
+
+def apply_ncep_conventional_modifier(
+    variable: str, frame: pd.DataFrame
+) -> pd.DataFrame:
+    """Apply the fixed NCEP selection and unit semantics for one variable."""
+    if variable == "t":
+        frame["observation"] = np.float32(frame["observation"] + 273.15)
+
+    elif variable == "q":
+        frame["observation"] = np.float32(frame["observation"] * 1e-6)
+
+    elif variable == "pres":
+        if {"type", "class", "level_cat"}.issubset(frame.columns):
+            observation = pd.to_numeric(frame["observation"], errors="coerce")
+            report_type = pd.to_numeric(frame["type"], errors="coerce")
+            level_cat = pd.to_numeric(frame["level_cat"], errors="coerce")
+            quality = pd.to_numeric(frame.get("quality"), errors="coerce")
+            pressure_observation = (
+                observation.ge(_PRESSURE_MIN_HPA)
+                & report_type.isin(_PRESSURE_REPORT_TYPES)
+                & frame["class"].isin(_PRESSURE_CLASSES)
+                & level_cat.eq(0)
+                # Match GSI's read-stage guard: if(qm > 15 .or. qm < 0) cycle.
+                # Keeps valid PrepBUFR quality marks, not only marks later used
+                # by the assimilation.
+                & quality.between(0, 15)
+            )
+            frame = frame.loc[pressure_observation].copy()
+        frame["observation"] = np.float32(frame["observation"] * 100.0)
+
+    return frame
+
+
+def get_ncep_conventional_item(
+    variable: str, *, route_prefix: bool
+) -> tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]:
+    """Return the source key and standard-unit modifier for one variable."""
+    source_key = _SOURCE_KEYS[variable]
+    if not route_prefix and source_key.startswith("prepbufr::"):
+        source_key = source_key.removeprefix("prepbufr::")
+
+    def modifier(frame: pd.DataFrame) -> pd.DataFrame:
+        return apply_ncep_conventional_modifier(variable, frame)
+
+    return source_key, modifier
 
 
 class NNJAObsConvLexicon(metaclass=LexiconType):
@@ -53,14 +116,13 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
         ``15037`` is the generic BUFR bending-angle descriptor; it
         occurs once per frequency in each occultation. The source emits
         only the ionosphere-corrected (frequency-combined, MEFR == 0)
-        instance, selected during decode, not the raw L1/L2 channels.
-      - ``12001`` -- 1D-Var retrieval temperature (K), at retrieval levels.
-      - ``13001`` -- 1D-Var retrieval specific humidity (kg/kg).
+        observation instance during decode.
 
-      Of these, NNJA currently enables only the ``gps`` bending-angle
-      variable (mapped to ``gpsro::15037``). The ``gps_t``/``gps_q``
-      retrieval temperature/humidity are disabled due to consistency issues
-      with UFS.
+      The same source file can contain provider 1D-Var retrieval profiles:
+      pressure (``10004``), temperature (``12001``), and specific humidity
+      (``13001``). They are intentionally outside this lexicon. In particular,
+      UFS diagnostic ``gps_t`` and ``gps_q`` are model-background values
+      sampled at the bending-angle location, not these BUFR retrieval fields.
 
     Modifier functions convert raw PrepBUFR observation values to
     Earth2Studio standard units:
@@ -71,14 +133,12 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
       Not every POB coordinate is emitted as ``pres``; ordinary POB level
       coordinates remain in the schema-level ``pres`` column for t/q/u/v rows.
     - ``u``, ``v``: UOB/VOB already in m s-1 (no conversion)
-    - ``gps``, ``gps_t``, ``gps_q``: already in SI (rad, K, kg/kg)
+    - ``gps``: already in SI (rad)
 
     Note
     ----
     This lexicon parallels :py:class:`earth2studio.lexicon.GDASObsConvLexicon`
-    (PrepBUFR variables) and :py:class:`earth2studio.lexicon.GSIConventionalLexicon`
-    (UFS GSI variables, including ``gps``/``gps_t``/``gps_q``) but is kept
-    separate to keep the NNJA data source self-contained.
+    while retaining NNJA route prefixes.
 
     Additional resources:
 
@@ -95,7 +155,6 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
         "pres": "prepbufr::POB",
         # GPS RO ionosphere-corrected bending angle from gps/gpsro/.
         "gps": "gpsro::15037",
-        # gps_t/gps_q are omitted for now (see docstring).
     }
 
     @classmethod
@@ -115,46 +174,4 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
               the ``observation`` column from raw BUFR units to Earth2Studio
               standard units.
         """
-        source_key = cls.VOCAB[val]
-
-        if val == "t":
-
-            def mod(df: pd.DataFrame) -> pd.DataFrame:
-                df["observation"] = np.float32(df["observation"] + 273.15)
-                return df
-
-        elif val == "q":
-
-            def mod(df: pd.DataFrame) -> pd.DataFrame:
-                df["observation"] = np.float32(df["observation"] * 1e-6)
-                return df
-
-        elif val == "pres":
-
-            def mod(df: pd.DataFrame) -> pd.DataFrame:
-                if {"type", "class", "level_cat"}.issubset(df.columns):
-                    obs = pd.to_numeric(df["observation"], errors="coerce")
-                    obs_type = pd.to_numeric(df["type"], errors="coerce")
-                    level_cat = pd.to_numeric(df["level_cat"], errors="coerce")
-                    quality = pd.to_numeric(df.get("quality"), errors="coerce")
-                    pressure_obs = (
-                        obs.ge(_PRESSURE_MIN_HPA)
-                        & obs_type.isin(_PRESSURE_REPORT_TYPES)
-                        & df["class"].isin(_PRESSURE_CLASSES)
-                        & level_cat.eq(0)
-                        # Match GSI's read-stage guard:
-                        # if(qm > 15 .or. qm < 0) cycle
-                        # This keeps valid PrepBUFR quality marks, not only
-                        # marks later used by the assimilation.
-                        & quality.between(0, 15)
-                    )
-                    df = df.loc[pressure_obs].copy()
-                df["observation"] = np.float32(df["observation"] * 100.0)
-                return df
-
-        else:
-
-            def mod(df: pd.DataFrame) -> pd.DataFrame:
-                return df
-
-        return source_key, mod
+        return get_ncep_conventional_item(val, route_prefix=True)
