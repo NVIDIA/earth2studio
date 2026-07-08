@@ -232,7 +232,19 @@ new released version **without** the alpha/beta/rc suffix.
 
 ---
 
-## Step 10 — Commit and Push
+## Step 10 — Update GitHub Issue Templates
+
+Update the suggested version placeholder in the bug report template to
+reference the new released version.
+
+1. Open `.github/ISSUE_TEMPLATE/bug_report.yml`.
+2. Replace the `placeholder:` value (e.g., `"example: 0.14.0"`) with
+   `"example: X.Y.0"` (the new released version).
+3. Show the diff to the user for review.
+
+---
+
+## Step 11 — Commit and Push
 
 Stage only the expected files and commit:
 
@@ -244,6 +256,7 @@ git add README.md
 git add docs/_static/switcher.json
 git add docs/userguide/about/install.md
 git add skills/
+git add .github/
 git commit -m "Update version to X.(Y+1).0a0"
 ```
 

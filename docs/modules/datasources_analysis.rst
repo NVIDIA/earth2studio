@@ -39,6 +39,7 @@ Used for fetching initial conditions for inference and validation data for scori
       data.EarthMoverBrightBandIFS
       data.GFS
       data.GOES
+      data.GOESGLMGrid
       data.HimawariAHI
       data.HRRR
       data.IFS
