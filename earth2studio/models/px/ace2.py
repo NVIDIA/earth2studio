@@ -209,7 +209,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # External forcing data source
         self.forcing_data_source = forcing_data_source
         self._forcing_cache: dict[
-            tuple[int, tuple[str, ...], int], tuple[torch.Tensor, CoordSystem]
+            tuple[int, tuple[str, ...], str, int], tuple[torch.Tensor, CoordSystem]
         ] = {}
 
         # Grid handling
@@ -460,12 +460,14 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return y
 
     def _fetch_forcing_at_time(
-        self, valid_time: np.datetime64
+        self, valid_time: np.datetime64, device: torch.device
     ) -> tuple[torch.Tensor, CoordSystem]:
         valid_time = valid_time.astype("datetime64[ns]")
+        device = torch.device(device)
         cache_key = (
             id(self.forcing_data_source),
             tuple(self._forcing_vars_e2s),
+            str(device),
             int(valid_time.astype("datetime64[ns]").astype(np.int64)),
         )
         if cache_key not in self._forcing_cache:
@@ -474,7 +476,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 time=np.array([valid_time], dtype="datetime64[ns]"),
                 lead_time=np.array([np.timedelta64(0, "h")], dtype="timedelta64[ns]"),
                 variable=self._forcing_vars_e2s,
-                device="cpu",
+                device=device,
             )
         forcing_x, forcing_coords = self._forcing_cache[cache_key]
         return forcing_x, forcing_coords.copy()
@@ -488,7 +490,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             forcing_by_time = []
             for time in coords["time"]:
                 forcing_x, forcing_coords = self._fetch_forcing_at_time(
-                    time + lead_time
+                    time + lead_time, x.device
                 )
                 forcing_by_time.append(forcing_x)
             forcing_by_lead.append(torch.cat(forcing_by_time, dim=0))
