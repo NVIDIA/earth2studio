@@ -69,7 +69,7 @@ data = [
     "rioxarray>=0.15.5",
     "pyproj>=3.7.1", # TODO: pygrib imports this, so technically in core, to check
     "scipy>=1.15.2",
-    "multi-storage-client[boto3,google-cloud-storage,fsspec]>=0.33.0",
+    "multi-storage-client[boto3,google-cloud-storage,fsspec]>=0.33.0; python_version<'3.14'",
     "eumdac>=3.1.0",
 ]
 perturbation = [
@@ -187,6 +187,7 @@ gencast = [
     "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
+    "xarray<2026.4.0", # https://github.com/google-deepmind/graphcast/issues/213
 ]
 graphcast = [
     "graphcast",
@@ -194,6 +195,7 @@ graphcast = [
     "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
+    "xarray<2026.4.0", # https://github.com/google-deepmind/graphcast/issues/213
 ]
 interp-modafno = [
     "nvidia-physicsnemo>=2.0",
