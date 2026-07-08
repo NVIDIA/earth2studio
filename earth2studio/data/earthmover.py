@@ -92,7 +92,7 @@ class _EarthMoverBase:
         repo: str,
         group: str | list[str] | None = None,
         branch: str = "main",
-        client: "arraylake.AsyncClient | None" = None,
+        client: arraylake.AsyncClient | None = None,
         cache: bool = True,
         verbose: bool = True,
         marketplace_url: str | None = None,
@@ -116,7 +116,7 @@ class _EarthMoverBase:
     # ------------------------------------------------------------------
     # Connection
     # ------------------------------------------------------------------
-    def _make_client(self) -> "arraylake.AsyncClient":
+    def _make_client(self) -> arraylake.AsyncClient:
         """Create an Arraylake client from an injected client or env token.
 
         Returns
@@ -555,7 +555,7 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
         self,
         repo: str | None = None,
         branch: str = DEFAULT_BRANCH,
-        client: "arraylake.AsyncClient | None" = None,
+        client: arraylake.AsyncClient | None = None,
         cache: bool = True,
         verbose: bool = True,
     ) -> None:
@@ -735,7 +735,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
         self,
         repo: str | None = None,
         branch: str = DEFAULT_BRANCH,
-        client: "arraylake.AsyncClient | None" = None,
+        client: arraylake.AsyncClient | None = None,
         cache: bool = True,
         verbose: bool = True,
     ) -> None:
