@@ -648,7 +648,7 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
 
 @check_optional_dependencies()
 class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
-    """Brightband ECMWF IFS  0.1 degree (10km) 15-day forecast data source on Earthmover
+    """Brightband ECMWF IFS 0.1 degree (10km) 15-day forecast data source on Earthmover
     Arraylake.
 
     Parameters
