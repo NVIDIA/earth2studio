@@ -137,11 +137,16 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Notes
     -----
     For throughput-sensitive GPU inference, enabling TensorFloat-32 matmul kernels
-    before running ACE2 can improve performance on supported NVIDIA GPUs:
+    before importing PyTorch can improve performance on supported NVIDIA GPUs:
+
+        export TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1
+
+    For in-process control, this can also be enabled with:
 
         torch.set_float32_matmul_precision("high")
 
-    This setting trades some float32 matmul precision for faster matrix operations.
+    Both settings trade some float32 matmul precision for faster matrix operations;
+    the environment variable is a process-wide cuBLAS override.
 
     Warning
     -------
