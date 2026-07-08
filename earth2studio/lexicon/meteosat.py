@@ -37,22 +37,25 @@ class MeteosatFCILexicon(metaclass=LexiconType):
     """
 
     VOCAB: dict[str, tuple[str, Callable[[Any], Any]]] = {
-        # VIS bands (1 km resolution)
-        "fci01": ("vis_04", lambda x: x),  # VIS 0.44 µm
-        "fci02": ("vis_05", lambda x: x),  # VIS 0.51 µm
-        "fci03": ("vis_08", lambda x: x),  # VIS 0.86 µm
-        "fci04": ("vis_09", lambda x: x),  # VIS 0.91 µm
+        # VIS bands
+        "fci_vis_04": ("vis_04", lambda x: x),  # VIS 0.444 µm (1 km)
+        "fci_vis_05": ("vis_05", lambda x: x),  # VIS 0.510 µm (1 km)
+        "fci_vis_06": ("vis_06", lambda x: x),  # VIS 0.640 µm (0.5 km / 1 km)
+        "fci_vis_08": ("vis_08", lambda x: x),  # VIS 0.865 µm (1 km)
+        "fci_vis_09": ("vis_09", lambda x: x),  # VIS 0.914 µm (1 km)
         # NIR bands
-        "fci05": ("nir_13", lambda x: x),  # NIR 1.38 µm (1 km)
-        "fci06": ("nir_16", lambda x: x),  # NIR 1.61 µm (2 km)
-        # WV bands (2 km resolution)
-        "fci07": ("wv_63", lambda x: x),  # WV 6.30 µm
-        "fci08": ("wv_73", lambda x: x),  # WV 7.35 µm
-        # IR bands (2 km resolution)
-        "fci09": ("ir_87", lambda x: x),  # IR 8.70 µm
-        "fci10": ("ir_97", lambda x: x),  # IR 9.66 µm
-        "fci11": ("ir_123", lambda x: x),  # IR 12.30 µm
-        "fci12": ("ir_133", lambda x: x),  # IR 13.30 µm
+        "fci_nir_13": ("nir_13", lambda x: x),  # NIR 1.380 µm (1 km)
+        "fci_nir_16": ("nir_16", lambda x: x),  # NIR 1.610 µm (1 km)
+        "fci_nir_22": ("nir_22", lambda x: x),  # NIR 2.250 µm (0.5 km / 1 km)
+        # IR bands
+        "fci_ir_38": ("ir_38", lambda x: x),  # IR 3.800 µm (1 km / 2 km)
+        "fci_wv_63": ("wv_63", lambda x: x),  # WV 6.300 µm (2 km)
+        "fci_wv_73": ("wv_73", lambda x: x),  # WV 7.350 µm (2 km)
+        "fci_ir_87": ("ir_87", lambda x: x),  # IR 8.700 µm (2 km)
+        "fci_ir_97": ("ir_97", lambda x: x),  # IR 9.660 µm (2 km)
+        "fci_ir_105": ("ir_105", lambda x: x),  # IR 10.500 µm (1 km / 2 km)
+        "fci_ir_123": ("ir_123", lambda x: x),  # IR 12.300 µm (2 km)
+        "fci_ir_133": ("ir_133", lambda x: x),  # IR 13.300 µm (2 km)
     }
 
     @classmethod
