@@ -24,9 +24,9 @@ class MeteosatFCILexicon(metaclass=LexiconType):
     """Lexicon for MTG-I FCI Level-1C Full Disk data source.
 
     Maps Earth2Studio variable names to MTG FCI channel identifiers.
-    The 12 spectral channels cover visible (VIS), near-infrared (NIR),
-    water vapour (WV) and infrared (IR) bands. Channels are numbered
-    sequentially by increasing wavelength.
+    The 16 spectral channels cover visible (VIS), near-infrared (NIR),
+    water vapour (WV) and infrared (IR) bands. Variable names follow
+    the pattern ``fci_{band}_{wavelength}``, e.g. ``fci_ir_87``.
 
     Note
     ----
@@ -65,7 +65,7 @@ class MeteosatFCILexicon(metaclass=LexiconType):
         Parameters
         ----------
         val : str
-            Variable name (e.g. ``'fci09'``)
+            Variable name (e.g. ``'fci_ir_87'``)
 
         Returns
         -------
