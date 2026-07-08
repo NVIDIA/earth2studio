@@ -620,8 +620,7 @@ entries in the pipeline configuration must reference the full path to the
 Docker container, the binaries are copied to `/usr/local/bin` and are therefore
 available on the `PATH`; in that case only the executable names are needed
 (e.g. `DetectNodes ...`). Examples for both commands are provided in the
-docstring of the `TempestExtremes` class and in the
-[TC tracking recipe](../../recipes/tc_tracking/README.md).
+docstring of the `TempestExtremes` class and in the TC tracking recipe.
 
 :::
 ::::

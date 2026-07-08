@@ -21,6 +21,7 @@ from typing import Any
 import numpy as np
 import torch
 from cftime import date2num, num2date
+from loguru import logger
 from netCDF4 import Dataset, Variable
 
 from earth2studio.utils.coords import convert_multidim_to_singledim
@@ -208,11 +209,10 @@ class NetCDF4Backend:
 
         for name, di in zip(array_name, data):
             if name in self.root.variables:
-                raise RuntimeError(
-                    f"{name} is already in NetCDF Store. "
-                    + "NetCDF does not allow variables to be redefined. "
-                    + r"To overwrite entire NetCDF, create object with backend_kwargs=\{'mode': 'w'\}"
+                logger.warning(
+                    "{} is already in NetCDF Store. Skipping add_array.", name
                 )
+                continue
 
             di = di.cpu().numpy() if di is not None else None
             dtype = di.dtype if di is not None else "float32"
