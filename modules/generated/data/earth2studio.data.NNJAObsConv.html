@@ -766,27 +766,30 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">retries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L1093-L1557"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsConv" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L427-L688"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsConv" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:observation" style="background-color:#15803d;color:#fff;" title="Direct Observations"><i class="fa-solid fa-binoculars"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:wind" style="background-color:#4dabf7;color:#fff;" title="Surface Winds"><i class="fa-solid fa-wind"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:temp" style="background-color:#fd7e14;color:#fff;" title="Surface Temperature"><i class="fa-solid fa-temperature-half"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:atmos" style="background-color:#74c0fc;color:#fff;" title="Atmosphere"><i class="fa-solid fa-cloud"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:insitu" style="background-color:#2f9e44;color:#fff;" title="In-Situ Observations"><i class="fa-solid fa-tower-observation"></i></span></span><p>NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint
 Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for
 developing observation-driven weather forecasting tools, as it includes a wide
 cross-section of data from a plethora of sensing platforms (satellites, surface
 stations, weather balloons, and more) and features data from 1979 to the present.</p>
+<p>GPSRO rows use the shared columns with product-specific meanings:
+<code class="docutils literal notranslate"><span class="pre">type</span></code> is receiver <code class="docutils literal notranslate"><span class="pre">SAID</span></code>, <code class="docutils literal notranslate"><span class="pre">station</span></code> combines receiver/transmitter
+identifiers, <code class="docutils literal notranslate"><span class="pre">quality</span></code> is the QFRO flag table, <code class="docutils literal notranslate"><span class="pre">pres</span></code> is null, and
+<code class="docutils literal notranslate"><span class="pre">elev</span></code> is impact parameter minus Earth radius of curvature.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>source</strong> (<em>{&quot;prepbufr&quot;</em><em>, </em><em>&quot;convbufr&quot;</em><em>, </em><em>&quot;prepbufr.acft_profiles&quot;}</em><em>, </em><em>optional</em>) – <p>Which encoding family of the NNJA conventional archive to read,
+<li><p><strong>source</strong> (<em>{&quot;prepbufr&quot;</em><em>, </em><em>&quot;prepbufr.acft_profiles&quot;}</em><em>, </em><em>optional</em>) – <p>Which encoding family of the NNJA conventional archive to read,
 by default <code class="docutils literal notranslate"><span class="pre">&quot;prepbufr&quot;</span></code>. These sources are different stages of the
 NCEP observation-processing pipeline, not independent replacement
 datasets:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;convbufr&quot;</span></code> points at raw dump streams grouped by family, such as
 <code class="docutils literal notranslate"><span class="pre">aircft</span></code>/<code class="docutils literal notranslate"><span class="pre">aircar</span></code>/<code class="docutils literal notranslate"><span class="pre">adpupa</span></code>/<code class="docutils literal notranslate"><span class="pre">adpsfc</span></code>. These files preserve
-source-native schemas and generally require family-specific decoding
-and QC interpretation before they resemble GSI-ready observations.
-They are listed here for completeness, but the generic
-<code class="docutils literal notranslate"><span class="pre">NNJAObsConv</span></code> PrepBUFR decoder does not yet implement those raw
-family schemas.</p></li>
+source-native schemas and require family-specific decoding and QC
+before they resemble GSI-ready observations. The generic PrepBUFR
+decoder does not implement those raw family schemas, so this source
+raises <code class="docutils literal notranslate"><span class="pre">NotImplementedError</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;prepbufr&quot;</span></code> points at the merged PrepBUFR cycle file. This is the
 preferred source for GSI-like conventional observations because
 upstream obsproc has already merged dump families, standardized many
@@ -829,7 +832,7 @@ to your local machine for large requests.</p>
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.NNJAObsConv.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L260-L294"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsConv.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L139-L173"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsConv.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Fetch observations for a set of timestamps.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -854,7 +857,7 @@ fields.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.NNJAObsConv.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L299-L337"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsConv.fetch" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L178-L217"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsConv.fetch" title="Link to this definition">#</a></dt>
 <dd><p>Async function to get data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -872,7 +875,7 @@ fields.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.NNJAObsConv.available">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L479-L499"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsConv.available" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L356-L376"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsConv.available" title="Link to this definition">#</a></dt>
 <dd><p>Check if given date time is available.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
