@@ -146,12 +146,12 @@ def _mtg_fci_scan_to_latlon(
         ``(lat, lon)`` arrays of shape ``(len(y), len(x))`` in degrees,
         NaN where off-Earth.
     """
-    xx, yy = np.meshgrid(x, y)
-
-    cos_x = np.cos(xx)
-    cos_y = np.cos(yy)
-    sin_x = np.sin(-xx)  # minus to account for FCI south-north convention
-    sin_y = np.sin(yy)
+    x = x[None, :]
+    y = y[:, None]
+    cos_x = np.cos(x)
+    cos_y = np.cos(y)
+    sin_x = np.sin(-x)  # minus to account for FCI east-west convention
+    sin_y = np.sin(y)
 
     r_eq = SEMI_MAJOR_AXIS
     r_pol = SEMI_MINOR_AXIS
@@ -162,18 +162,18 @@ def _mtg_fci_scan_to_latlon(
         b = -2.0 * H * cos_x * cos_y
         c = H**2 - r_eq**2
 
-        discriminant = b**2 - 4.0 * a * c
-        r_s = (-b - np.sqrt(discriminant)) / (2.0 * a)
+        discriminant = b**2 - 4.0 * c * a
+        r_s = (b + np.sqrt(discriminant)) / (-2.0 * a)
 
-        s_x = r_s * cos_x * cos_y
+        d = r_s * cos_x
+        s_x = d * cos_y
         s_y = -r_s * sin_x
-        s_z = r_s * cos_x * sin_y
+        s_z = d * sin_y
+        H_s_x = H - s_x
 
-        lat = np.degrees(
-            np.arctan((r_eq / r_pol) ** 2 * s_z / np.sqrt((H - s_x) ** 2 + s_y**2))
-        )
+        lat = np.degrees(np.arctan((r_eq / r_pol) ** 2 * s_z / np.hypot(H_s_x, s_y)))
         lon_origin_rad = np.radians(SUB_SATELLITE_LON)
-        lon = np.degrees(lon_origin_rad - np.arctan(s_y / (H - s_x)))
+        lon = np.degrees(lon_origin_rad - np.arctan(s_y / H_s_x))
 
     return lat, lon
 
