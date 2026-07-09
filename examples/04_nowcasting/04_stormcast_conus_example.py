@@ -46,16 +46,6 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# All workflows inside Earth2Studio require constructed components to be
-# handed to them. In this example, let's take a look at the most basic:
-# :py:meth:`earth2studio.run.deterministic`.
-#
-# Thus, we need the following:
-#
-# - Prognostic Model: Use StormCast-CONUS :py:class:`earth2studio.models.px.StormCastCONUS`.
-# - Datasource: Pull HRRR initial conditions from :py:class:`earth2studio.data.HRRR`.
-# - IO Backend: Save outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
-#
 # StormCast-CONUS requires a low-resolution global conditioning source. We use
 # :py:class:`earth2studio.data.GFS_FX` (the default), which provides GFS forecast
 # fields interpolated to the HRRR grid. An analysis source such as
