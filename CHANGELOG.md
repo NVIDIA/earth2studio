@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `async_workers` and `retries` parameters to GFS / GFS_FX data sources
 - Added shared obstore byte-range helpers (`obstore_store_from_url`,
   `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
+- Added optional `InSituForecastFeed` (`earth2studio.data.insitu`), an insitubatch-backed
+  streaming initial-condition / verification feed that reads a cloud zarr analysis store
+  with a de-duplicating read plan and yields `(torch.Tensor, CoordSystem)` batches for
+  IO-bound hindcast / scoring campaigns.
 
 ### Changed
 
