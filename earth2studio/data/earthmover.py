@@ -21,6 +21,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import NoReturn
 
 import numpy as np
 import xarray as xr
@@ -166,7 +167,7 @@ class _EarthMoverBase:
         self._datasets = datasets
         self._build_index()
 
-    def _raise_access_error(self, err: Exception, group: str | None = None) -> None:
+    def _raise_access_error(self, err: Exception, group: str | None = None) -> NoReturn:
         """Translate access failures into actionable guidance.
 
         Permission / not-found errors on a Marketplace repo usually mean the user
@@ -209,6 +210,16 @@ class _EarthMoverBase:
         for n in names:
             if n.lower() in lookup:
                 return lookup[n.lower()]
+        return None
+
+    @staticmethod
+    def _find_dim_coord(ds: xr.Dataset, names: tuple[str, ...]) -> str | None:
+        """Find a 1-D coordinate that can be used as an index dimension."""
+        lookup = {str(c).lower(): str(c) for c in ds.variables}
+        for n in names:
+            coord = lookup.get(n.lower())
+            if coord is not None and coord in ds.sizes and ds[coord].ndim == 1:
+                return coord
         return None
 
     @classmethod
@@ -424,7 +435,7 @@ class _EarthMoverBase:
                 "before use."
             )
 
-        time_coord = self._find_coord(ds, _TIME_NAMES)
+        time_coord = self._find_dim_coord(ds, _TIME_NAMES)
         if time_coord is None:
             raise ValueError(
                 f"Repo '{self._repo_name}' has no recognizable time coordinate."
@@ -479,7 +490,7 @@ class _EarthMoverBase:
         await self._connect()
         t64 = np.datetime64(time)
         for ds in self._datasets or []:
-            time_coord = self._find_coord(ds, _TIME_NAMES)
+            time_coord = self._find_dim_coord(ds, _TIME_NAMES)
             if time_coord is None:
                 continue
             if (ds[time_coord].values.astype("datetime64[ns]") == t64).any():
@@ -530,6 +541,7 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
     ----
     Set ``EARTHMOVER_API_KEY`` to an Earthmover / Arraylake API key before
     using this data source, unless passing a pre-authenticated ``client``.
+    Arraylake-backed Earthmover sources require Python 3.12 or newer.
     This Marketplace dataset must be opened through the ``org/repo`` name
     created by your Earthmover subscription; pass it with ``repo``. When
     ``repo`` is omitted, the repo defaults
@@ -634,6 +646,13 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
                     f"(matched by {resolved.rule})"
                 )
             da = self._select_variable(resolved, time_sel)
+            squeeze_dims = [
+                dim
+                for dim, size in da.sizes.items()
+                if dim not in ("time", "lat", "lon") and size == 1
+            ]
+            if squeeze_dims:
+                da = da.squeeze(dim=squeeze_dims, drop=True)
             arrays.append(da.transpose("time", "lat", "lon"))
 
         out = xr.concat(arrays, dim="variable")
@@ -674,6 +693,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
     ----
     Set ``EARTHMOVER_API_KEY`` to an Earthmover / Arraylake API key before
     using this data source, unless passing a pre-authenticated ``client``.
+    Arraylake-backed Earthmover sources require Python 3.12 or newer.
     This Marketplace dataset must be opened through the ``org/repo`` name
     created by your Earthmover subscription; pass it with ``repo``. When
     ``repo`` is omitted, the repo defaults

@@ -30,7 +30,6 @@ from dataclasses import dataclass
 import numpy as np
 
 from .base import LexiconType
-from .ecmwf import IFSLexicon
 
 GRAVITY = 9.80665
 
@@ -296,8 +295,6 @@ class EarthMoverIFSLexicon(metaclass=LexiconType):
         """Retrieve name from vocabulary."""
         if val not in cls.VOCAB:
             raise KeyError(val)
-        if val in IFSLexicon.VOCAB:
-            return IFSLexicon.get_item(val)
         return cls.VOCAB[val], lambda x: x
 
     @classmethod

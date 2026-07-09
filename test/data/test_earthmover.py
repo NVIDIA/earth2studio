@@ -149,6 +149,58 @@ def ifs_analysis() -> xr.Dataset:
     return xr.merge([era5_surface(), era5_pressure()])
 
 
+def ifs_initial_conditions() -> xr.Dataset:
+    """Create an IFS initial-condition store matching the Marketplace schema."""
+    lead_time = np.array([0], dtype="timedelta64[h]").astype("timedelta64[ns]")
+    valid_time = TIMES[np.newaxis, :] + lead_time[:, np.newaxis]
+    coords = {
+        "lead_time": ("lead_time", lead_time),
+        "init_time": ("init_time", TIMES),
+        "valid_time": (("lead_time", "init_time"), valid_time),
+        "level": ("level", np.array([1000.0])),
+        "latitude": LAT,
+        "longitude": LON,
+    }
+    surface_dims = ("lead_time", "init_time", "latitude", "longitude")
+    level_dims = ("lead_time", "init_time", "level", "latitude", "longitude")
+    surface_data = _grid(
+        [("lead_time", xr.DataArray(lead_time)), ("init_time", xr.DataArray(TIMES))]
+    )
+    level_data = _grid(
+        [
+            ("lead_time", xr.DataArray(lead_time)),
+            ("init_time", xr.DataArray(TIMES)),
+            ("level", xr.DataArray(coords["level"][1])),
+        ]
+    )
+    ds = xr.Dataset(
+        {
+            "t2m": (surface_dims, surface_data.copy()),
+            "msl": (level_dims, level_data.copy()),
+        },
+        coords=coords,
+    )
+    ds["level"].attrs = {
+        "standard_name": "air_pressure",
+        "units": "hPa",
+        "axis": "Z",
+    }
+    ds["t2m"].attrs = {
+        "GRIB_paramId": 167,
+        "GRIB_shortName": "2t",
+        "GRIB_cfVarName": "t2m",
+        "standard_name": "air_temperature",
+        "units": "K",
+    }
+    ds["msl"].attrs = {
+        "GRIB_paramId": 151,
+        "GRIB_shortName": "msl",
+        "standard_name": "air_pressure_at_mean_sea_level",
+        "units": "Pa",
+    }
+    return ds
+
+
 def ifs_forecast() -> xr.Dataset:
     """Create an IFS forecast-like dataset with a step axis."""
     coords = {
@@ -364,6 +416,15 @@ class TestEarthMoverMockSources:
         patch_earthmover([era5_surface()])
         variables = ["t2m", "msl", "u10m"]
         ds = EarthMoverBrightBandIFS("vandelay-industries/era5")
+
+        out = ds(datetime(2022, 1, 1), variables)
+
+        assert_analysis_data_array(out, variables)
+
+    def test_analysis_fetch_initial_conditions_schema(self, patch_earthmover):
+        patch_earthmover([ifs_initial_conditions()])
+        variables = ["t2m", "msl"]
+        ds = EarthMoverBrightBandIFS("vandelay-industries/ifs")
 
         out = ds(datetime(2022, 1, 1), variables)
 
