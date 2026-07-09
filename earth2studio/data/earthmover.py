@@ -715,7 +715,7 @@ class EarthMoverERA5(_EarthMoverBase):
 
 @check_optional_dependencies()
 class EarthMoverBrightBandIFS(_EarthMoverBase):
-    """Brightband ECMWF IFS 0.1 degree (10km) initial-condition data source on
+    """Brightband ECMWF IFS 0.25 degree initial-condition data source on
     Earthmover Arraylake.
 
     Parameters
