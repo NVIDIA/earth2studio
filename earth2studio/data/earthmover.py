@@ -539,13 +539,16 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
 
     Note
     ----
-    Set ``EARTHMOVER_API_KEY`` to an Earthmover / Arraylake API key before
-    using this data source, unless passing a pre-authenticated ``client``.
+    Configure Earthmover access before using this data source:
+
+    - Set the ``EARTHMOVER_API_KEY`` environment variable to an Earthmover /
+      Arraylake API key, unless passing a pre-authenticated ``client``.
+    - Pass ``repo="org/repo"`` to open a specific Arraylake repository.
+    - If ``repo`` is omitted, set the ``EARTHMOVER_ORGANIZATION`` environment
+      variable. The default repository is
+      ``<EARTHMOVER_ORGANIZATION>/ecmwf-ifs-initial-conditions-open-subscription``.
+
     Arraylake-backed Earthmover sources require Python 3.12 or newer.
-    This Marketplace dataset must be opened through the ``org/repo`` name
-    created by your Earthmover subscription; pass it with ``repo``. When
-    ``repo`` is omitted, the repo defaults
-    to ``<EARTHMOVER_ORGANIZATION>/ecmwf-ifs-initial-conditions-open-subscription``.
 
     Additional information on the data repository can be referenced here:
 
@@ -691,13 +694,16 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
 
     Note
     ----
-    Set ``EARTHMOVER_API_KEY`` to an Earthmover / Arraylake API key before
-    using this data source, unless passing a pre-authenticated ``client``.
+    Configure Earthmover access before using this data source:
+
+    - Set the ``EARTHMOVER_API_KEY`` environment variable to an Earthmover /
+      Arraylake API key, unless passing a pre-authenticated ``client``.
+    - Pass ``repo="org/repo"`` to open a specific Arraylake repository.
+    - If ``repo`` is omitted, set the ``EARTHMOVER_ORGANIZATION`` environment
+      variable. The default repository is
+      ``<EARTHMOVER_ORGANIZATION>/ecmwf-ifs-15-day-forecast-open-subscription``.
+
     Arraylake-backed Earthmover sources require Python 3.12 or newer.
-    This Marketplace dataset must be opened through the ``org/repo`` name
-    created by your Earthmover subscription; pass it with ``repo``. When
-    ``repo`` is omitted, the repo defaults
-    to ``<EARTHMOVER_ORGANIZATION>/ecmwf-ifs-15-day-forecast-open-subscription``.
 
     Additional information on the data repository can be referenced here:
 
