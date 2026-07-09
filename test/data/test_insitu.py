@@ -253,3 +253,49 @@ def test_lead_not_multiple_of_store_step_raises(tmp_path):
             ),  # 1.5 h, not a multiple of 6 h
             sample_range=(0, 4),
         )
+
+
+def test_verification_lead_past_store_end_raises(tmp_path):
+    """A positive lead whose read leaves the store end is rejected, not silently dropped."""
+    store, _ = write_store(tmp_path, n=48)  # 6-h step; 240 h = 40 steps
+    with pytest.raises(ValueError, match=r"outside the store|valid init range"):
+        InSituForecastFeed(
+            store,
+            variables=["t2m"],
+            var_map={"t2m": "2m_temperature"},
+            lead_times=np.array([np.timedelta64(h, "h") for h in (0, 240)]),
+            sample_range=(0, 20),  # init 20 + 40-step lead -> index 60 >> 48
+        )
+
+
+def test_history_lead_before_store_start_raises(tmp_path):
+    """A negative (history) lead whose read precedes index 0 is rejected."""
+    store, _ = write_store(tmp_path, n=48)
+    with pytest.raises(ValueError, match=r"outside the store|valid init range"):
+        InSituForecastFeed(
+            store,
+            variables=["t2m"],
+            var_map={"t2m": "2m_temperature"},
+            lead_times=np.array(
+                [np.timedelta64(h, "h") for h in (-240, 0)]
+            ),  # -40 steps
+            sample_range=(0, 44),  # init 0 - 40-step history -> index -40
+        )
+
+
+def test_sample_range_none_defaults_to_valid_window(tmp_path):
+    """With no sample_range, the feed covers exactly the inits whose leads all fit the store."""
+    store, _ = write_store(tmp_path, n=48)  # spc=8
+    feed = InSituForecastFeed(
+        store,
+        variables=["t2m"],
+        var_map={"t2m": "2m_temperature"},
+        lead_times=np.array(
+            [np.timedelta64(h, "h") for h in (0, 6, 12)]
+        ),  # steps 0,1,2
+        batch_size=8,
+    )
+    n_inits = sum(x.shape[0] for x, _ in feed)
+    feed.dataset.close()
+    # valid_anchor_range([0,1,2], 48) = [0, 46): the last two inits would read past the end
+    assert n_inits == 46
