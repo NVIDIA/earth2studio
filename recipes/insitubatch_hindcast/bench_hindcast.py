@@ -23,9 +23,9 @@ import argparse
 import time
 
 import numpy as np
+from insitubatch import fsspec_store
 
 from earth2studio.data.insitu import InSituForecastFeed, decode_cf_time
-from insitubatch import fsspec_store
 
 # store id -> (url, before source class, inner (H,W), transpose store(lon,lat)->(lat,lon))
 STORES = {
@@ -77,11 +77,17 @@ def run_after(cfg, variables, start, n_init, leads_h, batch_size, max_inflight):
     t0 = time.perf_counter()
     n_rows = 0
     for x, _coords in feed:
-        n_rows += x.shape[0]  # gather returns eager numpy; no touch needed to force decode
+        n_rows += x.shape[
+            0
+        ]  # gather returns eager numpy; no touch needed to force decode
     wall = time.perf_counter() - t0
     feed.dataset.close()
-    return {"wall_s": wall, "init_rows": n_rows,
-            "chunk_decodes": feed.dataset.cache_misses, "resident_peak": feed.dataset.resident_peak}
+    return {
+        "wall_s": wall,
+        "init_rows": n_rows,
+        "chunk_decodes": feed.dataset.cache_misses,
+        "resident_peak": feed.dataset.resident_peak,
+    }
 
 
 def run_before(before_cls, variables, init_times64, leads_h):
@@ -90,7 +96,10 @@ def run_before(before_cls, variables, init_times64, leads_h):
     leads_td = [np.timedelta64(h, "h") for h in leads_h]
     t0 = time.perf_counter()
     for it in init_dt:
-        valid = [(np.datetime64(it) + td).astype("datetime64[s]").astype("O") for td in leads_td]
+        valid = [
+            (np.datetime64(it) + td).astype("datetime64[s]").astype("O")
+            for td in leads_td
+        ]
         src(valid, list(variables))  # realistic per-init verification fetch
     return {"wall_s": time.perf_counter() - t0}
 
@@ -117,12 +126,18 @@ def main():
 
     g = zarr.open_group(store=anon_store(cfg["url"]), mode="r")
     attrs = dict(g["time"].attrs)
-    times64 = decode_cf_time(np.asarray(g["time"][:]), attrs["units"], attrs.get("calendar", "standard"))
+    times64 = decode_cf_time(
+        np.asarray(g["time"][:]), attrs["units"], attrs.get("calendar", "standard")
+    )
     init_times64 = times64[args.start : args.start + args.n_init]
 
-    print(f"[{args.store}] grid: {args.n_init} inits x {len(leads_h)} leads x {len(args.vars)} vars "
-          f"= {requested} requested field-reads ({requested*cfg['field_bytes']/1e9:.2f} GB naive)")
-    print(f"leads: {args.lead_step_h}h..{args.max_lead_h}h ; vars: {args.vars} ; repeats: {args.repeats}")
+    print(
+        f"[{args.store}] grid: {args.n_init} inits x {len(leads_h)} leads x {len(args.vars)} vars "
+        f"= {requested} requested field-reads ({requested*cfg['field_bytes']/1e9:.2f} GB naive)"
+    )
+    print(
+        f"leads: {args.lead_step_h}h..{args.max_lead_h}h ; vars: {args.vars} ; repeats: {args.repeats}"
+    )
 
     def med3(w):
         w = sorted(w)
@@ -132,27 +147,45 @@ def main():
     after_walls, before_walls = [], []
     decodes = resident = None
     for r in range(args.repeats):
-        a = run_after(cfg, args.vars, args.start, args.n_init, leads_h, args.batch_size, args.max_inflight)
+        a = run_after(
+            cfg,
+            args.vars,
+            args.start,
+            args.n_init,
+            leads_h,
+            args.batch_size,
+            args.max_inflight,
+        )
         after_walls.append(a["wall_s"])
         decodes, resident = a["chunk_decodes"], a["resident_peak"]
         if not args.skip_before:
-            before_walls.append(run_before(before_cls, args.vars, init_times64, leads_h)["wall_s"])
-        print(f"  repeat {r+1}/{args.repeats}: after={after_walls[-1]:.2f}s"
-              + (f"  before={before_walls[-1]:.2f}s" if before_walls else ""))
+            before_walls.append(
+                run_before(before_cls, args.vars, init_times64, leads_h)["wall_s"]
+            )
+        print(
+            f"  repeat {r+1}/{args.repeats}: after={after_walls[-1]:.2f}s"
+            + (f"  before={before_walls[-1]:.2f}s" if before_walls else "")
+        )
 
     dedup = requested / decodes
     a_med, a_lo, a_hi = med3(after_walls)
     print("\n=== AFTER (insitubatch, gcsfs anon) ===")
     print(f"  wall (med/min/max): {a_med:.2f} / {a_lo:.2f} / {a_hi:.2f} s")
-    print(f"  chunk decodes  : {decodes}  ({decodes*cfg['field_bytes']*cfg['chunk_steps']/1e9:.2f} GB)")
-    print(f"  dedup ratio    : {dedup:.1f}x  ({requested} requested -> {decodes} decoded)")
+    print(
+        f"  chunk decodes  : {decodes}  ({decodes*cfg['field_bytes']*cfg['chunk_steps']/1e9:.2f} GB)"
+    )
+    print(
+        f"  dedup ratio    : {dedup:.1f}x  ({requested} requested -> {decodes} decoded)"
+    )
     print(f"  resident peak  : {resident} chunks")
     if before_walls:
         b_med, b_lo, b_hi = med3(before_walls)
         print("\n=== BEFORE (E2S fetch, gcsfs anon, cache off) ===")
         print(f"  wall (med/min/max): {b_med:.2f} / {b_lo:.2f} / {b_hi:.2f} s")
         print("\n=== HEADLINE (medians) ===")
-        print(f"  speedup        : {b_med/a_med:.1f}x wall ({b_med:.2f}s -> {a_med:.2f}s)")
+        print(
+            f"  speedup        : {b_med/a_med:.1f}x wall ({b_med:.2f}s -> {a_med:.2f}s)"
+        )
         print(f"  read reduction : {dedup:.1f}x fewer chunk decodes")
 
 
