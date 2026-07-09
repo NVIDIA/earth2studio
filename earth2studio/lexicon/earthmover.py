@@ -374,8 +374,11 @@ _ERA5_LEVELS = (50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000)
 _ERA5_PRESSURE_VARIABLES = ("pv", "q", "r", "t", "u", "v", "w", "z")
 
 
-def _build_era5_vocab() -> dict[str, str]:
-    vocab = {
+class EarthMoverERA5Lexicon(_EarthMoverLexiconBase):
+    """Earthmover ERA5 Marketplace lexicon."""
+
+    LEVELS = _ERA5_LEVELS
+    SURFACE_VARIABLES: dict[str, str] = {
         "blh": "blh::sfc::",
         "cape": "cape::sfc::",
         "cp": "cp::sfc::",
@@ -415,15 +418,13 @@ def _build_era5_vocab() -> dict[str, str]:
         "v100m": "v100::sfc::",
         "zust": "zust::sfc::",
     }
-    for name in _ERA5_PRESSURE_VARIABLES:
-        vocab.update(
-            {f"{name}{level}": f"{name}::pl::{level}" for level in _ERA5_LEVELS}
-        )
-    return vocab
-
-
-class EarthMoverERA5Lexicon(_EarthMoverLexiconBase):
-    """Earthmover ERA5 Marketplace lexicon."""
-
-    VOCAB: dict[str, str] = _build_era5_vocab()
+    PRESSURE_VARIABLES: dict[str, str] = {
+        f"{name}{level}": f"{name}::pl::{level}"
+        for name in _ERA5_PRESSURE_VARIABLES
+        for level in _ERA5_LEVELS
+    }
+    VOCAB: dict[str, str] = {
+        **SURFACE_VARIABLES,
+        **PRESSURE_VARIABLES,
+    }
     SPECS: dict[str, VariableSpec] = _build_specs(VOCAB)
