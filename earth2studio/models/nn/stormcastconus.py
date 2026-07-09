@@ -109,7 +109,8 @@ class StormCastCONUSBase(torch.nn.Module, AutoModelMixin):
     ----------
     diffusion_model : torch.nn.Module
         Configured diffusion model (e.g. a :class:`_SplitModelWrapper` instance
-        created by :meth:`load_model`).
+        created by :meth:`load_model`). Must be a :class:`_SplitModelWrapper` instance
+        to set ``hrrr_lat_lim`` or ``hrrr_lon_lim`` to non-default values.
     means : torch.Tensor
         Per-channel mean for normalising the high-resolution state.
     stds : torch.Tensor
