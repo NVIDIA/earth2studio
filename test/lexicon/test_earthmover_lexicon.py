@@ -17,8 +17,11 @@
 import numpy as np
 import pytest
 
-from earth2studio.lexicon import EarthMoverERA5Lexicon, EarthMoverIFSLexicon
-from earth2studio.lexicon.base import E2STUDIO_VOCAB
+from earth2studio.lexicon import (
+    EarthMoverERA5Lexicon,
+    EarthMoverIFSInitialConditionLexicon,
+    EarthMoverIFSLexicon,
+)
 from earth2studio.lexicon.earthmover import make_modifier, normalize_units
 
 IFS_FORECAST_VOCAB = {
@@ -38,108 +41,161 @@ IFS_FORECAST_VOCAB = {
     "ssrd": "ssrd::sfc::",
     "tp": "tp::sfc::",
 }
-ERA5_LEVELS = (50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000)
-ERA5_SINGLE_VARIABLES = {
-    "blh",
-    "cape",
-    "cp",
-    "d2m",
-    "fdir",
-    "fg10m",
-    "fsr",
-    "hcc",
-    "ie",
-    "lcc",
-    "lsp",
-    "mcc",
-    "msl",
-    "sd",
-    "sf",
-    "skt",
-    "slhf",
-    "sp",
-    "ssr",
-    "ssrd",
-    "sst",
-    "stl1",
-    "stl2",
-    "stl3",
-    "stl4",
-    "swvl1",
-    "t2m",
-    "tcc",
-    "tcw",
-    "tcwv",
-    "tisr",
-    "tp",
-    "tsr",
-    "u10m",
-    "u100m",
-    "v10m",
-    "v100m",
-    "zust",
+IFS_ANALYSIS_LEVELS = (50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000)
+IFS_ANALYSIS_SURFACE_VOCAB = {
+    "u100m": "100u::sfc::",
+    "v100m": "100v::sfc::",
+    "u10m": "10u::sfc::",
+    "v10m": "10v::sfc::",
+    "d2m": "2d::sfc::",
+    "t2m": "2t::sfc::",
+    "hcc": "hcc::sfc::",
+    "lcc": "lcc::sfc::",
+    "mcc": "mcc::sfc::",
+    "msl": "msl::sfc::",
+    "skt": "skt::sfc::",
+    "sp": "sp::sfc::",
+    "sst": "sst::sfc::",
+    "stl1": "stl1::sfc::",
+    "stl2": "stl2::sfc::",
+    "swvl1": "swvl1::sfc::",
+    "swvl2": "swvl2::sfc::",
+    "tcc": "tcc::sfc::",
+    "tcw": "tcw::sfc::",
+    "tcwv": "tcwv::sfc::",
+}
+IFS_ANALYSIS_PRESSURE_VOCAB = {
+    f"{name}{level}": f"{name}::pl::{level}"
+    for name in ("q", "t", "u", "v", "w", "z")
+    for level in IFS_ANALYSIS_LEVELS
+}
+IFS_INITIAL_CONDITION_VOCAB = {
+    **IFS_ANALYSIS_SURFACE_VOCAB,
+    **IFS_ANALYSIS_PRESSURE_VOCAB,
+}
+
+ERA5_LEVELS = IFS_ANALYSIS_LEVELS
+ERA5_SURFACE_VOCAB = {
+    "blh": "blh::sfc::",
+    "cape": "cape::sfc::",
+    "cp": "cp::sfc::",
+    "d2m": "d2m::sfc::",
+    "fdir": "fdir::sfc::",
+    "fg10m": "fg10::sfc::",
+    "fsr": "fsr::sfc::",
+    "hcc": "hcc::sfc::",
+    "ie": "ie::sfc::",
+    "lcc": "lcc::sfc::",
+    "lsp": "lsp::sfc::",
+    "mcc": "mcc::sfc::",
+    "msl": "msl::sfc::",
+    "sd": "sd::sfc::",
+    "sf": "sf::sfc::",
+    "skt": "skt::sfc::",
+    "slhf": "slhf::sfc::",
+    "sp": "sp::sfc::",
+    "ssr": "ssr::sfc::",
+    "ssrd": "ssrd::sfc::",
+    "sst": "sst::sfc::",
+    "stl1": "stl1::sfc::",
+    "stl2": "stl2::sfc::",
+    "stl3": "stl3::sfc::",
+    "stl4": "stl4::sfc::",
+    "swvl1": "swvl1::sfc::",
+    "t2m": "t2m::sfc::",
+    "tcc": "tcc::sfc::",
+    "tcw": "tcw::sfc::",
+    "tcwv": "tcwv::sfc::",
+    "tisr": "tisr::sfc::",
+    "tp": "tp::sfc::",
+    "tsr": "tsr::sfc::",
+    "u10m": "u10::sfc::",
+    "u100m": "u100::sfc::",
+    "v10m": "v10::sfc::",
+    "v100m": "v100::sfc::",
+    "zust": "zust::sfc::",
+}
+ERA5_PRESSURE_VOCAB = {
+    f"{name}{level}": f"{name}::pl::{level}"
+    for name in ("pv", "q", "r", "t", "u", "v", "w", "z")
+    for level in ERA5_LEVELS
+}
+ERA5_VOCAB = {
+    **ERA5_SURFACE_VOCAB,
+    **ERA5_PRESSURE_VOCAB,
 }
 
 
-def test_earthmover_ifs_lexicon_matches_marketplace_variables():
+def test_earthmover_era5_lexicon_matches_marketplace_variables():
+    assert EarthMoverERA5Lexicon.VOCAB == ERA5_VOCAB
+
+
+def test_earthmover_ifs_initial_condition_lexicon_matches_marketplace_variables():
+    assert EarthMoverIFSInitialConditionLexicon.VOCAB == IFS_INITIAL_CONDITION_VOCAB
+
+
+def test_earthmover_ifs_forecast_lexicon_matches_marketplace_variables():
     assert EarthMoverIFSLexicon.VOCAB == IFS_FORECAST_VOCAB
 
 
-def test_earthmover_ifs_lexicon_specs():
+def test_earthmover_era5_lexicon_specs():
+    assert EarthMoverERA5Lexicon.spec("t2m").short_name == "t2m"
+    assert EarthMoverERA5Lexicon.spec("msl").param_id == 151
+    assert EarthMoverERA5Lexicon.spec("fg10m").short_name == "fg10"
+    assert EarthMoverERA5Lexicon.spec("u10m").level_type == "surface"
+    assert EarthMoverERA5Lexicon.spec("q500").level_type == "isobaric"
+    assert EarthMoverERA5Lexicon.spec("q500").level == 500
+    assert EarthMoverERA5Lexicon.spec("pv500").short_name == "pv"
+    assert EarthMoverERA5Lexicon.spec("z50").short_name == "z"
+
+
+def test_earthmover_ifs_initial_condition_lexicon_specs():
+    assert EarthMoverIFSInitialConditionLexicon.spec("t2m").param_id == 167
+    assert EarthMoverIFSInitialConditionLexicon.spec("t2m").short_name == "2t"
+    assert EarthMoverIFSInitialConditionLexicon.spec("sst").param_id == 34
+    assert EarthMoverIFSInitialConditionLexicon.spec("stl1").short_name == "stl1"
+    assert EarthMoverIFSInitialConditionLexicon.spec("u10m").level_type == "surface"
+    assert EarthMoverIFSInitialConditionLexicon.spec("q500").level_type == "isobaric"
+    assert EarthMoverIFSInitialConditionLexicon.spec("q500").level == 500
+    assert EarthMoverIFSInitialConditionLexicon.spec("z50").short_name == "z"
+    assert (
+        EarthMoverIFSInitialConditionLexicon.spec("u100m").param_id
+        != EarthMoverIFSInitialConditionLexicon.spec("u10m").param_id
+    )
+
+
+def test_earthmover_ifs_forecast_lexicon_specs():
     assert EarthMoverIFSLexicon.spec("t2m").param_id == 167
     assert EarthMoverIFSLexicon.spec("t2m").short_name == "2t"
     assert EarthMoverIFSLexicon.spec("fdir").short_name == "fdir"
     assert EarthMoverIFSLexicon.spec("u10m").level_type == "surface"
-    assert all(
-        EarthMoverIFSLexicon.spec(variable).level_type == "surface"
-        for variable in EarthMoverIFSLexicon.VOCAB
-    )
     assert (
         EarthMoverIFSLexicon.spec("u100m").param_id
         != EarthMoverIFSLexicon.spec("u10m").param_id
     )
 
 
-def test_earthmover_ifs_lexicon_keys():
-    for variable in EarthMoverIFSLexicon.VOCAB:
-        source_key, modifier = EarthMoverIFSLexicon[variable]
-        assert source_key == EarthMoverIFSLexicon.VOCAB[variable]
-        assert callable(modifier)
+def test_earthmover_lexicon_keys():
+    for lexicon in (
+        EarthMoverERA5Lexicon,
+        EarthMoverIFSInitialConditionLexicon,
+        EarthMoverIFSLexicon,
+    ):
+        for variable in lexicon.VOCAB:
+            source_key, modifier = lexicon[variable]
+            assert source_key == lexicon.VOCAB[variable]
+            assert callable(modifier)
 
 
-def test_earthmover_ifs_lexicon_invalid():
+def test_earthmover_lexicon_invalid():
     with pytest.raises(KeyError):
-        EarthMoverIFSLexicon.spec("not_a_variable")
+        EarthMoverERA5Lexicon.spec("not_a_variable")
     with pytest.raises(KeyError):
-        EarthMoverIFSLexicon["z500"]
-
-
-def test_earthmover_era5_lexicon_matches_marketplace_variables():
-    assert set(EarthMoverERA5Lexicon.VOCAB).issuperset(ERA5_SINGLE_VARIABLES)
-    for name in ("pv", "q", "r", "t", "u", "v", "w", "z"):
-        for level in ERA5_LEVELS:
-            variable = f"{name}{level}"
-            assert EarthMoverERA5Lexicon.VOCAB[variable] == f"{name}::pl::{level}"
-
-
-def test_earthmover_era5_lexicon_specs():
-    assert EarthMoverERA5Lexicon.spec("t2m").short_name == "t2m"
-    assert EarthMoverERA5Lexicon.spec("t2m").level_type == "surface"
-    assert EarthMoverERA5Lexicon.spec("z500").short_name == "z"
-    assert EarthMoverERA5Lexicon.spec("z500").level_type == "isobaric"
-    assert EarthMoverERA5Lexicon.spec("z500").level == 500
-    assert EarthMoverERA5Lexicon.spec("pv500").short_name == "pv"
-
-
-def test_earthmover_era5_lexicon_keys():
-    for variable in EarthMoverERA5Lexicon.VOCAB:
-        source_key, modifier = EarthMoverERA5Lexicon[variable]
-        assert source_key == EarthMoverERA5Lexicon.VOCAB[variable]
-        assert callable(modifier)
-
-
-def test_earthmover_era5_lexicon_base_vocab_coverage():
-    assert set(EarthMoverERA5Lexicon.VOCAB) <= set(E2STUDIO_VOCAB)
+        EarthMoverIFSLexicon["r500"]
+    with pytest.raises(KeyError):
+        EarthMoverIFSLexicon.spec("q500")
+    with pytest.raises(KeyError):
+        EarthMoverIFSInitialConditionLexicon.spec("fdir")
 
 
 def test_earthmover_unit_normalization():

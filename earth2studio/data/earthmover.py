@@ -16,11 +16,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, ClassVar
+from typing import NoReturn, cast
 
 import numpy as np
 import xarray as xr
@@ -32,8 +33,10 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
 )
+from earth2studio.lexicon.base import LexiconType
 from earth2studio.lexicon.earthmover import (
     EarthMoverERA5Lexicon,
+    EarthMoverIFSInitialConditionLexicon,
     EarthMoverIFSLexicon,
     VariableSpec,
     make_modifier,
@@ -88,7 +91,7 @@ class _Resolved:
 class _EarthMoverBase:
     """Shared Earthmover Arraylake connection and resolution logic."""
 
-    LEXICON: ClassVar[Any] = EarthMoverIFSLexicon
+    LEXICON: LexiconType = EarthMoverIFSLexicon
 
     def __init__(
         self,
@@ -156,7 +159,8 @@ class _EarthMoverBase:
         datasets: list[xr.Dataset] = []
         for group in self._groups:
             try:
-                ds = xr.open_zarr(
+                ds = await asyncio.to_thread(
+                    xr.open_zarr,
                     session.store,
                     group=group,
                     decode_timedelta=True,
@@ -168,7 +172,7 @@ class _EarthMoverBase:
         self._datasets = datasets
         self._build_index()
 
-    def _raise_access_error(self, err: Exception, group: str | None = None) -> None:
+    def _raise_access_error(self, err: Exception, group: str | None = None) -> NoReturn:
         """Translate access failures into actionable guidance.
 
         Permission / not-found errors on a Marketplace repo usually mean the user
@@ -211,6 +215,16 @@ class _EarthMoverBase:
         for n in names:
             if n.lower() in lookup:
                 return lookup[n.lower()]
+        return None
+
+    @staticmethod
+    def _find_dim_coord(ds: xr.Dataset, names: tuple[str, ...]) -> str | None:
+        """Find a 1-D coordinate that can be used as an index dimension."""
+        lookup = {str(c).lower(): str(c) for c in ds.variables}
+        for n in names:
+            coord = lookup.get(n.lower())
+            if coord is not None and coord in ds.sizes and ds[coord].ndim == 1:
+                return coord
         return None
 
     @classmethod
@@ -288,7 +302,8 @@ class _EarthMoverBase:
         satisfies its metadata descriptor.
         """
         try:
-            spec = self.LEXICON.spec(variable)
+            specs = cast(dict[str, VariableSpec], getattr(self.LEXICON, "SPECS"))
+            spec = specs[variable]
         except KeyError:
             raise ValueError(
                 f"'{variable}' is not a known Earth2Studio variable id."
@@ -394,6 +409,15 @@ class _EarthMoverBase:
             "or CF standard_name attributes."
         )
 
+    @staticmethod
+    def _standardize_longitude(da: xr.DataArray) -> xr.DataArray:
+        """Roll native -180..180 longitudes to Earth2Studio's 0..360 convention."""
+        lon = np.asarray(da.lon.values, dtype="float64")
+        if lon.size and np.isclose(lon[0], -180.0):
+            da = da.roll(lon=-(lon.size // 2), roll_coords=True)
+            da = da.assign_coords(lon=np.mod(np.asarray(da.lon.values), 360.0))
+        return da
+
     # ------------------------------------------------------------------
     # Per-variable fetch (shared by analysis & forecast)
     # ------------------------------------------------------------------
@@ -426,7 +450,7 @@ class _EarthMoverBase:
                 "before use."
             )
 
-        time_coord = self._find_coord(ds, _TIME_NAMES)
+        time_coord = self._find_dim_coord(ds, _TIME_NAMES)
         if time_coord is None:
             raise ValueError(
                 f"Repo '{self._repo_name}' has no recognizable time coordinate."
@@ -447,6 +471,7 @@ class _EarthMoverBase:
                 da = da.drop_vars(coord)
         rename = {lat: "lat", lon: "lon", time_coord: "time"}
         da = da.rename({k: v for k, v in rename.items() if k != v})
+        da = self._standardize_longitude(da)
         return da
 
     # ------------------------------------------------------------------
@@ -481,7 +506,7 @@ class _EarthMoverBase:
         await self._connect()
         t64 = np.datetime64(time)
         for ds in self._datasets or []:
-            time_coord = self._find_coord(ds, _TIME_NAMES)
+            time_coord = self._find_dim_coord(ds, _TIME_NAMES)
             if time_coord is None:
                 continue
             if (ds[time_coord].values.astype("datetime64[ns]") == t64).any():
@@ -529,11 +554,18 @@ class EarthMoverERA5(_EarthMoverBase):
 
     Note
     ----
-    Set ``EARTHMOVER_API_KEY`` to an Earthmover / Arraylake API key before
-    using this data source, unless passing a pre-authenticated ``client``.
+    Configure Earthmover access before using this data source:
+
+    - Set the ``EARTHMOVER_API_KEY`` environment variable to an Earthmover /
+      Arraylake API key, unless passing a pre-authenticated ``client``.
+    - Pass ``repo="org/repo"`` to open a specific Arraylake repository.
+    - If ``repo`` is omitted, set the ``EARTHMOVER_ORGANIZATION`` environment
+      variable. The default repository is
+      ``<EARTHMOVER_ORGANIZATION>/era5-subscription``.
+
     The data source opens the ``single/spatial`` and ``pressure/spatial``
-    groups from the ERA5 Marketplace repository. When ``repo`` is omitted, the
-    repo defaults to ``<EARTHMOVER_ORGANIZATION>/era5-subscription``.
+    groups from the ERA5 Marketplace repository. Arraylake-backed Earthmover
+    sources require Python 3.12 or newer.
 
     Additional information on the data repository can be referenced here:
 
@@ -678,7 +710,7 @@ class EarthMoverERA5(_EarthMoverBase):
         out = out.assign_coords(variable=variable_list).transpose(
             "time", "variable", "lat", "lon"
         )
-        return out.load()
+        return await asyncio.to_thread(out.load)
 
 
 @check_optional_dependencies()
@@ -710,12 +742,16 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
 
     Note
     ----
-    Set ``EARTHMOVER_API_KEY`` to an Earthmover / Arraylake API key before
-    using this data source, unless passing a pre-authenticated ``client``.
-    This Marketplace dataset must be opened through the ``org/repo`` name
-    created by your Earthmover subscription; pass it with ``repo``. When
-    ``repo`` is omitted, the repo defaults
-    to ``<EARTHMOVER_ORGANIZATION>/ecmwf-ifs-initial-conditions-open-subscription``.
+    Configure Earthmover access before using this data source:
+
+    - Set the ``EARTHMOVER_API_KEY`` environment variable to an Earthmover /
+      Arraylake API key, unless passing a pre-authenticated ``client``.
+    - Pass ``repo="org/repo"`` to open a specific Arraylake repository.
+    - If ``repo`` is omitted, set the ``EARTHMOVER_ORGANIZATION`` environment
+      variable. The default repository is
+      ``<EARTHMOVER_ORGANIZATION>/ecmwf-ifs-initial-conditions-open-subscription``.
+
+    Arraylake-backed Earthmover sources require Python 3.12 or newer.
 
     Additional information on the data repository can be referenced here:
 
@@ -723,14 +759,15 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
 
     Badges
     ------
-    region:global dataclass:analysis product:wind product:precip product:temp product:atmos
+    region:global dataclass:analysis product:wind product:temp product:atmos product:ocean product:land
     """
 
     MARKETPLACE_URL = "https://app.earthmover.io/marketplace/697162921880507a6587c31b"
     DEFAULT_BRANCH = "main"
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
     SUBSCRIPTION_REPO_NAME = "ecmwf-ifs-initial-conditions-open-subscription"
-    VARIABLES = tuple(EarthMoverIFSLexicon.VOCAB)
+    LEXICON = EarthMoverIFSInitialConditionLexicon
+    VARIABLES = tuple(EarthMoverIFSInitialConditionLexicon.VOCAB)
 
     def __init__(
         self,
@@ -816,13 +853,20 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
                     f"(matched by {resolved.rule})"
                 )
             da = self._select_variable(resolved, time_sel)
+            squeeze_dims = [
+                dim
+                for dim, size in da.sizes.items()
+                if dim not in ("time", "lat", "lon") and size == 1
+            ]
+            if squeeze_dims:
+                da = da.squeeze(dim=squeeze_dims, drop=True)
             arrays.append(da.transpose("time", "lat", "lon"))
 
         out = xr.concat(arrays, dim="variable")
         out = out.assign_coords(variable=variable_list).transpose(
             "time", "variable", "lat", "lon"
         )
-        return out.load()
+        return await asyncio.to_thread(out.load)
 
 
 @check_optional_dependencies()
@@ -854,12 +898,16 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
 
     Note
     ----
-    Set ``EARTHMOVER_API_KEY`` to an Earthmover / Arraylake API key before
-    using this data source, unless passing a pre-authenticated ``client``.
-    This Marketplace dataset must be opened through the ``org/repo`` name
-    created by your Earthmover subscription; pass it with ``repo``. When
-    ``repo`` is omitted, the repo defaults
-    to ``<EARTHMOVER_ORGANIZATION>/ecmwf-ifs-15-day-forecast-open-subscription``.
+    Configure Earthmover access before using this data source:
+
+    - Set the ``EARTHMOVER_API_KEY`` environment variable to an Earthmover /
+      Arraylake API key, unless passing a pre-authenticated ``client``.
+    - Pass ``repo="org/repo"`` to open a specific Arraylake repository.
+    - If ``repo`` is omitted, set the ``EARTHMOVER_ORGANIZATION`` environment
+      variable. The default repository is
+      ``<EARTHMOVER_ORGANIZATION>/ecmwf-ifs-15-day-forecast-open-subscription``.
+
+    Arraylake-backed Earthmover sources require Python 3.12 or newer.
 
     Additional information on the data repository can be referenced here:
 
@@ -874,6 +922,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
     DEFAULT_BRANCH = "main"
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
     SUBSCRIPTION_REPO_NAME = "ecmwf-ifs-15-day-forecast-open-subscription"
+    LEXICON = EarthMoverIFSLexicon
     DATASET_VARIABLES = (
         "100u",
         "100v",
@@ -891,23 +940,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
         "ssrd",
         "tp",
     )
-    VARIABLES = (
-        "u100m",
-        "v100m",
-        "u10m",
-        "v10m",
-        "d2m",
-        "t2m",
-        "cp",
-        "fdir",
-        "hcc",
-        "lcc",
-        "mcc",
-        "msl",
-        "sd",
-        "ssrd",
-        "tp",
-    )
+    VARIABLES = tuple(EarthMoverIFSLexicon.VOCAB)
 
     def __init__(
         self,
@@ -1016,4 +1049,4 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
         out = out.assign_coords(variable=variable_list).transpose(
             "time", "lead_time", "variable", "lat", "lon"
         )
-        return out.load()
+        return await asyncio.to_thread(out.load)
