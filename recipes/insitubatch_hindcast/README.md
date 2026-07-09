@@ -87,7 +87,8 @@ python bench_cache.py --store arco --vars t2m --n-init 12 --max-lead-h 48 --cach
 The deterministic result is **zero cloud fetches on re-score** — the warm run serves every chunk
 from local disk. The wall speedup is secondary and scales with how IO-bound the cold fetch is (tiny
 WB2 fields ~1.4×; 4 MB ARCO fields ~2.2×); it is *understated* on this box's cheap same-region reads
-and grows under metered egress, requester-pays, or cross-region access.
+and grows under metered egress, requester-pays, or cross-region access. The cold wall includes the
+one-time persist write, so it runs slightly above the persist-off de-dup figure in §1.
 
 ## How to read these numbers — framing insitubatch
 
