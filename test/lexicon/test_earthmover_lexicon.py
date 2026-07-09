@@ -17,7 +17,8 @@
 import numpy as np
 import pytest
 
-from earth2studio.lexicon import EarthMoverIFSLexicon
+from earth2studio.lexicon import EarthMoverERA5Lexicon, EarthMoverIFSLexicon
+from earth2studio.lexicon.base import E2STUDIO_VOCAB
 from earth2studio.lexicon.earthmover import make_modifier, normalize_units
 
 IFS_FORECAST_VOCAB = {
@@ -36,6 +37,47 @@ IFS_FORECAST_VOCAB = {
     "sd": "sd::sfc::",
     "ssrd": "ssrd::sfc::",
     "tp": "tp::sfc::",
+}
+ERA5_LEVELS = (50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000)
+ERA5_SINGLE_VARIABLES = {
+    "blh",
+    "cape",
+    "cp",
+    "d2m",
+    "fdir",
+    "fg10m",
+    "fsr",
+    "hcc",
+    "ie",
+    "lcc",
+    "lsp",
+    "mcc",
+    "msl",
+    "sd",
+    "sf",
+    "skt",
+    "slhf",
+    "sp",
+    "ssr",
+    "ssrd",
+    "sst",
+    "stl1",
+    "stl2",
+    "stl3",
+    "stl4",
+    "swvl1",
+    "t2m",
+    "tcc",
+    "tcw",
+    "tcwv",
+    "tisr",
+    "tp",
+    "tsr",
+    "u10m",
+    "u100m",
+    "v10m",
+    "v100m",
+    "zust",
 }
 
 
@@ -70,6 +112,34 @@ def test_earthmover_ifs_lexicon_invalid():
         EarthMoverIFSLexicon.spec("not_a_variable")
     with pytest.raises(KeyError):
         EarthMoverIFSLexicon["z500"]
+
+
+def test_earthmover_era5_lexicon_matches_marketplace_variables():
+    assert set(EarthMoverERA5Lexicon.VOCAB).issuperset(ERA5_SINGLE_VARIABLES)
+    for name in ("pv", "q", "r", "t", "u", "v", "w", "z"):
+        for level in ERA5_LEVELS:
+            variable = f"{name}{level}"
+            assert EarthMoverERA5Lexicon.VOCAB[variable] == f"{name}::pl::{level}"
+
+
+def test_earthmover_era5_lexicon_specs():
+    assert EarthMoverERA5Lexicon.spec("t2m").short_name == "t2m"
+    assert EarthMoverERA5Lexicon.spec("t2m").level_type == "surface"
+    assert EarthMoverERA5Lexicon.spec("z500").short_name == "z"
+    assert EarthMoverERA5Lexicon.spec("z500").level_type == "isobaric"
+    assert EarthMoverERA5Lexicon.spec("z500").level == 500
+    assert EarthMoverERA5Lexicon.spec("pv500").short_name == "pv"
+
+
+def test_earthmover_era5_lexicon_keys():
+    for variable in EarthMoverERA5Lexicon.VOCAB:
+        source_key, modifier = EarthMoverERA5Lexicon[variable]
+        assert source_key == EarthMoverERA5Lexicon.VOCAB[variable]
+        assert callable(modifier)
+
+
+def test_earthmover_era5_lexicon_base_vocab_coverage():
+    assert set(EarthMoverERA5Lexicon.VOCAB) <= set(E2STUDIO_VOCAB)
 
 
 def test_earthmover_unit_normalization():

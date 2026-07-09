@@ -16,11 +16,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any, ClassVar
 
 import numpy as np
 import xarray as xr
@@ -33,6 +33,7 @@ from earth2studio.data.utils import (
     prep_forecast_inputs,
 )
 from earth2studio.lexicon.earthmover import (
+    EarthMoverERA5Lexicon,
     EarthMoverIFSLexicon,
     VariableSpec,
     make_modifier,
@@ -86,6 +87,8 @@ class _Resolved:
 
 class _EarthMoverBase:
     """Shared Earthmover Arraylake connection and resolution logic."""
+
+    LEXICON: ClassVar[Any] = EarthMoverIFSLexicon
 
     def __init__(
         self,
@@ -153,8 +156,7 @@ class _EarthMoverBase:
         datasets: list[xr.Dataset] = []
         for group in self._groups:
             try:
-                ds = await asyncio.to_thread(
-                    xr.open_zarr,
+                ds = xr.open_zarr(
                     session.store,
                     group=group,
                     decode_timedelta=True,
@@ -286,7 +288,7 @@ class _EarthMoverBase:
         satisfies its metadata descriptor.
         """
         try:
-            spec = EarthMoverIFSLexicon.spec(variable)
+            spec = self.LEXICON.spec(variable)
         except KeyError:
             raise ValueError(
                 f"'{variable}' is not a known Earth2Studio variable id."
@@ -500,6 +502,149 @@ class _EarthMoverBase:
 
 
 @check_optional_dependencies()
+class EarthMoverERA5(_EarthMoverBase):
+    """Earthmover ERA5 0.25 degree reanalysis data source.
+
+    Parameters
+    ----------
+    repo : str, optional
+        Arraylake repository name as ``org/repo``. When omitted, derives the
+        repo from ``EARTHMOVER_ORGANIZATION`` as
+        ``<org>/era5-subscription``, by default None.
+    branch : str, optional
+        Repository branch to read, by default "main".
+    client : arraylake.AsyncClient, optional
+        Pre-authenticated Arraylake async client. When omitted, this data source
+        uses the API key stored in ``EARTHMOVER_API_KEY``, by default None.
+    cache : bool, optional
+        Retained for API compatibility; Arraylake reads lazily via Icechunk, by
+        default True.
+    verbose : bool, optional
+        Print progress, by default True.
+
+    Warning
+    -------
+    This is a remote data source and can download a large amount of data for large
+    requests.
+
+    Note
+    ----
+    Set ``EARTHMOVER_API_KEY`` to an Earthmover / Arraylake API key before
+    using this data source, unless passing a pre-authenticated ``client``.
+    The data source opens the ``single/spatial`` and ``pressure/spatial``
+    groups from the ERA5 Marketplace repository. When ``repo`` is omitted, the
+    repo defaults to ``<EARTHMOVER_ORGANIZATION>/era5-subscription``.
+
+    Additional information on the data repository can be referenced here:
+
+    - https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2
+
+    Badges
+    ------
+    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos product:solar
+    """
+
+    LEXICON = EarthMoverERA5Lexicon
+    MARKETPLACE_URL = "https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2"
+    ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
+    SUBSCRIPTION_REPO_NAME = "era5-subscription"
+    DEFAULT_BRANCH = "main"
+    VARIABLES = tuple(EarthMoverERA5Lexicon.VOCAB)
+
+    def __init__(
+        self,
+        repo: str | None = None,
+        branch: str = DEFAULT_BRANCH,
+        client: arraylake.AsyncClient | None = None,
+        cache: bool = True,
+        verbose: bool = True,
+    ) -> None:
+        repo_name = repo
+        if repo_name is None:
+            org_name = os.environ.get(self.ORG_ENV_VAR)
+            if org_name:
+                repo_name = f"{org_name}/{self.SUBSCRIPTION_REPO_NAME}"
+        if repo_name is None:
+            raise ValueError(
+                f"Pass repo='org/repo' or set {self.ORG_ENV_VAR} to derive "
+                f"'<org>/{self.SUBSCRIPTION_REPO_NAME}'. Listing: "
+                f"{self.MARKETPLACE_URL}"
+            )
+        super().__init__(
+            repo_name,
+            group=["single/spatial", "pressure/spatial"],
+            branch=branch,
+            client=client,
+            cache=cache,
+            verbose=verbose,
+            marketplace_url=self.MARKETPLACE_URL,
+        )
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve ERA5 data for times and variables.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Analysis timestamps (UTC).
+        variable : str | list[str] | VariableArray
+            Earth2Studio variable id(s).
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, lat, lon]``.
+        """
+        return _sync_async(self.fetch, time, variable)
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve ERA5 data for times and variables asynchronously.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Analysis timestamps (UTC).
+        variable : str | list[str] | VariableArray
+            Earth2Studio variable id(s).
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, lat, lon]``.
+        """
+        time_list, variable_list = prep_data_inputs(time, variable)
+        await self._connect()
+        await self._validate_times(time_list)
+
+        time_sel = np.array(time_list, dtype="datetime64[ns]")
+
+        arrays = []
+        for v in variable_list:
+            resolved = self._resolve(v)
+            if self._verbose:
+                logger.debug(
+                    f"{v} -> {self._repo_name}:{resolved.var_name} "
+                    f"(matched by {resolved.rule})"
+                )
+            da = self._select_variable(resolved, time_sel)
+            arrays.append(da.transpose("time", "lat", "lon"))
+
+        out = xr.concat(arrays, dim="variable")
+        out = out.assign_coords(variable=variable_list).transpose(
+            "time", "variable", "lat", "lon"
+        )
+        return out.load()
+
+
+@check_optional_dependencies()
 class EarthMoverBrightBandIFS(_EarthMoverBase):
     """Brightband ECMWF IFS 0.1 degree (10km) initial-condition data source on
     Earthmover Arraylake.
@@ -640,7 +785,7 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
         out = out.assign_coords(variable=variable_list).transpose(
             "time", "variable", "lat", "lon"
         )
-        return await asyncio.to_thread(out.load)
+        return out.load()
 
 
 @check_optional_dependencies()
@@ -834,4 +979,4 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
         out = out.assign_coords(variable=variable_list).transpose(
             "time", "lead_time", "variable", "lat", "lon"
         )
-        return await asyncio.to_thread(out.load)
+        return out.load()

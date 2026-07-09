@@ -23,7 +23,11 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from earth2studio.data import EarthMoverBrightBandIFS, EarthMoverBrightBandIFS_FX
+from earth2studio.data import (
+    EarthMoverBrightBandIFS,
+    EarthMoverBrightBandIFS_FX,
+    EarthMoverERA5,
+)
 from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.utils.imports import OptionalDependencyFailure
 
@@ -64,6 +68,52 @@ FORECAST_VARIABLES = (
     "sd",
     "ssrd",
     "tp",
+)
+ERA5_LEVELS = (50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000)
+ERA5_SINGLE_VARIABLES = (
+    "blh",
+    "cape",
+    "cp",
+    "d2m",
+    "fdir",
+    "fg10m",
+    "fsr",
+    "hcc",
+    "ie",
+    "lcc",
+    "lsp",
+    "mcc",
+    "msl",
+    "sd",
+    "sf",
+    "skt",
+    "slhf",
+    "sp",
+    "ssr",
+    "ssrd",
+    "sst",
+    "stl1",
+    "stl2",
+    "stl3",
+    "stl4",
+    "swvl1",
+    "t2m",
+    "tcc",
+    "tcw",
+    "tcwv",
+    "tisr",
+    "tp",
+    "tsr",
+    "u10m",
+    "u100m",
+    "v10m",
+    "v100m",
+    "zust",
+)
+ERA5_PRESSURE_VARIABLES = tuple(
+    f"{name}{level}"
+    for name in ("pv", "q", "r", "t", "u", "v", "w", "z")
+    for level in ERA5_LEVELS
 )
 
 
@@ -142,6 +192,87 @@ def era5_pressure() -> xr.Dataset:
         "units": "m**2 s**-2",
     }
     return ds
+
+
+def earthmover_era5_single() -> xr.Dataset:
+    """Create an EarthMover ERA5 single-level group."""
+    coords = {"valid_time": ("valid_time", TIMES), "latitude": LAT, "longitude": LON}
+    dims = ("valid_time", "latitude", "longitude")
+    data = _grid([("valid_time", xr.DataArray(TIMES))])
+    ds = xr.Dataset(
+        {
+            "t2m": (dims, data.copy()),
+            "u10": (dims, data.copy()),
+            "msl": (dims, data.copy()),
+            "fdir": (dims, data.copy()),
+        },
+        coords=coords,
+    )
+    ds["t2m"].attrs = {"long_name": "2 metre temperature", "units": "K"}
+    ds["u10"].attrs = {"long_name": "10 metre U wind component", "units": "m s**-1"}
+    ds["msl"].attrs = {
+        "standard_name": "air_pressure_at_mean_sea_level",
+        "units": "Pa",
+    }
+    ds["fdir"].attrs = {"long_name": "Surface direct solar radiation", "units": "J m-2"}
+    return ds
+
+
+def earthmover_era5_pressure() -> xr.Dataset:
+    """Create an EarthMover ERA5 pressure-level group."""
+    levels = np.array(ERA5_LEVELS, dtype="float64")
+    coords = {
+        "valid_time": ("valid_time", TIMES),
+        "pressure_level": ("pressure_level", levels),
+        "latitude": LAT,
+        "longitude": LON,
+    }
+    coords_da = xr.DataArray(levels, dims="pressure_level")
+    dims = ("valid_time", "pressure_level", "latitude", "longitude")
+    data = _grid([("valid_time", xr.DataArray(TIMES)), ("pressure_level", coords_da)])
+    ds = xr.Dataset(
+        {
+            "t": (dims, data.copy()),
+            "z": (dims, data.copy()),
+            "q": (dims, data.copy()),
+            "pv": (dims, data.copy()),
+        },
+        coords=coords,
+    )
+    ds["pressure_level"].attrs = {
+        "standard_name": "air_pressure",
+        "units": "hPa",
+        "axis": "Z",
+    }
+    ds["t"].attrs = {
+        "GRIB_shortName": "t",
+        "standard_name": "air_temperature",
+        "units": "K",
+    }
+    ds["z"].attrs = {
+        "GRIB_shortName": "z",
+        "standard_name": "geopotential",
+        "units": "m**2 s**-2",
+    }
+    ds["q"].attrs = {
+        "GRIB_shortName": "q",
+        "standard_name": "specific_humidity",
+        "units": "kg kg**-1",
+    }
+    ds["pv"].attrs = {
+        "GRIB_shortName": "pv",
+        "long_name": "Potential vorticity",
+        "units": "K m**2 kg**-1 s**-1",
+    }
+    return ds
+
+
+def earthmover_era5_groups() -> dict[str, xr.Dataset]:
+    """Create mock EarthMover ERA5 groups."""
+    return {
+        "single/spatial": earthmover_era5_single(),
+        "pressure/spatial": earthmover_era5_pressure(),
+    }
 
 
 def ifs_analysis() -> xr.Dataset:
@@ -270,9 +401,12 @@ def patch_earthmover(monkeypatch):
         calls = {"i": 0}
 
         def fake_open_zarr(store, group=None, **kwargs):
-            ds = datasets[calls["i"]]
-            calls["i"] += 1
-            return ds
+            if isinstance(datasets, dict):
+                return datasets[group]
+            try:
+                return datasets[calls["i"]]
+            finally:
+                calls["i"] += 1
 
         monkeypatch.setattr(earthmover.xr, "open_zarr", fake_open_zarr)
         return earthmover
@@ -311,11 +445,20 @@ class TestEarthMoverMockSources:
                 "cache",
                 "verbose",
             ]
+        assert list(inspect.signature(EarthMoverERA5.__init__).parameters) == [
+            "self",
+            "repo",
+            "branch",
+            "client",
+            "cache",
+            "verbose",
+        ]
 
     def test_protocol(self, patch_earthmover):
         patch_earthmover([era5_surface()])
         assert isinstance(EarthMoverBrightBandIFS("org/repo"), DataSource)
         assert isinstance(EarthMoverBrightBandIFS_FX("org/repo"), ForecastSource)
+        assert isinstance(EarthMoverERA5("org/repo"), DataSource)
 
     def test_forecast_supported_variables_match_marketplace_listing(self):
         assert (
@@ -323,6 +466,29 @@ class TestEarthMoverMockSources:
         )
         assert EarthMoverBrightBandIFS.VARIABLES == FORECAST_VARIABLES
         assert EarthMoverBrightBandIFS_FX.VARIABLES == FORECAST_VARIABLES
+
+    def test_era5_supported_variables_match_marketplace_listing(self):
+        assert EarthMoverERA5.VARIABLES == (
+            ERA5_SINGLE_VARIABLES + ERA5_PRESSURE_VARIABLES
+        )
+
+    def test_era5_repo_from_organization_env(self, monkeypatch, patch_earthmover):
+        patch_earthmover(earthmover_era5_groups())
+        monkeypatch.setenv("EARTHMOVER_ORGANIZATION", "my-org")
+
+        ds = EarthMoverERA5()
+
+        assert ds._repo_name == "my-org/era5-subscription"
+        assert ds._groups == ["single/spatial", "pressure/spatial"]
+
+    def test_era5_explicit_repo_takes_precedence(self, monkeypatch, patch_earthmover):
+        patch_earthmover(earthmover_era5_groups())
+        monkeypatch.setenv("EARTHMOVER_ORGANIZATION", "my-org")
+
+        ds = EarthMoverERA5("other-org/custom-repo")
+
+        assert ds._repo_name == "other-org/custom-repo"
+        assert ds._groups == ["single/spatial", "pressure/spatial"]
 
     def test_analysis_repo_from_organization_env(self, monkeypatch, patch_earthmover):
         patch_earthmover([era5_surface()])
@@ -394,6 +560,15 @@ class TestEarthMoverMockSources:
         out = ds(datetime(2022, 1, 1), "u10m")
 
         assert_analysis_data_array(out, ["u10m"])
+
+    def test_era5_fetch(self, patch_earthmover):
+        patch_earthmover(earthmover_era5_groups())
+        variables = ["t2m", "fdir", "z500", "q850", "pv500"]
+        ds = EarthMoverERA5("my-org/era5-subscription")
+
+        out = ds(datetime(2022, 1, 1), variables)
+
+        assert_analysis_data_array(out, variables)
 
     def test_forecast_fetch(self, patch_earthmover):
         patch_earthmover([ifs_forecast()])
@@ -512,3 +687,10 @@ class TestEarthMoverErrors:
 
         with pytest.raises(ValueError, match="EARTHMOVER_ORGANIZATION"):
             EarthMoverBrightBandIFS()
+
+    def test_era5_missing_repo_requires_config(self, monkeypatch, patch_earthmover):
+        patch_earthmover(earthmover_era5_groups())
+        monkeypatch.delenv("EARTHMOVER_ORGANIZATION", raising=False)
+
+        with pytest.raises(ValueError, match="EARTHMOVER_ORGANIZATION"):
+            EarthMoverERA5()
