@@ -17,7 +17,10 @@
 import numpy as np
 import pytest
 
-from earth2studio.lexicon import EarthMoverIFSLexicon
+from earth2studio.lexicon import (
+    EarthMoverIFSInitialConditionLexicon,
+    EarthMoverIFSLexicon,
+)
 from earth2studio.lexicon.earthmover import make_modifier, normalize_units
 
 IFS_FORECAST_VOCAB = {
@@ -37,21 +40,68 @@ IFS_FORECAST_VOCAB = {
     "ssrd": "ssrd::sfc::",
     "tp": "tp::sfc::",
 }
+IFS_ANALYSIS_LEVELS = (50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000)
+IFS_ANALYSIS_SURFACE_VOCAB = {
+    "u100m": "100u::sfc::",
+    "v100m": "100v::sfc::",
+    "u10m": "10u::sfc::",
+    "v10m": "10v::sfc::",
+    "d2m": "2d::sfc::",
+    "t2m": "2t::sfc::",
+    "hcc": "hcc::sfc::",
+    "lcc": "lcc::sfc::",
+    "mcc": "mcc::sfc::",
+    "msl": "msl::sfc::",
+    "skt": "skt::sfc::",
+    "sp": "sp::sfc::",
+    "sst": "sst::sfc::",
+    "stl1": "stl1::sfc::",
+    "stl2": "stl2::sfc::",
+    "swvl1": "swvl1::sfc::",
+    "swvl2": "swvl2::sfc::",
+    "tcc": "tcc::sfc::",
+    "tcw": "tcw::sfc::",
+    "tcwv": "tcwv::sfc::",
+}
+IFS_ANALYSIS_PRESSURE_VOCAB = {
+    f"{name}{level}": f"{name}::pl::{level}"
+    for name in ("q", "t", "u", "v", "w", "z")
+    for level in IFS_ANALYSIS_LEVELS
+}
+IFS_INITIAL_CONDITION_VOCAB = {
+    **IFS_ANALYSIS_SURFACE_VOCAB,
+    **IFS_ANALYSIS_PRESSURE_VOCAB,
+}
 
 
-def test_earthmover_ifs_lexicon_matches_marketplace_variables():
+def test_earthmover_ifs_initial_condition_lexicon_matches_marketplace_variables():
+    assert EarthMoverIFSInitialConditionLexicon.VOCAB == IFS_INITIAL_CONDITION_VOCAB
+
+
+def test_earthmover_ifs_forecast_lexicon_matches_marketplace_variables():
     assert EarthMoverIFSLexicon.VOCAB == IFS_FORECAST_VOCAB
 
 
-def test_earthmover_ifs_lexicon_specs():
+def test_earthmover_ifs_initial_condition_lexicon_specs():
+    assert EarthMoverIFSInitialConditionLexicon.spec("t2m").param_id == 167
+    assert EarthMoverIFSInitialConditionLexicon.spec("t2m").short_name == "2t"
+    assert EarthMoverIFSInitialConditionLexicon.spec("sst").param_id == 34
+    assert EarthMoverIFSInitialConditionLexicon.spec("stl1").short_name == "stl1"
+    assert EarthMoverIFSInitialConditionLexicon.spec("u10m").level_type == "surface"
+    assert EarthMoverIFSInitialConditionLexicon.spec("q500").level_type == "isobaric"
+    assert EarthMoverIFSInitialConditionLexicon.spec("q500").level == 500
+    assert EarthMoverIFSInitialConditionLexicon.spec("z50").short_name == "z"
+    assert (
+        EarthMoverIFSInitialConditionLexicon.spec("u100m").param_id
+        != EarthMoverIFSInitialConditionLexicon.spec("u10m").param_id
+    )
+
+
+def test_earthmover_ifs_forecast_lexicon_specs():
     assert EarthMoverIFSLexicon.spec("t2m").param_id == 167
     assert EarthMoverIFSLexicon.spec("t2m").short_name == "2t"
     assert EarthMoverIFSLexicon.spec("fdir").short_name == "fdir"
     assert EarthMoverIFSLexicon.spec("u10m").level_type == "surface"
-    assert all(
-        EarthMoverIFSLexicon.spec(variable).level_type == "surface"
-        for variable in EarthMoverIFSLexicon.VOCAB
-    )
     assert (
         EarthMoverIFSLexicon.spec("u100m").param_id
         != EarthMoverIFSLexicon.spec("u10m").param_id
@@ -63,13 +113,21 @@ def test_earthmover_ifs_lexicon_keys():
         source_key, modifier = EarthMoverIFSLexicon[variable]
         assert source_key == EarthMoverIFSLexicon.VOCAB[variable]
         assert callable(modifier)
+    for variable in EarthMoverIFSInitialConditionLexicon.VOCAB:
+        source_key, modifier = EarthMoverIFSInitialConditionLexicon[variable]
+        assert source_key == EarthMoverIFSInitialConditionLexicon.VOCAB[variable]
+        assert callable(modifier)
 
 
 def test_earthmover_ifs_lexicon_invalid():
     with pytest.raises(KeyError):
         EarthMoverIFSLexicon.spec("not_a_variable")
     with pytest.raises(KeyError):
-        EarthMoverIFSLexicon["z500"]
+        EarthMoverIFSLexicon["r500"]
+    with pytest.raises(KeyError):
+        EarthMoverIFSLexicon.spec("q500")
+    with pytest.raises(KeyError):
+        EarthMoverIFSInitialConditionLexicon.spec("fdir")
 
 
 def test_earthmover_unit_normalization():

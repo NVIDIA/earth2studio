@@ -14,10 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Earthmover IFS lexicon.
+"""Earthmover IFS lexicons.
 
-The public vocabulary matches the IFS variables currently available in the
-Brightband Earthmover Marketplace forecast dataset. The extra metadata
+The public vocabularies match the variables currently available in their
+respective Brightband Earthmover Marketplace IFS datasets. The extra metadata
 descriptors are intentionally broader so additional Earthmover datasets can
 reuse the same resolution utilities.
 """
@@ -77,8 +77,13 @@ _PARAM_IDS: dict[str, int] = {
     "sp": 134,
     "ssr": 176,
     "ssrd": 169,
+    "sst": 34,
+    "stl1": 139,
+    "stl2": 170,
     "str": 177,
     "strd": 175,
+    "swvl1": 39,
+    "swvl2": 40,
     "t": 130,
     "tcc": 164,
     "tcw": 136,
@@ -112,10 +117,13 @@ _STANDARD_NAMES: dict[str, str] = {
     "sf": "lwe_thickness_of_snowfall_amount",
     "skt": "surface_temperature",
     "sp": "surface_air_pressure",
+    "sst": "sea_surface_temperature",
+    "stl1": "surface_temperature",
     "ssrd": "surface_downwelling_shortwave_flux_in_air",
     "strd": "surface_downwelling_longwave_flux_in_air",
     "t": "air_temperature",
     "tcc": "cloud_area_fraction",
+    "tcw": "atmosphere_mass_content_of_water",
     "tcwv": "atmosphere_mass_content_of_water_vapor",
     "u": "eastward_wind",
     "v": "northward_wind",
@@ -151,8 +159,13 @@ _CANONICAL_UNITS_BY_SHORT_NAME: dict[str, str] = {
     "sp": "Pa",
     "ssr": "J m-2",
     "ssrd": "J m-2",
+    "sst": "K",
+    "stl1": "K",
+    "stl2": "K",
     "str": "J m-2",
     "strd": "J m-2",
+    "swvl1": "m3 m-3",
+    "swvl2": "m3 m-3",
     "t": "K",
     "tcc": "1",
     "tcw": "kg m-2",
@@ -268,8 +281,82 @@ def make_modifier(spec: VariableSpec, src_units: str | None) -> Callable:
     return lambda x: x
 
 
-class EarthMoverIFSLexicon(metaclass=LexiconType):
-    """Earthmover Brightband IFS Marketplace lexicon."""
+_IFS_IC_PRESSURE_LEVELS = (
+    50,
+    100,
+    150,
+    200,
+    250,
+    300,
+    400,
+    500,
+    600,
+    700,
+    850,
+    925,
+    1000,
+)
+
+
+class _EarthMoverIFSLexiconBase(metaclass=LexiconType):
+    """Common Earthmover IFS lexicon helpers."""
+
+    VOCAB: dict[str, str]
+    SPECS: dict[str, VariableSpec]
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable]:
+        """Retrieve name from vocabulary."""
+        if val not in cls.VOCAB:
+            raise KeyError(val)
+        return cls.VOCAB[val], lambda x: x
+
+    @classmethod
+    def spec(cls, val: str) -> VariableSpec:
+        """Return the Earthmover metadata descriptor for a variable."""
+        return cls.SPECS[val]
+
+
+class EarthMoverIFSInitialConditionLexicon(_EarthMoverIFSLexiconBase):
+    """Earthmover Brightband IFS initial-condition Marketplace lexicon."""
+
+    PRESSURE_LEVELS = _IFS_IC_PRESSURE_LEVELS
+    SURFACE_VARIABLES: dict[str, str] = {
+        "u100m": "100u::sfc::",
+        "v100m": "100v::sfc::",
+        "u10m": "10u::sfc::",
+        "v10m": "10v::sfc::",
+        "d2m": "2d::sfc::",
+        "t2m": "2t::sfc::",
+        "hcc": "hcc::sfc::",
+        "lcc": "lcc::sfc::",
+        "mcc": "mcc::sfc::",
+        "msl": "msl::sfc::",
+        "skt": "skt::sfc::",
+        "sp": "sp::sfc::",
+        "sst": "sst::sfc::",
+        "stl1": "stl1::sfc::",
+        "stl2": "stl2::sfc::",
+        "swvl1": "swvl1::sfc::",
+        "swvl2": "swvl2::sfc::",
+        "tcc": "tcc::sfc::",
+        "tcw": "tcw::sfc::",
+        "tcwv": "tcwv::sfc::",
+    }
+    PRESSURE_VARIABLES: dict[str, str] = {
+        f"{name}{level}": f"{name}::pl::{level}"
+        for name in ("q", "t", "u", "v", "w", "z")
+        for level in _IFS_IC_PRESSURE_LEVELS
+    }
+    VOCAB: dict[str, str] = {
+        **SURFACE_VARIABLES,
+        **PRESSURE_VARIABLES,
+    }
+    SPECS: dict[str, VariableSpec] = _build_specs(VOCAB)
+
+
+class EarthMoverIFSLexicon(_EarthMoverIFSLexiconBase):
+    """Earthmover Brightband IFS forecast Marketplace lexicon."""
 
     VOCAB: dict[str, str] = {
         "u100m": "100u::sfc::",
@@ -289,15 +376,3 @@ class EarthMoverIFSLexicon(metaclass=LexiconType):
         "tp": "tp::sfc::",
     }
     SPECS: dict[str, VariableSpec] = _build_specs(VOCAB)
-
-    @classmethod
-    def get_item(cls, val: str) -> tuple[str, Callable]:
-        """Retrieve name from vocabulary."""
-        if val not in cls.VOCAB:
-            raise KeyError(val)
-        return cls.VOCAB[val], lambda x: x
-
-    @classmethod
-    def spec(cls, val: str) -> VariableSpec:
-        """Return the Earthmover metadata descriptor for a variable."""
-        return cls.SPECS[val]

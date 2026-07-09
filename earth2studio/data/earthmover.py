@@ -21,7 +21,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import NoReturn
+from typing import NoReturn, cast
 
 import numpy as np
 import xarray as xr
@@ -33,7 +33,9 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
 )
+from earth2studio.lexicon.base import LexiconType
 from earth2studio.lexicon.earthmover import (
+    EarthMoverIFSInitialConditionLexicon,
     EarthMoverIFSLexicon,
     VariableSpec,
     make_modifier,
@@ -87,6 +89,8 @@ class _Resolved:
 
 class _EarthMoverBase:
     """Shared Earthmover Arraylake connection and resolution logic."""
+
+    LEXICON: LexiconType = EarthMoverIFSLexicon
 
     def __init__(
         self,
@@ -297,7 +301,8 @@ class _EarthMoverBase:
         satisfies its metadata descriptor.
         """
         try:
-            spec = EarthMoverIFSLexicon.spec(variable)
+            specs = cast(dict[str, VariableSpec], getattr(self.LEXICON, "SPECS"))
+            spec = specs[variable]
         except KeyError:
             raise ValueError(
                 f"'{variable}' is not a known Earth2Studio variable id."
@@ -512,7 +517,7 @@ class _EarthMoverBase:
 
 @check_optional_dependencies()
 class EarthMoverBrightBandIFS(_EarthMoverBase):
-    """Brightband ECMWF IFS 0.1 degree (10km) initial-condition data source on
+    """Brightband ECMWF IFS 0.25 degree initial-condition data source on
     Earthmover Arraylake.
 
     Parameters
@@ -556,14 +561,15 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
 
     Badges
     ------
-    region:global dataclass:analysis product:wind product:precip product:temp product:atmos
+    region:global dataclass:analysis product:wind product:temp product:atmos product:ocean product:land
     """
 
     MARKETPLACE_URL = "https://app.earthmover.io/marketplace/697162921880507a6587c31b"
     DEFAULT_BRANCH = "main"
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
     SUBSCRIPTION_REPO_NAME = "ecmwf-ifs-initial-conditions-open-subscription"
-    VARIABLES = tuple(EarthMoverIFSLexicon.VOCAB)
+    LEXICON = EarthMoverIFSInitialConditionLexicon
+    VARIABLES = tuple(EarthMoverIFSInitialConditionLexicon.VOCAB)
 
     def __init__(
         self,
@@ -718,6 +724,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
     DEFAULT_BRANCH = "main"
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
     SUBSCRIPTION_REPO_NAME = "ecmwf-ifs-15-day-forecast-open-subscription"
+    LEXICON = EarthMoverIFSLexicon
     DATASET_VARIABLES = (
         "100u",
         "100v",
@@ -735,23 +742,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
         "ssrd",
         "tp",
     )
-    VARIABLES = (
-        "u100m",
-        "v100m",
-        "u10m",
-        "v10m",
-        "d2m",
-        "t2m",
-        "cp",
-        "fdir",
-        "hcc",
-        "lcc",
-        "mcc",
-        "msl",
-        "sd",
-        "ssrd",
-        "tp",
-    )
+    VARIABLES = tuple(EarthMoverIFSLexicon.VOCAB)
 
     def __init__(
         self,
