@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added Zarr v3 sharding support to `AsyncZarrBackend`
+- Added optional `InSituForecastFeed` (`earth2studio.data.insitu`), an insitubatch-backed
+  streaming initial-condition / verification feed that reads a cloud zarr analysis store
+  with a de-duplicating read plan and yields `(torch.Tensor, CoordSystem)` batches for
+  IO-bound hindcast / scoring campaigns.
 
 ### Changed
 
