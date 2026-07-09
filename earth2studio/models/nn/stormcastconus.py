@@ -214,6 +214,9 @@ class StormCastCONUSBase(torch.nn.Module, AutoModelMixin):
             self.sampler_args.update(sampler_args)
 
         if (hrrr_lat_lim, hrrr_lon_lim) != FULL_MODEL_HRRR_BBOX:
+            if not isinstance(self.diffusion_model, _SplitModelWrapper):
+                raise ValueError("To crop the model to a subdomain, diffusion_model must be _SplitModelWrapper.")
+
             p = self.diffusion_model.model_high.model.model.patch_size
             if (hrrr_lat_lim[0] - FULL_MODEL_HRRR_BBOX[0][0]) % p[0]:
                 raise ValueError(
