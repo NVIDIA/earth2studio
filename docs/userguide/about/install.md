@@ -589,8 +589,8 @@ uv add earth2studio --extra corrdiff
 :::
 ::::
 :::::
-:::::{tab-item} COSMO-REA Downscaling
-Notes: Additional dependencies for the `CosmoDownscaling` model.
+:::::{tab-item} CorrDiff COSMO-ERA5
+Notes: Additional dependencies for the `CorrDiffCosmoEra5` model.
 
 ::::{tab-set}
 :::{tab-item} pip

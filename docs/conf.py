@@ -218,7 +218,7 @@ sphinx_gallery_conf = {
     # a local $COSMO_REA_PACKAGE. Whitelist it so the full gallery build does not
     # fail.
     # TODO(cosmo): remove this entry once the package is hosted and
-    # load_default_package resolves it (DEFAULT_PACKAGE_URI in cosmo_downscaling.py).
+    # load_default_package resolves it (DEFAULT_PACKAGE_URI in corrdiff_cosmo_era5.py).
     "expected_failing_examples": [
         "../examples/03_downscaling/04_cosmo_rea_downscaling.py",
     ],

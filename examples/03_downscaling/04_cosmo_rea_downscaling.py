@@ -20,7 +20,7 @@ Regional Downscaling to COSMO-REA (6 km and 2.2 km)
 ===================================================
 
 Downscale a global forecast to high-resolution regional reanalysis over Europe
-with ``CosmoDownscaling``: run SFNO forward to a lead time, then reconstruct the
+with ``CorrDiffCosmoEra5``: run SFNO forward to a lead time, then reconstruct the
 COSMO-REA fields (COSMO-REA6 at 6 km, COSMO-REA2 at 2.2 km) from the forecast
 state. SFNO is just the input provider here; the downscaler is a standard
 ``DiagnosticModel``, so this is the usual prognostic-feeds-diagnostic composition.
@@ -42,7 +42,7 @@ In this example you will learn to:
 .. note::
    COSMO-REA weights are not yet publicly hosted. This example loads a locally
    built package directory (set ``$COSMO_REA_PACKAGE``); once the package is
-   hosted, model loading becomes ``CosmoDownscaling.from_pretrained()``.
+   hosted, model loading becomes ``CorrDiffCosmoEra5.from_pretrained()``.
 
 .. note::
    With the SFNO weights and ERA5 inputs already cached, this runs in a few
@@ -114,18 +114,18 @@ def geo_axes(ax, labels=True):
 # ------------------------------------------------------
 from earth2studio.data import ARCO, fetch_data
 from earth2studio.models.auto import Package
-from earth2studio.models.dx import CosmoDownscaling
+from earth2studio.models.dx import CorrDiffCosmoEra5
 from earth2studio.models.px import SFNO
 
 sfno = SFNO.load_model(SFNO.load_default_package()).to(DEVICE)
 # Both models live in the same package; `mode` selects which checkpoint to load:
 # the diffusion model is generative, the mean model is the deterministic regression.
-dx = CosmoDownscaling.load_model(
+dx = CorrDiffCosmoEra5.load_model(
     Package(PACKAGE), device=DEVICE, mode="diffusion", resolution="rea6"
 )
 dx.amp = AMP
 dx.number_of_steps = SAMPLER_STEPS
-dx_mean = CosmoDownscaling.load_model(
+dx_mean = CorrDiffCosmoEra5.load_model(
     Package(PACKAGE), device=DEVICE, mode="mean", resolution="rea6"
 )
 dx_mean.amp = AMP
@@ -458,7 +458,7 @@ plt.savefig(
 # operation: compose the stock ``DerivedWS`` wind-speed diagnostic as
 # ``DerivedWS(levels=["100m"])``, or take the magnitude directly as below -- here,
 # 100 m wind over Germany from the deterministic mean model.
-dx_hub = CosmoDownscaling.load_model(
+dx_hub = CorrDiffCosmoEra5.load_model(
     Package(PACKAGE), device=DEVICE, mode="mean", resolution="rea6", hub_heights=[100]
 ).set_domain(**GERMANY)
 x_hub, coords_hub = sfno_to_downscaler(x_fc, coords_fc, dx_hub, valid_time)
@@ -495,7 +495,7 @@ plt.savefig(
 # (vs COSMO-REA6's 6 km broader-European grid). Same API, ``resolution="rea2"``.
 # REA2 covers a smaller domain; here we use the deterministic mean model over a
 # sub-region and plot 2 m temperature at 2.2 km.
-dx2 = CosmoDownscaling.load_model(
+dx2 = CorrDiffCosmoEra5.load_model(
     Package(PACKAGE), device=DEVICE, mode="mean", resolution="rea2"
 ).set_domain(lat_min=47.5, lat_max=51.0, lon_min=7.0, lon_max=13.0)
 x2, coords2 = sfno_to_downscaler(x_fc, coords_fc, dx2, valid_time)

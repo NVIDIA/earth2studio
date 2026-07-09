@@ -16,7 +16,7 @@
 
 """COSMO-REA downscaling diagnostic models (ERA5 -> COSMO-REA6 / REA2).
 
-Earth2Studio :class:`DiagnosticModel` wrapper for the ``cosmo-rea-downscaling``
+Earth2Studio :class:`DiagnosticModel` wrapper for the ``corrdiff-cosmo-era5``
 package. One class: ``mode`` selects mean (deterministic) or diffusion (sampled
 with the EDM/Karras scheme); ``resolution`` selects the rea6/rea2 checkpoint. Both
 modes use a DiT-RoPE network (a diffusion transformer with rotary position
@@ -111,8 +111,8 @@ SUPPORTED_VARIANTS = ("rea6", "rea2")
 # ``load_default_package`` / ``from_pretrained``. Left ``None`` until weight
 # hosting + license clearance land; flipping this on is the only change needed.
 # Planned host: Hugging Face (commit-pinned), e.g.:
-#   "hf://<org>/cosmo-rea-downscaling@<commit-sha>"
-# (NGC also works: "ngc://models/nvidia/modulus/cosmo_rea_downscaling@v0.1")
+#   "hf://<org>/corrdiff-cosmo-era5@<commit-sha>"
+# (NGC also works: "ngc://models/nvidia/earth-2/corrdiff_cosmo_era5@v0.1")
 # The package nests rea6/ and rea2/ subfolders; ``load_model(..., resolution=)``
 # selects the subfolder, so one URI serves all four models.
 DEFAULT_PACKAGE_URI: str | None = None
@@ -222,14 +222,14 @@ def _interp_levels_to_height(
 
 
 @check_optional_dependencies()
-class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
+class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     """COSMO-REA downscaling model: ERA5 -> high-resolution COSMO-REA.
 
     Diagnostic model that downscales a global ERA5 state to high-resolution
     COSMO-REA regional reanalysis over Europe -- COSMO-REA6 (~6 km) or COSMO-REA2
     (~2.2 km), selected with ``resolution``. The input is an ERA5 state, so it can
     downscale an ERA5 analysis directly or run behind a global forecast model
-    (e.g. SFNO -> CosmoDownscaling).
+    (e.g. SFNO -> CorrDiffCosmoEra5).
 
     ``mode`` selects one of two networks trained per resolution:
 
@@ -802,7 +802,7 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
             np.asarray(input_coords["lat"]), np.asarray(input_coords["lon"])
         ):
             raise ValueError(
-                "CosmoDownscaling requires the native input grid from "
+                "CorrDiffCosmoEra5 requires the native input grid from "
                 "input_coords() (regrid your ERA5 onto it). For a sub-region use "
                 "set_domain(); arbitrary/flexible domains are not supported."
             )
@@ -937,7 +937,7 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         # reliably indicates broken input.
         if self.check_inputs and not torch.isfinite(background).all():
             warnings.warn(
-                "CosmoDownscaling: non-finite (NaN/Inf) values in the network "
+                "CorrDiffCosmoEra5: non-finite (NaN/Inf) values in the network "
                 "background; the downscaled output will be invalid. Check the ERA5 "
                 "input for missing data / fill values / off-grid interpolation.",
                 stacklevel=2,
@@ -1352,7 +1352,7 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
                 out[b, :, t] = self._forward(x[b, t], valid_times[t], lat2d, lon2d)
         return out, output_coords
 
-    def to(self, device: torch.device) -> "CosmoDownscaling":
+    def to(self, device: torch.device) -> "CorrDiffCosmoEra5":
         """Move the model to a device (the active regression/diffusion sub-network
         is a registered submodule, so ``super().to`` moves it too).
 
@@ -1373,10 +1373,10 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
         lon_max: float,
         margin_deg: float = 1.0,
         halo: int = 0,
-    ) -> "CosmoDownscaling":
+    ) -> "CorrDiffCosmoEra5":
         """Restrict the model to a sub-domain for a lat/lon bounding box.
 
-        Returns a NEW :class:`CosmoDownscaling` that shares the loaded network(s)
+        Returns a NEW :class:`CorrDiffCosmoEra5` that shares the loaded network(s)
         but whose target grid + static invariants are sliced to the smallest
         block of the (rotated) grid covering ``[lat_min, lat_max] x [lon_min,
         lon_max]``. The returned instance is a fixed-domain model with its own
@@ -1541,7 +1541,7 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
                 device=dev,
             )
 
-        sub = CosmoDownscaling(
+        sub = CorrDiffCosmoEra5(
             era5_variables=self.era5_variables,
             output_variables=self.output_variables,
             regression_model=self.regression_model,
@@ -1597,12 +1597,12 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
                 "license clearance pending). Build a package and pass its path "
                 "to load_model() or from_pretrained('<path>'). When hosting "
                 "lands, set DEFAULT_PACKAGE_URI in "
-                "earth2studio/models/dx/cosmo_downscaling.py."
+                "earth2studio.models.dx.corrdiff_cosmo_era5.py."
             )
         return Package(
             DEFAULT_PACKAGE_URI,
             cache_options={
-                "cache_storage": Package.default_cache("cosmo_rea_downscaling"),
+                "cache_storage": Package.default_cache("corrdiff_cosmo_era5"),
                 "same_names": True,
             },
         )
@@ -1845,7 +1845,7 @@ class CosmoDownscaling(torch.nn.Module, AutoModelMixin):
                     )
 
         logger.info(
-            f"Loaded CosmoDownscaling resolution={resolution} mode={mode} "
+            f"Loaded CorrDiffCosmoEra5 resolution={resolution} mode={mode} "
             f"({len(output_variables)} output channels)"
         )
         model = cls(

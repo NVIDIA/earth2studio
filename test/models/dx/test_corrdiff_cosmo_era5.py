@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for the CosmoDownscaling diagnostic wrapper.
+"""Unit tests for the CorrDiffCosmoEra5 diagnostic wrapper.
 
 These are construction-based (no real package / no GPU forward): they exercise
 the metadata-driven plumbing — per-mode parsing, the output->lexicon coord
@@ -36,7 +36,7 @@ import pytest
 import torch
 
 from earth2studio.lexicon import CosmoLexicon
-from earth2studio.models.dx.cosmo_downscaling import CosmoDownscaling
+from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
 
 # The real (un-mocked) DiT (diffusion transformer) needs upstream physicsnemo's
 # natten2d_rope (PR #1731). On an older physicsnemo this symbol is absent -> the
@@ -144,7 +144,7 @@ CONSTRAINTS = {
 
 
 def _build(**overrides):
-    """Construct a small synthetic CosmoDownscaling (mean mode)."""
+    """Construct a small synthetic CorrDiffCosmoEra5 (mean mode)."""
     n_e, n_o = len(ERA5_VARIABLES), len(OUTPUT_VARIABLES)
     lat_in = np.arange(45.0, 56.0, 1.0, dtype=np.float32)  # 11
     lon_in = np.arange(5.0, 17.0, 1.0, dtype=np.float32)  # 12
@@ -184,7 +184,7 @@ def _build(**overrides):
         sigma_max=800.0,
     )
     kwargs.update(overrides)
-    return CosmoDownscaling(**kwargs)
+    return CorrDiffCosmoEra5(**kwargs)
 
 
 def test_output_coords_lexicon_mapping():
@@ -359,7 +359,7 @@ def test_constructor_param_guard():
     """Guard against set_domain dropping a config field: if the constructor gains a
     new arg, this fails so the author is forced to thread it through set_domain()
     + extend its test."""
-    params = set(inspect.signature(CosmoDownscaling.__init__).parameters) - {"self"}
+    params = set(inspect.signature(CorrDiffCosmoEra5.__init__).parameters) - {"self"}
     expected = {
         "era5_variables",
         "output_variables",
@@ -394,7 +394,7 @@ def test_constructor_param_guard():
         "wind_levels",
     }
     assert params == expected, (
-        "CosmoDownscaling.__init__ signature changed. If you added a config field, "
+        "CorrDiffCosmoEra5.__init__ signature changed. If you added a config field, "
         "thread it through set_domain() and assert it in "
         "test_set_domain_preserves_config, then update this set."
     )
@@ -1162,17 +1162,17 @@ def test_load_default_package_placeholder(monkeypatch):
     """Placeholder hosting: with no DEFAULT_PACKAGE_URI, load_default_package
     raises NotImplementedError; setting the URI makes it return a Package (so
     enabling the hosted package later is a one-line change)."""
-    import earth2studio.models.dx.cosmo_downscaling as m
+    import earth2studio.models.dx.corrdiff_cosmo_era5 as m
     from earth2studio.models.auto import Package
 
     monkeypatch.setattr(m, "DEFAULT_PACKAGE_URI", None)
     with pytest.raises(NotImplementedError):
-        CosmoDownscaling.load_default_package()
+        CorrDiffCosmoEra5.load_default_package()
 
     monkeypatch.setattr(
-        m, "DEFAULT_PACKAGE_URI", "hf://nvidia/cosmo-rea-downscaling@abc123"
+        m, "DEFAULT_PACKAGE_URI", "hf://nvidia/corrdiff-cosmo-era5@abc123"
     )
-    pkg = CosmoDownscaling.load_default_package()
+    pkg = CorrDiffCosmoEra5.load_default_package()
     assert isinstance(pkg, Package)
 
 
@@ -1182,9 +1182,9 @@ def test_load_model_invalid_selectors_rejected():
     cryptic missing-file when resolving "<resolution>/metadata.json". (A None
     package is fine here: validation fires before the package is touched.)"""
     with pytest.raises(ValueError, match="resolution must be one of"):
-        CosmoDownscaling.load_model(None, resolution="rea3")
+        CorrDiffCosmoEra5.load_model(None, resolution="rea3")
     with pytest.raises(ValueError, match="mode must be"):
-        CosmoDownscaling.load_model(None, mode="both")
+        CorrDiffCosmoEra5.load_model(None, mode="both")
 
 
 def test_call_mean_end_to_end():
@@ -1242,7 +1242,7 @@ def test_call_mean_end_to_end():
 @pytest.mark.package
 @pytest.mark.parametrize("resolution", ["rea6", "rea2"])
 @pytest.mark.parametrize("mode", ["mean", "diffusion"])
-def test_cosmo_downscaling_package(mode, resolution):
+def test_corrdiff_cosmo_era5_package(mode, resolution):
     """Load-and-run on a real local package (set ``$COSMO_REA_PACKAGE`` to a
     built package dir). Loading validates the metadata-driven plumbing and a
     0/0 checkpoint load; the GPU forward exercises ``_forward``/``_denoise`` and
@@ -1260,7 +1260,7 @@ def test_cosmo_downscaling_package(mode, resolution):
     from earth2studio.models.auto import Package
 
     device = "cuda:0" if torch.cuda.is_available() else None
-    dx = CosmoDownscaling.load_model(
+    dx = CorrDiffCosmoEra5.load_model(
         Package(pkg_path), device=device, mode=mode, resolution=resolution
     )
     assert len(dx.output_variables) > 0

@@ -25,7 +25,7 @@ class CosmoLexicon(metaclass=LexiconType):
     """COSMO-REA Lexicon
 
     Maps between Earth2Studio vocabulary and the COSMO-REA output variable names
-    used by :class:`~earth2studio.models.dx.CosmoDownscaling` (COSMO-REA6 and
+    used by :class:`~earth2studio.models.dx.CorrDiffCosmoEra5` (COSMO-REA6 and
     COSMO-REA2). The vocabulary is the union over both resolutions: where a field
     has a canonical Earth2Studio name and matching units it maps to that name
     (e.g. ``t2m``, ``sp``); COSMO-specific fields with no canonical equivalent
