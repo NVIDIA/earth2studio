@@ -214,6 +214,33 @@ def test_transpose_inner_swaps_field_axes(tmp_path):
     np.testing.assert_array_equal(x.numpy()[0, 0, 0], srcs["2m_temperature"][0].T)
 
 
+def test_persistent_cache_across_runs(tmp_path):
+    """cache_dir persists decoded chunks: a second run over the same store hits the cache."""
+    store, _ = write_store(tmp_path, n=48, spc=8)
+    kw = {
+        "variables": ["t2m"],
+        "var_map": {"t2m": "2m_temperature"},
+        "lead_times": np.array([np.timedelta64(h, "h") for h in (0, 6, 12)]),
+        "sample_range": (0, 8),
+        "batch_size": 8,
+        "cache_dir": str(tmp_path / "cache"),
+    }
+
+    cold = InSituForecastFeed(store, **kw)
+    list(cold)
+    cold_misses, cold_hits = cold.dataset.cache_misses, cold.dataset.cache_hits
+    cold.dataset.close()
+
+    warm = InSituForecastFeed(store, **kw)
+    list(warm)
+    warm_misses, warm_hits = warm.dataset.cache_misses, warm.dataset.cache_hits
+    warm.dataset.close()
+
+    assert cold_misses > 0 and cold_hits == 0  # cold run fetches + populates the cache
+    assert warm_hits == cold_misses  # warm run serves every chunk from disk
+    assert warm_misses == 0  # ... and fetches nothing
+
+
 def test_lead_not_multiple_of_store_step_raises(tmp_path):
     store, _ = write_store(tmp_path)  # 6-h store step
     with pytest.raises(ValueError, match="integer multiple of the store step"):

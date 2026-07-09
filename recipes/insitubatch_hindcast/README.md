@@ -65,6 +65,30 @@ does not. That bounded-memory property — not just throughput — is the point 
 (Persistence is a checkpoint-free model that exercises the real `create_iterator` seam on CPU; a
 real NVIDIA checkpoint — SFNO/FCN — is a drop-in with the same code on a GPU.)
 
+## 3. `bench_cache.py` — cross-run persistent cache
+
+The intro's `predownload.py` exists so a re-scored campaign doesn't re-fetch the same ground
+truth. `InSituForecastFeed(cache_dir=...)` gives that for free: the first run decodes each shared
+chunk once **and** persists it to local disk; a later run over the same store reads those chunks
+back as cache hits, touching the cloud zero times. No predownload step, no reshard, only the chunks
+actually touched — and because a reanalysis store is static, the cache never goes stale. This is the
+common eval shape: many models (or checkpoints) scored against one fixed verification set.
+
+```bash
+python bench_cache.py --store wb2  --vars t2m u10m v10m --n-init 48 --max-lead-h 240 --cache-dir /mnt/nvme/insitu_cache
+python bench_cache.py --store arco --vars t2m --n-init 12 --max-lead-h 48 --cache-dir /mnt/nvme/insitu_cache
+```
+
+| store | field size | cold → warm wall | **cloud fetches (cold → warm)** |
+|-------|------------|------------------|----------------------------------|
+| **WB2** 240×121 | 116 KB | 1.41 s → 1.05 s (~1.4×) | **33 → 0** |
+| **ARCO** 721×1440 | 4 MB | 1.22 s → 0.55 s (~2.2×) | **54 → 0** |
+
+The deterministic result is **zero cloud fetches on re-score** — the warm run serves every chunk
+from local disk. The wall speedup is secondary and scales with how IO-bound the cold fetch is (tiny
+WB2 fields ~1.4×; 4 MB ARCO fields ~2.2×); it is *understated* on this box's cheap same-region reads
+and grows under metered egress, requester-pays, or cross-region access.
+
 ## How to read these numbers — framing insitubatch
 
 insitubatch is a **streaming batch loader** that trains/infers in place on cloud zarr: all
@@ -98,5 +122,9 @@ causes duplicate reads.*
   raise the AFTER throughput further but is not what these numbers measure.
 - **Surface variables only** (`t2m`, `u10m`, `v10m`); pressure-level variables need level indexing,
   not yet wired in the adapter.
+- **Persistent cache footprint.** The cache stores *decoded* chunks, so per-chunk bytes exceed the
+  compressed store — but it is bounded to the unique chunks touched (decode-once), not the dense
+  grid a predownload materializes. The `cache_dir` path is the cache identity; use a fresh one when
+  the store or variable set changes.
 - **The win is the IO-bound campaign** (many inits, verification-heavy — hindcast scoring, lagged
   ensembles). A single-IC long rollout is compute-bound, where the loader is a rounding error.
