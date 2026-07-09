@@ -408,6 +408,15 @@ class _EarthMoverBase:
             "or CF standard_name attributes."
         )
 
+    @staticmethod
+    def _standardize_longitude(da: xr.DataArray) -> xr.DataArray:
+        """Roll native -180..180 longitudes to Earth2Studio's 0..360 convention."""
+        lon = np.asarray(da.lon.values, dtype="float64")
+        if lon.size and np.isclose(lon[0], -180.0):
+            da = da.roll(lon=-(lon.size // 2), roll_coords=True)
+            da = da.assign_coords(lon=np.mod(np.asarray(da.lon.values), 360.0))
+        return da
+
     # ------------------------------------------------------------------
     # Per-variable fetch (shared by analysis & forecast)
     # ------------------------------------------------------------------
@@ -461,6 +470,7 @@ class _EarthMoverBase:
                 da = da.drop_vars(coord)
         rename = {lat: "lat", lon: "lon", time_coord: "time"}
         da = da.rename({k: v for k, v in rename.items() if k != v})
+        da = self._standardize_longitude(da)
         return da
 
     # ------------------------------------------------------------------

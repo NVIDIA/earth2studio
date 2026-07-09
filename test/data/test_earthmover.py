@@ -28,7 +28,8 @@ from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.utils.imports import OptionalDependencyFailure
 
 LAT = np.linspace(90, -90, 9)
-LON = np.linspace(0, 357.5, 10)
+LON = np.array([-180.0, -90.0, 0.0, 90.0])
+E2S_LON = np.array([0.0, 90.0, 180.0, 270.0])
 TIMES = np.array(["2022-01-01T00:00:00", "2022-01-01T06:00:00"], dtype="datetime64[ns]")
 LEAD_TIMES = np.array([0, 6, 12], dtype="timedelta64[h]").astype("timedelta64[ns]")
 FORECAST_DATASET_VARIABLES = (
@@ -282,6 +283,7 @@ def assert_analysis_data_array(out: xr.DataArray, variables: list[str]) -> None:
     assert list(out.dims) == ["time", "variable", "lat", "lon"]
     assert out.shape == (1, len(variables), LAT.size, LON.size)
     assert list(out.coords["variable"].values) == variables
+    np.testing.assert_allclose(out.lon.values, E2S_LON)
     assert np.isfinite(out.values).all()
 
 
@@ -291,6 +293,7 @@ def assert_forecast_data_array(
     assert list(out.dims) == ["time", "lead_time", "variable", "lat", "lon"]
     assert out.shape == (1, lead_time_count, len(variables), LAT.size, LON.size)
     assert list(out.coords["variable"].values) == variables
+    np.testing.assert_allclose(out.lon.values, E2S_LON)
     assert np.isfinite(out.values).all()
 
 
@@ -331,6 +334,7 @@ class TestEarthMoverSources:
         out = ds(datetime(2022, 1, 1), variables)
 
         assert_analysis_data_array(out, variables)
+        assert float(out.sel(variable="t2m").isel(time=0, lat=0, lon=0)) == 2.0
 
     def test_earthmover_brightband_ifs_fx_call_mock(self, patch_earthmover):
         patch_earthmover(mock_earthmover_brightband_ifs_fx())
@@ -344,6 +348,10 @@ class TestEarthMoverSources:
         )
 
         assert_forecast_data_array(out, variables, lead_time_count=2)
+        assert (
+            float(out.sel(variable="t2m").isel(time=0, lead_time=0, lat=0, lon=0))
+            == 2.0
+        )
 
     def test_analysis_available(self, patch_earthmover):
         patch_earthmover(mock_earthmover_brightband_ifs())
