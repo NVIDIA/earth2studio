@@ -62,7 +62,9 @@ except ImportError as exc:  # pragma: no cover - optional integration
     ) from exc
 
 
-def decode_cf_time(values: np.ndarray, units: str, calendar: str = "standard") -> np.ndarray:
+def decode_cf_time(
+    values: np.ndarray, units: str, calendar: str = "standard"
+) -> np.ndarray:
     """Decode a CF ``"<unit> since <reference>"`` integer time coordinate to datetime64[ns].
 
     Handles the common reanalysis encoding (e.g. WB2/ARCO ERA5 store ``time`` as
@@ -72,7 +74,9 @@ def decode_cf_time(values: np.ndarray, units: str, calendar: str = "standard") -
     do not fit E2S's ``datetime64[ns]`` coordinate contract, so the cast raises here -- the
     right place to fail for an out-of-contract analysis store.
     """
-    dates = cftime.num2date(values, units, calendar=calendar, only_use_cftime_datetimes=False)
+    dates = cftime.num2date(
+        values, units, calendar=calendar, only_use_cftime_datetimes=False
+    )
     return np.asarray(dates, dtype="datetime64[ns]")
 
 
@@ -137,6 +141,13 @@ class InSituForecastFeed:
     with :func:`insitubatch.obstore_store` / :func:`insitubatch.fsspec_store` (e.g. anon
     public buckets). ``self.dataset`` exposes the underlying :class:`InSituDataset` for its
     ``cache_hits`` / ``cache_misses`` / ``resident_peak`` counters.
+
+    Setting ``cache_dir`` turns on a **cross-run persistent cache**: the decoded chunks a run
+    touches are written there (decode-once, no reshard) and a later run over the same store
+    reads them from local disk as ``cache_hits`` instead of re-fetching the cloud. Because a
+    reanalysis store is static, this is a drop-in replacement for a pre-download step when the
+    *same* ground truth is scored repeatedly (many models, one fixed verification set). The
+    path is the cache identity -- use a fresh ``cache_dir`` when the store or variables change.
     """
 
     def __init__(
@@ -176,7 +187,11 @@ class InSituForecastFeed:
 
         # Sample-axis step of the store (dt); every lead must be an integer multiple of it.
         dt = self.time[1] - self.time[0]
-        leads = np.array([np.timedelta64(0, "ns")]) if lead_times is None else np.asarray(lead_times)
+        leads = (
+            np.array([np.timedelta64(0, "ns")])
+            if lead_times is None
+            else np.asarray(lead_times)
+        )
         self.lead_time = leads.astype("timedelta64[ns]")
         steps = self.lead_time / dt
         if not np.all(steps == np.round(steps)):
@@ -208,6 +223,8 @@ class InSituForecastFeed:
             batch_size=batch_size,
             shuffle=False,
             cache_dir=cache_dir,
+            # cache_dir set => cross-run persistent cache (not just an in-run spill tier)
+            persist=cache_dir is not None,
             max_inflight=max_inflight,
         )
 
