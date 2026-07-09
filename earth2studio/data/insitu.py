@@ -55,6 +55,7 @@ try:
         open_geometries,
         split_by_chunk,
         to_torch,
+        valid_anchor_range,
     )
 except ImportError as exc:  # pragma: no cover - optional integration
     raise ImportError(
@@ -136,6 +137,10 @@ class InSituForecastFeed:
     sample-axis ``shift`` view of one stored array, so the ``(init, lead)`` grid decodes each
     shared chunk exactly once (the win over per-``(time, lead)`` ``fetch_data``).
 
+    Init times whose leads would read past either end of the store are rejected with a
+    ``ValueError`` (rather than silently dropped); with ``sample_range`` unset the feed spans
+    exactly the in-bounds init window for the requested leads.
+
     ``variables`` are the ids to expose on the ``variable`` coordinate; ``var_map`` maps them
     to store array names when they differ (e.g. ``t2m -> 2m_temperature``). Build ``store``
     with :func:`insitubatch.obstore_store` / :func:`insitubatch.fsspec_store` (e.g. anon
@@ -202,6 +207,27 @@ class InSituForecastFeed:
 
         arrays = [vmap[v] for v in self.variables]
         opened = open_geometries(store, variables=arrays)
+
+        # Each lead shifts the read to anchor + step, so init times near a store edge whose
+        # shifted read would leave [0, n_samples) are unusable. valid_anchor_range gives the
+        # in-bounds init window for these leads; the engine would silently drop out-of-range
+        # anchors, so validate here instead of scoring a shorter window than requested.
+        n_samples = opened[arrays[0]].n_samples
+        lo, hi = valid_anchor_range(self.lead_steps.tolist(), n_samples)
+        if lo >= hi:
+            raise ValueError(
+                f"lead steps {self.lead_steps.tolist()} span more than the store's "
+                f"{n_samples} samples; no init time can satisfy every lead"
+            )
+        if sample_range is None:
+            sample_range = (lo, hi)  # every init whose leads all fall within the store
+        elif sample_range[0] < lo or sample_range[1] > hi:
+            raise ValueError(
+                f"sample_range {sample_range} with lead steps {self.lead_steps.tolist()} "
+                f"reads outside the store [0, {n_samples}); the valid init range for these "
+                f"leads is [{lo}, {hi})"
+            )
+
         # One shifted geometry per (lead, variable); label grid indexes them for the stacker.
         geometries: dict[str, object] = {}
         self.labels: list[list[str]] = []
