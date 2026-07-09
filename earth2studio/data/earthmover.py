@@ -549,6 +549,7 @@ class EarthMoverERA5(_EarthMoverBase):
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
     SUBSCRIPTION_REPO_NAME = "era5-subscription"
     DEFAULT_BRANCH = "main"
+    TIME_START = datetime(year=1940, month=1, day=1)
     VARIABLES = tuple(EarthMoverERA5Lexicon.VOCAB)
 
     def __init__(
@@ -601,6 +602,42 @@ class EarthMoverERA5(_EarthMoverBase):
         """
         return _sync_async(self.fetch, time, variable)
 
+    @classmethod
+    def _validate_time(cls, times: list[datetime]) -> None:
+        """Verify if date time is valid for ERA5 based on offline knowledge."""
+        for time in times:
+            if not (time - datetime(1900, 1, 1)).total_seconds() % 3600 == 0:
+                raise ValueError(
+                    f"Requested date time {time} needs to be 1 hour interval for ERA5"
+                )
+
+            if time < cls.TIME_START:
+                raise ValueError(
+                    f"Requested date time {time} needs to be after January 1st, 1940 "
+                    "for ERA5"
+                )
+
+    @classmethod
+    def available(cls, time: datetime | np.datetime64) -> bool:
+        """Checks if given date time is available in the ERA5 data source.
+
+        Parameters
+        ----------
+        time : datetime | np.datetime64
+            Date time to access.
+
+        Returns
+        -------
+        bool
+            If date time is available.
+        """
+        time_list, _ = prep_data_inputs(time, "")
+        try:
+            cls._validate_time(time_list)
+        except ValueError:
+            return False
+        return True
+
     async def fetch(
         self,
         time: datetime | list[datetime] | TimeArray,
@@ -621,8 +658,8 @@ class EarthMoverERA5(_EarthMoverBase):
             Data array with dimensions ``[time, variable, lat, lon]``.
         """
         time_list, variable_list = prep_data_inputs(time, variable)
+        self._validate_time(time_list)
         await self._connect()
-        await self._validate_times(time_list)
 
         time_sel = np.array(time_list, dtype="datetime64[ns]")
 

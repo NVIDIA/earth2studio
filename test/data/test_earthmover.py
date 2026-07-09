@@ -563,12 +563,15 @@ class TestEarthMoverMockSources:
 
     def test_era5_fetch(self, patch_earthmover):
         patch_earthmover(earthmover_era5_groups())
+        time = datetime(2022, 1, 1)
         variables = ["t2m", "fdir", "z500", "q850", "pv500"]
         ds = EarthMoverERA5("my-org/era5-subscription")
 
-        out = ds(datetime(2022, 1, 1), variables)
+        out = ds(time, variables)
 
         assert_analysis_data_array(out, variables)
+        assert EarthMoverERA5.available(time)
+        assert EarthMoverERA5.available(np.datetime64("2026-07-09T00:00:00"))
 
     def test_forecast_fetch(self, patch_earthmover):
         patch_earthmover([ifs_forecast()])
@@ -621,6 +624,26 @@ class TestEarthMoverErrors:
 
         with pytest.raises(ValueError, match="not available"):
             ds(datetime(1999, 1, 1), "t2m")
+
+    @pytest.mark.timeout(15)
+    @pytest.mark.parametrize(
+        "time",
+        [
+            datetime(1939, 12, 31, 23),
+            datetime(2022, 1, 1, 0, 30),
+        ],
+    )
+    @pytest.mark.parametrize("variable", ["t2m"])
+    def test_era5_available(self, time, variable):
+        class _UnexpectedClient:
+            async def get_repo(self, name):
+                raise AssertionError("ERA5 invalid time validation should be offline")
+
+        ds = EarthMoverERA5("my-org/era5-subscription", client=_UnexpectedClient())
+
+        assert not EarthMoverERA5.available(time)
+        with pytest.raises(ValueError):
+            ds(time, variable)
 
     def test_ambiguous_resolution(self, patch_earthmover):
         patch_earthmover([ambiguous_winds()])
