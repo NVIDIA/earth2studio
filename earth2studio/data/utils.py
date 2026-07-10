@@ -831,21 +831,29 @@ class LocalCachingStore(zarr.storage.WrapperStore):
         if lock is None:
             lock = self._fetch_locks[key] = asyncio.Lock()
 
-        async with lock:
-            # Re-check under the lock: a prior holder may have filled the cache.
-            cached = await self._cache.get(key, prototype)
-            if cached is not None:
-                return cached
-            value = await self._store.get(key, prototype)
-            if value is not None:
-                # The cache is best-effort: a write failure (disk full,
-                # permissions, ...) must not fail a read that already
-                # succeeded against the remote store.
-                try:
-                    await self._cache.set(key, value)
-                except Exception as e:
-                    logger.warning(f"Failed to write {key} to local cache: {e}")
-            return value
+        try:
+            async with lock:
+                # Re-check under the lock: a prior holder may have filled the cache.
+                cached = await self._cache.get(key, prototype)
+                if cached is not None:
+                    return cached
+                value = await self._store.get(key, prototype)
+                if value is not None:
+                    # The cache is best-effort: a write failure (disk full,
+                    # permissions, ...) must not fail a read that already
+                    # succeeded against the remote store.
+                    try:
+                        await self._cache.set(key, value)
+                    except Exception as e:
+                        logger.warning(f"Failed to write {key} to local cache: {e}")
+                return value
+        finally:
+            # Drop the lock entry once the fill completes so the dict does not
+            # grow with every key ever missed. Later readers hit the cache fast
+            # path. Guard against removing a newer lock created after ours was
+            # already dropped by a concurrent waiter.
+            if self._fetch_locks.get(key) is lock:
+                del self._fetch_locks[key]
 
 
 def obstore_zarr_store(

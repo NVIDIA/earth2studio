@@ -795,6 +795,10 @@ async def test_local_caching_store_dedupes_concurrent_fetches(local_zarr_array, 
     assert await cached.get(key, proto) is not None
     assert remote.fetches[key] == 1
 
+    # Lock entries are released after the fill; the dict must not grow with
+    # every key ever missed
+    assert not cached._fetch_locks
+
 
 @pytest.mark.asyncio
 async def test_local_caching_store_never_caches_metadata(local_zarr_array, tmp_path):
