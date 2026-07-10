@@ -824,7 +824,7 @@ class MeteosatFCI:
                     f"Variable '{v}' (channel '{channel_name}') has available "
                     f"resolutions {available_res}, but data source is configured "
                     f"for {self._resolution}. All requested variables must "
-                    f"share the same resolution."
+                    "share the same resolution."
                 )
 
     def _ensure_grid(self) -> tuple[np.ndarray, np.ndarray]:
