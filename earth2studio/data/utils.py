@@ -39,6 +39,8 @@ import zarr.abc.store
 import zarr.storage
 from loguru import logger
 from tqdm.asyncio import tqdm
+from zarr.abc.store import ByteRequest
+from zarr.core.buffer import Buffer, BufferPrototype
 
 from earth2studio.data.base import (
     DataFrameSource,
@@ -807,9 +809,9 @@ class LocalCachingStore(zarr.storage.WrapperStore):
     async def get(
         self,
         key: str,
-        prototype: Any,
-        byte_range: Any | None = None,
-    ) -> Any | None:
+        prototype: BufferPrototype,
+        byte_range: ByteRequest | None = None,
+    ) -> Buffer | None:
         # Ranged reads (e.g. sharded stores) are not cached.
         if byte_range is not None:
             return await self._store.get(key, prototype, byte_range)
