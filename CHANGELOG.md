@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated StormScope model package to use improved higher resolution checkpoints. Model
   now defaults to using 3 km and 10 minute spatiotemporal resolution, and includes
   predictions for GOES GLM Lightning density.
+- Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
+  the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
+  fsspec
 
 ### Deprecated
 
@@ -34,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
+- Removed `multi-storage-client` from the `data` optional dependency group,
+  succeeded by `obstore`
 
 ## [0.16.0] - 2026-06-29
 
@@ -61,11 +67,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources,
-  and the `rx` prescriptive sources) now read from GCS via `obstore`-backed zarr
-  stores, replacing the per-source fsspec/gcsfs wiring (output unchanged; up to
-  ~3x higher concurrent small-read throughput and ~20% faster cached ARCO
-  fetches)
 - UFS GSI observation sources (`UFSObsConv`, `UFSObsSat`) now fetch from S3 via native
   `obstore` instead of `s3fs` to avoid the Python-GIL bottleneck that caps fsspec's
   concurrent S3 read throughput (~22% faster obs fetch, ~20% HealDA e2e on B200; output unchanged).
@@ -73,18 +74,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   accumulated IFS/AIFS data aliases.
 - Automatic test skipping for missing optional dependencies via
   `pytest_ignore_collect` hook in `test/conftest.py`
-
-### Deprecated
-
-### Removed
-
-- Removed `AsyncCachingFileSystem` and `get_msc_filesystem` from
-  `earth2studio.data.utils` along with Multi-Storage Client (MSC) support and
-  the `EARTH2STUDIO_DISABLE_MSC` environment variable; the Zarr data sources
-  they served now read via `obstore` (local caching via `LocalCachingStore`)
-- Dropped the `multi-storage-client` dependency from the `data` optional extra;
-  it was only used by the removed MSC data-source path (the `serve` extra still
-  depends on it for object storage)
 
 ### Fixed
 
