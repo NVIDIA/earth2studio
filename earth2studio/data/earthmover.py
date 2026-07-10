@@ -20,7 +20,7 @@ import asyncio
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import NoReturn, cast
 
 import numpy as np
@@ -504,6 +504,10 @@ class _EarthMoverBase:
             cache_location = os.path.join(cache_location, "tmp")
         return cache_location
 
+    def _validate_time(self, times: list[datetime]) -> None:
+        """Offline time validation hook for subclasses."""
+        pass
+
     async def _available(self, time: datetime | np.datetime64) -> bool:
         """Check whether ``time`` is present in the repository's time axis.
 
@@ -524,16 +528,23 @@ class _EarthMoverBase:
         """
         await self._connect()
         t64 = np.datetime64(time)
+        has_time_coord = False
         for ds in self._datasets or []:
             time_coord = self._find_dim_coord(ds, _TIME_NAMES)
             if time_coord is None:
-                continue
-            if (ds[time_coord].values.astype("datetime64[ns]") == t64).any():
-                return True
-        return False
+                return False
+            has_time_coord = True
+            if not (ds[time_coord].values.astype("datetime64[ns]") == t64).any():
+                return False
+        return has_time_coord
 
     def available(self, time: datetime | np.datetime64) -> bool:
         """Synchronous wrapper for :meth:`_available`."""
+        time_list, _ = prep_data_inputs(time, "")
+        try:
+            self._validate_time(time_list)
+        except ValueError:
+            return False
         return _sync_async(self._available, time)
 
     async def _validate_times(self, time_list: list[datetime]) -> None:
@@ -642,50 +653,19 @@ class EarthMoverERA5(_EarthMoverBase):
         """
         return _sync_async(self.fetch, time, variable)
 
-    @classmethod
-    def _validate_time(cls, times: list[datetime]) -> None:
+    def _validate_time(self, times: list[datetime]) -> None:
         """Verify if date time is valid for ERA5 based on offline knowledge."""
-        current_utc_hour = datetime.now(tz=UTC).replace(
-            tzinfo=None, minute=0, second=0, microsecond=0
-        )
         for time in times:
             if not (time - datetime(1900, 1, 1)).total_seconds() % 3600 == 0:
                 raise ValueError(
                     f"Requested date time {time} needs to be 1 hour interval for ERA5"
                 )
 
-            if time < cls.TIME_START:
+            if time < self.TIME_START:
                 raise ValueError(
                     f"Requested date time {time} needs to be on or after January 1st, "
                     "1940 for ERA5"
                 )
-
-            if time > current_utc_hour:
-                raise ValueError(
-                    f"Requested date time {time} needs to be on or before the current "
-                    "UTC hour for ERA5"
-                )
-
-    @classmethod
-    def available(cls, time: datetime | np.datetime64) -> bool:
-        """Checks if given date time is available in the ERA5 data source.
-
-        Parameters
-        ----------
-        time : datetime | np.datetime64
-            Date time to access.
-
-        Returns
-        -------
-        bool
-            If date time is available.
-        """
-        time_list, _ = prep_data_inputs(time, "")
-        try:
-            cls._validate_time(time_list)
-        except ValueError:
-            return False
-        return True
 
     async def fetch(
         self,
@@ -709,6 +689,7 @@ class EarthMoverERA5(_EarthMoverBase):
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
         await self._connect()
+        await self._validate_times(time_list)
 
         time_sel = np.array(time_list, dtype="datetime64[ns]")
 

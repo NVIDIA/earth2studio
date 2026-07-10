@@ -547,12 +547,15 @@ class TestEarthMoverSources:
             == 2.0
         )
 
-    def test_era5_available(self):
-        assert EarthMoverERA5.available(datetime(1940, 1, 1, 0))
-        assert EarthMoverERA5.available(np.datetime64("2022-01-01T06:00:00"))
-        assert not EarthMoverERA5.available(datetime(1939, 12, 31, 23))
-        assert not EarthMoverERA5.available(datetime(2077, 1, 1))
-        assert not EarthMoverERA5.available(datetime(2022, 1, 1, 0, 30))
+    def test_era5_available(self, patch_earthmover):
+        patch_earthmover(mock_earthmover_era5())
+        ds = EarthMoverERA5("vandelay-industries/era5")
+
+        assert ds.available(datetime(2022, 1, 1, 0))
+        assert ds.available(np.datetime64("2022-01-01T06:00:00"))
+        assert not ds.available(datetime(1939, 12, 31, 23))
+        assert not ds.available(datetime(2077, 1, 1))
+        assert not ds.available(datetime(2022, 1, 1, 0, 30))
 
     def test_analysis_available(self, patch_earthmover):
         patch_earthmover(mock_earthmover_brightband_ifs())
@@ -672,6 +675,8 @@ class TestEarthMoverErrors:
             ds(datetime(1939, 12, 31, 23), "t2m")
         with pytest.raises(ValueError, match="1 hour interval"):
             ds(datetime(2022, 1, 1, 0, 30), "t2m")
+        with pytest.raises(ValueError, match="not available"):
+            ds(datetime(2022, 1, 1, 12), "t2m")
 
     def test_analysis_exceptions(self, patch_earthmover):
         patch_earthmover(mock_earthmover_brightband_ifs())
