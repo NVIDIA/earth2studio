@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import pathlib
 import shutil
 from datetime import datetime, timedelta
@@ -21,8 +22,10 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 import pytest
 
+import earth2studio.data.gdas as gdas_data
 from earth2studio.data import NomadsGDASObsConv
 from earth2studio.lexicon import GDASObsConvLexicon
 
@@ -133,6 +136,11 @@ def test_nomads_gdas_schema_fields():
     fields = ds.resolve_fields(ds.SCHEMA)
     assert fields == ds.SCHEMA.names
 
+    # GDAS accepts a supplied schema by field name without type normalization.
+    wrong_type = pa.schema([pa.field("time", pa.string())])
+    assert ds.resolve_fields(wrong_type) == ["time"]
+    assert ds._resolve_output_schema(wrong_type) == pa.schema([ds.SCHEMA.field("time")])
+
 
 @pytest.mark.timeout(15)
 def test_nomads_gdas_exceptions():
@@ -144,6 +152,9 @@ def test_nomads_gdas_exceptions():
     )
     with pytest.raises(KeyError):
         ds(recent, "nonexistent_var")
+
+    with pytest.raises(KeyError):
+        ds(recent, "t", fields="nonexistent_field")
 
     # Future time
     with pytest.raises(ValueError):
@@ -278,43 +289,28 @@ def test_nomads_gdas_call_mock(tmp_path):
         }
     )
 
-    async def mock_fetch(url):
-        return str(tmp_path / "mock.bin")
+    dummy_file = tmp_path / "mock.bin"
+    dummy_file.write_bytes(b"dummy")
+    ds = NomadsGDASObsConv(
+        time_tolerance=timedelta(hours=3),
+        cache=False,
+    )
+    fetched: list[str] = []
 
-    with (
-        patch.object(
-            NomadsGDASObsConv,
-            "_fetch_remote_file",
-            side_effect=mock_fetch,
-        ) as mf,
-        patch.object(
-            NomadsGDASObsConv,
-            "_decode_prepbufr",
-            return_value=mock_df,
-        ) as md,
-        patch.object(
-            NomadsGDASObsConv,
-            "_cache_path",
-            return_value=str(tmp_path / "mock.bin"),
-        ),
-    ):
-        # Create a dummy file so os.path.exists check passes
-        dummy_file = tmp_path / "mock.bin"
-        dummy_file.write_bytes(b"dummy")
+    async def mock_fetch_files(urls):
+        fetched.extend(urls)
 
-        ds = NomadsGDASObsConv(
-            time_tolerance=timedelta(hours=3),
-            cache=False,
-        )
-
+    ds._nomads_store.fetch_files = mock_fetch_files
+    ds._nomads_store.local_path = lambda _url: str(dummy_file)
+    with patch.object(ds, "_decode_file", return_value=mock_df) as decode:
         df = ds(base_time, ["t"])
 
-        assert isinstance(df, pd.DataFrame)
-        assert not df.empty
-        assert list(df.columns) == ds.SCHEMA.names
-        assert set(df["variable"].unique()) == {"t"}
-        mf.assert_called()
-        md.assert_called()
+    assert isinstance(df, pd.DataFrame)
+    assert not df.empty
+    assert list(df.columns) == ds.SCHEMA.names
+    assert set(df["variable"].unique()) == {"t"}
+    assert fetched
+    decode.assert_called()
 
 
 @pytest.mark.timeout(15)
@@ -362,11 +358,119 @@ def test_nomads_gdas_create_tasks():
 @pytest.mark.timeout(15)
 def test_nomads_gdas_empty_result():
     ds = NomadsGDASObsConv()
-    empty_df = ds._compile_dataframe([], ["t"])
+    empty_df = ds._compile_dataframe([], ["t"], ds.SCHEMA)
 
     assert isinstance(empty_df, pd.DataFrame)
     assert empty_df.empty
     assert list(empty_df.columns) == ds.SCHEMA.names
+
+
+@pytest.mark.asyncio
+async def test_nomads_store_fetches_and_reuses_cached_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    store = gdas_data._NomadsObsStore(
+        cache=True,
+        verbose=False,
+        max_workers=2,
+        retries=4,
+    )
+    requests: list[str] = []
+    initialized = False
+
+    class FakeHTTPFileSystem:
+        async def _cat_file(self, url):
+            requests.append(url)
+            return url.encode()
+
+    async def initialize():
+        nonlocal initialized
+        initialized = True
+        store.fs = FakeHTTPFileSystem()
+
+    monkeypatch.setattr(store, "_async_init", initialize)
+    urls = [
+        "https://example.com/gdas.t00z.prepbufr.nr",
+        "https://example.com/gdas.t06z.prepbufr.nr",
+    ]
+
+    await store.fetch_files(urls)
+
+    assert initialized
+    assert sorted(requests) == sorted(urls)
+    for url in urls:
+        assert pathlib.Path(store.local_path(url)).read_bytes() == url.encode()
+
+    await store.fetch_files(urls)
+    assert sorted(requests) == sorted(urls)
+
+
+@pytest.mark.asyncio
+async def test_nomads_store_preserves_retry_and_concurrency_settings(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    store = gdas_data._NomadsObsStore(True, False, 3, 5)
+    store.fs = object()
+    retries: list[tuple[str, dict]] = []
+    concurrency: dict = {}
+
+    async def fake_retry(_function, uri, **kwargs):
+        retries.append((uri, kwargs))
+
+    async def fake_gather(coros, **kwargs):
+        concurrency.update(kwargs)
+        await asyncio.gather(*coros)
+
+    monkeypatch.setattr(gdas_data, "async_retry", fake_retry)
+    monkeypatch.setattr(gdas_data, "gather_with_concurrency", fake_gather)
+
+    await store.fetch_files(["first", "second"])
+
+    assert [uri for uri, _kwargs in retries] == ["first", "second"]
+    assert all(
+        kwargs
+        == {
+            "retries": 5,
+            "backoff": 1.0,
+            "task_timeout": 120.0,
+            "exceptions": (OSError, IOError, TimeoutError, ConnectionError),
+        }
+        for _uri, kwargs in retries
+    )
+    assert concurrency == {
+        "max_workers": 3,
+        "desc": "Fetching GDAS conventional observations",
+        "verbose": True,
+    }
+
+
+def test_nomads_store_temporary_cache_cleanup(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    first = gdas_data._NomadsObsStore(False, False, 1, 0)
+    second = gdas_data._NomadsObsStore(False, False, 1, 0)
+    first_cache = pathlib.Path(first.cache)
+
+    assert first.cache == str(first_cache)
+    assert first.cache != second.cache
+    first_cache.mkdir(parents=True)
+    pathlib.Path(first.local_path("https://example.com/file")).write_bytes(b"raw")
+
+    first.cleanup()
+
+    assert not first_cache.exists()
+
+
+def test_nomads_gdas_cache_false_cleans_up_after_error(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    source = NomadsGDASObsConv(cache=False, verbose=False)
+    cache = pathlib.Path(source.cache)
+    cache.mkdir(parents=True)
+    (cache / "raw").write_bytes(b"raw")
+
+    with pytest.raises(ValueError):
+        source(datetime(2020, 1, 1), "t")
+
+    assert not cache.exists()
 
 
 @pytest.mark.timeout(15)

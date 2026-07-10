@@ -302,7 +302,7 @@ def test_empty_public_facades_use_shared_schema_dtypes():
     gdas = NomadsGDASObsConv(cache=False, verbose=False, decode_workers=1)
     nnja = NNJAObsConv(cache=False, verbose=False, decode_workers=1)
 
-    gdas_empty = gdas._compile_dataframe([], ["t"])
+    gdas_empty = gdas._compile_dataframe([], ["t"], NomadsGDASObsConv.SCHEMA)
     nnja_empty = nnja._compile_dataframe([], ["t"], NNJAObsConv.SCHEMA)
 
     assert gdas_empty.dtypes.astype(str).to_dict() == {
