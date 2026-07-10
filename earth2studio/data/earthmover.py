@@ -20,7 +20,7 @@ import asyncio
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import NoReturn, cast
 
 import numpy as np
@@ -92,6 +92,25 @@ class _EarthMoverBase:
     """Shared Earthmover Arraylake connection and resolution logic."""
 
     LEXICON: LexiconType = EarthMoverIFSLexicon
+    ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
+    SUBSCRIPTION_REPO_NAME: str
+    MARKETPLACE_URL: str | None = None
+
+    @classmethod
+    def _derive_repo_name(cls, repo: str | None) -> str:
+        """Resolve an explicit repo or derive one from the configured organization."""
+        if repo is not None:
+            return repo
+
+        org_name = os.environ.get(cls.ORG_ENV_VAR)
+        if org_name:
+            return f"{org_name}/{cls.SUBSCRIPTION_REPO_NAME}"
+
+        raise ValueError(
+            f"Pass repo='org/repo' or set {cls.ORG_ENV_VAR} to derive "
+            f"'<org>/{cls.SUBSCRIPTION_REPO_NAME}'. Listing: "
+            f"{cls.MARKETPLACE_URL}"
+        )
 
     def __init__(
         self,
@@ -592,19 +611,8 @@ class EarthMoverERA5(_EarthMoverBase):
         cache: bool = True,
         verbose: bool = True,
     ) -> None:
-        repo_name = repo
-        if repo_name is None:
-            org_name = os.environ.get(self.ORG_ENV_VAR)
-            if org_name:
-                repo_name = f"{org_name}/{self.SUBSCRIPTION_REPO_NAME}"
-        if repo_name is None:
-            raise ValueError(
-                f"Pass repo='org/repo' or set {self.ORG_ENV_VAR} to derive "
-                f"'<org>/{self.SUBSCRIPTION_REPO_NAME}'. Listing: "
-                f"{self.MARKETPLACE_URL}"
-            )
         super().__init__(
-            repo_name,
+            self._derive_repo_name(repo),
             group=["single/spatial", "pressure/spatial"],
             branch=branch,
             client=client,
@@ -637,6 +645,9 @@ class EarthMoverERA5(_EarthMoverBase):
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
         """Verify if date time is valid for ERA5 based on offline knowledge."""
+        current_utc_hour = datetime.now(tz=UTC).replace(
+            tzinfo=None, minute=0, second=0, microsecond=0
+        )
         for time in times:
             if not (time - datetime(1900, 1, 1)).total_seconds() % 3600 == 0:
                 raise ValueError(
@@ -645,8 +656,14 @@ class EarthMoverERA5(_EarthMoverBase):
 
             if time < cls.TIME_START:
                 raise ValueError(
-                    f"Requested date time {time} needs to be after January 1st, 1940 "
-                    "for ERA5"
+                    f"Requested date time {time} needs to be on or after January 1st, "
+                    "1940 for ERA5"
+                )
+
+            if time > current_utc_hour:
+                raise ValueError(
+                    f"Requested date time {time} needs to be on or before the current "
+                    "UTC hour for ERA5"
                 )
 
     @classmethod
@@ -777,19 +794,8 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
         cache: bool = True,
         verbose: bool = True,
     ) -> None:
-        repo_name = repo
-        if repo_name is None:
-            org_name = os.environ.get(self.ORG_ENV_VAR)
-            if org_name:
-                repo_name = f"{org_name}/{self.SUBSCRIPTION_REPO_NAME}"
-        if repo_name is None:
-            raise ValueError(
-                f"Pass repo='org/repo' or set {self.ORG_ENV_VAR} to derive "
-                f"'<org>/{self.SUBSCRIPTION_REPO_NAME}'. Listing: "
-                f"{self.MARKETPLACE_URL}"
-            )
         super().__init__(
-            repo_name,
+            self._derive_repo_name(repo),
             group=None,
             branch=branch,
             client=client,
@@ -950,19 +956,8 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
         cache: bool = True,
         verbose: bool = True,
     ) -> None:
-        repo_name = repo
-        if repo_name is None:
-            org_name = os.environ.get(self.ORG_ENV_VAR)
-            if org_name:
-                repo_name = f"{org_name}/{self.SUBSCRIPTION_REPO_NAME}"
-        if repo_name is None:
-            raise ValueError(
-                f"Pass repo='org/repo' or set {self.ORG_ENV_VAR} to derive "
-                f"'<org>/{self.SUBSCRIPTION_REPO_NAME}'. Listing: "
-                f"{self.MARKETPLACE_URL}"
-            )
         super().__init__(
-            repo_name,
+            self._derive_repo_name(repo),
             group=None,
             branch=branch,
             client=client,

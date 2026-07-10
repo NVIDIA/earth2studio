@@ -49,21 +49,27 @@ _PARAM_IDS: dict[str, int] = {
     "2d": 168,
     "2t": 167,
     "asn": 32,
+    "blh": 159,
+    "cape": 59,
     "cp": 143,
     "d": 155,
     "fdir": 228021,
+    "fsr": 244,
     "fg10": 49,
     "gh": 129,
     "hcc": 188,
     "lcc": 186,
+    "lsp": 142,
     "lsm": 172,
     "mcc": 187,
     "msl": 151,
+    "pv": 60,
     "q": 133,
     "r": 157,
     "sd": 141,
     "sf": 144,
     "skt": 235,
+    "slhf": 147,
     "snowc": 260038,
     "sot": 228139,
     "sp": 134,
@@ -72,6 +78,8 @@ _PARAM_IDS: dict[str, int] = {
     "sst": 34,
     "stl1": 139,
     "stl2": 170,
+    "stl3": 183,
+    "stl4": 236,
     "str": 177,
     "strd": 175,
     "swvl1": 39,
@@ -80,14 +88,17 @@ _PARAM_IDS: dict[str, int] = {
     "tcc": 164,
     "tcw": 136,
     "tcwv": 137,
+    "tisr": 212,
     "tp": 228,
     "tprate": 260048,
+    "tsr": 178,
     "u": 131,
     "v": 132,
     "vo": 138,
     "vsw": 39,
     "w": 135,
     "z": 129,
+    "zust": 228003,
 }
 
 _STANDARD_NAMES: dict[str, str] = {
@@ -98,19 +109,27 @@ _STANDARD_NAMES: dict[str, str] = {
     "10v": "northward_wind",
     "2d": "dew_point_temperature",
     "2t": "air_temperature",
+    "blh": "atmosphere_boundary_layer_thickness",
+    "cape": "atmosphere_convective_available_potential_energy",
     "cp": "lwe_thickness_of_convective_precipitation_amount",
     "d": "divergence_of_wind",
     "gh": "geopotential_height",
+    "lsp": "lwe_thickness_of_stratiform_precipitation_amount",
     "lsm": "land_binary_mask",
     "msl": "air_pressure_at_mean_sea_level",
+    "pv": "ertel_potential_vorticity",
     "q": "specific_humidity",
     "r": "relative_humidity",
     "sd": "lwe_thickness_of_surface_snow_amount",
     "sf": "lwe_thickness_of_snowfall_amount",
     "skt": "surface_temperature",
+    "slhf": "surface_upward_latent_heat_flux",
     "sp": "surface_air_pressure",
     "sst": "sea_surface_temperature",
     "stl1": "surface_temperature",
+    "stl2": "surface_temperature",
+    "stl3": "surface_temperature",
+    "stl4": "surface_temperature",
     "ssrd": "surface_downwelling_shortwave_flux_in_air",
     "strd": "surface_downwelling_longwave_flux_in_air",
     "t": "air_temperature",
@@ -132,20 +151,26 @@ _CANONICAL_UNITS_BY_SHORT_NAME: dict[str, str] = {
     "10v": "m s-1",
     "2d": "K",
     "2t": "K",
+    "blh": "m",
+    "cape": "J kg-1",
     "cp": "m",
     "d": "s-1",
     "fdir": "J m-2",
+    "fsr": "m",
     "gh": "m2 s-2",
     "hcc": "1",
     "lcc": "1",
+    "lsp": "m",
     "lsm": "1",
     "mcc": "1",
     "msl": "Pa",
+    "pv": "K m2 kg-1 s-1",
     "q": "kg kg-1",
     "r": "%",
     "sd": "m",
     "sf": "kg m-2",
     "skt": "K",
+    "slhf": "J m-2",
     "snowc": "%",
     "sot": "K",
     "sp": "Pa",
@@ -154,6 +179,8 @@ _CANONICAL_UNITS_BY_SHORT_NAME: dict[str, str] = {
     "sst": "K",
     "stl1": "K",
     "stl2": "K",
+    "stl3": "K",
+    "stl4": "K",
     "str": "J m-2",
     "strd": "J m-2",
     "swvl1": "m3 m-3",
@@ -162,14 +189,17 @@ _CANONICAL_UNITS_BY_SHORT_NAME: dict[str, str] = {
     "tcc": "1",
     "tcw": "kg m-2",
     "tcwv": "kg m-2",
+    "tisr": "J m-2",
     "tp": "m",
     "tprate": "kg m-2 s-1",
+    "tsr": "J m-2",
     "u": "m s-1",
     "v": "m s-1",
     "vo": "s-1",
     "vsw": "m3 m-3",
     "w": "Pa s-1",
     "z": "m2 s-2",
+    "zust": "m s-1",
 }
 
 _ALIASES_BY_E2S: dict[str, tuple[str, ...]] = {
@@ -181,6 +211,16 @@ _ALIASES_BY_E2S: dict[str, tuple[str, ...]] = {
 
 _ALIASES_BY_SHORT_NAME: dict[str, tuple[str, ...]] = {
     "gh": ("z",),
+}
+
+_METADATA_SHORT_NAME_ALIASES: dict[str, str] = {
+    "d2m": "2d",
+    "fg10": "10fg",
+    "t2m": "2t",
+    "u10": "10u",
+    "u100": "100u",
+    "v10": "10v",
+    "v100": "100v",
 }
 
 
@@ -202,17 +242,20 @@ def _build_specs(vocab: dict[str, str]) -> dict[str, VariableSpec]:
     specs: dict[str, VariableSpec] = {}
     for e2s, ifs_key in vocab.items():
         short_name, raw_level_type, raw_level = ifs_key.split("::")
+        metadata_short_name = _METADATA_SHORT_NAME_ALIASES.get(short_name, short_name)
         aliases = _ALIASES_BY_E2S.get(e2s, ()) + _ALIASES_BY_SHORT_NAME.get(
             short_name, ()
         )
+        if metadata_short_name != short_name:
+            aliases += (metadata_short_name,)
         specs[e2s] = VariableSpec(
             e2s=e2s,
             short_name=short_name,
-            param_id=_PARAM_IDS.get(short_name),
-            standard_name=_STANDARD_NAMES.get(short_name, ""),
+            param_id=_PARAM_IDS.get(metadata_short_name),
+            standard_name=_STANDARD_NAMES.get(metadata_short_name, ""),
             level_type=_level_type(raw_level_type),
             level=_level(raw_level),
-            canonical_units=_CANONICAL_UNITS_BY_SHORT_NAME.get(short_name, ""),
+            canonical_units=_CANONICAL_UNITS_BY_SHORT_NAME.get(metadata_short_name, ""),
             aliases=aliases,
         )
     return specs
@@ -377,7 +420,7 @@ _ERA5_PRESSURE_VARIABLES = ("pv", "q", "r", "t", "u", "v", "w", "z")
 class EarthMoverERA5Lexicon(_EarthMoverLexiconBase):
     """Earthmover ERA5 Marketplace lexicon."""
 
-    LEVELS = _ERA5_LEVELS
+    PRESSURE_LEVELS = _ERA5_LEVELS
     SURFACE_VARIABLES: dict[str, str] = {
         "blh": "blh::sfc::",
         "cape": "cape::sfc::",

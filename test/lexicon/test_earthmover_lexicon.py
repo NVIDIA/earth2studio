@@ -128,6 +128,7 @@ ERA5_VOCAB = {
 
 def test_earthmover_era5_lexicon_matches_marketplace_variables():
     assert EarthMoverERA5Lexicon.VOCAB == ERA5_VOCAB
+    assert EarthMoverERA5Lexicon.PRESSURE_LEVELS == ERA5_LEVELS
 
 
 def test_earthmover_ifs_initial_condition_lexicon_matches_marketplace_variables():
@@ -140,12 +141,19 @@ def test_earthmover_ifs_forecast_lexicon_matches_marketplace_variables():
 
 def test_earthmover_era5_lexicon_specs():
     assert EarthMoverERA5Lexicon.spec("t2m").short_name == "t2m"
+    assert EarthMoverERA5Lexicon.spec("t2m").param_id == 167
+    assert EarthMoverERA5Lexicon.spec("t2m").canonical_units == "K"
+    assert "2t" in EarthMoverERA5Lexicon.spec("t2m").aliases
     assert EarthMoverERA5Lexicon.spec("msl").param_id == 151
     assert EarthMoverERA5Lexicon.spec("fg10m").short_name == "fg10"
+    assert EarthMoverERA5Lexicon.spec("fg10m").param_id == 49
     assert EarthMoverERA5Lexicon.spec("u10m").level_type == "surface"
+    assert EarthMoverERA5Lexicon.spec("u10m").param_id == 165
+    assert EarthMoverERA5Lexicon.spec("sf").canonical_units == "kg m-2"
     assert EarthMoverERA5Lexicon.spec("q500").level_type == "isobaric"
     assert EarthMoverERA5Lexicon.spec("q500").level == 500
     assert EarthMoverERA5Lexicon.spec("pv500").short_name == "pv"
+    assert EarthMoverERA5Lexicon.spec("pv500").param_id == 60
     assert EarthMoverERA5Lexicon.spec("z50").short_name == "z"
 
 
@@ -216,4 +224,16 @@ def test_earthmover_unit_normalization():
 )
 def test_earthmover_unit_conversions(variable, src_units, raw, expected):
     spec = EarthMoverIFSLexicon.spec(variable)
+    np.testing.assert_allclose(make_modifier(spec, src_units)(raw), expected)
+
+
+@pytest.mark.parametrize(
+    "variable,src_units,raw,expected",
+    [
+        ("t2m", "degree_Celsius", np.array([0.0]), np.array([273.15])),
+        ("sf", "m of water equivalent", np.array([0.002]), np.array([2.0])),
+    ],
+)
+def test_earthmover_era5_unit_conversions(variable, src_units, raw, expected):
+    spec = EarthMoverERA5Lexicon.spec(variable)
     np.testing.assert_allclose(make_modifier(spec, src_units)(raw), expected)

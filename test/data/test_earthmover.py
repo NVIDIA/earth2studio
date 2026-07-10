@@ -252,6 +252,11 @@ def mock_earthmover_era5() -> dict[str | None, xr.Dataset]:
             "t2m": (single_dims, _grid(single_shape)),
             "msl": (single_dims, _grid(single_shape) + 10.0),
             "fdir": (single_dims, _grid(single_shape) + 20.0),
+            "sf": (
+                single_dims,
+                np.full(single_shape, 0.002, dtype=np.float32),
+            ),
+            "stl1": (single_dims, _grid(single_shape) + 40.0),
         },
         coords=single_coords,
     )
@@ -278,6 +283,18 @@ def mock_earthmover_era5() -> dict[str | None, xr.Dataset]:
         "GRIB_paramId": 228021,
         "GRIB_shortName": "fdir",
         "units": "J m**-2",
+    }
+    single["sf"].attrs = {
+        "GRIB_paramId": 144,
+        "GRIB_shortName": "sf",
+        "standard_name": "lwe_thickness_of_snowfall_amount",
+        "units": "m of water equivalent",
+    }
+    single["stl1"].attrs = {
+        "GRIB_paramId": 139,
+        "GRIB_shortName": "stl1",
+        "standard_name": "surface_temperature",
+        "units": "K",
     }
     pressure["q"].attrs = {
         "GRIB_paramId": 133,
@@ -475,6 +492,8 @@ class TestEarthMoverSources:
         assert "z500" in EarthMoverERA5.VARIABLES
         assert "pv500" in EarthMoverERA5.VARIABLES
         assert "fdir" in EarthMoverERA5.VARIABLES
+        assert "sf" in EarthMoverERA5.VARIABLES
+        assert "stl1" in EarthMoverERA5.VARIABLES
 
     def test_analysis_supported_variables_match_marketplace_listing(self):
         assert EarthMoverBrightBandIFS.VARIABLES == IFS_ANALYSIS_VARIABLES
@@ -492,13 +511,14 @@ class TestEarthMoverSources:
 
     def test_earthmover_era5_call_mock(self, patch_earthmover):
         patch_earthmover(mock_earthmover_era5())
-        variables = ["t2m", "msl", "q500", "z500"]
+        variables = ["t2m", "msl", "sf", "stl1", "q500", "z500"]
         ds = EarthMoverERA5("vandelay-industries/era5")
 
         out = ds(datetime(2022, 1, 1), variables)
 
         assert_analysis_data_array(out, variables)
         assert float(out.sel(variable="t2m").isel(time=0, lat=0, lon=0)) == 2.0
+        assert float(out.sel(variable="sf").isel(time=0, lat=0, lon=0)) == 2.0
 
     def test_earthmover_brightband_ifs_call_mock(self, patch_earthmover):
         patch_earthmover(mock_earthmover_brightband_ifs())
@@ -531,6 +551,7 @@ class TestEarthMoverSources:
         assert EarthMoverERA5.available(datetime(1940, 1, 1, 0))
         assert EarthMoverERA5.available(np.datetime64("2022-01-01T06:00:00"))
         assert not EarthMoverERA5.available(datetime(1939, 12, 31, 23))
+        assert not EarthMoverERA5.available(datetime(2077, 1, 1))
         assert not EarthMoverERA5.available(datetime(2022, 1, 1, 0, 30))
 
     def test_analysis_available(self, patch_earthmover):
@@ -647,7 +668,7 @@ class TestEarthMoverErrors:
             ds(datetime(2022, 1, 1), "definitely_not_a_var")
         with pytest.raises(ValueError, match="Could not resolve"):
             ds(datetime(2022, 1, 1), "d2m")
-        with pytest.raises(ValueError, match="after January 1st, 1940"):
+        with pytest.raises(ValueError, match="on or after January 1st, 1940"):
             ds(datetime(1939, 12, 31, 23), "t2m")
         with pytest.raises(ValueError, match="1 hour interval"):
             ds(datetime(2022, 1, 1, 0, 30), "t2m")
