@@ -838,7 +838,13 @@ class LocalCachingStore(zarr.storage.WrapperStore):
                 return cached
             value = await self._store.get(key, prototype)
             if value is not None:
-                await self._cache.set(key, value)
+                # The cache is best-effort: a write failure (disk full,
+                # permissions, ...) must not fail a read that already
+                # succeeded against the remote store.
+                try:
+                    await self._cache.set(key, value)
+                except Exception as e:
+                    logger.warning(f"Failed to write {key} to local cache: {e}")
             return value
 
 

@@ -824,3 +824,27 @@ async def test_local_caching_store_never_caches_metadata(local_zarr_array, tmp_p
         await cached.get(meta_key, proto)
         # Two reads => two backing fetches: never served from cache
         assert remote.fetches.get(meta_key, 0) == 2
+
+
+@pytest.mark.asyncio
+async def test_local_caching_store_survives_cache_write_error(local_zarr_array, tmp_path):
+    """A cache-write failure must not fail a read that already succeeded
+    against the remote store."""
+    import zarr
+    import zarr.storage
+    from zarr.core.buffer import default_buffer_prototype
+
+    from earth2studio.data.utils import LocalCachingStore
+
+    cached = LocalCachingStore(
+        zarr.storage.LocalStore(str(local_zarr_array)), str(tmp_path / "cache")
+    )
+
+    async def boom(*args, **kwargs):
+        raise OSError("No space left on device")
+
+    cached._cache.set = boom  # simulate a broken/full cache disk
+    proto = default_buffer_prototype()
+
+    # Read still returns the remote data despite the cache write blowing up
+    assert await cached.get("c/0/0", proto) is not None
