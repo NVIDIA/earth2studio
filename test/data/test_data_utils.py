@@ -794,3 +794,33 @@ async def test_local_caching_store_dedupes_concurrent_fetches(local_zarr_array, 
     # Subsequent read served from cache, no further backing fetch
     assert await cached.get(key, proto) is not None
     assert remote.fetches[key] == 1
+
+
+@pytest.mark.asyncio
+async def test_local_caching_store_never_caches_metadata(local_zarr_array, tmp_path):
+    """Metadata keys must always refetch so a warm cache does not go blind to
+    newly appended data (v2 .z* / .zmetadata and v3 zarr.json)."""
+    import zarr
+    import zarr.storage
+    from zarr.core.buffer import default_buffer_prototype
+
+    from earth2studio.data.utils import LocalCachingStore
+
+    class CountingStore(zarr.storage.WrapperStore):
+        def __init__(self, store):
+            super().__init__(store)
+            self.fetches: dict[str, int] = {}
+
+        async def get(self, key, prototype, byte_range=None):
+            self.fetches[key] = self.fetches.get(key, 0) + 1
+            return await self._store.get(key, prototype, byte_range)
+
+    remote = CountingStore(zarr.storage.LocalStore(str(local_zarr_array)))
+    cached = LocalCachingStore(remote, str(tmp_path / "cache"))
+    proto = default_buffer_prototype()
+
+    for meta_key in ("zarr.json", ".zmetadata", "time/.zarray", ".zattrs"):
+        await cached.get(meta_key, proto)
+        await cached.get(meta_key, proto)
+        # Two reads => two backing fetches: never served from cache
+        assert remote.fetches.get(meta_key, 0) == 2

@@ -769,8 +769,15 @@ async def cancellable_to_thread(
 
 class LocalCachingStore(zarr.storage.WrapperStore):
     """Wraps a read-only zarr store with a local on-disk cache backed by a zarr
-    LocalStore. Whole-object reads are cached; ranged reads bypass the cache.
-    Cached objects do not expire, intended for immutable archive stores.
+    LocalStore, intended for append-only immutable archive stores.
+
+    Chunk data is cached indefinitely: existing chunks never change and newly
+    appended data arrives under new keys (a cache miss). Metadata objects
+    (``zarr.json`` / ``.zarray`` / ``.zgroup`` / ``.zattrs`` / ``.zmetadata``)
+    encode the growing shape and attrs, so they are always refetched to keep a
+    warm/persisted cache from going blind to newly appended data. Ranged reads
+    (e.g. sharded stores) bypass the cache entirely — caching is a no-op for
+    sharded stores.
 
     Concurrent reads of the same uncached key are de-duplicated with a per-key
     lock (double-checked against the cache), so a chunk is fetched and written
@@ -784,6 +791,11 @@ class LocalCachingStore(zarr.storage.WrapperStore):
         Local directory to store cached objects in. Must be unique per remote
         store, cached objects are keyed by their in-store path only.
     """
+
+    # Metadata keys mutate as archives append (shape/attrs), so are never
+    # cached. Covers both Zarr v3 (zarr.json) and v2 (.z*, incl. consolidated
+    # .zmetadata) — ARCO/WB2 are v2 despite the "-v3" store name.
+    _METADATA_SUFFIXES = ("zarr.json", ".zmetadata", ".zarray", ".zgroup", ".zattrs")
 
     def __init__(self, store: zarr.abc.store.Store, cache_storage: str) -> None:
         super().__init__(store)
@@ -801,6 +813,11 @@ class LocalCachingStore(zarr.storage.WrapperStore):
         # Ranged reads (e.g. sharded stores) are not cached.
         if byte_range is not None:
             return await self._store.get(key, prototype, byte_range)
+
+        # Metadata mutates as the archive appends; always refetch it so a warm
+        # cache does not miss newly available data.
+        if key.endswith(self._METADATA_SUFFIXES):
+            return await self._store.get(key, prototype)
 
         # Fast path: cache hit needs no lock.
         cached = await self._cache.get(key, prototype)
