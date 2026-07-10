@@ -59,9 +59,6 @@ except ImportError:
 # Grid & projection constants for MTG-I FCI Full Disk
 # ---------------------------------------------------------------------------
 
-FCICollection = Literal["FDHSI", "HRFI"]
-FCIResolution = Literal["2km", "1km", "500m"]
-
 # Geostationary projection parameters (MTG-I1 at 0° longitude)
 SUB_SATELLITE_LON = 0.0  # degrees
 PERSPECTIVE_POINT_HEIGHT = 35786400.0  # metres
@@ -69,30 +66,32 @@ SEMI_MAJOR_AXIS = 6378137.0  # metres (WGS-84)
 SEMI_MINOR_AXIS = 6356752.3142  # metres (WGS-84)
 
 # Grid parameters
-_GRID_SCALE: dict[FCIResolution, int] = {"2km": 1, "1km": 2, "500m": 4}
-_GRID_SIZE: dict[FCIResolution, tuple[int, int]] = {
+_GRID_SCALE: dict[Literal["2km", "1km", "500m"], int] = {"2km": 1, "1km": 2, "500m": 4}
+_GRID_SIZE: dict[Literal["2km", "1km", "500m"], tuple[int, int]] = {
     res: (5568 * scale, 5568 * scale) for (res, scale) in _GRID_SCALE.items()
 }
-_X_SCALE: dict[FCIResolution, float] = {
+_X_SCALE: dict[Literal["2km", "1km", "500m"], float] = {
     "2km": -5.58871526031607e-05,
     "1km": -2.79435763233999e-05,
     "500m": -1.39717881644274e-05,
 }
-_X_OFFSET: dict[FCIResolution, float] = {
+_X_OFFSET: dict[Literal["2km", "1km", "500m"], float] = {
     "2km": 0.15561777642350116,
     "1km": 0.1556038047568524,
     "500m": 0.15559681889314542,
 }
-_Y_SCALE: dict[FCIResolution, float] = {
+_Y_SCALE: dict[Literal["2km", "1km", "500m"], float] = {
     res: -scale for (res, scale) in _X_SCALE.items()
 }
-_Y_OFFSET: dict[FCIResolution, float] = {
+_Y_OFFSET: dict[Literal["2km", "1km", "500m"], float] = {
     res: -offset for (res, offset) in _X_OFFSET.items()
 }
 
 
 # Channel name → native resolution string
-_VARIABLE_RESOLUTION: dict[FCICollection, dict[str, FCIResolution]] = {
+_VARIABLE_RESOLUTION: dict[
+    Literal["FDHSI", "HRFI"], dict[str, Literal["2km", "1km", "500m"]]
+] = {
     "FDHSI": {
         "vis_04": "1km",
         "vis_05": "1km",
@@ -279,7 +278,7 @@ class MeteosatFCI:
 
     Parameters
     ----------
-    resolution : FCIResolution, optional
+    resolution : Literal["2km", "1km", "500m"], optional
         Grid resolution — ``'2km'``, ``'1km'``, or ``'500m'``. FDHSI channels
         are available at ``'2km'`` (IR/WV bands) or ``'1km'`` (VIS/NIR bands);
         HRFI channels are available at ``'1km'`` or ``'500m'``. By default
@@ -337,27 +336,27 @@ class MeteosatFCI:
     region:eu region:af dataclass:observation product:sat
     """
 
-    COLLECTION_ID: dict[FCICollection, str] = {
+    COLLECTION_ID: dict[Literal["FDHSI", "HRFI"], str] = {
         "FDHSI": "EO:EUM:DAT:0662",
         "HRFI": "EO:EUM:DAT:0665",
     }
     SCAN_FREQUENCY: int = 600
 
     # FCI y scan-angle (radians) for the full disk, south-to-north.
-    FCI_Y: dict[FCIResolution, np.ndarray] = {
+    FCI_Y: dict[Literal["2km", "1km", "500m"], np.ndarray] = {
         res: np.arange(1, _GRID_SIZE[res][0] + 1) * _Y_SCALE[res] + _Y_OFFSET[res]
         for res in _GRID_SCALE
     }
 
     # FCI x scan-angle (radians) for the full disk, west-to-east.
-    FCI_X: dict[FCIResolution, np.ndarray] = {
+    FCI_X: dict[Literal["2km", "1km", "500m"], np.ndarray] = {
         res: np.arange(1, _GRID_SIZE[res][1] + 1) * _X_SCALE[res] + _X_OFFSET[res]
         for res in _GRID_SCALE
     }
 
     def __init__(
         self,
-        resolution: FCIResolution = "2km",
+        resolution: Literal["2km", "1km", "500m"] = "2km",
         lat_lon_bbox: tuple[tuple[float, float], tuple[float, float]] | None = None,
         pixel_bbox: tuple[tuple[int, int], tuple[int, int]] | None = None,
         flip_north_south: bool = False,
@@ -557,14 +556,16 @@ class MeteosatFCI:
 
         return xr_array
 
-    def _fetch_product(self, time: datetime, collection: FCICollection) -> str:
+    def _fetch_product(
+        self, time: datetime, collection: Literal["FDHSI", "HRFI"]
+    ) -> str:
         """Download the MTG FCI product for the given time and collection.
 
         Parameters
         ----------
         time : datetime
             UTC timestamp
-        collection : FCICollection
+        collection : Literal["FDHSI", "HRFI"]
             Collection to download from — ``'FDHSI'`` or ``'HRFI'``
 
         Returns
@@ -917,13 +918,13 @@ class MeteosatFCI:
 
     @staticmethod
     def grid(
-        resolution: FCIResolution = "2km",
+        resolution: Literal["2km", "1km", "500m"] = "2km",
     ) -> tuple[np.ndarray, np.ndarray]:
         """Return (lat, lon) in degrees for the native MTG FCI grid.
 
         Parameters
         ----------
-        resolution : FCIResolution, optional
+        resolution : Literal["2km", "1km", "500m"], optional
             Grid resolution — ``'2km'``, ``'1km'``, or ``'500m'``, by default
             ``'2km'``
 
@@ -939,7 +940,7 @@ class MeteosatFCI:
 
     @staticmethod
     def projection_extent(
-        resolution: FCIResolution = "2km",
+        resolution: Literal["2km", "1km", "500m"] = "2km",
     ) -> tuple[float, float, float, float]:
         """Return the geostationary projection extent in metres for plotting.
 
@@ -950,7 +951,7 @@ class MeteosatFCI:
 
         Parameters
         ----------
-        resolution : FCIResolution, optional
+        resolution : Literal["2km", "1km", "500m"], optional
             Grid resolution — ``'2km'``, ``'1km'``, or ``'500m'``, by default
             ``'2km'``
 
