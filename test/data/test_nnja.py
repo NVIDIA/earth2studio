@@ -76,7 +76,7 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
         }
     )
 
-    with patch("earth2studio.data.nnja._sync_async") as mock_sync:
+    with patch("earth2studio.data._ncep_obs._sync_async") as mock_sync:
         mock_sync.return_value = mock_df
 
         ds = NNJAObsConv(time_tolerance=timedelta(0), cache=cache, verbose=False)
@@ -235,7 +235,7 @@ def test_nnja_obs_conv_mock_fetch():
         ds = NNJAObsConv(time_tolerance=timedelta(0), cache=False, verbose=False)
 
         # Patch _sync_async to call the mock directly
-        with patch("earth2studio.data.nnja._sync_async") as mock_sync:
+        with patch("earth2studio.data._ncep_obs._sync_async") as mock_sync:
             mock_sync.return_value = mock_df
             df = ds(datetime(2024, 1, 1, 0), ["t"])
 
@@ -243,6 +243,49 @@ def test_nnja_obs_conv_mock_fetch():
     assert len(df) == 2
     assert set(df["variable"].unique()) == {"t"}
     assert df["observation"].iloc[0] == pytest.approx(273.15)
+
+
+@pytest.mark.asyncio
+async def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
+    """Test the shared request lifecycle against the NNJA store contract."""
+
+    cached_file = tmp_path / "cached.bufr"
+    cached_file.write_bytes(b"fixture")
+
+    class FakeStore:
+        def __init__(self):
+            self.fetched: list[str] = []
+
+        async def fetch_files(self, uris):
+            self.fetched = list(uris)
+
+        def local_path(self, uri):
+            return str(cached_file)
+
+        def cleanup(self):
+            pass
+
+    frame = pd.DataFrame(
+        {
+            "time": pd.to_datetime(["2024-01-01 00:00:00"]),
+            "observation": [273.15],
+            "variable": ["t"],
+        }
+    )
+    source = NNJAObsConv(cache=True, verbose=False)
+    store = FakeStore()
+    source._store = store
+    monkeypatch.setattr(source, "_decode_file", lambda path, task: frame)
+
+    result = await source.fetch(
+        datetime(2024, 1, 1),
+        ["t"],
+        fields=["time", "observation", "variable"],
+    )
+
+    assert store.fetched == [source._build_prepbufr_uri(datetime(2024, 1, 1))]
+    assert result.equals(frame)
+    assert result.attrs == {"source": source.SOURCE_ID}
 
 
 def test_nnja_obs_conv_available():
