@@ -110,12 +110,12 @@ class ARCO:
         """
         cache_storage = self.cache if self._cache else None
         zstore = obstore_zarr_store(
-            f"gs:/{self.ARCO_PATH}",
+            f"gs://{self.ARCO_PATH.lstrip('/')}",
             cache_storage=cache_storage,
             skip_signature=True,
         )
         ml_zstore = obstore_zarr_store(
-            f"gs:/{self.ARCO_ML_PATH}",
+            f"gs://{self.ARCO_ML_PATH.lstrip('/')}",
             cache_storage=cache_storage,
             skip_signature=True,
         )
