@@ -764,7 +764,9 @@ def test_obstore_zarr_store_cache(local_zarr_array, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_local_caching_store_dedupes_concurrent_fetches(local_zarr_array, tmp_path):
+async def test_local_caching_store_dedupes_concurrent_fetches(
+    local_zarr_array, tmp_path
+):
     """Concurrent reads of the same uncached key must hit the backing store
     exactly once (regression guard for the cache-stampede fix)."""
     import zarr
@@ -831,7 +833,9 @@ async def test_local_caching_store_never_caches_metadata(local_zarr_array, tmp_p
 
 
 @pytest.mark.asyncio
-async def test_local_caching_store_survives_cache_write_error(local_zarr_array, tmp_path):
+async def test_local_caching_store_survives_cache_write_error(
+    local_zarr_array, tmp_path
+):
     """A cache-write failure must not fail a read that already succeeded
     against the remote store."""
     import zarr
