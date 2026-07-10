@@ -393,7 +393,7 @@ class MeteosatFCI:
         # https://gitlab.eumetsat.int/eumetlab/data-services/eumdac/-/blob/public/eumdac/config.py?ref_type=heads#L14
         # https://gitlab.eumetsat.int/eumetlab/data-services/eumdac/-/blob/public/eumdac/cli_helpers.py?ref_type=heads#L165
         if not self._consumer_key or not self._consumer_secret:
-            eumdac_credentials_file = pathlib.Path(os.getenv("EUMDAC_CONFIG_DIR", (Path.home() / ".eumdac"))) / "credentials"
+            eumdac_credentials_file = pathlib.Path(os.getenv("EUMDAC_CONFIG_DIR", (pathlib.Path.home() / ".eumdac"))) / "credentials"
             try:
                 with open(eumdac_credentials_file) as f:
                     credentials = f.read().strip()
