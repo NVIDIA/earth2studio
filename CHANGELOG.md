@@ -51,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `earth2studio.data.utils` along with Multi-Storage Client (MSC) support and
   the `EARTH2STUDIO_DISABLE_MSC` environment variable; the Zarr data sources
   they served now read via `obstore` (local caching via `LocalCachingStore`)
+- Dropped the `multi-storage-client` dependency from the `data` optional extra;
+  it was only used by the removed MSC data-source path (the `serve` extra still
+  depends on it for object storage)
 
 ### Fixed
 
