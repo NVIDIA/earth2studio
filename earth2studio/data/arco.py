@@ -487,7 +487,9 @@ class ARCO:
         except ValueError:
             return False
 
-        gcstore = obstore_zarr_store(f"gs:/{cls.ARCO_PATH}", skip_signature=True)
+        gcstore = obstore_zarr_store(
+            f"gs://{cls.ARCO_PATH.lstrip('/')}", skip_signature=True
+        )
         zarr_group = zarr.open(gcstore, mode="r")
         # Load time coordinate system from Zarr store and check
         time_index = cls._get_time_index(time)

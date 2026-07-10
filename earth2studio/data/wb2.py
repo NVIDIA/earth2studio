@@ -70,7 +70,7 @@ class _WB2Base:
         """Async initialization of zarr group"""
         store_path = f"/weatherbench2/datasets/{self._product}/{self._zarr_store_name}"
         zstore = obstore_zarr_store(
-            f"gs:/{store_path}",
+            f"gs://{store_path.lstrip('/')}",
             cache_storage=self.cache if self._cache else None,
             skip_signature=True,
         )

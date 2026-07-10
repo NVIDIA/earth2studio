@@ -65,7 +65,9 @@ class ARCORxBase:
         store_path = (
             "/gcp-public-data-arco-era5/ar/1959-2022-full_37-1h-0p25deg-chunk-1.zarr-v2"
         )
-        zstore = obstore_zarr_store(f"gs:/{store_path}", skip_signature=True)
+        zstore = obstore_zarr_store(
+            f"gs://{store_path.lstrip('/')}", skip_signature=True
+        )
         self.zarr_group = zarr.open(zstore, mode="r")
 
     def __call__(
