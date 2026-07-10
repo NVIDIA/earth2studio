@@ -389,14 +389,11 @@ class MeteosatFCI:
         # Credentials from environment variables
         self._consumer_key = os.environ.get("EUMETSAT_CONSUMER_KEY", "")
         self._consumer_secret = os.environ.get("EUMETSAT_CONSUMER_SECRET", "")
+        # Attempt read from .eumdc/credentials file
+        # https://gitlab.eumetsat.int/eumetlab/data-services/eumdac/-/blob/public/eumdac/config.py?ref_type=heads#L14
+        # https://gitlab.eumetsat.int/eumetlab/data-services/eumdac/-/blob/public/eumdac/cli_helpers.py?ref_type=heads#L165
         if not self._consumer_key or not self._consumer_secret:
-            config_env = os.environ.get("EUMDAC_CONFIG_DIR")
-            eumdac_config_dir = (
-                pathlib.Path(config_env)
-                if config_env
-                else pathlib.Path.home() / ".eumdac"
-            )
-            eumdac_credentials_file = eumdac_config_dir / "credentials"
+            eumdac_credentials_file = pathlib.Path(os.getenv("EUMDAC_CONFIG_DIR", (Path.home() / ".eumdac"))) / "credentials"
             try:
                 with open(eumdac_credentials_file) as f:
                     credentials = f.read().strip()
@@ -593,7 +590,7 @@ class MeteosatFCI:
         # Authenticate and search for products
         token = eumdac.AccessToken(
             credentials=(self._consumer_key, self._consumer_secret)
-        )
+        )eum
         datastore = eumdac.DataStore(token)
         ds_collection = datastore.get_collection(self.COLLECTION_ID[collection])
 
