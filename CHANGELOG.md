@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Update MeteosatFCI reader to include all channels. The channels in the Meteosat Lexicon
+- Updated MeteosatFCI reader to include all channels. The channels in the Meteosat Lexicon
   now conform to EUMETSAT convention.
 - Updated StormScope model package to use improved higher resolution checkpoints. Model
   now defaults to using 3 km and 10 minute spatiotemporal resolution, and includes
