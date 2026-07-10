@@ -13,12 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added EarthMover ERA5 0.25 degree reanalysis data source
 - Added EarthMover IFS 0.1 degree data source and forecast source hosted by BrightBand
+- Added `async_workers` and `retries` parameters to GFS / GFS_FX data sources
+- Added shared obstore byte-range helpers (`obstore_store_from_url`,
+  `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
 
 ### Changed
 
 - Updated StormScope model package to use improved higher resolution checkpoints. Model
   now defaults to using 3 km and 10 minute spatiotemporal resolution, and includes
   predictions for GOES GLM Lightning density.
+- Migrated GFS / GFS_FX data sources from s3fs to obstore for index and byte-range
+  GRIB fetches; downloads now use bounded concurrency with retry on transient errors
 
 ### Deprecated
 
