@@ -55,6 +55,7 @@ Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 data = [
+    "arraylake>=1.0.0; python_version>='3.12'",
     "cdsapi>=0.7.5",
     "cfgrib>=0.9.10.3",
     "eccodes>=2.39.2",
@@ -186,6 +187,7 @@ gencast = [
     "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
+    "xarray<2026.4.0", # https://github.com/google-deepmind/graphcast/issues/213
 ]
 graphcast = [
     "graphcast",
@@ -193,6 +195,7 @@ graphcast = [
     "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
+    "xarray<2026.4.0", # https://github.com/google-deepmind/graphcast/issues/213
 ]
 interp-modafno = [
     "nvidia-physicsnemo>=2.0",
@@ -220,7 +223,7 @@ stormcast = [
 ]
 stormscope = [
     "natten ; python_version < '3.14'",
-    "nvidia-physicsnemo>=2.0",
+    "nvidia-physicsnemo>=2.1.0",
     "nvtx>=0.2.11",
     "earth2studio[utils]",
 ]
@@ -261,7 +264,7 @@ windgust-afno = [
 # DA Models
 da-healda = [
     "earth2grid",
-    "nvidia-physicsnemo>=2.0",
+    "nvidia-physicsnemo>=2.0,<=2.1.1",
     "cupy-cuda13x",
     "cudf-cu13>=26.2.0",
 ]

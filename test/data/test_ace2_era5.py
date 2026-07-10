@@ -21,7 +21,9 @@ import shutil
 
 import numpy as np
 import pytest
+import xarray as xr
 
+import earth2studio.data.ace2 as ace2_module
 from earth2studio.data import ACE2ERA5Data
 
 
@@ -137,6 +139,48 @@ def test_ace2era5_initial_conditions_year_validation():
     # 1981 is not an allowed IC year
     with pytest.raises(ValueError):
         ds(datetime.datetime(year=1981, month=1, day=1, hour=0), ["skt"])
+
+
+def test_ace2era5_forcing_static_fields_expand_multiple_times(monkeypatch, tmp_path):
+    times = np.array(
+        ["1950-01-01T00:00:00", "1950-01-01T06:00:00"], dtype="datetime64[ns]"
+    )
+    lat = np.array([-0.5, 0.5], dtype=np.float32)
+    lon = np.array([0.5, 1.5, 2.5], dtype=np.float32)
+    dataset = xr.Dataset(
+        data_vars={
+            "surface_temperature": (
+                ("time", "lat", "lon"),
+                np.arange(12, dtype=np.float32).reshape(2, 2, 3),
+            ),
+            "HGTsfc": (("lat", "lon"), np.full((2, 3), 10.0, dtype=np.float32)),
+            "global_mean_co2": (("time",), np.array([400.0, 401.0], dtype=np.float32)),
+        },
+        coords={"time": times, "lat": lat, "lon": lon},
+    )
+
+    cache_file = tmp_path / "ACE2ERA5" / "forcing_data" / "forcing_1950.nc"
+    cache_file.parent.mkdir(parents=True)
+    cache_file.touch()
+    monkeypatch.setattr(ace2_module, "datasource_cache_root", lambda: str(tmp_path))
+    monkeypatch.setattr(ace2_module.xr, "open_dataset", lambda *_, **__: dataset)
+
+    ds = ACE2ERA5Data(mode="forcing", cache=True, verbose=False)
+    ds.lat = lat
+    ds.lon = lon
+
+    da = ds(times, ["skt", "z", "global_mean_co2"])
+
+    assert da.dims == ("time", "variable", "lat", "lon")
+    assert da.shape == (2, 3, 2, 3)
+    assert np.array_equal(da.coords["time"].values, times)
+    assert np.array_equal(
+        da.coords["variable"].values,
+        np.array(["skt", "z", "global_mean_co2"], dtype=object),
+    )
+    assert np.all(da.sel(variable="z").values == 10.0)
+    assert np.all(da.sel(variable="global_mean_co2").values[0] == 400.0)
+    assert np.all(da.sel(variable="global_mean_co2").values[1] == 401.0)
 
 
 @pytest.mark.slow

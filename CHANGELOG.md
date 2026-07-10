@@ -7,7 +7,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.16.0a0] - xxxx-xx-xx
+## [0.17.0a0] - 2026-07-xx
+
+### Added
+
+- Added EarthMover IFS 0.1 degree data source and forecast source hosted by BrightBand
+
+### Changed
+
+- Updated StormScope model package to use improved higher resolution checkpoints. Model
+  now defaults to using 3 km and 10 minute spatiotemporal resolution, and includes
+  predictions for GOES GLM Lightning density.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed ACE2 distributed inference failures caused by nondeterministic variable ordering
+  across MPI ranks.
+- Improved ACE2ERA5 inference performance by caching yearly forcing values
+- Fixed ACE2ERA5 forcing data retrieval for static variables requested across
+  multiple times.
+
+### Security
+
+### Dependencies
+
+## [0.16.0] - 2026-06-29
 
 ### Added
 
@@ -24,9 +52,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through 2011-03-27 with cycles every 5 days, served from the NCEI HTTPS
   archive
 - Added IBTrACS tropical cyclone track DataFrame source (`IBTrACS`)
+- Added checkpoint/session utilities and restart support for deterministic,
+  diagnostic, and ensemble inference workflows
 - Added EUMETNET OPERA European weather radar composite DataSource for DBZH
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
+- Added DLESyM-v0-ISCCP-ERA5 climate model
 
 ### Changed
 
@@ -60,8 +91,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed ARCO data source `ARCO_TIME_STOP` fallback to 2025-12-31,
   reflecting the most recent available data in the bucket
 - Fixed `ZarrBackend` chunk metadata reload to skip coordinate arrays when reopening Zarr stores.
-
-### Security
 
 ### Dependencies
 
