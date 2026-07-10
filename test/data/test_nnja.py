@@ -311,6 +311,32 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
     assert store.cleanup_calls == 2
 
 
+@pytest.mark.asyncio
+async def test_nnja_obs_conv_missing_cached_file_remains_permissive(tmp_path):
+    class MissingStore:
+        async def fetch_files(self, uris):
+            return None
+
+        def local_path(self, uri):
+            return str(tmp_path / "missing.bufr")
+
+        def cleanup(self):
+            return None
+
+    source = NNJAObsConv(cache=True, verbose=False)
+    source._store = MissingStore()
+
+    result = await source.fetch(
+        datetime(2024, 1, 1),
+        ["t"],
+        fields=["time", "observation", "variable"],
+    )
+
+    assert result.empty
+    assert list(result.columns) == ["time", "observation", "variable"]
+    assert result.attrs == {"source": source.SOURCE_ID}
+
+
 def test_nnja_obs_conv_available():
     """Test NNJAObsConv.available() classmethod with both datetime types."""
     # Valid 6-hourly cycle times
@@ -677,14 +703,16 @@ def _decode_microwave_pairs(
     variable_fields: tuple[tuple[str, int], ...],
     sensor: str = "atms",
     satellites: frozenset[str] | None = None,
+    datetime_min: datetime = datetime(2023, 12, 31, 21),
+    datetime_max: datetime = datetime(2024, 1, 1, 3),
 ) -> list[dict[str, Any]]:
     return ncep_microwave._decode_microwave_subset(
         [_MicrowaveDescriptor(descriptor) for descriptor, _ in pairs],
         [value for _, value in pairs],
         sensor,
         variable_fields,
-        datetime(2023, 12, 31, 21),
-        datetime(2024, 1, 1, 3),
+        datetime_min,
+        datetime_max,
         satellites,
     )
 
@@ -921,24 +949,38 @@ def test_ncep_microwave_adapter_rejects_missing_tables_and_failed_messages(
     monkeypatch.setattr(
         ncep_microwave,
         "parse_prepbufr_messages",
-        lambda _data: ({1: ("B",)}, {1: ("D",)}, [(b"message", 0)]),
+        lambda _data: (
+            {1: ("B",)},
+            {1: ("D",)},
+            [(b"good-message", 0), (b"bad-message", 0)],
+        ),
     )
     monkeypatch.setattr(ncep_microwave, "init_decode_worker", lambda *_args: None)
     monkeypatch.setattr(
         ncep_microwave,
         "get_worker_decoder",
         lambda: SimpleNamespace(
-            process=lambda _message: (_ for _ in ()).throw(ValueError())
+            process=lambda message: (
+                _microwave_message(_atms_microwave_pairs())
+                if message == b"good-message"
+                else (_ for _ in ()).throw(ValueError("bad message"))
+            )
         ),
     )
-    with pytest.raises(ValueError, match="No BUFR messages"):
+    with pytest.raises(ncep_microwave._NCEPMicrowaveDecodeError) as error:
         adapter.decode_file(
             str(source_path),
             "atms",
             {"atms": "TMBR"},
-            datetime(2024, 1, 1),
-            datetime(2024, 1, 1),
+            datetime(2023, 12, 31, 21),
+            datetime(2024, 1, 1, 3),
         )
+    assert error.value.context == {
+        "path": str(source_path),
+        "decoded_messages": 1,
+        "failed_messages": 1,
+        "total_messages": 2,
+    }
 
 
 def test_nnja_obs_sat_decode_uses_coarse_location_and_preserves_missingness():
@@ -1011,6 +1053,58 @@ async def test_nnja_obs_sat_fetch_uses_foundation_store(tmp_path, monkeypatch):
     assert result.attrs == {"source": NNJAObsSat.SOURCE_ID}
 
 
+@pytest.mark.asyncio
+async def test_nnja_obs_sat_fetch_and_task_failures_are_structured(
+    tmp_path, monkeypatch
+):
+    source = NNJAObsSat(cache=True, verbose=False, decode_workers=1)
+    requested_uri = source._build_satellite_uri(datetime(2024, 1, 1), "atms")
+
+    async def failed_fetch(_uris):
+        raise OSError("fetch failed")
+
+    monkeypatch.setattr(source._store, "fetch_files", failed_fetch)
+    with pytest.raises(nnja._NNJAObsSatIncompleteError) as fetch_error:
+        await source.fetch(datetime(2024, 1, 1), "atms")
+    assert fetch_error.value.context == {
+        "reason": "fetch_failure",
+        "requested_uri_count": 1,
+        "requested_uris": (requested_uri,),
+        "cause_type": "OSError",
+        "cause_message": "fetch failed",
+    }
+    with pytest.raises(nnja._NNJAObsSatIncompleteError) as missing_error:
+        source._handle_missing_file(requested_uri)
+    assert missing_error.value.context == {
+        "reason": "remote_file_missing",
+        "uri": requested_uri,
+    }
+
+    local_path = tmp_path / "atms.bufr"
+    local_path.write_bytes(b"fixture")
+
+    async def successful_fetch(_uris):
+        return None
+
+    monkeypatch.setattr(source._store, "fetch_files", successful_fetch)
+    monkeypatch.setattr(source._store, "local_path", lambda _uri: str(local_path))
+    monkeypatch.setattr(
+        source._microwave_adapter,
+        "decode_file",
+        lambda *_args: (_ for _ in ()).throw(RuntimeError("decode failed")),
+    )
+    with pytest.raises(nnja._NNJAObsSatIncompleteError) as task_error:
+        await source.fetch(datetime(2024, 1, 1), "atms")
+    assert task_error.value.context == {
+        "reason": "task_failure",
+        "uri": requested_uri,
+        "task_index": 1,
+        "task_count": 1,
+        "cause_type": "RuntimeError",
+        "cause_message": "decode failed",
+    }
+
+
 def test_nnja_obs_sat_decode_rejects_incomplete_or_out_of_window_subsets():
     missing_fov = [
         pair
@@ -1034,7 +1128,7 @@ def test_nnja_obs_sat_decode_rejects_incomplete_or_out_of_window_subsets():
 
 def test_nnja_obs_sat_tasks_group_fields_and_use_verified_archive_routes():
     source = NNJAObsSat(
-        time_tolerance=(timedelta(hours=-3), timedelta(hours=2)),
+        time_tolerance=timedelta(0),
         cache=False,
         verbose=False,
         decode_workers=1,
@@ -1050,16 +1144,19 @@ def test_nnja_obs_sat_tasks_group_fields_and_use_verified_archive_routes():
         "atms": "TMBR",
         "atms_antenna_temperature": "TMANT",
     }
-    assert atms.datetime_min == cycle - timedelta(hours=3)
-    assert atms.datetime_max == cycle + timedelta(hours=2)
+    assert atms.datetime_min == cycle
+    assert atms.datetime_max == cycle
     assert atms.s3_uri.endswith("gdas.20240101.t00z.atms.tm00.bufr_d")
 
 
-def test_nnja_obs_sat_cycle_windows_follow_aggregate_file_coverage():
+def test_nnja_obs_sat_cycle_windows_follow_nnja_cycle_selection():
     source = NNJAObsSat(cache=False, verbose=False, decode_workers=1)
     requested = datetime(2024, 1, 1)
     tasks = source._create_tasks([requested, requested], ["atms"])
-    assert [task.datetime_file for task in tasks] == [requested]
+    assert [task.datetime_file for task in tasks] == [
+        requested - timedelta(hours=6),
+        requested,
+    ]
 
     source = NNJAObsSat(
         time_tolerance=(timedelta(hours=-21), timedelta(hours=3)),
@@ -1069,6 +1166,7 @@ def test_nnja_obs_sat_cycle_windows_follow_aggregate_file_coverage():
     )
     tasks = source._create_tasks([requested], ["atms"])
     assert [task.datetime_file for task in tasks] == [
+        datetime(2023, 12, 31, 0),
         datetime(2023, 12, 31, 6),
         datetime(2023, 12, 31, 12),
         datetime(2023, 12, 31, 18),
@@ -1096,6 +1194,9 @@ def test_nnja_obs_sat_fields_time_platform_and_adapter_validation():
         NNJAObsSat.resolve_fields(["scan_angle"])
     with pytest.raises(TypeError):
         NNJAObsSat.resolve_fields(pa.schema([pa.field("lat", pa.float64())]))
+    with pytest.raises(nnja._NNJAObsSatIncompleteError) as unavailable:
+        source._create_tasks([datetime(2000, 1, 1)], ["atms", "amsua"])
+    assert unavailable.value.context["reason"] == "archive_unavailable"
     with pytest.raises(KeyError):
         ncep_microwave._NCEPMicrowaveAdapter(1).decode_file(
             "not-read.bufr",

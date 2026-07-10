@@ -29,7 +29,7 @@ import shutil
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -68,6 +68,12 @@ class _NNJASatProduct:
     prefix: str
     filename: str
     first_year: int
+
+
+class _NNJAObsSatIncompleteError(RuntimeError):
+    def __init__(self, reason: str, **context: object) -> None:
+        self.context = {"reason": reason, **context}
+        super().__init__(f"NNJAObsSat request incomplete: {self.context}")
 
 
 _NNJA_SAT_PRODUCTS: dict[str, _NNJASatProduct] = {
@@ -580,6 +586,7 @@ class NNJAObsSat(_NNJAObsSourceBase):
     """NNJA aggregate microwave satellite observations.
 
     This source reads the NCEP aggregate ATMS, MHS, and AMSU-A BUFR products.
+    Variables are defined by :class:`~earth2studio.lexicon.NNJAObsSatLexicon`.
     It returns one long-format row per finite encoded channel value while
     preserving the source time, physical channel number, platform, field of
     view, location, view and solar geometry, quality metadata, and raw
@@ -683,6 +690,37 @@ class NNJAObsSat(_NNJAObsSourceBase):
     def _task_uri(task: _NNJASatTask) -> str:
         return task.s3_uri
 
+    def _handle_fetch_failure(self, uris: Sequence[str], cause: Exception) -> None:
+        if isinstance(cause, _NNJAObsSatIncompleteError):
+            raise cause
+        raise _NNJAObsSatIncompleteError(
+            "fetch_failure",
+            requested_uri_count=len(uris),
+            requested_uris=tuple(uris),
+            cause_type=type(cause).__name__,
+            cause_message=str(cause),
+        ) from cause
+
+    def _handle_incomplete_task(
+        self,
+        *,
+        uri: str,
+        task_index: int,
+        task_count: int,
+        cause: Exception,
+    ) -> None:
+        context: dict[str, object] = {
+            "uri": uri,
+            "task_index": task_index,
+            "task_count": task_count,
+            "cause_type": type(cause).__name__,
+            "cause_message": str(cause),
+        }
+        cause_context = getattr(cause, "context", None)
+        if isinstance(cause_context, dict):
+            context["cause_context"] = cause_context
+        raise _NNJAObsSatIncompleteError("task_failure", **context) from cause
+
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]
     ) -> list[_NNJASatTask]:
@@ -700,10 +738,14 @@ class NNJAObsSat(_NNJAObsSourceBase):
             product = _NNJA_SAT_PRODUCTS[sensor]
             for cycle, (datetime_min, datetime_max) in sorted(windows.items()):
                 if cycle.year < product.first_year:
-                    logger.warning(
-                        f"{sensor} is not archived for cycle {cycle:%Y-%m-%d %HZ}"
+                    uri = self._build_satellite_uri(cycle, sensor)
+                    raise _NNJAObsSatIncompleteError(
+                        "archive_unavailable",
+                        uri=uri,
+                        sensor=sensor,
+                        cycle=cycle.isoformat(),
+                        first_year=product.first_year,
                     )
-                    continue
                 tasks.append(
                     _NNJASatTask(
                         s3_uri=self._build_satellite_uri(cycle, sensor),
@@ -716,35 +758,6 @@ class NNJAObsSat(_NNJAObsSourceBase):
                 )
         return tasks
 
-    def _cycle_windows(
-        self, time_list: list[datetime]
-    ) -> dict[datetime, tuple[datetime, datetime]]:
-        """Map requested windows to aggregate files with +/-3-hour coverage."""
-        windows: dict[datetime, tuple[datetime, datetime]] = {}
-        interval = timedelta(hours=6)
-        half_interval = timedelta(hours=3)
-        for requested in time_list:
-            datetime_min = requested + self._tolerance_lower
-            datetime_max = requested + self._tolerance_upper
-            coverage_min = datetime_min - half_interval
-            coverage_max = datetime_max + half_interval
-            cycle = coverage_min.replace(minute=0, second=0, microsecond=0)
-            cycle = cycle.replace(hour=(cycle.hour // 6) * 6)
-            if cycle <= coverage_min:
-                cycle += interval
-            while cycle < coverage_max:
-                existing = windows.get(cycle)
-                windows[cycle] = (
-                    (
-                        min(existing[0], datetime_min),
-                        max(existing[1], datetime_max),
-                    )
-                    if existing is not None
-                    else (datetime_min, datetime_max)
-                )
-                cycle += interval
-        return windows
-
     @staticmethod
     def _build_satellite_uri(cycle: datetime, sensor: str) -> str:
         """Build the NNJA S3 URI for one aggregate microwave cycle."""
@@ -756,8 +769,8 @@ class NNJAObsSat(_NNJAObsSourceBase):
         )
 
     def _handle_missing_file(self, path: str) -> None:
-        """Warn instead of raising when an aggregate cycle file is absent."""
-        logger.warning(f"NNJA satellite file {path} not found, skipping")
+        """Fail a request when an aggregate cycle file is absent."""
+        raise _NNJAObsSatIncompleteError("remote_file_missing", uri=path)
 
     def _decode_file(self, local_path: str, task: _NNJASatTask) -> pd.DataFrame:
         frame = self._microwave_adapter.decode_file(

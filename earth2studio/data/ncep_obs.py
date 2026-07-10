@@ -112,7 +112,11 @@ class _NCEPObsSourceBase:
 
         async_tasks = self._create_tasks(time_list, variable_list)
         file_uri_set = list({self._task_uri(task) for task in async_tasks})
-        await self._store.fetch_files(file_uri_set)
+        try:
+            await self._store.fetch_files(file_uri_set)
+        except Exception as exc:
+            self._handle_fetch_failure(file_uri_set, exc)
+            raise
 
         df = self._compile_dataframe(async_tasks, schema)
         df.attrs["source"] = self.SOURCE_ID
@@ -131,7 +135,12 @@ class _NCEPObsSourceBase:
             uri = self._task_uri(task)
             local_path = self._store.local_path(uri)
             if not pathlib.Path(local_path).is_file():
-                logger.warning(f"Cached file missing for {uri}, skipping")
+                self._handle_incomplete_task(
+                    uri=uri,
+                    task_index=idx,
+                    task_count=n_tasks,
+                    cause=FileNotFoundError(local_path),
+                )
                 continue
             short_uri = uri.rsplit("/", 1)[-1]
             logger.info(f"[{self.SOURCE_ID}] decode {idx}/{n_tasks} start: {short_uri}")
@@ -139,7 +148,12 @@ class _NCEPObsSourceBase:
             try:
                 df = self._decode_file(local_path, task)
             except Exception as exc:  # pragma: no cover - defensive
-                logger.error(f"Failed to decode {local_path}: {exc}")
+                self._handle_incomplete_task(
+                    uri=uri,
+                    task_index=idx,
+                    task_count=n_tasks,
+                    cause=exc,
+                )
                 continue
             elapsed = time.perf_counter() - t0
             if df is None or df.empty:
@@ -165,6 +179,22 @@ class _NCEPObsSourceBase:
 
         result = pd.concat(frames, ignore_index=True)
         return result[[name for name in schema.names if name in result.columns]]
+
+    def _handle_fetch_failure(self, uris: Sequence[str], cause: Exception) -> None:
+        return None
+
+    def _handle_incomplete_task(
+        self,
+        *,
+        uri: str,
+        task_index: int,
+        task_count: int,
+        cause: Exception,
+    ) -> None:
+        if isinstance(cause, FileNotFoundError):
+            logger.warning(f"Cached file missing for {uri}, skipping")
+        else:
+            logger.error(f"Failed to decode {self._store.local_path(uri)}: {cause}")
 
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]

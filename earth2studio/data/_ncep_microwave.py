@@ -142,6 +142,18 @@ _SOURCE_FIELD_DESCRIPTORS = {
     "TMBR": _BRIGHTNESS_TEMPERATURE,
 }
 
+
+class _NCEPMicrowaveDecodeError(RuntimeError):
+    def __init__(self, path: str, failed_messages: int, total_messages: int) -> None:
+        self.context: dict[str, object] = {
+            "path": path,
+            "decoded_messages": total_messages - failed_messages,
+            "failed_messages": failed_messages,
+            "total_messages": total_messages,
+        }
+        super().__init__(f"Incomplete microwave BUFR decode: {self.context}")
+
+
 _NCEP_MICROWAVE_PUBLIC_SCHEMA = pa.schema(
     [
         E2STUDIO_SCHEMA.field("time"),
@@ -554,13 +566,8 @@ class _NCEPMicrowaveAdapter:
                 rows.extend(batch_rows)
                 failures += batch_failures
 
-        if messages and failures == len(messages):
-            raise ValueError(f"No BUFR messages could be decoded from {path}")
         if failures:
-            logger.warning(
-                f"Failed to decode {failures} of {len(messages)} BUFR messages "
-                f"from {path}"
-            )
+            raise _NCEPMicrowaveDecodeError(path, failures, len(messages))
         logger.debug(
             f"Decoded {len(rows):,} {sensor} channel rows in "
             f"{time.perf_counter() - started:.1f}s"
