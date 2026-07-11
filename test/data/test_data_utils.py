@@ -738,8 +738,6 @@ def test_obstore_zarr_store(local_zarr_array):
 
 
 def test_obstore_zarr_store_cache(local_zarr_array, tmp_path):
-    import shutil
-
     import zarr
 
     cache_dir = tmp_path / "cache"
@@ -755,9 +753,12 @@ def test_obstore_zarr_store_cache(local_zarr_array, tmp_path):
     assert len(subdirs) == 1
     assert any(subdirs[0].rglob("*"))
 
-    # Reads should now be served entirely from the cache
-    shutil.rmtree(local_zarr_array)
-    local_zarr_array.mkdir()
+    # Chunk reads should now be served from the cache. Metadata (zarr.json)
+    # is always refetched by design — so a warm cache sees newly appended
+    # data — and must stay on the remote; only the chunk objects are removed.
+    for path in local_zarr_array.rglob("*"):
+        if path.is_file() and path.name != "zarr.json":
+            path.unlink()
     zstore = obstore_zarr_store(url, cache_storage=str(cache_dir))
     arr = zarr.open(zstore, mode="r")
     assert np.array_equal(arr[:], expected)
