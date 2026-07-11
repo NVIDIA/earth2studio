@@ -35,6 +35,7 @@ from earth2studio.data.utils import (
 )
 from earth2studio.lexicon.base import LexiconType
 from earth2studio.lexicon.earthmover import (
+    EarthMoverERA5Lexicon,
     EarthMoverIFSInitialConditionLexicon,
     EarthMoverIFSLexicon,
     VariableSpec,
@@ -91,6 +92,25 @@ class _EarthMoverBase:
     """Shared Earthmover Arraylake connection and resolution logic."""
 
     LEXICON: LexiconType = EarthMoverIFSLexicon
+    ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
+    SUBSCRIPTION_REPO_NAME: str
+    MARKETPLACE_URL: str | None = None
+
+    @classmethod
+    def _derive_repo_name(cls, repo: str | None) -> str:
+        """Resolve an explicit repo or derive one from the configured organization."""
+        if repo is not None:
+            return repo
+
+        org_name = os.environ.get(cls.ORG_ENV_VAR)
+        if org_name:
+            return f"{org_name}/{cls.SUBSCRIPTION_REPO_NAME}"
+
+        raise ValueError(
+            f"Pass repo='org/repo' or set {cls.ORG_ENV_VAR} to derive "
+            f"'<org>/{cls.SUBSCRIPTION_REPO_NAME}'. Listing: "
+            f"{cls.MARKETPLACE_URL}"
+        )
 
     def __init__(
         self,
@@ -484,6 +504,10 @@ class _EarthMoverBase:
             cache_location = os.path.join(cache_location, "tmp")
         return cache_location
 
+    def _validate_time(self, times: list[datetime]) -> None:
+        """Offline time validation hook for subclasses."""
+        pass
+
     async def _available(self, time: datetime | np.datetime64) -> bool:
         """Check whether ``time`` is present in the repository's time axis.
 
@@ -504,16 +528,23 @@ class _EarthMoverBase:
         """
         await self._connect()
         t64 = np.datetime64(time)
+        has_time_coord = False
         for ds in self._datasets or []:
             time_coord = self._find_dim_coord(ds, _TIME_NAMES)
             if time_coord is None:
-                continue
-            if (ds[time_coord].values.astype("datetime64[ns]") == t64).any():
-                return True
-        return False
+                return False
+            has_time_coord = True
+            if not (ds[time_coord].values.astype("datetime64[ns]") == t64).any():
+                return False
+        return has_time_coord
 
     def available(self, time: datetime | np.datetime64) -> bool:
         """Synchronous wrapper for :meth:`_available`."""
+        time_list, _ = prep_data_inputs(time, "")
+        try:
+            self._validate_time(time_list)
+        except ValueError:
+            return False
         return _sync_async(self._available, time)
 
     async def _validate_times(self, time_list: list[datetime]) -> None:
@@ -523,6 +554,161 @@ class _EarthMoverBase:
             raise ValueError(
                 f"Requested times not available in '{self._repo_name}': {missing}"
             )
+
+
+@check_optional_dependencies()
+class EarthMoverERA5(_EarthMoverBase):
+    """Earthmover ERA5 0.25 degree reanalysis data source.
+
+    Parameters
+    ----------
+    repo : str, optional
+        Arraylake repository name as ``org/repo``. When omitted, derives the
+        repo from ``EARTHMOVER_ORGANIZATION`` as
+        ``<org>/era5-subscription``, by default None.
+    branch : str, optional
+        Repository branch to read, by default "main".
+    client : arraylake.AsyncClient, optional
+        Pre-authenticated Arraylake async client. When omitted, this data source
+        uses the API key stored in ``EARTHMOVER_API_KEY``, by default None.
+    cache : bool, optional
+        Retained for API compatibility; Arraylake reads lazily via Icechunk, by
+        default True.
+    verbose : bool, optional
+        Print progress, by default True.
+
+    Warning
+    -------
+    This is a remote data source and can download a large amount of data for large
+    requests.
+
+    Note
+    ----
+    Configure Earthmover access before using this data source:
+
+    - Set the ``EARTHMOVER_API_KEY`` environment variable to an Earthmover /
+      Arraylake API key, unless passing a pre-authenticated ``client``.
+    - Pass ``repo="org/repo"`` to open a specific Arraylake repository.
+    - If ``repo`` is omitted, set the ``EARTHMOVER_ORGANIZATION`` environment
+      variable. The default repository is
+      ``<EARTHMOVER_ORGANIZATION>/era5-subscription``.
+
+    The data source opens the ``single/spatial`` and ``pressure/spatial``
+    groups from the ERA5 Marketplace repository. Arraylake-backed Earthmover
+    sources require Python 3.12 or newer.
+
+    Additional information on the data repository can be referenced here:
+
+    - https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2
+
+    Badges
+    ------
+    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos product:solar
+    """
+
+    LEXICON = EarthMoverERA5Lexicon
+    MARKETPLACE_URL = "https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2"
+    ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
+    SUBSCRIPTION_REPO_NAME = "era5-subscription"
+    DEFAULT_BRANCH = "main"
+    TIME_START = datetime(year=1940, month=1, day=1)
+    VARIABLES = tuple(EarthMoverERA5Lexicon.VOCAB)
+
+    def __init__(
+        self,
+        repo: str | None = None,
+        branch: str = DEFAULT_BRANCH,
+        client: arraylake.AsyncClient | None = None,
+        cache: bool = True,
+        verbose: bool = True,
+    ) -> None:
+        super().__init__(
+            self._derive_repo_name(repo),
+            group=["single/spatial", "pressure/spatial"],
+            branch=branch,
+            client=client,
+            cache=cache,
+            verbose=verbose,
+            marketplace_url=self.MARKETPLACE_URL,
+        )
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve ERA5 data for times and variables.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Analysis timestamps (UTC).
+        variable : str | list[str] | VariableArray
+            Earth2Studio variable id(s).
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, lat, lon]``.
+        """
+        return _sync_async(self.fetch, time, variable)
+
+    def _validate_time(self, times: list[datetime]) -> None:
+        """Verify if date time is valid for ERA5 based on offline knowledge."""
+        for time in times:
+            if not (time - datetime(1900, 1, 1)).total_seconds() % 3600 == 0:
+                raise ValueError(
+                    f"Requested date time {time} needs to be 1 hour interval for ERA5"
+                )
+
+            if time < self.TIME_START:
+                raise ValueError(
+                    f"Requested date time {time} needs to be on or after January 1st, "
+                    "1940 for ERA5"
+                )
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve ERA5 data for times and variables asynchronously.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Analysis timestamps (UTC).
+        variable : str | list[str] | VariableArray
+            Earth2Studio variable id(s).
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, lat, lon]``.
+        """
+        time_list, variable_list = prep_data_inputs(time, variable)
+        self._validate_time(time_list)
+        await self._connect()
+        await self._validate_times(time_list)
+
+        time_sel = np.array(time_list, dtype="datetime64[ns]")
+
+        arrays = []
+        for v in variable_list:
+            resolved = self._resolve(v)
+            if self._verbose:
+                logger.debug(
+                    f"{v} -> {self._repo_name}:{resolved.var_name} "
+                    f"(matched by {resolved.rule})"
+                )
+            da = self._select_variable(resolved, time_sel)
+            arrays.append(da.transpose("time", "lat", "lon"))
+
+        out = xr.concat(arrays, dim="variable")
+        out = out.assign_coords(variable=variable_list).transpose(
+            "time", "variable", "lat", "lon"
+        )
+        return await asyncio.to_thread(out.load)
 
 
 @check_optional_dependencies()
@@ -589,19 +775,8 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
         cache: bool = True,
         verbose: bool = True,
     ) -> None:
-        repo_name = repo
-        if repo_name is None:
-            org_name = os.environ.get(self.ORG_ENV_VAR)
-            if org_name:
-                repo_name = f"{org_name}/{self.SUBSCRIPTION_REPO_NAME}"
-        if repo_name is None:
-            raise ValueError(
-                f"Pass repo='org/repo' or set {self.ORG_ENV_VAR} to derive "
-                f"'<org>/{self.SUBSCRIPTION_REPO_NAME}'. Listing: "
-                f"{self.MARKETPLACE_URL}"
-            )
         super().__init__(
-            repo_name,
+            self._derive_repo_name(repo),
             group=None,
             branch=branch,
             client=client,
@@ -762,19 +937,8 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
         cache: bool = True,
         verbose: bool = True,
     ) -> None:
-        repo_name = repo
-        if repo_name is None:
-            org_name = os.environ.get(self.ORG_ENV_VAR)
-            if org_name:
-                repo_name = f"{org_name}/{self.SUBSCRIPTION_REPO_NAME}"
-        if repo_name is None:
-            raise ValueError(
-                f"Pass repo='org/repo' or set {self.ORG_ENV_VAR} to derive "
-                f"'<org>/{self.SUBSCRIPTION_REPO_NAME}'. Listing: "
-                f"{self.MARKETPLACE_URL}"
-            )
         super().__init__(
-            repo_name,
+            self._derive_repo_name(repo),
             group=None,
             branch=branch,
             client=client,
