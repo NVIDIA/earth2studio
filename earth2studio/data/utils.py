@@ -866,7 +866,7 @@ def obstore_zarr_store(
     cache_storage: str | None = None,
     credential_provider: Any | None = None,
     auth_token: str | None = None,
-    **store_kwargs: Any,
+    store_kwargs: dict[str, Any] | None = None,
 ) -> zarr.abc.store.Store:
     """Creates a read-only zarr store backed by obstore from a store URL.
 
@@ -889,9 +889,10 @@ def obstore_zarr_store(
     auth_token : str | None, optional
         Bearer token sent as an ``Authorization`` header for authenticated
         access, by default None
-    **store_kwargs : Any
+    store_kwargs : dict[str, Any] | None, optional
         Additional configuration forwarded to :func:`obstore.store.from_url`,
-        e.g. ``skip_signature=True`` for anonymous access to public buckets.
+        e.g. ``{"skip_signature": True}`` for anonymous access to public
+        buckets, by default None
 
     Returns
     -------
@@ -899,6 +900,9 @@ def obstore_zarr_store(
         Read-only zarr store
     """
     import obstore.store
+
+    if store_kwargs is None:
+        store_kwargs = {}
 
     # Store construction mirrors titiler-cmr: prefer a credential provider,
     # fall back to a bearer token, else anonymous / config-driven access.

@@ -112,12 +112,12 @@ class ARCO:
         zstore = obstore_zarr_store(
             f"gs://{self.ARCO_PATH.lstrip('/')}",
             cache_storage=cache_storage,
-            skip_signature=True,
+            store_kwargs={"skip_signature": True},
         )
         ml_zstore = obstore_zarr_store(
             f"gs://{self.ARCO_ML_PATH.lstrip('/')}",
             cache_storage=cache_storage,
-            skip_signature=True,
+            store_kwargs={"skip_signature": True},
         )
         return zstore, ml_zstore
 
@@ -488,7 +488,7 @@ class ARCO:
             return False
 
         gcstore = obstore_zarr_store(
-            f"gs://{cls.ARCO_PATH.lstrip('/')}", skip_signature=True
+            f"gs://{cls.ARCO_PATH.lstrip('/')}", store_kwargs={"skip_signature": True}
         )
         zarr_group = zarr.open(gcstore, mode="r")
         # Load time coordinate system from Zarr store and check

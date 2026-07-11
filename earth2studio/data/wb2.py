@@ -72,7 +72,7 @@ class _WB2Base:
         zstore = obstore_zarr_store(
             f"gs://{store_path.lstrip('/')}",
             cache_storage=self.cache if self._cache else None,
-            skip_signature=True,
+            store_kwargs={"skip_signature": True},
         )
         self.zarr_group = await zarr.api.asynchronous.open(store=zstore, mode="r")
         self.level_coords = await (await self.zarr_group.get("level")).getitem(  # type: ignore

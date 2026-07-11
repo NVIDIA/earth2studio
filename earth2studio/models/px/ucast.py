@@ -799,7 +799,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 zstore = obstore_zarr_store(
                     UCAST_WB2_DATASET,
                     cache_storage=package.cache,
-                    skip_signature=True,
+                    store_kwargs={"skip_signature": True},
                 )
                 ds = xr.open_zarr(zstore, zarr_format=2)
                 try:
