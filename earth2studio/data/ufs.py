@@ -27,14 +27,18 @@ from datetime import datetime, timedelta
 
 import h5netcdf
 import numpy as np
-import obstore as obs
 import pandas as pd
 import pyarrow as pa
 from loguru import logger
-from obstore.store import S3Store
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import _sync_async, datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    _sync_async,
+    datasource_cache_root,
+    obstore_fetch_to_cache,
+    obstore_store_from_url,
+    prep_data_inputs,
+)
 from earth2studio.lexicon import GSIConventionalLexicon, GSISatelliteLexicon
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
@@ -80,11 +84,10 @@ class _UFSObsBase:
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
         # Anonymous obstore S3 store for the public NOAA UFS replay bucket.
-        self._store = S3Store(
-            self.UFS_BUCKET,
+        self._store = obstore_store_from_url(
+            f"s3://{self.UFS_BUCKET}",
+            max_pool_connections=self._max_workers,
             region=self._region,
-            skip_signature=True,
-            client_options={"pool_max_idle_per_host": str(self._max_workers)},
         )
 
         lower, upper = normalize_time_tolerance(time_tolerance)
@@ -168,21 +171,18 @@ class _UFSObsBase:
             Number of bytes to read, by default None (read all)
         """
         cache_path = self.cache_path(key, byte_offset, byte_length)
-        if pathlib.Path(cache_path).is_file():
-            return
-
-        store = self._store
         try:
-            if byte_length:
-                result = await obs.get_range_async(
-                    store, key, start=byte_offset, end=byte_offset + byte_length
-                )
-            else:
-                response = await obs.get_async(store, key)
-                result = await response.bytes_async()
-            with open(cache_path, "wb") as file:
-                file.write(bytes(result))
-        except (FileNotFoundError, obs.exceptions.NotFoundError):
+            # cache_key keeps the historical sha256(key + offset + length)
+            # naming so warm caches remain valid
+            await obstore_fetch_to_cache(
+                self._store,
+                key,
+                self.cache,
+                byte_offset=byte_offset,
+                byte_length=byte_length,
+                cache_key=os.path.basename(cache_path),
+            )
+        except FileNotFoundError:
             self._handle_missing_file(key)
 
     def _handle_missing_file(self, key: str) -> None:
