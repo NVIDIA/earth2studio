@@ -803,6 +803,47 @@ async def test_local_caching_store_dedupes_concurrent_fetches(
 
 
 @pytest.mark.asyncio
+async def test_local_caching_store_dedupes_across_instances(local_zarr_array, tmp_path):
+    """Two store instances sharing a cache directory must de-duplicate
+    concurrent fetches of the same key against each other (locks are
+    class-level, keyed by cache path)."""
+    import zarr
+    import zarr.storage
+    from zarr.core.buffer import default_buffer_prototype
+
+    from earth2studio.data.utils import LocalCachingStore
+
+    class CountingStore(zarr.storage.WrapperStore):
+        def __init__(self, store):
+            super().__init__(store)
+            self.fetches: dict[str, int] = {}
+
+        async def get(self, key, prototype, byte_range=None):
+            self.fetches[key] = self.fetches.get(key, 0) + 1
+            await asyncio.sleep(0.01)  # widen the race window
+            return await self._store.get(key, prototype, byte_range)
+
+    remote = CountingStore(zarr.storage.LocalStore(str(local_zarr_array)))
+    cache_dir = str(tmp_path / "cache")
+    cached_a = LocalCachingStore(remote, cache_dir)
+    cached_b = LocalCachingStore(remote, cache_dir)
+    proto = default_buffer_prototype()
+
+    key = "c/0/0"
+    await asyncio.gather(
+        *[cached_a.get(key, proto) for _ in range(8)],
+        *[cached_b.get(key, proto) for _ in range(8)],
+    )
+    assert remote.fetches[key] == 1
+
+    # Stores with a different cache directory use different locks and must
+    # fetch for themselves
+    cached_c = LocalCachingStore(remote, str(tmp_path / "other_cache"))
+    assert await cached_c.get(key, proto) is not None
+    assert remote.fetches[key] == 2
+
+
+@pytest.mark.asyncio
 async def test_local_caching_store_never_caches_metadata(local_zarr_array, tmp_path):
     """Metadata keys must always refetch so a warm cache does not go blind to
     newly appended data (v2 .z* / .zmetadata and v3 zarr.json)."""

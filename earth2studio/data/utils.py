@@ -27,7 +27,7 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
 from pathlib import Path
-from typing import Any, Literal, TypeVar
+from typing import Any, ClassVar, Literal, TypeVar
 
 import fsspec.asyn
 import numpy as np
@@ -783,7 +783,9 @@ class LocalCachingStore(zarr.storage.WrapperStore):
 
     Concurrent reads of the same uncached key are de-duplicated with a per-key
     lock (double-checked against the cache), so a chunk is fetched and written
-    at most once even under Zarr's concurrent chunk fan-out.
+    at most once even under Zarr's concurrent chunk fan-out. Locks are shared
+    process-wide and keyed by (cache directory, key), so separate store
+    instances caching to the same directory de-duplicate against each other.
 
     Parameters
     ----------
@@ -799,12 +801,15 @@ class LocalCachingStore(zarr.storage.WrapperStore):
     # .zmetadata) — ARCO/WB2 are v2 despite the "-v3" store name.
     _METADATA_SUFFIXES = ("zarr.json", ".zmetadata", ".zarray", ".zgroup", ".zattrs")
 
+    # Class-level so every instance caching to the same directory shares the
+    # same per-key locks. Held only across a cache miss, so distinct chunks
+    # still fetch concurrently. Keyed by "{cache directory}::{key}".
+    _fetch_locks: ClassVar[dict[str, asyncio.Lock]] = {}
+
     def __init__(self, store: zarr.abc.store.Store, cache_storage: str) -> None:
         super().__init__(store)
+        self._cache_path = cache_storage
         self._cache = zarr.storage.LocalStore(cache_storage)
-        # Per-key locks serialise concurrent fills of the same key. Held only
-        # across a cache miss, so distinct chunks still fetch concurrently.
-        self._fetch_locks: dict[str, asyncio.Lock] = {}
 
     async def get(
         self,
@@ -826,15 +831,13 @@ class LocalCachingStore(zarr.storage.WrapperStore):
         if cached is not None:
             return cached
 
-        # Slow path: serialise concurrent fetchers of this same key. Creating
-        # the lock is safe without guarding as asyncio runs single-threaded and
-        # there is no await between lookup and insert.
-        lock = self._fetch_locks.get(key)
-        if lock is None:
-            lock = self._fetch_locks[key] = asyncio.Lock()
-
-        try:
-            async with lock:
+        # Slow path: serialise concurrent fetchers of this same key. setdefault
+        # is atomic here: asyncio runs single-threaded and there is no await
+        # between lookup and insert.
+        lock_key = f"{self._cache_path}::{key}"
+        lock = self._fetch_locks.setdefault(lock_key, asyncio.Lock())
+        async with lock:
+            try:
                 # Re-check under the lock: a prior holder may have filled the cache.
                 cached = await self._cache.get(key, prototype)
                 if cached is not None:
@@ -849,13 +852,13 @@ class LocalCachingStore(zarr.storage.WrapperStore):
                     except Exception as e:
                         logger.warning(f"Failed to write {key} to local cache: {e}")
                 return value
-        finally:
-            # Drop the lock entry once the fill completes so the dict does not
-            # grow with every key ever missed. Later readers hit the cache fast
-            # path. Guard against removing a newer lock created after ours was
-            # already dropped by a concurrent waiter.
-            if self._fetch_locks.get(key) is lock:
-                del self._fetch_locks[key]
+            finally:
+                # Drop the entry while the lock is still held so the dict does
+                # not grow with every key ever missed — and so no task can ever
+                # remove a lock that belongs to someone else. Waiters already
+                # holding a reference acquire the stale lock, re-check the
+                # cache, and hit it.
+                self._fetch_locks.pop(lock_key, None)
 
 
 def obstore_zarr_store(
