@@ -796,7 +796,11 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 )
                 from earth2studio.data.utils import obstore_zarr_store
 
-                zstore = obstore_zarr_store(UCAST_WB2_DATASET, skip_signature=True)
+                zstore = obstore_zarr_store(
+                    UCAST_WB2_DATASET,
+                    cache_storage=package.cache,
+                    skip_signature=True,
+                )
                 ds = xr.open_zarr(zstore, zarr_format=2)
                 try:
                     static_condition = _compute_static_condition(ds)
