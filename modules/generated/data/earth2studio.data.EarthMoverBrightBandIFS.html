@@ -76,7 +76,7 @@
 
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="GFS" href="earth2studio.data.GFS.html" />
+    <link rel="next" title="EarthMoverERA5" href="earth2studio.data.EarthMoverERA5.html" />
     <link rel="prev" title="CMIP6MultiRealm" href="earth2studio.data.CMIP6MultiRealm.html" />
 
 
@@ -507,6 +507,7 @@
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.CMIP6.html">CMIP6</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.CMIP6MultiRealm.html">CMIP6MultiRealm</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">EarthMoverBrightBandIFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.data.EarthMoverERA5.html">EarthMoverERA5</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.GFS.html">GFS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.GOES.html">GOES</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.GOESGLMGrid.html">GOESGLMGrid</a></li>
@@ -765,7 +766,7 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/earthmover.py#L528-L681"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.EarthMoverBrightBandIFS" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/earthmover.py#L714-L856"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.EarthMoverBrightBandIFS" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:analysis" style="background-color:#0891b2;color:#fff;" title="Analysis / Initial Conditions"><i class="fa-solid fa-chart-line"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:wind" style="background-color:#4dabf7;color:#fff;" title="Surface Winds"><i class="fa-solid fa-wind"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:temp" style="background-color:#fd7e14;color:#fff;" title="Surface Temperature"><i class="fa-solid fa-temperature-half"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:atmos" style="background-color:#74c0fc;color:#fff;" title="Atmosphere"><i class="fa-solid fa-cloud"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:ocean" style="background-color:#1098ad;color:#fff;" title="Ocean"><i class="fa-solid fa-water"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:land" style="background-color:#a0522d;color:#fff;" title="Land/Soil"><i class="fa-solid fa-mound"></i></span></span><p>Brightband ECMWF IFS 0.25 degree initial-condition data source on
 Earthmover Arraylake.</p>
 <dl class="field-list simple">
@@ -807,7 +808,7 @@ variable. The default repository is
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.EarthMoverBrightBandIFS.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/earthmover.py#L613-L632"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.EarthMoverBrightBandIFS.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/earthmover.py#L788-L807"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.EarthMoverBrightBandIFS.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Retrieve IFS analysis data for times and variables.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -827,7 +828,7 @@ variable. The default repository is
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.EarthMoverBrightBandIFS.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/earthmover.py#L634-L681"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.EarthMoverBrightBandIFS.fetch" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/earthmover.py#L809-L856"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.EarthMoverBrightBandIFS.fetch" title="Link to this definition">#</a></dt>
 <dd><p>Retrieve IFS analysis data for times and variables asynchronously.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -847,7 +848,7 @@ variable. The default repository is
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.EarthMoverBrightBandIFS.available">
-<span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/earthmover.py#L515-L517"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.EarthMoverBrightBandIFS.available" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/earthmover.py#L541-L548"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.EarthMoverBrightBandIFS.available" title="Link to this definition">#</a></dt>
 <dd><p>Synchronous wrapper for <code class="xref py py-meth docutils literal notranslate"><span class="pre">_available()</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -883,11 +884,11 @@ variable. The default repository is
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.data.GFS.html"
+       href="earth2studio.data.EarthMoverERA5.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">GFS</p>
+        <p class="prev-next-title">EarthMoverERA5</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
