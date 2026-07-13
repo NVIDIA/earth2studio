@@ -42,10 +42,10 @@ _EUROPE_BBOX = ((35.0, 60.0), (-10.0, 30.0))
 @pytest.mark.parametrize(
     "time,variable",
     [
-        (datetime(2025, 3, 1, 12, 0), "fci_ir_87"),
+        (datetime(2025, 3, 1, 12, 0), "fci87ir"),
         (
             [datetime(2025, 3, 1, 12, 0), datetime(2025, 3, 1, 12, 10)],
-            ["fci_ir_87", "fci_wv_63"],
+            ["fci87ir", "fci63wv"],
         ),
     ],
 )
@@ -68,8 +68,8 @@ def test_meteosat_fci_fetch(time, variable):
 def test_meteosat_fci_cache():
     ds = MeteosatFCI(resolution="2km", lat_lon_bbox=_EUROPE_BBOX, cache=True)
     time = datetime(2025, 3, 1, 12, 0)
-    data1 = ds(time, "fci_ir_87")
-    data2 = ds(time, "fci_ir_87")  # served from cache — no re-download
+    data1 = ds(time, "fci87ir")
+    data2 = ds(time, "fci87ir")  # served from cache — no re-download
     assert data1.shape == data2.shape
     assert pathlib.Path(ds.cache).is_dir()
     shutil.rmtree(ds.cache, ignore_errors=True)
@@ -86,7 +86,7 @@ def test_meteosat_fci_hrfi_fetch():
     ds = MeteosatFCI(
         resolution="500m", pixel_bbox=(row_bounds, col_bounds), cache=False
     )
-    data = ds(datetime(2025, 3, 1, 12, 0), "fci_vis_06")
+    data = ds(datetime(2025, 3, 1, 12, 0), "fci06vis")
     ny = row_bounds[1] - row_bounds[0]
     nx = col_bounds[1] - col_bounds[0]
     assert data.shape == (1, 1, ny, nx)
@@ -170,7 +170,7 @@ def test_meteosat_fci_call_mock(tmp_path):
         patch.object(MeteosatFCI, "FCI_Y", _SMALL_FCI_Y),
     ):
         ds = MeteosatFCI(resolution="2km", cache=False, verbose=False)
-        data = ds(datetime(2025, 3, 1, 12, 0), "fci_ir_87")
+        data = ds(datetime(2025, 3, 1, 12, 0), "fci87ir")
 
     assert data.shape == (1, 1, _ROWS, _COLS)
     assert not np.all(np.isnan(data.values))
@@ -199,10 +199,10 @@ def test_meteosat_fci_call_mock_flipped(tmp_path):
     with patches[0], patches[1], patches[2], patches[3], patches[4]:
         data_native = MeteosatFCI(
             resolution="2km", flip_north_south=False, cache=False, verbose=False
-        )(t, "fci_ir_87")
+        )(t, "fci87ir")
         data_flipped = MeteosatFCI(
             resolution="2km", flip_north_south=True, cache=False, verbose=False
-        )(t, "fci_ir_87")
+        )(t, "fci87ir")
 
     # --- shape ---
     assert data_native.shape == (1, 1, _ROWS, _COLS)
@@ -258,7 +258,7 @@ def test_meteosat_fci_pixel_bbox_mock(tmp_path):
             cache=False,
             verbose=False,
         )
-        data = ds(datetime(2025, 3, 1, 12, 0), "fci_ir_87")
+        data = ds(datetime(2025, 3, 1, 12, 0), "fci87ir")
 
     ny = row_bounds[1] - row_bounds[0]
     nx = col_bounds[1] - col_bounds[0]
@@ -280,7 +280,7 @@ def test_meteosat_fci_ir38_hdr_mock(tmp_path):
         patch.object(MeteosatFCI, "FCI_Y", _SMALL_FCI_Y),
     ):
         ds = MeteosatFCI(resolution="2km", cache=False, verbose=False)
-        data = ds(datetime(2025, 3, 1, 12, 0), "fci_ir_38")
+        data = ds(datetime(2025, 3, 1, 12, 0), "fci38ir")
 
     values = data.values
     assert np.any(np.isclose(values, 20.0, atol=0.1))  # normal: 2000×0.01
@@ -355,5 +355,5 @@ def test_meteosat_fci_mixed_resolution_error():
     # credentials or slow markers are needed.
     ds = MeteosatFCI(resolution="2km")
     with pytest.raises(ValueError, match="resolution"):
-        # fci_ir_87 is 2 km (FDHSI); fci_vis_06 is 1 km/500 m only → mismatch
-        ds(datetime(2025, 1, 1, 0, 0), ["fci_ir_87", "fci_vis_06"])
+        # fci87ir is 2 km (FDHSI); fci06vis is 1 km/500 m only → mismatch
+        ds(datetime(2025, 1, 1, 0, 0), ["fci87ir", "fci06vis"])

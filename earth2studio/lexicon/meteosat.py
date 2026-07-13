@@ -26,7 +26,7 @@ class MeteosatFCILexicon(metaclass=LexiconType):
     Maps Earth2Studio variable names to MTG FCI channel identifiers.
     The 16 spectral channels cover visible (VIS), near-infrared (NIR),
     water vapour (WV) and infrared (IR) bands. Variable names follow
-    the pattern ``fci_{band}_{wavelength}``, e.g. ``fci_ir_87``.
+    the pattern ``fci{wavelength}{band}``, e.g. ``fci87ir``.
 
     Note
     ----
@@ -38,24 +38,24 @@ class MeteosatFCILexicon(metaclass=LexiconType):
 
     VOCAB: dict[str, tuple[str, Callable[[Any], Any]]] = {
         # VIS bands
-        "fci_vis_04": ("vis_04", lambda x: x),  # VIS 0.444 µm (1 km)
-        "fci_vis_05": ("vis_05", lambda x: x),  # VIS 0.510 µm (1 km)
-        "fci_vis_06": ("vis_06", lambda x: x),  # VIS 0.640 µm (0.5 km / 1 km)
-        "fci_vis_08": ("vis_08", lambda x: x),  # VIS 0.865 µm (1 km)
-        "fci_vis_09": ("vis_09", lambda x: x),  # VIS 0.914 µm (1 km)
+        "fci04vis": ("vis_04", lambda x: x),  # VIS 0.444 µm (1 km)
+        "fci05vis": ("vis_05", lambda x: x),  # VIS 0.510 µm (1 km)
+        "fci06vis": ("vis_06", lambda x: x),  # VIS 0.640 µm (0.5 km / 1 km)
+        "fci08vis": ("vis_08", lambda x: x),  # VIS 0.865 µm (1 km)
+        "fci09vis": ("vis_09", lambda x: x),  # VIS 0.914 µm (1 km)
         # NIR bands
-        "fci_nir_13": ("nir_13", lambda x: x),  # NIR 1.380 µm (1 km)
-        "fci_nir_16": ("nir_16", lambda x: x),  # NIR 1.610 µm (1 km)
-        "fci_nir_22": ("nir_22", lambda x: x),  # NIR 2.250 µm (0.5 km / 1 km)
+        "fci13nir": ("nir_13", lambda x: x),  # NIR 1.380 µm (1 km)
+        "fci16nir": ("nir_16", lambda x: x),  # NIR 1.610 µm (1 km)
+        "fci22nir": ("nir_22", lambda x: x),  # NIR 2.250 µm (0.5 km / 1 km)
         # IR bands
-        "fci_ir_38": ("ir_38", lambda x: x),  # IR 3.800 µm (1 km / 2 km)
-        "fci_wv_63": ("wv_63", lambda x: x),  # WV 6.300 µm (2 km)
-        "fci_wv_73": ("wv_73", lambda x: x),  # WV 7.350 µm (2 km)
-        "fci_ir_87": ("ir_87", lambda x: x),  # IR 8.700 µm (2 km)
-        "fci_ir_97": ("ir_97", lambda x: x),  # IR 9.660 µm (2 km)
-        "fci_ir_105": ("ir_105", lambda x: x),  # IR 10.500 µm (1 km / 2 km)
-        "fci_ir_123": ("ir_123", lambda x: x),  # IR 12.300 µm (2 km)
-        "fci_ir_133": ("ir_133", lambda x: x),  # IR 13.300 µm (2 km)
+        "fci38ir": ("ir_38", lambda x: x),  # IR 3.800 µm (1 km / 2 km)
+        "fci63wv": ("wv_63", lambda x: x),  # WV 6.300 µm (2 km)
+        "fci73wv": ("wv_73", lambda x: x),  # WV 7.350 µm (2 km)
+        "fci87ir": ("ir_87", lambda x: x),  # IR 8.700 µm (2 km)
+        "fci97ir": ("ir_97", lambda x: x),  # IR 9.660 µm (2 km)
+        "fci105ir": ("ir_105", lambda x: x),  # IR 10.500 µm (1 km / 2 km)
+        "fci123ir": ("ir_123", lambda x: x),  # IR 12.300 µm (2 km)
+        "fci133ir": ("ir_133", lambda x: x),  # IR 13.300 µm (2 km)
     }
 
     @classmethod
@@ -65,7 +65,7 @@ class MeteosatFCILexicon(metaclass=LexiconType):
         Parameters
         ----------
         val : str
-            Variable name (e.g. ``'fci_ir_87'``)
+            Variable name (e.g. ``'fci87ir'``)
 
         Returns
         -------

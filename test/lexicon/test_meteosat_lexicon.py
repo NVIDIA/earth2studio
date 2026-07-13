@@ -23,10 +23,10 @@ from earth2studio.lexicon import MeteosatFCILexicon
 @pytest.mark.parametrize(
     "variable",
     [
-        ["fci_vis_04"],  # single VIS band
-        ["fci_wv_63", "fci_ir_87"],  # WV + IR pair
-        ["fci_vis_06", "fci_nir_22", "fci_ir_105"],  # HRFI-capable channels
-        ["fci_vis_04", "fci_nir_16", "fci_ir_38", "fci_ir_133"],  # mixed
+        ["fci04vis"],  # single VIS band
+        ["fci63wv", "fci87ir"],  # WV + IR pair
+        ["fci06vis", "fci22nir", "fci105ir"],  # HRFI-capable channels
+        ["fci04vis", "fci16nir", "fci38ir", "fci133ir"],  # mixed
         ["foo"],  # unknown variable → KeyError
     ],
 )
