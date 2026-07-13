@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added GHCN hourly data source (`GHCNHourly`), superseding the deprecated ISD source
+- Added `GHCNHourlyLexicon` for GHCN hourly. Renamed `GCHNLexicon` to `GHCNDailyLexicon`.
 - Added EarthMover ERA5 0.25 degree reanalysis data source
 - Added EarthMover IFS 0.1 degree data source and forecast source hosted by BrightBand
 

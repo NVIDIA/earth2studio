@@ -26,7 +26,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from earth2studio.data import GHCNDaily
-from earth2studio.lexicon.ghcn import GHCNLexicon
+from earth2studio.lexicon.ghcn import GHCNDailyLexicon
 
 
 @pytest.mark.slow
@@ -277,7 +277,7 @@ def test_ghcn_available():
     assert not GHCNDaily.available(datetime(2099, 1, 1))
 
 
-class TestGHCNLexicon:
+class TestGHCNDailyLexicon:
     @pytest.mark.parametrize(
         "var, element",
         [
@@ -296,12 +296,12 @@ class TestGHCNLexicon:
         ],
     )
     def test_element_map(self, var, element):
-        assert GHCNLexicon.VOCAB[var] == element
+        assert GHCNDailyLexicon.VOCAB[var] == element
 
     def test_lexicon_keys(self):
-        for var in GHCNLexicon.VOCAB:
-            element, mod = GHCNLexicon[var]
-            assert element == GHCNLexicon.VOCAB[var]
+        for var in GHCNDailyLexicon.VOCAB:
+            element, mod = GHCNDailyLexicon[var]
+            assert element == GHCNDailyLexicon.VOCAB[var]
             assert callable(mod)
 
     @pytest.mark.parametrize(
@@ -322,12 +322,12 @@ class TestGHCNLexicon:
         ],
     )
     def test_unit_conversions(self, var, raw, expected):
-        _, mod = GHCNLexicon[var]
+        _, mod = GHCNDailyLexicon[var]
         np.testing.assert_allclose(mod(raw), expected, atol=1e-6)
 
     def test_invalid_variable(self):
         with pytest.raises(KeyError):
-            GHCNLexicon["nonexistent"]
+            GHCNDailyLexicon["nonexistent"]
 
 
 class TestGHCNMock:

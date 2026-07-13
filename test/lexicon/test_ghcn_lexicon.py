@@ -17,7 +17,7 @@
 import numpy as np
 import pytest
 
-from earth2studio.lexicon import GHCNLexicon
+from earth2studio.lexicon import GHCNDailyLexicon, GHCNHourlyLexicon
 
 
 @pytest.mark.parametrize(
@@ -44,7 +44,24 @@ from earth2studio.lexicon import GHCNLexicon
 def test_ghcn_lexicon(variable):
     input = np.random.randn(len(variable), 8).astype(np.float32)
     for v in variable:
-        label, modifier = GHCNLexicon[v]
+        label, modifier = GHCNDailyLexicon[v]
         output = modifier(input)
         assert isinstance(label, str)
+        assert input.shape == output.shape
+
+
+@pytest.mark.parametrize(
+    "variable",
+    [
+        ["t2m"],
+        ["d2m", "tp"],
+        ["t2m", "d2m", "ws10m", "fg10m", "tp", "u10m", "v10m", "tcc"],
+    ],
+)
+def test_ghcn_hourly_lexicon(variable):
+    input = np.random.randn(len(variable), 8).astype(np.float32)
+    for v in variable:
+        col, modifier = GHCNHourlyLexicon[v]
+        output = modifier(input)
+        assert col is None or isinstance(col, str)
         assert input.shape == output.shape
