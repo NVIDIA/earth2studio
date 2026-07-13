@@ -25,6 +25,8 @@ import shutil
 import uuid
 import zipfile
 from datetime import datetime, timedelta, timezone
+from itertools import product
+from typing import Literal
 
 import numpy as np
 import xarray as xr
@@ -56,8 +58,6 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Grid & projection constants for MTG-I FCI Full Disk
 # ---------------------------------------------------------------------------
-GRID_SIZE_2KM = (5568, 5568)
-GRID_SIZE_1KM = (11136, 11136)
 
 # Geostationary projection parameters (MTG-I1 at 0° longitude)
 SUB_SATELLITE_LON = 0.0  # degrees
@@ -65,38 +65,57 @@ PERSPECTIVE_POINT_HEIGHT = 35786400.0  # metres
 SEMI_MAJOR_AXIS = 6378137.0  # metres (WGS-84)
 SEMI_MINOR_AXIS = 6356752.3142  # metres (WGS-84)
 
-# Scale/offset for the 2 km grid angular coordinates (radians)
-CFAC_2KM = 5.58879280e-05
-COFF_2KM = 2784.5
-LFAC_2KM = -5.58879280e-05
-LOFF_2KM = 2784.5
-
-# Scale/offset for the 1 km grid angular coordinates (radians)
-CFAC_1KM = 2.79439640e-05
-COFF_1KM = 5568.5
-LFAC_1KM = -2.79439640e-05
-LOFF_1KM = 5568.5
-
-# Resolution → (CFAC, COFF, LFAC, LOFF, grid_size)
-_GRID_PARAMS = {
-    "2km": (CFAC_2KM, COFF_2KM, LFAC_2KM, LOFF_2KM, GRID_SIZE_2KM),
-    "1km": (CFAC_1KM, COFF_1KM, LFAC_1KM, LOFF_1KM, GRID_SIZE_1KM),
+# Grid parameters
+_GRID_SCALE: dict[Literal["2km", "1km", "500m"], int] = {"2km": 1, "1km": 2, "500m": 4}
+_GRID_SIZE: dict[Literal["2km", "1km", "500m"], tuple[int, int]] = {
+    res: (5568 * scale, 5568 * scale) for (res, scale) in _GRID_SCALE.items()
+}
+_X_SCALE: dict[Literal["2km", "1km", "500m"], float] = {
+    "2km": -5.58871526031607e-05,
+    "1km": -2.79435763233999e-05,
+    "500m": -1.39717881644274e-05,
+}
+_X_OFFSET: dict[Literal["2km", "1km", "500m"], float] = {
+    "2km": 0.15561777642350116,
+    "1km": 0.1556038047568524,
+    "500m": 0.15559681889314542,
+}
+_Y_SCALE: dict[Literal["2km", "1km", "500m"], float] = {
+    res: -scale for (res, scale) in _X_SCALE.items()
+}
+_Y_OFFSET: dict[Literal["2km", "1km", "500m"], float] = {
+    res: -offset for (res, offset) in _X_OFFSET.items()
 }
 
+
 # Channel name → native resolution string
-_VARIABLE_RESOLUTION: dict[str, str] = {
-    "vis_04": "1km",
-    "vis_05": "1km",
-    "vis_08": "1km",
-    "vis_09": "1km",
-    "nir_13": "1km",
-    "nir_16": "2km",
-    "wv_63": "2km",
-    "wv_73": "2km",
-    "ir_87": "2km",
-    "ir_97": "2km",
-    "ir_123": "2km",
-    "ir_133": "2km",
+_VARIABLE_RESOLUTION: dict[
+    Literal["FDHSI", "HRFI"], dict[str, Literal["2km", "1km", "500m"]]
+] = {
+    "FDHSI": {
+        "vis_04": "1km",
+        "vis_05": "1km",
+        "vis_06": "1km",
+        "vis_08": "1km",
+        "vis_09": "1km",
+        "nir_13": "1km",
+        "nir_16": "1km",
+        "nir_22": "1km",
+        "ir_38": "2km",
+        "wv_63": "2km",
+        "wv_73": "2km",
+        "ir_87": "2km",
+        "ir_97": "2km",
+        "ir_105": "2km",
+        "ir_123": "2km",
+        "ir_133": "2km",
+    },
+    "HRFI": {
+        "vis_06": "500m",
+        "nir_22": "500m",
+        "ir_38": "1km",
+        "ir_105": "1km",
+    },
 }
 
 # Operational start date for MTG-I1 FCI
@@ -107,47 +126,31 @@ _OPERATIONAL_START = datetime(2024, 1, 16, tzinfo=timezone.utc)
 # Helper: geostationary scan angle → lat/lon
 # ---------------------------------------------------------------------------
 def _mtg_fci_scan_to_latlon(
-    cfac: float,
-    coff: float,
-    lfac: float,
-    loff: float,
-    nrows: int,
-    ncols: int,
+    x: np.ndarray, y: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
     """Convert MTG FCI scan angles to latitude/longitude arrays.
 
     Parameters
     ----------
-    cfac : float
-        Column scaling factor (radians per pixel)
-    coff : float
-        Column offset
-    lfac : float
-        Line scaling factor (radians per pixel)
-    loff : float
-        Line offset
-    nrows : int
-        Number of rows
-    ncols : int
-        Number of columns
+    x : np.ndarray
+        1-D x (column) scan-angle coordinates in radians, west-to-east
+        (FCI convention: FCI_X[0] is the western-most column).
+    y : np.ndarray
+        1-D y (row) scan-angle coordinates in radians, south-to-north
+        (FCI convention: FCI_Y[0] is the southern-most row).
 
     Returns
     -------
     tuple[np.ndarray, np.ndarray]
-        Tuple of (lat, lon) arrays in degrees, NaN where off-Earth
+        ``(lat, lon)`` arrays of shape ``(len(y), len(x))`` in degrees,
+        NaN where off-Earth.
     """
-    cols = np.arange(1, ncols + 1, dtype=np.float64)
-    rows = np.arange(1, nrows + 1, dtype=np.float64)
-
-    x = (cols - coff) * cfac  # radians, E/W
-    y = (rows - loff) * lfac  # radians, N/S
-
-    xx, yy = np.meshgrid(x, y)
-
-    cos_x = np.cos(xx)
-    cos_y = np.cos(yy)
-    sin_x = np.sin(xx)
-    sin_y = np.sin(yy)
+    x = x[None, :]
+    y = y[:, None]
+    cos_x = np.cos(x)
+    cos_y = np.cos(y)
+    sin_x = np.sin(-x)  # minus to account for FCI east-west convention
+    sin_y = np.sin(y)
 
     r_eq = SEMI_MAJOR_AXIS
     r_pol = SEMI_MINOR_AXIS
@@ -158,18 +161,18 @@ def _mtg_fci_scan_to_latlon(
         b = -2.0 * H * cos_x * cos_y
         c = H**2 - r_eq**2
 
-        discriminant = b**2 - 4.0 * a * c
-        r_s = (-b - np.sqrt(discriminant)) / (2.0 * a)
+        discriminant = b**2 - 4.0 * c * a
+        r_s = (b + np.sqrt(discriminant)) / (-2.0 * a)
 
-        s_x = r_s * cos_x * cos_y
+        d = r_s * cos_x
+        s_x = d * cos_y
         s_y = -r_s * sin_x
-        s_z = r_s * cos_x * sin_y
+        s_z = d * sin_y
+        H_s_x = H - s_x
 
-        lat = np.degrees(
-            np.arctan((r_eq / r_pol) ** 2 * s_z / np.sqrt((H - s_x) ** 2 + s_y**2))
-        )
+        lat = np.degrees(np.arctan((r_eq / r_pol) ** 2 * s_z / np.hypot(H_s_x, s_y)))
         lon_origin_rad = np.radians(SUB_SATELLITE_LON)
-        lon = np.degrees(lon_origin_rad - np.arctan(s_y / (H - s_x)))
+        lon = np.degrees(lon_origin_rad - np.arctan(s_y / H_s_x))
 
     return lat, lon
 
@@ -193,10 +196,10 @@ def _normalize_lon(lon_deg: float) -> float:
 
 
 def _compute_pixel_roi(
-    lat_lon_bbox: tuple[float, float, float, float],
+    lat_lon_bbox: tuple[tuple[float, float], tuple[float, float]],
     lat: np.ndarray,
     lon: np.ndarray,
-) -> tuple[int, int, int, int]:
+) -> tuple[tuple[int, int], tuple[int, int]]:
     """Convert a lat/lon bounding box to pixel row/column bounds.
 
     Both ``[-180, 180]`` and ``[0, 360]`` longitude conventions are
@@ -205,8 +208,8 @@ def _compute_pixel_roi(
 
     Parameters
     ----------
-    lat_lon_bbox : tuple[float, float, float, float]
-        ``(lat_min, lon_min, lat_max, lon_max)`` in degrees.
+    lat_lon_bbox : tuple[tuple[float, float], tuple[float, float]]
+        ``((lat_min, lat_max), (lon_min, lon_max))`` in degrees.
     lat : np.ndarray
         2-D latitude array from the grid (NaN where off-Earth).
     lon : np.ndarray
@@ -214,21 +217,24 @@ def _compute_pixel_roi(
 
     Returns
     -------
-    tuple[int, int, int, int]
-        ``(row_start, row_end, col_start, col_end)`` pixel bounds
+    tuple[tuple[int, int], tuple[int, int]]
+        ``((row_start, row_end), (col_start, col_end))`` pixel bounds
         (end-exclusive) suitable for slicing.
     """
-    lat_min, lon_min, lat_max, lon_max = lat_lon_bbox
+    ((lat_min, lat_max), (lon_min, lon_max)) = lat_lon_bbox
 
     # Normalise longitudes to [-180, 180) so both conventions work
     lon_min = _normalize_lon(lon_min)
     lon_max = _normalize_lon(lon_max)
 
     mask = (lat >= lat_min) & (lat <= lat_max) & (lon >= lon_min) & (lon <= lon_max)
-    rows, cols = np.where(mask)
+    rows, cols = mask.nonzero()
     if rows.size == 0:
         raise ValueError(f"No grid points fall within lat_lon_bbox={lat_lon_bbox}")
-    return int(rows.min()), int(rows.max()) + 1, int(cols.min()), int(cols.max()) + 1
+    return (int(rows.min()), int(rows.max()) + 1), (
+        int(cols.min()),
+        int(cols.max()) + 1,
+    )
 
 
 def _sort_body_key(name: str) -> int:
@@ -263,20 +269,37 @@ class MeteosatFCI:
 
     This data source provides access to Meteosat Third Generation (MTG)
     Flexible Combined Imager (FCI) Level-1C Full Disk products via the
-    EUMETSAT Data Store. The 12 spectral channels cover visible, near-IR,
-    water-vapour and infrared bands at 1 km or 2 km nadir resolution.
+    EUMETSAT Data Store. The 16 spectral channels in the Full Disk High
+    Spectral Imagery (FDHSI) product cover visible, near-IR, water-vapour and
+    infrared bands at 1 km or 2 km nadir resolution. Four channels are also
+    available in the High Resolution Fast Imagery (HRFI) product at 500 m or
+    1 km. Variables are read from either collection depending on which resolution
+    is set.
 
     Parameters
     ----------
-    resolution : str, optional
-        Grid resolution, either ``'2km'`` or ``'1km'``, by default ``'2km'``
-    lat_lon_bbox : tuple[float, float, float, float] | None, optional
-        Bounding box ``(lat_min, lon_min, lat_max, lon_max)`` in degrees to
-        crop the full-disk image. Only BODY segments that overlap the requested latitude
-        range are read, saving disk and memory.  When ``None`` the full disk is
-        returned, by default None
+    resolution : Literal["2km", "1km", "500m"], optional
+        Grid resolution — ``'2km'``, ``'1km'``, or ``'500m'``. FDHSI channels
+        are available at ``'2km'`` (IR/WV bands) or ``'1km'`` (VIS/NIR bands);
+        HRFI channels are available at ``'1km'`` or ``'500m'``. By default
+        ``'2km'``.
+    lat_lon_bbox : tuple[tuple[float, float], tuple[float, float]] | None, optional
+        Bounding box ``((lat_min, lat_max), (lon_min, lon_max))`` in degrees to
+        crop the full-disk image. Only BODY segments that overlap the requested
+        latitude range are read, saving disk and memory. When ``None`` the full
+        disk is returned, by default None
+    pixel_bbox : tuple[tuple[int, int], tuple[int, int]] | None, optional
+        Bounding box ``((row_start, row_end), (col_start, col_end))`` in pixel
+        coordinates (native FCI order: row 0 = south, end-exclusive) to crop
+        the full-disk image. Mutually exclusive with ``lat_lon_bbox``. When
+        ``None`` the full disk is returned, by default None
+    flip_north_south : bool, optional
+        When ``True`` the output array row 0 is north and latitude increases
+        downward (conventional image orientation).  When ``False`` (the
+        default) the native FCI convention is preserved: row 0 is south and
+        latitude increases upward.
     cache : bool, optional
-        Cache data source on local memory, by default True
+        Cache downloaded products on local disk, by default True
     verbose : bool, optional
         Print download progress, by default True
     async_timeout : int, optional
@@ -313,20 +336,47 @@ class MeteosatFCI:
     region:eu region:af dataclass:observation product:sat
     """
 
-    COLLECTION_ID = "EO:EUM:DAT:0662"
-    SCAN_FREQUENCY = 600
+    COLLECTION_ID: dict[Literal["FDHSI", "HRFI"], str] = {
+        "FDHSI": "EO:EUM:DAT:0662",
+        "HRFI": "EO:EUM:DAT:0665",
+    }
+    SCAN_FREQUENCY: int = 600
+
+    # FCI y scan-angle (radians) for the full disk, south-to-north.
+    FCI_Y: dict[Literal["2km", "1km", "500m"], np.ndarray] = {
+        res: np.arange(1, _GRID_SIZE[res][0] + 1) * _Y_SCALE[res] + _Y_OFFSET[res]
+        for res in _GRID_SCALE
+    }
+
+    # FCI x scan-angle (radians) for the full disk, west-to-east.
+    FCI_X: dict[Literal["2km", "1km", "500m"], np.ndarray] = {
+        res: np.arange(1, _GRID_SIZE[res][1] + 1) * _X_SCALE[res] + _X_OFFSET[res]
+        for res in _GRID_SCALE
+    }
 
     def __init__(
         self,
-        resolution: str = "2km",
-        lat_lon_bbox: tuple[float, float, float, float] | None = None,
+        resolution: Literal["2km", "1km", "500m"] = "2km",
+        lat_lon_bbox: tuple[tuple[float, float], tuple[float, float]] | None = None,
+        pixel_bbox: tuple[tuple[int, int], tuple[int, int]] | None = None,
+        flip_north_south: bool = False,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 1200,
         retries: int = 3,
     ) -> None:
-        self._resolution = self._resolve_resolution(resolution)
+        if resolution not in _GRID_SCALE:
+            raise ValueError(f"resolution must be one of {tuple(_GRID_SCALE)}")
+        self._resolution = resolution
+
+        if (lat_lon_bbox is not None) and (pixel_bbox is not None):
+            raise ValueError(
+                "At most one of lat_lon_bbox or pixel_bbox can be specified."
+            )
         self._lat_lon_bbox = lat_lon_bbox
+        # Pixel ROI bounds (lazily computed on first fetch when lat-lon bbox is set)
+        self._pixel_roi = pixel_bbox
+        self.flip_north_south = flip_north_south
         self._cache = cache
         self._verbose = verbose
         self.async_timeout = async_timeout
@@ -335,17 +385,31 @@ class MeteosatFCI:
 
         # Grid (lazily computed on first access)
         self._grid: tuple[np.ndarray, np.ndarray] | None = None
-        # Pixel ROI bounds (lazily computed on first fetch when bbox is set)
-        self._pixel_roi: tuple[int, int, int, int] | None = None
 
         # Credentials from environment variables
         self._consumer_key = os.environ.get("EUMETSAT_CONSUMER_KEY", "")
         self._consumer_secret = os.environ.get("EUMETSAT_CONSUMER_SECRET", "")
+        # Attempt read from .eumdc/credentials file
+        # https://gitlab.eumetsat.int/eumetlab/data-services/eumdac/-/blob/public/eumdac/config.py?ref_type=heads#L14
+        # https://gitlab.eumetsat.int/eumetlab/data-services/eumdac/-/blob/public/eumdac/cli_helpers.py?ref_type=heads#L165
         if not self._consumer_key or not self._consumer_secret:
-            logger.warning(
-                "EUMETSAT_CONSUMER_KEY and/or EUMETSAT_CONSUMER_SECRET not set. "
-                "Data fetching will fail."
+            eumdac_credentials_file = (
+                pathlib.Path(
+                    os.getenv("EUMDAC_CONFIG_DIR", (pathlib.Path.home() / ".eumdac"))
+                )
+                / "credentials"
             )
+            try:
+                with open(eumdac_credentials_file) as f:
+                    credentials = f.read().strip()
+                key, secret = credentials.split(",", 1)
+                self._consumer_key = key.strip()
+                self._consumer_secret = secret.strip()
+            except (OSError, ValueError):
+                logger.warning(
+                    "EUMETSAT_CONSUMER_KEY and/or EUMETSAT_CONSUMER_SECRET not set. "
+                    "Data fetching will fail."
+                )
 
     def __call__(
         self,
@@ -411,21 +475,24 @@ class MeteosatFCI:
             self._pixel_roi = _compute_pixel_roi(self._lat_lon_bbox, lat, lon)
 
         # Determine output shape (cropped if bbox is set)
+        (nrows, ncols) = _GRID_SIZE[self._resolution]
         if self._pixel_roi is not None:
-            r0, r1, c0, c1 = self._pixel_roi
-            ny = r1 - r0
-            nx = c1 - c0
-            lat_out = lat[r0:r1, c0:c1]
-            lon_out = lon[r0:r1, c0:c1]
+            ((i0, i1), (j0, j1)) = self._pixel_roi
+            ny = i1 - i0
+            nx = j1 - j0
+            lat_out = lat[i0:i1, j0:j1]
+            lon_out = lon[i0:i1, j0:j1]
         else:
-            grid_size = _GRID_PARAMS[self._resolution][4]
-            ny, nx = grid_size
+            ((i0, i1), (j0, j1)) = ((0, nrows), (0, ncols))
+            ny, nx = nrows, ncols
             lat_out = lat
             lon_out = lon
 
         # Pre-allocate output
-        y_coords = np.arange(ny, dtype=np.float64)
-        x_coords = np.arange(nx, dtype=np.float64)
+        y_coords = MeteosatFCI.FCI_Y[self._resolution][i0:i1]
+        if self.flip_north_south:
+            y_coords = y_coords[::-1]
+        x_coords = MeteosatFCI.FCI_X[self._resolution][j0:j1]
         xr_array = xr.DataArray(
             data=np.full((len(time), len(variable), ny, nx), np.nan, dtype=np.float32),
             dims=["time", "variable", "y", "x"],
@@ -437,49 +504,71 @@ class MeteosatFCI:
             },
         )
 
-        # Phase 1: Download products in parallel (one per unique time)
+        # Phase 1: Download products in parallel (one per unique time and collection)
         unique_times = list(dict.fromkeys(time))  # preserve order, deduplicate
+        collections = {  # the collection each variable is downloaded from
+            v: (
+                "FDHSI"
+                if _VARIABLE_RESOLUTION["FDHSI"].get(MeteosatFCILexicon[v][0])  # type: ignore[misc]
+                == self._resolution
+                else "HRFI"
+            )
+            for v in variable
+        }
+        downloads = list(product(unique_times, set(collections.values())))
         download_coros = [
             async_retry(
                 asyncio.to_thread,
                 self._fetch_product,
                 t,
+                collection,
                 retries=self._retries,
                 backoff=2.0,
                 exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
-            for t in unique_times
+            for (t, collection) in downloads
         ]
         product_dirs_list: list[str] = await tqdm.gather(
             *download_coros,
             desc="Downloading MTG products",
             disable=(not self._verbose),
         )
-        product_dir_map = dict(zip(unique_times, product_dirs_list))
+        product_dir_map = dict(zip(downloads, product_dirs_list))
 
         # Phase 2: Read NetCDF segments sequentially (HDF5/netCDF4 is
         # not thread-safe — concurrent reads cause segfaults)
         for i, t in enumerate(time):
-            product_dir = product_dir_map[t]
             for j, v in enumerate(variable):
-                channel_name, modifier = MeteosatFCILexicon[v]
+                product_dir = product_dir_map[t, collections[v]]
+                channel_name, modifier = MeteosatFCILexicon[v]  # type: ignore[misc]
+                if collections[v] == "HRFI":
+                    channel_name += "_hr"
                 data = self._read_channel(product_dir, channel_name, self._pixel_roi)
+                if self.flip_north_south:
+                    data = np.flipud(data)
                 xr_array[i, j] = modifier(data)
 
         # Attach grid coordinates
+        if self.flip_north_south:
+            lat_out = np.flipud(lat_out)
+            lon_out = np.flipud(lon_out)
         xr_array = xr_array.assign_coords(
             {"_lat": (("y", "x"), lat_out), "_lon": (("y", "x"), lon_out)}
         )
 
         return xr_array
 
-    def _fetch_product(self, time: datetime) -> str:
-        """Download the MTG FCI product for the given time.
+    def _fetch_product(
+        self, time: datetime, collection: Literal["FDHSI", "HRFI"]
+    ) -> str:
+        """Download the MTG FCI product for the given time and collection.
 
         Parameters
         ----------
         time : datetime
             UTC timestamp
+        collection : Literal["FDHSI", "HRFI"]
+            Collection to download from — ``'FDHSI'`` or ``'HRFI'``
 
         Returns
         -------
@@ -488,7 +577,7 @@ class MeteosatFCI:
         """
         # Build a cache-friendly directory name
         time_str = time.strftime("%Y%m%dT%H%M%S")
-        product_cache = os.path.join(self.cache, f"mtg_{time_str}")
+        product_cache = os.path.join(self.cache, collection, f"mtg_{time_str}")
 
         # Only reuse cache if BODY segment files actually exist
         if os.path.isdir(product_cache):
@@ -508,12 +597,12 @@ class MeteosatFCI:
             credentials=(self._consumer_key, self._consumer_secret)
         )
         datastore = eumdac.DataStore(token)
-        collection = datastore.get_collection(self.COLLECTION_ID)
+        ds_collection = datastore.get_collection(self.COLLECTION_ID[collection])
 
         dt_start = time - timedelta(seconds=self.SCAN_FREQUENCY // 2)
         dt_end = time + timedelta(seconds=self.SCAN_FREQUENCY // 2)
 
-        products = collection.search(dtstart=dt_start, dtend=dt_end)
+        products = ds_collection.search(dtstart=dt_start, dtend=dt_end)
         product_list = list(products)
 
         if not product_list:
@@ -589,7 +678,7 @@ class MeteosatFCI:
         self,
         product_dir: str,
         channel_name: str,
-        pixel_roi: tuple[int, int, int, int] | None = None,
+        pixel_roi: tuple[tuple[int, int], tuple[int, int]] | None = None,
     ) -> np.ndarray:
         """Read a single channel from extracted BODY segments using netCDF4.
 
@@ -606,15 +695,18 @@ class MeteosatFCI:
             Path to extracted product directory
         channel_name : str
             FCI channel name (e.g., ``'vis_04'``)
-        pixel_roi : tuple[int, int, int, int] | None, optional
-            ``(row_start, row_end, col_start, col_end)`` pixel bounds
-            in **grid space** (row 0 = north, end-exclusive).  When
-            ``None`` the full disk is returned.
+        pixel_roi : tuple[tuple[int, int], tuple[int, int]] | None, optional
+            ``((row_start, row_end), (col_start, col_end))`` pixel bounds.
+            When ``None`` the full disk is read.
 
         Returns
         -------
         np.ndarray
-            2-D array (float32).  Full disk or cropped to *pixel_roi*.
+            2-D float32 array of shape ``(ny, nx)``.  Full disk or cropped
+            to *pixel_roi*.  For the ``ir_38`` and ``ir_38_hr`` channels the
+            dual-range HDR encoding is applied: raw values above 4095 are
+            decoded with ``warm_scale_factor`` / ``warm_add_offset`` instead
+            of the standard ``scale_factor`` / ``add_offset``.
         """
         # Find all BODY segment files
         body_files = glob.glob(
@@ -626,24 +718,19 @@ class MeteosatFCI:
         if not body_files:
             raise FileNotFoundError(f"No BODY segment files found in {product_dir}")
 
-        # FCI BODY segments are numbered south-to-north (chunk 1 = south).
-        # pixel_roi is in grid space (row 0 = north).  Convert the row
-        # bounds to data space (row 0 = south) for segment skipping.
-        nrows = GRID_SIZE_1KM[0] if self._resolution == "1km" else GRID_SIZE_2KM[0]
-        data_roi: tuple[int, int, int, int] | None = None
-        if pixel_roi is not None:
-            r0, r1, c0, c1 = pixel_roi
-            data_r0 = nrows - r1
-            data_r1 = nrows - r0
-            data_roi = (data_r0, data_r1, c0, c1)
+        (nrows, ncols) = _GRID_SIZE[self._resolution]
+
+        if pixel_roi:
+            ((i0, i1), (j0, j1)) = pixel_roi
+        else:
+            ((i0, i1), (j0, j1)) = ((0, nrows), (0, ncols))
 
         # Read and vertically stack segments
         segments: list[np.ndarray] = []
         group_path = f"/data/{channel_name}/measured"
 
         # Track running row offset for selective segment loading
-        row_offset = 0
-        first_loaded_offset: int | None = None
+        segment_i_offset = 0
 
         for bf in body_files:
             ds = netCDF4.Dataset(bf, "r")
@@ -669,23 +756,19 @@ class MeteosatFCI:
 
                 var = grp.variables["effective_radiance"]
                 shape = var.shape
-                seg_rows = shape[-2] if len(shape) >= 2 else shape[0]
-                seg_row_end = row_offset + seg_rows
+                local_nrows = shape[-2]
 
-                # Skip segments that do not overlap the ROI row range
-                if data_roi is not None:
-                    dr0, dr1, _c0, _c1 = data_roi
-                    if seg_row_end <= dr0 or row_offset >= dr1:
-                        row_offset = seg_row_end
-                        continue
+                if (i0 >= segment_i_offset + local_nrows) or (i1 <= segment_i_offset):
+                    segment_i_offset += local_nrows
+                    continue
 
-                if first_loaded_offset is None:
-                    first_loaded_offset = row_offset
+                local_i0 = max(0, i0 - segment_i_offset)
+                local_i1 = min(local_nrows, i1 - segment_i_offset)
 
                 # Disable auto scale/offset so we can handle fill values
                 # and apply the transform ourselves exactly once.
                 ds.set_auto_maskandscale(False)
-                raw = var[:]
+                raw = var[..., local_i0:local_i1, j0:j1]
                 if raw.ndim == 3:
                     raw = raw[0]
 
@@ -694,10 +777,18 @@ class MeteosatFCI:
                 offset = getattr(var, "add_offset", 0.0)
 
                 data = raw.astype(np.float64) * scale + offset
+                if channel_name in ("ir_38", "ir_38_hr"):
+                    warm_scale = getattr(var, "warm_scale_factor", 1.0)
+                    warm_offset = getattr(var, "warm_add_offset", 0.0)
+                    hdr_mask = raw > 4095
+                    data[hdr_mask] = (
+                        raw[hdr_mask].astype(np.float64) * warm_scale + warm_offset
+                    )
+
                 if fill is not None:
                     data[raw == fill] = np.nan
                 segments.append(data)
-                row_offset = seg_row_end
+                segment_i_offset += local_nrows
             finally:
                 ds.close()
 
@@ -708,55 +799,7 @@ class MeteosatFCI:
             )
 
         full = np.concatenate(segments, axis=0)
-
-        # FCI BODY segments are numbered south-to-north (chunk 1 = south
-        # edge).  Flip so that row 0 = north, matching the grid convention
-        # used by the rest of Earth2Studio (and GOES).
-        full = np.flipud(full)
-
-        # Crop to bounding box if requested (pixel_roi is in grid space,
-        # which matches the flipped array).
-        if pixel_roi is not None and first_loaded_offset is not None:
-            r0, r1, c0, c1 = pixel_roi
-            # first_loaded_offset is in data space (south-to-north).
-            # After flipud, loaded data row 0 maps to the highest grid row.
-            # The loaded block covers data rows [first_loaded_offset, last_loaded_end).
-            # After flip that becomes grid rows [nrows - last_loaded_end, nrows - first_loaded_offset).
-            last_loaded_end = first_loaded_offset + full.shape[0]
-            grid_start = nrows - last_loaded_end
-            adj_r0 = max(0, r0 - grid_start)
-            adj_r1 = min(full.shape[0], r1 - grid_start)
-            c1 = min(full.shape[1], c1)
-            full = full[adj_r0:adj_r1, c0:c1]
-
         return full.astype(np.float32)
-
-    @staticmethod
-    def _resolve_resolution(resolution: str) -> str:
-        """Validate and normalise the resolution string.
-
-        Parameters
-        ----------
-        resolution : str
-            Resolution string (``'1km'`` or ``'2km'``)
-
-        Returns
-        -------
-        str
-            Normalised resolution string
-
-        Raises
-        ------
-        ValueError
-            If the resolution is not supported
-        """
-        res = resolution.lower().strip()
-        if res not in _GRID_PARAMS:
-            raise ValueError(
-                f"Unsupported resolution '{resolution}'. "
-                f"Must be one of {list(_GRID_PARAMS.keys())}"
-            )
-        return res
 
     def _check_resolution_consistency(self, variable: list[str]) -> None:
         """Verify all requested variables match the configured resolution.
@@ -772,23 +815,31 @@ class MeteosatFCI:
             If any variable's native resolution differs from self._resolution
         """
         for v in variable:
-            channel_name, _ = MeteosatFCILexicon[v]
-            native_res = _VARIABLE_RESOLUTION.get(channel_name)
-            if native_res is not None and native_res != self._resolution:
+            channel_name, _ = MeteosatFCILexicon[v]  # type: ignore[misc]
+            available_res = [
+                collection_res.get(channel_name)
+                for collection_res in _VARIABLE_RESOLUTION.values()
+            ]
+            available_res = [res for res in available_res if res is not None]
+            if self._resolution not in available_res:
                 raise ValueError(
-                    f"Variable '{v}' (channel '{channel_name}') has native "
-                    f"resolution {native_res}, but data source is configured "
+                    f"Variable '{v}' (channel '{channel_name}') has available "
+                    f"resolutions {available_res}, but data source is configured "
                     f"for {self._resolution}. All requested variables must "
-                    f"share the same resolution."
+                    "share the same resolution."
                 )
 
     def _ensure_grid(self) -> tuple[np.ndarray, np.ndarray]:
-        """Compute or return the cached lat/lon grid.
+        """Return the full-disk lat/lon grid for the configured resolution.
+
+        The result is computed on the first call and cached for subsequent
+        calls.
 
         Returns
         -------
         tuple[np.ndarray, np.ndarray]
-            (lat, lon) arrays
+            ``(lat, lon)`` arrays of shape ``(_GRID_SIZE[resolution])``,
+            in degrees.  Off-Earth pixels are NaN.
         """
         if self._grid is None:
             self._grid = MeteosatFCI.grid(resolution=self._resolution)
@@ -844,7 +895,7 @@ class MeteosatFCI:
         cls,
         time: datetime | np.datetime64,
     ) -> bool:
-        """Check if a given date time is available.
+        """Check if a given datetime is available.
 
         Parameters
         ----------
@@ -854,7 +905,7 @@ class MeteosatFCI:
         Returns
         -------
         bool
-            If date time is available
+            Whether the requested date time is available.
         """
         if isinstance(time, np.datetime64):
             _unix = np.datetime64(0, "s")
@@ -869,27 +920,29 @@ class MeteosatFCI:
 
     @staticmethod
     def grid(
-        resolution: str = "2km",
+        resolution: Literal["2km", "1km", "500m"] = "2km",
     ) -> tuple[np.ndarray, np.ndarray]:
         """Return (lat, lon) in degrees for the native MTG FCI grid.
 
         Parameters
         ----------
-        resolution : str, optional
-            Grid resolution (``'1km'`` or ``'2km'``), by default ``'2km'``
+        resolution : Literal["2km", "1km", "500m"], optional
+            Grid resolution — ``'2km'``, ``'1km'``, or ``'500m'``, by default
+            ``'2km'``
 
         Returns
         -------
         tuple[np.ndarray, np.ndarray]
-            Tuple of (lat, lon) arrays in degrees. Off-Earth pixels are NaN.
+            ``(lat, lon)`` arrays of shape ``(_GRID_SIZE[resolution])`` in
+            degrees.  Off-Earth pixels are NaN.
         """
-        res = MeteosatFCI._resolve_resolution(resolution)
-        cfac, coff, lfac, loff, (nrows, ncols) = _GRID_PARAMS[res]
-        return _mtg_fci_scan_to_latlon(cfac, coff, lfac, loff, nrows, ncols)
+        return _mtg_fci_scan_to_latlon(
+            MeteosatFCI.FCI_X[resolution], MeteosatFCI.FCI_Y[resolution]
+        )
 
     @staticmethod
     def projection_extent(
-        resolution: str = "2km",
+        resolution: Literal["2km", "1km", "500m"] = "2km",
     ) -> tuple[float, float, float, float]:
         """Return the geostationary projection extent in metres for plotting.
 
@@ -900,23 +953,24 @@ class MeteosatFCI:
 
         Parameters
         ----------
-        resolution : str, optional
-            Grid resolution (``'1km'`` or ``'2km'``), by default ``'2km'``
+        resolution : Literal["2km", "1km", "500m"], optional
+            Grid resolution — ``'2km'``, ``'1km'``, or ``'500m'``, by default
+            ``'2km'``
 
         Returns
         -------
         tuple[float, float, float, float]
             ``(x_min, x_max, y_min, y_max)`` in metres.
         """
-        res = MeteosatFCI._resolve_resolution(resolution)
-        cfac, coff, _lfac, loff, (nrows, ncols) = _GRID_PARAMS[res]
+        fci_x = MeteosatFCI.FCI_X[resolution]
+        fci_y = MeteosatFCI.FCI_Y[resolution]
 
         h = PERSPECTIVE_POINT_HEIGHT
         # Pixel edges span 0.5 to N+0.5; extent uses outermost edges
-        x_min = (0.5 - coff) * cfac * h
-        x_max = (ncols + 0.5 - coff) * cfac * h
-        y_min = (0.5 - loff) * _lfac * h
-        y_max = (nrows + 0.5 - loff) * _lfac * h
+        x_min = (fci_x[0] - 0.5 * (fci_x[1] - fci_x[0])) * h
+        x_max = (fci_x[-1] + 0.5 * (fci_x[-1] - fci_x[-2])) * h
+        y_min = (fci_y[0] - 0.5 * (fci_y[1] - fci_y[0])) * h
+        y_max = (fci_y[-1] + 0.5 * (fci_y[-1] - fci_y[-2])) * h
 
         return (
             min(x_min, x_max),
