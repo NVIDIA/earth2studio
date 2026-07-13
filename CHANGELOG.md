@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   predictions for GOES GLM Lightning density.
 - Migrated GFS / GFS_FX data sources from s3fs to obstore for index and byte-range
   GRIB fetches; downloads now use bounded concurrency with retry on transient errors
+- Refactored UFS observation sources (`UFSObsConv`, `UFSObsSat`) onto the shared
+  obstore byte-range helpers
 
 ### Deprecated
 
