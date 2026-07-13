@@ -761,27 +761,44 @@
 <dl>
 <dd><em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'2km'</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">lat_lon_bbox</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">pixel_bbox</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">flip_north_south</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">retries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/meteosat_fci.py#L260-L926"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MeteosatFCI" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/meteosat_fci.py#L266-L980"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MeteosatFCI" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:eu" style="background-color:#1976d2;color:#fff;" title="Europe"><span class="sphinx-badge-icon"><i class="fa-solid fa-earth-europe"></i></span><span class="sphinx-badge-label">EU</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:af" style="background-color:#64b5f6;color:#000;" title="Africa"><span class="sphinx-badge-icon"><i class="fa-solid fa-earth-africa"></i></span><span class="sphinx-badge-label">AF</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:observation" style="background-color:#15803d;color:#fff;" title="Direct Observations"><i class="fa-solid fa-binoculars"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:sat" style="background-color:#1c7ed6;color:#fff;" title="Satellite"><i class="fa-solid fa-satellite"></i></span></span><p>EUMETSAT MTG-I FCI Level-1C Full Disk calibrated radiance data source.</p>
 <p>This data source provides access to Meteosat Third Generation (MTG)
 Flexible Combined Imager (FCI) Level-1C Full Disk products via the
-EUMETSAT Data Store. The 12 spectral channels cover visible, near-IR,
-water-vapour and infrared bands at 1 km or 2 km nadir resolution.</p>
+EUMETSAT Data Store. The 16 spectral channels in the Full Disk High
+Spectral Imagery (FDHSI) product cover visible, near-IR, water-vapour and
+infrared bands at 1 km or 2 km nadir resolution. Four channels are also
+available in the High Resolution Fast Imagery (HRFI) product at 500 m or
+1 km. Variables are read from either collection depending on which resolution
+is set.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>resolution</strong> (<em>str</em><em>, </em><em>optional</em>) – Grid resolution, either <code class="docutils literal notranslate"><span class="pre">'2km'</span></code> or <code class="docutils literal notranslate"><span class="pre">'1km'</span></code>, by default <code class="docutils literal notranslate"><span class="pre">'2km'</span></code></p></li>
-<li><p><strong>lat_lon_bbox</strong> (<em>tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>, </em><em>float</em><em>, </em><em>float</em><em>] </em><em>| </em><em>None</em><em>, </em><em>optional</em>) – Bounding box <code class="docutils literal notranslate"><span class="pre">(lat_min,</span> <span class="pre">lon_min,</span> <span class="pre">lat_max,</span> <span class="pre">lon_max)</span></code> in degrees to
-crop the full-disk image. Only BODY segments that overlap the requested latitude
-range are read, saving disk and memory.  When <code class="docutils literal notranslate"><span class="pre">None</span></code> the full disk is
-returned, by default None</p></li>
-<li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source on local memory, by default True</p></li>
+<li><p><strong>resolution</strong> (<em>Literal</em><em>[</em><em>&quot;2km&quot;</em><em>, </em><em>&quot;1km&quot;</em><em>, </em><em>&quot;500m&quot;</em><em>]</em><em>, </em><em>optional</em>) – Grid resolution — <code class="docutils literal notranslate"><span class="pre">'2km'</span></code>, <code class="docutils literal notranslate"><span class="pre">'1km'</span></code>, or <code class="docutils literal notranslate"><span class="pre">'500m'</span></code>. FDHSI channels
+are available at <code class="docutils literal notranslate"><span class="pre">'2km'</span></code> (IR/WV bands) or <code class="docutils literal notranslate"><span class="pre">'1km'</span></code> (VIS/NIR bands);
+HRFI channels are available at <code class="docutils literal notranslate"><span class="pre">'1km'</span></code> or <code class="docutils literal notranslate"><span class="pre">'500m'</span></code>. By default
+<code class="docutils literal notranslate"><span class="pre">'2km'</span></code>.</p></li>
+<li><p><strong>lat_lon_bbox</strong> (<em>tuple</em><em>[</em><em>tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>]</em><em>, </em><em>tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>]</em><em>] </em><em>| </em><em>None</em><em>, </em><em>optional</em>) – Bounding box <code class="docutils literal notranslate"><span class="pre">((lat_min,</span> <span class="pre">lat_max),</span> <span class="pre">(lon_min,</span> <span class="pre">lon_max))</span></code> in degrees to
+crop the full-disk image. Only BODY segments that overlap the requested
+latitude range are read, saving disk and memory. When <code class="docutils literal notranslate"><span class="pre">None</span></code> the full
+disk is returned, by default None</p></li>
+<li><p><strong>pixel_bbox</strong> (<em>tuple</em><em>[</em><em>tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>] </em><em>| </em><em>None</em><em>, </em><em>optional</em>) – Bounding box <code class="docutils literal notranslate"><span class="pre">((row_start,</span> <span class="pre">row_end),</span> <span class="pre">(col_start,</span> <span class="pre">col_end))</span></code> in pixel
+coordinates (native FCI order: row 0 = south, end-exclusive) to crop
+the full-disk image. Mutually exclusive with <code class="docutils literal notranslate"><span class="pre">lat_lon_bbox</span></code>. When
+<code class="docutils literal notranslate"><span class="pre">None</span></code> the full disk is returned, by default None</p></li>
+<li><p><strong>flip_north_south</strong> (<em>bool</em><em>, </em><em>optional</em>) – When <code class="docutils literal notranslate"><span class="pre">True</span></code> the output array row 0 is north and latitude increases
+downward (conventional image orientation).  When <code class="docutils literal notranslate"><span class="pre">False</span></code> (the
+default) the native FCI convention is preserved: row 0 is south and
+latitude increases upward.</p></li>
+<li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache downloaded products on local disk, by default True</p></li>
 <li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress, by default True</p></li>
 <li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Total timeout in seconds for the entire fetch operation,
 by default 1200</p></li>
@@ -815,7 +832,7 @@ variables:</p>
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.MeteosatFCI.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/meteosat_fci.py#L350-L377"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MeteosatFCI.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/meteosat_fci.py#L414-L441"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MeteosatFCI.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Retrieve MTG FCI data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -835,7 +852,7 @@ variables:</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.MeteosatFCI.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/meteosat_fci.py#L379-L474"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MeteosatFCI.fetch" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/meteosat_fci.py#L443-L559"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MeteosatFCI.fetch" title="Link to this definition">#</a></dt>
 <dd><p>Async function to retrieve MTG FCI data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -855,14 +872,14 @@ variables:</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.MeteosatFCI.available">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/meteosat_fci.py#L842-L868"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MeteosatFCI.available" title="Link to this definition">#</a></dt>
-<dd><p>Check if a given date time is available.</p>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/meteosat_fci.py#L893-L919"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MeteosatFCI.available" title="Link to this definition">#</a></dt>
+<dd><p>Check if a given datetime is available.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>time</strong> (<em>datetime</em><em> | </em><em>np.datetime64</em>) – Date time to check</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>If date time is available</p>
+<dd class="field-even"><p>Whether the requested date time is available.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>bool</p>
