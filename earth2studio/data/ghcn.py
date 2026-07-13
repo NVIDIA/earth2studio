@@ -837,6 +837,10 @@ class GHCNHourly(_GHCNBase):
         "sky_cover_layer_2",
         "sky_cover_layer_3",
         "sky_cover_layer_4",
+        "sky_cover_summation_1",
+        "sky_cover_summation_2",
+        "sky_cover_summation_3",
+        "sky_cover_summation_4",
     ]
 
     # Mapping from abbreviated sky cover codes to fractional cloud cover (0–1).
@@ -1110,13 +1114,20 @@ class GHCNHourly(_GHCNBase):
         df["u10m"] = (-np.sin(rad) * ws).where(valid, np.nan)
         df["v10m"] = (-np.cos(rad) * ws).where(valid, np.nan)
 
-        # tcc: maximum sky cover across layers
+        # tcc: maximum sky cover across layers.
+        # GHCNh has two column families: sky_cover_layer_* (SYNOP) and
+        # sky_cover_summation_* (METAR/ASOS). Both use "CODE:height;" format.
+        # ASOS stations typically only populate the summation columns.
         tcc = pd.Series(np.nan, index=df.index, dtype=float)
         for col in [
             "sky_cover_layer_1",
             "sky_cover_layer_2",
             "sky_cover_layer_3",
             "sky_cover_layer_4",
+            "sky_cover_summation_1",
+            "sky_cover_summation_2",
+            "sky_cover_summation_3",
+            "sky_cover_summation_4",
         ]:
             if col not in df.columns:
                 continue
