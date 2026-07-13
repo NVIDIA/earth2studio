@@ -180,8 +180,108 @@ class _NNJAObsStore:
             shutil.rmtree(self.cache, ignore_errors=True)
 
 
+class _NNJAObsSourceBase(_NCEPObsSourceBase):
+    """Share NNJA archive access across observation products.
+
+    This layer supplies NNJA's anonymous S3 store, six-hour cycle validation,
+    availability check, and cache access. Concrete sources retain ownership of
+    archive paths, product start dates, missing-file policy, and decoding.
+    """
+
+    MIN_DATE: datetime
+
+    def __init__(
+        self,
+        *,
+        time_tolerance: TimeTolerance,
+        cache: bool,
+        verbose: bool,
+        async_timeout: int,
+        async_workers: int,
+        decode_workers: int,
+        retries: int,
+    ) -> None:
+        self._nnja_store = _NNJAObsStore(
+            cache=cache,
+            verbose=verbose,
+            async_workers=async_workers,
+            retries=retries,
+            handle_missing_file=self._handle_missing_file,
+        )
+        super().__init__(
+            store=self._nnja_store,
+            time_tolerance=time_tolerance,
+            verbose=verbose,
+            async_timeout=async_timeout,
+            decode_workers=decode_workers,
+        )
+
+    @classmethod
+    def _validate_time(cls, times: list[datetime]) -> None:
+        """Validate that times align to a 6-hour cycle and are in range."""
+        for t in times:
+            if t.minute != 0 or t.second != 0 or t.microsecond != 0:
+                raise ValueError(
+                    f"Requested datetime {t} must be on a whole hour "
+                    f"(NNJA cycles are 6-hourly)."
+                )
+            if t.hour % 6 != 0:
+                raise ValueError(
+                    f"Requested datetime {t} must align to a 6-hour cycle "
+                    f"(00, 06, 12, 18z)."
+                )
+            if t < cls.MIN_DATE:
+                raise ValueError(
+                    f"Requested datetime {t} is earlier than {cls.__name__}.MIN_DATE "
+                    f"({cls.MIN_DATE.isoformat()})."
+                )
+
+    @classmethod
+    def available(cls, time: datetime | np.datetime64) -> bool:
+        """Check if given date time is available.
+
+        Parameters
+        ----------
+        time : datetime | np.datetime64
+            Date time to check
+
+        Returns
+        -------
+        bool
+            If date time is available
+        """
+        if isinstance(time, np.datetime64):
+            time = time.astype("datetime64[ns]").astype("datetime64[us]").item()
+        try:
+            cls._validate_time([time])
+        except ValueError:
+            return False
+        return True
+
+    @property
+    def cache(self) -> str:
+        """Local cache directory for this data source."""
+        return self._nnja_store.cache
+
+    @property
+    def fs(self) -> s3fs.S3FileSystem | None:
+        """NNJA S3 filesystem initialized on first fetch."""
+        return self._nnja_store.fs
+
+    @fs.setter
+    def fs(self, value: s3fs.S3FileSystem | None) -> None:
+        self._nnja_store.fs = value
+
+    def _cache_path(self, s3_uri: str) -> str:
+        """Deterministic cache path for an S3 URI."""
+        return self._nnja_store.local_path(s3_uri)
+
+    def _handle_missing_file(self, path: str) -> None:
+        raise NotImplementedError("Subclasses must implement _handle_missing_file.")
+
+
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
-class NNJAObsConv(_NCEPObsSourceBase):
+class NNJAObsConv(_NNJAObsSourceBase):
     """NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint
     Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for
     developing observation-driven weather forecasting tools, as it includes a wide
@@ -288,82 +388,17 @@ class NNJAObsConv(_NCEPObsSourceBase):
         # output maps profile-stage 33x/43x/53x report codes to the standard
         # GSI/PREPBUFR aircraft 23x codes in ``type``
         self._map_acft_profile_report_types = True
-        self._nnja_store = _NNJAObsStore(
+        super().__init__(
+            time_tolerance=time_tolerance,
             cache=cache,
             verbose=verbose,
-            async_workers=async_workers,
-            retries=retries,
-            handle_missing_file=self._handle_missing_file,
-        )
-        super().__init__(
-            store=self._nnja_store,
-            time_tolerance=time_tolerance,
-            verbose=verbose,
             async_timeout=async_timeout,
+            async_workers=async_workers,
             decode_workers=decode_workers,
+            retries=retries,
         )
         self._prepbufr_adapter = _NCEPPrepbufrAdapter(self._decode_workers)
         self._gpsro_adapter = _NCEPGpsroAdapter(self._decode_workers)
-
-    @classmethod
-    def _validate_time(cls, times: list[datetime]) -> None:
-        """Validate that times align to a 6-hour cycle and are in range."""
-        for t in times:
-            if t.minute != 0 or t.second != 0 or t.microsecond != 0:
-                raise ValueError(
-                    f"Requested datetime {t} must be on a whole hour "
-                    f"(NNJA cycles are 6-hourly)."
-                )
-            if t.hour % 6 != 0:
-                raise ValueError(
-                    f"Requested datetime {t} must align to a 6-hour cycle "
-                    f"(00, 06, 12, 18z)."
-                )
-            if t < cls.MIN_DATE:
-                raise ValueError(
-                    f"Requested datetime {t} is earlier than {cls.__name__}.MIN_DATE "
-                    f"({cls.MIN_DATE.isoformat()})."
-                )
-
-    @classmethod
-    def available(cls, time: datetime | np.datetime64) -> bool:
-        """Check if given date time is available.
-
-        Parameters
-        ----------
-        time : datetime | np.datetime64
-            Date time to check
-
-        Returns
-        -------
-        bool
-            If date time is available
-        """
-        if isinstance(time, np.datetime64):
-            time = time.astype("datetime64[ns]").astype("datetime64[us]").item()
-        try:
-            cls._validate_time([time])
-        except ValueError:
-            return False
-        return True
-
-    @property
-    def cache(self) -> str:
-        """Local cache directory for this data source."""
-        return self._nnja_store.cache
-
-    @property
-    def fs(self) -> s3fs.S3FileSystem | None:
-        """NNJA S3 filesystem initialized on first fetch."""
-        return self._nnja_store.fs
-
-    @fs.setter
-    def fs(self, value: s3fs.S3FileSystem | None) -> None:
-        self._nnja_store.fs = value
-
-    def _cache_path(self, s3_uri: str) -> str:
-        """Deterministic cache path for an S3 URI."""
-        return self._nnja_store.local_path(s3_uri)
 
     @staticmethod
     def _task_uri(task: _NNJAConvTask | _NNJAGpsRoTask) -> str:
