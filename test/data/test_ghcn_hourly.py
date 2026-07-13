@@ -31,6 +31,30 @@ from earth2studio.lexicon.ghcn import GHCNHourlyLexicon
 # ---------------------------------------------------------------------------
 
 
+def _build_sparse_parquet_bytes(
+    station: str = "USW00013874",
+    date: str = "2024-01-01T12:00:00",
+    temperature: float = 15.0,
+    lat: float = 33.63,
+    lon: float = -84.44,
+    elev: float = 315.0,
+) -> bytes:
+    """Parquet with only mandatory + temperature columns — no wind/precip/sky."""
+    df = pd.DataFrame(
+        {
+            "STATION": [station],
+            "DATE": [date],
+            "LATITUDE": [lat],
+            "LONGITUDE": [lon],
+            "ELEVATION": [elev],
+            "temperature": [temperature],
+        }
+    )
+    buf = io.BytesIO()
+    df.to_parquet(buf, index=False)
+    return buf.getvalue()
+
+
 def _build_mock_parquet_bytes(
     station: str = "USW00013874",
     date: str = "2024-01-01T12:00:00",
@@ -292,6 +316,25 @@ class TestGHCNHourlyMock:
         with pytest.raises(KeyError):
             ds(datetime(2024, 1, 1, 12), ["not_a_variable"])
 
+    def test_pre_1901_time_raises(self):
+        """ValueError raised for times before the GHCNh record start."""
+        ds = self._ds()
+        ds.fs = self._mock_fs(_build_mock_parquet_bytes())
+
+        with pytest.raises(ValueError):
+            ds(datetime(1800, 1, 1), ["t2m"])
+
+    def test_sparse_parquet_missing_optional_columns(self):
+        """Station parquet with no wind/precip/sky columns still returns t2m."""
+        ds = self._ds()
+        ds.fs = self._mock_fs(_build_sparse_parquet_bytes(temperature=15.0))
+
+        result = ds(datetime(2024, 1, 1, 12), ["t2m"])
+
+        assert not result.empty
+        assert set(result["variable"].unique()) == {"t2m"}
+        assert np.isclose(result["observation"].iloc[0], 15.0 + 273.15, atol=1e-3)
+
     def test_missing_wind_gust_gives_nan(self):
         """NaN wind_gust column → fg10m rows dropped (no observations)."""
         ds = self._ds()
@@ -338,6 +381,45 @@ class TestGHCNHourlyMock:
         result = ds(datetime(2024, 1, 1, 12), ["t2m"])
 
         assert result.attrs.get("source") == GHCNHourly.SOURCE_ID
+
+    def test_year_boundary_fetches_both_years(self, tmp_path, monkeypatch):
+        """Tolerance window crossing Dec 31 → Jan 1 fetches both year files."""
+        monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+        # Observation sits at 2023-12-31 23:50 — inside a 2h lower-tolerance
+        # window around 2024-01-01 00:00.
+        prev_year_bytes = _build_mock_parquet_bytes(
+            date="2023-12-31T23:50:00", temperature=5.0
+        )
+        curr_year_bytes = _build_mock_parquet_bytes(
+            date="2024-01-01T00:10:00", temperature=6.0
+        )
+
+        call_count = 0
+
+        async def _cat_file(url: str) -> bytes:
+            nonlocal call_count
+            call_count += 1
+            return prev_year_bytes if "2023" in url else curr_year_bytes
+
+        mock_fs = MagicMock()
+        mock_fs.set_session = AsyncMock(return_value=MagicMock(close=AsyncMock()))
+        mock_fs._cat_file = _cat_file
+
+        ds = GHCNHourly(
+            stations=["USW00013874"],
+            time_tolerance=(np.timedelta64(-2, "h"), np.timedelta64(30, "m")),
+            cache=False,
+            verbose=False,
+        )
+        ds.fs = mock_fs
+
+        result = ds(datetime(2024, 1, 1, 0, 0), ["t2m"])
+
+        # Both year files must have been fetched
+        assert call_count == 2
+        # Both observations should be in the result
+        assert len(result) == 2
 
 
 # ---------------------------------------------------------------------------

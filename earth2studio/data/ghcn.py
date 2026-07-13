@@ -821,6 +821,40 @@ class GHCNHourly(_GHCNBase):
     _CACHE_DIR = "ghcnh"
     _SCHEMA_META_KEY = b"ghcnh_name"
 
+    _PARQUET_COLS = [
+        "STATION",
+        "DATE",
+        "LATITUDE",
+        "LONGITUDE",
+        "ELEVATION",
+        "temperature",
+        "dew_point_temperature",
+        "wind_speed",
+        "wind_direction",
+        "wind_gust",
+        "precipitation",
+        "sky_cover_layer_1",
+        "sky_cover_layer_2",
+        "sky_cover_layer_3",
+        "sky_cover_layer_4",
+    ]
+
+    # Mapping from abbreviated sky cover codes to fractional cloud cover (0–1).
+    # Mid-points of each okta range are used for FEW/SCT/BKN.
+    _SKY_COVER_FRACTIONS: dict[str, float] = {
+        "CLR": 0.0,
+        "SKC": 0.0,
+        "CAVOK": 0.0,
+        "NSC": 0.0,
+        "NCD": 0.0,
+        "FEW": 0.1875,  # 1–2 oktas
+        "SCT": 0.4375,  # 3–4 oktas
+        "BKN": 0.75,  # 5–7 oktas
+        "OVC": 1.0,  # 8 oktas
+        "VV": 1.0,  # vertical visibility / sky obscured
+        "OVX": 1.0,
+    }
+
     SCHEMA = pa.schema(
         [
             pa.field("time", pa.timestamp("ns"), metadata={"ghcnh_name": "DATE"}),
@@ -898,6 +932,7 @@ class GHCNHourly(_GHCNBase):
             await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
+        self._validate_time(time)
         schema = self.resolve_fields(fields)
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
@@ -906,9 +941,19 @@ class GHCNHourly(_GHCNBase):
                 raise KeyError(f"variable id {v} not found in GHCNHourly lexicon")
 
         async with managed_session(self.fs):
-            # Build unique (station, year) pairs needed
+            # Build unique (station, year) pairs, covering all years touched by
+            # the tolerance window so cross-year windows (e.g. Jan 1 - 72h)
+            # don't silently drop observations from the previous year.
             station_year_pairs = sorted(
-                {(s, dt.year) for s in self.stations for dt in time}
+                {
+                    (s, yr)
+                    for s in self.stations
+                    for dt in time
+                    for yr in range(
+                        (dt + self._tolerance_lower).year,
+                        (dt + self._tolerance_upper).year + 1,
+                    )
+                }
             )
 
             coros = [
@@ -942,13 +987,13 @@ class GHCNHourly(_GHCNBase):
                 tmin = dt + self._tolerance_lower
                 tmax = dt + self._tolerance_upper
 
-                df = partition_map.get((station, dt.year))
-                if df is None or df.empty:
-                    continue
-
-                df_window = df[(df["DATE"] >= tmin) & (df["DATE"] <= tmax)]
-                if not df_window.empty:
-                    filtered_df.append(df_window)
+                for yr in range(tmin.year, tmax.year + 1):
+                    df = partition_map.get((station, yr))
+                    if df is None or df.empty:
+                        continue
+                    df_window = df[(df["DATE"] >= tmin) & (df["DATE"] <= tmax)]
+                    if not df_window.empty:
+                        filtered_df.append(df_window)
 
         if len(filtered_df) == 0:
             return pd.DataFrame(columns=schema.names)
@@ -968,25 +1013,6 @@ class GHCNHourly(_GHCNBase):
         result.attrs["source"] = self.SOURCE_ID
 
         return result
-
-    # Columns read from each GHCNh parquet file
-    _PARQUET_COLS = [
-        "STATION",
-        "DATE",
-        "LATITUDE",
-        "LONGITUDE",
-        "ELEVATION",
-        "temperature",
-        "dew_point_temperature",
-        "wind_speed",
-        "wind_direction",
-        "wind_gust",
-        "precipitation",
-        "sky_cover_layer_1",
-        "sky_cover_layer_2",
-        "sky_cover_layer_3",
-        "sky_cover_layer_4",
-    ]
 
     async def _fetch_station_year(self, station_id: str, year: int) -> pd.DataFrame:
         """Fetch and cache parquet for a single station and year from GHCNh.
@@ -1013,15 +1039,17 @@ class GHCNHourly(_GHCNBase):
         parquet_path = os.path.join(self.cache, f"{cache_hash}.parquet")
 
         if self._cache and os.path.isfile(parquet_path):
-            df = await asyncio.to_thread(pd.read_parquet, parquet_path)
+            df = pd.read_parquet(parquet_path)
         else:
             try:
                 data = await self.fs._cat_file(url)
-                df = await asyncio.to_thread(
-                    pd.read_parquet, io.BytesIO(data), columns=self._PARQUET_COLS
-                )
+                buf = io.BytesIO(data)
+                available = pq.read_schema(buf).names
+                buf.seek(0)
+                cols = [c for c in self._PARQUET_COLS if c in available]
+                df = pd.read_parquet(buf, columns=cols)
                 df["DATE"] = pd.to_datetime(df["DATE"])
-                await asyncio.to_thread(df.to_parquet, parquet_path, index=False)
+                df.to_parquet(parquet_path, index=False)
             except FileNotFoundError:
                 if self._verbose:
                     logger.warning(
@@ -1051,26 +1079,6 @@ class GHCNHourly(_GHCNBase):
                     f"1901-01-01 for GHCNh data source"
                 )
 
-    # ================
-    # Variable computation
-    # ================
-
-    # Mapping from abbreviated sky cover codes to fractional cloud cover (0–1).
-    # Mid-points of each okta range are used for FEW/SCT/BKN.
-    _SKY_COVER_FRACTIONS: dict[str, float] = {
-        "CLR": 0.0,
-        "SKC": 0.0,
-        "CAVOK": 0.0,
-        "NSC": 0.0,
-        "NCD": 0.0,
-        "FEW": 0.1875,  # 1–2 oktas
-        "SCT": 0.4375,  # 3–4 oktas
-        "BKN": 0.75,  # 5–7 oktas
-        "OVC": 1.0,  # 8 oktas
-        "VV": 1.0,  # vertical visibility / sky obscured
-        "OVX": 1.0,
-    }
-
     def _add_variables(self, df: pd.DataFrame) -> pd.DataFrame:
         """Compute all earth2studio variable columns from GHCNh parquet columns.
 
@@ -1088,10 +1096,14 @@ class GHCNHourly(_GHCNBase):
             df[var] = mod(pd.to_numeric(src, errors="coerce"))
 
         # u10m / v10m: meteorological convention, direction is where wind blows FROM
-        wind_dir = pd.to_numeric(
-            df["wind_direction"] if "wind_direction" in df.columns else np.nan,
-            errors="coerce",
-        ).where(lambda s: s != 999, np.nan)
+        wind_dir_raw = (
+            df["wind_direction"]
+            if "wind_direction" in df.columns
+            else pd.Series(np.nan, index=df.index)
+        )
+        wind_dir = pd.to_numeric(wind_dir_raw, errors="coerce").where(
+            lambda s: s != 999, np.nan
+        )
         ws = df.get("ws10m", pd.Series(np.nan, index=df.index))
         rad = np.radians(wind_dir)
         valid = wind_dir.notna() & ws.notna()
