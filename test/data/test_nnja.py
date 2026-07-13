@@ -15,7 +15,10 @@
 # limitations under the License.
 
 import shutil
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 
 import numpy as np
@@ -23,8 +26,9 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
+import earth2studio.data._ncep_microwave as ncep_microwave
 import earth2studio.data.nnja as nnja
-from earth2studio.data import NNJAObsConv, utils_ncep
+from earth2studio.data import NNJAObsConv, NNJAObsSat, utils_ncep
 
 pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
 
@@ -661,3 +665,442 @@ def test_nnja_obs_conv_pres_modifier_keeps_station_pressure_only():
 
     assert result["observation"].tolist() == [100000.0, 85000.0, 85000.0, 85000.0]
     assert result["type"].tolist() == [180, 181, 187, 120]
+
+
+@dataclass(frozen=True)
+class _MicrowaveDescriptor:
+    id: int
+
+
+def _decode_microwave_pairs(
+    pairs: list[tuple[int, Any]],
+    variable_fields: tuple[tuple[str, int], ...],
+    sensor: str = "atms",
+    satellites: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    return ncep_microwave._decode_microwave_subset(
+        [_MicrowaveDescriptor(descriptor) for descriptor, _ in pairs],
+        [value for _, value in pairs],
+        sensor,
+        variable_fields,
+        datetime(2023, 12, 31, 21),
+        datetime(2024, 1, 1, 3),
+        satellites,
+    )
+
+
+def _atms_microwave_pairs() -> list[tuple[int, Any]]:
+    return [
+        (ncep_microwave._YEAR, 2023),
+        (ncep_microwave._MONTH, 12),
+        (ncep_microwave._DAY, 31),
+        (ncep_microwave._HOUR, 21),
+        (ncep_microwave._MINUTE, 2),
+        (ncep_microwave._SECOND, 45.352),
+        (ncep_microwave._LAT_COARSE, 12.3),
+        (ncep_microwave._LON_COARSE, -45.7),
+        (ncep_microwave._LAT_HIGH, 12.34567),
+        (ncep_microwave._LON_HIGH, -45.67891),
+        (ncep_microwave._SAID, 225),
+        (ncep_microwave._SIID, 621),
+        (ncep_microwave._ORBIT_NUMBER, 31702),
+        (ncep_microwave._SCAN_LINE, 8),
+        (ncep_microwave._FOV_NUMBER, 7),
+        (ncep_microwave._SURFACE_ELEVATION, 123.5),
+        (ncep_microwave._SATELLITE_ZENITH, 55.25),
+        (ncep_microwave._BEARING_OR_AZIMUTH, 269.17),
+        (ncep_microwave._SOLAR_ZENITH, 99.47),
+        (ncep_microwave._SOLAR_AZIMUTH, 153.88),
+        (ncep_microwave._GRANULE_QUALITY, 4),
+        (ncep_microwave._SCAN_QUALITY, 17),
+        (ncep_microwave._GEOLOCATION_QUALITY, 1),
+        (ncep_microwave._CHANNEL_NUMBER, 2),
+        (ncep_microwave._CHANNEL_FREQUENCY, 31.4e9),
+        (ncep_microwave._CHANNEL_BANDWIDTH, 180.0e6),
+        (ncep_microwave._ANTENNA_POLARIZATION, 7),
+        (ncep_microwave._ANTENNA_TEMPERATURE, 201.25),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 202.5),
+        (ncep_microwave._NEDT_COLD, 0.12),
+        (ncep_microwave._NEDT_WARM, 0.21),
+        (ncep_microwave._CHANNEL_QUALITY, 2),
+        (ncep_microwave._CHANNEL_NUMBER, 1),
+        (ncep_microwave._CHANNEL_FREQUENCY, 23.8e9),
+        (ncep_microwave._CHANNEL_BANDWIDTH, 270.0e6),
+        (ncep_microwave._ANTENNA_POLARIZATION, 6),
+        (ncep_microwave._ANTENNA_TEMPERATURE, 190.25),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 191.5),
+        (ncep_microwave._NEDT_COLD, 0.09),
+        (ncep_microwave._NEDT_WARM, 0.18),
+        (ncep_microwave._CHANNEL_QUALITY, 1),
+    ]
+
+
+def _microwave_message(pairs: list[tuple[int, Any]]):
+    return _microwave_message_from_subsets([pairs])
+
+
+def _microwave_message_from_subsets(subsets: list[list[tuple[int, Any]]]):
+    template = SimpleNamespace(
+        decoded_descriptors_all_subsets=[
+            [_MicrowaveDescriptor(descriptor) for descriptor, _ in pairs]
+            for pairs in subsets
+        ],
+        decoded_values_all_subsets=[[value for _, value in pairs] for pairs in subsets],
+    )
+    return SimpleNamespace(template_data=SimpleNamespace(value=template))
+
+
+def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
+    rows = _decode_microwave_pairs(
+        _atms_microwave_pairs(),
+        (
+            ("atms", ncep_microwave._BRIGHTNESS_TEMPERATURE),
+            ("atms_antenna_temperature", ncep_microwave._ANTENNA_TEMPERATURE),
+        ),
+    )
+
+    assert [row["sensor_index"] for row in rows] == [2, 2, 1, 1]
+    assert [row["variable"] for row in rows] == [
+        "atms",
+        "atms_antenna_temperature",
+        "atms",
+        "atms_antenna_temperature",
+    ]
+    assert [row["observation"] for row in rows] == pytest.approx(
+        [202.5, 201.25, 191.5, 190.25]
+    )
+    assert all(
+        row["time"] == np.datetime64("2023-12-31T21:02:45.352000000") for row in rows
+    )
+    assert rows[0]["lat"] == pytest.approx(12.34567)
+    assert rows[0]["lon"] == pytest.approx(314.32109)
+    assert rows[0]["location_accuracy"] == "high"
+    assert rows[0]["satellite"] == "n20"
+    assert rows[0]["scan_position"] == 7
+    assert rows[0]["satellite_aza"] == pytest.approx(269.17)
+    assert rows[0]["quality"] == 2
+    assert rows[0]["wavenumber"] == pytest.approx(31.4e9 / ncep_microwave._C_CM_S)
+
+    frame = ncep_microwave._rows_to_dataframe(rows)
+    assert list(frame.columns) == NNJAObsSat.SCHEMA.names
+    assert str(frame["time"].dtype) == "datetime64[ns]"
+    assert str(frame["sensor_index"].dtype) == "uint16[pyarrow]"
+    assert frame["lat"].dtype == np.float32
+    assert frame["observation"].dtype == np.float32
+
+
+@pytest.mark.parametrize("decode_workers,message_count", [(1, 1), (2, 33)])
+def test_ncep_microwave_adapter_serial_and_parallel_batch_paths(
+    tmp_path, monkeypatch, decode_workers, message_count
+):
+    source_path = tmp_path / "atms.bufr"
+    source_path.write_bytes(b"synthetic")
+    decoder = SimpleNamespace(
+        process=lambda _message: _microwave_message(_atms_microwave_pairs())
+    )
+    monkeypatch.setattr(ncep_microwave, "get_worker_decoder", lambda: decoder)
+    monkeypatch.setattr(
+        ncep_microwave,
+        "parse_prepbufr_messages",
+        lambda _data: ({1: ("B",)}, {1: ("D",)}, [(b"message", 0)] * message_count),
+    )
+    initialized = []
+    monkeypatch.setattr(
+        ncep_microwave,
+        "init_decode_worker",
+        lambda table_b, table_d: initialized.append((table_b, table_d)),
+    )
+
+    class _Executor:
+        def __init__(self, *, max_workers, initializer, initargs):
+            assert max_workers == 2
+            assert initializer is ncep_microwave.init_decode_worker
+            assert initargs == ({1: ("B",)}, {1: ("D",)})
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def map(self, function, arguments):
+            return map(function, arguments)
+
+    monkeypatch.setattr(ncep_microwave, "ProcessPoolExecutor", _Executor)
+    frame = ncep_microwave._NCEPMicrowaveAdapter(decode_workers).decode_file(
+        str(source_path),
+        "atms",
+        {"atms": "TMBR"},
+        datetime(2023, 12, 31, 21),
+        datetime(2024, 1, 1, 3),
+    )
+
+    assert len(frame) == 2 * message_count
+    assert frame["sensor_index"].tolist() == [2, 1] * message_count
+    assert frame["source_message_index"].tolist() == [
+        message_index for message_index in range(message_count) for _channel in range(2)
+    ]
+    assert frame["source_subset_index"].tolist() == [0] * (2 * message_count)
+    assert initialized == ([({1: ("B",)}, {1: ("D",)})] if decode_workers == 1 else [])
+
+
+def test_ncep_microwave_message_provenance_preserves_satellite_prefix_visibility(
+    monkeypatch,
+):
+    def pairs_for(satellite_id):
+        return [
+            (
+                descriptor,
+                satellite_id if descriptor == ncep_microwave._SAID else value,
+            )
+            for descriptor, value in _atms_microwave_pairs()
+        ]
+
+    message = _microwave_message_from_subsets(
+        [pairs_for(223), pairs_for(223), pairs_for(3), pairs_for(223)]
+    )
+    monkeypatch.setattr(
+        ncep_microwave,
+        "get_worker_decoder",
+        lambda: SimpleNamespace(process=lambda _message: message),
+    )
+    rows, failures = ncep_microwave._decode_message_batch(
+        (
+            "mhs",
+            [(17, b"message")],
+            (("mhs", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
+            datetime(2023, 12, 31, 21),
+            datetime(2024, 1, 1, 3),
+            None,
+        )
+    )
+
+    assert failures == 0
+    assert [row["source_message_index"] for row in rows] == [17] * 8
+    assert [row["source_subset_index"] for row in rows] == [
+        0,
+        0,
+        1,
+        1,
+        2,
+        2,
+        3,
+        3,
+    ]
+    assert [row["source_message_initial_satellite_id"] for row in rows] == [223] * 8
+    assert [row["source_message_initial_satellite_count"] for row in rows] == [2] * 8
+    visible = [
+        row["satellite_id"] == row["source_message_initial_satellite_id"]
+        and row["source_subset_index"] < row["source_message_initial_satellite_count"]
+        for row in rows
+    ]
+    assert visible == [True, True, True, True, False, False, False, False]
+
+
+def test_ncep_microwave_adapter_rejects_missing_tables_and_failed_messages(
+    tmp_path, monkeypatch
+):
+    source_path = tmp_path / "atms.bufr"
+    source_path.write_bytes(b"synthetic")
+    adapter = ncep_microwave._NCEPMicrowaveAdapter(1)
+
+    monkeypatch.setattr(
+        ncep_microwave,
+        "parse_prepbufr_messages",
+        lambda _data: ({}, {}, []),
+    )
+    with pytest.raises(ValueError, match="tables are missing"):
+        adapter.decode_file(
+            str(source_path),
+            "atms",
+            {"atms": "TMBR"},
+            datetime(2024, 1, 1),
+            datetime(2024, 1, 1),
+        )
+
+    monkeypatch.setattr(
+        ncep_microwave,
+        "parse_prepbufr_messages",
+        lambda _data: ({1: ("B",)}, {1: ("D",)}, [(b"message", 0)]),
+    )
+    monkeypatch.setattr(ncep_microwave, "init_decode_worker", lambda *_args: None)
+    monkeypatch.setattr(
+        ncep_microwave,
+        "get_worker_decoder",
+        lambda: SimpleNamespace(
+            process=lambda _message: (_ for _ in ()).throw(ValueError())
+        ),
+    )
+    with pytest.raises(ValueError, match="No BUFR messages"):
+        adapter.decode_file(
+            str(source_path),
+            "atms",
+            {"atms": "TMBR"},
+            datetime(2024, 1, 1),
+            datetime(2024, 1, 1),
+        )
+
+
+def test_nnja_obs_sat_decode_uses_coarse_location_and_preserves_missingness():
+    pairs = [
+        (ncep_microwave._YEAR, 2024),
+        (ncep_microwave._MONTH, 1),
+        (ncep_microwave._DAY, 1),
+        (ncep_microwave._HOUR, 0),
+        (ncep_microwave._MINUTE, 0),
+        (ncep_microwave._SECOND, 1),
+        (ncep_microwave._LAT_COARSE, -1.2286),
+        (ncep_microwave._LON_COARSE, -2.8979),
+        (ncep_microwave._SAID, 3),
+        (ncep_microwave._SIID, 203),
+        (ncep_microwave._FOV_NUMBER, 1),
+        (ncep_microwave._CHANNEL_NUMBER, 1),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 272.02),
+        (ncep_microwave._CHANNEL_NUMBER, 2),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, None),
+    ]
+    rows = _decode_microwave_pairs(
+        pairs,
+        (("mhs", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
+        sensor="mhs",
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["location_accuracy"] == "coarse"
+    assert rows[0]["satellite"] == "metop-b"
+    assert rows[0]["observation"] == pytest.approx(272.02)
+    assert rows[0]["quality"] is None
+    assert np.isnan(rows[0]["channel_frequency"])
+
+    assert not _decode_microwave_pairs(
+        pairs,
+        (("mhs", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
+        sensor="mhs",
+        satellites=frozenset(["n19"]),
+    )
+
+
+@pytest.mark.asyncio
+async def test_nnja_obs_sat_fetch_uses_foundation_store(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    source = NNJAObsSat(cache=True, verbose=False, decode_workers=1)
+    local_path = tmp_path / "atms.bufr"
+    local_path.write_bytes(b"fixture")
+    monkeypatch.setattr(source._store, "local_path", lambda _uri: str(local_path))
+
+    rows = _decode_microwave_pairs(
+        _atms_microwave_pairs(),
+        (("atms", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
+    )
+    decoded = ncep_microwave._rows_to_dataframe(rows)
+
+    async def fetch_files(_uris):
+        return None
+
+    monkeypatch.setattr(source._store, "fetch_files", fetch_files)
+    monkeypatch.setattr(source._microwave_adapter, "decode_file", lambda *args: decoded)
+
+    result = await source.fetch(
+        datetime(2024, 1, 1),
+        "atms",
+        fields=["time", "observation", "variable"],
+    )
+
+    assert list(result.columns) == ["time", "observation", "variable"]
+    assert len(result) == 2
+    assert result.attrs == {"source": NNJAObsSat.SOURCE_ID}
+
+
+def test_nnja_obs_sat_decode_rejects_incomplete_or_out_of_window_subsets():
+    missing_fov = [
+        pair
+        for pair in _atms_microwave_pairs()
+        if pair[0] != ncep_microwave._FOV_NUMBER
+    ]
+    assert not _decode_microwave_pairs(
+        missing_fov,
+        (("atms", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
+    )
+
+    out_of_window = [
+        (descriptor, 12 if descriptor == ncep_microwave._HOUR else value)
+        for descriptor, value in _atms_microwave_pairs()
+    ]
+    assert not _decode_microwave_pairs(
+        out_of_window,
+        (("atms", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
+    )
+
+
+def test_nnja_obs_sat_tasks_group_fields_and_use_verified_archive_routes():
+    source = NNJAObsSat(
+        time_tolerance=(timedelta(hours=-3), timedelta(hours=2)),
+        cache=False,
+        verbose=False,
+        decode_workers=1,
+    )
+    cycle = datetime(2024, 1, 1)
+    tasks = source._create_tasks(
+        [cycle], ["atms", "atms_antenna_temperature", "mhs", "amsua"]
+    )
+
+    assert len(tasks) == 3
+    atms = next(task for task in tasks if task.sensor == "atms")
+    assert atms.var_plan == {
+        "atms": "TMBR",
+        "atms_antenna_temperature": "TMANT",
+    }
+    assert atms.datetime_min == cycle - timedelta(hours=3)
+    assert atms.datetime_max == cycle + timedelta(hours=2)
+    assert atms.s3_uri.endswith("gdas.20240101.t00z.atms.tm00.bufr_d")
+
+
+def test_nnja_obs_sat_cycle_windows_follow_aggregate_file_coverage():
+    source = NNJAObsSat(cache=False, verbose=False, decode_workers=1)
+    requested = datetime(2024, 1, 1)
+    tasks = source._create_tasks([requested, requested], ["atms"])
+    assert [task.datetime_file for task in tasks] == [requested]
+
+    source = NNJAObsSat(
+        time_tolerance=(timedelta(hours=-21), timedelta(hours=3)),
+        cache=False,
+        verbose=False,
+        decode_workers=1,
+    )
+    tasks = source._create_tasks([requested], ["atms"])
+    assert [task.datetime_file for task in tasks] == [
+        datetime(2023, 12, 31, 6),
+        datetime(2023, 12, 31, 12),
+        datetime(2023, 12, 31, 18),
+        requested,
+    ]
+
+
+def test_nnja_obs_sat_fields_time_platform_and_adapter_validation():
+    source = NNJAObsSat(cache=False, verbose=False, decode_workers=1)
+    assert issubclass(NNJAObsSat, nnja._NCEPObsSourceBase)
+    assert isinstance(source._nnja_store, nnja._NNJAObsStore)
+    assert source._store is source._nnja_store
+    assert NNJAObsSat.available(datetime(2024, 1, 1, 6))
+    assert NNJAObsSat.available(np.datetime64("2024-01-01T12:00"))
+    assert not NNJAObsSat.available(datetime(2024, 1, 1, 1))
+    assert not NNJAObsSat.available(datetime(1997, 1, 1))
+    assert NNJAObsSat.resolve_fields(["time", "observation"]).names == [
+        "time",
+        "observation",
+    ]
+
+    with pytest.raises(ValueError, match="Invalid satellite"):
+        NNJAObsSat(satellites=["unknown"])
+    with pytest.raises(KeyError):
+        NNJAObsSat.resolve_fields(["scan_angle"])
+    with pytest.raises(TypeError):
+        NNJAObsSat.resolve_fields(pa.schema([pa.field("lat", pa.float64())]))
+    with pytest.raises(KeyError):
+        ncep_microwave._NCEPMicrowaveAdapter(1).decode_file(
+            "not-read.bufr",
+            "atms",
+            {"atms": "UNKNOWN"},
+            datetime(2024, 1, 1),
+            datetime(2024, 1, 1),
+        )

@@ -29,13 +29,18 @@ import shutil
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
 import s3fs  # type: ignore[import-untyped]
 from loguru import logger
 
+from earth2studio.data._ncep_microwave import (
+    _NCEP_MICROWAVE_PUBLIC_SCHEMA,
+    _NCEP_MICROWAVE_SATELLITES,
+    _NCEPMicrowaveAdapter,
+)
 from earth2studio.data.ncep_obs import _NCEPObsSourceBase
 from earth2studio.data.utils import (
     async_retry,
@@ -50,12 +55,26 @@ from earth2studio.data.utils_ncep import (
     _NCEPPrepbufrAdapter,
     map_aircraft_profile_types,
 )
-from earth2studio.lexicon import NNJAObsConvLexicon
+from earth2studio.lexicon import NNJAObsConvLexicon, NNJAObsSatLexicon
 from earth2studio.utils.imports import check_optional_dependencies
 from earth2studio.utils.type import TimeTolerance
 
 NNJA_BUCKET = "noaa-reanalyses-pds"
 NNJA_PREFIX = "observations/reanalysis"
+
+
+@dataclass(frozen=True)
+class _NNJASatProduct:
+    prefix: str
+    filename: str
+    first_year: int
+
+
+_NNJA_SAT_PRODUCTS: dict[str, _NNJASatProduct] = {
+    "atms": _NNJASatProduct("atms/atms", "atms", 2012),
+    "mhs": _NNJASatProduct("mhs/1bmhs", "1bmhs", 2005),
+    "amsua": _NNJASatProduct("amsua/1bamua", "1bamua", 1998),
+}
 
 # ── Async-task dataclasses ──────────────────────────────────────────
 
@@ -84,6 +103,18 @@ class _NNJAGpsRoTask:
     var_plan: dict[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]] = field(
         default_factory=dict
     )
+
+
+@dataclass
+class _NNJASatTask:
+    """Async task for one aggregate microwave cycle file."""
+
+    s3_uri: str
+    datetime_file: datetime
+    datetime_min: datetime
+    datetime_max: datetime
+    sensor: str
+    var_plan: dict[str, str] = field(default_factory=dict)
 
 
 class _NNJAObsStore:
@@ -540,5 +571,201 @@ class NNJAObsConv(_NNJAObsSourceBase):
             task.var_plan,
             task.datetime_min,
             task.datetime_max,
+        )
+        return frame[self.SCHEMA.names]
+
+
+@check_optional_dependencies(BUFR_DEPENDENCY_KEY)
+class NNJAObsSat(_NNJAObsSourceBase):
+    """NNJA aggregate microwave satellite observations.
+
+    This source reads the NCEP aggregate ATMS, MHS, and AMSU-A BUFR products.
+    It returns one long-format row per finite encoded channel value while
+    preserving the source time, physical channel number, platform, field of
+    view, location, view and solar geometry, quality metadata, and raw
+    message/subset provenance. Values are returned as encoded; this source does
+    not apply instrument processing, quality screening, or thinning.
+
+    ATMS exposes encoded ``TMBR`` through ``"atms"`` and the distinct encoded
+    ``TMANT`` field through ``"atms_antenna_temperature"``. MHS and AMSU-A
+    expose the NCEP normal-feed ``TMBR`` value unchanged. Despite its name, GSI
+    documents this slot as antenna temperature for most microwave sounders and
+    optionally converts it to scene brightness temperature when ``ta2tb`` is
+    enabled. Producer/platform exceptions include NOAA-15/16. This source does
+    not apply the GSI conversion. AMSU-B uses the same GSI reader family but is
+    not exposed by this data source.
+
+    Parameters
+    ----------
+    time_tolerance : TimeTolerance, optional
+        Time tolerance window for filtering observations. Accepts a single
+        value (symmetric +/- window) or a tuple (lower, upper) for asymmetric
+        windows, by default ``np.timedelta64(3, "h")``.
+    satellites : list[str] | None, optional
+        Satellite platforms to include. ``None`` includes every platform in
+        the requested aggregate files.
+    cache : bool, optional
+        Cache downloaded files in the local filesystem cache, by default True.
+    verbose : bool, optional
+        Show progress bars, by default True.
+    async_timeout : int, optional
+        Total timeout in seconds for the async fetch, by default 600.
+    async_workers : int, optional
+        Maximum number of concurrent async fetch tasks, by default 8.
+    decode_workers : int, optional
+        Number of parallel processes for BUFR message decoding. Set to 1 to
+        disable multiprocessing, by default 8.
+    retries : int, optional
+        Number of retry attempts per failed fetch task with exponential
+        backoff, by default 3.
+
+    Warning
+    -------
+    Aggregate cycle files contain millions of footprints. Broad long-format
+    requests can require substantial memory.
+
+    Note
+    ----
+    Additional information on the archive is available from:
+
+    - https://psl.noaa.gov/data/nnja_obs/
+    - https://registry.opendata.aws/noaa-reanalyses-pds/
+
+    The normal-feed microwave temperature convention and ``ta2tb`` conversion
+    are documented in NOAA-EMC GSI:
+
+    - https://github.com/NOAA-EMC/GSI/blob/860d13740352004fca0136a8c3d0ac9dea30e0da/src/gsi/read_bufrtovs.f90#L754-L823
+
+    Badges
+    ------
+    region:global dataclass:observation product:atmos product:sat
+    """
+
+    SOURCE_ID = "earth2studio.data.NNJAObsSat"
+    SCHEMA = _NCEP_MICROWAVE_PUBLIC_SCHEMA
+    MIN_DATE = datetime(1998, 1, 1)
+    VALID_SATELLITES = _NCEP_MICROWAVE_SATELLITES
+
+    def __init__(
+        self,
+        time_tolerance: TimeTolerance = np.timedelta64(3, "h"),
+        satellites: list[str] | None = None,
+        cache: bool = True,
+        verbose: bool = True,
+        async_timeout: int = 600,
+        async_workers: int = 8,
+        decode_workers: int = 8,
+        retries: int = 3,
+    ) -> None:
+        if satellites is None:
+            self._satellites: tuple[str, ...] | None = None
+        else:
+            invalid = set(satellites) - self.VALID_SATELLITES
+            if invalid:
+                raise ValueError(
+                    f"Invalid satellite(s): {sorted(invalid)}. "
+                    f"Valid options: {sorted(self.VALID_SATELLITES)}"
+                )
+            self._satellites = tuple(sorted(set(satellites)))
+
+        super().__init__(
+            time_tolerance=time_tolerance,
+            cache=cache,
+            verbose=verbose,
+            async_timeout=async_timeout,
+            async_workers=async_workers,
+            decode_workers=decode_workers,
+            retries=retries,
+        )
+        self._microwave_adapter = _NCEPMicrowaveAdapter(self._decode_workers)
+
+    @staticmethod
+    def _task_uri(task: _NNJASatTask) -> str:
+        return task.s3_uri
+
+    def _create_tasks(
+        self, time_list: list[datetime], variable: list[str]
+    ) -> list[_NNJASatTask]:
+        variables_by_sensor: dict[str, dict[str, str]] = {}
+        for variable_name in variable:
+            source_key, _modifier = NNJAObsSatLexicon[variable_name]  # type: ignore[misc]
+            sensor, separator, source_field = source_key.partition("::")
+            if not separator or sensor not in _NNJA_SAT_PRODUCTS or not source_field:
+                raise ValueError(f"Invalid NNJA satellite lexicon key: {source_key}")
+            variables_by_sensor.setdefault(sensor, {})[variable_name] = source_field
+
+        windows = self._cycle_windows(time_list)
+        tasks: list[_NNJASatTask] = []
+        for sensor, var_plan in variables_by_sensor.items():
+            product = _NNJA_SAT_PRODUCTS[sensor]
+            for cycle, (datetime_min, datetime_max) in sorted(windows.items()):
+                if cycle.year < product.first_year:
+                    logger.warning(
+                        f"{sensor} is not archived for cycle {cycle:%Y-%m-%d %HZ}"
+                    )
+                    continue
+                tasks.append(
+                    _NNJASatTask(
+                        s3_uri=self._build_satellite_uri(cycle, sensor),
+                        datetime_file=cycle,
+                        datetime_min=datetime_min,
+                        datetime_max=datetime_max,
+                        sensor=sensor,
+                        var_plan=var_plan,
+                    )
+                )
+        return tasks
+
+    def _cycle_windows(
+        self, time_list: list[datetime]
+    ) -> dict[datetime, tuple[datetime, datetime]]:
+        """Map requested windows to aggregate files with +/-3-hour coverage."""
+        windows: dict[datetime, tuple[datetime, datetime]] = {}
+        interval = timedelta(hours=6)
+        half_interval = timedelta(hours=3)
+        for requested in time_list:
+            datetime_min = requested + self._tolerance_lower
+            datetime_max = requested + self._tolerance_upper
+            coverage_min = datetime_min - half_interval
+            coverage_max = datetime_max + half_interval
+            cycle = coverage_min.replace(minute=0, second=0, microsecond=0)
+            cycle = cycle.replace(hour=(cycle.hour // 6) * 6)
+            if cycle <= coverage_min:
+                cycle += interval
+            while cycle < coverage_max:
+                existing = windows.get(cycle)
+                windows[cycle] = (
+                    (
+                        min(existing[0], datetime_min),
+                        max(existing[1], datetime_max),
+                    )
+                    if existing is not None
+                    else (datetime_min, datetime_max)
+                )
+                cycle += interval
+        return windows
+
+    @staticmethod
+    def _build_satellite_uri(cycle: datetime, sensor: str) -> str:
+        """Build the NNJA S3 URI for one aggregate microwave cycle."""
+        product = _NNJA_SAT_PRODUCTS[sensor]
+        return (
+            f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/{product.prefix}/"
+            f"{cycle:%Y/%m}/bufr/gdas.{cycle:%Y%m%d}.t{cycle:%H}z."
+            f"{product.filename}.tm00.bufr_d"
+        )
+
+    def _handle_missing_file(self, path: str) -> None:
+        """Warn instead of raising when an aggregate cycle file is absent."""
+        logger.warning(f"NNJA satellite file {path} not found, skipping")
+
+    def _decode_file(self, local_path: str, task: _NNJASatTask) -> pd.DataFrame:
+        frame = self._microwave_adapter.decode_file(
+            local_path,
+            task.sensor,
+            task.var_plan,
+            task.datetime_min,
+            task.datetime_max,
+            self._satellites,
         )
         return frame[self.SCHEMA.names]

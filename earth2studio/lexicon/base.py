@@ -313,6 +313,7 @@ E2STUDIO_VOCAB = {
     "viirs15m": "VIIRS M15 - LWIR (10.76 µm)",
     "viirs16m": "VIIRS M16 - LWIR (12.01 µm)",
     "atms": "Advanced Technology Microwave Sounder brightness temperature (K)",
+    "atms_antenna_temperature": "Advanced Technology Microwave Sounder antenna temperature (K)",
     "avhrr": "AVHRR/3 calibrated observation (reflectance percent or brightness temperature K)",
     "airs": "Atmospheric Infrared Sounder brightness temperature (K)",
     "amsua": "Advanced Microwave Sounding Unit-A brightness temperature (K)",
