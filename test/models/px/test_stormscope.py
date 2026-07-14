@@ -65,6 +65,8 @@ def create_spoof_model(
     sliding_window=False,
     input_interp=True,
     conditioning_interp=True,
+    amp=False,
+    compile=False,
 ):
     """Create a spoof StormScope model for testing"""
     # Create simple lat/lon grids
@@ -76,11 +78,14 @@ def create_spoof_model(
     # Create spoof models
     diffusion = PhooStormScopeDiffusionModel(nvar=nvar)
 
-    # Model spec for staged denoising
+    # Model spec for staged denoising. Use a small positive sigma_min (as the real
+    # packaged checkpoints do, e.g. 0.001) rather than exactly 0.0: a zero sigma_min
+    # puts a real 0 into the EDM noise schedule, making the Euler update divide by
+    # t_hat == 0 and producing NaNs. Only the appended t_N == 0 is meant to be zero.
     model_spec = [
         {
             "model": diffusion,
-            "sigma_min": 0.0,
+            "sigma_min": 0.001,
             "sigma_max": 88.0,
         }
     ]
@@ -130,6 +135,8 @@ def create_spoof_model(
         output_times=output_times,
         y_coords=y,
         x_coords=x,
+        amp=amp,
+        compile=compile,
     ).to(device)
 
     if input_interp:
@@ -192,6 +199,53 @@ def test_stormscope_call(time, device, batch):
     handshake_dim(out_coords, "lead_time", 2)
     handshake_dim(out_coords, "time", 1)
     handshake_dim(out_coords, "batch", 0)
+
+
+@pytest.mark.parametrize("amp", [False, True])
+@pytest.mark.parametrize("compile", [False, True])
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormscope_amp_compile(amp, compile, device):
+    """AMP autocast and torch.compile should leave inference behavior intact."""
+    nvar = 8
+    nvar_cond = 1
+    h, w = 32, 64
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+
+    model = create_spoof_model(
+        nvar=nvar,
+        nvar_cond=nvar_cond,
+        h=h,
+        w=w,
+        device=device,
+        amp=amp,
+        compile=compile,
+    )
+
+    # Flags are recorded on the model; compilation is idempotent.
+    assert model.amp == amp
+    assert model._experts_compiled == compile
+    if compile:
+        # Re-compiling an already-compiled model is a no-op (idempotent). We only
+        # check this when compile=True; calling compile_experts() on an
+        # uncompiled model would (correctly) compile it and flip the flag.
+        model.compile_experts()
+        assert model._experts_compiled == compile
+
+    dc = OrderedDict([("y", model.y), ("x", model.x)])
+    r = Random(dc)
+    lead_time = model.input_coords()["lead_time"]
+    variable = model.input_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = x.unsqueeze(0)
+    coords.update({"batch": np.arange(1)})
+    coords.move_to_end("batch", last=False)
+
+    out, out_coords = model(x, coords)
+
+    # Output is unchanged in shape/dtype and finite regardless of the flags.
+    assert out.shape == torch.Size([1, len(time), 1, nvar, h, w])
+    assert out.dtype == x.dtype
+    assert torch.isfinite(out).all()
 
 
 @pytest.mark.parametrize(
@@ -654,6 +708,150 @@ def test_stormscope_package_loading():
     assert out.shape == torch.Size(expected_shape)
     assert np.array_equal(out_coords["lead_time"], expected_coords["lead_time"])
     assert (out_coords["variable"] == expected_coords["variable"]).all()
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormscope_mrms_input_invalid_fill(device):
+    """Invalid out-of-coverage pixels are zero-filled after normalization by default."""
+    h, w = 32, 64
+    y = np.arange(h)
+    x = np.arange(w)
+    lat = torch.linspace(25, 50, h).unsqueeze(1).repeat(1, w)
+    lon = torch.linspace(-120, -80, w).unsqueeze(0).repeat(h, 1)
+
+    nvar = 2
+    diffusion = PhooStormScopeDiffusionModel(nvar=nvar)
+    model_spec = [{"model": diffusion, "sigma_min": 0.0, "sigma_max": 88.0}]
+
+    means = torch.tensor([[[[8.839]], [[7.278]]]])  # shape [1, 2, 1, 1]
+    stds = torch.tensor([[[[8.846]], [[5.295]]]])
+    variables = np.array(["refc", "refc_base"])
+
+    model = StormScopeMRMS(
+        model_spec=model_spec,
+        means=means,
+        stds=stds,
+        latitudes=lat,
+        longitudes=lon,
+        variables=variables,
+        conditioning_variables=None,
+        conditioning_means=None,
+        conditioning_stds=None,
+        sampler_args={"num_steps": 2},
+        y_coords=y,
+        x_coords=x,
+    ).to(device)
+
+    assert model._INPUT_INVALID_FILL_CONSTANT == 0.0
+
+    # Mask the top-left quadrant as invalid
+    mask = torch.ones(h, w, dtype=torch.bool, device=device)
+    mask[: h // 2, : w // 2] = False
+    model.register_buffer("valid_mask", mask)
+
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    # Use a non-zero input so that the normalized value differs from the fill.
+    x_in = torch.full((1, len(time), 1, nvar, h, w), 20.0, device=device)
+
+    # Directly verify: after normalization, invalid pixels should be zero-filled.
+    x_norm = model._normalize_state(x_in)
+    x_norm_val = x_norm[0, 0, 0, :, 0, 0]  # [C], one per channel
+
+    filled = torch.where(mask, x_norm, 0.0)
+
+    invalid_region = ~mask  # [H, W]
+    valid_region = mask
+    for c in range(nvar):
+        inv_vals = filled[0, 0, 0, c][invalid_region]
+        assert torch.allclose(inv_vals, torch.zeros_like(inv_vals))
+        val_vals = filled[0, 0, 0, c][valid_region]
+        assert torch.allclose(
+            val_vals, x_norm_val[c].expand_as(val_vals)
+        ), f"channel {c}: valid pixels should retain the normalized input value"
+
+    # Legacy nearcast checkpoints use the -10 dBZ normalized fill constant.
+    model_legacy = StormScopeMRMS(
+        model_spec=model_spec,
+        means=means,
+        stds=stds,
+        latitudes=lat,
+        longitudes=lon,
+        variables=variables,
+        conditioning_variables=None,
+        conditioning_means=None,
+        conditioning_stds=None,
+        sampler_args={"num_steps": 2},
+        y_coords=y,
+        x_coords=x,
+    ).to(device)
+    model_legacy._INPUT_INVALID_FILL_CONSTANT = (
+        StormScopeMRMS._LEGACY_INPUT_INVALID_FILL_CONSTANT
+    )
+    assert model_legacy._INPUT_INVALID_FILL_CONSTANT == (
+        StormScopeMRMS._LEGACY_INPUT_INVALID_FILL_CONSTANT
+    )
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormscope_mrms_coverage_mask(device):
+    """mrms_coverage_mask is used as initial valid_mask and ANDed with the interpolator mask."""
+    h, w = 32, 64
+    y = np.arange(h)
+    x = np.arange(w)
+    lat = torch.linspace(25, 50, h).unsqueeze(1).repeat(1, w)
+    lon = torch.linspace(-120, -80, w).unsqueeze(0).repeat(h, 1)
+
+    diffusion = PhooStormScopeDiffusionModel(nvar=1)
+    model_spec = [{"model": diffusion, "sigma_min": 0.0, "sigma_max": 88.0}]
+    means = torch.zeros(1, 1, 1, 1)
+    stds = torch.ones(1, 1, 1, 1)
+
+    # Coverage mask: only the right half is valid
+    coverage = torch.zeros(h, w, dtype=torch.bool)
+    coverage[:, w // 2 :] = True
+
+    model = StormScopeMRMS(
+        model_spec=model_spec,
+        means=means,
+        stds=stds,
+        latitudes=lat,
+        longitudes=lon,
+        variables=np.array(["refc"]),
+        conditioning_variables=None,
+        conditioning_means=None,
+        conditioning_stds=None,
+        mrms_coverage_mask=coverage,
+        sampler_args={"num_steps": 2},
+        y_coords=y,
+        x_coords=x,
+    ).to(device)
+
+    # Before any interpolator: valid_mask should equal the coverage mask
+    assert model.valid_mask.shape == torch.Size([h, w])
+    assert torch.equal(model.valid_mask.cpu(), coverage)
+
+    # After build_input_interpolator with the same grid: interpolator mask is
+    # all-True (every point is within range of itself), so ANDing should yield
+    # exactly the coverage mask.
+    model.build_input_interpolator(lat, lon, max_dist_km=6.0)
+    assert torch.equal(
+        model.valid_mask.cpu(), coverage.to(device=model.valid_mask.device).cpu()
+    )
+
+    # Build an interpolator whose source grid covers only the left half of the
+    # domain. With a tight max_dist_km, every right-half target point (>~45 km
+    # from the nearest left-half source point) is out of range and marked invalid
+    # by the interpolator, while left-half points (distance 0) stay valid --
+    # making the interpolator mask exactly complementary to the coverage mask.
+    lat_left = lat[:, : w // 2]
+    lon_left = lon[:, : w // 2]
+    model.build_input_interpolator(lat_left, lon_left, max_dist_km=20.0)
+    # The combined mask should be False everywhere: the coverage mask marks the
+    # right half valid, but the interpolator marks the right half invalid (no
+    # nearby source points), so the AND is all-False.
+    assert (
+        not model.valid_mask.any()
+    ), "Combined mask should be all-False when coverage and interpolator masks are complementary"
 
 
 def create_spoof_nsrdb_model(

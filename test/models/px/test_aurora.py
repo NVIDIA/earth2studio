@@ -141,7 +141,8 @@ def test_aurora_iter(ensemble, device):
         assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert (out_coords["time"] == time).all()
-        assert out_coords["lead_time"] == np.timedelta64(6 * (i + 1), "h")
+        assert out_coords["lead_time"].shape == (1,)
+        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
 
         if i > 5:
             break

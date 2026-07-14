@@ -29,7 +29,6 @@ import shutil
 import time
 import uuid
 from collections.abc import Callable
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -37,7 +36,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-import s3fs
+import s3fs  # type: ignore[import-untyped]
 from loguru import logger
 
 from earth2studio.data.utils import (
@@ -48,140 +47,21 @@ from earth2studio.data.utils import (
     managed_session,
     prep_data_inputs,
 )
-from earth2studio.data.utils_bufr import (
-    HDR_DHR,
-    HDR_ELV,
-    HDR_SID,
-    HDR_TYP,
-    HDR_XOB,
-    HDR_YOB,
-    MNEMONIC_TO_DESCR,
-    OBS_CAT,
-    OBS_POB,
-    OBS_QUALITY_MAP,
-    OBS_UOB,
-    OBS_VOB,
-    OBS_WQM,
-    OBSERVATION_DESCR_IDS,
-    PREPBUFR_OBS_TYPES,
-)
-from earth2studio.data.utils_bufr import (
-    parse_prepbufr_messages as _bufr_parse_prepbufr_messages,
-)
-from earth2studio.data.utils_bufr import (
-    register_dx_tables as _bufr_register_dx_tables,
-)
-from earth2studio.data.utils_bufr import (
-    silence_bufr_noise as _silence_bufr_noise,
+from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
+from earth2studio.data.utils_ncep import (
+    NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
+    _empty_dataframe,
+    _NCEPGpsroAdapter,
+    _NCEPPrepbufrAdapter,
+    map_aircraft_profile_types,
 )
 from earth2studio.lexicon import NNJAObsConvLexicon
-from earth2studio.lexicon.base import E2STUDIO_SCHEMA
-from earth2studio.utils.imports import (
-    OptionalDependencyFailure,
-    check_optional_dependencies,
-)
+from earth2studio.utils.imports import check_optional_dependencies
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
-try:
-    from pybufrkit.decoder import Decoder as BufrDecoder
-except ImportError:
-    OptionalDependencyFailure("data")
-    BufrDecoder = None  # type: ignore[assignment,misc]
-
-
 NNJA_BUCKET = "noaa-reanalyses-pds"
 NNJA_PREFIX = "observations/reanalysis"
-
-
-# ── GPS RO BUFR descriptor IDs (NCEP gpsro encoding) ─────────────────
-#
-# GPSRO is not a PrepBUFR conventional report, so the usual conventional
-# semantics do not apply:
-#
-# - There is no PrepBUFR TYP report type. GSI/UFS diagnostics use the GPSRO
-#   receiver satellite identifier (SAID) in the observation-type slot, so the
-#   decoder stores SAID in the common ``type`` column for GPSRO rows.
-# - There is no conventional 0-15 PrepBUFR quality mark (TQM/QQM/WQM/PQM).
-#   GPSRO carries QFRO, a WMO/NCEP radio-occultation flag table. The decoder
-#   stores QFRO in the common ``quality`` column only so downstream GSI-like
-#   filters can test GPSRO flag bits; it must not be interpreted as ordinary
-#   conventional QM.
-# Header descriptors (per-occultation, scalar)
-_GPSRO_SAID = 1007  # Satellite identifier (receiver); not PrepBUFR report type.
-_GPSRO_PTID = 1050  # Platform transmitter ID (GPS satellite)
-_GPSRO_QFRO = 33039  # GPSRO flag table; not PrepBUFR 0-15 quality mark.
-_GPSRO_ELRC = 10035  # Earth local radius of curvature (m)
-_GPSRO_LAT = 5001  # Latitude (deg)
-_GPSRO_LON = 6001  # Longitude (deg)
-_GPSRO_YEAR = 4001
-_GPSRO_MONTH = 4002
-_GPSRO_DAY = 4003
-_GPSRO_HOUR = 4004
-_GPSRO_MIN = 4005
-_GPSRO_SEC = 4006
-
-# Per-level descriptors
-_GPSRO_MEFR = 2121  # Mean frequency (Hz)
-_GPSRO_IMPP = 7040  # Impact parameter (m), bending-angle level marker
-_GPSRO_BNDA = 15037  # Bending angle (rad)
-_GPSRO_HEIT = 7007  # Height (m), refractivity level marker
-_GPSRO_ARFR = 15036  # Atmospheric refractivity
-_GPSRO_GPHTST = 7009  # Geopotential height (m), retrieval level marker
-_GPSRO_PRES = 10004  # Pressure (Pa)
-_GPSRO_TEMP = 12001  # Air temperature (K)
-_GPSRO_SPFH = 13001  # Specific humidity (kg/kg)
-
-# Descriptor IDs the gpsro decoder pulls out as observations
-_GPSRO_OBS_DESCRS: set[int] = {_GPSRO_BNDA, _GPSRO_TEMP, _GPSRO_SPFH}
-
-_ACFT_PROFILE_UV_TYPE_MAP = {
-    330: 230,
-    430: 230,
-    530: 230,
-    331: 231,
-    431: 231,
-    531: 231,
-    332: 232,
-    432: 232,
-    532: 232,
-    333: 233,
-    433: 233,
-    533: 233,
-    334: 234,
-    434: 234,
-    534: 234,
-    335: 235,
-    435: 235,
-    535: 235,
-}
-
-
-# ── Schemas ─────────────────────────────────────────────────────────
-
-_NNJA_CONV_SCHEMA = pa.schema(
-    [
-        E2STUDIO_SCHEMA.field("time"),
-        E2STUDIO_SCHEMA.field("pres"),
-        E2STUDIO_SCHEMA.field("elev"),
-        pa.field("type", pa.uint16(), nullable=True),
-        # PrepBUFR CAT is NCEP's data-level category mnemonic
-        # (local BUFR descriptor 0-08-193):
-        # https://emc.ncep.noaa.gov/emc/pages/infrastructure/bufrlib/tables/CodeFlag_0_STDv35_LOC7.html
-        # 0=surface, 1=mandatory, 2=sig-temp, 3=wind-by-pressure,
-        # 4=wind-by-height, 5=tropopause, 6=single-level/other, 7=interpolated.
-        # The ``pres`` modifier uses CAT == 0 to select station-pressure rows.
-        pa.field("level_cat", pa.uint16(), nullable=True),
-        E2STUDIO_SCHEMA.field("class"),
-        E2STUDIO_SCHEMA.field("lat"),
-        E2STUDIO_SCHEMA.field("lon"),
-        E2STUDIO_SCHEMA.field("station"),
-        E2STUDIO_SCHEMA.field("station_elev"),
-        E2STUDIO_SCHEMA.field("quality"),
-        E2STUDIO_SCHEMA.field("observation"),
-        E2STUDIO_SCHEMA.field("variable"),
-    ]
-)
 
 # ── Async-task dataclasses ──────────────────────────────────────────
 
@@ -207,7 +87,6 @@ class _NNJAGpsRoTask:
     datetime_file: datetime
     datetime_min: datetime
     datetime_max: datetime
-    # Map var_name -> (bufr_descriptor_id, modifier)
     var_plan: dict[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]] = field(
         default_factory=dict
     )
@@ -334,6 +213,7 @@ class _NNJAObsBase:
             )
 
         df = self._compile_dataframe(async_tasks, variable_list, schema)
+        df.attrs["source"] = self.SOURCE_ID
         return df
 
     # ------------------------------------------------------------------
@@ -406,9 +286,7 @@ class _NNJAObsBase:
         )
 
         if not frames:
-            return pd.DataFrame(
-                {name: pd.Series(dtype=object) for name in self.SCHEMA.names}
-            )[[name for name in schema.names if name in self.SCHEMA.names]]
+            return _empty_dataframe(self.SCHEMA)[schema.names]
 
         result = pd.concat(frames, ignore_index=True)
         return result[[name for name in schema.names if name in result.columns]]
@@ -434,8 +312,7 @@ class _NNJAObsBase:
         whose synoptic time falls within ``[t + tol_lower, t + tol_upper]``.
         Multiple input times that map to the same cycle are merged by
         taking the union of their windows so the cycle file is fetched
-        once but ``_extract_subset`` keeps observations valid for any
-        of them.
+        once while keeping observations valid for any of them.
         """
         windows: dict[datetime, tuple[datetime, datetime]] = {}
         for t in time_list:
@@ -547,550 +424,7 @@ class _NNJAObsBase:
         return pa.schema(selected)
 
 
-def _parse_prepbufr_messages(
-    file_data: bytes,
-) -> tuple[
-    dict[int, tuple[Any, ...]],
-    dict[int, tuple[Any, ...]],
-    list[tuple[bytes, int]],
-]:
-    """Split a PrepBUFR byte stream into messages and extract DX tables.
-
-    The first several messages of a PrepBUFR file are DX-table messages
-    (dataCategory=11) carrying the NCEP-local Table B / Table D
-    descriptor definitions needed to decode subsequent data messages.
-    """
-    return _bufr_parse_prepbufr_messages(file_data, silence_noise=True)
-
-
-def _decode_message(
-    decoder: Any,
-    msg_bytes: bytes,
-    obs_class: str,
-    var_keys: list[tuple[str, str]],
-    dt_min: datetime,
-    dt_max: datetime,
-) -> list[dict[str, Any]]:
-    """Decode a single PrepBUFR message and emit observation rows.
-
-    ``var_keys`` is a list of ``(var_name, lexicon_key)`` pairs where
-    ``lexicon_key`` is one of ``TOB``, ``QOB``, ``POB``, ``ZOB``,
-    ``wind::u``, ``wind::v``.
-    """
-    try:
-        msg = decoder.process(msg_bytes)
-    except Exception:
-        return []
-
-    n_subsets = msg.n_subsets.value
-    if n_subsets == 0:
-        return []
-
-    td = msg.template_data.value
-    ddas = td.decoded_descriptors_all_subsets
-    dvas = td.decoded_values_all_subsets
-
-    msg_year = msg.year.value
-    if msg_year < 100:
-        msg_year += 2000 if msg_year < 70 else 1900
-    try:
-        base_time = datetime(
-            msg_year, msg.month.value, msg.day.value, msg.hour.value, msg.minute.value
-        )
-    except (ValueError, OverflowError):
-        return []
-
-    rows: list[dict[str, Any]] = []
-    for s_idx in range(n_subsets):
-        rows.extend(
-            _extract_subset(
-                ddas[s_idx], dvas[s_idx], base_time, obs_class, var_keys, dt_min, dt_max
-            )
-        )
-    return rows
-
-
-def _extract_subset(
-    descs: list[Any],
-    vals: list[Any],
-    base_time: datetime,
-    obs_class: str,
-    var_keys: list[tuple[str, str]],
-    dt_min: datetime,
-    dt_max: datetime,
-) -> list[dict[str, Any]]:
-    """Extract observation rows from a single decoded PrepBUFR subset.
-
-    The subset is a flat list of (descriptor, value) pairs.  We first
-    walk the header (SID/XOB/YOB/DHR/ELV/TYP) and then iterate over the
-    repeated CAT/POB level blocks, emitting one row per (level,
-    requested variable) where the variable's descriptor has a
-    non-missing value.
-    """
-    rows: list[dict[str, Any]] = []
-
-    header: dict[str, Any] = {
-        "sid": "",
-        "xob": None,
-        "yob": None,
-        "dhr": 0.0,
-        "elv": None,
-        "typ": None,
-    }
-    for d, v in zip(descs, vals):
-        did = d.id
-        if did == HDR_SID:
-            header["sid"] = (
-                v.decode("ascii", errors="replace").strip()
-                if isinstance(v, bytes)
-                else (str(v).strip() if v is not None else "")
-            )
-        elif did == HDR_XOB:
-            header["xob"] = v
-        elif did == HDR_YOB:
-            header["yob"] = v
-        elif did == HDR_DHR:
-            header["dhr"] = v if v is not None else 0.0
-        elif did == HDR_ELV:
-            header["elv"] = v
-        elif did == HDR_TYP:
-            header["typ"] = v
-        elif did == OBS_CAT:
-            break
-
-    lat = header["yob"]
-    lon = header["xob"]
-    if lat is None or lon is None:
-        return rows
-    if lat < -90.0 or lat > 90.0:
-        return rows
-
-    try:
-        obs_time = base_time + timedelta(hours=float(header["dhr"]))
-    except (ValueError, OverflowError, TypeError):
-        obs_time = base_time
-    if obs_time < dt_min or obs_time > dt_max:
-        return rows
-
-    lon_360 = float(lon) % 360.0
-
-    # Build the per-variable descriptor lookup once
-    needed_ids: dict[str, int] = {}
-    need_wind = False
-    for var_name, key in var_keys:
-        if key.startswith("wind::"):
-            need_wind = True
-        elif key in MNEMONIC_TO_DESCR:
-            needed_ids[var_name] = MNEMONIC_TO_DESCR[key]
-
-    base_row: dict[str, Any] = {
-        "time": obs_time,
-        "lat": np.float32(lat),
-        "lon": np.float32(lon_360),
-        "pres": None,
-        "elev": None,
-        "type": np.uint16(int(header["typ"])) if header["typ"] is not None else None,
-        "class": obs_class if obs_class else None,
-        "station": header["sid"] if header["sid"] else None,
-        "station_elev": (
-            np.float32(header["elv"]) if header["elv"] is not None else None
-        ),
-        "quality": None,
-    }
-
-    # Walk observation levels: CAT/POB identify one level. CAT is needed to
-    # distinguish station pressure from pressure used only as a level coordinate.
-    current: dict[int, Any] = {}
-    pending_cat = None
-    in_obs = False
-    for d, v in zip(descs, vals):
-        did = d.id
-        if did == OBS_CAT:
-            pending_cat = v
-        elif did == OBS_POB:
-            if in_obs and current:
-                _emit_level_rows(
-                    rows, current, base_row, needed_ids, need_wind, var_keys
-                )
-            current = {OBS_POB: v}
-            if pending_cat is not None:
-                current[OBS_CAT] = pending_cat
-                pending_cat = None
-            in_obs = True
-        elif in_obs and did in OBSERVATION_DESCR_IDS:
-            if did not in current:
-                current[did] = v
-    if in_obs and current:
-        _emit_level_rows(rows, current, base_row, needed_ids, need_wind, var_keys)
-
-    return rows
-
-
-def _extract_gpsro_subset(
-    descs: list[Any],
-    vals: list[Any],
-    wanted_descrs: dict[int, str],
-    dt_min: datetime,
-    dt_max: datetime,
-) -> list[dict[str, Any]]:
-    """Extract observation rows from one GPS RO occultation subset.
-
-    ``wanted_descrs`` maps BUFR descriptor id -> Earth2Studio variable
-    name (e.g. ``{15037: "gps"}``). For each non-missing value of a wanted
-    descriptor encountered in the subset's flat (descriptor, value) stream
-    we emit one row.
-
-    The NCEP gpsro encoding lays out per-level data sequentially as three
-    sub-profiles:
-
-    1. Bending-angle profile keyed on ``IMPP`` (descriptor 7040), with
-       observation in ``BNDA`` (15037). Each level contains frequency
-       replications laid out as ``MEFR`` -> ``IMPP`` -> observed ``BNDA`` ->
-       uncertainty ``BNDA``. The assimilated bending-angle value is generally
-       the ionosphere-corrected replication where ``MEFR`` is 0 (matching GSI
-       ``read_gps.f90``).
-    2. Refractivity profile keyed on ``HEIT`` (7007), observation in
-       ``ARFR`` (15036).
-    3. 1D-Var retrieval profile keyed on ``GPHTST`` (7009), with
-       ``PRES`` / ``TMDBST`` / ``SPFH`` (10004 / 12001 / 13001).
-    """
-    rows: list[dict[str, Any]] = []
-
-    # Header pass
-    sat_id: Any = None
-    tx_id: Any = None
-    qf: Any = None
-    roc: float | None = None
-    lat: float | None = None
-    lon: float | None = None
-    yyyy = mm = dd = hh = mi = None
-    sec: float = 0.0
-    for d, v in zip(descs, vals):
-        did = d.id
-        if did == _GPSRO_SAID:
-            sat_id = v
-        elif did == _GPSRO_PTID:
-            tx_id = v
-        elif did == _GPSRO_QFRO:
-            qf = v
-        elif did == _GPSRO_ELRC and v is not None:
-            roc = float(v)
-        elif did == _GPSRO_LAT and v is not None:
-            lat = float(v)
-        elif did == _GPSRO_LON and v is not None:
-            lon = float(v)
-        elif did == _GPSRO_YEAR and v is not None:
-            yyyy = int(v)
-        elif did == _GPSRO_MONTH and v is not None:
-            mm = int(v)
-        elif did == _GPSRO_DAY and v is not None:
-            dd = int(v)
-        elif did == _GPSRO_HOUR and v is not None:
-            hh = int(v)
-        elif did == _GPSRO_MIN and v is not None:
-            mi = int(v)
-        elif did == _GPSRO_SEC and v is not None:
-            try:
-                sec = float(v)
-            except (TypeError, ValueError):
-                sec = 0.0
-        elif did == _GPSRO_IMPP:
-            break
-
-    if lat is None or lon is None or yyyy is None or mm is None or dd is None:
-        return rows
-    try:
-        obs_time = datetime(yyyy, mm, dd, hh or 0, mi or 0, int(sec))
-    except (ValueError, OverflowError):
-        return rows
-    if obs_time < dt_min or obs_time > dt_max:
-        return rows
-
-    # GSI setupref.f90 writes the GPSRO diagnostic station id as
-    # ``(2(i4.4))``: zero-padded receiver SAID followed by transmitter PTID.
-    station_id = (
-        f"{int(sat_id):04d}{int(tx_id):04d}"
-        if sat_id is not None and tx_id is not None
-        else None
-    )
-
-    # Per-level pass
-    cur_pres: float | None = None
-    cur_height: float | None = None
-    cur_impp: float | None = None
-    cur_freq: float | None = None
-    cur_lat: float | None = lat
-    cur_lon: float | None = lon
-    cur_bnda_index_for_freq = 0
-
-    for d, v in zip(descs, vals):
-        did = d.id
-        if did == _GPSRO_BNDA:
-            # Count slots, not values: BNDA #1 is obs, BNDA #2 is error.
-            cur_bnda_index_for_freq += 1
-        if v is None:
-            # Missing per-level fields must not leak state to later rows.
-            if did == _GPSRO_LAT:
-                cur_lat = None
-            elif did == _GPSRO_LON:
-                cur_lon = None
-            elif did == _GPSRO_IMPP:
-                cur_impp = None
-            elif did == _GPSRO_MEFR:
-                cur_freq = None
-                cur_bnda_index_for_freq = 0
-            elif did == _GPSRO_GPHTST or did == _GPSRO_HEIT:
-                cur_height = None
-                cur_pres = None
-            elif did == _GPSRO_PRES:
-                cur_pres = None
-            continue
-
-        if did == _GPSRO_LAT:
-            cur_lat = float(v)
-            continue
-        if did == _GPSRO_LON:
-            cur_lon = float(v)
-            continue
-        if did == _GPSRO_MEFR:
-            cur_freq = float(v)
-            cur_bnda_index_for_freq = 0
-            continue
-        if did == _GPSRO_IMPP:
-            cur_impp = float(v)
-            continue
-        if did == _GPSRO_GPHTST or did == _GPSRO_HEIT:
-            cur_height = float(v)
-            continue
-        if did == _GPSRO_PRES:
-            cur_pres = float(v)
-            continue
-
-        if did not in wanted_descrs or did not in _GPSRO_OBS_DESCRS:
-            continue
-        try:
-            obs_val = float(v)
-        except (TypeError, ValueError):
-            continue
-        if not np.isfinite(obs_val):
-            continue
-
-        var_name = wanted_descrs[did]
-        if did == _GPSRO_BNDA:
-            # Each frequency block is laid out as MEFR -> IMPP ->
-            # BNDA(obs) -> BNDA(error). We pick the ionosphere-corrected
-            # angle (MEFR == 0), not the raw L1/L2 channel values. Of the
-            # two BNDA per frequency, only the first is the observation.
-            if cur_freq is None or round(cur_freq) != 0:
-                continue
-            if cur_bnda_index_for_freq != 1:
-                continue
-            if cur_impp is None or roc is None:
-                continue
-            if cur_lat is None or cur_lon is None:
-                continue
-            pres_val = None
-            # Impact height is impact parameter minus local radius of curvature.
-            elev_val = np.float32(cur_impp - roc)
-            row_lat = cur_lat
-            row_lon = cur_lon
-        else:
-            pres_val = np.float32(cur_pres) if cur_pres is not None else None
-            elev_val = np.float32(cur_height) if cur_height is not None else None
-            row_lat = lat
-            row_lon = lon
-
-        rows.append(
-            {
-                "time": obs_time,
-                "lat": np.float32(row_lat),
-                "lon": np.float32(float(row_lon) % 360.0),
-                "pres": pres_val,
-                "elev": elev_val,
-                # GPSRO has no conventional TYP; use receiver SAID in this
-                # shared numeric type column.
-                "type": np.uint16(int(sat_id)) if sat_id is not None else None,
-                "class": "GPSRO",
-                "station": station_id,
-                "station_elev": None,
-                # QFRO is a GPSRO flag table. It is stored in ``quality`` for a
-                # uniform schema, but it is not the conventional 0-15 QM scale.
-                "quality": np.uint16(int(qf)) if qf is not None else None,
-                "observation": np.float32(obs_val),
-                "variable": var_name,
-            }
-        )
-
-    return rows
-
-
-def _emit_level_rows(
-    rows: list[dict[str, Any]],
-    level: dict[int, Any],
-    base_row: dict[str, Any],
-    needed_ids: dict[str, int],
-    need_wind: bool,
-    var_keys: list[tuple[str, str]],
-) -> None:
-    """Append one row per requested variable for the current pressure level."""
-    pob = level.get(OBS_POB)
-    pres_val = (
-        np.float32(pob) if pob is not None else None
-    )  # PrepBUFR mb (lexicon mod converts to Pa for `pres`)
-
-    common = base_row.copy()
-    common["pres"] = pres_val
-    level_cat = level.get(OBS_CAT)
-    common["level_cat"] = np.uint16(int(level_cat)) if level_cat is not None else None
-
-    # Non-wind variables
-    for var_name, desc_id in needed_ids.items():
-        val = level.get(desc_id)
-        if val is None:
-            continue
-        row = common.copy()
-        row["variable"] = var_name
-        row["observation"] = np.float32(val)
-        # Quality mark for this observation
-        qm_id = OBS_QUALITY_MAP.get(desc_id)
-        qv = level.get(qm_id) if qm_id is not None else None
-        row["quality"] = np.uint16(int(qv)) if qv is not None else None
-        rows.append(row)
-
-    # Wind decomposition: u from UOB, v from VOB. Each component is
-    # emitted independently so a level with only one of UOB/VOB still
-    # yields a row for the requested component (PrepBUFR usually pairs
-    # u/v but unpaired levels do occur).
-    if need_wind:
-        uob = level.get(OBS_UOB)
-        vob = level.get(OBS_VOB)
-        wqm = level.get(OBS_WQM)
-        wind_quality = np.uint16(int(wqm)) if wqm is not None else None
-        for var_name, key in var_keys:
-            if key == "wind::u" and uob is not None:
-                row = common.copy()
-                row["variable"] = var_name
-                row["observation"] = np.float32(uob)
-                row["quality"] = wind_quality
-                rows.append(row)
-            elif key == "wind::v" and vob is not None:
-                row = common.copy()
-                row["variable"] = var_name
-                row["observation"] = np.float32(vob)
-                row["quality"] = wind_quality
-                rows.append(row)
-
-
-# ─────────────────────────────────────────────────────────────────────
-# Module-level worker functions for multiprocessing
-# ─────────────────────────────────────────────────────────────────────
-
-# Module-level decoder for worker processes, set by _init_decode_worker.
-_worker_decoder: Any = None
-
-
-def _init_decode_worker(
-    table_b: dict[int, tuple[Any, ...]],
-    table_d: dict[int, tuple[Any, ...]],
-) -> None:
-    """Initializer for process pool workers.
-
-    Registers NCEP-local descriptor tables with pybufrkit in each
-    worker process and creates a reusable decoder instance stored
-    as a module-level global.
-    """
-    global _worker_decoder  # noqa: PLW0603
-    _bufr_register_dx_tables(table_b, table_d)
-    _worker_decoder = BufrDecoder()
-
-
-def _decode_message_worker(
-    msg_bytes: bytes,
-    obs_class: str,
-    var_keys: list[tuple[str, str]],
-    dt_min: datetime,
-    dt_max: datetime,
-) -> list[dict[str, Any]]:
-    """Decode a single BUFR message in a worker process.
-
-    Uses the decoder created by :func:`_init_decode_worker`.
-
-    Parameters
-    ----------
-    msg_bytes : bytes
-        Raw BUFR message bytes.
-    obs_class : str
-        Observation class string (e.g. ``"ADPSFC"``).
-    var_keys : list[tuple[str, str]]
-        List of (var_name, lexicon_key) pairs.
-    dt_min : datetime
-        Minimum observation time.
-    dt_max : datetime
-        Maximum observation time.
-
-    Returns
-    -------
-    list[dict]
-        Observation rows for this message.
-    """
-    with _silence_bufr_noise():
-        return _decode_message(
-            _worker_decoder, msg_bytes, obs_class, var_keys, dt_min, dt_max
-        )
-
-
-def _decode_gpsro_message_worker(
-    msg_bytes: bytes,
-    wanted_descrs: dict[int, str],
-    dt_min: datetime,
-    dt_max: datetime,
-) -> list[dict[str, Any]]:
-    """Decode a single GPS RO BUFR message in a worker process.
-
-    Uses the decoder created by :func:`_init_decode_worker`.
-
-    Parameters
-    ----------
-    msg_bytes : bytes
-        Raw BUFR message bytes.
-    wanted_descrs : dict[int, str]
-        Map of BUFR descriptor ID to variable name.
-    dt_min : datetime
-        Minimum observation time.
-    dt_max : datetime
-        Maximum observation time.
-
-    Returns
-    -------
-    list[dict]
-        Observation rows for this message.
-    """
-    rows: list[dict[str, Any]] = []
-    with _silence_bufr_noise():
-        try:
-            msg = _worker_decoder.process(msg_bytes)
-            n_subsets = msg.n_subsets.value
-        except Exception:
-            return rows
-        if not n_subsets:
-            return rows
-        td = msg.template_data.value
-        ddas = td.decoded_descriptors_all_subsets
-        dvas = td.decoded_values_all_subsets
-        for s_idx in range(n_subsets):
-            rows.extend(
-                _extract_gpsro_subset(
-                    ddas[s_idx],
-                    dvas[s_idx],
-                    wanted_descrs,
-                    dt_min,
-                    dt_max,
-                )
-            )
-    return rows
-
-
-@check_optional_dependencies()
+@check_optional_dependencies(BUFR_DEPENDENCY_KEY)
 class NNJAObsConv(_NNJAObsBase):
     """NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint
     Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for
@@ -1098,9 +432,14 @@ class NNJAObsConv(_NNJAObsBase):
     cross-section of data from a plethora of sensing platforms (satellites, surface
     stations, weather balloons, and more) and features data from 1979 to the present.
 
+    GPSRO rows use the shared columns with product-specific meanings:
+    ``type`` is receiver ``SAID``, ``station`` combines receiver/transmitter
+    identifiers, ``quality`` is the QFRO flag table, ``pres`` is null, and
+    ``elev`` is impact parameter minus Earth radius of curvature.
+
     Parameters
     ----------
-    source : {"prepbufr", "convbufr", "prepbufr.acft_profiles"}, optional
+    source : {"prepbufr", "prepbufr.acft_profiles"}, optional
         Which encoding family of the NNJA conventional archive to read,
         by default ``"prepbufr"``. These sources are different stages of the
         NCEP observation-processing pipeline, not independent replacement
@@ -1108,11 +447,10 @@ class NNJAObsConv(_NNJAObsBase):
 
         - ``"convbufr"`` points at raw dump streams grouped by family, such as
           ``aircft``/``aircar``/``adpupa``/``adpsfc``. These files preserve
-          source-native schemas and generally require family-specific decoding
-          and QC interpretation before they resemble GSI-ready observations.
-          They are listed here for completeness, but the generic
-          ``NNJAObsConv`` PrepBUFR decoder does not yet implement those raw
-          family schemas.
+          source-native schemas and require family-specific decoding and QC
+          before they resemble GSI-ready observations. The generic PrepBUFR
+          decoder does not implement those raw family schemas, so this source
+          raises ``NotImplementedError``.
         - ``"prepbufr"`` points at the merged PrepBUFR cycle file. This is the
           preferred source for GSI-like conventional observations because
           upstream obsproc has already merged dump families, standardized many
@@ -1161,10 +499,10 @@ class NNJAObsConv(_NNJAObsBase):
     """
 
     SOURCE_ID = "earth2studio.data.NNJAObsConv"
-    SCHEMA = _NNJA_CONV_SCHEMA
+    SCHEMA = NCEP_CONVENTIONAL_PUBLIC_SCHEMA
     MIN_DATE = datetime(1979, 1, 1)
 
-    VALID_SOURCES = frozenset(["prepbufr", "convbufr", "prepbufr.acft_profiles"])
+    VALID_SOURCES = frozenset(["prepbufr", "prepbufr.acft_profiles"])
 
     def __init__(
         self,
@@ -1177,6 +515,14 @@ class NNJAObsConv(_NNJAObsBase):
         decode_workers: int = 8,
         retries: int = 3,
     ) -> None:
+        if source == "convbufr":
+            raise NotImplementedError(
+                "NNJAObsConv(source='convbufr') targets raw dump streams grouped "
+                "by family (aircft/aircar/adpupa/adpsfc) with source-native "
+                "schemas that require family-specific decoding and QC before they "
+                "resemble GSI-ready observations; the generic PrepBUFR decoder "
+                "does not implement those raw family schemas"
+            )
         if source not in self.VALID_SOURCES:
             raise ValueError(
                 f"Invalid source '{source}'. Valid sources: {sorted(self.VALID_SOURCES)}"
@@ -1195,6 +541,8 @@ class NNJAObsConv(_NNJAObsBase):
             decode_workers=decode_workers,
             retries=retries,
         )
+        self._prepbufr_adapter = _NCEPPrepbufrAdapter(self._decode_workers)
+        self._gpsro_adapter = _NCEPGpsroAdapter(self._decode_workers)
 
     # ------------------------------------------------------------------
     # Task creation
@@ -1291,59 +639,6 @@ class NNJAObsConv(_NNJAObsBase):
     def _build_uri(self, cycle: datetime) -> str:
         return self._build_prepbufr_uri(cycle)
 
-    # PyArrow-type → numpy/pandas dtype for the always-nullable
-    # numeric columns we add when a frame is missing them. Using a
-    # typed empty column (instead of object-dtype ``None``) keeps
-    # ``pd.concat`` from emitting "all-NA columns" FutureWarnings
-    # when frames from different sub-archives are concatenated.
-    _NULL_COLUMN_DTYPES: dict[str, type] = {
-        "pres": np.float32,
-        "elev": np.float32,
-        "station_elev": np.float32,
-        "lat": np.float32,
-        "lon": np.float32,
-        "observation": np.float32,
-    }
-
-    def _finalize_decoded_df(
-        self,
-        all_rows: list[dict[str, Any]],
-        var_plan: dict[str, tuple[Any, Callable[[pd.DataFrame], pd.DataFrame]]],
-        *,
-        convert_pres_mb_to_pa: bool,
-    ) -> pd.DataFrame:
-        """Apply per-variable modifiers, normalize dtypes, project to schema."""
-        if not all_rows:
-            return pd.DataFrame()
-
-        df = pd.DataFrame(all_rows)
-        result_frames: list[pd.DataFrame] = []
-        for var, (_key, modifier) in var_plan.items():
-            sub = df[df["variable"] == var]
-            if sub.empty:
-                continue
-            result_frames.append(modifier(sub.copy()))
-        if not result_frames:
-            return pd.DataFrame()
-        df = pd.concat(result_frames, ignore_index=True)
-
-        # PrepBUFR levels carry POB in mb; the schema-level pressure
-        # column should be in Pa for consistency with the lexicon's
-        # ``pres`` observation conversion.
-        if convert_pres_mb_to_pa and "pres" in df.columns:
-            df["pres"] = (df["pres"].astype(np.float32) * 100.0).astype(np.float32)
-
-        df["time"] = pd.to_datetime(df["time"])
-        for name in self.SCHEMA.names:
-            if name in df.columns:
-                continue
-            null_dtype = self._NULL_COLUMN_DTYPES.get(name)
-            if null_dtype is not None:
-                df[name] = np.full(len(df), np.nan, dtype=null_dtype)
-            else:
-                df[name] = pd.Series([None] * len(df), dtype=object)
-        return df[list(self.SCHEMA.names)]
-
     def _handle_missing_file(self, path: str) -> None:
         """Warn instead of raising on missing NNJA cycle files.
 
@@ -1365,193 +660,29 @@ class NNJAObsConv(_NNJAObsBase):
             return self._decode_gpsro_file(local_path, task)
         return self._decode_prepbufr_file(local_path, task)
 
-    # Threshold for logging decode timing
-    _PREPBUFR_POOL_MIN_MESSAGES = 32
-
     def _decode_prepbufr_file(
         self, local_path: str, task: _NNJAConvTask
     ) -> pd.DataFrame:
-        """Decode a PrepBUFR cycle file into a DataFrame.
-
-        Messages are decoded in parallel using a process pool when
-        ``decode_workers > 1`` and the message count exceeds the
-        threshold.
-        """
-        with open(local_path, "rb") as fh:
-            file_data = fh.read()
-
-        table_b, table_d, messages = _parse_prepbufr_messages(file_data)
-        var_keys: list[tuple[str, str]] = [
-            (var, plan[0]) for var, plan in task.var_plan.items()
-        ]
-
-        work_items: list[tuple[bytes, str]] = [
-            (msg_bytes, PREPBUFR_OBS_TYPES[data_cat])
-            for msg_bytes, data_cat in messages
-            if data_cat in PREPBUFR_OBS_TYPES
-        ]
-        if not work_items:
-            return pd.DataFrame()
-
-        all_rows: list[dict[str, Any]] = []
-        use_parallel = (
-            self._decode_workers > 1
-            and len(work_items) >= self._PREPBUFR_POOL_MIN_MESSAGES
-        )
-        logger.info(
-            f"[NNJAObsConv prepbufr] cycle={task.datetime_file:%Y-%m-%d %H:%MZ} "
-            f"messages={len(work_items)} (parsed {len(messages)}, "
-            f"DX-table entries: B={len(table_b)} D={len(table_d)}) "
-            f"[parallel={use_parallel}, workers={self._decode_workers}]"
-        )
-        decode_t0 = time.perf_counter()
-
-        if use_parallel:
-            # Parallel decode using process pool
-            with ProcessPoolExecutor(
-                max_workers=self._decode_workers,
-                initializer=_init_decode_worker,
-                initargs=(table_b, table_d),
-            ) as pool:
-                futures = [
-                    pool.submit(
-                        _decode_message_worker,
-                        msg_bytes,
-                        obs_class,
-                        var_keys,
-                        task.datetime_min,
-                        task.datetime_max,
-                    )
-                    for msg_bytes, obs_class in work_items
-                ]
-                for future in futures:
-                    try:
-                        rows = future.result()
-                        if rows:
-                            all_rows.extend(rows)
-                    except Exception:
-                        logger.debug("Worker failed to decode a BUFR message")
-        else:
-            # Sequential decode (single worker or few messages)
-            with _silence_bufr_noise():
-                _bufr_register_dx_tables(table_b, table_d)
-                decoder = BufrDecoder()
-                for msg_bytes, obs_class in work_items:
-                    all_rows.extend(
-                        _decode_message(
-                            decoder,
-                            msg_bytes,
-                            obs_class,
-                            var_keys,
-                            task.datetime_min,
-                            task.datetime_max,
-                        )
-                    )
-
-        logger.info(
-            f"[NNJAObsConv prepbufr] cycle={task.datetime_file:%Y-%m-%d %H:%MZ} "
-            f"decoded {len(all_rows):,} raw rows in "
-            f"{time.perf_counter() - decode_t0:.1f}s"
-        )
-        df = self._finalize_decoded_df(
-            all_rows, task.var_plan, convert_pres_mb_to_pa=True
+        """Decode one locally cached PrepBUFR file through the shared adapter."""
+        frame = self._prepbufr_adapter.decode_file(
+            local_path,
+            task.var_plan,
+            task.datetime_min,
+            task.datetime_max,
         )
         if (
             self._source == "prepbufr.acft_profiles"
             and self._map_acft_profile_report_types
-            and not df.empty
         ):
-            df.loc[:, "type"] = df["type"].replace(_ACFT_PROFILE_UV_TYPE_MAP)
-        return df
+            frame = map_aircraft_profile_types(frame)
+        return frame[self.SCHEMA.names]
 
     def _decode_gpsro_file(self, local_path: str, task: _NNJAGpsRoTask) -> pd.DataFrame:
-        """Decode a single NNJA gps/gpsro cycle BUFR file into a DataFrame.
-
-        Messages are decoded in parallel using a process pool when
-        ``decode_workers > 1`` and the message count exceeds the
-        threshold.
-        """
-        with open(local_path, "rb") as fh:
-            file_data = fh.read()
-
-        table_b, table_d, messages = _parse_prepbufr_messages(file_data)
-        if not messages:
-            return pd.DataFrame()
-
-        wanted_descrs: dict[int, str] = {
-            desc_id: var for var, (desc_id, _mod) in task.var_plan.items()
-        }
-
-        work_items: list[bytes] = [msg_bytes for msg_bytes, _data_cat in messages]
-
-        all_rows: list[dict[str, Any]] = []
-        use_parallel = (
-            self._decode_workers > 1
-            and len(work_items) >= self._PREPBUFR_POOL_MIN_MESSAGES
+        """Decode one locally cached GPSRO file through the shared adapter."""
+        frame = self._gpsro_adapter.decode_file(
+            local_path,
+            task.var_plan,
+            task.datetime_min,
+            task.datetime_max,
         )
-        logger.info(
-            f"[NNJAObsConv gpsro]    cycle={task.datetime_file:%Y-%m-%d %H:%MZ} "
-            f"messages={len(messages)} "
-            f"[parallel={use_parallel}, workers={self._decode_workers}]"
-        )
-        decode_t0 = time.perf_counter()
-
-        if use_parallel:
-            # Parallel decode using process pool
-            with ProcessPoolExecutor(
-                max_workers=self._decode_workers,
-                initializer=_init_decode_worker,
-                initargs=(table_b, table_d),
-            ) as pool:
-                futures = [
-                    pool.submit(
-                        _decode_gpsro_message_worker,
-                        msg_bytes,
-                        wanted_descrs,
-                        task.datetime_min,
-                        task.datetime_max,
-                    )
-                    for msg_bytes in work_items
-                ]
-                for future in futures:
-                    try:
-                        rows = future.result()
-                        if rows:
-                            all_rows.extend(rows)
-                    except Exception:
-                        logger.debug("Worker failed to decode a GPS RO BUFR message")
-        else:
-            # Sequential decode (single worker or few messages)
-            with _silence_bufr_noise():
-                _bufr_register_dx_tables(table_b, table_d)
-                decoder = BufrDecoder()
-                for msg_bytes in work_items:
-                    try:
-                        msg = decoder.process(msg_bytes)
-                        n_subsets = msg.n_subsets.value
-                    except Exception:  # noqa: S112
-                        continue
-                    if not n_subsets:
-                        continue
-                    td = msg.template_data.value
-                    ddas = td.decoded_descriptors_all_subsets
-                    dvas = td.decoded_values_all_subsets
-                    for s_idx in range(n_subsets):
-                        all_rows.extend(
-                            _extract_gpsro_subset(
-                                ddas[s_idx],
-                                dvas[s_idx],
-                                wanted_descrs,
-                                task.datetime_min,
-                                task.datetime_max,
-                            )
-                        )
-
-        logger.info(
-            f"[NNJAObsConv gpsro]    cycle={task.datetime_file:%Y-%m-%d %H:%MZ} "
-            f"decoded {len(all_rows):,} raw rows in "
-            f"{time.perf_counter() - decode_t0:.1f}s"
-        )
-        return self._finalize_decoded_df(
-            all_rows, task.var_plan, convert_pres_mb_to_pa=False
-        )
+        return frame[self.SCHEMA.names]
