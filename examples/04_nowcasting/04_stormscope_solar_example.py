@@ -73,7 +73,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # %%
 goes_model = StormScopeGOES.load_model(
     package=StormScopeGOES.load_default_package(),
-    model_name="3km_10min_natten_pure_obs_cos_zenith_input_eoe",
+    model_name="3km_10min",
     conditioning_data_source=None,
 ).to(device).eval()
 
@@ -152,7 +152,11 @@ for step_idx in range(n_steps):
     y, y_coords = goes_model.next_input(y_pred, y_pred_coords, y, y_coords)
 
 # Estimate GHI for the initial t=0 window (regrid the raw IC onto the GOES grid).
+# The GOES model ingests a multi-step sliding window, so keep only the last
+# (current) frame -- StormScopeNSRDB is a same-time estimator expecting one lead.
 x_goes_grid, x_goes_coords = goes_model.prep_input(x.clone().float(), x_coords.copy())
+x_goes_grid = x_goes_grid[:, :, -1:, ...].contiguous()
+x_goes_coords["lead_time"] = np.asarray(x_goes_coords["lead_time"])[-1:]
 ghi_init, _ = nsrdb_model.estimate_from_goes(x_goes_grid, x_goes_coords)
 ghi_forecasts = [ghi_init[0, 0, 0, 0].detach().cpu().numpy()] + ghi_forecasts
 valid_times = [0] + valid_times
