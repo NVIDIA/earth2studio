@@ -189,6 +189,7 @@ class _NNJAObsSourceBase(_NCEPObsSourceBase):
     """
 
     MIN_DATE: datetime
+    _store: _NNJAObsStore
 
     def __init__(
         self,
@@ -201,15 +202,14 @@ class _NNJAObsSourceBase(_NCEPObsSourceBase):
         decode_workers: int,
         retries: int,
     ) -> None:
-        self._nnja_store = _NNJAObsStore(
-            cache=cache,
-            verbose=verbose,
-            async_workers=async_workers,
-            retries=retries,
-            handle_missing_file=self._handle_missing_file,
-        )
         super().__init__(
-            store=self._nnja_store,
+            store=_NNJAObsStore(
+                cache=cache,
+                verbose=verbose,
+                async_workers=async_workers,
+                retries=retries,
+                handle_missing_file=self._handle_missing_file,
+            ),
             time_tolerance=time_tolerance,
             verbose=verbose,
             async_timeout=async_timeout,
@@ -261,23 +261,16 @@ class _NNJAObsSourceBase(_NCEPObsSourceBase):
     @property
     def cache(self) -> str:
         """Local cache directory for this data source."""
-        return self._nnja_store.cache
-
-    @property
-    def fs(self) -> s3fs.S3FileSystem | None:
-        """NNJA S3 filesystem initialized on first fetch."""
-        return self._nnja_store.fs
-
-    @fs.setter
-    def fs(self, value: s3fs.S3FileSystem | None) -> None:
-        self._nnja_store.fs = value
+        return self._store.cache
 
     def _cache_path(self, s3_uri: str) -> str:
         """Deterministic cache path for an S3 URI."""
-        return self._nnja_store.local_path(s3_uri)
+        return self._store.local_path(s3_uri)
 
     def _handle_missing_file(self, path: str) -> None:
-        raise NotImplementedError("Subclasses must implement _handle_missing_file.")
+        """Reject a missing cycle file. Override for warn-only behavior."""
+        logger.error(f"File {path} not found")
+        raise FileNotFoundError(f"File {path} not found")
 
 
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
@@ -342,6 +335,9 @@ class NNJAObsConv(_NNJAObsSourceBase):
 
     Note
     ----
+    Requested times must align to a 6-hour cycle (00, 06, 12, 18z); the time
+    tolerance brackets the cycle when selecting observations.
+
     Additional information on the data repository can be referenced here:
 
     - https://www.brightband.com/data/nnja-ai/

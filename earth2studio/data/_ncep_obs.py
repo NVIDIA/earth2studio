@@ -114,14 +114,13 @@ class _NCEPObsSourceBase:
         file_uri_set = list({self._task_uri(task) for task in async_tasks})
         await self._store.fetch_files(file_uri_set)
 
-        df = self._compile_dataframe(async_tasks, variable_list, schema)
+        df = self._compile_dataframe(async_tasks, schema)
         df.attrs["source"] = self.SOURCE_ID
         return df
 
     def _compile_dataframe(
         self,
         async_tasks: list[Any],
-        variables: list[str],
         schema: pa.Schema,
     ) -> pd.DataFrame:
         """Decode each fetched file and concatenate into a single DataFrame."""
