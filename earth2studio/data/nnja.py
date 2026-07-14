@@ -36,7 +36,7 @@ import pandas as pd
 import s3fs  # type: ignore[import-untyped]
 from loguru import logger
 
-from earth2studio.data._ncep_obs import _NCEPObsSourceBase
+from earth2studio.data.ncep_obs import _NCEPObsSourceBase
 from earth2studio.data.utils import (
     async_retry,
     datasource_cache_root,

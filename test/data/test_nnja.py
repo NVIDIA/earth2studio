@@ -76,7 +76,7 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
         }
     )
 
-    with patch("earth2studio.data._ncep_obs._sync_async") as mock_sync:
+    with patch("earth2studio.data.ncep_obs._sync_async") as mock_sync:
         mock_sync.return_value = mock_df
 
         ds = NNJAObsConv(time_tolerance=timedelta(0), cache=cache, verbose=False)
@@ -235,7 +235,7 @@ def test_nnja_obs_conv_mock_fetch():
         ds = NNJAObsConv(time_tolerance=timedelta(0), cache=False, verbose=False)
 
         # Patch _sync_async to call the mock directly
-        with patch("earth2studio.data._ncep_obs._sync_async") as mock_sync:
+        with patch("earth2studio.data.ncep_obs._sync_async") as mock_sync:
             mock_sync.return_value = mock_df
             df = ds(datetime(2024, 1, 1, 0), ["t"])
 
