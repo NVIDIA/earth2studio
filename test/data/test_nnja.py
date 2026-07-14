@@ -26,7 +26,7 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-import earth2studio.data._ncep_microwave as ncep_microwave
+import earth2studio.data.ncep_obs as ncep_microwave
 import earth2studio.data.nnja as nnja
 from earth2studio.data import NNJAObsConv, NNJAObsSat, utils_ncep
 
