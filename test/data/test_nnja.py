@@ -245,9 +245,13 @@ def test_nnja_obs_conv_mock_fetch():
     assert df["observation"].iloc[0] == pytest.approx(273.15)
 
 
-@pytest.mark.asyncio
-async def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
-    """Test the shared request lifecycle against the NNJA store contract."""
+def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
+    """Exercise the three-operation store seam through __call__.
+
+    Verifies the shared lifecycle drives ``fetch_files`` and ``local_path`` and
+    delegates teardown to ``cleanup`` in the ``__call__`` finally, including
+    when the request fails mid-flight.
+    """
 
     cached_file = tmp_path / "cached.bufr"
     cached_file.write_bytes(b"fixture")
@@ -255,6 +259,7 @@ async def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
     class FakeStore:
         def __init__(self):
             self.fetched: list[str] = []
+            self.cleanup_calls = 0
 
         async def fetch_files(self, uris):
             self.fetched = list(uris)
@@ -263,7 +268,7 @@ async def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
             return str(cached_file)
 
         def cleanup(self):
-            pass
+            self.cleanup_calls += 1
 
     frame = pd.DataFrame(
         {
@@ -277,7 +282,7 @@ async def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
     source._store = store
     monkeypatch.setattr(source, "_decode_file", lambda path, task: frame)
 
-    result = await source.fetch(
+    result = source(
         datetime(2024, 1, 1),
         ["t"],
         fields=["time", "observation", "variable"],
@@ -286,6 +291,20 @@ async def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
     assert store.fetched == [source._build_prepbufr_uri(datetime(2024, 1, 1))]
     assert result.equals(frame)
     assert result.attrs == {"source": source.SOURCE_ID}
+    assert store.cleanup_calls == 1
+
+    # cleanup must still run if the request fails mid-flight
+    async def boom_fetch(uris):
+        raise RuntimeError("fetch failed")
+
+    monkeypatch.setattr(store, "fetch_files", boom_fetch)
+    with pytest.raises(RuntimeError):
+        source(
+            datetime(2024, 1, 1),
+            ["t"],
+            fields=["time", "observation", "variable"],
+        )
+    assert store.cleanup_calls == 2
 
 
 def test_nnja_obs_conv_available():
