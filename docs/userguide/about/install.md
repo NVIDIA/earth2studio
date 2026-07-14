@@ -244,6 +244,27 @@ uv add earth2studio --extra aurora
 :::
 ::::
 :::::
+:::::{tab-item} Aurora v1.5
+Notes: The Aurora v1.5 model relies on the [microsoft aurora](https://github.com/microsoft/aurora)
+package for inference. Checkpoints are hosted on [ikwessel/aurora-1.5](https://huggingface.co/ikwessel/aurora-1.5).
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[aurora-v1p5]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra aurora-v1p5
+```
+
+:::
+::::
+:::::
 :::::{tab-item} DLWP
 ::::{tab-set}
 :::{tab-item} pip

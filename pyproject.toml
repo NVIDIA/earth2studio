@@ -153,6 +153,9 @@ atlas = [
 aurora = [
     "microsoft-aurora>=1.6.0",
 ]
+aurora-v1p5 = [
+    "microsoft-aurora>=2.0.0",
+]
 dlesym = [
     "nvidia-physicsnemo>=1.0.1",
     "earth2grid",
@@ -282,7 +285,7 @@ da-stormcast = [
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
-    "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",
+    "earth2studio[atlas,aurora,aurora-v1p5,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",
     "earth2studio[cbottle,climatenet,corrdiff,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda]",
 ]
