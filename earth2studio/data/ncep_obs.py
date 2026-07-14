@@ -288,7 +288,7 @@ class _NCEPObsSourceBase:
 _C_CM_S = 2.99792458e10
 _DECODE_BATCH_SIZE = 32
 
-_SATELLITE_NAMES: dict[int, str] = {
+_NCEP_SATELLITE_NAME_BY_SAID: dict[int, str] = {
     3: "metop-b",
     4: "metop-a",
     5: "metop-c",
@@ -307,7 +307,7 @@ _SATELLITE_NAMES: dict[int, str] = {
     225: "n20",
     226: "n21",
 }
-_NCEP_MICROWAVE_SATELLITES = frozenset(_SATELLITE_NAMES.values())
+_NCEP_MICROWAVE_SATELLITES = frozenset(_NCEP_SATELLITE_NAME_BY_SAID.values())
 
 # BUFR descriptors used by the NCEP aggregate microwave templates.
 _SAID = 1007
@@ -379,7 +379,7 @@ class _NCEPMicrowaveDecodeError(RuntimeError):
         super().__init__(f"Incomplete microwave BUFR decode: {self.context}")
 
 
-_NCEP_MICROWAVE_PUBLIC_SCHEMA = pa.schema(
+_NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
     [
         E2STUDIO_SCHEMA.field("time"),
         E2STUDIO_SCHEMA.field("class"),
@@ -515,7 +515,9 @@ def _decode_microwave_subset(
     ):
         return []
 
-    satellite = _SATELLITE_NAMES.get(satellite_id, f"satellite-{satellite_id}")
+    satellite = _NCEP_SATELLITE_NAME_BY_SAID.get(
+        satellite_id, f"satellite-{satellite_id}"
+    )
     if satellites is not None and satellite not in satellites:
         return []
 
@@ -606,7 +608,7 @@ def _decode_message_batch(
 
 
 def _rows_to_dataframe(rows: list[dict[str, Any]]) -> pd.DataFrame:
-    table = pa.Table.from_pylist(rows, schema=_NCEP_MICROWAVE_PUBLIC_SCHEMA)
+    table = pa.Table.from_pylist(rows, schema=_NCEP_MICROWAVE_OUTPUT_SCHEMA)
 
     def types_mapper(data_type: pa.DataType) -> pd.ArrowDtype | None:
         if pa.types.is_unsigned_integer(data_type):

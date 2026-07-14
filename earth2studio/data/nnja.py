@@ -37,7 +37,7 @@ import s3fs  # type: ignore[import-untyped]
 from loguru import logger
 
 from earth2studio.data.ncep_obs import (
-    _NCEP_MICROWAVE_PUBLIC_SCHEMA,
+    _NCEP_MICROWAVE_OUTPUT_SCHEMA,
     _NCEP_MICROWAVE_SATELLITES,
     _NCEPMicrowaveAdapter,
     _NCEPObsSourceBase,
@@ -666,7 +666,7 @@ class NNJAObsSat(_NNJAObsSourceBase):
     """
 
     SOURCE_ID = "earth2studio.data.NNJAObsSat"
-    SCHEMA = _NCEP_MICROWAVE_PUBLIC_SCHEMA
+    SCHEMA = _NCEP_MICROWAVE_OUTPUT_SCHEMA
     MIN_DATE = datetime(1998, 1, 1)
     VALID_SATELLITES = _NCEP_MICROWAVE_SATELLITES
 
