@@ -730,8 +730,6 @@ def _atms_microwave_pairs() -> list[tuple[int, Any]]:
         (ncep_microwave._LAT_HIGH, 12.34567),
         (ncep_microwave._LON_HIGH, -45.67891),
         (ncep_microwave._SAID, 225),
-        (ncep_microwave._SIID, 621),
-        (ncep_microwave._ORBIT_NUMBER, 31702),
         (ncep_microwave._SCAN_LINE, 8),
         (ncep_microwave._FOV_NUMBER, 7),
         (ncep_microwave._SURFACE_ELEVATION, 123.5),
@@ -739,26 +737,15 @@ def _atms_microwave_pairs() -> list[tuple[int, Any]]:
         (ncep_microwave._BEARING_OR_AZIMUTH, 269.17),
         (ncep_microwave._SOLAR_ZENITH, 99.47),
         (ncep_microwave._SOLAR_AZIMUTH, 153.88),
-        (ncep_microwave._GRANULE_QUALITY, 4),
-        (ncep_microwave._SCAN_QUALITY, 17),
-        (ncep_microwave._GEOLOCATION_QUALITY, 1),
         (ncep_microwave._CHANNEL_NUMBER, 2),
         (ncep_microwave._CHANNEL_FREQUENCY, 31.4e9),
-        (ncep_microwave._CHANNEL_BANDWIDTH, 180.0e6),
-        (ncep_microwave._ANTENNA_POLARIZATION, 7),
         (ncep_microwave._ANTENNA_TEMPERATURE, 201.25),
         (ncep_microwave._BRIGHTNESS_TEMPERATURE, 202.5),
-        (ncep_microwave._NEDT_COLD, 0.12),
-        (ncep_microwave._NEDT_WARM, 0.21),
         (ncep_microwave._CHANNEL_QUALITY, 2),
         (ncep_microwave._CHANNEL_NUMBER, 1),
         (ncep_microwave._CHANNEL_FREQUENCY, 23.8e9),
-        (ncep_microwave._CHANNEL_BANDWIDTH, 270.0e6),
-        (ncep_microwave._ANTENNA_POLARIZATION, 6),
         (ncep_microwave._ANTENNA_TEMPERATURE, 190.25),
         (ncep_microwave._BRIGHTNESS_TEMPERATURE, 191.5),
-        (ncep_microwave._NEDT_COLD, 0.09),
-        (ncep_microwave._NEDT_WARM, 0.18),
         (ncep_microwave._CHANNEL_QUALITY, 1),
     ]
 
@@ -802,14 +789,34 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
     )
     assert rows[0]["lat"] == pytest.approx(12.34567)
     assert rows[0]["lon"] == pytest.approx(314.32109)
-    assert rows[0]["location_accuracy"] == "high"
+    assert rows[0]["elev"] == pytest.approx(123.5)
     assert rows[0]["satellite"] == "n20"
     assert rows[0]["scan_position"] == 7
+    assert rows[0]["scan_line"] == 8
     assert rows[0]["satellite_aza"] == pytest.approx(269.17)
     assert rows[0]["quality"] == 2
     assert rows[0]["wavenumber"] == pytest.approx(31.4e9 / ncep_microwave._C_CM_S)
 
     frame = ncep_microwave._rows_to_dataframe(rows)
+    assert NNJAObsSat.SCHEMA.names == [
+        "time",
+        "class",
+        "lat",
+        "lon",
+        "elev",
+        "scan_position",
+        "scan_line",
+        "sensor_index",
+        "wavenumber",
+        "solza",
+        "solaza",
+        "satellite_za",
+        "satellite_aza",
+        "quality",
+        "satellite",
+        "observation",
+        "variable",
+    ]
     assert list(frame.columns) == NNJAObsSat.SCHEMA.names
     assert str(frame["time"].dtype) == "datetime64[ns]"
     assert str(frame["sensor_index"].dtype) == "uint16[pyarrow]"
@@ -825,10 +832,6 @@ def test_nnja_obs_sat_decode_preserves_amsub_channels_and_quantity():
         not in {
             ncep_microwave._ANTENNA_TEMPERATURE,
             ncep_microwave._CHANNEL_FREQUENCY,
-            ncep_microwave._CHANNEL_BANDWIDTH,
-            ncep_microwave._ANTENNA_POLARIZATION,
-            ncep_microwave._NEDT_COLD,
-            ncep_microwave._NEDT_WARM,
             ncep_microwave._CHANNEL_QUALITY,
         }
     ]
@@ -892,16 +895,10 @@ def test_ncep_microwave_adapter_serial_and_parallel_batch_paths(
 
     assert len(frame) == 2 * message_count
     assert frame["sensor_index"].tolist() == [2, 1] * message_count
-    assert frame["source_message_index"].tolist() == [
-        message_index for message_index in range(message_count) for _channel in range(2)
-    ]
-    assert frame["source_subset_index"].tolist() == [0] * (2 * message_count)
     assert initialized == ([({1: ("B",)}, {1: ("D",)})] if decode_workers == 1 else [])
 
 
-def test_ncep_microwave_message_provenance_preserves_satellite_prefix_visibility(
-    monkeypatch,
-):
+def test_ncep_microwave_message_preserves_mixed_satellite_order(monkeypatch):
     def pairs_for(satellite_id):
         return [
             (
@@ -931,25 +928,16 @@ def test_ncep_microwave_message_provenance_preserves_satellite_prefix_visibility
     )
 
     assert failures == 0
-    assert [row["source_message_index"] for row in rows] == [17] * 8
-    assert [row["source_subset_index"] for row in rows] == [
-        0,
-        0,
-        1,
-        1,
-        2,
-        2,
-        3,
-        3,
+    assert [row["satellite"] for row in rows] == [
+        "n19",
+        "n19",
+        "n19",
+        "n19",
+        "metop-b",
+        "metop-b",
+        "n19",
+        "n19",
     ]
-    assert [row["source_message_initial_satellite_id"] for row in rows] == [223] * 8
-    assert [row["source_message_initial_satellite_count"] for row in rows] == [2] * 8
-    visible = [
-        row["satellite_id"] == row["source_message_initial_satellite_id"]
-        and row["source_subset_index"] < row["source_message_initial_satellite_count"]
-        for row in rows
-    ]
-    assert visible == [True, True, True, True, False, False, False, False]
 
 
 def test_ncep_microwave_adapter_rejects_missing_tables_and_failed_messages(
@@ -1021,7 +1009,6 @@ def test_nnja_obs_sat_decode_uses_coarse_location_and_preserves_missingness():
         (ncep_microwave._LAT_COARSE, -1.2286),
         (ncep_microwave._LON_COARSE, -2.8979),
         (ncep_microwave._SAID, 3),
-        (ncep_microwave._SIID, 203),
         (ncep_microwave._FOV_NUMBER, 1),
         (ncep_microwave._CHANNEL_NUMBER, 1),
         (ncep_microwave._BRIGHTNESS_TEMPERATURE, 272.02),
@@ -1035,11 +1022,12 @@ def test_nnja_obs_sat_decode_uses_coarse_location_and_preserves_missingness():
     )
 
     assert len(rows) == 1
-    assert rows[0]["location_accuracy"] == "coarse"
+    assert rows[0]["lat"] == pytest.approx(-1.2286)
+    assert rows[0]["lon"] == pytest.approx(357.1021)
     assert rows[0]["satellite"] == "metop-b"
     assert rows[0]["observation"] == pytest.approx(272.02)
     assert rows[0]["quality"] is None
-    assert np.isnan(rows[0]["channel_frequency"])
+    assert np.isnan(rows[0]["wavenumber"])
 
     assert not _decode_microwave_pairs(
         pairs,

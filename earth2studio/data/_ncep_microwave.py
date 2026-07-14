@@ -64,14 +64,12 @@ _NCEP_MICROWAVE_SATELLITES = frozenset(_SATELLITE_NAMES.values())
 
 # BUFR descriptors used by the NCEP aggregate microwave templates.
 _SAID = 1007
-_SIID = 2019
 _YEAR = 4001
 _MONTH = 4002
 _DAY = 4003
 _HOUR = 4004
 _MINUTE = 4005
 _SECOND = 4006
-_ORBIT_NUMBER = 5040
 _SCAN_LINE = 5041
 _CHANNEL_NUMBER = 5042
 _FOV_NUMBER = 5043
@@ -81,33 +79,22 @@ _LON_HIGH = 6001
 _LON_COARSE = 6002
 _SATELLITE_ZENITH = 7024
 _SOLAR_ZENITH = 7025
-_LAND_SEA_QUALIFIER = 8012
 _SURFACE_ELEVATION = 10001
 _BEARING_OR_AZIMUTH = 5021
 _SOLAR_AZIMUTH = 5022
 _CHANNEL_FREQUENCY = 2153
-_CHANNEL_BANDWIDTH = 2154
-_ANTENNA_POLARIZATION = 2104
 _ANTENNA_TEMPERATURE = 12066
 _BRIGHTNESS_TEMPERATURE = 12163
-_NEDT_COLD = 12158
-_NEDT_WARM = 12159
-_COLD_SPACE_TEMPERATURE = 12206
-_GEOLOCATION_QUALITY = 33078
-_GRANULE_QUALITY = 33079
-_SCAN_QUALITY = 33080
 _CHANNEL_QUALITY = 33081
 
 _SCALAR_DESCRIPTORS = {
     _SAID,
-    _SIID,
     _YEAR,
     _MONTH,
     _DAY,
     _HOUR,
     _MINUTE,
     _SECOND,
-    _ORBIT_NUMBER,
     _SCAN_LINE,
     _FOV_NUMBER,
     _LAT_HIGH,
@@ -116,24 +103,15 @@ _SCALAR_DESCRIPTORS = {
     _LON_COARSE,
     _SATELLITE_ZENITH,
     _SOLAR_ZENITH,
-    _LAND_SEA_QUALIFIER,
     _SURFACE_ELEVATION,
     _BEARING_OR_AZIMUTH,
     _SOLAR_AZIMUTH,
-    _GEOLOCATION_QUALITY,
-    _GRANULE_QUALITY,
-    _SCAN_QUALITY,
 }
 
 _CHANNEL_DESCRIPTORS = {
     _CHANNEL_FREQUENCY,
-    _CHANNEL_BANDWIDTH,
-    _ANTENNA_POLARIZATION,
     _ANTENNA_TEMPERATURE,
     _BRIGHTNESS_TEMPERATURE,
-    _NEDT_COLD,
-    _NEDT_WARM,
-    _COLD_SPACE_TEMPERATURE,
     _CHANNEL_QUALITY,
 }
 
@@ -162,76 +140,28 @@ _NCEP_MICROWAVE_PUBLIC_SCHEMA = pa.schema(
         E2STUDIO_SCHEMA.field("lon"),
         E2STUDIO_SCHEMA.field("elev"),
         pa.field(
-            "location_accuracy",
-            pa.string(),
-            metadata={"description": "BUFR latitude/longitude accuracy class"},
-        ),
-        pa.field(
             "scan_position",
             pa.uint16(),
-            metadata={"description": "Encoded field-of-view number"},
+            metadata={"description": "Encoded one-based field-of-view number"},
         ),
         pa.field("scan_line", pa.uint32(), nullable=True),
-        pa.field("orbit_number", pa.uint32(), nullable=True),
-        pa.field(
-            "source_message_index",
-            pa.uint32(),
-            metadata={"description": "Zero-based data-message ordinal"},
-        ),
-        pa.field(
-            "source_subset_index",
-            pa.uint32(),
-            metadata={"description": "Zero-based subset ordinal within the message"},
-        ),
-        pa.field(
-            "source_message_initial_satellite_id",
-            pa.uint16(),
-            nullable=True,
-            metadata={"description": "Satellite identifier in the first subset"},
-        ),
-        pa.field(
-            "source_message_initial_satellite_count",
-            pa.uint32(),
-            metadata={"description": "Length of the initial contiguous satellite run"},
-        ),
         E2STUDIO_SCHEMA.field("sensor_index"),
-        pa.field(
-            "channel_frequency",
-            pa.float64(),
-            nullable=True,
-            metadata={"description": "Encoded channel center frequency (Hz)"},
-        ),
-        pa.field(
-            "channel_bandwidth",
-            pa.float64(),
-            nullable=True,
-            metadata={"description": "Encoded channel bandwidth (Hz)"},
-        ),
         E2STUDIO_SCHEMA.field("wavenumber"),
-        pa.field("antenna_polarization", pa.uint16(), nullable=True),
         E2STUDIO_SCHEMA.field("solza"),
         E2STUDIO_SCHEMA.field("solaza"),
         E2STUDIO_SCHEMA.field("satellite_za"),
         E2STUDIO_SCHEMA.field("satellite_aza"),
-        E2STUDIO_SCHEMA.field("quality"),
-        pa.field("granule_quality", pa.uint16(), nullable=True),
-        pa.field("scan_quality", pa.uint32(), nullable=True),
-        pa.field("geolocation_quality", pa.uint16(), nullable=True),
-        pa.field("land_sea_qualifier", pa.uint16(), nullable=True),
         pa.field(
-            "noise_equivalent_delta_temperature_cold",
-            pa.float32(),
+            "quality",
+            pa.uint16(),
             nullable=True,
+            metadata={
+                "description": (
+                    "Encoded channel-quality flags; interpretation is sensor "
+                    "and product specific"
+                )
+            },
         ),
-        pa.field(
-            "noise_equivalent_delta_temperature_warm",
-            pa.float32(),
-            nullable=True,
-        ),
-        pa.field("cold_space_temperature", pa.float32(), nullable=True),
-        pa.field("satellite_id", pa.uint16()),
-        pa.field("instrument_id", pa.uint16(), nullable=True),
-        pa.field("sensor", pa.string()),
         E2STUDIO_SCHEMA.field("satellite"),
         E2STUDIO_SCHEMA.field("observation"),
         E2STUDIO_SCHEMA.field("variable"),
@@ -327,11 +257,9 @@ def _decode_microwave_subset(
 
     latitude = _as_float(scalars.get(_LAT_HIGH))
     longitude = _as_float(scalars.get(_LON_HIGH))
-    location_accuracy = "high"
     if not np.isfinite(latitude) or not np.isfinite(longitude):
         latitude = _as_float(scalars.get(_LAT_COARSE))
         longitude = _as_float(scalars.get(_LON_COARSE))
-        location_accuracy = "coarse"
     if (
         not np.isfinite(latitude)
         or latitude < -90.0
@@ -350,21 +278,12 @@ def _decode_microwave_subset(
         "lat": latitude,
         "lon": longitude % 360.0,
         "elev": _as_float(scalars.get(_SURFACE_ELEVATION)),
-        "location_accuracy": location_accuracy,
         "scan_position": scan_position,
         "scan_line": _as_optional_int(scalars.get(_SCAN_LINE)),
-        "orbit_number": _as_optional_int(scalars.get(_ORBIT_NUMBER)),
         "solza": _as_float(scalars.get(_SOLAR_ZENITH)),
         "solaza": _as_float(scalars.get(_SOLAR_AZIMUTH)),
         "satellite_za": _as_float(scalars.get(_SATELLITE_ZENITH)),
         "satellite_aza": _as_float(scalars.get(_BEARING_OR_AZIMUTH)),
-        "granule_quality": _as_optional_int(scalars.get(_GRANULE_QUALITY)),
-        "scan_quality": _as_optional_int(scalars.get(_SCAN_QUALITY)),
-        "geolocation_quality": _as_optional_int(scalars.get(_GEOLOCATION_QUALITY)),
-        "land_sea_qualifier": _as_optional_int(scalars.get(_LAND_SEA_QUALIFIER)),
-        "satellite_id": satellite_id,
-        "instrument_id": _as_optional_int(scalars.get(_SIID)),
-        "sensor": sensor,
         "satellite": satellite,
     }
 
@@ -375,20 +294,8 @@ def _decode_microwave_subset(
         frequency = _as_float(channel.get(_CHANNEL_FREQUENCY))
         channel_values = {
             "sensor_index": channel_number,
-            "channel_frequency": frequency,
-            "channel_bandwidth": _as_float(channel.get(_CHANNEL_BANDWIDTH)),
             "wavenumber": frequency / _C_CM_S,
-            "antenna_polarization": _as_optional_int(
-                channel.get(_ANTENNA_POLARIZATION)
-            ),
             "quality": _as_optional_int(channel.get(_CHANNEL_QUALITY)),
-            "noise_equivalent_delta_temperature_cold": _as_float(
-                channel.get(_NEDT_COLD)
-            ),
-            "noise_equivalent_delta_temperature_warm": _as_float(
-                channel.get(_NEDT_WARM)
-            ),
-            "cold_space_temperature": _as_float(channel.get(_COLD_SPACE_TEMPERATURE)),
         }
         for variable, source_descriptor in variable_fields:
             observation = _as_float(channel.get(source_descriptor))
@@ -426,7 +333,7 @@ def _decode_message_batch(
     rows: list[dict[str, Any]] = []
     failures = 0
     with silence_bufr_noise():
-        for message_index, message_bytes in messages:
+        for _message_index, message_bytes in messages:
             try:
                 message = decoder.process(message_bytes)
                 template_data = message.template_data.value
@@ -436,59 +343,19 @@ def _decode_message_batch(
                 failures += 1
                 continue
 
-            satellite_ids = [
-                _subset_satellite_id(descriptors, values)
-                for descriptors, values in zip(descriptors_all, values_all)
-            ]
-            initial_satellite_id, initial_satellite_count = _initial_satellite_run(
-                satellite_ids
-            )
-            for subset_index, (descriptors, values) in enumerate(
-                zip(descriptors_all, values_all)
-            ):
-                subset_rows = _decode_microwave_subset(
-                    descriptors,
-                    values,
-                    sensor,
-                    variable_fields,
-                    datetime_min,
-                    datetime_max,
-                    satellites,
-                )
-                for row in subset_rows:
-                    row["source_message_index"] = message_index
-                    row["source_subset_index"] = subset_index
-                    row["source_message_initial_satellite_id"] = initial_satellite_id
-                    row["source_message_initial_satellite_count"] = (
-                        initial_satellite_count
+            for descriptors, values in zip(descriptors_all, values_all):
+                rows.extend(
+                    _decode_microwave_subset(
+                        descriptors,
+                        values,
+                        sensor,
+                        variable_fields,
+                        datetime_min,
+                        datetime_max,
+                        satellites,
                     )
-                rows.extend(subset_rows)
+                )
     return rows, failures
-
-
-def _subset_satellite_id(
-    descriptors: Sequence[Any], values: Sequence[Any]
-) -> int | None:
-    """Return the first satellite identifier encoded in one subset."""
-    for descriptor, value in zip(descriptors, values):
-        if int(descriptor.id) == _SAID:
-            return _as_optional_int(value)
-    return None
-
-
-def _initial_satellite_run(
-    satellite_ids: Sequence[int | None],
-) -> tuple[int | None, int]:
-    """Return the first satellite id and its contiguous subset run length."""
-    if not satellite_ids:
-        return None, 0
-    initial = satellite_ids[0]
-    count = 0
-    for satellite_id in satellite_ids:
-        if satellite_id != initial:
-            break
-        count += 1
-    return initial, count
 
 
 def _rows_to_dataframe(rows: list[dict[str, Any]]) -> pd.DataFrame:
