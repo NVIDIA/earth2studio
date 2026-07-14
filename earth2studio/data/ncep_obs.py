@@ -367,6 +367,16 @@ _SOURCE_FIELD_DESCRIPTORS = {
     "TMBR": _BRIGHTNESS_TEMPERATURE,
 }
 
+# Signed nominal cross-track geometry. These are the instrument defaults used
+# by GSI's ``satstep`` routine, not experiment-specific ``scaninfo`` overrides:
+# https://github.com/NOAA-EMC/GSI/blob/860d13740352004fca0136a8c3d0ac9dea30e0da/src/gsi/radinfo.f90#L1523-L1643
+_NCEP_MICROWAVE_SCAN_GEOMETRY: dict[str, tuple[float, float]] = {
+    "atms": (-52.725, 1.11),
+    "amsua": (-48.0 - 1.0 / 3.0, 3.0 + 1.0 / 3.0),
+    "amsub": (-48.95, 1.1),
+    "mhs": (-445.0 / 9.0, 10.0 / 9.0),
+}
+
 
 class _NCEPMicrowaveDecodeError(RuntimeError):
     def __init__(self, path: str, failed_messages: int, total_messages: int) -> None:
@@ -386,6 +396,7 @@ _NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
         E2STUDIO_SCHEMA.field("lat"),
         E2STUDIO_SCHEMA.field("lon"),
         E2STUDIO_SCHEMA.field("elev"),
+        E2STUDIO_SCHEMA.field("scan_angle"),
         pa.field(
             "scan_position",
             pa.uint16(),
@@ -431,6 +442,15 @@ def _as_optional_int(value: Any) -> int | None:
     if not np.isfinite(number):
         return None
     return int(round(number))
+
+
+def _nominal_microwave_scan_angle(sensor: str, scan_position: int) -> float:
+    """Return the signed nominal instrument look angle in degrees."""
+    try:
+        start, step = _NCEP_MICROWAVE_SCAN_GEOMETRY[sensor]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported NCEP microwave sensor: {sensor}") from exc
+    return start + (scan_position - 1) * step
 
 
 def _observation_time(scalars: Mapping[int, Any]) -> np.datetime64 | None:
@@ -527,6 +547,7 @@ def _decode_microwave_subset(
         "lat": latitude,
         "lon": longitude % 360.0,
         "elev": _as_float(scalars.get(_SURFACE_ELEVATION)),
+        "scan_angle": _nominal_microwave_scan_angle(sensor, scan_position),
         "scan_position": scan_position,
         "scan_line": _as_optional_int(scalars.get(_SCAN_LINE)),
         "solza": _as_float(scalars.get(_SOLAR_ZENITH)),

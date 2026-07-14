@@ -605,6 +605,11 @@ class NNJAObsSat(_NNJAObsSourceBase):
     confirms that exception for AMSU-A. The platform identity is retained so a
     downstream transform can apply the appropriate convention explicitly.
 
+    ``scan_position`` preserves the encoded one-based FOV number.
+    ``scan_angle`` is the signed nominal instrument look angle derived from
+    that FOV; negative values are on the first half of the scan. The encoded
+    ``satellite_za`` remains the unsigned Earth-view zenith magnitude.
+
     Parameters
     ----------
     time_tolerance : TimeTolerance, optional
@@ -644,9 +649,12 @@ class NNJAObsSat(_NNJAObsSourceBase):
     - https://psl.noaa.gov/data/nnja_obs/
     - https://registry.opendata.aws/noaa-reanalyses-pds/
     - https://github.com/NOAA-EMC/GSI/blob/860d13740352004fca0136a8c3d0ac9dea30e0da/src/gsi/read_bufrtovs.f90#L754-L823
+    - https://github.com/NOAA-EMC/GSI/blob/860d13740352004fca0136a8c3d0ac9dea30e0da/src/gsi/radinfo.f90#L1523-L1643
     - https://github.com/NOAA-EMC/satingest/blob/3bb883d931d2cbdbd8c5871c30ac25941918c882/ush/ingest_script_atovs1b.sh#L188-L231
     - https://github.com/NOAA-EMC/satingest/blob/3bb883d931d2cbdbd8c5871c30ac25941918c882/sorc/bufr_tranamsua.fd/tranamsua.f#L887-L910
     - https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS-SDR_B.pdf
+    - https://user.eumetsat.int/s3/ope-eup-strapi-media/ATOVS_Level_1b_Product_Guide_f89971ac20.pdf
+    - https://www.ncei.noaa.gov/pub/data/cdo/documentation/podguides/N-15%20thru%20N-19/pdf/APPENDIX%20J%20Instrument%20Scan%20Properties.pdf
 
     Example
     -------

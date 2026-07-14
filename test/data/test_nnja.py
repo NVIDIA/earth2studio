@@ -791,6 +791,7 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
     assert rows[0]["lon"] == pytest.approx(314.32109)
     assert rows[0]["elev"] == pytest.approx(123.5)
     assert rows[0]["satellite"] == "n20"
+    assert rows[0]["scan_angle"] == pytest.approx(-46.065)
     assert rows[0]["scan_position"] == 7
     assert rows[0]["scan_line"] == 8
     assert rows[0]["satellite_aza"] == pytest.approx(269.17)
@@ -804,6 +805,7 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
         "lat",
         "lon",
         "elev",
+        "scan_angle",
         "scan_position",
         "scan_line",
         "sensor_index",
@@ -822,6 +824,27 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
     assert str(frame["sensor_index"].dtype) == "uint16[pyarrow]"
     assert frame["lat"].dtype == np.float32
     assert frame["observation"].dtype == np.float32
+
+
+@pytest.mark.parametrize(
+    "sensor,scan_position,expected",
+    [
+        ("atms", 1, -52.725),
+        ("atms", 96, 52.725),
+        ("amsua", 1, -145.0 / 3.0),
+        ("amsua", 30, 145.0 / 3.0),
+        ("amsub", 1, -48.95),
+        ("amsub", 90, 48.95),
+        ("mhs", 1, -445.0 / 9.0),
+        ("mhs", 90, 445.0 / 9.0),
+    ],
+)
+def test_ncep_microwave_nominal_scan_geometry(
+    sensor: str, scan_position: int, expected: float
+):
+    assert ncep_microwave._nominal_microwave_scan_angle(
+        sensor, scan_position
+    ) == pytest.approx(expected)
 
 
 def test_nnja_obs_sat_decode_preserves_amsub_channels_and_quantity():
@@ -845,6 +868,7 @@ def test_nnja_obs_sat_decode_preserves_amsub_channels_and_quantity():
     assert [row["observation"] for row in rows] == pytest.approx([202.5, 191.5])
     assert {row["satellite"] for row in rows} == {"n16"}
     assert {row["variable"] for row in rows} == {"amsub"}
+    assert [row["scan_angle"] for row in rows] == pytest.approx([-42.35, -42.35])
 
 
 @pytest.mark.parametrize("decode_workers,message_count", [(1, 1), (2, 33)])
@@ -1205,8 +1229,9 @@ def test_nnja_obs_sat_fields_time_platform_and_adapter_validation():
 
     with pytest.raises(ValueError, match="Invalid satellite"):
         NNJAObsSat(satellites=["unknown"])
+    assert NNJAObsSat.resolve_fields(["scan_angle"]).names == ["scan_angle"]
     with pytest.raises(KeyError):
-        NNJAObsSat.resolve_fields(["scan_angle"])
+        NNJAObsSat.resolve_fields(["unknown"])
     with pytest.raises(TypeError):
         NNJAObsSat.resolve_fields(pa.schema([pa.field("lat", pa.float64())]))
     with pytest.raises(nnja._NNJAObsSatIncompleteError) as unavailable:
