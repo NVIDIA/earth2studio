@@ -180,11 +180,9 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
 class NNJAObsSatLexicon(metaclass=LexiconType):
     """NNJA aggregate microwave observation lexicon.
 
-    ``atms`` retains the existing Earth2Studio brightness-temperature meaning
-    and selects encoded ``TMBR``. ``atms_antenna_temperature`` exposes the
-    distinct encoded ``TMANT`` antenna temperature. MHS and AMSU-A select their
-    aggregate products' encoded ``TMBR`` fields without applying or inferring an
-    antenna correction.
+    ``atms`` selects encoded ``TMBR`` scene brightness temperature, while
+    ``atms_antenna_temperature`` selects encoded ``TMANT`` antenna temperature.
+    The legacy sounder names select their encoded ``TMBR`` fields unchanged.
 
     Note
     ----
@@ -197,6 +195,7 @@ class NNJAObsSatLexicon(metaclass=LexiconType):
         "atms_antenna_temperature": "atms::TMANT",
         "mhs": "mhs::TMBR",
         "amsua": "amsua::TMBR",
+        "amsub": "amsub::TMBR",
     }
 
     @classmethod

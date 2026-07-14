@@ -71,6 +71,7 @@ def test_nnja_obs_sat_lexicon_routes_and_quantity_identity():
         "atms_antenna_temperature": "atms::TMANT",
         "mhs": "mhs::TMBR",
         "amsua": "amsua::TMBR",
+        "amsub": "amsub::TMBR",
     }
 
     frame = pd.DataFrame({"observation": [201.25]})

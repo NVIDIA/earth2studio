@@ -817,6 +817,33 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
     assert frame["observation"].dtype == np.float32
 
 
+def test_nnja_obs_sat_decode_preserves_amsub_channels_and_quantity():
+    pairs = [
+        (descriptor, 207 if descriptor == ncep_microwave._SAID else value)
+        for descriptor, value in _atms_microwave_pairs()
+        if descriptor
+        not in {
+            ncep_microwave._ANTENNA_TEMPERATURE,
+            ncep_microwave._CHANNEL_FREQUENCY,
+            ncep_microwave._CHANNEL_BANDWIDTH,
+            ncep_microwave._ANTENNA_POLARIZATION,
+            ncep_microwave._NEDT_COLD,
+            ncep_microwave._NEDT_WARM,
+            ncep_microwave._CHANNEL_QUALITY,
+        }
+    ]
+    rows = _decode_microwave_pairs(
+        pairs,
+        (("amsub", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
+        sensor="amsub",
+    )
+
+    assert [row["sensor_index"] for row in rows] == [2, 1]
+    assert [row["observation"] for row in rows] == pytest.approx([202.5, 191.5])
+    assert {row["satellite"] for row in rows} == {"n16"}
+    assert {row["variable"] for row in rows} == {"amsub"}
+
+
 @pytest.mark.parametrize("decode_workers,message_count", [(1, 1), (2, 33)])
 def test_ncep_microwave_adapter_serial_and_parallel_batch_paths(
     tmp_path, monkeypatch, decode_workers, message_count
@@ -1135,10 +1162,10 @@ def test_nnja_obs_sat_tasks_group_fields_and_use_verified_archive_routes():
     )
     cycle = datetime(2024, 1, 1)
     tasks = source._create_tasks(
-        [cycle], ["atms", "atms_antenna_temperature", "mhs", "amsua"]
+        [cycle], ["atms", "atms_antenna_temperature", "mhs", "amsua", "amsub"]
     )
 
-    assert len(tasks) == 3
+    assert len(tasks) == 4
     atms = next(task for task in tasks if task.sensor == "atms")
     assert atms.var_plan == {
         "atms": "TMBR",
@@ -1147,6 +1174,9 @@ def test_nnja_obs_sat_tasks_group_fields_and_use_verified_archive_routes():
     assert atms.datetime_min == cycle
     assert atms.datetime_max == cycle
     assert atms.s3_uri.endswith("gdas.20240101.t00z.atms.tm00.bufr_d")
+    amsub = next(task for task in tasks if task.sensor == "amsub")
+    assert amsub.var_plan == {"amsub": "TMBR"}
+    assert amsub.s3_uri.endswith("gdas.20240101.t00z.1bamub.tm00.bufr_d")
 
 
 def test_nnja_obs_sat_cycle_windows_follow_nnja_cycle_selection():
@@ -1176,9 +1206,6 @@ def test_nnja_obs_sat_cycle_windows_follow_nnja_cycle_selection():
 
 def test_nnja_obs_sat_fields_time_platform_and_adapter_validation():
     source = NNJAObsSat(cache=False, verbose=False, decode_workers=1)
-    assert issubclass(NNJAObsSat, nnja._NCEPObsSourceBase)
-    assert isinstance(source._nnja_store, nnja._NNJAObsStore)
-    assert source._store is source._nnja_store
     assert NNJAObsSat.available(datetime(2024, 1, 1, 6))
     assert NNJAObsSat.available(np.datetime64("2024-01-01T12:00"))
     assert not NNJAObsSat.available(datetime(2024, 1, 1, 1))

@@ -80,6 +80,7 @@ _NNJA_SAT_PRODUCTS: dict[str, _NNJASatProduct] = {
     "atms": _NNJASatProduct("atms/atms", "atms", 2012),
     "mhs": _NNJASatProduct("mhs/1bmhs", "1bmhs", 2005),
     "amsua": _NNJASatProduct("amsua/1bamua", "1bamua", 1998),
+    "amsub": _NNJASatProduct("amsub/1bamub", "1bamub", 1998),
 }
 
 # ── Async-task dataclasses ──────────────────────────────────────────
@@ -583,24 +584,26 @@ class NNJAObsConv(_NNJAObsSourceBase):
 
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
 class NNJAObsSat(_NNJAObsSourceBase):
-    """NNJA aggregate microwave satellite observations.
+    """NNJA historical NCEP aggregate microwave satellite observations.
 
-    This source reads the NCEP aggregate ATMS, MHS, and AMSU-A BUFR products.
-    Variables are defined by :class:`~earth2studio.lexicon.NNJAObsSatLexicon`.
-    It returns one long-format row per finite encoded channel value while
-    preserving the source time, physical channel number, platform, field of
-    view, location, view and solar geometry, quality metadata, and raw
-    message/subset provenance. Values are returned as encoded; this source does
-    not apply instrument processing, quality screening, or thinning.
+    This source reads the NCEP six-hour aggregate ATMS, MHS, AMSU-A, and AMSU-B
+    BUFR products from the NNJA archive. It returns one long-format row per
+    finite encoded channel value. ``sensor_index`` is the physical ``CHNM``
+    channel number, not a dense index into a selected channel list.
 
-    ATMS exposes encoded ``TMBR`` through ``"atms"`` and the distinct encoded
-    ``TMANT`` field through ``"atms_antenna_temperature"``. MHS and AMSU-A
-    expose the NCEP normal-feed ``TMBR`` value unchanged. Despite its name, GSI
-    documents this slot as antenna temperature for most microwave sounders and
-    optionally converts it to scene brightness temperature when ``ta2tb`` is
-    enabled. Producer/platform exceptions include NOAA-15/16. This source does
-    not apply the GSI conversion. AMSU-B uses the same GSI reader family but is
-    not exposed by this data source.
+    ``atms`` returns the encoded 22-channel ``TMBR`` scene brightness
+    temperature. ``atms_antenna_temperature`` returns the corresponding
+    encoded ``TMANT`` antenna temperature. No conversion is performed between
+    those two ATMS products.
+
+    ``mhs`` (5 channels), ``amsua`` (15 channels), and ``amsub`` (5 channels)
+    return their normal-feed ``TMBR`` values as encoded by NCEP. For these
+    legacy products the mnemonic does not always mean the same physical
+    antenna-correction state. GSI treats normal-feed ``TMBR`` as antenna
+    temperature for AMSU-A, AMSU-B, and MHS, except for NOAA-15/16, which its
+    reader treats as already converted upstream. NOAA satingest independently
+    confirms that exception for AMSU-A. The platform identity is retained so a
+    downstream transform can apply the appropriate convention explicitly.
 
     Parameters
     ----------
@@ -629,19 +632,33 @@ class NNJAObsSat(_NNJAObsSourceBase):
     Warning
     -------
     Aggregate cycle files contain millions of footprints. Broad long-format
-    requests can require substantial memory.
+    requests can require substantial memory. A finite archived value is not a
+    QC decision: historical files may retain passive or degraded channels even
+    when the aggregate carries no usable quality flag. Training pipelines
+    should apply an explicit platform/channel validity policy.
 
     Note
     ----
-    Additional information on the archive is available from:
+    Additional information on the archive and microwave product semantics:
 
     - https://psl.noaa.gov/data/nnja_obs/
     - https://registry.opendata.aws/noaa-reanalyses-pds/
-
-    The normal-feed microwave temperature convention and ``ta2tb`` conversion
-    are documented in NOAA-EMC GSI:
-
     - https://github.com/NOAA-EMC/GSI/blob/860d13740352004fca0136a8c3d0ac9dea30e0da/src/gsi/read_bufrtovs.f90#L754-L823
+    - https://github.com/NOAA-EMC/satingest/blob/3bb883d931d2cbdbd8c5871c30ac25941918c882/ush/ingest_script_atovs1b.sh#L188-L231
+    - https://github.com/NOAA-EMC/satingest/blob/3bb883d931d2cbdbd8c5871c30ac25941918c882/sorc/bufr_tranamsua.fd/tranamsua.f#L887-L910
+    - https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS-SDR_B.pdf
+
+    Example
+    -------
+    .. highlight:: python
+    .. code-block:: python
+
+        # Compare the two encoded ATMS temperature products for NOAA-20.
+        source = NNJAObsSat(satellites=["n20"])
+        df = source(
+            datetime(2024, 1, 1),
+            ["atms", "atms_antenna_temperature"],
+        )
 
     Badges
     ------
