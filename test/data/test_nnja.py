@@ -1229,6 +1229,8 @@ def test_nnja_obs_sat_fields_time_platform_and_adapter_validation():
 
     with pytest.raises(ValueError, match="Invalid satellite"):
         NNJAObsSat(satellites=["unknown"])
+    with pytest.raises(ValueError, match="Invalid satellite"):
+        NNJAObsSat(satellites=["n14"])
     assert NNJAObsSat.resolve_fields(["scan_angle"]).names == ["scan_angle"]
     with pytest.raises(KeyError):
         NNJAObsSat.resolve_fields(["unknown"])
