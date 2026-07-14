@@ -559,6 +559,7 @@ class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self.preds_idx = 0
         coords = coords.copy()
 
         self.output_coords(coords)

@@ -166,6 +166,39 @@ def test_aurora_v1p5_iter(ensemble, device):
             break
 
 
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_aurora_v1p5_iter_repeated(device):
+    """Second create_iterator() call must produce the same outputs as the first.
+
+    Regression test for preds_idx not being reset between rollouts, which caused
+    Aurora's rollout_step counter to start at the wrong value on the second call.
+    """
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    p = _make_model(device)
+
+    dc = p.input_coords()
+    del dc["batch"]
+    del dc["time"]
+    del dc["lead_time"]
+    del dc["variable"]
+    r = Random(dc)
+
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+
+    def collect(n=3):
+        it = p.create_iterator(x, coords)
+        next(it)  # skip IC
+        return [out.clone() for (out, _coords), _ in zip(it, range(n))]
+
+    first = collect()
+    second = collect()
+
+    for a, b in zip(first, second):
+        assert torch.equal(a, b), "create_iterator() results differ across repeated calls"
+
+
 @pytest.mark.parametrize(
     "dc",
     [
