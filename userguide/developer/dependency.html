@@ -762,12 +762,13 @@ conflicts and bloat.</p>
 <section id="base-dependencies">
 <h2>Base Dependencies<a class="headerlink" href="#base-dependencies" title="Link to this heading">#</a></h2>
 <p>The base installation provides core functionality that is focused on the relative
-ecosystem surrounding the following four packages:</p>
+ecosystem surrounding the following five packages:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">torch</span></code>: Deep learning framework</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">xarray</span></code>: Multi-dimensional (N-D) labeled arrays and datasets</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">zarr</span></code>: Array storage format</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">fsspec</span></code>: Filesystem interfaces</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">obstore</span></code>: Rust-based object storage client (S3/GCS/Azure) backing the Zarr data sources</p></li>
 </ul>
 <p>With these base dependencies, most IO methods, data sources, perturbation methods, and
 utilities should be functional. However, specific features can require additional
