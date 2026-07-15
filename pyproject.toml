@@ -221,7 +221,7 @@ stormcast = [
 ]
 stormcast-conus = [
     "natten ; python_version < '3.14'",
-    "nvidia-physicsnemo>=2.2",
+    "nvidia-physicsnemo>=2.2", # TODO introduce a >=2.2 constraint and drop the git pin when PNM releases
     "nvtx>=0.2.11",
     "omegaconf>=2.3.0",
     "scipy>=1.15.2",
@@ -287,7 +287,7 @@ all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
     "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",
     "earth2studio[cbottle,climatenet,corrdiff,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
-    "earth2studio[da-interp,da-stormcast,da-healda]",
+    "earth2studio[da-interp,da-stormcast]", # TODO reintroduce da-healda when wrapper updates
 ]
 
 # ==== UV configuration ====
@@ -314,6 +314,14 @@ conflicts = [
     { extra = "aifs2" },
     { extra = "aifs2ens" },
     { extra = "aifsens" },
+  ],
+  [ # TODO: healda conflicts can be removed when the healda wrapper updates
+    { extra = "da-healda" },
+    { extra = "stormscope" },
+  ],
+  [
+    { extra = "da-healda" },
+    { extra = "stormcast-conus" },
   ]
 ]
 default-groups = ["dev", "build"]
