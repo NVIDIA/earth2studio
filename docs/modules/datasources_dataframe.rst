@@ -21,6 +21,7 @@ Data sources that provide tabular data as DataFrames.
       :template: datasource.rst
 
       data.GHCNDaily
+      data.GHCNHourly
       data.GOESGLM
       data.IBTrACS
       data.ISD
