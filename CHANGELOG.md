@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `async_workers` and `retries` parameters to GFS / GFS_FX, HRRR / HRRR_FX,
   GEFS_FX / GEFS_FX_721x1440, CFS_FX / CFS_FX_Flux and NCAR_ERA5 data sources;
   `async_workers` defaults to None which autoscales download concurrency to the
-  number of pending tasks (capped at 32)
+  number of pending tasks (capped at 64)
 - Added shared obstore byte-range helpers (`obstore_store_from_url`,
   `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
 

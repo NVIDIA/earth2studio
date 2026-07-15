@@ -80,7 +80,7 @@ class GFS:
         by default 600
     async_workers : int, optional
         Maximum number of concurrent downloads. By default None, which autoscales
-        to the number of download tasks (capped at 32)
+        to the number of download tasks (capped at 64)
     retries : int, optional
         Number of retries for each download task on transient errors, by default 3
 
@@ -172,7 +172,7 @@ class GFS:
         """
         self.store = obstore_store_from_url(
             self._store_url,
-            max_pool_connections=self._async_workers or 32,
+            max_pool_connections=self._async_workers or 64,
         )
 
     def __call__(

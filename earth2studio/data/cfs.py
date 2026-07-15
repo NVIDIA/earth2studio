@@ -105,7 +105,7 @@ class CFS_FX:
         Total timeout in seconds for the entire fetch operation, by default 600.
     async_workers : int, optional
         Maximum number of concurrent downloads. By default None, which
-        autoscales to the number of download tasks (capped at 32).
+        autoscales to the number of download tasks (capped at 64).
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
@@ -233,7 +233,7 @@ class CFS_FX:
         """
         self.store = obstore_store_from_url(
             self._store_url,
-            max_pool_connections=self._async_workers or 32,
+            max_pool_connections=self._async_workers or 64,
         )
 
     def __call__(
@@ -768,7 +768,7 @@ class CFS_FX_Flux(CFS_FX):
         Total timeout in seconds for the entire fetch operation, by default 600.
     async_workers : int, optional
         Maximum number of concurrent downloads. By default None, which
-        autoscales to the number of download tasks (capped at 32).
+        autoscales to the number of download tasks (capped at 64).
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.

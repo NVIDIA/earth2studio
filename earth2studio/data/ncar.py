@@ -83,7 +83,7 @@ class NCAR_ERA5:
         Timeout in seconds for async operations, by default 600
     async_workers : int, optional
         Maximum number of concurrent downloads. By default None, which autoscales
-        to the number of download tasks (capped at 32)
+        to the number of download tasks (capped at 64)
     retries : int, optional
         Number of retries for each download task on transient errors, by default 3
 
@@ -140,7 +140,7 @@ class NCAR_ERA5:
         # redirects, so the helper's us-east-1 default must be overridden
         self.store = obstore_store_from_url(
             f"s3://{self.NCAR_ERA5_BUCKET_NAME}",
-            max_pool_connections=self._async_workers or 32,
+            max_pool_connections=self._async_workers or 64,
             region="us-west-2",
         )
 

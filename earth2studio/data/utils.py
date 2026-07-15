@@ -772,7 +772,7 @@ async def cancellable_to_thread(
 
 
 def resolve_async_workers(
-    async_workers: int | None, n_tasks: int, cap: int = 32
+    async_workers: int | None, n_tasks: int, cap: int = 64
 ) -> int:
     """Resolves the concurrent download worker count for a data source.
 
@@ -788,7 +788,7 @@ def resolve_async_workers(
     n_tasks : int
         Number of pending download tasks
     cap : int, optional
-        Upper bound applied when autoscaling, by default 32
+        Upper bound applied when autoscaling, by default 64
 
     Returns
     -------

@@ -106,7 +106,7 @@ class HRRR:
         by default 600
     async_workers : int, optional
         Maximum number of concurrent downloads. By default None, which autoscales to
-        the number of download tasks (capped at 32)
+        the number of download tasks (capped at 64)
     retries : int, optional
         Number of retries for each download task on transient errors, by default 3
 
@@ -228,7 +228,7 @@ class HRRR:
         self.store = obstore_store_from_url(
             store_url,
             anonymous=self.HRRR_BUCKET_ANON,
-            max_pool_connections=self._async_workers or 32,
+            max_pool_connections=self._async_workers or 64,
         )
 
     def __call__(
@@ -714,7 +714,7 @@ class HRRR_FX(HRRR):
         by default 600
     async_workers : int, optional
         Maximum number of concurrent downloads. By default None, which autoscales to
-        the number of download tasks (capped at 32)
+        the number of download tasks (capped at 64)
     retries : int, optional
         Number of retries for each download task on transient errors, by default 3
 
