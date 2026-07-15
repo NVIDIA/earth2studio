@@ -26,10 +26,11 @@ predictions using StormScope models with both GOES and MRMS data sources.
 
 In this example you will learn:
 
-- How to instantiate StormScope models for GOES and MRMS
+- How to instantiate StormScope models for GOES, MRMS, and NSRDB
 - Creating GOES and MRMS data sources
 - Running iterative prognostic forecasts
-- Plotting a single GOES channel with MRMS overlay
+- Estimating surface solar irradiance (GHI) from the forecasted GOES imagery
+- Plotting a GOES channel with MRMS overlay, and the GHI nowcast
 """
 # /// script
 # dependencies = [
@@ -76,6 +77,7 @@ from earth2studio.models.px.stormscope import (
     StormScopeBase,
     StormScopeGOES,
     StormScopeMRMS,
+    StormScopeNSRDB,
 )
 
 # %%
@@ -128,6 +130,16 @@ model_mrms = StormScopeMRMS.load_model(
 model_mrms = model_mrms.to(device)
 model_mrms.eval()
 
+# GHI estimator: derives surface solar irradiance (GHI) from GOES imagery. It is
+# a same-time estimator, so during the rollout it consumes each forecasted GOES
+# frame rather than integrating its own state.
+model_nsrdb = StormScopeNSRDB.load_model(
+    package=package,
+    conditioning_data_source=None,
+)
+model_nsrdb = model_nsrdb.to(device)
+model_nsrdb.eval()
+
 # %%
 # Setup GOES Data Source and Interpolators
 # ----------------------------------------
@@ -152,6 +164,10 @@ goes_lat, goes_lon = GOES.grid(satellite=goes_satellite, scan_mode=scan_mode)
 # The GOES nowcast model is pure-obs (no external conditioning), so only an input
 # interpolator (GOES grid -> model grid) is needed.
 model.build_input_interpolator(goes_lat, goes_lon)
+
+# The GHI estimator's conditioning interpolator is built from the raw GOES grid so
+# off-disk pixels are correctly flagged invalid.
+model_nsrdb.build_conditioning_interpolator(goes_lat, goes_lon)
 
 in_coords = model.input_coords()
 
@@ -264,6 +280,9 @@ for step_idx in trange(n_steps, desc="Forecast steps"):
         y_mrms, y_coords_mrms, conditioning=y, conditioning_coords=y_coords
     )
 
+    # Estimate GHI from the forecasted GOES imagery (same-time estimator)
+    ghi_pred, ghi_pred_coords = model_nsrdb.estimate_from_goes(y_pred, y_pred_coords)
+
     # Advance the sliding window for the next step: drop the oldest input frame
     # and append the new prediction. We assign directly into the loop carry
     # variables (y/y_mrms) and keep y_pred/y_mrms_pred pointing at the single
@@ -356,3 +375,33 @@ plt.title(
 
 plt.tight_layout()
 plt.savefig("outputs/03_stormscope_goes_example.png", dpi=300)
+
+# %%
+# Plot the estimated GHI (from the forecasted GOES imagery) on the same grid.
+ghi = model_nsrdb.variables.tolist().index("ghi")
+ghi_field = torch.where(
+    model_nsrdb.valid_mask, ghi_pred[0, 0, 0, ghi], torch.nan
+).detach().cpu().numpy()
+
+plt.figure(figsize=(9, 6))
+ax = plt.axes(projection=proj_hrrr)
+ax.coastlines(color="black", linewidth=0.8)
+ax.add_feature(cfeature.STATES, edgecolor="black", linewidth=0.4)
+im_ghi = ax.pcolormesh(
+    lon_out,
+    lat_out,
+    ghi_field,
+    transform=ccrs.PlateCarree(),
+    cmap="hot",
+    shading="auto",
+    vmin=0,
+)
+plt.colorbar(
+    im_ghi, label="GHI [W/m^2]", orientation="horizontal", pad=0.05, shrink=0.5
+)
+plt.title(
+    f"Estimated GHI from {time} UTC initialization "
+    f"(lead {lead_time.astype('timedelta64[m]').item()})"
+)
+plt.tight_layout()
+plt.savefig("outputs/03_stormscope_ghi_example.png", dpi=300)
