@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed NNJA observation sources blocking the shared fsspec IO loop with
+  CPU-bound PrepBUFR decode work, which stalled concurrent fetches from other
+  data sources.
 - Fixed ACE2 distributed inference failures caused by nondeterministic variable ordering
   across MPI ranks.
 - Improved ACE2ERA5 inference performance by caching yearly forcing values
