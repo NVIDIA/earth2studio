@@ -22,18 +22,24 @@ from earth2studio.lexicon import MeteosatFCILexicon
 
 @pytest.mark.parametrize(
     "variable",
-    [["fci01"], ["fci07", "fci09"], ["fci01", "fci06", "fci12"], ["foo"]],
+    [
+        ["fci04vis"],  # single VIS band
+        ["fci63wv", "fci87ir"],  # WV + IR pair
+        ["fci06vis", "fci22nir", "fci105ir"],  # HRFI-capable channels
+        ["fci04vis", "fci16nir", "fci38ir", "fci133ir"],  # mixed
+        ["foo"],  # unknown variable → KeyError
+    ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_meteosat_fci_lexicon(variable, device):
     input = torch.randn(len(variable), 100, 100).to(device)
     for v in variable:
         if v != "foo":
-            label, modifier = MeteosatFCILexicon[v]
+            label, modifier = MeteosatFCILexicon[v]  # type: ignore[misc]
             output = modifier(input)
             assert isinstance(label, str)
             assert input.shape == output.shape
             assert input.device == output.device
         else:
             with pytest.raises(KeyError):
-                label, modifier = MeteosatFCILexicon[v]
+                MeteosatFCILexicon[v]  # type: ignore[misc]
