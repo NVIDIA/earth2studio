@@ -44,7 +44,7 @@ class PhooStormCastCONUSDiffusionModel(torch.nn.Module):
     """Minimal diffusion model stub for StormCastCONUS unit tests.
 
     Exposes ``model_high.model.model.patch_size`` as required by the crop_model
-    path in ``StormCastCONUSBase.__init__``.  ``crop_model`` is a no-op.
+    path in ``StormCastCONUS.__init__``.  ``crop_model`` is a no-op.
     The forward pass returns the (unchanged) noisy input so the diffusion
     sampler converges trivially.
     """

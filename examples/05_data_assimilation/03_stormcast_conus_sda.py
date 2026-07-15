@@ -87,7 +87,7 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 from earth2studio.data import HRRR, ISD, fetch_data
 from earth2studio.models.auto import Package
-from earth2studio.models.da import StormCastCONUSSDA
+from earth2studio.models.px import StormCastCONUS
 from earth2studio.utils.coords import map_coords
 
 # Load the model package. Set STORMCAST_CONUS_MODEL_PATH to override the path.
@@ -109,7 +109,7 @@ package = Package(
 # for hrrr_lat_lim and hrrr_lon_lim in the load_model call.
 hrrr_lat_lim = (273, 785)
 hrrr_lon_lim = (579, 1219)
-model = StormCastCONUSSDA.load_model(
+model = StormCastCONUS.load_model(
     package,
     hrrr_lat_lim=hrrr_lat_lim,  # comment for full domain
     hrrr_lon_lim=hrrr_lon_lim,  # comment for full domain
