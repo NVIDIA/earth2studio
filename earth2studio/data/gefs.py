@@ -326,15 +326,14 @@ class GEFS_FX:
                         )
                         raise e
 
-                    # Get byte range from index
+                    # Get byte range from index. A byte length of None means
+                    # the record runs to the end of the file (read to EOF).
                     byte_offset = None
                     byte_length = None
                     for key, value in index_files[product].items():
                         if gefs_key in key:
                             byte_offset = value[0]
-                            byte_length = (
-                                None if value[1] < 0 else value[1]
-                            )  # Negative means to eof
+                            byte_length = value[1]
                             break
 
                     if byte_offset is None:
@@ -454,7 +453,7 @@ class GEFS_FX:
                         f"Requested lead time {delta} needs to be 6 hour interval for last 6 days in GEFS"
                     )
 
-    async def _fetch_index(self, index_uri: str) -> dict[str, tuple[int, int]]:
+    async def _fetch_index(self, index_uri: str) -> dict[str, tuple[int, int | None]]:
         """Fetch GEFS atmospheric index file
 
         Parameters
@@ -464,30 +463,29 @@ class GEFS_FX:
 
         Returns
         -------
-        dict[str, tuple[int, int]]
-            Dictionary of GEFS vairables (byte offset, byte length)
+        dict[str, tuple[int, int | None]]
+            Dictionary of GEFS variables (byte offset, byte length). The last
+            record has a byte length of ``None``, meaning read to end of file.
         """
         # Grab index file
         index_file = await self._fetch_remote_file(index_uri)
         with open(index_file) as file:
-            index_lines = [line.rstrip() for line in file]
-        # Add dummy variable at end of file with max offset so algo below works
-        # This gives the last record a negative byte length, which downstream
-        # maps to byte_length=None (read from offset to end of object)
-        index_lines.append("xx:-1:d=xx:NULL:NULL:NULL:NULL")
-        index_table: dict[str, tuple[int, int]] = {}
+            records = [
+                lsplit for line in file if len(lsplit := line.rstrip().split(":")) >= 7
+            ]
 
-        index_table = {}
-        for i, line in enumerate(index_lines[:-1]):
-            lsplit = line.split(":")
-            if len(lsplit) < 7:
-                continue
-
-            nlsplit = index_lines[i + 1].split(":")
-            byte_length = int(nlsplit[1]) - int(lsplit[1])
+        index_table: dict[str, tuple[int, int | None]] = {}
+        for i, lsplit in enumerate(records):
             byte_offset = int(lsplit[1])
+            # The final record runs to the end of the file (no next offset to
+            # bound it), signalled with a byte length of None (read to EOF).
+            byte_length: int | None
+            if i + 1 < len(records):
+                byte_length = int(records[i + 1][1]) - byte_offset
+            else:
+                byte_length = None
             key = f"{lsplit[0]}::{lsplit[3]}::{lsplit[4]}::{lsplit[5]}"
-            if byte_length > self.MAX_BYTE_SIZE:
+            if byte_length is not None and byte_length > self.MAX_BYTE_SIZE:
                 raise ValueError(
                     f"Byte length, {byte_length}, of variable {key} larger than safe threshold of {self.MAX_BYTE_SIZE}"
                 )

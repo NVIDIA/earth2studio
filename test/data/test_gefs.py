@@ -285,14 +285,14 @@ def test_gefs_index_parser(tmp_path):
     with patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch):
         table = asyncio.run(ds._fetch_index("dummy-uri"))
 
-    # Unlike GFS, a dummy end line is appended so the LAST record is kept,
-    # with a negative byte length signalling a read to end-of-file
+    # Unlike GFS, the LAST record is kept, with a byte length of None
+    # signalling a read from its offset to the end of the file
     assert len(table) == 3
     assert table["1::PRMSL::mean sea level::3 hour fcst"] == (0, 65300)
     assert table["2::HGT::500 mb::3 hour fcst"] == (65300, 96515 - 65300)
     trailing = table["3::TMP::2 m above ground::3 hour fcst"]
     assert trailing[0] == 96515
-    assert trailing[1] < 0
+    assert trailing[1] is None
 
 
 @pytest.mark.timeout(10)
@@ -359,13 +359,12 @@ def test_gefs_call_mock(tmp_path, monkeypatch):
 
 @pytest.mark.timeout(15)
 def test_gefs_call_mock_trailing_record(tmp_path, monkeypatch):
-    """A negative byte length in the index (last grib message in the file) must
+    """A byte length of None in the index (last grib message in the file) must
     reach the remote fetch as byte_length=None (read offset -> EOF)."""
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
 
-    # Negative byte length signals the trailing record, per the dummy index
-    # line appended in _fetch_index
-    fake_index = {"1::TMP::2 m above ground::3 hour fcst": (96515, -96516)}
+    # A byte length of None signals the trailing record, per _fetch_index
+    fake_index = {"1::TMP::2 m above ground::3 hour fcst": (96515, None)}
     fake_grid = np.random.rand(361, 720).astype(np.float32)
     fetch_calls = []
 
