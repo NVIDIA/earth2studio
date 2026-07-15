@@ -104,7 +104,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     For more information see the following references:
 
     - https://arxiv.org/abs/2408.10958
-    - https://huggingface.co/nvidia/stormcast-v1-era5-hrrr
+    - https://huggingface.co/nvidia/stormcast-conus
 
     Parameters
     ----------
