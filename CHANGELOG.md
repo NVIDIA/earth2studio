@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated StormScope model package to use improved higher resolution checkpoints. Model
   now defaults to using 3 km and 10 minute spatiotemporal resolution, and includes
   predictions for GOES GLM Lightning density.
+- Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
+  the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
+  fsspec
 
 ### Deprecated
 
@@ -36,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
+- Removed `multi-storage-client` from the `data` optional dependency group,
+  succeeded by `obstore`
 
 ## [0.16.0] - 2026-06-29
 
