@@ -79,14 +79,17 @@ from earth2studio.models.px import StormCastCONUS
 
 # Load the model package from a local path or remote URI.
 # Set STORMCAST_CONUS_MODEL_PATH to override the default location.
-model_path = os.environ.get("STORMCAST_CONUS_MODEL_PATH", "stormcast-conus")
-package = Package(
-    model_path,
-    cache_options={
-        "cache_storage": Package.default_cache("stormcast-conus"),
-        "same_names": True,
-    },
-)
+model_path = os.environ.get("STORMCAST_CONUS_MODEL_PATH")
+if model_path is None:
+    package = StormCastCONUS.load_default_package()
+else:
+    package = Package(
+        model_path,
+        cache_options={
+            "cache_storage": Package.default_cache("stormcast-conus"),
+            "same_names": True,
+        },
+    )
 # Uses GFS_FX as the conditioning data source by default
 model = StormCastCONUS.load_model(package)
 

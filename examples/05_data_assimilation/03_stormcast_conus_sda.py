@@ -58,14 +58,6 @@ In this example you will learn:
 # HRRR domain at 3 km resolution. When an observation DataFrame is passed to each
 # generator step, diffusion posterior sampling (DPS) steers the denoising trajectory
 # toward the observed values.
-#
-# .. note::
-#    StormCast-CONUS does not yet have a publicly released default package.
-#    Set the ``STORMCAST_CONUS_MODEL_PATH`` environment variable to the local
-#    directory or remote URI of the model package before running this example.
-#    The full CONUS domain requires approximately 24 GB of GPU RAM.  If your GPU
-#    has less memory, see the commented-out ``hrrr_lat_lim`` / ``hrrr_lon_lim``
-#    lines in the setup cell to run on a smaller central-US subdomain (~6 GB).
 
 # %%
 import os
@@ -90,29 +82,32 @@ from earth2studio.models.auto import Package
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.utils.coords import map_coords
 
-# Load the model package. Set STORMCAST_CONUS_MODEL_PATH to override the path.
-model_path = os.environ.get("STORMCAST_CONUS_MODEL_PATH", "stormcast-conus")
-package = Package(
-    model_path,
-    cache_options={
-        "cache_storage": Package.default_cache("stormcast-conus"),
-        "same_names": True,
-    },
-)
+# Load the model package. Set STORMCAST_CONUS_MODEL_PATH to override the default location.
+model_path = os.environ.get("STORMCAST_CONUS_MODEL_PATH")
+if model_path is None:
+    package = StormCastCONUS.load_default_package()
+else:
+    package = Package(
+        model_path,
+        cache_options={
+            "cache_storage": Package.default_cache("stormcast-conus"),
+            "same_names": True,
+        },
+    )
 
 # Configure SDA: sda_std_obs is the assumed normalised observation noise std per
 # variable (lower = trust observations more).
 # sda_gamma is the DPS step-size scaling (lower = stronger guidance from obs).
 #
-# By default the model runs on the central-US subdomain.
-# To run on a smaller central-US subdomain, comment the lines
-# for hrrr_lat_lim and hrrr_lon_lim in the load_model call.
+# By default the example runs on the central-US subdomain to reduce GPU memory
+# requirements. For the full CONUS domain, comment out hrrr_lat_lim and
+# hrrr_lon_lim below (requires ~200 GB VRAM for SDA).
 hrrr_lat_lim = (273, 785)
 hrrr_lon_lim = (579, 1219)
 model = StormCastCONUS.load_model(
     package,
-    hrrr_lat_lim=hrrr_lat_lim,  # comment for full domain
-    hrrr_lon_lim=hrrr_lon_lim,  # comment for full domain
+    hrrr_lat_lim=hrrr_lat_lim,  # comment out for full CONUS domain
+    hrrr_lon_lim=hrrr_lon_lim,  # comment out for full CONUS domain
     num_diffusion_steps=18,
     num_sda_diffusion_steps=96,
     sda_std_obs=0.15,
