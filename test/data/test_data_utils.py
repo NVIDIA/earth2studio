@@ -794,6 +794,8 @@ async def test_obstore_fetch_to_cache(tmp_path):
         store, "some/key", str(tmp_path), byte_offset=0, cache_key="warmcache"
     )
     assert Path(path).read_bytes() == payload
+
+
 @pytest.fixture
 def local_zarr_array(tmp_path):
     import zarr
