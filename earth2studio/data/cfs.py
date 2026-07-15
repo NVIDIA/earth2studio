@@ -25,11 +25,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import numpy as np
+import obstore as obs
 import pygrib
-import s3fs
 import xarray as xr
-from fsspec.implementations.http import HTTPFileSystem
 from loguru import logger
+from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
@@ -38,7 +38,10 @@ from earth2studio.data.utils import (
     cancellable_to_thread,
     datasource_cache_root,
     gather_with_concurrency,
+    obstore_fetch_to_cache,
+    obstore_store_from_url,
     prep_forecast_inputs,
+    resolve_async_workers,
 )
 from earth2studio.lexicon import CFSFluxLexicon, CFSLexicon
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
@@ -101,7 +104,8 @@ class CFS_FX:
     async_timeout : int, optional
         Total timeout in seconds for the entire fetch operation, by default 600.
     async_workers : int, optional
-        Maximum number of concurrent async fetch tasks, by default 16.
+        Maximum number of concurrent downloads. By default None, which
+        autoscales to the number of download tasks (capped at 32).
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
@@ -141,7 +145,11 @@ class CFS_FX:
     CFS_LON = np.linspace(0, 359, 360)
 
     CFS_AWS_BUCKET = "noaa-cfs-pds"
-    CFS_NOMADS_BASE = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/cfs/prod"
+    # NOMADS HTTPS mirror of the NCEP production feed, supports the ranged
+    # GETs obstore's HTTPStore issues for byte-range fetches. The store is
+    # rooted at the host; object keys carry the full "pub/..." path.
+    CFS_NOMADS_HOST = "https://nomads.ncep.noaa.gov"
+    CFS_NOMADS_BASE = f"{CFS_NOMADS_HOST}/pub/data/nccf/com/cfs/prod"
 
     CFS_MEMBERS = (1, 2, 3, 4)
     CFS_SOURCES = ("nomads", "aws")
@@ -159,7 +167,7 @@ class CFS_FX:
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
-        async_workers: int = 16,
+        async_workers: int | None = None,
         retries: int = 3,
     ):
         if member not in self.CFS_MEMBERS:
@@ -182,6 +190,7 @@ class CFS_FX:
 
         if source == "nomads":
             self.uri_prefix = self.CFS_NOMADS_BASE
+            self._store_url = self.CFS_NOMADS_HOST
 
             def _history_range(time: datetime) -> None:
                 # NOMADS keeps roughly the last seven cycles online; allow a
@@ -198,6 +207,7 @@ class CFS_FX:
 
         else:  # aws
             self.uri_prefix = self.CFS_AWS_BUCKET
+            self._store_url = f"s3://{self.CFS_AWS_BUCKET}"
 
             def _history_range(time: datetime) -> None:
                 if time < _AWS_HISTORY_START:
@@ -208,25 +218,23 @@ class CFS_FX:
 
         self._history_range = _history_range
 
-        # Filesystem is lazily initialised inside the event loop.
-        self.fs: s3fs.S3FileSystem | HTTPFileSystem | None = None
+        # Object store is lazily initialised on first fetch (AWS uses an
+        # anonymous S3 store, NOMADS an HTTP store rooted at the host).
+        self.store: ObjectStore | None = None
 
     async def _async_init(self) -> None:
-        """Async initialisation of the fsspec backend.
+        """Async initialization of the object store
 
         Note
         ----
-        Async fsspec expects initialisation inside the execution loop.
+        Unlike async fsspec filesystems, obstore stores are event-loop
+        independent and could be built in ``__init__``; kept as a lazy async
+        method to preserve the initialization seam.
         """
-        if self._source == "aws":
-            self.fs = s3fs.S3FileSystem(
-                anon=True,
-                client_kwargs={},
-                asynchronous=True,
-                skip_instance_cache=True,
-            )
-        else:
-            self.fs = HTTPFileSystem(asynchronous=True)
+        self.store = obstore_store_from_url(
+            self._store_url,
+            max_pool_connections=self._async_workers or 32,
+        )
 
     def __call__(
         self,
@@ -282,7 +290,8 @@ class CFS_FX:
         xr.DataArray
             CFS forecast data array.
         """
-        if self.fs is None:
+        # Lazily initialize the object store on first use
+        if self.store is None:
             await self._async_init()
 
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
@@ -290,50 +299,39 @@ class CFS_FX:
         self._validate_time(time)
         self._validate_leadtime(lead_time)
 
-        # s3fs needs an explicit aiohttp session for parallel fetches; the
-        # HTTPFileSystem manages its own session lazily and does not accept
-        # the s3fs ``refresh`` kwarg, so we only set up a session for s3.
-        session = None
-        if isinstance(self.fs, s3fs.S3FileSystem):
-            session = await self.fs.set_session(refresh=True)
-
-        try:
-            # NaN-initialise so variables that are not resolved against the
-            # grib index surface as detectable missing values instead of
-            # arbitrary memory.
-            xr_array = xr.DataArray(
-                data=np.full(
-                    (
-                        len(time),
-                        len(lead_time),
-                        len(variable),
-                        len(self.CFS_LAT),
-                        len(self.CFS_LON),
-                    ),
-                    np.nan,
+        # NaN-initialise so variables that are not resolved against the
+        # grib index surface as detectable missing values instead of
+        # arbitrary memory.
+        xr_array = xr.DataArray(
+            data=np.full(
+                (
+                    len(time),
+                    len(lead_time),
+                    len(variable),
+                    len(self.CFS_LAT),
+                    len(self.CFS_LON),
                 ),
-                dims=["time", "lead_time", "variable", "lat", "lon"],
-                coords={
-                    "time": time,
-                    "lead_time": lead_time,
-                    "variable": variable,
-                    "lat": self.CFS_LAT,
-                    "lon": self.CFS_LON,
-                },
-            )
+                np.nan,
+            ),
+            dims=["time", "lead_time", "variable", "lat", "lon"],
+            coords={
+                "time": time,
+                "lead_time": lead_time,
+                "variable": variable,
+                "lat": self.CFS_LAT,
+                "lon": self.CFS_LON,
+            },
+        )
 
-            tasks = await self._create_tasks(time, lead_time, variable)
-            coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in tasks]
-            await gather_with_concurrency(
-                coros,
-                max_workers=self._async_workers,
-                task_timeout=120.0,
-                desc="Fetching CFS data",
-                verbose=(not self._verbose),
-            )
-        finally:
-            if session is not None:
-                await session.close()
+        tasks = await self._create_tasks(time, lead_time, variable)
+        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in tasks]
+        await gather_with_concurrency(
+            coros,
+            max_workers=resolve_async_workers(self._async_workers, len(coros)),
+            task_timeout=120.0,
+            desc="Fetching CFS data",
+            verbose=(not self._verbose),
+        )
 
         return xr_array
 
@@ -365,12 +363,14 @@ class CFS_FX:
         # Fetch every required .idx in parallel up front.  Most CFS variable
         # records live in the same grib file (one file per IC x lead_time), so
         # we cache them in a dict keyed by URI.  Bound the index fetches by
-        # the configured ``async_workers`` budget rather than launching all
-        # of them simultaneously through a bare ``tqdm.gather``.
+        # the ``async_workers`` budget (autoscaled to the task count when
+        # unset) rather than launching all of them simultaneously through a
+        # bare ``tqdm.gather``.
         idx_uris = [self._grib_index_uri(t, lt) for t in time for lt in lead_time]
+        idx_coros = [self._fetch_index(uri) for uri in idx_uris]
         idx_results = await gather_with_concurrency(
-            [self._fetch_index(uri) for uri in idx_uris],
-            max_workers=self._async_workers,
+            idx_coros,
+            max_workers=resolve_async_workers(self._async_workers, len(idx_coros)),
             task_timeout=60.0,
             desc="Fetching CFS index files",
             verbose=True,
@@ -546,7 +546,9 @@ class CFS_FX:
         -------
         dict[str, tuple[int, int, int]]
             Mapping from `<recno>::<param>::<level>` to
-            `(byte_offset, byte_length, submsg_index)`.
+            `(byte_offset, byte_length, submsg_index)`. A negative
+            `byte_length` (last record) means "read from offset to the end of
+            the file".
             `submsg_index` is the 1-based pygrib message index within the
             cached byte-range file; for scalar records this is always 1, for
             vector siblings it is parsed from the decimal suffix of `recno`.
@@ -583,9 +585,10 @@ class CFS_FX:
                     next_offset = next_off
                     break
             if next_offset is None:
-                # Last record: use a generous upper bound; fsspec/`_cat_file`
-                # treats `end > size` as "rest of file".
-                byte_length = self.MAX_BYTE_SIZE
+                # Last record: negative sentinel meaning "read from offset to
+                # the end of the object", which downstream maps to
+                # ``byte_length=None`` (matches the GEFS index handling).
+                byte_length = -1
             else:
                 byte_length = next_offset - offset
 
@@ -616,39 +619,43 @@ class CFS_FX:
         Parameters
         ----------
         path : str
-            Remote URI (``s3://...`` style for AWS or HTTPS URL for NOMADS).
+            Remote URI (``bucket/key`` style for AWS or HTTPS URL for NOMADS).
         byte_offset : int, optional
             Starting byte offset, by default 0.
         byte_length : int | None, optional
-            Number of bytes to fetch, by default None (full file).
+            Number of bytes to fetch, by default None (full file). A negative
+            value means "read from offset to the end of the file".
 
         Returns
         -------
         str
             Path to the cached file on local disk.
         """
-        if self.fs is None:
-            raise ValueError("File system is not initialised")
+        if byte_length is not None and byte_length < 0:
+            byte_length = None
 
+        # Hash the original path string (bucket-prefixed for AWS, full HTTPS
+        # URL for NOMADS) so warm caches populated before the obstore
+        # migration remain valid
         sha = hashlib.sha256((path + str(byte_offset)).encode())
-        cache_path = os.path.join(self.cache, sha.hexdigest())
+        filename = sha.hexdigest()
 
-        if pathlib.Path(cache_path).is_file():
-            return cache_path
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
 
-        end: int | None = None
-        if byte_length:
-            end = int(byte_offset + byte_length)
-
-        try:
-            data = await self.fs._cat_file(path, start=byte_offset, end=end)
-        except FileNotFoundError as e:
-            logger.error(f"Failed to download {path}: not found")
-            raise e
-
-        with open(cache_path, "wb") as fh:
-            fh.write(data)
-        return cache_path
+        # AWS paths are bucket-prefixed; NOMADS paths are full HTTPS URLs on
+        # the store host — strip either prefix to get the store-relative key
+        key = path.removeprefix(self.CFS_AWS_BUCKET + "/").removeprefix(
+            self.CFS_NOMADS_HOST + "/"
+        )
+        return await obstore_fetch_to_cache(
+            self.store,
+            key,
+            self.cache,
+            byte_offset=byte_offset,
+            byte_length=byte_length,
+            cache_key=filename,
+        )
 
     def _grib_uri(self, time: datetime, lead_time: timedelta) -> str:
         """Build the grib file URI for a given IC and lead time."""
@@ -668,7 +675,9 @@ class CFS_FX:
         """Join the source-specific URI prefix to a relative path."""
         if self._source == "nomads":
             return f"{self.uri_prefix.rstrip('/')}/{suffix}"
-        # AWS: s3fs accepts ``bucket/key`` for ``_cat_file``.
+        # AWS: bucket-prefixed path; the bucket prefix is stripped to a
+        # store-relative key before the obstore read, but the full path is
+        # kept in the cache-key hash for warm-cache compatibility.
         return f"{self.uri_prefix}/{suffix}"
 
     @property
@@ -721,15 +730,19 @@ class CFS_FX:
             return False
 
         member_dir = f"{member:02d}"
-        cycle_uri = (
-            f"s3://{cls.CFS_AWS_BUCKET}/cfs.{time:%Y%m%d}/"
-            f"{time:%H}/6hrly_grib_{member_dir}/"
-        )
-        fs = s3fs.S3FileSystem(anon=True)
+        # Object store directory for the requested cycle / member
+        prefix = f"cfs.{time:%Y%m%d}/{time:%H}/6hrly_grib_{member_dir}/"
+        store = obstore_store_from_url(f"s3://{cls.CFS_AWS_BUCKET}")
         try:
-            return fs.exists(cycle_uri)
-        except OSError:
+            # obs.list yields chunks (lists) of entries; one entry proves
+            # existence
+            chunk: list = next(iter(obs.list(store, prefix=prefix, chunk_size=1)), [])
+        except Exception:
+            # Availability probe: treat transport / permission errors the same
+            # as "not available" rather than raising (matches the previous
+            # fsspec `exists` behavior).
             return False
+        return len(chunk) > 0
 
 
 class CFS_FX_Flux(CFS_FX):
@@ -754,7 +767,8 @@ class CFS_FX_Flux(CFS_FX):
     async_timeout : int, optional
         Total timeout in seconds for the entire fetch operation, by default 600.
     async_workers : int, optional
-        Maximum number of concurrent async fetch tasks, by default 16.
+        Maximum number of concurrent downloads. By default None, which
+        autoscales to the number of download tasks (capped at 32).
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.

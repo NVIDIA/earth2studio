@@ -771,6 +771,35 @@ async def cancellable_to_thread(
         raise
 
 
+def resolve_async_workers(
+    async_workers: int | None, n_tasks: int, cap: int = 32
+) -> int:
+    """Resolves the concurrent download worker count for a data source.
+
+    When ``async_workers`` is None (the default for obstore-backed sources),
+    concurrency autoscales to the number of pending download tasks, bounded by
+    ``cap`` to keep request bursts against public endpoints reasonable. An
+    explicit ``async_workers`` value is always honored as-is.
+
+    Parameters
+    ----------
+    async_workers : int | None
+        User-provided worker count, or None to autoscale
+    n_tasks : int
+        Number of pending download tasks
+    cap : int, optional
+        Upper bound applied when autoscaling, by default 32
+
+    Returns
+    -------
+    int
+        Number of concurrent workers to use (at least 1)
+    """
+    if async_workers is not None:
+        return async_workers
+    return max(1, min(n_tasks, cap))
+
+
 def obstore_store_from_url(
     url: str,
     anonymous: bool = True,
