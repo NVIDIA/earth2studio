@@ -30,7 +30,7 @@ from .ecmwf import AIFSLexicon, IFSLexicon
 from .gdas import GDASObsConvLexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
-from .ghcn import GHCNLexicon
+from .ghcn import GHCNDailyLexicon, GHCNHourlyLexicon
 from .goes import GOESLexicon
 from .goes_glm import GOESGLMLexicon
 from .himawari_ahi import HimawariAHILexicon
