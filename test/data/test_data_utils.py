@@ -18,8 +18,10 @@ import asyncio
 import datetime
 import os
 from collections import OrderedDict
+from pathlib import Path
 
 import numpy as np
+import obstore as obs
 import pandas as pd
 import pytest
 import torch
@@ -41,6 +43,9 @@ from earth2studio.data.utils import (
     ensure_utc,
     gather_with_concurrency,
     managed_session,
+    obstore_fetch_to_cache,
+    obstore_read_range,
+    obstore_store_from_url,
     obstore_zarr_store,
     prep_data_inputs,
     prep_forecast_inputs,
@@ -714,6 +719,81 @@ async def test_cancellable_to_thread():
 
     result = await cancellable_to_thread(blocking_func, 1, 2, timeout=5.0)
     assert result == 3
+
+
+def test_obstore_store_from_url():
+    import obstore.store
+
+    store = obstore_store_from_url("s3://some-bucket")
+    assert isinstance(store, obstore.store.S3Store)
+
+    store = obstore_store_from_url("gs://some-bucket")
+    assert isinstance(store, obstore.store.GCSStore)
+
+    store = obstore_store_from_url("https://example.com/data")
+    assert isinstance(store, obstore.store.HTTPStore)
+
+    with pytest.raises(Exception):
+        obstore_store_from_url("notascheme://foo")
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_range():
+    from obstore.store import MemoryStore
+
+    store = MemoryStore()
+    payload = bytes(range(32))
+    await obs.put_async(store, "some/key", payload)
+
+    # Exact ranged read: offset + length semantics
+    out = await obstore_read_range(store, "some/key", byte_offset=5, byte_length=10)
+    assert isinstance(out, bytes)
+    assert out == payload[5:15]
+
+    # Whole-object read
+    out = await obstore_read_range(store, "some/key")
+    assert out == payload
+
+    # Read-to-EOF from an offset (GEFS trailing-record case)
+    out = await obstore_read_range(store, "some/key", byte_offset=20)
+    assert out == payload[20:]
+
+    # Missing keys surface as FileNotFoundError for existing callers
+    with pytest.raises(FileNotFoundError):
+        await obstore_read_range(store, "missing/key")
+
+
+@pytest.mark.asyncio
+async def test_obstore_fetch_to_cache(tmp_path):
+    from hashlib import sha256
+
+    from obstore.store import MemoryStore
+
+    store = MemoryStore()
+    payload = bytes(range(64))
+    await obs.put_async(store, "some/key", payload)
+
+    # Default cache key scheme: sha256(key + str(byte_offset))
+    path = await obstore_fetch_to_cache(
+        store, "some/key", str(tmp_path), byte_offset=8, byte_length=16
+    )
+    expected_name = sha256(("some/key" + str(8)).encode()).hexdigest()
+    assert os.path.basename(path) == expected_name
+    assert Path(path).read_bytes() == payload[8:24]
+
+    # Explicit cache_key overrides the file name
+    path = await obstore_fetch_to_cache(
+        store, "some/key", str(tmp_path), byte_offset=0, cache_key="warmcache"
+    )
+    assert os.path.basename(path) == "warmcache"
+    assert Path(path).read_bytes() == payload
+
+    # Second call is a cache hit: mutate the store, expect stale cached bytes
+    await obs.put_async(store, "some/key", b"changed")
+    path = await obstore_fetch_to_cache(
+        store, "some/key", str(tmp_path), byte_offset=0, cache_key="warmcache"
+    )
+    assert Path(path).read_bytes() == payload
 
 
 @pytest.fixture
