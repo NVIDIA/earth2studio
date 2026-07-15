@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>ARCO &#8212; Earth2Studio</title>
+    <title>GHCNHourly &#8212; Earth2Studio</title>
   
   
   
@@ -62,7 +62,7 @@
     <script src="../../../_static/togglebutton.js?v=b8b12719"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/data/earth2studio.data.ARCO';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/data/earth2studio.data.GHCNHourly';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.19.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -76,8 +76,8 @@
 
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="CDS" href="earth2studio.data.CDS.html" />
-    <link rel="prev" title="earth2studio.data: Data Sources" href="../../datasources_analysis.html" />
+    <link rel="next" title="GOESGLM" href="earth2studio.data.GOESGLM.html" />
+    <link rel="prev" title="GHCNDaily" href="earth2studio.data.GHCNDaily.html" />
 
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -501,8 +501,8 @@
 <li class="toctree-l3"><a class="reference internal" href="../models/da/earth2studio.models.da.StormCastSDA.html">StormCastSDA</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="../../datasources_analysis.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">ARCO</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../datasources_analysis.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.data.ARCO.html">ARCO</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.CDS.html">CDS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.CMIP6.html">CMIP6</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.CMIP6MultiRealm.html">CMIP6MultiRealm</a></li>
@@ -554,9 +554,9 @@
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.IFS_ENS_FX.html">IFS_ENS_FX</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../datasources_dataframe.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../../datasources_dataframe.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.GHCNDaily.html">GHCNDaily</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.data.GHCNHourly.html">GHCNHourly</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">GHCNHourly</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.GOESGLM.html">GOESGLM</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.IBTrACS.html">IBTrACS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.ISD.html">ISD</a></li>
@@ -734,9 +734,9 @@
     <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">API Reference</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../../datasources_analysis.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a></li>
+    <li class="breadcrumb-item"><a href="../../datasources_dataframe.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">ARCO</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">GHCNHourly</span></li>
   </ul>
 </nav>
 </div>
@@ -753,90 +753,128 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="arco">
-<h1>ARCO<a class="headerlink" href="#arco" title="Link to this heading">#</a></h1>
+  <section id="ghcnhourly">
+<h1>GHCNHourly<a class="headerlink" href="#ghcnhourly" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.data.ARCO">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">ARCO</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/arco.py#L45-L497"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.ARCO" title="Link to this definition">#</a></dt>
-<dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:reanalysis" style="background-color:#1d4ed8;color:#fff;" title="Reanalysis"><i class="fa-solid fa-rotate"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:wind" style="background-color:#4dabf7;color:#fff;" title="Surface Winds"><i class="fa-solid fa-wind"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:precip" style="background-color:#339af0;color:#fff;" title="Surface Precipitation"><i class="fa-solid fa-cloud-rain"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:temp" style="background-color:#fd7e14;color:#fff;" title="Surface Temperature"><i class="fa-solid fa-temperature-half"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:atmos" style="background-color:#74c0fc;color:#fff;" title="Atmosphere"><i class="fa-solid fa-cloud"></i></span></span><p>Analysis-Ready, Cloud Optimized (ARCO) is a data store of ERA5 re-analysis data
-currated by Google. This data is stored in Zarr format and contains 31 surface
-variables, pressure level variables defined on 37 pressure levels, and model level
-variables defined on the 137 native ERA5 vertical levels, all on a 0.25 degree lat
-lon grid. Temporal resolution is 1 hour.</p>
+<dt class="sig sig-object py" id="earth2studio.data.GHCNHourly">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">GHCNHourly</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">stations</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">time_tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">numpy.timedelta64(10,</span> <span class="pre">'m')</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">async_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">16</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">retries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ghcn.py#L759-L1146"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GHCNHourly" title="Link to this definition">#</a></dt>
+<dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:observation" style="background-color:#15803d;color:#fff;" title="Direct Observations"><i class="fa-solid fa-binoculars"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:wind" style="background-color:#4dabf7;color:#fff;" title="Surface Winds"><i class="fa-solid fa-wind"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:precip" style="background-color:#339af0;color:#fff;" title="Surface Precipitation"><i class="fa-solid fa-cloud-rain"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:temp" style="background-color:#fd7e14;color:#fff;" title="Surface Temperature"><i class="fa-solid fa-temperature-half"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:insitu" style="background-color:#2f9e44;color:#fff;" title="In-Situ Observations"><i class="fa-solid fa-tower-observation"></i></span></span><p>NOAA’s Global Historical Climatology Network Hourly (GHCNh) is a global
+database of hourly surface observations that supersedes the Integrated Surface
+Database (ISD). It compiles observations from thousands of stations worldwide
+into a common data model with consistent CSV encoding.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
+<li><p><strong>stations</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – Station IDs in GHCN station format (11 characters), e.g. <code class="docutils literal notranslate"><span class="pre">&quot;USW00013874&quot;</span></code>
+for Atlanta Hartsfield-Jackson. Use <code class="xref py py-meth docutils literal notranslate"><span class="pre">GHCNHourly.get_stations_bbox()</span></code>
+to discover IDs by geographic area.</p></li>
+<li><p><strong>time_tolerance</strong> (<em>TimeTolerance</em><em>, </em><em>optional</em>) – Time tolerance window for filtering observations. Accepts a single value
+(symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+by default np.timedelta64(10, ‘m’)</p></li>
 <li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source on local memory, by default True</p></li>
-<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress, by default True</p></li>
-<li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Time in sec after which download will be cancelled if not finished successfully,
-by default 600</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress and missing data warnings, by default True</p></li>
+<li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Time in sec after which download will be cancelled if not finished
+successfully, by default 600</p></li>
+<li><p><strong>async_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum number of concurrent async fetch tasks, by default 16</p></li>
+<li><p><strong>retries</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of retry attempts per failed fetch task with exponential backoff,
+by default 3</p></li>
 </ul>
 </dd>
 </dl>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>This is a remote data source and can potentially download a large amount of data
-to your local machine for large requests.</p>
+<p>This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To help get a list of possible station IDs, this class includes
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">GHCNHourly.get_stations_bbox()</span></code> which accepts a lat-lon bounding box and
+will return known station IDs. For more information on the stations, users
+should consult the <code class="docutils literal notranslate"><span class="pre">ghcnd-stations.txt</span></code> file accessible via
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">GHCNHourly.get_station_metadata()</span></code>.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Additional information on the data repository can be referenced here:</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://cloud.google.com/storage/docs/public-datasets/era5">https://cloud.google.com/storage/docs/public-datasets/era5</a></p></li>
+<li><p><a class="reference external" href="https://www.ncei.noaa.gov/products/global-historical-climatology-network-hourly">https://www.ncei.noaa.gov/products/global-historical-climatology-network-hourly</a></p></li>
+<li><p><a class="reference external" href="https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/">https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/</a></p></li>
 </ul>
 </div>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Atlanta Hartsfield-Jackson airport</span>
+<span class="n">stations</span> <span class="o">=</span> <span class="n">GHCNHourly</span><span class="o">.</span><span class="n">get_stations_bbox</span><span class="p">((</span><span class="mi">33</span><span class="p">,</span> <span class="o">-</span><span class="mi">85</span><span class="p">,</span> <span class="mi">34</span><span class="p">,</span> <span class="o">-</span><span class="mi">84</span><span class="p">))</span>
+<span class="n">ds</span> <span class="o">=</span> <span class="n">GHCNHourly</span><span class="p">(</span><span class="n">stations</span><span class="p">,</span> <span class="n">time_tolerance</span><span class="o">=</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">ds</span><span class="p">(</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">[</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;ws10m&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.data.ARCO.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/arco.py#L145-L175"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.ARCO.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Function to get data</p>
+<dt class="sig sig-object py" id="earth2studio.data.GHCNHourly.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ghcn.py#L85-L115"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GHCNHourly.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Function to get data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
-<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
-return. Must be in the ARCO lexicon.</p></li>
+<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables
+to return.</p></li>
+<li><p><strong>fields</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>pa.Schema</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Fields to include in output, by default None (all fields).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>ERA5 weather data array from ARCO</p>
+<dd class="field-even"><p>Data frame</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>xr.DataArray</p>
+<dd class="field-odd"><p>pd.DataFrame</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.data.ARCO.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/arco.py#L177-L248"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.ARCO.fetch" title="Link to this definition">#</a></dt>
-<dd><p>Async function to get data</p>
+<dt class="sig sig-object py" id="earth2studio.data.GHCNHourly.fetch">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ghcn.py#L917-L1026"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GHCNHourly.fetch" title="Link to this definition">#</a></dt>
+<dd><p>Async function to get data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
-<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
-return. Must be in the ARCO lexicon.</p></li>
+<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables
+to return. Must be in the GHCNh lexicon.</p></li>
+<li><p><strong>fields</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>pa.Schema</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Fields to include in output, by default None (all fields).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>ERA5 weather data array from ARCO</p>
+<dd class="field-even"><p>GHCNh data frame</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>xr.DataArray</p>
+<dd class="field-odd"><p>pd.DataFrame</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.data.ARCO.available">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/arco.py#L465-L497"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.ARCO.available" title="Link to this definition">#</a></dt>
-<dd><p>Checks if given date time is avaliable in the ARCO data source</p>
+<dt class="sig sig-object py" id="earth2studio.data.GHCNHourly.available">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ghcn.py#L242-L262"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GHCNHourly.available" title="Link to this definition">#</a></dt>
+<dd><p>Check if the given date time is available for this data source.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>time</strong> (<em>datetime</em><em> | </em><em>np.datetime64</em>) – Date time to access</p>
+<dd class="field-odd"><p><strong>time</strong> (<em>datetime</em><em> | </em><em>np.datetime64</em>) – Date time to check</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>If date time is avaiable</p>
+<dd class="field-even"><p>If date time is available</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>bool</p>
@@ -846,28 +884,7 @@ return. Must be in the ARCO lexicon.</p></li>
 
 </dd></dl>
 
-<section id="examples-using-earth2studio-data-arco">
-<span id="sphx-glr-backref-earth2studio-data-arco"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.data.ARCO</span></code><a class="headerlink" href="#examples-using-earth2studio-data-arco" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Tropical cyclone tracking with tracker diagnostic models."><img alt="" src="../../../_images/sphx_glr_05_cyclone_tracking_thumb.png" />
-<p><a class="reference internal" href="../../../examples/02_medium_range/05_cyclone_tracking.html"><span class="doc">Tropical Cyclone Tracking</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Tropical Cyclone Tracking</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Deterministic inference using the Atlas prognostic model."><img alt="" src="../../../_images/sphx_glr_06_atlas_inference_thumb.png" />
-<p><a class="reference internal" href="../../../examples/02_medium_range/06_atlas_inference.html"><span class="doc">Running Atlas Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running Atlas Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Ensemble StormCast inference workflow."><img alt="" src="../../../_images/sphx_glr_02_stormcast_ensemble_example_thumb.png" />
-<p><a class="reference internal" href="../../../examples/04_nowcasting/02_stormcast_ensemble_example.html"><span class="doc">Running StormCast Ensemble Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running StormCast Ensemble Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow for the DLESyM model."><img alt="" src="../../../_images/sphx_glr_02_dlesym_example_thumb.png" />
-<p><a class="reference internal" href="../../../examples/06_seasonal/02_dlesym_example.html"><span class="doc">Running DLESyM Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running DLESyM Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Coupled inference with the upstream DLESyM checkpoints, including precipitation."><img alt="" src="../../../_images/sphx_glr_03_dlesym_climate_thumb.png" />
-<p><a class="reference internal" href="../../../examples/06_seasonal/03_dlesym_climate.html"><span class="doc">Running the DLESyM ISCCP-ERA5 Model</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running the DLESyM ISCCP-ERA5 Model</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom data source"><img alt="" src="../../../_images/sphx_glr_03_custom_datasource_thumb.png" />
-<p><a class="reference internal" href="../../../examples/08_extend/03_custom_datasource.html"><span class="doc">Extending Data Sources</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Extending Data Sources</div>
-</div></div><div class="clearer"></div></section>
-</section>
+<div class="clearer"></div></section>
 
 
                 </article>
@@ -880,20 +897,20 @@ return. Must be in the ARCO lexicon.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../../datasources_analysis.html"
+       href="earth2studio.data.GHCNDaily.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</p>
+        <p class="prev-next-title">GHCNDaily</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.data.CDS.html"
+       href="earth2studio.data.GOESGLM.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">CDS</p>
+        <p class="prev-next-title">GOESGLM</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -918,13 +935,12 @@ return. Must be in the ARCO lexicon.</p></li>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.ARCO"><code class="docutils literal notranslate"><span class="pre">ARCO</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.ARCO.__call__"><code class="docutils literal notranslate"><span class="pre">__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.ARCO.fetch"><code class="docutils literal notranslate"><span class="pre">fetch()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.ARCO.available"><code class="docutils literal notranslate"><span class="pre">available()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.GHCNHourly"><code class="docutils literal notranslate"><span class="pre">GHCNHourly</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.GHCNHourly.__call__"><code class="docutils literal notranslate"><span class="pre">__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.GHCNHourly.fetch"><code class="docutils literal notranslate"><span class="pre">fetch()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.GHCNHourly.available"><code class="docutils literal notranslate"><span class="pre">available()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-data-arco">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.data.ARCO</span></code></a></li>
 </ul>
   </nav></div>
 
