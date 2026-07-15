@@ -60,10 +60,9 @@ except ImportError:
 
 
 class MaskedModel(nn.Module):
-    """Wraps a denoiser to zero outputs at invalid pixels after every forward pass.
-
-    Drop-in replacement: preserves the ``round_sigma`` interface expected by
-    the EDM sampler so the base ``_edm_sampler`` works unchanged.
+    """Wraps a denoiser so its output is zeroed at invalid pixels after every
+    forward pass. Transparent to the shared EDM sampler, which calls the wrapped
+    module as ``net(x, sigma, condition=...)``.
     """
 
     def __init__(self, model: nn.Module, mask: torch.Tensor):
@@ -73,9 +72,6 @@ class MaskedModel(nn.Module):
 
     def forward(self, *args: Any, **kwargs: Any) -> torch.Tensor:
         return self.model(*args, **kwargs) * self.mask
-
-    def round_sigma(self, sigma: torch.Tensor) -> torch.Tensor:
-        return self.model.round_sigma(sigma)
 
 
 @check_optional_dependencies()
@@ -2705,17 +2701,20 @@ class StormScopeNSRDB(StormScopeBase):
         noise = torch.randn(
             (b * t, len(self.variables), h, w),
             device=device,
-            dtype=getattr(self, "_SAMPLER_DTYPE", dtype),
+            dtype=self._SAMPLER_DTYPE,
         )
         x_init = reg / self.sigma_max + noise
 
-        out = self._edm_sampler(
-            latents=x_init,
-            condition=condition,
-            sigma_min=self.start_sigma,
-            sigma_max=self.sigma_max,
-            **self.sampler_args,
-        ).to(dtype)
+        # Autocast accelerates the denoiser forward passes when amp is enabled
+        # (no-op otherwise); the sampler's own math stays in _SAMPLER_DTYPE.
+        with torch.autocast(device_type=device.type, enabled=self.amp):
+            out = self._edm_sampler(
+                latents=x_init,
+                condition=condition,
+                sigma_min=self.start_sigma,
+                sigma_max=self.sigma_max,
+                **self.sampler_args,
+            ).to(dtype)
 
         out = out.reshape(b, t, len(self.output_times), *out.shape[1:])
         out = out * (insolation + self.clearness_index_eps)  # -> physical W/m^2
