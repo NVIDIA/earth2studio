@@ -231,7 +231,13 @@ class _GHCNBase:
             value_name="observation",
         )
         df_long = df_long.dropna(subset=["observation"]).reset_index(drop=True)
-        return df_long[[name for name in schema.names]]
+        df_long = df_long[[name for name in schema.names]]
+        for field in schema:
+            if field.name in df_long.columns and pa.types.is_floating(field.type):
+                df_long[field.name] = df_long[field.name].astype(
+                    field.type.to_pandas_dtype()
+                )
+        return df_long
 
     @classmethod
     def available(cls, time: datetime | np.datetime64) -> bool:
@@ -486,11 +492,8 @@ class GHCNDaily(_GHCNBase):
 
         async with managed_session(self.fs) as session:  # noqa: F841
 
-            # Load station metadata (lat, lon, elev) if not cached.
-            # Use asyncio.to_thread so the sync S3 download doesn't call
-            # fsspec.asyn.sync() from within the already-running event loop.
             if self._station_meta is None:
-                self._station_meta = await asyncio.to_thread(self.get_station_metadata)
+                self._station_meta = self.get_station_metadata()
 
             # Build unique (year, product) pairs needed. Tolerance windows can
             # span year boundaries, so enumerate every year in [tmin, tmax].
@@ -577,9 +580,11 @@ class GHCNDaily(_GHCNBase):
                         df_window = df_window.drop(columns=["DATA_VALUE"])
                         var_frames[var_name].append(df_window)
 
-            # Concat all rows per variable, then merge across variables
+            # Concat all rows per variable, deduplicate, then merge across variables
             per_var_dfs: list[pd.DataFrame] = [
-                pd.concat(var_frames[v], ignore_index=True)
+                pd.concat(var_frames[v], ignore_index=True).drop_duplicates(
+                    subset=["ID", "DATE"]
+                )
                 for v in variable
                 if var_frames[v]
             ]
@@ -1002,7 +1007,9 @@ class GHCNHourly(_GHCNBase):
         if len(filtered_df) == 0:
             return pd.DataFrame(columns=schema.names)
 
-        df = pd.concat(filtered_df, ignore_index=True)
+        df = pd.concat(filtered_df, ignore_index=True).drop_duplicates(
+            subset=["STATION", "DATE"]
+        )
 
         if not df.empty:
             df = df.rename(columns=self.column_map())
