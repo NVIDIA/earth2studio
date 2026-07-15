@@ -26,7 +26,7 @@ import pyarrow as pa
 import pytest
 
 import earth2studio.data.gdas as gdas_data
-from earth2studio.data import NomadsGDASObsConv
+from earth2studio.data import NomadsGDASObsConv, utils_ncep
 from earth2studio.lexicon import GDASObsConvLexicon
 
 
@@ -203,14 +203,14 @@ def test_nomads_gdas_available():
 
 @pytest.mark.timeout(15)
 def test_nomads_gdas_url_builder():
-    url = NomadsGDASObsConv._build_url(datetime(2026, 4, 5, 12))
+    url = NomadsGDASObsConv._build_prepbufr_uri(datetime(2026, 4, 5, 12))
     expected = (
         "https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/"
         "gdas.20260405/gdas.t12z.prepbufr.nr"
     )
     assert url == expected
 
-    gpsro_url = NomadsGDASObsConv._build_gpsro_url(datetime(2026, 4, 5, 12))
+    gpsro_url = NomadsGDASObsConv._build_gpsro_uri(datetime(2026, 4, 5, 12))
     assert gpsro_url == (
         "https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/"
         "gdas.20260405/gdas.t12z.gpsro.tm00.bufr_d.nr"
@@ -375,7 +375,7 @@ def test_nomads_gdas_fetch_uses_store(tmp_path, monkeypatch):
         fields=["time", "observation", "variable"],
     )
 
-    assert store.fetched == [source._build_url(cycle)]
+    assert store.fetched == [source._build_prepbufr_uri(cycle)]
     assert result.equals(frame)
     assert result.attrs == {"source": source.SOURCE_ID}
     assert store.cleanup_calls == 1
@@ -405,22 +405,28 @@ def test_nomads_gdas_create_tasks():
         ["t"],
     )
     assert len(tasks) >= 1
-    assert all(t.url.endswith(".prepbufr.nr") for t in tasks)
-    assert all("t" in t.variables for t in tasks)
+    assert all(t.uri.endswith(".prepbufr.nr") for t in tasks)
+    assert all("t" in t.var_plan for t in tasks)
 
     # Task URLs should be for cycle times around midnight
     for task in tasks:
-        assert "gdas." in task.url
+        assert "gdas." in task.uri
 
     mixed_ds = NomadsGDASObsConv(time_tolerance=timedelta(0))
     mixed_tasks = mixed_ds._create_tasks([datetime(2026, 4, 4, 0)], ["t", "gps"])
     assert len(mixed_tasks) == 2
     prepbufr_task = next(task for task in mixed_tasks if task.route == "prepbufr")
     gpsro_task = next(task for task in mixed_tasks if task.route == "gpsro")
-    assert prepbufr_task.url.endswith(".prepbufr.nr")
-    assert gpsro_task.url.endswith(".gpsro.tm00.bufr_d.nr")
-    assert prepbufr_task.variables == ["t"]
-    assert gpsro_task.variables == ["gps"]
+    assert prepbufr_task.uri.endswith(".prepbufr.nr")
+    assert gpsro_task.uri.endswith(".gpsro.tm00.bufr_d.nr")
+    assert set(prepbufr_task.var_plan) == {"t"}
+    assert set(gpsro_task.var_plan) == {"gps"}
+    prepbufr_key, prepbufr_modifier = prepbufr_task.var_plan["t"]
+    gpsro_descriptor, gpsro_modifier = gpsro_task.var_plan["gps"]
+    assert isinstance(prepbufr_key, str)
+    assert gpsro_descriptor == utils_ncep.GPSRO_BNDA
+    assert callable(prepbufr_modifier)
+    assert callable(gpsro_modifier)
 
     windowed_ds = NomadsGDASObsConv(time_tolerance=timedelta(minutes=20))
     windowed_tasks = windowed_ds._create_tasks(

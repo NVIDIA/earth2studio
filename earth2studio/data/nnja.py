@@ -28,7 +28,6 @@ import pathlib
 import shutil
 import uuid
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
 from datetime import datetime
 
 import numpy as np
@@ -36,7 +35,10 @@ import pandas as pd
 import s3fs  # type: ignore[import-untyped]
 from loguru import logger
 
-from earth2studio.data.ncep_obs import _NCEPObsSourceBase
+from earth2studio.data.ncep_obs import (
+    _NCEPObsSourceBase,
+    _NCEPObsTask,
+)
 from earth2studio.data.utils import (
     async_retry,
     datasource_cache_root,
@@ -56,34 +58,6 @@ from earth2studio.utils.type import TimeTolerance
 
 NNJA_BUCKET = "noaa-reanalyses-pds"
 NNJA_PREFIX = "observations/reanalysis"
-
-# ── Async-task dataclasses ──────────────────────────────────────────
-
-
-@dataclass
-class _NNJAConvTask:
-    """Async task for a single PrepBUFR cycle file (route ``prepbufr``)."""
-
-    s3_uri: str
-    datetime_file: datetime
-    datetime_min: datetime
-    datetime_max: datetime
-    var_plan: dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]] = field(
-        default_factory=dict
-    )
-
-
-@dataclass
-class _NNJAGpsRoTask:
-    """Async task for a single gps/gpsro cycle BUFR file (route ``gpsro``)."""
-
-    s3_uri: str
-    datetime_file: datetime
-    datetime_min: datetime
-    datetime_max: datetime
-    var_plan: dict[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]] = field(
-        default_factory=dict
-    )
 
 
 class _NNJAObsStore:
@@ -352,6 +326,7 @@ class NNJAObsConv(_NNJAObsSourceBase):
 
     SOURCE_ID = "earth2studio.data.NNJAObsConv"
     SCHEMA = NCEP_CONVENTIONAL_PUBLIC_SCHEMA
+    LEXICON = NNJAObsConvLexicon
     MIN_DATE = datetime(1979, 1, 1)
 
     VALID_SOURCES = frozenset(["prepbufr", "prepbufr.acft_profiles"])
@@ -396,74 +371,6 @@ class NNJAObsConv(_NNJAObsSourceBase):
         self._prepbufr_adapter = _NCEPPrepbufrAdapter(self._decode_workers)
         self._gpsro_adapter = _NCEPGpsroAdapter(self._decode_workers)
 
-    @staticmethod
-    def _task_uri(task: _NNJAConvTask | _NNJAGpsRoTask) -> str:
-        return task.s3_uri
-
-    # ------------------------------------------------------------------
-    # Task creation
-    # ------------------------------------------------------------------
-    def _create_tasks(self, time_list: list[datetime], variable: list[str]) -> list:
-        # Partition variables by lexicon route prefix:
-        #   "prepbufr::..." -> conv/prepbufr/ tasks (PrepBUFR decoder)
-        #   "gpsro::..."    -> gps/gpsro/ tasks (GPS RO BUFR decoder)
-        prepbufr_plan: dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]] = (
-            {}
-        )
-        gpsro_plan: dict[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]] = {}
-
-        for v in variable:
-            try:
-                source_key, modifier = NNJAObsConvLexicon[v]  # type: ignore[misc]
-            except KeyError:
-                logger.error(f"Variable id '{v}' not found in NNJAObsConvLexicon")
-                raise
-            route, _, rest = source_key.partition("::")
-            if route == "prepbufr":
-                prepbufr_plan[v] = (rest, modifier)
-            elif route == "gpsro":
-                try:
-                    desc_id = int(rest)
-                except ValueError as exc:
-                    raise ValueError(
-                        f"Invalid gpsro lexicon entry '{source_key}' for {v}: "
-                        f"expected an integer BUFR descriptor id"
-                    ) from exc
-                gpsro_plan[v] = (desc_id, modifier)
-            else:
-                raise ValueError(
-                    f"Unknown route '{route}' in NNJAObsConvLexicon entry "
-                    f"'{source_key}' for variable '{v}' (expected 'prepbufr' or 'gpsro')"
-                )
-
-        # Build one task per unique cycle file; when multiple requested
-        # times map to the same cycle the task's window is the union of
-        # those time windows (see ``_NCEPObsSourceBase._cycle_windows``).
-        windows = self._cycle_windows(time_list) if prepbufr_plan or gpsro_plan else {}
-        tasks: list = []
-        for cycle_dt, (tmin, tmax) in windows.items():
-            if prepbufr_plan:
-                tasks.append(
-                    _NNJAConvTask(
-                        s3_uri=self._build_prepbufr_uri(cycle_dt),
-                        datetime_file=cycle_dt,
-                        datetime_min=tmin,
-                        datetime_max=tmax,
-                        var_plan=prepbufr_plan,
-                    )
-                )
-            if gpsro_plan:
-                tasks.append(
-                    _NNJAGpsRoTask(
-                        s3_uri=self._build_gpsro_uri(cycle_dt),
-                        datetime_file=cycle_dt,
-                        datetime_min=tmin,
-                        datetime_max=tmax,
-                        var_plan=gpsro_plan,
-                    )
-                )
-        return tasks
-
     def _build_prepbufr_uri(self, cycle: datetime) -> str:
         """Build the NNJA S3 URI for a single PrepBUFR cycle."""
         year_key = cycle.strftime("%Y")
@@ -507,22 +414,20 @@ class NNJAObsConv(_NNJAObsSourceBase):
         logger.warning(f"NNJA conventional file {path} not found, skipping")
 
     # ------------------------------------------------------------------
-    # File decode (dispatch by task type)
+    # File decode
     # ------------------------------------------------------------------
-    def _decode_file(
-        self, local_path: str, task: _NNJAConvTask | _NNJAGpsRoTask
-    ) -> pd.DataFrame:
-        if isinstance(task, _NNJAGpsRoTask):
+    def _decode_file(self, local_path: str, task: _NCEPObsTask) -> pd.DataFrame:
+        if task.route == "gpsro":
             return self._decode_gpsro_file(local_path, task)
         return self._decode_prepbufr_file(local_path, task)
 
     def _decode_prepbufr_file(
-        self, local_path: str, task: _NNJAConvTask
+        self, local_path: str, task: _NCEPObsTask
     ) -> pd.DataFrame:
         """Decode one locally cached PrepBUFR file through the shared adapter."""
         frame = self._prepbufr_adapter.decode_file(
             local_path,
-            task.var_plan,
+            task.prepbufr_plan,
             task.datetime_min,
             task.datetime_max,
         )
@@ -533,11 +438,11 @@ class NNJAObsConv(_NNJAObsSourceBase):
             frame = map_aircraft_profile_types(frame)
         return frame[self.SCHEMA.names]
 
-    def _decode_gpsro_file(self, local_path: str, task: _NNJAGpsRoTask) -> pd.DataFrame:
+    def _decode_gpsro_file(self, local_path: str, task: _NCEPObsTask) -> pd.DataFrame:
         """Decode one locally cached GPSRO file through the shared adapter."""
         frame = self._gpsro_adapter.decode_file(
             local_path,
-            task.var_plan,
+            task.gpsro_plan,
             task.datetime_min,
             task.datetime_max,
         )

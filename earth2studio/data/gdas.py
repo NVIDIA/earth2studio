@@ -21,17 +21,21 @@ import os
 import pathlib
 import shutil
 import uuid
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
-from earth2studio.data.ncep_obs import _NCEPObsSourceBase
+from earth2studio.data.ncep_obs import (
+    _NCEPGpsroPlan,
+    _NCEPObsSourceBase,
+    _NCEPObsTask,
+    _NCEPPrepbufrPlan,
+)
 from earth2studio.data.utils import (
     async_retry,
     datasource_cache_root,
@@ -39,7 +43,6 @@ from earth2studio.data.utils import (
 )
 from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
 from earth2studio.data.utils_ncep import (
-    GPSRO_BNDA,
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     _NCEPGpsroAdapter,
     _NCEPPrepbufrAdapter,
@@ -53,18 +56,6 @@ NOMADS_BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod"
 
 # Maximum age of data on NOMADS (approximate – production dir retains ~2 days)
 _MAX_AGE_DAYS = 2
-
-
-@dataclass
-class _GDASAsyncTask:
-    """Async task for fetching one conventional cycle file."""
-
-    url: str
-    datetime_file: datetime
-    datetime_min: datetime
-    datetime_max: datetime
-    variables: list[str]
-    route: Literal["prepbufr", "gpsro"]
 
 
 class _NomadsObsStore:
@@ -228,8 +219,8 @@ class NomadsGDASObsConv(_NCEPObsSourceBase):
     """
 
     SOURCE_ID = "earth2studio.data.NomadsGDASObsConv"
-
     SCHEMA: pa.Schema = NCEP_CONVENTIONAL_PUBLIC_SCHEMA
+    LEXICON = GDASObsConvLexicon
     _store: _NomadsObsStore
 
     def __init__(
@@ -266,75 +257,6 @@ class NomadsGDASObsConv(_NCEPObsSourceBase):
         """Compute the deterministic cache path for a NOMADS URL."""
         return self._store.local_path(url)
 
-    @staticmethod
-    def _task_uri(task: _GDASAsyncTask) -> str:
-        return task.url
-
-    def _create_tasks(
-        self,
-        times: list[datetime],
-        variables: list[str],
-    ) -> list[_GDASAsyncTask]:
-        """Build download tasks for required 6h PrepBUFR cycles.
-
-        Parameters
-        ----------
-        times : list[datetime]
-            Requested timestamps.
-        variables : list[str]
-            Requested variable names.
-
-        Returns
-        -------
-        list[_GDASAsyncTask]
-            List of tasks, one per required cycle.
-        """
-        # Validate all variables first
-        for v in variables:
-            if v not in GDASObsConvLexicon.VOCAB:
-                raise KeyError(
-                    f"Variable '{v}' not found in GDASObsConvLexicon. "
-                    f"Available: {list(GDASObsConvLexicon.VOCAB.keys())}"
-                )
-
-        prepbufr_variables: list[str] = []
-        gpsro_variables: list[str] = []
-        for variable in variables:
-            source_key, _modifier = GDASObsConvLexicon.get_item(variable)
-            if source_key.startswith("gpsro::"):
-                gpsro_variables.append(variable)
-            else:
-                prepbufr_variables.append(variable)
-
-        tasks: list[_GDASAsyncTask] = []
-        windows = (
-            self._cycle_windows(times) if prepbufr_variables or gpsro_variables else {}
-        )
-        for cycle, (dt_min, dt_max) in windows.items():
-            if prepbufr_variables:
-                tasks.append(
-                    _GDASAsyncTask(
-                        url=self._build_url(cycle),
-                        datetime_file=cycle,
-                        datetime_min=dt_min,
-                        datetime_max=dt_max,
-                        variables=prepbufr_variables,
-                        route="prepbufr",
-                    )
-                )
-            if gpsro_variables:
-                tasks.append(
-                    _GDASAsyncTask(
-                        url=self._build_gpsro_url(cycle),
-                        datetime_file=cycle,
-                        datetime_min=dt_min,
-                        datetime_max=dt_max,
-                        variables=gpsro_variables,
-                        route="gpsro",
-                    )
-                )
-        return tasks
-
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
         """Validate requested times against NOMADS availability.
@@ -366,18 +288,18 @@ class NomadsGDASObsConv(_NCEPObsSourceBase):
                     f"Use UFSObsConv for historical data."
                 )
 
-    def _decode_file(self, local_path: str, task: _GDASAsyncTask) -> pd.DataFrame:
+    def _decode_file(self, local_path: str, task: _NCEPObsTask) -> pd.DataFrame:
         """Decode one locally cached file through its route-specific adapter."""
         if task.route == "gpsro":
             return self._decode_gpsro(
                 local_path,
-                task.variables,
+                task.gpsro_plan,
                 task.datetime_min,
                 task.datetime_max,
             )
         return self._decode_prepbufr(
             local_path,
-            task.variables,
+            task.prepbufr_plan,
             task.datetime_min,
             task.datetime_max,
         )
@@ -385,14 +307,14 @@ class NomadsGDASObsConv(_NCEPObsSourceBase):
     def _decode_prepbufr(
         self,
         path: str,
-        variables: list[str],
+        plan: _NCEPPrepbufrPlan,
         dt_min: datetime,
         dt_max: datetime,
     ) -> pd.DataFrame:
         """Decode locally cached PrepBUFR bytes through the shared adapter."""
         frame = self._prepbufr_adapter.decode_file(
             path,
-            self._build_extraction_plan(variables),
+            plan,
             dt_min,
             dt_max,
         )
@@ -401,61 +323,21 @@ class NomadsGDASObsConv(_NCEPObsSourceBase):
     def _decode_gpsro(
         self,
         path: str,
-        variables: list[str],
+        plan: _NCEPGpsroPlan,
         dt_min: datetime,
         dt_max: datetime,
     ) -> pd.DataFrame:
         """Decode locally cached GPSRO bytes through the shared adapter."""
         frame = self._gpsro_adapter.decode_file(
             path,
-            self._build_gpsro_plan(variables),
+            plan,
             dt_min,
             dt_max,
         )
         return frame[self.SCHEMA.names]
 
     @staticmethod
-    def _build_extraction_plan(
-        variables: list[str],
-    ) -> dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]]:
-        """Map public variable names to PrepBUFR extraction keys.
-
-        Parameters
-        ----------
-        variables : list[str]
-            Earth2Studio variable names.
-
-        Returns
-        -------
-        dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]]
-            Map of variable name to (PrepBUFR mnemonic or wind key, modifier).
-        """
-        plan: dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]] = {}
-        for var in variables:
-            bufr_key, modifier = GDASObsConvLexicon.get_item(var)
-            if bufr_key.startswith("gpsro::"):
-                raise ValueError(f"Variable '{var}' is not a PrepBUFR variable")
-            plan[var] = (bufr_key, modifier)
-        return plan
-
-    @staticmethod
-    def _build_gpsro_plan(
-        variables: list[str],
-    ) -> dict[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]]:
-        plan: dict[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]] = {}
-        for variable in variables:
-            source_key, modifier = GDASObsConvLexicon.get_item(variable)
-            route, separator, descriptor = source_key.partition("::")
-            if not separator or route != "gpsro":
-                raise ValueError(f"Variable '{variable}' is not a GPSRO variable")
-            descriptor_id = int(descriptor)
-            if descriptor_id != GPSRO_BNDA:
-                raise ValueError(f"Unsupported GPSRO descriptor {descriptor_id}")
-            plan[variable] = (descriptor_id, modifier)
-        return plan
-
-    @staticmethod
-    def _build_url(cycle: datetime) -> str:
+    def _build_prepbufr_uri(cycle: datetime) -> str:
         """Build the NOMADS URL for a PrepBUFR cycle.
 
         Parameters
@@ -473,7 +355,7 @@ class NomadsGDASObsConv(_NCEPObsSourceBase):
         return f"{NOMADS_BASE_URL}/gdas.{date_str}/gdas.t{hour_str}z.prepbufr.nr"
 
     @staticmethod
-    def _build_gpsro_url(cycle: datetime) -> str:
+    def _build_gpsro_uri(cycle: datetime) -> str:
         """Build the NOMADS URL for the matching GPSRO cycle dump."""
         date_str = cycle.strftime("%Y%m%d")
         hour_str = f"{cycle.hour:02d}"

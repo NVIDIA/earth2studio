@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import pathlib
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Protocol
+from typing import Literal, Protocol, cast
 
 import numpy as np
 import pandas as pd
@@ -18,9 +19,43 @@ import pyarrow as pa
 from loguru import logger
 
 from earth2studio.data.utils import _sync_async, prep_data_inputs
-from earth2studio.data.utils_ncep import _empty_dataframe
+from earth2studio.data.utils_ncep import GPSRO_BNDA, _empty_dataframe
+from earth2studio.lexicon.base import LexiconType
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
+
+_NCEPObsModifier = Callable[[pd.DataFrame], pd.DataFrame]
+_NCEPPrepbufrPlan = Mapping[str, tuple[str, _NCEPObsModifier]]
+_NCEPGpsroPlan = Mapping[str, tuple[int, _NCEPObsModifier]]
+
+
+@dataclass(frozen=True)
+class _NCEPObsTask:
+    """Describe one route-specific NCEP observation file."""
+
+    uri: str
+    datetime_file: datetime
+    datetime_min: datetime
+    datetime_max: datetime
+    route: Literal["prepbufr", "gpsro"]
+    var_plan: _NCEPPrepbufrPlan | _NCEPGpsroPlan
+
+    def __post_init__(self) -> None:
+        key_type = str if self.route == "prepbufr" else int
+        if any(not isinstance(key, key_type) for key, _ in self.var_plan.values()):
+            raise TypeError(f"{self.route} plan contains an invalid source key")
+
+    @property
+    def prepbufr_plan(self) -> _NCEPPrepbufrPlan:
+        if self.route != "prepbufr":
+            raise ValueError(f"Task route is '{self.route}', not 'prepbufr'")
+        return cast(_NCEPPrepbufrPlan, self.var_plan)
+
+    @property
+    def gpsro_plan(self) -> _NCEPGpsroPlan:
+        if self.route != "gpsro":
+            raise ValueError(f"Task route is '{self.route}', not 'gpsro'")
+        return cast(_NCEPGpsroPlan, self.var_plan)
 
 
 class _NCEPObsStore(Protocol):
@@ -44,12 +79,13 @@ class _NCEPObsSourceBase:
 
     The base normalizes inputs, validates product times and fields, fetches raw
     files through an injected :class:`_NCEPObsStore`, decodes tasks in source
-    order, and assembles the requested DataFrame. Subclasses retain ownership
-    of product schemas, task creation, URI selection, and file decoding.
+    order, and assembles the requested DataFrame. Subclasses retain ownership of
+    product schemas, lexicons, route-specific URIs, and file decoding.
     """
 
     SOURCE_ID: str
     SCHEMA: pa.Schema
+    LEXICON: LexiconType
 
     def __init__(
         self,
@@ -111,7 +147,7 @@ class _NCEPObsSourceBase:
         schema = self._resolve_output_schema(fields)
 
         async_tasks = self._create_tasks(time_list, variable_list)
-        file_uri_set = list({self._task_uri(task) for task in async_tasks})
+        file_uri_set = list({task.uri for task in async_tasks})
         await self._store.fetch_files(file_uri_set)
 
         df = self._compile_dataframe(async_tasks, schema)
@@ -120,7 +156,7 @@ class _NCEPObsSourceBase:
 
     def _compile_dataframe(
         self,
-        async_tasks: list[Any],
+        async_tasks: list[_NCEPObsTask],
         schema: pa.Schema,
     ) -> pd.DataFrame:
         """Decode each fetched file and concatenate into a single DataFrame."""
@@ -128,7 +164,7 @@ class _NCEPObsSourceBase:
         n_tasks = len(async_tasks)
         compile_t0 = time.perf_counter()
         for idx, task in enumerate(async_tasks, start=1):
-            uri = self._task_uri(task)
+            uri = task.uri
             local_path = self._store.local_path(uri)
             if not pathlib.Path(local_path).is_file():
                 logger.warning(f"Cached file missing for {uri}, skipping")
@@ -168,14 +204,69 @@ class _NCEPObsSourceBase:
 
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]
-    ) -> list[Any]:
-        raise NotImplementedError("Subclasses must implement _create_tasks.")
+    ) -> list[_NCEPObsTask]:
+        """Build tasks from prefixed or direct PrepBUFR lexicon keys."""
+        prepbufr_plan: dict[str, tuple[str, _NCEPObsModifier]] = {}
+        gpsro_plan: dict[str, tuple[int, _NCEPObsModifier]] = {}
 
-    def _decode_file(self, local_path: str, task: Any) -> pd.DataFrame:
+        for variable_name in variable:
+            source_key, modifier = self.LEXICON[variable_name]
+            if source_key.startswith("gpsro::"):
+                descriptor = source_key.removeprefix("gpsro::")
+                try:
+                    descriptor_id = int(descriptor)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Invalid GPSRO source key '{source_key}' for "
+                        f"variable '{variable_name}'"
+                    ) from exc
+                if descriptor_id != GPSRO_BNDA:
+                    raise ValueError(f"Unsupported GPSRO descriptor {descriptor_id}")
+                gpsro_plan[variable_name] = (descriptor_id, modifier)
+            else:
+                prepbufr_key = source_key.removeprefix("prepbufr::")
+                if not prepbufr_key:
+                    raise ValueError(
+                        f"Invalid PrepBUFR source key '{source_key}' for "
+                        f"variable '{variable_name}'"
+                    )
+                prepbufr_plan[variable_name] = (prepbufr_key, modifier)
+
+        windows = self._cycle_windows(time_list) if prepbufr_plan or gpsro_plan else {}
+        tasks: list[_NCEPObsTask] = []
+        for cycle, (datetime_min, datetime_max) in windows.items():
+            if prepbufr_plan:
+                tasks.append(
+                    _NCEPObsTask(
+                        uri=self._build_prepbufr_uri(cycle),
+                        datetime_file=cycle,
+                        datetime_min=datetime_min,
+                        datetime_max=datetime_max,
+                        route="prepbufr",
+                        var_plan=prepbufr_plan,
+                    )
+                )
+            if gpsro_plan:
+                tasks.append(
+                    _NCEPObsTask(
+                        uri=self._build_gpsro_uri(cycle),
+                        datetime_file=cycle,
+                        datetime_min=datetime_min,
+                        datetime_max=datetime_max,
+                        route="gpsro",
+                        var_plan=gpsro_plan,
+                    )
+                )
+        return tasks
+
+    def _build_prepbufr_uri(self, cycle: datetime) -> str:
+        raise NotImplementedError("Subclasses must implement _build_prepbufr_uri.")
+
+    def _build_gpsro_uri(self, cycle: datetime) -> str:
+        raise NotImplementedError("Subclasses must implement _build_gpsro_uri.")
+
+    def _decode_file(self, local_path: str, task: _NCEPObsTask) -> pd.DataFrame:
         raise NotImplementedError("Subclasses must implement _decode_file.")
-
-    def _task_uri(self, task: Any) -> str:
-        raise NotImplementedError("Subclasses must implement _task_uri.")
 
     def _cycle_windows(
         self, time_list: list[datetime]

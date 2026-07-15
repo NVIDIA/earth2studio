@@ -23,8 +23,8 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-import earth2studio.data.nnja as nnja
 from earth2studio.data import NNJAObsConv, utils_ncep
+from earth2studio.data.ncep_obs import _NCEPObsTask
 
 pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
 
@@ -582,17 +582,15 @@ def test_nnja_obs_conv_build_uris():
 
 
 def test_nnja_obs_conv_create_tasks():
-    """Test _create_tasks method for prepbufr variables."""
-    from earth2studio.data.nnja import _NNJAConvTask
-
     # Use zero tolerance to get exactly one task per cycle
     ds = NNJAObsConv(time_tolerance=timedelta(0), cache=False, verbose=False)
 
     # Test prepbufr-only variable
     tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["t"])
     assert len(tasks) == 1
-    assert isinstance(tasks[0], _NNJAConvTask)
-    assert "prepbufr" in tasks[0].s3_uri
+    assert isinstance(tasks[0], _NCEPObsTask)
+    assert tasks[0].route == "prepbufr"
+    assert "prepbufr" in tasks[0].uri
     assert tasks[0].datetime_file == datetime(2024, 1, 1, 0)
 
     # Test multiple variables (same route)
@@ -615,8 +613,9 @@ def test_nnja_obs_conv_create_tasks_gpsro_route():
     tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["gps"])
 
     assert len(tasks) == 1
-    assert isinstance(tasks[0], nnja._NNJAGpsRoTask)
-    assert "gpsro" in tasks[0].s3_uri
+    assert isinstance(tasks[0], _NCEPObsTask)
+    assert tasks[0].route == "gpsro"
+    assert "gpsro" in tasks[0].uri
     assert tasks[0].datetime_file == datetime(2024, 1, 1, 0)
     assert tasks[0].var_plan["gps"][0] == utils_ncep.GPSRO_BNDA
 
@@ -627,8 +626,8 @@ def test_nnja_obs_conv_create_tasks_mixed_prepbufr_and_gpsro():
     tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["gps", "t"])
 
     assert len(tasks) == 2
-    conv_task = next(task for task in tasks if isinstance(task, nnja._NNJAConvTask))
-    gpsro_task = next(task for task in tasks if isinstance(task, nnja._NNJAGpsRoTask))
+    conv_task = next(task for task in tasks if task.route == "prepbufr")
+    gpsro_task = next(task for task in tasks if task.route == "gpsro")
     assert set(conv_task.var_plan) == {"t"}
     assert set(gpsro_task.var_plan) == {"gps"}
     assert gpsro_task.var_plan["gps"][0] == utils_ncep.GPSRO_BNDA
