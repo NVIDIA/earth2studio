@@ -770,6 +770,7 @@ async def cancellable_to_thread(
         )
         raise
 
+
 def obstore_store_from_url(
     url: str,
     anonymous: bool = True,
@@ -919,13 +920,10 @@ async def obstore_fetch_to_cache(
     return cache_path
 
 
-def get_msc_filesystem() -> filesystem | None:
-    """This helper function checks if Multi-Storage Client is available and sets up
-    the MSC configuration if needed.
+class LocalCachingStore(zarr.storage.WrapperStore):
+    """Wraps a read-only zarr store with a local on-disk cache backed by a zarr
+    LocalStore, intended for append-only immutable archive stores.
 
-    Note
-    ----
-    Can force MSC to not be used with the environment variable EARTH2STUDIO_DISABLE_MSC
     Chunk data is cached indefinitely: existing chunks never change and newly
     appended data arrives under new keys (a cache miss). Metadata objects
     (``zarr.json`` / ``.zarray`` / ``.zgroup`` / ``.zattrs`` / ``.zmetadata``)
