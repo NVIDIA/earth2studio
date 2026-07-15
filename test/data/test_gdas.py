@@ -17,7 +17,7 @@
 import asyncio
 import pathlib
 import shutil
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import numpy as np
@@ -115,31 +115,25 @@ def test_nomads_gdas_cache(time, variable, cache):
 def test_nomads_gdas_schema_fields():
     ds = NomadsGDASObsConv()
 
-    # Test resolve_fields with None (all fields)
-    fields = ds.resolve_fields(None)
-    assert fields is None
+    schema_full = ds.resolve_fields(None)
+    assert schema_full.equals(ds.SCHEMA, check_metadata=True)
 
-    # Test resolve_fields with subset
     subset = ["time", "lat", "lon", "observation", "variable"]
-    fields = ds.resolve_fields(subset)
-    assert fields == subset
+    schema_subset = ds.resolve_fields(subset)
+    assert schema_subset.names == subset
 
-    # Test resolve_fields with single string
-    fields = ds.resolve_fields("observation")
-    assert fields == ["observation"]
+    schema_str = ds.resolve_fields("observation")
+    assert schema_str.names == ["observation"]
 
-    # Test resolve_fields with invalid field
     with pytest.raises(KeyError):
         ds.resolve_fields("nonexistent_field")
 
-    # Test resolve_fields with schema
-    fields = ds.resolve_fields(ds.SCHEMA)
-    assert fields == ds.SCHEMA.names
+    schema = ds.resolve_fields(ds.SCHEMA)
+    assert schema.equals(ds.SCHEMA, check_metadata=True)
 
-    # GDAS accepts a supplied schema by field name without type normalization.
     wrong_type = pa.schema([pa.field("time", pa.string())])
-    assert ds.resolve_fields(wrong_type) == ["time"]
-    assert ds._resolve_output_schema(wrong_type) == pa.schema([ds.SCHEMA.field("time")])
+    with pytest.raises(TypeError):
+        ds.resolve_fields(wrong_type)
 
 
 @pytest.mark.timeout(15)
@@ -147,9 +141,9 @@ def test_nomads_gdas_exceptions():
     ds = NomadsGDASObsConv()
 
     # Invalid variable – use a recent time so validation passes before KeyError
-    recent = datetime.utcnow().replace(minute=0, second=0, microsecond=0) - timedelta(
-        hours=6
-    )
+    recent = datetime.now(timezone.utc).replace(
+        tzinfo=None, minute=0, second=0, microsecond=0
+    ) - timedelta(hours=6)
     with pytest.raises(KeyError):
         ds(recent, "nonexistent_var")
 
@@ -165,6 +159,30 @@ def test_nomads_gdas_exceptions():
         ds(datetime(2020, 1, 1, 0), "t")
 
 
+@pytest.mark.asyncio
+async def test_nomads_gdas_invalid_requests_do_not_initialize_store(monkeypatch):
+    ds = NomadsGDASObsConv(cache=True, verbose=False)
+    initialized = False
+
+    async def initialize():
+        nonlocal initialized
+        initialized = True
+
+    monkeypatch.setattr(ds._store, "_async_init", initialize)
+    recent = datetime.now(timezone.utc).replace(
+        tzinfo=None, minute=0, second=0, microsecond=0
+    ) - timedelta(hours=6)
+
+    with pytest.raises(ValueError):
+        await ds.fetch(datetime(2020, 1, 1, 0), "t")
+    with pytest.raises(KeyError):
+        await ds.fetch(recent, "t", fields="nonexistent_field")
+    with pytest.raises(KeyError):
+        await ds.fetch(recent, "nonexistent_var")
+
+    assert not initialized
+
+
 @pytest.mark.timeout(15)
 def test_nomads_gdas_available():
     # Future time should not be available
@@ -177,9 +195,9 @@ def test_nomads_gdas_available():
     assert not NomadsGDASObsConv.available(np.datetime64("2030-01-01"))
 
     # Recent time should be available (use relative time within 2-day window)
-    recent = datetime.utcnow().replace(minute=0, second=0, microsecond=0) - timedelta(
-        hours=6
-    )
+    recent = datetime.now(timezone.utc).replace(
+        tzinfo=None, minute=0, second=0, microsecond=0
+    ) - timedelta(hours=6)
     assert NomadsGDASObsConv.available(recent)
 
 
@@ -262,8 +280,8 @@ def test_nomads_gdas_tolerance_conversion():
 @pytest.mark.timeout(30)
 def test_nomads_gdas_call_mock(tmp_path):
     # Use a recent time that passes validation
-    base_time = datetime.utcnow().replace(
-        minute=0, second=0, microsecond=0
+    base_time = datetime.now(timezone.utc).replace(
+        tzinfo=None, minute=0, second=0, microsecond=0
     ) - timedelta(hours=6)
     obs_time1 = base_time + timedelta(minutes=30)
     obs_time2 = base_time + timedelta(hours=1)
@@ -300,8 +318,8 @@ def test_nomads_gdas_call_mock(tmp_path):
     async def mock_fetch_files(urls):
         fetched.extend(urls)
 
-    ds._nomads_store.fetch_files = mock_fetch_files
-    ds._nomads_store.local_path = lambda _url: str(dummy_file)
+    ds._store.fetch_files = mock_fetch_files
+    ds._store.local_path = lambda _url: str(dummy_file)
     with patch.object(ds, "_decode_file", return_value=mock_df) as decode:
         df = ds(base_time, ["t"])
 
@@ -311,6 +329,68 @@ def test_nomads_gdas_call_mock(tmp_path):
     assert set(df["variable"].unique()) == {"t"}
     assert fetched
     decode.assert_called()
+
+
+def test_nomads_gdas_fetch_uses_store(tmp_path, monkeypatch):
+    cached_file = tmp_path / "cached.bufr"
+    cached_file.write_bytes(b"fixture")
+
+    class FakeStore:
+        def __init__(self):
+            self.fetched: list[str] = []
+            self.cleanup_calls = 0
+
+        async def fetch_files(self, uris):
+            self.fetched = list(uris)
+
+        def local_path(self, uri):
+            return str(cached_file)
+
+        def cleanup(self):
+            self.cleanup_calls += 1
+
+    cycle = datetime.now(timezone.utc).replace(
+        tzinfo=None, minute=0, second=0, microsecond=0
+    )
+    cycle = cycle.replace(hour=(cycle.hour // 6) * 6)
+    frame = pd.DataFrame(
+        {
+            "time": pd.to_datetime([cycle]),
+            "observation": [273.15],
+            "variable": ["t"],
+        }
+    )
+    source = NomadsGDASObsConv(
+        time_tolerance=timedelta(0),
+        cache=True,
+        verbose=False,
+    )
+    store = FakeStore()
+    source._store = store
+    monkeypatch.setattr(source, "_decode_file", lambda path, task: frame)
+
+    result = source(
+        cycle,
+        ["t"],
+        fields=["time", "observation", "variable"],
+    )
+
+    assert store.fetched == [source._build_url(cycle)]
+    assert result.equals(frame)
+    assert result.attrs == {"source": source.SOURCE_ID}
+    assert store.cleanup_calls == 1
+
+    async def fail_fetch(uris):
+        raise RuntimeError("fetch failed")
+
+    monkeypatch.setattr(store, "fetch_files", fail_fetch)
+    with pytest.raises(RuntimeError):
+        source(
+            cycle,
+            ["t"],
+            fields=["time", "observation", "variable"],
+        )
+    assert store.cleanup_calls == 2
 
 
 @pytest.mark.timeout(15)
@@ -358,7 +438,7 @@ def test_nomads_gdas_create_tasks():
 @pytest.mark.timeout(15)
 def test_nomads_gdas_empty_result():
     ds = NomadsGDASObsConv()
-    empty_df = ds._compile_dataframe([], ["t"], ds.SCHEMA)
+    empty_df = ds._compile_dataframe([], ds.SCHEMA)
 
     assert isinstance(empty_df, pd.DataFrame)
     assert empty_df.empty
@@ -368,6 +448,7 @@ def test_nomads_gdas_empty_result():
 @pytest.mark.asyncio
 async def test_nomads_store_fetches_and_reuses_cached_files(tmp_path, monkeypatch):
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
     store = gdas_data._NomadsObsStore(
         cache=True,
         verbose=False,
@@ -409,6 +490,7 @@ async def test_nomads_store_preserves_retry_and_concurrency_settings(
     tmp_path, monkeypatch
 ):
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
     store = gdas_data._NomadsObsStore(True, False, 3, 5)
     store.fs = object()
     retries: list[tuple[str, dict]] = []
@@ -446,6 +528,7 @@ async def test_nomads_store_preserves_retry_and_concurrency_settings(
 
 def test_nomads_store_temporary_cache_cleanup(tmp_path, monkeypatch):
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
     first = gdas_data._NomadsObsStore(False, False, 1, 0)
     second = gdas_data._NomadsObsStore(False, False, 1, 0)
     first_cache = pathlib.Path(first.cache)
@@ -462,6 +545,7 @@ def test_nomads_store_temporary_cache_cleanup(tmp_path, monkeypatch):
 
 def test_nomads_gdas_cache_false_cleans_up_after_error(tmp_path, monkeypatch):
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
     source = NomadsGDASObsConv(cache=False, verbose=False)
     cache = pathlib.Path(source.cache)
     cache.mkdir(parents=True)

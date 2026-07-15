@@ -31,7 +31,7 @@ import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
-from earth2studio.data._ncep_obs import _NCEPObsSourceBase
+from earth2studio.data.ncep_obs import _NCEPObsSourceBase
 from earth2studio.data.utils import (
     async_retry,
     datasource_cache_root,
@@ -227,9 +227,10 @@ class NomadsGDASObsConv(_NCEPObsSourceBase):
     region:global dataclass:observation product:wind product:temp product:atmos product:insitu
     """
 
-    SOURCE_ID = "NomadsGDASObsConv"
+    SOURCE_ID = "earth2studio.data.NomadsGDASObsConv"
 
     SCHEMA: pa.Schema = NCEP_CONVENTIONAL_PUBLIC_SCHEMA
+    _store: _NomadsObsStore
 
     def __init__(
         self,
@@ -241,14 +242,13 @@ class NomadsGDASObsConv(_NCEPObsSourceBase):
         async_timeout: int = 600,
         retries: int = 3,
     ) -> None:
-        self._nomads_store = _NomadsObsStore(
-            cache=cache,
-            verbose=verbose,
-            max_workers=max_workers,
-            retries=retries,
-        )
         super().__init__(
-            store=self._nomads_store,
+            store=_NomadsObsStore(
+                cache=cache,
+                verbose=verbose,
+                max_workers=max_workers,
+                retries=retries,
+            ),
             time_tolerance=time_tolerance,
             verbose=verbose,
             async_timeout=async_timeout,
@@ -260,20 +260,11 @@ class NomadsGDASObsConv(_NCEPObsSourceBase):
     @property
     def cache(self) -> str:
         """Local cache directory for this data source."""
-        return self._nomads_store.cache
-
-    @property
-    def fs(self) -> Any:
-        """NOMADS HTTP filesystem initialized on first valid fetch."""
-        return self._nomads_store.fs
-
-    @fs.setter
-    def fs(self, value: Any) -> None:
-        self._nomads_store.fs = value
+        return self._store.cache
 
     def _cache_path(self, url: str) -> str:
         """Compute the deterministic cache path for a NOMADS URL."""
-        return self._nomads_store.local_path(url)
+        return self._store.local_path(url)
 
     @staticmethod
     def _task_uri(task: _GDASAsyncTask) -> str:
@@ -377,23 +368,19 @@ class NomadsGDASObsConv(_NCEPObsSourceBase):
 
     def _decode_file(self, local_path: str, task: _GDASAsyncTask) -> pd.DataFrame:
         """Decode one locally cached file through its route-specific adapter."""
-        try:
-            if task.route == "gpsro":
-                return self._decode_gpsro(
-                    local_path,
-                    task.variables,
-                    task.datetime_min,
-                    task.datetime_max,
-                )
-            return self._decode_prepbufr(
+        if task.route == "gpsro":
+            return self._decode_gpsro(
                 local_path,
                 task.variables,
                 task.datetime_min,
                 task.datetime_max,
             )
-        except Exception as exc:
-            logger.warning(f"Error decoding {local_path}: {exc}, skipping")
-            return pd.DataFrame()
+        return self._decode_prepbufr(
+            local_path,
+            task.variables,
+            task.datetime_min,
+            task.datetime_max,
+        )
 
     def _decode_prepbufr(
         self,
@@ -518,52 +505,3 @@ class NomadsGDASObsConv(_NCEPObsSourceBase):
         except ValueError:
             return False
         return True
-
-    @classmethod
-    def _resolve_output_schema(
-        cls, fields: str | list[str] | pa.Schema | None
-    ) -> pa.Schema:
-        resolved_fields = cls.resolve_fields(fields)
-        if resolved_fields is None:
-            return cls.SCHEMA
-        return pa.schema([cls.SCHEMA.field(name) for name in resolved_fields])
-
-    @classmethod
-    def resolve_fields(
-        cls,
-        fields: str | list[str] | pa.Schema | None = None,
-    ) -> list[str] | None:
-        """Resolve and validate the requested output fields.
-
-        Parameters
-        ----------
-        fields : str | list[str] | pa.Schema | None, optional
-            Fields to include in output. None returns all fields.
-
-        Returns
-        -------
-        list[str] | None
-            Validated list of field names, or None for all fields.
-
-        Raises
-        ------
-        KeyError
-            If a field is not in the schema.
-        TypeError
-            If fields is an unsupported type.
-        """
-        if fields is None:
-            return None
-        if isinstance(fields, str):
-            fields = [fields]
-        if isinstance(fields, pa.Schema):
-            fields = fields.names
-
-        schema_names = set(cls.SCHEMA.names)
-        for f in fields:
-            if f not in schema_names:
-                raise KeyError(
-                    f"Field '{f}' not in {cls.__name__} SCHEMA. "
-                    f"Available: {cls.SCHEMA.names}"
-                )
-        return list(fields)
