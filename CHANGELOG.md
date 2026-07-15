@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   predictions for GOES GLM Lightning density.
 - Migrated GFS / GFS_FX data sources from s3fs to obstore for index and byte-range
   GRIB fetches; downloads now use bounded concurrency with retry on transient errors
+- Refactored UFS observation sources (`UFSObsConv`, `UFSObsSat`) onto the shared
+  obstore byte-range helpers
 - Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
   the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
   fsspec
