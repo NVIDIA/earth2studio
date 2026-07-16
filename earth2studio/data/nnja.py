@@ -445,10 +445,6 @@ class NNJAObsConv(NNJAObsArchiveMixin, NCEPObsRequestMixin):
             f"gdas.{date_key}.t{hour_key}z.gpsro.tm00.bufr_d"
         )
 
-    # Back-compat alias used by tests that targeted the v1 method name.
-    def _build_uri(self, cycle: datetime) -> str:
-        return self._build_prepbufr_uri(cycle)
-
     def _handle_missing_file(self, path: str) -> None:
         """Warn instead of raising on missing NNJA cycle files.
 

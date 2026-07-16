@@ -574,9 +574,6 @@ def test_nnja_obs_conv_build_uris():
     assert "t06z" in gpsro_uri
     assert "gpsro" in gpsro_uri
 
-    # Test backward compat alias
-    assert ds._build_uri(cycle) == ds._build_prepbufr_uri(cycle)
-
 
 def test_nnja_obs_conv_create_tasks():
     """Test _create_tasks method for prepbufr variables."""
