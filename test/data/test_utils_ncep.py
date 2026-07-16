@@ -140,7 +140,7 @@ def test_same_local_prepbufr_bytes_are_adapter_exact(tmp_path, monkeypatch):
         assert schema.field("level_cat").type == pa.uint16()
         assert schema.field("pressure_quality").type == pa.uint16()
 
-    nnja_task = utils_ncep._NCEPObsTask(
+    nnja_task = utils_ncep._NCEPConvTask(
         route="prepbufr",
         uri="s3://example/same.prepbufr.nr",
         datetime_file=datetime(2024, 1, 1),
@@ -220,7 +220,7 @@ def test_same_local_gpsro_bytes_preserve_default_product(tmp_path, monkeypatch):
     assert pd.isna(nnja_df.loc[0, "pres"])
     assert nnja_df.loc[0, "elev"] == pytest.approx(2_000.0)
 
-    nnja_task = utils_ncep._NCEPObsTask(
+    nnja_task = utils_ncep._NCEPConvTask(
         route="gpsro",
         uri="s3://example/same.gpsro.bufr",
         datetime_file=datetime(2024, 1, 1),

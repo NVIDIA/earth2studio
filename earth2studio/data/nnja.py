@@ -45,11 +45,12 @@ from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
 from earth2studio.data.utils_ncep import (
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     NCEPObsRequestMixin,
+    _NCEPConvTask,
     _NCEPGpsroAdapter,
     _NCEPObsTask,
     _NCEPPrepbufrAdapter,
+    _plan_conv_tasks,
     map_aircraft_profile_types,
-    plan_conv_tasks,
 )
 from earth2studio.lexicon import NNJAObsConvLexicon
 from earth2studio.utils.imports import check_optional_dependencies
@@ -205,9 +206,6 @@ class NNJAObsMixin:
         return True
 
 
-# Composition: request lifecycle + conventional task planning come from
-# NCEPObsRequestMixin (utils_ncep); NNJA S3 transport / cache / validation from
-# NNJAObsMixin; product schema, URI builders, and decoding are defined below.
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
 class NNJAObsConv(NNJAObsMixin, NCEPObsRequestMixin):
     """NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint
@@ -337,7 +335,7 @@ class NNJAObsConv(NNJAObsMixin, NCEPObsRequestMixin):
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]
     ) -> list[_NCEPObsTask]:
-        return plan_conv_tasks(
+        return _plan_conv_tasks(
             self._cycle_windows(time_list), variable, self.LEXICON, self._build_uri
         )
 
@@ -368,17 +366,21 @@ class NNJAObsConv(NNJAObsMixin, NCEPObsRequestMixin):
     # File decode (dispatch by task route)
     # ------------------------------------------------------------------
     def _decode_file(self, local_path: str, task: _NCEPObsTask) -> pd.DataFrame:
+        if not isinstance(task, _NCEPConvTask):
+            raise TypeError(f"Expected a conventional task, got {type(task).__name__}")
         if task.route == "gpsro":
             frame = self._gpsro_adapter.decode_file(
                 local_path, task.var_plan, task.datetime_min, task.datetime_max
             )
             return frame[self.SCHEMA.names]
-        frame = self._prepbufr_adapter.decode_file(
-            local_path, task.var_plan, task.datetime_min, task.datetime_max
-        )
-        if (
-            self._source == "prepbufr.acft_profiles"
-            and self._map_acft_profile_report_types
-        ):
-            frame = map_aircraft_profile_types(frame)
-        return frame[self.SCHEMA.names]
+        if task.route == "prepbufr":
+            frame = self._prepbufr_adapter.decode_file(
+                local_path, task.var_plan, task.datetime_min, task.datetime_max
+            )
+            if (
+                self._source == "prepbufr.acft_profiles"
+                and self._map_acft_profile_report_types
+            ):
+                frame = map_aircraft_profile_types(frame)
+            return frame[self.SCHEMA.names]
+        raise ValueError(f"Unsupported route '{task.route}'")

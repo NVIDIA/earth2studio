@@ -905,7 +905,8 @@ class _NCEPGpsroAdapter:
         # Descriptors drive decode (pickled to workers); modifiers stay here for
         # finalize (closures cannot cross the process-pool boundary). Callers
         # pass the descriptor id as a string (shared planner) or int (GDAS until
-        # it migrates); normalize to int here.
+        # it migrates). TODO(gdas migration): once GDAS uses the shared planner
+        # (str keys), narrow the union to str and drop the int coercion.
         wanted_descrs = {int(key): variable for variable, (key, _) in plan.items()}
         modifiers = {variable: modifier for variable, (_, modifier) in plan.items()}
         with open(path, "rb") as file:
@@ -970,20 +971,31 @@ _NCEPPlan = Mapping[str, tuple[str, _NCEPObsModifier]]
 class _NCEPObsTask:
     """One NCEP observation cycle file to fetch and decode.
 
-    ``route`` (e.g. ``"prepbufr"`` / ``"gpsro"``) tags which decoder and URI
-    layout the file uses. ``var_plan`` maps each requested variable to its
-    route-specific decode key and post-decode modifier.
+    Minimal base carrying only what the shared request lifecycle needs: the URI
+    and the cycle's time window. Route/product-specific fields live on
+    subclasses such as :class:`_NCEPConvTask`.
     """
 
-    route: str
     uri: str
     datetime_file: datetime
     datetime_min: datetime
     datetime_max: datetime
+
+
+@dataclass(frozen=True)
+class _NCEPConvTask(_NCEPObsTask):
+    """A conventional (PrepBUFR / GPS RO) cycle file.
+
+    ``route`` (``"prepbufr"`` / ``"gpsro"``) selects the decoder and URI layout;
+    ``var_plan`` maps each requested variable to its route-specific decode key
+    and post-decode modifier.
+    """
+
+    route: str
     var_plan: _NCEPPlan
 
 
-def plan_conv_tasks(
+def _plan_conv_tasks(
     windows: Mapping[datetime, tuple[datetime, datetime]],
     variable: list[str],
     lexicon: LexiconType,
@@ -991,19 +1003,31 @@ def plan_conv_tasks(
 ) -> list[_NCEPObsTask]:
     """Partition variables by lexicon route prefix into per-cycle conv tasks.
 
-    Route prefixes: ``prepbufr::...`` -> PrepBUFR decoder, ``gpsro::...`` -> GPS
-    RO BUFR decoder. The key after ``::`` is kept verbatim; each adapter
-    interprets it. When multiple requested times map to the same cycle their
-    windows are already merged in ``windows`` (see
-    ``NCEPObsRequestMixin._cycle_windows``); ``build_uri(route, cycle)`` yields
-    the source-specific URI.
+    Parameters
+    ----------
+    windows : Mapping[datetime, tuple[datetime, datetime]]
+        Cycle datetime -> (min, max) observation-time window, already merged
+        across requested times (see ``NCEPObsRequestMixin._cycle_windows``).
+    variable : list[str]
+        Requested variable ids, routed by their ``"route::key"`` lexicon prefix.
+    lexicon : LexiconType
+        Source lexicon mapping a variable id to ``("route::key", modifier)``.
+    build_uri : Callable[[str, datetime], str]
+        Source hook returning the archive URI for a ``(route, cycle)`` pair.
+
+    Returns
+    -------
+    list[_NCEPObsTask]
+        One ``_NCEPConvTask`` (typed as the base) per ``(route, cycle)``.
+        ``prepbufr`` uses the PrepBUFR decoder, ``gpsro`` the GPS RO BUFR
+        decoder; the key after ``::`` is kept verbatim for the adapter.
     """
     plans: dict[str, dict[str, tuple[str, _NCEPObsModifier]]] = {}
     for v in variable:
         try:
             source_key, modifier = lexicon[v]
         except KeyError:
-            logger.error(f"Variable id '{v}' not found in lexicon")
+            logger.error(f"Variable id '{v}' not found in {lexicon.__name__}")
             raise
         route, _, rest = source_key.partition("::")
         plans.setdefault(route, {})[v] = (rest, modifier)
@@ -1012,12 +1036,12 @@ def plan_conv_tasks(
     for cycle, (tmin, tmax) in windows.items():
         for route, plan in plans.items():
             tasks.append(
-                _NCEPObsTask(
-                    route=route,
+                _NCEPConvTask(
                     uri=build_uri(route, cycle),
                     datetime_file=cycle,
                     datetime_min=tmin,
                     datetime_max=tmax,
+                    route=route,
                     var_plan=plan,
                 )
             )
@@ -1038,7 +1062,6 @@ class NCEPObsRequestMixin:
 
     SOURCE_ID: str
     SCHEMA: pa.Schema
-    LEXICON: LexiconType
 
     def _init_request(
         self,
@@ -1109,7 +1132,7 @@ class NCEPObsRequestMixin:
 
     def _compile_dataframe(
         self,
-        async_tasks: list[_NCEPObsTask],
+        async_tasks: Sequence[_NCEPObsTask],
         schema: pa.Schema,
     ) -> pd.DataFrame:
         """Decode each fetched file and concatenate into a single DataFrame."""
