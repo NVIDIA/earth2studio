@@ -692,7 +692,10 @@ def run_scoring(
     else:
         valid_ranges = {}
 
-    rank = DistributedManager().rank
+    # Rank only gates tqdm output below.  Guard on is_initialized() so we don't
+    # instantiate an uninitialized DistributedManager (which warns / errors);
+    # default to 0 for single-process and unit-test runs.
+    rank = DistributedManager().rank if DistributedManager.is_initialized() else 0
 
     for time in tqdm(my_times, desc="Scoring", disable=rank != 0):
         # Accumulate chunk results per metric.

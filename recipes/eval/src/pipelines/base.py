@@ -569,9 +569,12 @@ class Pipeline(ABC):
         if self._output_regridder is not None:
             self._output_regridder = self._output_regridder.to(device)
 
-        if not DistributedManager.is_initialized():
-            DistributedManager.initialize()
-        rank = DistributedManager().rank
+        # Rank only gates tqdm output below.  Default to 0 when the
+        # DistributedManager isn't initialized (unit tests, or single-process
+        # runs where main.py didn't set it up) rather than forcing
+        # initialization here — DistributedManager.initialize() requires an
+        # indexed accelerator on some backends and fails on CPU.
+        rank = DistributedManager().rank if DistributedManager.is_initialized() else 0
 
         # None is only passed when needs_data_source=False, in which case
         # the subclass's run_item ignores the argument.

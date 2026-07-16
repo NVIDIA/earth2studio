@@ -205,7 +205,10 @@ class ForecastPipeline(Pipeline):
 
         model_iter = self.prognostic.create_iterator(x, coords)
 
-        rank = DistributedManager().rank
+        # Rank only gates tqdm output below.  Guard on is_initialized() so we
+        # don't instantiate an uninitialized DistributedManager (which warns /
+        # errors); default to 0 for single-process and unit-test runs.
+        rank = DistributedManager().rank if DistributedManager.is_initialized() else 0
 
         for step, (x_step, coords_step) in enumerate(
             tqdm(

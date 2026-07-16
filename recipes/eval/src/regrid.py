@@ -49,7 +49,7 @@ from numpy.typing import ArrayLike
 
 from earth2studio.data import DataSource
 from earth2studio.utils.coords import CoordSystem
-from earth2studio.utils.interp import NearestNeighborInterpolator
+from earth2studio.utils.interp import LatLonInterpolation, NearestNeighborInterpolator
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
@@ -248,6 +248,113 @@ class NearestNeighborRegridder(Regridder):
                 f"spatial dims, got {spatial_dims}"
             )
         return self._interp(x)
+
+
+class BilinearRegridder(Regridder):
+    """Bilinear regridder backed by earth2studio's ``LatLonInterpolation``.
+
+    Wraps :class:`earth2studio.utils.interp.LatLonInterpolation` to resample a
+    field from a source lat/lon grid onto an arbitrary (possibly curvilinear)
+    target grid.  The counterpart to :class:`NearestNeighborRegridder`: prefer
+    bilinear when a smooth field should be interpolated rather than snapped to
+    the closest source cell, and nearest-neighbor for categorical / masked
+    fields or when source and target resolutions are comparable.  Unlike the
+    nearest-neighbor regridder, bilinear interpolation is not thresholded by
+    distance; target points outside the source grid receive *fill_value*.
+
+    The heavy setup (building the interpolation index) runs once at
+    construction; :meth:`apply` is a fast gather that runs on whatever device
+    the regridder has been moved to via :meth:`to`.
+
+    A representative use in this recipe is StormScope's ``glm_density`` state
+    channel: :class:`earth2studio.models.px.StormScopeMRMS` regrids the sparse
+    0.1-degree lightning-count field bilinearly onto its model grid via
+    :meth:`StormScopeMRMS.build_glm_interpolator`, so predownloading through
+    this class (with the matching source/target grids and ``fill_value=0``)
+    yields values numerically identical to the model's live ``fetch_glm``
+    path — the inference run then reads them straight off disk with no
+    re-interpolation.
+
+    Parameters
+    ----------
+    source_lats, source_lons : torch.Tensor | ArrayLike
+        Source grid coordinates.  2D ``[H_src, W_src]`` meshgrids or 1D
+        vectors (promoted internally via ``meshgrid``).
+    target_lats, target_lons : torch.Tensor | ArrayLike
+        Target grid coordinates.  Either 2D meshgrids (for curvilinear grids
+        such as HRRR Lambert-conformal) or 1D vectors.  The target grid must
+        be contained within the source grid (a requirement of
+        ``LatLonInterpolation``).
+    target_y, target_x : ArrayLike
+        1D index coordinates of the target grid, written to the output zarr
+        alongside the regridded data.
+    target_dim_names : tuple[str, str]
+        Output spatial dimension names.  Default ``("y", "x")``; pass
+        ``("lat", "lon")`` for a regular target grid.
+    fill_value : float
+        Value assigned to target points outside the source grid (NaN from the
+        interpolator).  Default ``0.0``.
+    """
+
+    def __init__(
+        self,
+        source_lats: torch.Tensor | ArrayLike,
+        source_lons: torch.Tensor | ArrayLike,
+        target_lats: torch.Tensor | ArrayLike,
+        target_lons: torch.Tensor | ArrayLike,
+        *,
+        target_y: ArrayLike,
+        target_x: ArrayLike,
+        target_dim_names: tuple[str, str] = ("y", "x"),
+        fill_value: float = 0.0,
+    ) -> None:
+        src_lats = np.asarray(
+            source_lats.cpu() if isinstance(source_lats, torch.Tensor) else source_lats
+        )
+        src_lons = np.asarray(
+            source_lons.cpu() if isinstance(source_lons, torch.Tensor) else source_lons
+        )
+        if src_lats.ndim == 1 and src_lons.ndim == 1:
+            src_lats, src_lons = np.meshgrid(src_lats, src_lons, indexing="ij")
+        self._interp = LatLonInterpolation(
+            lat_in=src_lats,
+            lon_in=src_lons,
+            lat_out=target_lats,
+            lon_out=target_lons,
+        )
+        self._target_y = np.asarray(target_y)
+        self._target_x = np.asarray(target_x)
+        self._target_dim_names = tuple(target_dim_names)
+        self._fill_value = float(fill_value)
+        if len(self._target_dim_names) != 2:
+            raise ValueError(f"target_dim_names must be a pair, got {target_dim_names}")
+
+    def to(self, device: str | torch.device) -> BilinearRegridder:
+        self._interp = self._interp.to(device)
+        return self
+
+    def target_coords(self) -> CoordSystem:
+        y_name, x_name = self._target_dim_names
+        coords: CoordSystem = OrderedDict()
+        coords[y_name] = self._target_y
+        coords[x_name] = self._target_x
+        return coords
+
+    def apply(
+        self,
+        x: torch.Tensor,
+        *,
+        spatial_dims: tuple[str, ...],
+    ) -> torch.Tensor:
+        if len(spatial_dims) != 2:
+            raise ValueError(
+                "BilinearRegridder expects exactly two trailing spatial dims, "
+                f"got {spatial_dims}"
+            )
+        # LatLonInterpolation buffers are float32; match dtype so torch.lerp /
+        # advanced indexing don't trip over a float64 source array from xarray.
+        out = self._interp(x.to(dtype=torch.float32))
+        return torch.nan_to_num(out, nan=self._fill_value)
 
 
 # ---------------------------------------------------------------------------

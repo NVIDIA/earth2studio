@@ -38,11 +38,12 @@ from earth2studio.utils.coords import CoordSystem, cat_coords
 
 from ..data import (
     CadenceRoundedSource,
+    CompositeSource,
     PredownloadedSource,
     ValidTimeForecastAdapter,
     resolve_ic_source,
 )
-from ..regrid import NearestNeighborRegridder, RegriddedSource
+from ..regrid import BilinearRegridder, NearestNeighborRegridder, RegriddedSource
 from ..work import WorkItem
 from .base import Pipeline, PredownloadStore
 
@@ -50,40 +51,43 @@ from .base import Pipeline, PredownloadStore
 class StormScopePipeline(Pipeline):
     """Coupled GOES/MRMS nowcasting pipeline using StormScope models.
 
-    Runs two prognostic models together:
+    Runs two prognostic models together (default variant ``3km_10min``):
 
-    * :class:`earth2studio.models.px.StormScopeGOES` — forecasts GOES
-      satellite channels.  Conditioned on synoptic-scale GFS data (60-min
-      variants) or nothing (10-min variants).
+    * :class:`earth2studio.models.px.StormScopeGOES` — forecasts the GOES
+      ABI satellite channels.  The ``3km_10min`` variant is *pure obs*
+      (no external conditioning); legacy 60-min variants condition on
+      synoptic-scale GFS data.
     * :class:`earth2studio.models.px.StormScopeMRMS` — forecasts MRMS
-      composite reflectivity (``refc``), conditioned on GOES (either
-      observations at IC time or the GOES model's own predictions
-      during rollout).
+      reflectivity (``refc``, ``refc_base``) plus a gridded GLM lightning
+      channel (``glm_density``), conditioned on GOES (either observations
+      at IC time or the GOES model's own predictions during rollout).
 
     Both models share the HRRR Lambert-conformal grid (``y``, ``x``)
     and the pipeline yields a combined ``(variables × y × x)`` tensor
-    per forecast step — GOES channels and MRMS refc stacked along the
-    ``variable`` axis so the output zarr is a single unified store.
+    per forecast step — GOES channels, MRMS radar, and GLM stacked along
+    the ``variable`` axis so the output zarr is a single unified store.
 
     Config shape
     ------------
-    Expected structure under ``cfg.model``::
+    Expected structure under ``cfg.model`` (see
+    ``cfg/model/stormscope_goes_mrms.yaml``)::
 
         goes:
             architecture: earth2studio.models.px.StormScopeGOES
             load_args:
-                model_name: 6km_60min_natten_cos_zenith_input_eoe_v2
-                conditioning_data_source: {_target_: earth2studio.data.GFS_FX}
+                model_name: 3km_10min
+                conditioning_data_source: null      # pure-obs
             ic_source: {_target_: earth2studio.data.GOES, satellite: goes16, scan_mode: C}
             ic_grid: {_target_: src.grids.goes_grid, satellite: goes16, scan_mode: C}
-            conditioning_grid: {_target_: src.grids.gfs_grid}
         mrms:
             architecture: earth2studio.models.px.StormScopeMRMS
             load_args:
-                model_name: 6km_60min_natten_cos_zenith_input_mrms_eoe
+                model_name: 3km_10min
                 conditioning_data_source: {_target_: earth2studio.data.GOES, ...}
+                glm_data_source: {_target_: earth2studio.data.GOESGLMGrid, satellite: east}
             ic_source: {_target_: earth2studio.data.MRMS}
             ic_grid: {_target_: src.grids.mrms_grid}
+            glm_grid: {_target_: src.grids.glm_grid, satellite: east}
             conditioning_grid: {_target_: src.grids.goes_grid, ...}
         max_dist_km: 30.0     # optional; passed to build_*_interpolator
 
@@ -104,20 +108,27 @@ class StormScopePipeline(Pipeline):
     Predownload
     -----------
     :meth:`predownload_stores` declares one zarr per IC source
-    (``data_goes.zarr``, ``data_mrms.zarr``), each wrapped in a
-    :class:`~src.regrid.RegriddedSource` that resamples the raw source
-    onto the model's HRRR sub-region at write time.  The resulting
-    store has ``(time, y, x)`` dims whose ``y``/``x`` values match the
-    model's native grid exactly — so at inference time
+    (``data_goes.zarr``, ``data_mrms.zarr``) plus, for GLM-bearing
+    variants, a ``data_glm.zarr`` for the ``glm_density`` state channel.
+    Each is wrapped in a :class:`~src.regrid.RegriddedSource` that
+    resamples the raw source onto the model's HRRR sub-region at write
+    time — **nearest-neighbor** for radar/satellite, **bilinear** for the
+    sparse GLM count field (matching
+    :meth:`StormScopeMRMS.build_glm_interpolator`).  The resulting stores
+    have ``(time, y, x)`` dims whose ``y``/``x`` values match the model's
+    native grid exactly — so at inference time
     :meth:`StormScopeBase.prep_input` detects the match and skips its
     live interpolation.
 
     :meth:`setup` auto-detects the predownloaded stores under
-    ``<output.path>/data_{goes,mrms}.zarr`` and uses
-    :class:`~src.data.PredownloadedSource` in their place.  Users can
-    skip predownload entirely with per-model BYO overrides (see
-    :class:`StormScopePipeline` docstring) or by pointing to raw live
-    sources and running with the model's live interpolators.
+    ``<output.path>/data_{goes,mrms,glm}.zarr`` and uses
+    :class:`~src.data.PredownloadedSource` in their place.  The MRMS state
+    spans two grids (radar + GLM), so its IC is reassembled from
+    ``data_mrms.zarr`` + ``data_glm.zarr`` via a
+    :class:`~src.data.CompositeSource`.  Users can skip predownload
+    entirely with per-model BYO overrides (see :class:`StormScopePipeline`
+    docstring) or by pointing to raw live sources and running with the
+    model's live interpolators.
     """
 
     needs_data_source = False
@@ -194,11 +205,7 @@ class StormScopePipeline(Pipeline):
             store_name="data_goes.zarr",
             live_source=cfg.model.goes.ic_source,
         )
-        self._mrms_ic_source = resolve_ic_source(
-            cfg,
-            store_name="data_mrms.zarr",
-            live_source=cfg.model.mrms.ic_source,
-        )
+        self._mrms_ic_source = self._resolve_mrms_ic_source(cfg)
 
         # Conditioning source: swap in the predownloaded, regridded zarr
         # (<output.path>/cond_goes.zarr) when present so the GOES model's
@@ -285,9 +292,11 @@ class StormScopePipeline(Pipeline):
         # expose a set_rng hook; torch.manual_seed is the supported path.
         torch.manual_seed(item.seed)
 
-        if not DistributedManager.is_initialized():
-            DistributedManager.initialize()
-        rank = DistributedManager().rank
+        # Rank only gates tqdm output below.  Default to 0 when the
+        # DistributedManager isn't initialized (unit tests, or single-process
+        # runs) rather than forcing initialization here — which requires an
+        # indexed accelerator on some backends and fails on CPU.
+        rank = DistributedManager().rank if DistributedManager.is_initialized() else 0
 
         for step_idx in tqdm(
             range(self.nsteps),
@@ -331,12 +340,17 @@ class StormScopePipeline(Pipeline):
     # ------------------------------------------------------------------
 
     def predownload_stores(self, cfg: DictConfig) -> list[PredownloadStore]:
-        """Declare one regridded IC + verification store per StormScope model.
+        """Declare the regridded IC + verification stores for StormScope.
 
-        Each store holds data pre-resampled onto the model's HRRR
-        sub-region via a :class:`~src.regrid.NearestNeighborRegridder`,
-        so the inference-time ``prep_input`` grid-match check passes
-        and the live interpolator never runs.
+        One store per IC source — ``data_goes`` (satellite) and
+        ``data_mrms`` (radar) — plus, for GLM-bearing variants, a
+        ``data_glm`` store for the ``glm_density`` state channel.  Radar
+        and satellite are resampled onto the model's HRRR sub-region via a
+        :class:`~src.regrid.NearestNeighborRegridder`; the sparse GLM count
+        field uses a :class:`~src.regrid.BilinearRegridder` (see
+        :meth:`_build_glm_store`).  In every case the inference-time
+        ``prep_input`` grid-match check passes and the live interpolator
+        never runs.
 
         The stored times are the union of:
 
@@ -387,14 +401,8 @@ class StormScopePipeline(Pipeline):
 
             max_dist_km = cfg.model.get("max_dist_km", None)
             src_lat, src_lon = hydra.utils.instantiate(model_cfg.ic_grid)
-            regridder = NearestNeighborRegridder(
-                source_lats=src_lat,
-                source_lons=src_lon,
-                target_lats=model.latitudes,
-                target_lons=model.longitudes,
-                target_y=_as_np(model.y),
-                target_x=_as_np(model.x),
-                max_dist_km=(float(max_dist_km) if max_dist_km is not None else 12.0),
+            regridder = _nn_regridder(
+                model, src_lat, src_lon, max_dist_km, default_km=12.0
             )
 
             raw_source = hydra.utils.instantiate(model_cfg.ic_source)
@@ -419,16 +427,35 @@ class StormScopePipeline(Pipeline):
                 ]
             )
 
+            # GLM-bearing MRMS variants (``3km_10min``) carry a ``glm_density``
+            # state channel sourced from a different grid than radar.  Split it
+            # into its own bilinear-regridded ``data_glm.zarr`` store; the radar
+            # store (``ic_source``) then holds only the radar channels.  At
+            # inference the two are recombined via a CompositeSource.
+            glm_vars = {str(v) for v in getattr(model, "glm_variables", [])}
+            radar_vars = [
+                str(v) for v in ic_coords["variable"] if str(v) not in glm_vars
+            ]
             stores.append(
                 PredownloadStore(
                     name=f"data_{side}",
                     source=wrapped,
                     times=fetch_times,
-                    variables=[str(v) for v in ic_coords["variable"]],
+                    variables=radar_vars,
                     spatial_ref=spatial_ref,
                     role="ic",
                 )
             )
+
+            if glm_vars:
+                glm_store = self._build_glm_store(
+                    model=model,
+                    model_cfg=model_cfg,
+                    fetch_times=fetch_times,
+                    spatial_ref=spatial_ref,
+                )
+                if glm_store is not None:
+                    stores.append(glm_store)
 
             # Conditioning predownload — only for the GOES model.  In our
             # coupling loop MRMS is always called via call_with_conditioning,
@@ -485,7 +512,13 @@ class StormScopePipeline(Pipeline):
         cutting redundant 10-minute fetches from campaigns that use a
         sub-hour-stride model.
         """
-        cond_vars: list[str] = [str(v) for v in (model.conditioning_variables or [])]
+        # conditioning_variables may be a numpy array (truth-testing an array
+        # is ambiguous) or None — normalize before iterating.  Pure-obs
+        # variants (e.g. GOES 3km_10min) expose an empty array.
+        cond_vars_raw = model.conditioning_variables
+        cond_vars: list[str] = (
+            [] if cond_vars_raw is None else [str(v) for v in cond_vars_raw]
+        )
         if not cond_vars:
             return None
         if model_cfg.get("conditioning_grid") is None:
@@ -577,6 +610,66 @@ class StormScopePipeline(Pipeline):
             role="conditioning",
         )
 
+    def _build_glm_store(
+        self,
+        *,
+        model: Any,
+        model_cfg: DictConfig,
+        fetch_times: list[np.datetime64],
+        spatial_ref: CoordSystem,
+    ) -> PredownloadStore | None:
+        """Build the ``data_glm.zarr`` predownload store for a GLM-bearing model.
+
+        The gridded GLM source (:class:`~earth2studio.data.GOESGLMGrid`) lives
+        on a 0.1-degree lat/lon grid, so it is resampled onto the model's HRRR
+        sub-region with a :class:`~src.regrid.BilinearRegridder` — the same
+        bilinear map the model applies internally
+        (:meth:`StormScopeMRMS.build_glm_interpolator`) — rather than the
+        nearest-neighbor path used for radar/satellite channels.  Stored counts
+        are physical (the model applies ``log1p`` at inference).
+
+        The store covers the same ``fetch_times`` as the radar store — the IC
+        input window plus every forecast valid time — so it doubles as GLM
+        verification for scoring ``glm_density``.
+
+        Returns ``None`` when the campaign config provides neither a
+        ``glm_data_source`` (under ``load_args``) nor a ``glm_grid`` resolver;
+        without those the GLM channel can't be sourced or regridded.
+        """
+        glm_vars = [str(v) for v in getattr(model, "glm_variables", [])]
+        if not glm_vars:
+            return None
+
+        glm_source_cfg = model_cfg.get("load_args", {}).get("glm_data_source")
+        if glm_source_cfg is None:
+            logger.warning(
+                "StormScope mrms: model has GLM state channels but no "
+                "load_args.glm_data_source is configured — skipping GLM "
+                "predownload.  GLM will be fetched live at inference."
+            )
+            return None
+        if model_cfg.get("glm_grid") is None:
+            logger.warning(
+                "StormScope mrms: glm_grid resolver not configured — cannot "
+                "regrid GLM at predownload.  GLM will be fetched live at "
+                "inference."
+            )
+            return None
+
+        glm_src_lat, glm_src_lon = hydra.utils.instantiate(model_cfg.glm_grid)
+        glm_regridder = _bilinear_regridder(model, glm_src_lat, glm_src_lon)
+        raw_glm_source = hydra.utils.instantiate(glm_source_cfg)
+        wrapped_glm = RegriddedSource(raw_glm_source, glm_regridder)
+
+        return PredownloadStore(
+            name="data_glm",
+            source=wrapped_glm,
+            times=fetch_times,
+            variables=glm_vars,
+            spatial_ref=spatial_ref,
+            role="ic",
+        )
+
     # Verification sourcing is handled by the base class: its
     # default `Pipeline.verification_source` picks up
     # ``data_{goes,mrms}.zarr`` via the ``data_*.zarr`` glob and wraps
@@ -637,6 +730,117 @@ class StormScopePipeline(Pipeline):
                 f"{cache_path}"
             )
         model.conditioning_data_source = source
+
+    def _resolve_mrms_ic_source(self, cfg: DictConfig) -> DataSource:
+        """Resolve the MRMS initial-condition source.
+
+        For GLM-bearing variants (``3km_10min``), the MRMS state spans two
+        native grids — radar (``refc`` / ``refc_base`` from
+        :class:`~earth2studio.data.MRMS`) and lightning (``glm_density`` from
+        :class:`~earth2studio.data.GOESGLMGrid`) — so no single source can
+        supply it.  We build a :class:`~src.data.CompositeSource` that
+        dispatches radar variables to one component and GLM to the other,
+        with each component resolved independently:
+
+        * a predownloaded, already-regridded zarr (``data_mrms.zarr`` /
+          ``data_glm.zarr``) when present — the cheap inference path; or
+        * a live source wrapped in the matching regridder (nearest-neighbor
+          for radar, **bilinear** for GLM, matching training) so both land
+          on the model ``y`` / ``x`` grid.
+
+        Either way the assembled state is already on the model grid, so
+        :meth:`StormScopeBase.prep_input` skips re-interpolation and the
+        ``glm_density`` channel then evolves autoregressively through
+        :meth:`next_input` (``call_with_conditioning`` never re-fetches it).
+
+        Variants without GLM channels keep the original single-source
+        resolution (predownloaded ``data_mrms.zarr`` → live ``ic_source``).
+        """
+        if int(getattr(self.model_mrms, "n_glm_channels", 0)) <= 0:
+            return resolve_ic_source(
+                cfg,
+                store_name="data_mrms.zarr",
+                live_source=cfg.model.mrms.ic_source,
+            )
+
+        model_cfg = cfg.model.mrms
+        max_dist_km = cfg.model.get("max_dist_km", None)
+        glm_vars = {str(v) for v in self.model_mrms.glm_variables}
+
+        # Resolve config nodes lazily (``.get``) — a campaign that relies on the
+        # predownloaded stores may omit the live ic_source / glm_data_source /
+        # grid blocks entirely; they're only needed for the live fallback.
+        radar_src = self._resolve_component_source(
+            cfg,
+            store_name="data_mrms.zarr",
+            raw_source_cfg=model_cfg.get("ic_source"),
+            grid_cfg=model_cfg.get("ic_grid"),
+            regridder_kind="nearest",
+            max_dist_km=max_dist_km,
+        )
+        glm_src = self._resolve_component_source(
+            cfg,
+            store_name="data_glm.zarr",
+            raw_source_cfg=model_cfg.get("load_args", {}).get("glm_data_source"),
+            grid_cfg=model_cfg.get("glm_grid"),
+            regridder_kind="bilinear",
+            max_dist_km=max_dist_km,
+        )
+
+        sources: dict[str, DataSource] = {"data_mrms": radar_src, "data_glm": glm_src}
+        variable_index = {
+            str(v): ("data_glm" if str(v) in glm_vars else "data_mrms")
+            for v in self.model_mrms.variables
+        }
+        logger.info(
+            "StormScope mrms: assembling GLM-bearing IC state from radar + GLM "
+            "component sources (composite)."
+        )
+        return CompositeSource(sources, variable_index)
+
+    def _resolve_component_source(
+        self,
+        cfg: DictConfig,
+        *,
+        store_name: str,
+        raw_source_cfg: Any,
+        grid_cfg: Any,
+        regridder_kind: str,
+        max_dist_km: float | None,
+    ) -> DataSource:
+        """Resolve one component of the composite MRMS IC source.
+
+        Returns a :class:`~src.data.PredownloadedSource` when the regridded
+        zarr ``<output.path>/<store_name>`` exists; otherwise instantiates
+        the live source and wraps it in the appropriate regridder so its
+        output lands on the model ``y`` / ``x`` grid.
+        """
+        cache_path = os.path.join(cfg.output.path, store_name)
+        if os.path.exists(cache_path):
+            logger.info(f"StormScope mrms: using predownloaded {store_name}")
+            return PredownloadedSource(cache_path)
+
+        if raw_source_cfg is None or grid_cfg is None:
+            raise ValueError(
+                f"StormScope mrms: no predownloaded '{store_name}' and the live "
+                "fallback is unconfigured (missing source and/or grid block). "
+                "Either run predownload.py first, or provide the live source and "
+                "its grid resolver in cfg.model.mrms."
+            )
+
+        logger.info(
+            f"StormScope mrms: no {store_name} cache — wrapping live source "
+            f"in a {regridder_kind} regridder onto the model grid."
+        )
+        raw_source = hydra.utils.instantiate(raw_source_cfg)
+        src_lat, src_lon = hydra.utils.instantiate(grid_cfg)
+        if regridder_kind == "bilinear":
+            regridder: Any = _bilinear_regridder(self.model_mrms, src_lat, src_lon)
+        else:
+            regridder = _nn_regridder(
+                self.model_mrms, src_lat, src_lon, max_dist_km, default_km=12.0
+            )
+        return RegriddedSource(raw_source, regridder)
 
     def _fetch_ic(
         self,
@@ -702,6 +906,41 @@ def _load_stormscope_model(model_cfg: DictConfig) -> Any:
         f"(model_name={resolved.get('model_name', 'default')})"
     )
     return model
+
+
+def _nn_regridder(
+    model: Any,
+    src_lat: Any,
+    src_lon: Any,
+    max_dist_km: float | None,
+    *,
+    default_km: float,
+) -> NearestNeighborRegridder:
+    """Build a nearest-neighbor regridder from a source grid onto ``model``'s
+    HRRR sub-region.  Used for radar / satellite channels."""
+    return NearestNeighborRegridder(
+        source_lats=src_lat,
+        source_lons=src_lon,
+        target_lats=model.latitudes,
+        target_lons=model.longitudes,
+        target_y=_as_np(model.y),
+        target_x=_as_np(model.x),
+        max_dist_km=(float(max_dist_km) if max_dist_km is not None else default_km),
+    )
+
+
+def _bilinear_regridder(model: Any, src_lat: Any, src_lon: Any) -> BilinearRegridder:
+    """Build a bilinear regridder from a source grid onto ``model``'s HRRR
+    sub-region.  Used for the sparse ``glm_density`` lightning field, matching
+    the model's internal :meth:`StormScopeMRMS.build_glm_interpolator`."""
+    return BilinearRegridder(
+        source_lats=src_lat,
+        source_lons=src_lon,
+        target_lats=model.latitudes,
+        target_lons=model.longitudes,
+        target_y=_as_np(model.y),
+        target_x=_as_np(model.x),
+    )
 
 
 def _infer_step_delta(model: Any) -> np.timedelta64:
