@@ -25,7 +25,6 @@ import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
-import zarr
 
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -786,28 +785,26 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ).eval()
 
         # Load metadata: means, stds, grid
-        store = zarr.storage.ZipStore(package.resolve("metadata.zarr.zip"), mode="r")
-        metadata = xr.open_zarr(store, zarr_format=2)
+        with xr.open_dataset(package.resolve("metadata.nc")) as metadata:
+            variables = np.array(metadata["variable_state"], copy=True)
+            if "mslp" in variables:
+                mslp_ind = list(variables).index("mslp")
+                variables[mslp_ind] = "msl"
+            conditioning_variables = metadata["variable_background"].values
 
-        variables = np.array(metadata["variable_state"], copy=True)
-        if "mslp" in variables:
-            mslp_ind = list(variables).index("mslp")
-            variables[mslp_ind] = "msl"
-        conditioning_variables = metadata["variable_background"].values
+            # Expand dims and tensorify normalization buffers
+            means = torch.from_numpy(metadata["means"].values[None, :, None, None])
+            stds = torch.from_numpy(metadata["stds"].values[None, :, None, None])
+            conditioning_means = torch.from_numpy(
+                metadata["conditioning_means"].values[None, :, None, None]
+            )
+            conditioning_stds = torch.from_numpy(
+                metadata["conditioning_stds"].values[None, :, None, None]
+            )
 
-        # Expand dims and tensorify normalization buffers
-        means = torch.from_numpy(metadata["means"].values[None, :, None, None])
-        stds = torch.from_numpy(metadata["stds"].values[None, :, None, None])
-        conditioning_means = torch.from_numpy(
-            metadata["conditioning_means"].values[None, :, None, None]
-        )
-        conditioning_stds = torch.from_numpy(
-            metadata["conditioning_stds"].values[None, :, None, None]
-        )
-
-        # Load invariants
-        invariants = metadata["invariants"].values
-        invariants = torch.from_numpy(invariants).repeat(1, 1, 1, 1)
+            # Load invariants
+            invariants = metadata["invariants"].values
+            invariants = torch.from_numpy(invariants).repeat(1, 1, 1, 1)
 
         # EDM sampler arguments
         sampler_args = config.sampler_args
