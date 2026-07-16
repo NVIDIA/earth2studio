@@ -18,13 +18,14 @@ import asyncio
 import datetime
 import os
 from collections import OrderedDict
+from pathlib import Path
 
 import numpy as np
+import obstore as obs
 import pandas as pd
 import pytest
 import torch
 import xarray as xr
-from fsspec.implementations.http import HTTPFileSystem
 
 from earth2studio.data import (
     DataArrayFile,
@@ -36,13 +37,16 @@ from earth2studio.data import (
     prep_data_array,
 )
 from earth2studio.data.utils import (
-    AsyncCachingFileSystem,
     async_retry,
     cancellable_to_thread,
     datasource_cache_root,
     ensure_utc,
     gather_with_concurrency,
     managed_session,
+    obstore_fetch_to_cache,
+    obstore_read_range,
+    obstore_store_from_url,
+    obstore_zarr_store,
     prep_data_inputs,
     prep_forecast_inputs,
 )
@@ -529,45 +533,6 @@ def test_datasource_cache(tmp_path, monkeypatch):
             datasource_cache_root()
 
 
-# Async fsspec file system
-@pytest.mark.asyncio
-async def test_init_and_cache_dir(tmp_path):
-    fs = HTTPFileSystem()
-    cache_dir = tmp_path / "cache"
-    acfs = AsyncCachingFileSystem(fs=fs, cache_storage=str(cache_dir))
-    assert os.path.exists(cache_dir)
-    assert acfs.fs is fs
-    assert acfs.storage[-1] == str(cache_dir)
-
-
-def test_cache_size(tmp_path):
-    fs = HTTPFileSystem()
-    cache_dir = tmp_path / "cache"
-    acfs = AsyncCachingFileSystem(fs=fs, cache_storage=str(cache_dir))
-
-    # List files in tmp_path
-    files = os.listdir(cache_dir)
-    assert len(files) == 0  # Should only contain cache directory
-
-    # For some reason empty cache has some populated data in it
-    assert acfs.cache_size() == 4096
-
-
-def test_clear_cache(tmp_path):
-    fs = HTTPFileSystem()
-    cache_dir = tmp_path / "cache"
-    acfs = AsyncCachingFileSystem(fs=fs, cache_storage=str(cache_dir))
-    # Create a dummy file in cache
-    dummy_file = os.path.join(cache_dir, "dummy.txt")
-    with open(dummy_file, "w") as f:
-        f.write("test")
-    assert os.path.exists(dummy_file)
-    acfs.clear_cache()
-    # Cache directory should still exist, but file should be gone
-    assert os.path.exists(cache_dir)
-    assert not os.path.exists(dummy_file)
-
-
 @pytest.mark.parametrize(
     "time, lead_time, variable",
     [
@@ -624,55 +589,6 @@ def test_prep_forecast_inputs(time, lead_time, variable):
         assert len(variable_list) == len(variable)
     else:  # np.ndarray
         assert len(variable_list) == len(variable)
-
-
-@pytest.mark.asyncio
-async def test_async_cache_fs_storage_handling(tmp_path):
-    fs = HTTPFileSystem()
-
-    # Test TMP storage
-    cache_fs = AsyncCachingFileSystem(fs=fs, cache_storage="TMP")
-    assert len(cache_fs.storage) == 1
-    assert cache_fs.storage[0] != "TMP"  # Should be converted to actual temp path
-
-    # Test multiple storage locations
-    multi_storage = [str(tmp_path / "cache1"), str(tmp_path / "cache2")]
-    cache_fs = AsyncCachingFileSystem(fs=fs, cache_storage=multi_storage)
-    assert list(cache_fs.storage) == multi_storage
-    assert os.path.exists(multi_storage[-1])
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("expiry_time,wait_time", [(60, 1.0)])
-async def test_async_cache_fs_cache_operations(tmp_path, expiry_time, wait_time):
-    fs = HTTPFileSystem(asynchronous=True)
-    cache_fs = AsyncCachingFileSystem(
-        fs=fs,
-        cache_storage=str(tmp_path),
-        cache_check=0.1,
-        expiry_time=expiry_time,
-        asynchronous=True,
-    )
-
-    # Test cache size calculation
-    initial_size = cache_fs.cache_size()
-    remote_file = "https://raw.githubusercontent.com/NVIDIA/earth2studio/refs/heads/main/README.md"
-    await cache_fs._cat_file(remote_file)
-    await asyncio.sleep(wait_time)
-
-    cache_fs._check_cache()
-
-    assert initial_size < cache_fs.cache_size()
-    assert cache_fs._check_file(remote_file) is not False
-    # Test clear cache
-    cache_fs.clear_cache()
-    assert cache_fs._check_file(remote_file) is False
-
-    remote_file = "https://raw.githubusercontent.com/NVIDIA/earth2studio/refs/heads/main/README.md"
-    await cache_fs._cat_file(remote_file)
-    await asyncio.sleep(wait_time)
-
-    cache_fs.clear_expired_cache(expiry_time=0.1)
 
 
 @pytest.mark.parametrize(
@@ -803,3 +719,262 @@ async def test_cancellable_to_thread():
 
     result = await cancellable_to_thread(blocking_func, 1, 2, timeout=5.0)
     assert result == 3
+
+
+def test_obstore_store_from_url():
+    import obstore.store
+
+    store = obstore_store_from_url("s3://some-bucket")
+    assert isinstance(store, obstore.store.S3Store)
+
+    store = obstore_store_from_url("gs://some-bucket")
+    assert isinstance(store, obstore.store.GCSStore)
+
+    store = obstore_store_from_url("https://example.com/data")
+    assert isinstance(store, obstore.store.HTTPStore)
+
+    with pytest.raises(Exception):
+        obstore_store_from_url("notascheme://foo")
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_range():
+    from obstore.store import MemoryStore
+
+    store = MemoryStore()
+    payload = bytes(range(32))
+    await obs.put_async(store, "some/key", payload)
+
+    # Exact ranged read: offset + length semantics
+    out = await obstore_read_range(store, "some/key", byte_offset=5, byte_length=10)
+    assert isinstance(out, bytes)
+    assert out == payload[5:15]
+
+    # Whole-object read
+    out = await obstore_read_range(store, "some/key")
+    assert out == payload
+
+    # Read-to-EOF from an offset (GEFS trailing-record case)
+    out = await obstore_read_range(store, "some/key", byte_offset=20)
+    assert out == payload[20:]
+
+    # Missing keys surface as FileNotFoundError for existing callers
+    with pytest.raises(FileNotFoundError):
+        await obstore_read_range(store, "missing/key")
+
+
+@pytest.mark.asyncio
+async def test_obstore_fetch_to_cache(tmp_path):
+    from hashlib import sha256
+
+    from obstore.store import MemoryStore
+
+    store = MemoryStore()
+    payload = bytes(range(64))
+    await obs.put_async(store, "some/key", payload)
+
+    # Default cache key scheme: sha256(key + str(byte_offset))
+    path = await obstore_fetch_to_cache(
+        store, "some/key", str(tmp_path), byte_offset=8, byte_length=16
+    )
+    expected_name = sha256(("some/key" + str(8)).encode()).hexdigest()
+    assert os.path.basename(path) == expected_name
+    assert Path(path).read_bytes() == payload[8:24]
+
+    # Explicit cache_key overrides the file name
+    path = await obstore_fetch_to_cache(
+        store, "some/key", str(tmp_path), byte_offset=0, cache_key="warmcache"
+    )
+    assert os.path.basename(path) == "warmcache"
+    assert Path(path).read_bytes() == payload
+
+    # Second call is a cache hit: mutate the store, expect stale cached bytes
+    await obs.put_async(store, "some/key", b"changed")
+    path = await obstore_fetch_to_cache(
+        store, "some/key", str(tmp_path), byte_offset=0, cache_key="warmcache"
+    )
+    assert Path(path).read_bytes() == payload
+
+
+@pytest.fixture
+def local_zarr_array(tmp_path):
+    import zarr
+
+    src = tmp_path / "src.zarr"
+    arr = zarr.create_array(
+        store=str(src), shape=(8, 8), chunks=(4, 4), dtype="float32"
+    )
+    arr[:] = np.arange(64, dtype=np.float32).reshape(8, 8)
+    return src
+
+
+def test_obstore_zarr_store(local_zarr_array):
+    import zarr
+
+    zstore = obstore_zarr_store(f"file://{local_zarr_array}")
+    assert zstore.read_only
+    arr = zarr.open(zstore, mode="r")
+    assert np.array_equal(arr[:], np.arange(64, dtype=np.float32).reshape(8, 8))
+
+
+def test_obstore_zarr_store_cache(local_zarr_array, tmp_path):
+    import zarr
+
+    cache_dir = tmp_path / "cache"
+    url = f"file://{local_zarr_array}"
+
+    zstore = obstore_zarr_store(url, cache_storage=str(cache_dir))
+    arr = zarr.open(zstore, mode="r")
+    expected = np.arange(64, dtype=np.float32).reshape(8, 8)
+    assert np.array_equal(arr[:], expected)
+
+    # Cache populated under a URL-derived sub-directory
+    subdirs = list(cache_dir.iterdir())
+    assert len(subdirs) == 1
+    assert any(subdirs[0].rglob("*"))
+
+    # Chunk reads should now be served from the cache. Metadata (zarr.json)
+    # is always refetched by design — so a warm cache sees newly appended
+    # data — and must stay on the remote; only the chunk objects are removed.
+    for path in local_zarr_array.rglob("*"):
+        if path.is_file() and path.name != "zarr.json":
+            path.unlink()
+    zstore = obstore_zarr_store(url, cache_storage=str(cache_dir))
+    arr = zarr.open(zstore, mode="r")
+    assert np.array_equal(arr[:], expected)
+
+
+@pytest.mark.asyncio
+async def test_local_caching_store_dedupes_concurrent_fetches(
+    local_zarr_array, tmp_path
+):
+    """Concurrent reads of the same uncached key must hit the backing store
+    exactly once (regression guard for the cache-stampede fix)."""
+    import zarr
+    import zarr.storage
+    from zarr.core.buffer import default_buffer_prototype
+
+    from earth2studio.data.utils import LocalCachingStore
+
+    class CountingStore(zarr.storage.WrapperStore):
+        def __init__(self, store):
+            super().__init__(store)
+            self.fetches: dict[str, int] = {}
+
+        async def get(self, key, prototype, byte_range=None):
+            self.fetches[key] = self.fetches.get(key, 0) + 1
+            await asyncio.sleep(0.01)  # widen the race window
+            return await self._store.get(key, prototype, byte_range)
+
+    remote = CountingStore(zarr.storage.LocalStore(str(local_zarr_array)))
+    cached = LocalCachingStore(remote, str(tmp_path / "cache"))
+    proto = default_buffer_prototype()
+
+    key = "c/0/0"
+    await asyncio.gather(*[cached.get(key, proto) for _ in range(16)])
+    assert remote.fetches[key] == 1
+
+    # Subsequent read served from cache, no further backing fetch
+    assert await cached.get(key, proto) is not None
+    assert remote.fetches[key] == 1
+
+    # Lock entries are released after the fill; the dict must not grow with
+    # every key ever missed
+    assert not cached._fetch_locks
+
+
+@pytest.mark.asyncio
+async def test_local_caching_store_dedupes_across_instances(local_zarr_array, tmp_path):
+    """Two store instances sharing a cache directory must de-duplicate
+    concurrent fetches of the same key against each other (locks are
+    class-level, keyed by cache path)."""
+    import zarr
+    import zarr.storage
+    from zarr.core.buffer import default_buffer_prototype
+
+    from earth2studio.data.utils import LocalCachingStore
+
+    class CountingStore(zarr.storage.WrapperStore):
+        def __init__(self, store):
+            super().__init__(store)
+            self.fetches: dict[str, int] = {}
+
+        async def get(self, key, prototype, byte_range=None):
+            self.fetches[key] = self.fetches.get(key, 0) + 1
+            await asyncio.sleep(0.01)  # widen the race window
+            return await self._store.get(key, prototype, byte_range)
+
+    remote = CountingStore(zarr.storage.LocalStore(str(local_zarr_array)))
+    cache_dir = str(tmp_path / "cache")
+    cached_a = LocalCachingStore(remote, cache_dir)
+    cached_b = LocalCachingStore(remote, cache_dir)
+    proto = default_buffer_prototype()
+
+    key = "c/0/0"
+    await asyncio.gather(
+        *[cached_a.get(key, proto) for _ in range(8)],
+        *[cached_b.get(key, proto) for _ in range(8)],
+    )
+    assert remote.fetches[key] == 1
+
+    # Stores with a different cache directory use different locks and must
+    # fetch for themselves
+    cached_c = LocalCachingStore(remote, str(tmp_path / "other_cache"))
+    assert await cached_c.get(key, proto) is not None
+    assert remote.fetches[key] == 2
+
+
+@pytest.mark.asyncio
+async def test_local_caching_store_never_caches_metadata(local_zarr_array, tmp_path):
+    """Metadata keys must always refetch so a warm cache does not go blind to
+    newly appended data (v2 .z* / .zmetadata and v3 zarr.json)."""
+    import zarr
+    import zarr.storage
+    from zarr.core.buffer import default_buffer_prototype
+
+    from earth2studio.data.utils import LocalCachingStore
+
+    class CountingStore(zarr.storage.WrapperStore):
+        def __init__(self, store):
+            super().__init__(store)
+            self.fetches: dict[str, int] = {}
+
+        async def get(self, key, prototype, byte_range=None):
+            self.fetches[key] = self.fetches.get(key, 0) + 1
+            return await self._store.get(key, prototype, byte_range)
+
+    remote = CountingStore(zarr.storage.LocalStore(str(local_zarr_array)))
+    cached = LocalCachingStore(remote, str(tmp_path / "cache"))
+    proto = default_buffer_prototype()
+
+    for meta_key in ("zarr.json", ".zmetadata", "time/.zarray", ".zattrs"):
+        await cached.get(meta_key, proto)
+        await cached.get(meta_key, proto)
+        # Two reads => two backing fetches: never served from cache
+        assert remote.fetches.get(meta_key, 0) == 2
+
+
+@pytest.mark.asyncio
+async def test_local_caching_store_survives_cache_write_error(
+    local_zarr_array, tmp_path
+):
+    """A cache-write failure must not fail a read that already succeeded
+    against the remote store."""
+    import zarr
+    import zarr.storage
+    from zarr.core.buffer import default_buffer_prototype
+
+    from earth2studio.data.utils import LocalCachingStore
+
+    cached = LocalCachingStore(
+        zarr.storage.LocalStore(str(local_zarr_array)), str(tmp_path / "cache")
+    )
+
+    async def boom(*args, **kwargs):
+        raise OSError("No space left on device")
+
+    cached._cache.set = boom  # simulate a broken/full cache disk
+    proto = default_buffer_prototype()
+
+    # Read still returns the remote data despite the cache write blowing up
+    assert await cached.get("c/0/0", proto) is not None

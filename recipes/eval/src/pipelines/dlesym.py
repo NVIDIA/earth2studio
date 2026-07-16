@@ -23,13 +23,12 @@ from collections.abc import Iterator
 import numpy as np
 import torch
 from omegaconf import DictConfig
-from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
-from earth2studio.models.px.dlesym import DLESyM
 from earth2studio.utils.coords import CoordSystem, map_coords
 
+from ..distributed import get_rank
 from ..models import load_prognostic
 from ..work import WorkItem
 from .base import PredownloadStore
@@ -163,9 +162,8 @@ class DLESyMPipeline(ForecastPipeline):
         # ([-48h..0h] for DLESyM), outside the output zarr schema.
         next(model_iter)
 
-        if not DistributedManager.is_initialized():
-            DistributedManager.initialize()
-        rank = DistributedManager().rank
+        # Rank only gates tqdm output below.
+        rank = get_rank()
 
         for step, (x_step, coords_step) in enumerate(
             tqdm(
@@ -207,9 +205,10 @@ class DLESyMPipeline(ForecastPipeline):
         if not self._ocean_variables:
             return x_step
 
-        if not isinstance(self.prognostic, DLESyM):
+        if not hasattr(self.prognostic, "retrieve_valid_ocean_outputs"):
             raise ValueError(
-                "DLESyMPipeline expects the loaded prognostic to be a DLESyM model; "
+                "DLESyMPipeline expects the loaded prognostic to expose "
+                "retrieve_valid_ocean_outputs (as DLESyM / DLESyMLatLon do); "
                 f"Got: {type(self.prognostic).__name__}"
             )
         _, valid_coords = self.prognostic.retrieve_valid_ocean_outputs(
