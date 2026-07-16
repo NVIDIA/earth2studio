@@ -74,7 +74,7 @@ class CFSAsyncTask:
     data_array_indices: tuple[int, int, int]
     cfs_file_uri: str
     cfs_byte_offset: int
-    cfs_byte_length: int
+    cfs_byte_length: int | None
     cfs_submsg_index: int
     cfs_modifier: Callable
 
@@ -577,7 +577,7 @@ class CFS_FX:
         # Compute byte length using the next strictly-greater offset so that
         # vector-sibling records (same offset, decimal-suffixed recno) cover
         # the same byte range.
-        index_table: dict[str, tuple[int, int, int]] = {}
+        index_table: dict[str, tuple[int, int | None, int]] = {}
         for idx, (recno, offset, key) in enumerate(parsed):
             next_offset: int | None = None
             for _next_recno, next_off, _next_key in parsed[idx + 1 :]:
@@ -585,14 +585,13 @@ class CFS_FX:
                     next_offset = next_off
                     break
             if next_offset is None:
-                # Last record: negative sentinel meaning "read from offset to
-                # the end of the object", which downstream maps to
-                # ``byte_length=None`` (matches the GEFS index handling).
-                byte_length = -1
+                # Last record: None means "read from offset to the end of the
+                # object" (matches the GEFS index handling).
+                byte_length = None
             else:
                 byte_length = next_offset - offset
 
-            if byte_length > self.MAX_BYTE_SIZE:
+            if byte_length is not None and byte_length > self.MAX_BYTE_SIZE:
                 raise ValueError(
                     f"Byte length {byte_length} of variable {key} larger than "
                     f"safe threshold {self.MAX_BYTE_SIZE}"
@@ -623,17 +622,13 @@ class CFS_FX:
         byte_offset : int, optional
             Starting byte offset, by default 0.
         byte_length : int | None, optional
-            Number of bytes to fetch, by default None (full file). A negative
-            value means "read from offset to the end of the file".
+            Number of bytes to fetch, by default None (read to end of file).
 
         Returns
         -------
         str
             Path to the cached file on local disk.
         """
-        if byte_length is not None and byte_length < 0:
-            byte_length = None
-
         # Hash the original path string (bucket-prefixed for AWS, full HTTPS
         # URL for NOMADS) so warm caches populated before the obstore
         # migration remain valid
