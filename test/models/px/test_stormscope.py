@@ -854,6 +854,13 @@ def test_stormscope_mrms_coverage_mask(device):
     ), "Combined mask should be all-False when coverage and interpolator masks are complementary"
 
 
+class PhooRegressionModel(torch.nn.Module):
+    """Spoof regression network: maps the conditioning tensor to one ghi channel."""
+
+    def forward(self, condition):
+        return condition[:, :1, :, :] * 0.0
+
+
 def create_spoof_nsrdb_model(
     nvar_cond=8,
     h=32,
@@ -873,6 +880,8 @@ def create_spoof_nsrdb_model(
 
     # NSRDB has a single output variable (ghi)
     diffusion = PhooStormScopeDiffusionModel(nvar=1)
+    model_spec = [{"model": diffusion, "sigma_min": 0.004, "sigma_max": 500.0}]
+    regression = PhooRegressionModel()
 
     means = torch.zeros(1, 1, 1, 1)
     stds = torch.ones(1, 1, 1, 1)
@@ -899,23 +908,25 @@ def create_spoof_nsrdb_model(
         valid_mask[: h // 2, :] = False
 
     model = StormScopeNSRDB(
-        diffusion_model=diffusion,
+        model_spec=model_spec,
         means=means,
         stds=stds,
+        variables=np.array(["ghi"]),
         latitudes=lat,
         longitudes=lon,
+        regression_model=regression,
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
+        conditioning_variables=conditioning_variables,
         invariants=invariants,
         valid_mask=valid_mask,
-        variables=np.array(["ghi"]),
-        conditioning_variables=conditioning_variables,
         conditioning_data_source=None,
-        sampler_args={"num_steps": 2},  # Small number for testing
         y_coords=y,
         x_coords=x,
     ).to(device)
 
+    # NSRDB hardcodes num_steps internally; use a small value for fast tests.
+    model.sampler_args = {"num_steps": 2}
     return model
 
 
