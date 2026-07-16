@@ -181,11 +181,17 @@ def test_nomads_gdas_url_builder():
     )
     assert url == expected
 
+    gpsro_url = NomadsGDASObsConv._build_gpsro_url(datetime(2026, 4, 5, 12))
+    assert gpsro_url == (
+        "https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/"
+        "gdas.20260405/gdas.t12z.gpsro.tm00.bufr_d.nr"
+    )
+
 
 @pytest.mark.timeout(15)
 def test_nomads_gdas_lexicon():
     # All expected variables should be in the lexicon
-    expected_vars = ["u", "v", "t", "q", "pres"]
+    expected_vars = ["u", "v", "t", "q", "pres", "gps"]
     for var in expected_vars:
         assert var in GDASObsConvLexicon.VOCAB
 
@@ -200,6 +206,13 @@ def test_nomads_gdas_lexicon():
 
     key_v, mod_v = GDASObsConvLexicon.get_item("v")
     assert key_v == "wind::v"
+
+    key_gps, mod_gps = GDASObsConvLexicon.get_item("gps")
+    assert key_gps == "gpsro::15037"
+    assert callable(mod_gps)
+    assert not {"gps_l1", "gps_l2", "gps_t", "gps_q"}.intersection(
+        GDASObsConvLexicon.VOCAB
+    )
 
 
 @pytest.mark.timeout(15)
@@ -252,12 +265,14 @@ def test_nomads_gdas_call_mock(tmp_path):
             "pres": np.array([50000.0, 85000.0], dtype=np.float32),
             "elev": np.array([5000.0, 1500.0], dtype=np.float32),
             "type": np.array([101, 106], dtype=np.uint16),
+            "level_cat": pd.array([1, 1], dtype="uint16[pyarrow]"),
             "class": ["1", "1"],
             "lat": np.array([40.0, 35.0], dtype=np.float32),
             "lon": np.array([250.0, 280.0], dtype=np.float32),
             "station": ["72451", "72520"],
             "station_elev": np.array([300.0, 200.0], dtype=np.float32),
             "quality": np.array([0, 0], dtype=np.uint16),
+            "pressure_quality": pd.array([1, 1], dtype="uint16[pyarrow]"),
             "observation": np.array([250.0, 288.0], dtype=np.float32),
             "variable": ["t", "t"],
         }
@@ -320,6 +335,28 @@ def test_nomads_gdas_create_tasks():
     # Task URLs should be for cycle times around midnight
     for task in tasks:
         assert "gdas." in task.url
+
+    mixed_ds = NomadsGDASObsConv(time_tolerance=timedelta(0))
+    mixed_tasks = mixed_ds._create_tasks([datetime(2026, 4, 4, 0)], ["t", "gps"])
+    assert len(mixed_tasks) == 2
+    prepbufr_task = next(task for task in mixed_tasks if task.route == "prepbufr")
+    gpsro_task = next(task for task in mixed_tasks if task.route == "gpsro")
+    assert prepbufr_task.url.endswith(".prepbufr.nr")
+    assert gpsro_task.url.endswith(".gpsro.tm00.bufr_d.nr")
+    assert prepbufr_task.variables == ["t"]
+    assert gpsro_task.variables == ["gps"]
+
+    windowed_ds = NomadsGDASObsConv(time_tolerance=timedelta(minutes=20))
+    windowed_tasks = windowed_ds._create_tasks(
+        [datetime(2026, 4, 4, 1), datetime(2026, 4, 4, 2)], ["t", "gps"]
+    )
+    assert len(windowed_tasks) == 2
+    assert {task.route for task in windowed_tasks} == {"prepbufr", "gpsro"}
+    assert all(
+        task.datetime_min == datetime(2026, 4, 4, 0, 40)
+        and task.datetime_max == datetime(2026, 4, 4, 2, 20)
+        for task in windowed_tasks
+    )
 
 
 @pytest.mark.timeout(15)

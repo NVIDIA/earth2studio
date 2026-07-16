@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import asyncio
-import functools
 import hashlib
 import os
 import pathlib
@@ -26,16 +25,22 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
+import obstore as obs
 import pygrib
-import s3fs
 import xarray as xr
 from fsspec.implementations.ftp import FTPFileSystem
 from loguru import logger
+from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     _sync_async,
+    async_retry,
+    cancellable_to_thread,
     datasource_cache_root,
+    gather_with_concurrency,
+    obstore_fetch_to_cache,
+    obstore_store_from_url,
     prep_data_inputs,
     prep_forecast_inputs,
 )
@@ -74,6 +79,10 @@ class GFS:
     async_timeout : int, optional
         Time in sec after which download will be cancelled if not finished successfully,
         by default 600
+    async_workers : int, optional
+        Maximum number of concurrent downloads, by default 16
+    retries : int, optional
+        Number of retries for each download task on transient errors, by default 3
 
     Warning
     -------
@@ -110,14 +119,19 @@ class GFS:
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
+        async_workers: int = 16,
+        retries: int = 3,
     ):
         self._cache = cache
         self._verbose = verbose
+        self._async_workers = async_workers
+        self._retries = retries
         self._tmp_cache_hash: str | None = None
 
+        self.store: ObjectStore | None = None
         if source == "aws":
             self.uri_prefix = "noaa-gfs-bdp-pds"
-            self.fs: s3fs.S3FileSystem | FTPFileSystem | None = None
+            self.fs: FTPFileSystem | None = None
 
             # To update search "gfs." at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html
             # They are slowly adding more data
@@ -147,14 +161,17 @@ class GFS:
         self.async_timeout = async_timeout
 
     async def _async_init(self) -> None:
-        """Async initialization of zarr group
+        """Async initialization of the object store
 
         Note
         ----
-        Async fsspec expects initialization inside of the execution loop
+        Unlike async fsspec filesystems, obstore stores are event-loop
+        independent and could be built in ``__init__``; kept as a lazy async
+        method to preserve the initialization seam.
         """
-        self.fs = s3fs.S3FileSystem(
-            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
+        self.store = obstore_store_from_url(
+            f"s3://{self.GFS_BUCKET_NAME}",
+            max_pool_connections=self._async_workers,
         )
 
     def __call__(
@@ -208,8 +225,8 @@ class GFS:
         xr.DataArray
             GFS weather data array
         """
-        # Lazily initialize async filesystem on first use
-        if self.fs is None:
+        # Lazily initialize the object store on first use
+        if self.store is None and self.fs is None:
             await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
@@ -218,12 +235,6 @@ class GFS:
 
         # Make sure input time is valid
         self._validate_time(time)
-
-        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        if isinstance(self.fs, s3fs.S3FileSystem):
-            session = await self.fs.set_session(refresh=True)
-        else:
-            session = None
 
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
@@ -242,19 +253,16 @@ class GFS:
             },
         )
 
-        async_tasks = []
         async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
-        func_map = map(
-            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
-        )
+        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
 
-        await tqdm.gather(
-            *func_map, desc="Fetching GFS data", disable=(not self._verbose)
+        await gather_with_concurrency(
+            coros,
+            max_workers=self._async_workers,
+            task_timeout=120.0,
+            desc="Fetching GFS data",
+            verbose=(not self._verbose),
         )
-
-        # Close aiohttp client if s3fs
-        if session:
-            await session.close()
 
         return xr_array.isel(lead_time=0)
 
@@ -279,9 +287,12 @@ class GFS:
 
         # Start with fetching all index files for each time / lead time
         args = [self._grib_index_uri(t, lt) for t in time for lt in lead_time]
-        func_map = map(self._fetch_index, args)
-        results = await tqdm.gather(
-            *func_map, desc="Fetching GFS index files", disable=True
+        results = await gather_with_concurrency(
+            [self._fetch_index(uri) for uri in args],
+            max_workers=self._async_workers,
+            task_timeout=60.0,
+            desc="Fetching GFS index files",
+            verbose=True,
         )
         for i, t in enumerate(time):
             for j, lt in enumerate(lead_time):
@@ -332,11 +343,16 @@ class GFS:
         xr_array: xr.DataArray,
     ) -> xr.DataArray:
         """Small wrapper to pack arrays into the DataArray"""
-        out = await self.fetch_array(
+        out = await async_retry(
+            self.fetch_array,
             task.gfs_file_uri,
             task.gfs_byte_offset,
             task.gfs_byte_length,
             task.gfs_modifier,
+            retries=self._retries,
+            backoff=1.0,
+            task_timeout=60.0,
+            exceptions=(OSError, IOError, TimeoutError, ConnectionError),
         )
         i, j, k = task.data_array_indices
         xr_array[i, j, k] = out
@@ -373,20 +389,9 @@ class GFS:
             byte_offset=byte_offset,
             byte_length=byte_length,
         )
-        # Load with pygrib (faster and lower memory than xarray for slices)
-        try:
-            grbs = pygrib.open(grib_file)
-        except Exception as e:
-            logger.error(f"Failed to open grib file {grib_file}")
-            raise e
-        try:
-            values = modifier(grbs[1].values)
-        except Exception as e:
-            logger.error(f"Failed to read grib file {grib_file}")
-            raise e
-        finally:
-            grbs.close()
-        return values
+        # pygrib decode is blocking and GIL-bound; run in a thread with timeout
+        values = await cancellable_to_thread(_decode_gfs_grib, grib_file, timeout=30.0)
+        return modifier(values)
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify if date time is valid for GFS based on offline knowledge
@@ -452,22 +457,31 @@ class GFS:
         self, path: str, byte_offset: int = 0, byte_length: int | None = None
     ) -> str:
         """Fetches remote file into cache"""
+        # Hash the bucket-prefixed path (not the store-relative key) so warm
+        # caches populated before the obstore migration remain valid
+        sha = hashlib.sha256((path + str(byte_offset)).encode())
+        filename = sha.hexdigest()
+
+        if self.store is not None:
+            key = path.removeprefix(self.GFS_BUCKET_NAME + "/")
+            return await obstore_fetch_to_cache(
+                self.store,
+                key,
+                self.cache,
+                byte_offset=byte_offset,
+                byte_length=byte_length,
+                cache_key=filename,
+            )
+
         if self.fs is None:
             raise ValueError("File system is not initialized")
 
-        sha = hashlib.sha256((path + str(byte_offset)).encode())
-        filename = sha.hexdigest()
+        # ncep FTP source (sync filesystem)
         cache_path = os.path.join(self.cache, filename)
-
         if not pathlib.Path(cache_path).is_file():
-            if self.fs.async_impl:
-                if byte_length:
-                    byte_length = int(byte_offset + byte_length)
-                data = await self.fs._cat_file(path, start=byte_offset, end=byte_length)
-            else:
-                data = await asyncio.to_thread(
-                    self.fs.read_block, path, offset=byte_offset, length=byte_length
-                )
+            data = await asyncio.to_thread(
+                self.fs.read_block, path, offset=byte_offset, length=byte_length
+            )
             with open(cache_path, "wb") as file:
                 await asyncio.to_thread(file.write, data)
 
@@ -539,14 +553,14 @@ class GFS:
             _ds = np.timedelta64(1, "s")
             time = datetime.fromtimestamp((time - _unix) / _ds, timezone.utc)
 
-        fs = s3fs.S3FileSystem(anon=True)
+        store = obstore_store_from_url(f"s3://{cls.GFS_BUCKET_NAME}")
         # Object store directory for given time
         # Should contain two keys: atmos and wave
-        file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}/"
-        s3_uri = f"s3://{cls.GFS_BUCKET_NAME}/{file_name}"
-        exists = fs.exists(s3_uri)
+        prefix = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}/"
+        # obs.list yields chunks (lists) of entries; one entry proves existence
+        chunk: list = next(iter(obs.list(store, prefix=prefix, chunk_size=1)), [])
 
-        return exists
+        return len(chunk) > 0
 
 
 class GFS_FX(GFS):
@@ -638,8 +652,8 @@ class GFS_FX(GFS):
         xr.DataArray
             GFS weather data array
         """
-        # Lazily initialize async filesystem on first use
-        if self.fs is None:
+        # Lazily initialize the object store on first use
+        if self.store is None and self.fs is None:
             await self._async_init()
 
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
@@ -649,12 +663,6 @@ class GFS_FX(GFS):
         # Make sure input time is valid
         self._validate_time(time)
         self._validate_leadtime(lead_time)
-
-        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        if isinstance(self.fs, s3fs.S3FileSystem):
-            session = await self.fs.set_session(refresh=True)
-        else:
-            session = None
 
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
@@ -679,19 +687,16 @@ class GFS_FX(GFS):
             },
         )
 
-        async_tasks = []
         async_tasks = await self._create_tasks(time, lead_time, variable)
-        func_map = map(
-            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
-        )
+        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
 
-        await tqdm.gather(
-            *func_map, desc="Fetching GFS data", disable=(not self._verbose)
+        await gather_with_concurrency(
+            coros,
+            max_workers=self._async_workers,
+            task_timeout=120.0,
+            desc="Fetching GFS data",
+            verbose=(not self._verbose),
         )
-
-        # Close aiohttp client if s3fs
-        if session:
-            await session.close()
 
         return xr_array
 
@@ -716,3 +721,34 @@ class GFS_FX(GFS):
                 raise ValueError(
                     f"Requested lead time {delta} can only be a max of 384 hours for GFS"
                 )
+
+
+def _decode_gfs_grib(grib_file: str) -> np.ndarray:
+    """Decode a single-message GFS grib file into a numpy array.
+
+    Module-level so it can be dispatched to a worker thread and patched in
+    offline tests. Uses pygrib, which is faster and lower memory than
+    xarray/cfgrib for single-message slices.
+
+    Parameters
+    ----------
+    grib_file : str
+        Path to local grib file holding one message
+
+    Returns
+    -------
+    np.ndarray
+        Decoded field values
+    """
+    try:
+        grbs = pygrib.open(grib_file)
+    except Exception:
+        logger.error(f"Failed to open grib file {grib_file}")
+        raise
+    try:
+        return grbs[1].values
+    except Exception:
+        logger.error(f"Failed to read grib file {grib_file}")
+        raise
+    finally:
+        grbs.close()

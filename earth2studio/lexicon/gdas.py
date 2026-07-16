@@ -16,16 +16,16 @@
 
 from collections.abc import Callable
 
-import numpy as np
 import pandas as pd
 
 from .base import LexiconType
+from .nnja import get_ncep_conventional_item
 
 
 class GDASObsConvLexicon(metaclass=LexiconType):
-    """NOAA GDAS PrepBUFR lexicon for conventional (in-situ) observations.
+    """NOAA GDAS lexicon for conventional and GPSRO observations.
 
-    Maps Earth2Studio variable names to PrepBUFR extraction parameters.
+    Maps Earth2Studio variable names to NCEP observation extraction parameters.
     The vocab value is either a PrepBUFR mnemonic (e.g., ``"TOB"`` for
     temperature) or ``"wind::u"`` / ``"wind::v"`` for wind components.
 
@@ -34,8 +34,15 @@ class GDASObsConvLexicon(metaclass=LexiconType):
 
     - ``t``: TOB (DEG C) → Kelvin (+273.15)
     - ``q``: QOB (mg/kg) → kg kg-1 (÷1e6)
-    - ``pres``: POB (hPa / MB) → Pa (×100)
+    - ``pres``: source pressure-observation POB rows (hPa / MB) → Pa (×100)
     - ``u``, ``v``: UOB/VOB already in m s-1 (no conversion)
+    - ``gps``: combined ionosphere-corrected bending angle (no conversion)
+
+    The GPSRO dump can also contain provider 1D-Var retrieval profiles for
+    pressure (descriptor ``10004``), temperature (``12001``), and specific
+    humidity (``13001``). They are intentionally not exposed here. UFS
+    diagnostic ``gps_t`` and ``gps_q`` are model-background values sampled at
+    the bending-angle location, not these BUFR retrieval fields.
 
     Note
     ----
@@ -51,11 +58,12 @@ class GDASObsConvLexicon(metaclass=LexiconType):
         "q": "QOB",
         "t": "TOB",
         "pres": "POB",
+        "gps": "gpsro::15037",
     }
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable[..., pd.DataFrame]]:
-        """Get item from PrepBUFR vocabulary.
+        """Get an item from the GDAS conventional vocabulary.
 
         Parameters
         ----------
@@ -65,34 +73,9 @@ class GDASObsConvLexicon(metaclass=LexiconType):
         Returns
         -------
         tuple[str, Callable]
-            - PrepBUFR vocab string (mnemonic or ``"wind::u"``/``"wind::v"``)
+            - PrepBUFR mnemonic/wind key or the GPSRO descriptor route.
             - A modifier function to apply to the loaded DataFrame.  The
               modifier converts the ``observation`` column from raw PrepBUFR
               units to Earth2Studio standard units.
         """
-        bufr_key = cls.VOCAB[val]
-
-        if val == "t":
-            # TOB is in DEG C; convert to Kelvin
-            def mod(df: pd.DataFrame) -> pd.DataFrame:
-                df["observation"] = np.float32(df["observation"] + 273.15)
-                return df
-
-        elif val == "q":
-            # QOB is in mg/kg; convert to kg kg-1
-            def mod(df: pd.DataFrame) -> pd.DataFrame:
-                df["observation"] = np.float32(df["observation"] * 1e-6)
-                return df
-
-        elif val == "pres":
-            # POB is in hPa (MB); convert to Pa
-            def mod(df: pd.DataFrame) -> pd.DataFrame:
-                df["observation"] = np.float32(df["observation"] * 100.0)
-                return df
-
-        else:
-            # u, v already in m s-1
-            def mod(df: pd.DataFrame) -> pd.DataFrame:
-                return df
-
-        return bufr_key, mod
+        return get_ncep_conventional_item(val, route_prefix=False)

@@ -7,11 +7,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.17.0a0] - xxxx-xx-xx
+## [0.17.0a0] - 2026-07-xx
 
 ### Added
 
+- Added GHCN hourly data source (`GHCNHourly`), superseding the deprecated ISD source
+- Added EarthMover ERA5 0.25 degree reanalysis data source
+- Added EarthMover IFS 0.1 degree data source and forecast source hosted by BrightBand
+- Added `async_workers` and `retries` parameters to GFS / GFS_FX data sources
+- Added shared obstore byte-range helpers (`obstore_store_from_url`,
+  `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
+
 ### Changed
+
+- Renamed `GHCNLexicon` to `GHCNDailyLexicon` for consistency with the new hourly lexicon
+- Updated MeteosatFCI reader and lexicon to include all channels.
+- Updated StormScope model package to use improved higher resolution checkpoints. Model
+  now defaults to using 3 km and 10 minute spatiotemporal resolution, and includes
+  predictions for GOES GLM Lightning density.
+- Migrated GFS / GFS_FX data sources from s3fs to obstore for index and byte-range
+  GRIB fetches; downloads now use bounded concurrency with retry on transient errors
+- Refactored UFS observation sources (`UFSObsConv`, `UFSObsSat`) onto the shared
+  obstore byte-range helpers
+- Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
+  the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
+  fsspec
 
 ### Deprecated
 
@@ -19,9 +39,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed NNJA observation sources blocking the shared fsspec IO loop with
+  CPU-bound PrepBUFR decode work, which stalled concurrent fetches from other
+  data sources.
+- Fixed ACE2 distributed inference failures caused by nondeterministic variable ordering
+  across MPI ranks.
+- Improved ACE2ERA5 inference performance by caching yearly forcing values
+- Fixed ACE2ERA5 forcing data retrieval for static variables requested across
+  multiple times.
+
 ### Security
 
 ### Dependencies
+
+- Removed `multi-storage-client` from the `data` optional dependency group,
+  succeeded by `obstore`
 
 ## [0.16.0] - 2026-06-29
 
