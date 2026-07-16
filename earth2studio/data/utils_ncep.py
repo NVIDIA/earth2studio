@@ -10,6 +10,7 @@ import pathlib
 import time
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
@@ -47,7 +48,7 @@ from earth2studio.data.utils_bufr import (
     parse_prepbufr_messages as _parse_prepbufr_messages,
 )
 from earth2studio.data.utils_bufr import silence_bufr_noise as _silence_bufr_noise
-from earth2studio.lexicon.base import E2STUDIO_SCHEMA
+from earth2studio.lexicon.base import E2STUDIO_SCHEMA, LexiconType
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
@@ -897,13 +898,15 @@ class _NCEPGpsroAdapter:
     def decode_file(
         self,
         path: str,
-        plan: Mapping[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]],
+        plan: Mapping[str, tuple[str | int, Callable[[pd.DataFrame], pd.DataFrame]]],
         dt_min: datetime,
         dt_max: datetime,
     ) -> pd.DataFrame:
-        # Descriptors drive decode (pickled to workers); modifiers stay here
-        # for finalize (closures cannot cross the process-pool boundary).
-        wanted_descrs = {key: variable for variable, (key, _) in plan.items()}
+        # Descriptors drive decode (pickled to workers); modifiers stay here for
+        # finalize (closures cannot cross the process-pool boundary). Callers
+        # pass the descriptor id as a string (shared planner) or int (GDAS until
+        # it migrates); normalize to int here.
+        wanted_descrs = {int(key): variable for variable, (key, _) in plan.items()}
         modifiers = {variable: modifier for variable, (_, modifier) in plan.items()}
         with open(path, "rb") as file:
             file_data = file.read()
@@ -950,18 +953,92 @@ class _NCEPGpsroAdapter:
         )
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# Shared NCEP observation request orchestration: task types, the request
+# lifecycle mixin (input handling, cycle-window planning, fetch, DataFrame
+# assembly), consumed by the NNJA / NOMADS-GDAS / GFS observation sources.
+# ──────────────────────────────────────────────────────────────────────────
+
+_NCEPObsModifier = Callable[[pd.DataFrame], pd.DataFrame]
+# Decode plan: variable id -> (route-specific decode key, post-decode modifier).
+# The key is the raw string after the lexicon "route::" prefix; each adapter
+# interprets it (PrepBUFR mnemonic, or GPS RO descriptor id parsed to int).
+_NCEPPlan = Mapping[str, tuple[str, _NCEPObsModifier]]
+
+
+@dataclass(frozen=True)
+class _NCEPObsTask:
+    """One NCEP observation cycle file to fetch and decode.
+
+    ``route`` (e.g. ``"prepbufr"`` / ``"gpsro"``) tags which decoder and URI
+    layout the file uses. ``var_plan`` maps each requested variable to its
+    route-specific decode key and post-decode modifier.
+    """
+
+    route: str
+    uri: str
+    datetime_file: datetime
+    datetime_min: datetime
+    datetime_max: datetime
+    var_plan: _NCEPPlan
+
+
+def plan_conv_tasks(
+    windows: Mapping[datetime, tuple[datetime, datetime]],
+    variable: list[str],
+    lexicon: LexiconType,
+    build_uri: Callable[[str, datetime], str],
+) -> list[_NCEPObsTask]:
+    """Partition variables by lexicon route prefix into per-cycle conv tasks.
+
+    Route prefixes: ``prepbufr::...`` -> PrepBUFR decoder, ``gpsro::...`` -> GPS
+    RO BUFR decoder. The key after ``::`` is kept verbatim; each adapter
+    interprets it. When multiple requested times map to the same cycle their
+    windows are already merged in ``windows`` (see
+    ``NCEPObsRequestMixin._cycle_windows``); ``build_uri(route, cycle)`` yields
+    the source-specific URI.
+    """
+    plans: dict[str, dict[str, tuple[str, _NCEPObsModifier]]] = {}
+    for v in variable:
+        try:
+            source_key, modifier = lexicon[v]
+        except KeyError:
+            logger.error(f"Variable id '{v}' not found in lexicon")
+            raise
+        route, _, rest = source_key.partition("::")
+        plans.setdefault(route, {})[v] = (rest, modifier)
+
+    tasks: list[_NCEPObsTask] = []
+    for cycle, (tmin, tmax) in windows.items():
+        for route, plan in plans.items():
+            tasks.append(
+                _NCEPObsTask(
+                    route=route,
+                    uri=build_uri(route, cycle),
+                    datetime_file=cycle,
+                    datetime_min=tmin,
+                    datetime_max=tmax,
+                    var_plan=plan,
+                )
+            )
+    return tasks
+
+
 class NCEPObsRequestMixin:
     """Request-orchestration behavior for NCEP DataFrame observation sources.
 
     Provides the synchronous entry point, async fetch orchestration, six-hour
     cycle-window planning, output-schema resolution, and cached-file assembly.
-    Compose with a transport mixin that supplies ``fetch_files``, ``local_path``,
-    ``cleanup``, and ``_validate_time``, and a concrete source that supplies the
-    product hooks ``_create_tasks``, ``_decode_file``, and ``_task_uri``.
+    Compose with a transport mixin that supplies ``fetch_files``,
+    ``local_path``, ``cleanup``, and ``_validate_time``, and a concrete source
+    that supplies ``_create_tasks`` and ``_decode_file``. Conventional sources
+    build ``_create_tasks`` from the shared :func:`plan_conv_tasks` helper;
+    satellite sources implement their own per-sensor planner.
     """
 
     SOURCE_ID: str
     SCHEMA: pa.Schema
+    LEXICON: LexiconType
 
     def _init_request(
         self,
@@ -1023,7 +1100,7 @@ class NCEPObsRequestMixin:
         schema = self._resolve_output_schema(fields)
 
         async_tasks = self._create_tasks(time_list, variable_list)
-        file_uri_set = list({self._task_uri(task) for task in async_tasks})
+        file_uri_set = list({task.uri for task in async_tasks})
         await self.fetch_files(file_uri_set)
 
         df = self._compile_dataframe(async_tasks, schema)
@@ -1032,7 +1109,7 @@ class NCEPObsRequestMixin:
 
     def _compile_dataframe(
         self,
-        async_tasks: list[Any],
+        async_tasks: list[_NCEPObsTask],
         schema: pa.Schema,
     ) -> pd.DataFrame:
         """Decode each fetched file and concatenate into a single DataFrame."""
@@ -1040,7 +1117,7 @@ class NCEPObsRequestMixin:
         n_tasks = len(async_tasks)
         compile_t0 = time.perf_counter()
         for idx, task in enumerate(async_tasks, start=1):
-            uri = self._task_uri(task)
+            uri = task.uri
             local_path = self.local_path(uri)
             if not pathlib.Path(local_path).is_file():
                 logger.warning(f"Cached file missing for {uri}, skipping")
@@ -1165,14 +1242,14 @@ class NCEPObsRequestMixin:
 
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]
-    ) -> list[Any]:
-        """Build the per-file decode tasks for the requested times/variables."""
+    ) -> list[_NCEPObsTask]:
+        """Plan the per-file fetch/decode tasks for a request.
+
+        Conventional sources delegate to :func:`plan_conv_tasks`; satellite
+        sources implement their own per-sensor planner.
+        """
         raise NotImplementedError
 
-    def _decode_file(self, local_path: str, task: Any) -> pd.DataFrame:
+    def _decode_file(self, local_path: str, task: _NCEPObsTask) -> pd.DataFrame:
         """Decode one cached file into a DataFrame."""
-        raise NotImplementedError
-
-    def _task_uri(self, task: Any) -> str:
-        """Return the remote URI a task fetches from."""
         raise NotImplementedError

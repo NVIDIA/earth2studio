@@ -23,7 +23,6 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-import earth2studio.data.nnja as nnja
 from earth2studio.data import NNJAObsConv, utils_ncep
 
 pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
@@ -285,7 +284,7 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
         fields=["time", "observation", "variable"],
     )
 
-    assert fetched == [source._build_prepbufr_uri(datetime(2024, 1, 1))]
+    assert fetched == [source._build_uri("prepbufr", datetime(2024, 1, 1))]
     assert result.equals(frame)
     assert result.attrs == {"source": source.SOURCE_ID}
     assert cleanup_calls["n"] == 1
@@ -559,7 +558,7 @@ def test_nnja_obs_conv_build_uris():
 
     # Test prepbufr URI
     cycle = datetime(2024, 1, 15, 6)
-    prepbufr_uri = ds._build_prepbufr_uri(cycle)
+    prepbufr_uri = ds._build_uri("prepbufr", cycle)
     assert "2024" in prepbufr_uri
     assert "01" in prepbufr_uri
     assert "20240115" in prepbufr_uri
@@ -567,7 +566,7 @@ def test_nnja_obs_conv_build_uris():
     assert "prepbufr" in prepbufr_uri
 
     # Test gpsro URI
-    gpsro_uri = ds._build_gpsro_uri(cycle)
+    gpsro_uri = ds._build_uri("gpsro", cycle)
     assert "2024" in gpsro_uri
     assert "01" in gpsro_uri
     assert "20240115" in gpsro_uri
@@ -577,16 +576,14 @@ def test_nnja_obs_conv_build_uris():
 
 def test_nnja_obs_conv_create_tasks():
     """Test _create_tasks method for prepbufr variables."""
-    from earth2studio.data.nnja import _NNJAConvTask
-
     # Use zero tolerance to get exactly one task per cycle
     ds = NNJAObsConv(time_tolerance=timedelta(0), cache=False, verbose=False)
 
     # Test prepbufr-only variable
     tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["t"])
     assert len(tasks) == 1
-    assert isinstance(tasks[0], _NNJAConvTask)
-    assert "prepbufr" in tasks[0].s3_uri
+    assert tasks[0].route == "prepbufr"
+    assert "prepbufr" in tasks[0].uri
     assert tasks[0].datetime_file == datetime(2024, 1, 1, 0)
 
     # Test multiple variables (same route)
@@ -609,10 +606,10 @@ def test_nnja_obs_conv_create_tasks_gpsro_route():
     tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["gps"])
 
     assert len(tasks) == 1
-    assert isinstance(tasks[0], nnja._NNJAGpsRoTask)
-    assert "gpsro" in tasks[0].s3_uri
+    assert tasks[0].route == "gpsro"
+    assert "gpsro" in tasks[0].uri
     assert tasks[0].datetime_file == datetime(2024, 1, 1, 0)
-    assert tasks[0].var_plan["gps"][0] == utils_ncep.GPSRO_BNDA
+    assert tasks[0].var_plan["gps"][0] == str(utils_ncep.GPSRO_BNDA)
 
 
 def test_nnja_obs_conv_create_tasks_mixed_prepbufr_and_gpsro():
@@ -621,11 +618,11 @@ def test_nnja_obs_conv_create_tasks_mixed_prepbufr_and_gpsro():
     tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["gps", "t"])
 
     assert len(tasks) == 2
-    conv_task = next(task for task in tasks if isinstance(task, nnja._NNJAConvTask))
-    gpsro_task = next(task for task in tasks if isinstance(task, nnja._NNJAGpsRoTask))
+    conv_task = next(t for t in tasks if t.route == "prepbufr")
+    gpsro_task = next(t for t in tasks if t.route == "gpsro")
     assert set(conv_task.var_plan) == {"t"}
     assert set(gpsro_task.var_plan) == {"gps"}
-    assert gpsro_task.var_plan["gps"][0] == utils_ncep.GPSRO_BNDA
+    assert gpsro_task.var_plan["gps"][0] == str(utils_ncep.GPSRO_BNDA)
 
 
 def test_nnja_obs_conv_pres_modifier_keeps_station_pressure_only():

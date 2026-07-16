@@ -27,8 +27,7 @@ import os
 import pathlib
 import shutil
 import uuid
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Sequence
 from datetime import datetime
 
 import numpy as np
@@ -47,8 +46,10 @@ from earth2studio.data.utils_ncep import (
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     NCEPObsRequestMixin,
     _NCEPGpsroAdapter,
+    _NCEPObsTask,
     _NCEPPrepbufrAdapter,
     map_aircraft_profile_types,
+    plan_conv_tasks,
 )
 from earth2studio.lexicon import NNJAObsConvLexicon
 from earth2studio.utils.imports import check_optional_dependencies
@@ -57,50 +58,28 @@ from earth2studio.utils.type import TimeTolerance
 NNJA_BUCKET = "noaa-reanalyses-pds"
 NNJA_PREFIX = "observations/reanalysis"
 
-# ── Async-task dataclasses ──────────────────────────────────────────
 
+class NNJAObsMixin:
+    """NNJA archive mechanics shared across NNJA observation products.
 
-@dataclass
-class _NNJAConvTask:
-    """Async task for a single PrepBUFR cycle file (route ``prepbufr``)."""
-
-    s3_uri: str
-    datetime_file: datetime
-    datetime_min: datetime
-    datetime_max: datetime
-    var_plan: dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]] = field(
-        default_factory=dict
-    )
-
-
-@dataclass
-class _NNJAGpsRoTask:
-    """Async task for a single gps/gpsro cycle BUFR file (route ``gpsro``)."""
-
-    s3_uri: str
-    datetime_file: datetime
-    datetime_min: datetime
-    datetime_max: datetime
-    var_plan: dict[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]] = field(
-        default_factory=dict
-    )
-
-
-class NNJAObsArchiveMixin:
-    """NNJA archive access shared across NNJA observation products.
-
-    Supplies anonymous-S3 transport with bounded concurrency and retries,
+    Supplies the anonymous-S3 session with bounded concurrency and retries,
     deterministic raw-file caching, temporary-cache cleanup, six-hour cycle
-    validation, and availability. Compose with :class:`NCEPObsRequestMixin`.
-    The concrete source supplies ``MIN_DATE`` and the missing-file policy.
+    validation, availability, and the missing-file policy. Compose with
+    :class:`NCEPObsRequestMixin`. The concrete source supplies ``MIN_DATE``.
     """
 
     MIN_DATE: datetime
     _verbose: bool  # set by NCEPObsRequestMixin._init_request
 
     def _handle_missing_file(self, path: str) -> None:
-        """Policy for an absent cycle file; provided by the concrete source."""
-        raise NotImplementedError
+        """Warn instead of raising on missing NNJA cycle files.
+
+        NNJA does not guarantee every cycle/sub-archive combination exists
+        (e.g. the ``gps/gpsro/`` archive only goes back to the early 2000s, and
+        individual cycles can be absent). Returning a partial DataFrame is more
+        useful than aborting a multi-cycle request because of one missing file.
+        """
+        logger.warning(f"NNJA file {path} not found, skipping")
 
     def _init_transport(
         self,
@@ -168,7 +147,7 @@ class NNJAObsArchiveMixin:
 
     @property
     def cache(self) -> str:
-        """Local cache directory for this data source."""
+        """Local cache directory for NNJA observation files."""
         cache_location = os.path.join(datasource_cache_root(), "nnja")
         if not self._cache:
             if self._tmp_cache_hash is None:
@@ -226,8 +205,11 @@ class NNJAObsArchiveMixin:
         return True
 
 
+# Composition: request lifecycle + conventional task planning come from
+# NCEPObsRequestMixin (utils_ncep); NNJA S3 transport / cache / validation from
+# NNJAObsMixin; product schema, URI builders, and decoding are defined below.
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
-class NNJAObsConv(NNJAObsArchiveMixin, NCEPObsRequestMixin):
+class NNJAObsConv(NNJAObsMixin, NCEPObsRequestMixin):
     """NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint
     Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for
     developing observation-driven weather forecasting tools, as it includes a wide
@@ -305,6 +287,7 @@ class NNJAObsConv(NNJAObsArchiveMixin, NCEPObsRequestMixin):
 
     SOURCE_ID = "earth2studio.data.NNJAObsConv"
     SCHEMA = NCEP_CONVENTIONAL_PUBLIC_SCHEMA
+    LEXICON = NNJAObsConvLexicon
     MIN_DATE = datetime(1979, 1, 1)
 
     VALID_SOURCES = frozenset(["prepbufr", "prepbufr.acft_profiles"])
@@ -351,144 +334,51 @@ class NNJAObsConv(NNJAObsArchiveMixin, NCEPObsRequestMixin):
         self._prepbufr_adapter = _NCEPPrepbufrAdapter(self._decode_workers)
         self._gpsro_adapter = _NCEPGpsroAdapter(self._decode_workers)
 
-    def _task_uri(self, task: _NNJAConvTask | _NNJAGpsRoTask) -> str:
-        return task.s3_uri
-
-    # ------------------------------------------------------------------
-    # Task creation
-    # ------------------------------------------------------------------
-    def _create_tasks(self, time_list: list[datetime], variable: list[str]) -> list:
-        # Partition variables by lexicon route prefix:
-        #   "prepbufr::..." -> conv/prepbufr/ tasks (PrepBUFR decoder)
-        #   "gpsro::..."    -> gps/gpsro/ tasks (GPS RO BUFR decoder)
-        prepbufr_plan: dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]] = (
-            {}
+    def _create_tasks(
+        self, time_list: list[datetime], variable: list[str]
+    ) -> list[_NCEPObsTask]:
+        return plan_conv_tasks(
+            self._cycle_windows(time_list), variable, self.LEXICON, self._build_uri
         )
-        gpsro_plan: dict[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]] = {}
 
-        for v in variable:
-            try:
-                source_key, modifier = NNJAObsConvLexicon[v]  # type: ignore[misc]
-            except KeyError:
-                logger.error(f"Variable id '{v}' not found in NNJAObsConvLexicon")
-                raise
-            route, _, rest = source_key.partition("::")
-            if route == "prepbufr":
-                prepbufr_plan[v] = (rest, modifier)
-            elif route == "gpsro":
-                try:
-                    desc_id = int(rest)
-                except ValueError as exc:
-                    raise ValueError(
-                        f"Invalid gpsro lexicon entry '{source_key}' for {v}: "
-                        f"expected an integer BUFR descriptor id"
-                    ) from exc
-                gpsro_plan[v] = (desc_id, modifier)
-            else:
-                raise ValueError(
-                    f"Unknown route '{route}' in NNJAObsConvLexicon entry "
-                    f"'{source_key}' for variable '{v}' (expected 'prepbufr' or 'gpsro')"
-                )
-
-        # Build one task per unique cycle file; when multiple requested
-        # times map to the same cycle the task's window is the union of
-        # those time windows (see ``NCEPObsRequestMixin._cycle_windows``).
-        windows = self._cycle_windows(time_list) if prepbufr_plan or gpsro_plan else {}
-        tasks: list = []
-        for cycle_dt, (tmin, tmax) in windows.items():
-            if prepbufr_plan:
-                tasks.append(
-                    _NNJAConvTask(
-                        s3_uri=self._build_prepbufr_uri(cycle_dt),
-                        datetime_file=cycle_dt,
-                        datetime_min=tmin,
-                        datetime_max=tmax,
-                        var_plan=prepbufr_plan,
-                    )
-                )
-            if gpsro_plan:
-                tasks.append(
-                    _NNJAGpsRoTask(
-                        s3_uri=self._build_gpsro_uri(cycle_dt),
-                        datetime_file=cycle_dt,
-                        datetime_min=tmin,
-                        datetime_max=tmax,
-                        var_plan=gpsro_plan,
-                    )
-                )
-        return tasks
-
-    def _build_prepbufr_uri(self, cycle: datetime) -> str:
-        """Build the NNJA S3 URI for a single PrepBUFR cycle."""
+    def _build_uri(self, route: str, cycle: datetime) -> str:
+        """Build the NNJA S3 URI for a cycle file on the given route."""
         year_key = cycle.strftime("%Y")
         month_key = cycle.strftime("%m")
         date_key = cycle.strftime("%Y%m%d")
         hour_key = f"{cycle.hour:02d}"
-        archive_dir = self._source
-        if self._source == "prepbufr.acft_profiles":
-            archive_dir = "bufr"
-        return (
-            f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/conv/{self._source}/"
-            f"{year_key}/{month_key}/{archive_dir}/"
-            f"gdas.{date_key}.t{hour_key}z.{self._source}.nr"
-        )
-
-    def _build_gpsro_uri(self, cycle: datetime) -> str:
-        """Build the NNJA S3 URI for a single gps/gpsro cycle file."""
-        year_key = cycle.strftime("%Y")
-        month_key = cycle.strftime("%m")
-        date_key = cycle.strftime("%Y%m%d")
-        hour_key = f"{cycle.hour:02d}"
-        return (
-            f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/gps/gpsro/"
-            f"{year_key}/{month_key}/bufr/"
-            f"gdas.{date_key}.t{hour_key}z.gpsro.tm00.bufr_d"
-        )
-
-    def _handle_missing_file(self, path: str) -> None:
-        """Warn instead of raising on missing NNJA cycle files.
-
-        NNJA does not guarantee every cycle/sub-archive combination
-        exists (e.g. the ``gps/gpsro/`` archive only goes back to the
-        early 2000s, and individual cycles can be absent). Returning a
-        partial DataFrame is more useful than aborting a multi-cycle
-        request because of one missing file.
-        """
-        logger.warning(f"NNJA conventional file {path} not found, skipping")
+        if route == "prepbufr":
+            archive_dir = self._source
+            if self._source == "prepbufr.acft_profiles":
+                archive_dir = "bufr"
+            return (
+                f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/conv/{self._source}/"
+                f"{year_key}/{month_key}/{archive_dir}/"
+                f"gdas.{date_key}.t{hour_key}z.{self._source}.nr"
+            )
+        if route == "gpsro":
+            return (
+                f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/gps/gpsro/"
+                f"{year_key}/{month_key}/bufr/"
+                f"gdas.{date_key}.t{hour_key}z.gpsro.tm00.bufr_d"
+            )
+        raise ValueError(f"Unsupported route '{route}'")
 
     # ------------------------------------------------------------------
-    # File decode (dispatch by task type)
+    # File decode (dispatch by task route)
     # ------------------------------------------------------------------
-    def _decode_file(
-        self, local_path: str, task: _NNJAConvTask | _NNJAGpsRoTask
-    ) -> pd.DataFrame:
-        if isinstance(task, _NNJAGpsRoTask):
-            return self._decode_gpsro_file(local_path, task)
-        return self._decode_prepbufr_file(local_path, task)
-
-    def _decode_prepbufr_file(
-        self, local_path: str, task: _NNJAConvTask
-    ) -> pd.DataFrame:
-        """Decode one locally cached PrepBUFR file through the shared adapter."""
+    def _decode_file(self, local_path: str, task: _NCEPObsTask) -> pd.DataFrame:
+        if task.route == "gpsro":
+            frame = self._gpsro_adapter.decode_file(
+                local_path, task.var_plan, task.datetime_min, task.datetime_max
+            )
+            return frame[self.SCHEMA.names]
         frame = self._prepbufr_adapter.decode_file(
-            local_path,
-            task.var_plan,
-            task.datetime_min,
-            task.datetime_max,
+            local_path, task.var_plan, task.datetime_min, task.datetime_max
         )
         if (
             self._source == "prepbufr.acft_profiles"
             and self._map_acft_profile_report_types
         ):
             frame = map_aircraft_profile_types(frame)
-        return frame[self.SCHEMA.names]
-
-    def _decode_gpsro_file(self, local_path: str, task: _NNJAGpsRoTask) -> pd.DataFrame:
-        """Decode one locally cached GPSRO file through the shared adapter."""
-        frame = self._gpsro_adapter.decode_file(
-            local_path,
-            task.var_plan,
-            task.datetime_min,
-            task.datetime_max,
-        )
         return frame[self.SCHEMA.names]

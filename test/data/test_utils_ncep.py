@@ -12,7 +12,6 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-import earth2studio.data.nnja as nnja_data
 from earth2studio.data import NNJAObsConv, NomadsGDASObsConv, utils_ncep
 from earth2studio.data.utils_bufr import OBS_TOB, OBS_TQM
 from earth2studio.lexicon import GDASObsConvLexicon, NNJAObsConvLexicon
@@ -61,7 +60,7 @@ def _prepbufr_plan(lexicon: type, variable: str) -> dict:
 
 def _gpsro_plan(lexicon: type, variable: str, descriptor: int) -> dict:
     _source_key, modifier = lexicon.get_item(variable)
-    return {variable: (descriptor, modifier)}
+    return {variable: (str(descriptor), modifier)}
 
 
 def _modifiers(lexicon: type, *variables: str) -> dict:
@@ -141,14 +140,15 @@ def test_same_local_prepbufr_bytes_are_adapter_exact(tmp_path, monkeypatch):
         assert schema.field("level_cat").type == pa.uint16()
         assert schema.field("pressure_quality").type == pa.uint16()
 
-    nnja_task = nnja_data._NNJAConvTask(
-        s3_uri="s3://example/same.prepbufr.nr",
+    nnja_task = utils_ncep._NCEPObsTask(
+        route="prepbufr",
+        uri="s3://example/same.prepbufr.nr",
         datetime_file=datetime(2024, 1, 1),
         datetime_min=bounds[0],
         datetime_max=bounds[1],
         var_plan=_prepbufr_plan(NNJAObsConvLexicon, "t"),
     )
-    nnja_public = nnja._decode_prepbufr_file(str(local_path), nnja_task)
+    nnja_public = nnja._decode_file(str(local_path), nnja_task)
     gdas_public = gdas._decode_prepbufr(str(local_path), ["t"], *bounds)
     pd.testing.assert_frame_equal(nnja_public, gdas_public, check_exact=True)
 
@@ -220,14 +220,15 @@ def test_same_local_gpsro_bytes_preserve_default_product(tmp_path, monkeypatch):
     assert pd.isna(nnja_df.loc[0, "pres"])
     assert nnja_df.loc[0, "elev"] == pytest.approx(2_000.0)
 
-    nnja_task = nnja_data._NNJAGpsRoTask(
-        s3_uri="s3://example/same.gpsro.bufr",
+    nnja_task = utils_ncep._NCEPObsTask(
+        route="gpsro",
+        uri="s3://example/same.gpsro.bufr",
         datetime_file=datetime(2024, 1, 1),
         datetime_min=bounds[0],
         datetime_max=bounds[1],
         var_plan=_gpsro_plan(NNJAObsConvLexicon, "gps", utils_ncep.GPSRO_BNDA),
     )
-    nnja_public = nnja._decode_gpsro_file(str(local_path), nnja_task)
+    nnja_public = nnja._decode_file(str(local_path), nnja_task)
     gdas_public = gdas._decode_gpsro(str(local_path), ["gps"], *bounds)
     pd.testing.assert_frame_equal(nnja_public, gdas_public, check_exact=True)
 
@@ -303,7 +304,7 @@ def test_empty_public_facades_use_shared_schema_dtypes():
     nnja = NNJAObsConv(cache=False, verbose=False, decode_workers=1)
 
     gdas_empty = gdas._compile_dataframe([], ["t"])
-    nnja_empty = nnja._compile_dataframe([], ["t"], NNJAObsConv.SCHEMA)
+    nnja_empty = nnja._compile_dataframe([], NNJAObsConv.SCHEMA)
 
     assert gdas_empty.dtypes.astype(str).to_dict() == {
         name: str(dtype)
