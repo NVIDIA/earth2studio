@@ -48,12 +48,12 @@ import numpy as np
 import torch
 from loguru import logger
 from omegaconf import DictConfig
-from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data import DataSource
 from earth2studio.utils.coords import CoordSystem, map_coords
 from src.data import CompositeSource, PredownloadedSource
+from src.distributed import get_rank
 from src.output import OutputManager, build_output_coords
 from src.regrid import Regridder
 from src.work import WorkItem, write_marker
@@ -569,12 +569,8 @@ class Pipeline(ABC):
         if self._output_regridder is not None:
             self._output_regridder = self._output_regridder.to(device)
 
-        # Rank only gates tqdm output below.  Default to 0 when the
-        # DistributedManager isn't initialized (unit tests, or single-process
-        # runs where main.py didn't set it up) rather than forcing
-        # initialization here — DistributedManager.initialize() requires an
-        # indexed accelerator on some backends and fails on CPU.
-        rank = DistributedManager().rank if DistributedManager.is_initialized() else 0
+        # Rank only gates tqdm output below.
+        rank = get_rank()
 
         # None is only passed when needs_data_source=False, in which case
         # the subclass's run_item ignores the argument.

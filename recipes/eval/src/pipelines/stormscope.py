@@ -30,7 +30,6 @@ import pandas as pd
 import torch
 from loguru import logger
 from omegaconf import DictConfig
-from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
@@ -43,6 +42,7 @@ from ..data import (
     ValidTimeForecastAdapter,
     resolve_ic_source,
 )
+from ..distributed import get_rank
 from ..regrid import BilinearRegridder, NearestNeighborRegridder, RegriddedSource
 from ..work import WorkItem
 from .base import Pipeline, PredownloadStore
@@ -292,11 +292,8 @@ class StormScopePipeline(Pipeline):
         # expose a set_rng hook; torch.manual_seed is the supported path.
         torch.manual_seed(item.seed)
 
-        # Rank only gates tqdm output below.  Default to 0 when the
-        # DistributedManager isn't initialized (unit tests, or single-process
-        # runs) rather than forcing initialization here — which requires an
-        # indexed accelerator on some backends and fails on CPU.
-        rank = DistributedManager().rank if DistributedManager.is_initialized() else 0
+        # Rank only gates tqdm output below.
+        rank = get_rank()
 
         for step_idx in tqdm(
             range(self.nsteps),
@@ -645,14 +642,17 @@ class StormScopePipeline(Pipeline):
             logger.warning(
                 "StormScope mrms: model has GLM state channels but no "
                 "load_args.glm_data_source is configured — skipping GLM "
-                "predownload.  GLM will be fetched live at inference."
+                "predownload.  Inference will fail unless a predownloaded "
+                "data_glm.zarr (or a configured glm_data_source + glm_grid "
+                "for the live fallback) is provided."
             )
             return None
         if model_cfg.get("glm_grid") is None:
             logger.warning(
                 "StormScope mrms: glm_grid resolver not configured — cannot "
-                "regrid GLM at predownload.  GLM will be fetched live at "
-                "inference."
+                "regrid GLM at predownload.  Inference will fail unless a "
+                "predownloaded data_glm.zarr (or a configured glm_grid for "
+                "the live fallback) is provided."
             )
             return None
 

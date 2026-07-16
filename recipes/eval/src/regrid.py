@@ -45,6 +45,7 @@ from datetime import datetime
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
 from numpy.typing import ArrayLike
 
 from earth2studio.data import DataSource
@@ -281,9 +282,10 @@ class BilinearRegridder(Regridder):
         Source grid coordinates.  2D ``[H_src, W_src]`` meshgrids or 1D
         vectors (promoted internally via ``meshgrid``).
     target_lats, target_lons : torch.Tensor | ArrayLike
-        Target grid coordinates.  Either 2D meshgrids (for curvilinear grids
-        such as HRRR Lambert-conformal) or 1D vectors.  The target grid must
-        be contained within the source grid (a requirement of
+        Target grid coordinates.  2D meshgrids (for curvilinear grids such as
+        HRRR Lambert-conformal) or 1D vectors (promoted internally via
+        ``meshgrid``, same as the source side).  The target grid must be
+        contained within the source grid (a requirement of
         ``LatLonInterpolation``).
     target_y, target_x : ArrayLike
         1D index coordinates of the target grid, written to the output zarr
@@ -308,6 +310,12 @@ class BilinearRegridder(Regridder):
         target_dim_names: tuple[str, str] = ("y", "x"),
         fill_value: float = 0.0,
     ) -> None:
+        # Validate cheap inputs before the expensive interpolator build
+        # (Delaunay triangulation over the full source grid).
+        self._target_dim_names = tuple(target_dim_names)
+        if len(self._target_dim_names) != 2:
+            raise ValueError(f"target_dim_names must be a pair, got {target_dim_names}")
+
         src_lats = np.asarray(
             source_lats.cpu() if isinstance(source_lats, torch.Tensor) else source_lats
         )
@@ -316,18 +324,40 @@ class BilinearRegridder(Regridder):
         )
         if src_lats.ndim == 1 and src_lons.ndim == 1:
             src_lats, src_lons = np.meshgrid(src_lats, src_lons, indexing="ij")
+        # Promote 1D target vectors to a meshgrid too — LatLonInterpolation
+        # ravels its target and reshapes to the input shape, so a 1D target
+        # would otherwise interpolate only the diagonal points rather than the
+        # full lat x lon grid.
+        tgt_lats = np.asarray(
+            target_lats.cpu() if isinstance(target_lats, torch.Tensor) else target_lats
+        )
+        tgt_lons = np.asarray(
+            target_lons.cpu() if isinstance(target_lons, torch.Tensor) else target_lons
+        )
+        if tgt_lats.ndim == 1 and tgt_lons.ndim == 1:
+            tgt_lats, tgt_lons = np.meshgrid(tgt_lats, tgt_lons, indexing="ij")
         self._interp = LatLonInterpolation(
             lat_in=src_lats,
             lon_in=src_lons,
-            lat_out=target_lats,
-            lon_out=target_lons,
+            lat_out=tgt_lats,
+            lon_out=tgt_lons,
         )
+        # A fully-NaN interpolation map means no target point fell inside the
+        # source grid — every output would be silently zero-filled by apply().
+        # This is the classic longitude-convention mismatch (target in
+        # [-180, 180) vs. source in [0, 360)); warn rather than write an
+        # all-zero store with no signal.
+        if bool(torch.isnan(self._interp.i_map).all()):
+            logger.warning(
+                "BilinearRegridder: no target point falls inside the source "
+                "grid — the entire field will be filled with "
+                f"{float(fill_value)}. Check that source and target longitude "
+                "conventions match (e.g. both in [0, 360) or both in "
+                "[-180, 180))."
+            )
         self._target_y = np.asarray(target_y)
         self._target_x = np.asarray(target_x)
-        self._target_dim_names = tuple(target_dim_names)
         self._fill_value = float(fill_value)
-        if len(self._target_dim_names) != 2:
-            raise ValueError(f"target_dim_names must be a pair, got {target_dim_names}")
 
     def to(self, device: str | torch.device) -> BilinearRegridder:
         self._interp = self._interp.to(device)

@@ -23,12 +23,12 @@ from collections.abc import Iterator
 import numpy as np
 import torch
 from omegaconf import DictConfig
-from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.utils.coords import CoordSystem, map_coords
 
+from ..distributed import get_rank
 from ..models import load_prognostic
 from ..work import WorkItem
 from .base import PredownloadStore
@@ -162,11 +162,8 @@ class DLESyMPipeline(ForecastPipeline):
         # ([-48h..0h] for DLESyM), outside the output zarr schema.
         next(model_iter)
 
-        # Rank only gates tqdm output below.  Default to 0 when the
-        # DistributedManager isn't initialized (unit tests, or single-process
-        # runs) rather than forcing initialization here — which requires an
-        # indexed accelerator on some backends and fails on CPU.
-        rank = DistributedManager().rank if DistributedManager.is_initialized() else 0
+        # Rank only gates tqdm output below.
+        rank = get_rank()
 
         for step, (x_step, coords_step) in enumerate(
             tqdm(

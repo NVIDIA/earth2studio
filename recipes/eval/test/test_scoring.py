@@ -126,7 +126,7 @@ def _make_dist_mock(*, rank=0, world_size=1, distributed=False):
 # Paths to mock
 _DIST_PATH = "src.output.DistributedManager"
 _RANK0_PATH = "src.output.run_on_rank0_first"
-_SCORING_DIST_PATH = "src.scoring.DistributedManager"
+_SCORING_DIST_PATH = "src.scoring.get_rank"
 
 
 # ---------------------------------------------------------------------------
@@ -742,7 +742,7 @@ class TestRunScoring:
 
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
             with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with patch(_SCORING_DIST_PATH, return_value=_make_dist_mock()):
+                with patch(_SCORING_DIST_PATH, return_value=0):
                     with OutputManager(
                         cfg, store_name="scores.zarr", overwrite=True
                     ) as mgr:
@@ -805,7 +805,7 @@ class TestRunScoring:
 
             with patch(_DIST_PATH, return_value=_make_dist_mock()):
                 with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                    with patch(_SCORING_DIST_PATH, return_value=_make_dist_mock()):
+                    with patch(_SCORING_DIST_PATH, return_value=0):
                         with OutputManager(
                             cfg, store_name=store_name, overwrite=True
                         ) as mgr:
@@ -853,7 +853,7 @@ class TestRunScoring:
 
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
             with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with patch(_SCORING_DIST_PATH, return_value=_make_dist_mock()):
+                with patch(_SCORING_DIST_PATH, return_value=0):
                     with OutputManager(
                         cfg, store_name="scores.zarr", overwrite=True
                     ) as mgr:
@@ -1040,7 +1040,7 @@ class TestNanPolicy:
         """Execute the standard score-store-setup + run_scoring flow."""
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
             with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with patch(_SCORING_DIST_PATH, return_value=_make_dist_mock()):
+                with patch(_SCORING_DIST_PATH, return_value=0):
                     with OutputManager(
                         cfg, store_name="scores.zarr", overwrite=True
                     ) as mgr:
@@ -1270,7 +1270,7 @@ class TestValidRangesEndToEnd:
     def _run(self, cfg, inputs):
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
             with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with patch(_SCORING_DIST_PATH, return_value=_make_dist_mock()):
+                with patch(_SCORING_DIST_PATH, return_value=0):
                     with OutputManager(
                         cfg, store_name="scores.zarr", overwrite=True
                     ) as mgr:
