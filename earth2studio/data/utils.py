@@ -31,6 +31,8 @@ from typing import Any, ClassVar, Literal, TypeVar
 
 import fsspec.asyn
 import numpy as np
+import obstore as obs
+import obstore.store
 import pandas as pd
 import torch
 import xarray as xr
@@ -767,6 +769,155 @@ async def cancellable_to_thread(
             "Note: underlying thread may still be running."
         )
         raise
+
+
+def obstore_store_from_url(
+    url: str,
+    anonymous: bool = True,
+    max_pool_connections: int = 24,
+    **store_kwargs: Any,
+) -> obstore.store.ObjectStore:
+    """Creates an obstore ObjectStore from a URL for byte-range object reads.
+
+    Serves as the shared store factory for GRIB `.idx` + byte-range data
+    sources. Supports ``s3://`` (anonymous access injects
+    ``skip_signature=True`` and a ``us-east-1`` region default), ``gs://``
+    (anonymous access injects ``skip_signature=True``) and ``http(s)://``
+    URLs via :func:`obstore.store.from_url`.
+
+    Parameters
+    ----------
+    url : str
+        Store URL, e.g. ``s3://noaa-gfs-bdp-pds``
+    anonymous : bool, optional
+        Use unsigned/anonymous requests for s3/gs stores, by default True
+    max_pool_connections : int, optional
+        Maximum idle connections kept per host, should match the fetch
+        concurrency of the caller, by default 24
+    **store_kwargs : Any
+        Additional store configuration forwarded to
+        :func:`obstore.store.from_url`, overriding the defaults above
+
+    Returns
+    -------
+    obstore.store.ObjectStore
+        Configured object store
+    """
+    kwargs: dict[str, Any] = {
+        "client_options": {"pool_max_idle_per_host": str(max_pool_connections)},
+    }
+    if anonymous and url.startswith(("s3://", "gs://")):
+        kwargs["skip_signature"] = True
+    if url.startswith("s3://"):
+        kwargs["region"] = "us-east-1"
+    kwargs.update(store_kwargs)
+    return obstore.store.from_url(url, **kwargs)
+
+
+async def obstore_read_range(
+    store: obstore.store.ObjectStore,
+    key: str,
+    byte_offset: int = 0,
+    byte_length: int | None = None,
+) -> bytes:
+    """Reads a byte range (or the remainder / whole) of an object via obstore.
+
+    Behavior by argument combination:
+
+    - ``byte_length`` set: ranged read of exactly ``byte_length`` bytes
+      starting at ``byte_offset``
+    - ``byte_length`` is None and ``byte_offset`` is 0: whole-object read
+      (e.g. GRIB ``.idx`` files)
+    - ``byte_length`` is None and ``byte_offset`` > 0: read from offset to the
+      end of the object (size resolved with a head request)
+
+    Parameters
+    ----------
+    store : obstore.store.ObjectStore
+        Object store to read from
+    key : str
+        Object key (bucket-relative path)
+    byte_offset : int, optional
+        Start byte, by default 0
+    byte_length : int | None, optional
+        Number of bytes to read, by default None (read to end)
+
+    Returns
+    -------
+    bytes
+        The requested bytes
+
+    Raises
+    ------
+    FileNotFoundError
+        If the object does not exist. obstore's ``NotFoundError`` subclasses
+        plain ``Exception``, so it is translated here to keep callers'
+        existing ``except FileNotFoundError`` handling working.
+    """
+    try:
+        if byte_length is not None:
+            data = await obs.get_range_async(
+                store, key, start=byte_offset, length=byte_length
+            )
+        elif byte_offset == 0:
+            resp = await obs.get_async(store, key)
+            data = await resp.bytes_async()
+        else:
+            meta = await obs.head_async(store, key)
+            data = await obs.get_range_async(
+                store, key, start=byte_offset, end=int(meta["size"])
+            )
+    except (FileNotFoundError, obs.exceptions.NotFoundError):
+        raise FileNotFoundError(f"Object {key} not found in store")
+    return bytes(data)
+
+
+async def obstore_fetch_to_cache(
+    store: obstore.store.ObjectStore,
+    key: str,
+    cache_dir: str,
+    byte_offset: int = 0,
+    byte_length: int | None = None,
+    cache_key: str | None = None,
+) -> str:
+    """Fetches a byte range of an object into a local cache file.
+
+    Skips the fetch entirely when the cache file already exists. The cache
+    file name defaults to ``sha256(key + str(byte_offset))``; callers
+    migrating from fsspec-based fetching should pass an explicit ``cache_key``
+    hashed from their historical (e.g. bucket-prefixed) path so existing warm
+    caches remain valid.
+
+    Parameters
+    ----------
+    store : obstore.store.ObjectStore
+        Object store to read from
+    key : str
+        Object key (bucket-relative path)
+    cache_dir : str
+        Directory to place the cache file in
+    byte_offset : int, optional
+        Start byte, by default 0
+    byte_length : int | None, optional
+        Number of bytes to read, by default None (read to end)
+    cache_key : str | None, optional
+        Explicit cache file name, by default None (sha256 of key + offset)
+
+    Returns
+    -------
+    str
+        Path to the local cache file
+    """
+    if cache_key is None:
+        cache_key = sha256((key + str(byte_offset)).encode()).hexdigest()
+    cache_path = os.path.join(cache_dir, cache_key)
+    if Path(cache_path).is_file():
+        return cache_path
+    data = await obstore_read_range(
+        store, key, byte_offset=byte_offset, byte_length=byte_length
+    )
+    await asyncio.to_thread(Path(cache_path).write_bytes, data)
+    return cache_path
 
 
 class LocalCachingStore(zarr.storage.WrapperStore):
