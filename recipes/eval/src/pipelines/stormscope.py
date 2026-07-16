@@ -632,9 +632,9 @@ class StormScopePipeline(Pipeline):
         input window plus every forecast valid time — so it doubles as GLM
         verification for scoring ``glm_density``.
 
-        Returns ``None`` when the campaign config provides neither a
-        ``glm_data_source`` (under ``load_args``) nor a ``glm_grid`` resolver;
-        without those the GLM channel can't be sourced or regridded.
+        Returns ``None`` when the campaign config is missing either
+        ``glm_data_source`` (under ``load_args``) or a ``glm_grid`` resolver;
+        both are required to source and regrid the GLM channel.
         """
         glm_vars = [str(v) for v in getattr(model, "glm_variables", [])]
         if not glm_vars:
