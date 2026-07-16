@@ -17,13 +17,9 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
 import os
 import random
 import tempfile
-import time
-import typing
-import weakref
 from collections import OrderedDict
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -31,22 +27,22 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
 from pathlib import Path
-from shutil import rmtree
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar
+from typing import Any, ClassVar, Literal, TypeVar
 
 import fsspec.asyn
 import numpy as np
+import obstore as obs
+import obstore.store
 import pandas as pd
 import torch
 import xarray as xr
-from fsspec import filesystem
-from fsspec.asyn import AsyncFileSystem
-from fsspec.callbacks import DEFAULT_CALLBACK
-from fsspec.implementations.cache_mapper import create_cache_mapper
-from fsspec.implementations.cache_metadata import CacheMetadata
-from fsspec.utils import isfilelike
+import zarr
+import zarr.abc.store
+import zarr.storage
 from loguru import logger
 from tqdm.asyncio import tqdm
+from zarr.abc.store import ByteRequest
+from zarr.core.buffer import Buffer, BufferPrototype
 
 from earth2studio.data.base import (
     DataFrameSource,
@@ -67,9 +63,6 @@ from earth2studio.utils.type import (
     TimeArray,
     VariableArray,
 )
-
-if TYPE_CHECKING:
-    from fsspec.implementations.cache_mapper import AbstractCacheMapper
 
 try:
     import cupy as cp
@@ -778,456 +771,318 @@ async def cancellable_to_thread(
         raise
 
 
-def get_msc_filesystem() -> filesystem | None:
-    """This helper function checks if Multi-Storage Client is available and sets up
-    the MSC configuration if needed.
+def obstore_store_from_url(
+    url: str,
+    anonymous: bool = True,
+    max_pool_connections: int = 24,
+    **store_kwargs: Any,
+) -> obstore.store.ObjectStore:
+    """Creates an obstore ObjectStore from a URL for byte-range object reads.
 
-    Note
-    ----
-    Can force MSC to not be used with the environment variable EARTH2STUDIO_DISABLE_MSC
+    Serves as the shared store factory for GRIB `.idx` + byte-range data
+    sources. Supports ``s3://`` (anonymous access injects
+    ``skip_signature=True`` and a ``us-east-1`` region default), ``gs://``
+    (anonymous access injects ``skip_signature=True``) and ``http(s)://``
+    URLs via :func:`obstore.store.from_url`.
+
+    Parameters
+    ----------
+    url : str
+        Store URL, e.g. ``s3://noaa-gfs-bdp-pds``
+    anonymous : bool, optional
+        Use unsigned/anonymous requests for s3/gs stores, by default True
+    max_pool_connections : int, optional
+        Maximum idle connections kept per host, should match the fetch
+        concurrency of the caller, by default 24
+    **store_kwargs : Any
+        Additional store configuration forwarded to
+        :func:`obstore.store.from_url`, overriding the defaults above
 
     Returns
     -------
-    filesystem | None
-        Returns multi-storage file system if installed, None otherwise
+    obstore.store.ObjectStore
+        Configured object store
     """
-    if str(os.getenv("EARTH2STUDIO_DISABLE_MSC", "")).strip().lower() in ("1", "true"):
-        return None
+    kwargs: dict[str, Any] = {
+        "client_options": {"pool_max_idle_per_host": str(max_pool_connections)},
+    }
+    if anonymous and url.startswith(("s3://", "gs://")):
+        kwargs["skip_signature"] = True
+    if url.startswith("s3://"):
+        kwargs["region"] = "us-east-1"
+    kwargs.update(store_kwargs)
+    return obstore.store.from_url(url, **kwargs)
 
+
+async def obstore_read_range(
+    store: obstore.store.ObjectStore,
+    key: str,
+    byte_offset: int = 0,
+    byte_length: int | None = None,
+) -> bytes:
+    """Reads a byte range (or the remainder / whole) of an object via obstore.
+
+    Behavior by argument combination:
+
+    - ``byte_length`` set: ranged read of exactly ``byte_length`` bytes
+      starting at ``byte_offset``
+    - ``byte_length`` is None and ``byte_offset`` is 0: whole-object read
+      (e.g. GRIB ``.idx`` files)
+    - ``byte_length`` is None and ``byte_offset`` > 0: read from offset to the
+      end of the object (size resolved with a head request)
+
+    Parameters
+    ----------
+    store : obstore.store.ObjectStore
+        Object store to read from
+    key : str
+        Object key (bucket-relative path)
+    byte_offset : int, optional
+        Start byte, by default 0
+    byte_length : int | None, optional
+        Number of bytes to read, by default None (read to end)
+
+    Returns
+    -------
+    bytes
+        The requested bytes
+
+    Raises
+    ------
+    FileNotFoundError
+        If the object does not exist. obstore's ``NotFoundError`` subclasses
+        plain ``Exception``, so it is translated here to keep callers'
+        existing ``except FileNotFoundError`` handling working.
+    """
     try:
-        from multistorageclient.contrib.async_fs import MultiStorageAsyncFileSystem
+        if byte_length is not None:
+            data = await obs.get_range_async(
+                store, key, start=byte_offset, length=byte_length
+            )
+        elif byte_offset == 0:
+            resp = await obs.get_async(store, key)
+            data = await resp.bytes_async()
+        else:
+            meta = await obs.head_async(store, key)
+            data = await obs.get_range_async(
+                store, key, start=byte_offset, end=int(meta["size"])
+            )
+    except (FileNotFoundError, obs.exceptions.NotFoundError):
+        raise FileNotFoundError(f"Object {key} not found in store")
+    return bytes(data)
 
-        config_path = Path(__file__).parent / "msc_config.yaml"
-        os.environ["MSC_CONFIG"] = str(config_path)
-        return MultiStorageAsyncFileSystem
-    except ImportError:
-        return None
+
+async def obstore_fetch_to_cache(
+    store: obstore.store.ObjectStore,
+    key: str,
+    cache_dir: str,
+    byte_offset: int = 0,
+    byte_length: int | None = None,
+    cache_key: str | None = None,
+) -> str:
+    """Fetches a byte range of an object into a local cache file.
+
+    Skips the fetch entirely when the cache file already exists. The cache
+    file name defaults to ``sha256(key + str(byte_offset))``; callers
+    migrating from fsspec-based fetching should pass an explicit ``cache_key``
+    hashed from their historical (e.g. bucket-prefixed) path so existing warm
+    caches remain valid.
+
+    Parameters
+    ----------
+    store : obstore.store.ObjectStore
+        Object store to read from
+    key : str
+        Object key (bucket-relative path)
+    cache_dir : str
+        Directory to place the cache file in
+    byte_offset : int, optional
+        Start byte, by default 0
+    byte_length : int | None, optional
+        Number of bytes to read, by default None (read to end)
+    cache_key : str | None, optional
+        Explicit cache file name, by default None (sha256 of key + offset)
+
+    Returns
+    -------
+    str
+        Path to the local cache file
+    """
+    if cache_key is None:
+        cache_key = sha256((key + str(byte_offset)).encode()).hexdigest()
+    cache_path = os.path.join(cache_dir, cache_key)
+    if Path(cache_path).is_file():
+        return cache_path
+    data = await obstore_read_range(
+        store, key, byte_offset=byte_offset, byte_length=byte_length
+    )
+    await asyncio.to_thread(Path(cache_path).write_bytes, data)
+    return cache_path
+
+
+class LocalCachingStore(zarr.storage.WrapperStore):
+    """Wraps a read-only zarr store with a local on-disk cache backed by a zarr
+    LocalStore, intended for append-only immutable archive stores.
+
+    Chunk data is cached indefinitely: existing chunks never change and newly
+    appended data arrives under new keys (a cache miss). Metadata objects
+    (``zarr.json`` / ``.zarray`` / ``.zgroup`` / ``.zattrs`` / ``.zmetadata``)
+    encode the growing shape and attrs, so they are always refetched to keep a
+    warm/persisted cache from going blind to newly appended data. Ranged reads
+    (e.g. sharded stores) bypass the cache entirely — caching is a no-op for
+    sharded stores.
+
+    Concurrent reads of the same uncached key are de-duplicated with a per-key
+    lock (double-checked against the cache), so a chunk is fetched and written
+    at most once even under Zarr's concurrent chunk fan-out. Locks are shared
+    process-wide and keyed by (cache directory, key), so separate store
+    instances caching to the same directory de-duplicate against each other.
+
+    Parameters
+    ----------
+    store : zarr.abc.store.Store
+        Remote store to cache reads from
+    cache_storage : str
+        Local directory to store cached objects in. Must be unique per remote
+        store, cached objects are keyed by their in-store path only.
+    """
+
+    # Metadata keys mutate as archives append (shape/attrs), so are never
+    # cached. Covers both Zarr v3 (zarr.json) and v2 (.z*, incl. consolidated
+    # .zmetadata) — ARCO/WB2 are v2 despite the "-v3" store name.
+    _METADATA_SUFFIXES = ("zarr.json", ".zmetadata", ".zarray", ".zgroup", ".zattrs")
+
+    # Class-level so every instance caching to the same directory shares the
+    # same per-key locks. Held only across a cache miss, so distinct chunks
+    # still fetch concurrently. Keyed by "{cache directory}::{key}".
+    _fetch_locks: ClassVar[dict[str, asyncio.Lock]] = {}
+
+    def __init__(self, store: zarr.abc.store.Store, cache_storage: str) -> None:
+        super().__init__(store)
+        self._cache_path = cache_storage
+        self._cache = zarr.storage.LocalStore(cache_storage)
+
+    async def get(
+        self,
+        key: str,
+        prototype: BufferPrototype,
+        byte_range: ByteRequest | None = None,
+    ) -> Buffer | None:
+        # Ranged reads (e.g. sharded stores) are not cached.
+        if byte_range is not None:
+            return await self._store.get(key, prototype, byte_range)
+
+        # Metadata mutates as the archive appends; always refetch it so a warm
+        # cache does not miss newly available data.
+        if key.endswith(self._METADATA_SUFFIXES):
+            return await self._store.get(key, prototype)
+
+        # Fast path: cache hit needs no lock.
+        cached = await self._cache.get(key, prototype)
+        if cached is not None:
+            return cached
+
+        # Slow path: serialise concurrent fetchers of this same key. setdefault
+        # is atomic here: asyncio runs single-threaded and there is no await
+        # between lookup and insert.
+        lock_key = f"{self._cache_path}::{key}"
+        lock = self._fetch_locks.setdefault(lock_key, asyncio.Lock())
+        async with lock:
+            try:
+                # Re-check under the lock: a prior holder may have filled the cache.
+                cached = await self._cache.get(key, prototype)
+                if cached is not None:
+                    return cached
+                value = await self._store.get(key, prototype)
+                if value is not None:
+                    # The cache is best-effort: a write failure (disk full,
+                    # permissions, ...) must not fail a read that already
+                    # succeeded against the remote store.
+                    try:
+                        await self._cache.set(key, value)
+                    except Exception as e:
+                        logger.warning(f"Failed to write {key} to local cache: {e}")
+                return value
+            finally:
+                # Drop the entry while the lock is still held so the dict does
+                # not grow with every key ever missed — and so no task can ever
+                # remove a lock that belongs to someone else. Waiters already
+                # holding a reference acquire the stale lock, re-check the
+                # cache, and hit it.
+                self._fetch_locks.pop(lock_key, None)
+
+
+def obstore_zarr_store(
+    url: str,
+    cache_storage: str | None = None,
+    credential_provider: Any | None = None,
+    auth_token: str | None = None,
+    store_kwargs: dict[str, Any] | None = None,
+) -> zarr.abc.store.Store:
+    """Creates a read-only zarr store backed by obstore from a store URL.
+
+    Serves as the single integration point for obstore-backed zarr reads, use
+    this over hand-rolled fsspec stores for cloud Zarr data sources.
+
+    Parameters
+    ----------
+    url : str
+        Store URL, e.g. "gs://bucket/path/to/store.zarr". Scheme dispatch
+        (s3://, gs://, az://, file://, ...) is handled by
+        :func:`obstore.store.from_url`.
+    cache_storage : str | None, optional
+        Local cache directory. If provided, whole-object reads are cached to
+        a URL-specific sub-directory via :class:`LocalCachingStore`, by
+        default None (no caching)
+    credential_provider : Any | None, optional
+        An obstore credential provider for authenticated access. Takes
+        precedence over ``auth_token``, by default None
+    auth_token : str | None, optional
+        Bearer token sent as an ``Authorization`` header for authenticated
+        access, by default None
+    store_kwargs : dict[str, Any] | None, optional
+        Additional configuration forwarded to :func:`obstore.store.from_url`,
+        e.g. ``{"skip_signature": True}`` for anonymous access to public
+        buckets, by default None
+
+    Returns
+    -------
+    zarr.abc.store.Store
+        Read-only zarr store
+    """
+    import obstore.store
+
+    if store_kwargs is None:
+        store_kwargs = {}
+
+    # Store construction mirrors titiler-cmr: prefer a credential provider,
+    # fall back to a bearer token, else anonymous / config-driven access.
+    if credential_provider is not None:
+        store = obstore.store.from_url(
+            url, credential_provider=credential_provider, **store_kwargs
+        )
+    elif auth_token:
+        client_options = {"default_headers": {"Authorization": f"Bearer {auth_token}"}}
+        store = obstore.store.from_url(
+            url, client_options=client_options, **store_kwargs
+        )
+    else:
+        store = obstore.store.from_url(url, **store_kwargs)
+
+    zstore: zarr.abc.store.Store = zarr.storage.ObjectStore(store, read_only=True)
+    if cache_storage is not None:
+        # URL-derived sub-directory to avoid key collisions between stores
+        # sharing a cache root
+        cache_storage = os.path.join(
+            cache_storage, sha256(url.encode()).hexdigest()[:16]
+        )
+        zstore = LocalCachingStore(zstore, cache_storage)
+    return zstore
 
 
 T = TypeVar("T")
 
 
-@typing.no_type_check
-class AsyncCachingFileSystem(AsyncFileSystem):
-    """Async locally caching filesystem, layer over any other FS for use with zarr 3.0.
-    Presently extremely limited, much is just copied from the WholeFileCache
-
-    Parameters
-    ----------
-    target_protocol: str (optional)
-        Target filesystem protocol. Provide either this or ``fs``.
-    cache_storage: str or list(str)
-        Location to store files. If "TMP", this is a temporary directory,
-        and will be cleaned up by the OS when this process ends (or later).
-        If a list, each location will be tried in the order given, but
-        only the last will be considered writable.
-    cache_check: int
-        Number of seconds between reload of cache metadata
-    check_files: bool
-        Whether to explicitly see if the UID of the remote file matches
-        the stored one before using. Warning: some file systems such as
-        HTTP cannot reliably give a unique hash of the contents of some
-        path, so be sure to set this option to False.
-    expiry_time: int
-        The time in seconds after which a local copy is considered useless.
-        Set to falsy to prevent expiry. The default is equivalent to one
-        week.
-    target_options: dict or None
-        Passed to the instantiation of the FS, if fs is None.
-    fs: filesystem instance
-        The target filesystem to run against. Provide this or ``protocol``.
-    same_names: bool (optional)
-        By default, target URLs are hashed using a ``HashCacheMapper`` so
-        that files from different backends with the same basename do not
-        conflict. If this argument is ``true``, a ``BasenameCacheMapper``
-        is used instead. Other cache mapper options are available by using
-        the ``cache_mapper`` keyword argument. Only one of this and
-        ``cache_mapper`` should be specified.
-    compression: str (optional)
-        To decompress on download. Can be 'infer' (guess from the URL name),
-        one of the entries in ``fsspec.compression.compr``, or None for no
-        decompression.
-    cache_mapper: AbstractCacheMapper (optional)
-        The object use to map from original filenames to cached filenames.
-        Only one of this and ``same_names`` should be specified.
-    """
-
-    protocol: ClassVar[str | tuple[str, ...]] = ("blockcache", "cached")
-
-    @typing.no_type_check
-    def __init__(
-        self,
-        target_protocol=None,
-        cache_storage="TMP",
-        cache_check=10,
-        check_files=False,
-        expiry_time=604800,
-        target_options=None,
-        fs=None,
-        same_names: bool | None = None,
-        compression=None,
-        cache_mapper: AbstractCacheMapper | None = None,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        if fs is None and target_protocol is None:
-            raise ValueError(
-                "Please provide filesystem instance(fs) or target_protocol"
-            )
-        if not (fs is None) ^ (target_protocol is None):
-            raise ValueError(
-                "Both filesystems (fs) and target_protocol may not be both given."
-            )
-        if cache_storage == "TMP":
-            tempdir = tempfile.mkdtemp()
-            storage = [tempdir]
-            weakref.finalize(self, self._remove_tempdir, tempdir)
-        else:
-            if isinstance(cache_storage, str):
-                storage = [cache_storage]
-            else:
-                storage = cache_storage
-        os.makedirs(storage[-1], exist_ok=True)
-        self.storage = storage
-        self.kwargs = target_options or {}
-        self.cache_check = cache_check
-        self.check_files = check_files
-        self.expiry = expiry_time
-        self.compression = compression
-
-        # Size of cache in bytes. If None then the size is unknown and will be
-        # recalculated the next time cache_size() is called. On writes to the
-        # cache this is reset to None.
-        self._cache_size = None
-
-        if same_names is not None and cache_mapper is not None:
-            raise ValueError(
-                "Cannot specify both same_names and cache_mapper in "
-                "CachingFileSystem.__init__"
-            )
-        if cache_mapper is not None:
-            self._mapper = cache_mapper
-        else:
-            self._mapper = create_cache_mapper(
-                same_names if same_names is not None else False
-            )
-
-        self.target_protocol = (
-            target_protocol
-            if isinstance(target_protocol, str)
-            else (fs.protocol if isinstance(fs.protocol, str) else fs.protocol[0])
-        )
-        self._metadata = CacheMetadata(self.storage)
-        self.load_cache()
-        self.fs = fs if fs is not None else filesystem(target_protocol, **self.kwargs)
-        # per-path/chunk locks so that one download per chunk happen...
-        self._fetch_locks: dict[str, asyncio.Lock] = {}
-        if not self.fs.async_impl:
-            raise ValueError("Underlying filesystem needs to be async")
-
-        def _strip_protocol(path):
-            # acts as a method, since each instance has a difference target
-            return self.fs._strip_protocol(type(self)._strip_protocol(path))
-
-        self._strip_protocol: Callable = _strip_protocol
-
-    @typing.no_type_check
-    @staticmethod
-    def _remove_tempdir(tempdir):
-        try:
-            rmtree(tempdir)
-        except Exception:  # noqa: S110
-            pass
-
-    @typing.no_type_check
-    def _mkcache(self):
-        os.makedirs(self.storage[-1], exist_ok=True)
-
-    @typing.no_type_check
-    def cache_size(self):
-        """Return size of cache in bytes.
-
-        If more than one cache directory is in use, only the size of the last
-        one (the writable cache directory) is returned.
-        """
-        if self._cache_size is None:
-            cache_dir = self.storage[-1]
-            self._cache_size = filesystem("file").du(cache_dir, withdirs=True)
-        return self._cache_size
-
-    @typing.no_type_check
-    def load_cache(self):
-        """Read set of stored blocks from file"""
-        self._metadata.load()
-        self._mkcache()
-        self.last_cache = time.time()
-
-    @typing.no_type_check
-    def save_cache(self):
-        """Save set of stored blocks from file"""
-        self._mkcache()
-        self._metadata.save()
-        self.last_cache = time.time()
-        self._cache_size = None
-
-    @typing.no_type_check
-    def _check_cache(self):
-        """Reload caches if time elapsed or any disappeared"""
-        self._mkcache()
-        if not self.cache_check:
-            # explicitly told not to bother checking
-            return
-        timecond = time.time() - self.last_cache > self.cache_check
-        existcond = all(os.path.exists(storage) for storage in self.storage)
-        if timecond or not existcond:
-            self.load_cache()
-
-    @typing.no_type_check
-    def _check_file(self, path):
-        """Is path in cache and still valid"""
-        path = self._strip_protocol(path)
-        self._check_cache()
-        return self._metadata.check_file(path, self)
-
-    @typing.no_type_check
-    def clear_cache(self):
-        """Remove all files and metadata from the cache
-
-        In the case of multiple cache locations, this clears only the last one,
-        which is assumed to be the read/write one.
-        """
-        rmtree(self.storage[-1])
-        self.load_cache()
-        self._cache_size = None
-
-    @typing.no_type_check
-    def clear_expired_cache(self, expiry_time=None):
-        """Remove all expired files and metadata from the cache
-
-        In the case of multiple cache locations, this clears only the last one,
-        which is assumed to be the read/write one.
-
-        Parameters
-        ----------
-        expiry_time: int
-            The time in seconds after which a local copy is considered useless.
-            If not defined the default is equivalent to the attribute from the
-            file caching instantiation.
-        """
-
-        if not expiry_time:
-            expiry_time = self.expiry
-
-        self._check_cache()
-
-        expired_files, writable_cache_empty = self._metadata.clear_expired(expiry_time)
-        for fn in expired_files:
-            if os.path.exists(fn):
-                os.remove(fn)
-
-        if writable_cache_empty:
-            rmtree(self.storage[-1])
-            self.load_cache()
-
-        self._cache_size = None
-
-    @typing.no_type_check
-    def pop_from_cache(self, path):
-        """Remove cached version of given file
-
-        Deletes local copy of the given (remote) path. If it is found in a cache
-        location which is not the last, it is assumed to be read-only, and
-        raises PermissionError
-        """
-        path = self._strip_protocol(path)
-        fn = self._metadata.pop_file(path)
-        if fn is not None:
-            os.remove(fn)
-        self._cache_size = None
-
-    @typing.no_type_check
-    def _parent(self, path):
-        return self.fs._parent(path)
-
-    @typing.no_type_check
-    async def _ukey(self, path):
-        """Hash of file properties, to tell if it has changed"""
-        return sha256(str(await self.fs._info(path)).encode()).hexdigest()
-
-    @typing.no_type_check
-    async def _make_local_details(self, path):
-        """Create file detail dictionary for given file path"""
-        hash = self._mapper(path)
-        fn = os.path.join(self.storage[-1], hash)
-        detail = {
-            "original": path,
-            "fn": hash,
-            "blocks": True,
-            "time": time.time(),
-            "uid": await self._ukey(path),
-        }
-        self._metadata.update_file(path, detail)
-        logger.debug(f"Copying {path} to local cache")
-        return fn
-
-    @typing.no_type_check
-    async def _cat_file(
-        self,
-        path,
-        start=None,
-        end=None,
-        on_error="raise",
-        callback=DEFAULT_CALLBACK,
-        **kwargs,
-    ):
-        """Cat file, this is what is used inside Zarr 3.0 at the moment"""
-        path_chunked = path
-        if start:
-            path_chunked += f"_{start}"
-        if end:
-            path_chunked += f"_{end}"
-
-        if path_chunked not in self._fetch_locks:
-            self._fetch_locks[path_chunked] = asyncio.Lock()
-
-        getpath = None
-        async with self._fetch_locks[path_chunked]:
-            try:
-                # Check if file is in cache
-                # This doesnt do anything fancy for chunked data, different chunk ranges
-                # are stored in different files even if there is over lap
-                detail = self._check_file(path_chunked)
-                if not detail:
-                    storepath = await self._make_local_details(path_chunked)
-                    getpath = path
-                else:
-                    detail, storepath = (
-                        detail if isinstance(detail, tuple) else (None, detail)
-                    )
-            except Exception as e:
-                if on_error == "raise":
-                    raise
-                if on_error == "return":
-                    out = e
-
-            # If file was not in cache, get it using the base file system
-            if getpath:
-                resp = await self.fs._cat_file(getpath, start=start, end=end)
-                # Save to file
-                if isfilelike(storepath):
-                    outfile = storepath
-                else:
-                    outfile = open(storepath, "wb")  # noqa: ASYNC101, ASYNC230
-                try:
-                    outfile.write(resp)
-                    # IDK yet
-                    # callback.relative_update(len(chunk))
-                finally:
-                    if not isfilelike(storepath):
-                        outfile.close()
-                self.save_cache()
-
-        # Call back is weird here, like the progress should be on the file fetch
-        # but then how do we deal with the read? Maybe we times it by 2x?
-        if start is None:
-            start = 0
-
-        callback.set_size(1)
-        with open(storepath, "rb") as f:
-            f.seek(start)
-            if end is not None:
-                out = f.read(end - start)
-            else:
-                out = f.read()
-        callback.relative_update(1)
-        return out
-
-    @typing.no_type_check
-    def __getattribute__(self, item):
-        # TODO: Update
-        if item in {
-            "load_cache",
-            # "_open",
-            "save_cache",
-            # "close_and_update",
-            "__init__",
-            "__getattribute__",
-            "__reduce__",
-            "_make_local_details",
-            "_ukey",
-            "open",
-            "cat",
-            "_cat_file",
-            "cat_ranges",
-            "get",
-            "read_block",
-            "tail",
-            "head",
-            # "info",
-            # "ls",
-            "exists",
-            "isfile",
-            "isdir",
-            "_check_file",
-            "_check_cache",
-            "_mkcache",
-            "clear_cache",
-            "clear_expired_cache",
-            "pop_from_cache",
-            "local_file",
-            "_paths_from_path",
-            "get_mapper",
-            "open_many",
-            "commit_many",
-            "hash_name",
-            "__hash__",
-            "__eq__",
-            "to_json",
-            "to_dict",
-            "cache_size",
-            "pipe_file",
-            "pipe",
-            "start_transaction",
-            "end_transaction",
-        }:
-            # all the methods defined in this class. Note `open` here, since
-            # it calls `_open`, but is actually in superclass
-            return lambda *args, **kw: getattr(type(self), item).__get__(self)(
-                *args, **kw
-            )
-        if item in ["__reduce_ex__"]:
-            raise AttributeError
-        if item in ["transaction"]:
-            # property
-            return type(self).transaction.__get__(self)
-        if item in ["_cache", "transaction_type"]:
-            # class attributes
-            return getattr(type(self), item)
-        if item == "__class__":
-            return type(self)
-        d = object.__getattribute__(self, "__dict__")
-        fs = d.get("fs", None)  # fs is not immediately defined
-        if item in d:
-            return d[item]
-        elif fs is not None:
-            if item in fs.__dict__:
-                # attribute of instance
-                return fs.__dict__[item]
-            # attributed belonging to the target filesystem
-            cls = type(fs)
-            m = getattr(cls, item)
-            if (inspect.isfunction(m) or inspect.isdatadescriptor(m)) and (
-                not hasattr(m, "__self__") or m.__self__ is None
-            ):
-                # instance method
-                return m.__get__(fs, cls)
-            return m  # class method or attribute
-        else:
-            # attributes of the superclass, while target is being set up
-            return super().__getattribute__(item)
-
-
-# -----------------------------------------------------------------------------
 # Physical constants for radiance-to-brightness-temperature conversion
 # -----------------------------------------------------------------------------
 # First radiation constant C1 = 2hc² in mW/(m²·sr·cm⁻⁴)
