@@ -36,7 +36,6 @@ import pandas as pd
 import s3fs  # type: ignore[import-untyped]
 from loguru import logger
 
-from earth2studio.data.ncep_obs import _NCEPObsSourceBase
 from earth2studio.data.utils import (
     async_retry,
     datasource_cache_root,
@@ -46,6 +45,7 @@ from earth2studio.data.utils import (
 from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
 from earth2studio.data.utils_ncep import (
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
+    NCEPObsRequestMixin,
     _NCEPGpsroAdapter,
     _NCEPPrepbufrAdapter,
     map_aircraft_profile_types,
@@ -86,29 +86,33 @@ class _NNJAGpsRoTask:
     )
 
 
-class _NNJAObsStore:
-    """Fetch and cache raw NNJA observation objects from anonymous S3.
+class NNJAObsArchiveMixin:
+    """NNJA archive access shared across NNJA observation products.
 
-    Downloads use a lazily initialized asynchronous S3 session with bounded
-    concurrency and retries. Each URI maps to a deterministic cache path;
-    nonpersistent caches are removed after a source request. The caller
-    supplies the missing-object policy because different NNJA products may
-    either tolerate or reject an absent cycle file.
+    Supplies anonymous-S3 transport with bounded concurrency and retries,
+    deterministic raw-file caching, temporary-cache cleanup, six-hour cycle
+    validation, and availability. Compose with :class:`NCEPObsRequestMixin`.
+    The concrete source supplies ``MIN_DATE`` and the missing-file policy.
     """
 
-    def __init__(
+    MIN_DATE: datetime
+    _verbose: bool  # set by NCEPObsRequestMixin._init_request
+
+    def _handle_missing_file(self, path: str) -> None:
+        """Policy for an absent cycle file; provided by the concrete source."""
+        raise NotImplementedError
+
+    def _init_transport(
         self,
+        *,
         cache: bool,
-        verbose: bool,
         async_workers: int,
         retries: int,
-        handle_missing_file: Callable[[str], None],
     ) -> None:
+        """Initialize NNJA transport state; call from the concrete constructor."""
         self._cache = cache
-        self._verbose = verbose
         self._async_workers = async_workers
         self._retries = retries
-        self._handle_missing_file = handle_missing_file
         self._tmp_cache_hash: str | None = None
         self.fs: s3fs.S3FileSystem | None = None
 
@@ -164,7 +168,7 @@ class _NNJAObsStore:
 
     @property
     def cache(self) -> str:
-        """Local cache directory for NNJA observation files."""
+        """Local cache directory for this data source."""
         cache_location = os.path.join(datasource_cache_root(), "nnja")
         if not self._cache:
             if self._tmp_cache_hash is None:
@@ -178,43 +182,6 @@ class _NNJAObsStore:
         """Remove temporary files when persistent caching is disabled."""
         if not self._cache:
             shutil.rmtree(self.cache, ignore_errors=True)
-
-
-class _NNJAObsSourceBase(_NCEPObsSourceBase):
-    """Share NNJA archive access across observation products.
-
-    This layer supplies NNJA's anonymous S3 store, six-hour cycle validation,
-    availability check, and cache access. Concrete sources retain ownership of
-    archive paths, product start dates, missing-file policy, and decoding.
-    """
-
-    MIN_DATE: datetime
-    _store: _NNJAObsStore
-
-    def __init__(
-        self,
-        *,
-        time_tolerance: TimeTolerance,
-        cache: bool,
-        verbose: bool,
-        async_timeout: int,
-        async_workers: int,
-        decode_workers: int,
-        retries: int,
-    ) -> None:
-        super().__init__(
-            store=_NNJAObsStore(
-                cache=cache,
-                verbose=verbose,
-                async_workers=async_workers,
-                retries=retries,
-                handle_missing_file=self._handle_missing_file,
-            ),
-            time_tolerance=time_tolerance,
-            verbose=verbose,
-            async_timeout=async_timeout,
-            decode_workers=decode_workers,
-        )
 
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
@@ -258,23 +225,9 @@ class _NNJAObsSourceBase(_NCEPObsSourceBase):
             return False
         return True
 
-    @property
-    def cache(self) -> str:
-        """Local cache directory for this data source."""
-        return self._store.cache
-
-    def _cache_path(self, s3_uri: str) -> str:
-        """Deterministic cache path for an S3 URI."""
-        return self._store.local_path(s3_uri)
-
-    def _handle_missing_file(self, path: str) -> None:
-        """Reject a missing cycle file. Override for warn-only behavior."""
-        logger.error(f"File {path} not found")
-        raise FileNotFoundError(f"File {path} not found")
-
 
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
-class NNJAObsConv(_NNJAObsSourceBase):
+class NNJAObsConv(NNJAObsArchiveMixin, NCEPObsRequestMixin):
     """NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint
     Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for
     developing observation-driven weather forecasting tools, as it includes a wide
@@ -384,20 +337,21 @@ class NNJAObsConv(_NNJAObsSourceBase):
         # output maps profile-stage 33x/43x/53x report codes to the standard
         # GSI/PREPBUFR aircraft 23x codes in ``type``
         self._map_acft_profile_report_types = True
-        super().__init__(
+        self._init_request(
             time_tolerance=time_tolerance,
-            cache=cache,
             verbose=verbose,
             async_timeout=async_timeout,
-            async_workers=async_workers,
             decode_workers=decode_workers,
+        )
+        self._init_transport(
+            cache=cache,
+            async_workers=async_workers,
             retries=retries,
         )
         self._prepbufr_adapter = _NCEPPrepbufrAdapter(self._decode_workers)
         self._gpsro_adapter = _NCEPGpsroAdapter(self._decode_workers)
 
-    @staticmethod
-    def _task_uri(task: _NNJAConvTask | _NNJAGpsRoTask) -> str:
+    def _task_uri(self, task: _NNJAConvTask | _NNJAGpsRoTask) -> str:
         return task.s3_uri
 
     # ------------------------------------------------------------------
@@ -438,7 +392,7 @@ class NNJAObsConv(_NNJAObsSourceBase):
 
         # Build one task per unique cycle file; when multiple requested
         # times map to the same cycle the task's window is the union of
-        # those time windows (see ``_NCEPObsSourceBase._cycle_windows``).
+        # those time windows (see ``NCEPObsRequestMixin._cycle_windows``).
         windows = self._cycle_windows(time_list) if prepbufr_plan or gpsro_plan else {}
         tasks: list = []
         for cycle_dt, (tmin, tmax) in windows.items():

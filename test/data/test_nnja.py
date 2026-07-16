@@ -76,7 +76,7 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
         }
     )
 
-    with patch("earth2studio.data.ncep_obs._sync_async") as mock_sync:
+    with patch("earth2studio.data.utils_ncep._sync_async") as mock_sync:
         mock_sync.return_value = mock_df
 
         ds = NNJAObsConv(time_tolerance=timedelta(0), cache=cache, verbose=False)
@@ -235,7 +235,7 @@ def test_nnja_obs_conv_mock_fetch():
         ds = NNJAObsConv(time_tolerance=timedelta(0), cache=False, verbose=False)
 
         # Patch _sync_async to call the mock directly
-        with patch("earth2studio.data.ncep_obs._sync_async") as mock_sync:
+        with patch("earth2studio.data.utils_ncep._sync_async") as mock_sync:
             mock_sync.return_value = mock_df
             df = ds(datetime(2024, 1, 1, 0), ["t"])
 
@@ -246,29 +246,15 @@ def test_nnja_obs_conv_mock_fetch():
 
 
 def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
-    """Exercise the three-operation store seam through __call__.
+    """Exercise the composed request/transport seam through __call__.
 
-    Verifies the shared lifecycle drives ``fetch_files`` and ``local_path`` and
-    delegates teardown to ``cleanup`` in the ``__call__`` finally, including
-    when the request fails mid-flight.
+    Verifies the request mixin drives the transport ``fetch_files`` and
+    ``local_path`` and delegates teardown to ``cleanup`` in the ``__call__``
+    finally, including when the request fails mid-flight.
     """
 
     cached_file = tmp_path / "cached.bufr"
     cached_file.write_bytes(b"fixture")
-
-    class FakeStore:
-        def __init__(self):
-            self.fetched: list[str] = []
-            self.cleanup_calls = 0
-
-        async def fetch_files(self, uris):
-            self.fetched = list(uris)
-
-        def local_path(self, uri):
-            return str(cached_file)
-
-        def cleanup(self):
-            self.cleanup_calls += 1
 
     frame = pd.DataFrame(
         {
@@ -278,8 +264,19 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
         }
     )
     source = NNJAObsConv(cache=True, verbose=False)
-    store = FakeStore()
-    source._store = store
+
+    fetched: list[str] = []
+    cleanup_calls = {"n": 0}
+
+    async def fake_fetch_files(uris):
+        fetched.extend(uris)
+
+    def fake_cleanup():
+        cleanup_calls["n"] += 1
+
+    monkeypatch.setattr(source, "fetch_files", fake_fetch_files)
+    monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
+    monkeypatch.setattr(source, "cleanup", fake_cleanup)
     monkeypatch.setattr(source, "_decode_file", lambda path, task: frame)
 
     result = source(
@@ -288,23 +285,23 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
         fields=["time", "observation", "variable"],
     )
 
-    assert store.fetched == [source._build_prepbufr_uri(datetime(2024, 1, 1))]
+    assert fetched == [source._build_prepbufr_uri(datetime(2024, 1, 1))]
     assert result.equals(frame)
     assert result.attrs == {"source": source.SOURCE_ID}
-    assert store.cleanup_calls == 1
+    assert cleanup_calls["n"] == 1
 
     # cleanup must still run if the request fails mid-flight
     async def boom_fetch(uris):
         raise RuntimeError("fetch failed")
 
-    monkeypatch.setattr(store, "fetch_files", boom_fetch)
+    monkeypatch.setattr(source, "fetch_files", boom_fetch)
     with pytest.raises(RuntimeError):
         source(
             datetime(2024, 1, 1),
             ["t"],
             fields=["time", "observation", "variable"],
         )
-    assert store.cleanup_calls == 2
+    assert cleanup_calls["n"] == 2
 
 
 def test_nnja_obs_conv_available():

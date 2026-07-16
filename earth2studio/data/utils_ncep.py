@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import pathlib
 import time
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
@@ -18,6 +19,7 @@ import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
+from earth2studio.data.utils import _sync_async, prep_data_inputs
 from earth2studio.data.utils_bufr import (
     HDR_DHR,
     HDR_ELV,
@@ -46,6 +48,8 @@ from earth2studio.data.utils_bufr import (
 )
 from earth2studio.data.utils_bufr import silence_bufr_noise as _silence_bufr_noise
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
+from earth2studio.utils.time import normalize_time_tolerance
+from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
 # GPS RO BUFR descriptor IDs (NCEP gpsro encoding). GPSRO is not a PrepBUFR
 # conventional report, so conventional semantics do not apply: there is no TYP
@@ -944,3 +948,231 @@ class _NCEPGpsroAdapter:
             modifiers,
             convert_pres_mb_to_pa=False,
         )
+
+
+class NCEPObsRequestMixin:
+    """Request-orchestration behavior for NCEP DataFrame observation sources.
+
+    Provides the synchronous entry point, async fetch orchestration, six-hour
+    cycle-window planning, output-schema resolution, and cached-file assembly.
+    Compose with a transport mixin that supplies ``fetch_files``, ``local_path``,
+    ``cleanup``, and ``_validate_time``, and a concrete source that supplies the
+    product hooks ``_create_tasks``, ``_decode_file``, and ``_task_uri``.
+    """
+
+    SOURCE_ID: str
+    SCHEMA: pa.Schema
+
+    def _init_request(
+        self,
+        *,
+        time_tolerance: TimeTolerance,
+        verbose: bool,
+        async_timeout: int,
+        decode_workers: int,
+    ) -> None:
+        """Initialize shared request state; call from the concrete constructor."""
+        self._verbose = verbose
+        self._decode_workers = max(1, decode_workers)
+        self.async_timeout = async_timeout
+
+        lower, upper = normalize_time_tolerance(time_tolerance)
+        self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
+        self._tolerance_upper = pd.to_timedelta(upper).to_pytimedelta()
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+        fields: str | list[str] | pa.Schema | None = None,
+    ) -> pd.DataFrame:
+        """Fetch observations for a set of timestamps.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            Variables defined by the concrete data source lexicon.
+        fields : str | list[str] | pa.Schema | None, optional
+            Output column subset. ``None`` returns all schema fields.
+
+        Returns
+        -------
+        pd.DataFrame
+            Observation DataFrame with columns matching the resolved schema.
+        """
+        try:
+            df = _sync_async(
+                self.fetch, time, variable, fields, timeout=self.async_timeout
+            )
+        finally:
+            self.cleanup()
+
+        return df
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+        fields: str | list[str] | pa.Schema | None = None,
+    ) -> pd.DataFrame:
+        """Async function to get data."""
+        time_list, variable_list = prep_data_inputs(time, variable)
+        self._validate_time(time_list)
+        schema = self._resolve_output_schema(fields)
+
+        async_tasks = self._create_tasks(time_list, variable_list)
+        file_uri_set = list({self._task_uri(task) for task in async_tasks})
+        await self.fetch_files(file_uri_set)
+
+        df = self._compile_dataframe(async_tasks, schema)
+        df.attrs["source"] = self.SOURCE_ID
+        return df
+
+    def _compile_dataframe(
+        self,
+        async_tasks: list[Any],
+        schema: pa.Schema,
+    ) -> pd.DataFrame:
+        """Decode each fetched file and concatenate into a single DataFrame."""
+        frames: list[pd.DataFrame] = []
+        n_tasks = len(async_tasks)
+        compile_t0 = time.perf_counter()
+        for idx, task in enumerate(async_tasks, start=1):
+            uri = self._task_uri(task)
+            local_path = self.local_path(uri)
+            if not pathlib.Path(local_path).is_file():
+                logger.warning(f"Cached file missing for {uri}, skipping")
+                continue
+            short_uri = uri.rsplit("/", 1)[-1]
+            logger.info(f"[{self.SOURCE_ID}] decode {idx}/{n_tasks} start: {short_uri}")
+            t0 = time.perf_counter()
+            try:
+                df = self._decode_file(local_path, task)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error(f"Failed to decode {local_path}: {exc}")
+                continue
+            elapsed = time.perf_counter() - t0
+            if df is None or df.empty:
+                logger.info(
+                    f"[{self.SOURCE_ID}] decode {idx}/{n_tasks} done : "
+                    f"{short_uri} (empty) in {elapsed:.1f}s"
+                )
+                continue
+            logger.info(
+                f"[{self.SOURCE_ID}] decode {idx}/{n_tasks} done : "
+                f"{short_uri} ({len(df):,} rows) in {elapsed:.1f}s"
+            )
+            df.attrs["source"] = self.SOURCE_ID
+            frames.append(df)
+
+        logger.info(
+            f"[{self.SOURCE_ID}] compile finished: {len(frames)} non-empty "
+            f"frames, total {time.perf_counter() - compile_t0:.1f}s"
+        )
+
+        if not frames:
+            return _empty_dataframe(self.SCHEMA)[schema.names]
+
+        result = pd.concat(frames, ignore_index=True)
+        return result[[name for name in schema.names if name in result.columns]]
+
+    def _cycle_windows(
+        self, time_list: list[datetime]
+    ) -> dict[datetime, tuple[datetime, datetime]]:
+        """Map each unique 6-hour cycle to the union of requested time windows.
+
+        For each ``t`` in ``time_list`` we cover all 6-hour cycles
+        whose synoptic time falls within ``[t + tol_lower, t + tol_upper]``.
+        Multiple input times that map to the same cycle are merged by
+        taking the union of their windows so the cycle file is fetched
+        once while keeping observations valid for any of them.
+        """
+        windows: dict[datetime, tuple[datetime, datetime]] = {}
+        for t in time_list:
+            tmin = t + self._tolerance_lower
+            tmax = t + self._tolerance_upper
+            day = tmin.replace(minute=0, second=0, microsecond=0)
+            day = day.replace(hour=(day.hour // 6) * 6)
+            while day <= tmax:
+                existing = windows.get(day)
+                windows[day] = (
+                    (min(existing[0], tmin), max(existing[1], tmax))
+                    if existing is not None
+                    else (tmin, tmax)
+                )
+                day += timedelta(hours=6)
+        return windows
+
+    @classmethod
+    def _resolve_output_schema(
+        cls, fields: str | list[str] | pa.Schema | None
+    ) -> pa.Schema:
+        if fields is None:
+            return cls.SCHEMA
+        if isinstance(fields, str):
+            fields = [fields]
+        if isinstance(fields, pa.Schema):
+            for f in fields:
+                if f.name not in cls.SCHEMA.names:
+                    raise KeyError(
+                        f"Field '{f.name}' not in {cls.__name__} SCHEMA. "
+                        f"Available: {cls.SCHEMA.names}"
+                    )
+                expected = cls.SCHEMA.field(f.name).type
+                if f.type != expected:
+                    raise TypeError(
+                        f"Field '{f.name}' has type {f.type}, expected "
+                        f"{expected} from class SCHEMA"
+                    )
+            return fields
+        selected = []
+        for name in fields:
+            if name not in cls.SCHEMA.names:
+                raise KeyError(
+                    f"Field '{name}' not in {cls.__name__} SCHEMA. "
+                    f"Available: {cls.SCHEMA.names}"
+                )
+            selected.append(cls.SCHEMA.field(name))
+        return pa.schema(selected)
+
+    @classmethod
+    def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
+        """Resolve ``fields`` into a validated PyArrow schema subset."""
+        return cls._resolve_output_schema(fields)
+
+    # Extension points supplied by the composed transport mixin and concrete
+    # source. Keep the transport mixin ahead of this mixin in the MRO, e.g.
+    # ``class Foo(SomeTransportMixin, NCEPObsRequestMixin)``, so its concrete
+    # implementations override these fallbacks.
+    async def fetch_files(self, uris: Sequence[str]) -> None:
+        """Download the requested remote objects into the local cache."""
+        raise NotImplementedError
+
+    def local_path(self, uri: str) -> str:
+        """Return the deterministic local cache path for a remote URI."""
+        raise NotImplementedError
+
+    def cleanup(self) -> None:
+        """Release any temporary storage after a request."""
+        raise NotImplementedError
+
+    @classmethod
+    def _validate_time(cls, times: list[datetime]) -> None:
+        """Validate requested times against product availability."""
+        raise NotImplementedError
+
+    def _create_tasks(
+        self, time_list: list[datetime], variable: list[str]
+    ) -> list[Any]:
+        """Build the per-file decode tasks for the requested times/variables."""
+        raise NotImplementedError
+
+    def _decode_file(self, local_path: str, task: Any) -> pd.DataFrame:
+        """Decode one cached file into a DataFrame."""
+        raise NotImplementedError
+
+    def _task_uri(self, task: Any) -> str:
+        """Return the remote URI a task fetches from."""
+        raise NotImplementedError
