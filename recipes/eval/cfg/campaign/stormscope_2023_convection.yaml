@@ -11,7 +11,7 @@ run_id: stormscope_2023_convection
 start_times:
     - "2023-12-05 12:00:00"
 
-nsteps: 2                   # 2 × 10min = 20min forecast
+nsteps: 6                   # 6 × 10min = 60min forecast
 
 # The StormScope pipeline sets needs_data_source=False, so main.py neither
 # resolves a top-level ic_source/data_source nor enforces the predownload

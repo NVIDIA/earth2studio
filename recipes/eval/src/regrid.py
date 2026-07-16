@@ -355,6 +355,10 @@ class BilinearRegridder(Regridder):
                 "conventions match (e.g. both in [0, 360) or both in "
                 "[-180, 180))."
             )
+
+        if len(tuple(target_dim_names)) != 2:
+            raise ValueError(f"target_dim_names must be a pair, got {target_dim_names}")
+        
         self._target_y = np.asarray(target_y)
         self._target_x = np.asarray(target_x)
         self._fill_value = float(fill_value)
