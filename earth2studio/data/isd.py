@@ -121,7 +121,7 @@ class ISD:
             ),
             pa.field(
                 "source",
-                pa.uint16(),
+                pa.string(),
                 nullable=True,
                 metadata={"isd_name": "SOURCE"},
             ),
@@ -282,6 +282,7 @@ class ISD:
         if not df.empty:
             df = df.rename(columns=self.column_map())
             df["station"] = df["station"].astype(str)
+            df["source"] = df["source"].astype(str)
             # Normalize longitude from [-180, 180) to [0, 360)
             if "lon" in df.columns:
                 df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
@@ -334,7 +335,13 @@ class ISD:
             value_name="observation",
         )
         df_long = df_long.dropna(subset=["observation"]).reset_index(drop=True)
-        return df_long[[name for name in schema.names]]
+        df_long = df_long[[name for name in schema.names]]
+        for field in schema:
+            if field.name in df_long.columns and pa.types.is_floating(field.type):
+                df_long[field.name] = df_long[field.name].astype(
+                    field.type.to_pandas_dtype()
+                )
+        return df_long
 
     async def _fetch_station_year(self, station_id: str, year: int) -> pd.DataFrame:
         """Async method for fetching csv to given station
