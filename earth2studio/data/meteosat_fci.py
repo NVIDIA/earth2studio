@@ -411,6 +411,25 @@ class MeteosatFCI:
                     "Data fetching will fail."
                 )
 
+    def available_variables(self) -> set[str]:
+        """Return variables available at the current resolution.
+
+        Returns
+        -------
+        set
+            Set of strings indicating the variables available at the resolution
+            passed to the constructor.
+        """
+        return {
+            k
+            for (k, v) in MeteosatFCILexicon.VOCAB.items()
+            if self._resolution
+            in (
+                _VARIABLE_RESOLUTION[collection].get(v[0])
+                for collection in _VARIABLE_RESOLUTION
+            )
+        }
+
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
