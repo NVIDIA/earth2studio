@@ -25,13 +25,13 @@ from .cfs_reforecast import CFS_Reforecast_FX, CFS_Reforecast_FX_Flux
 from .cmip6 import CMIP6, CMIP6MultiRealm
 from .const import Constant, Constant_FX
 from .dynamical import (
-    DynamicalAIFSENSForecast,
-    DynamicalAIFSForecast,
-    DynamicalGEFSAnalysis,
-    DynamicalGEFSForecast,
-    DynamicalGFSAnalysis,
-    DynamicalGFSForecast,
-    DynamicalIFSENSForecast,
+    DynamicalAIFS_FX,
+    DynamicalAIFSENS_FX,
+    DynamicalGEFS,
+    DynamicalGEFS_FX,
+    DynamicalGFS,
+    DynamicalGFS_FX,
+    DynamicalIFSENS_FX,
 )
 from .earthmover import (
     EarthMoverBrightBandIFS,

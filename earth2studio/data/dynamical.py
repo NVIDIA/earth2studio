@@ -502,7 +502,7 @@ class _DynamicalBase:
         return xr_array
 
 
-class DynamicalGFSAnalysis(_DynamicalBase):
+class DynamicalGFS(_DynamicalBase):
     """NOAA GFS analysis from the dynamical.org catalog.
 
     Best-estimate analysis (dimensions ``[time, lat, lon]``) built from the
@@ -584,7 +584,7 @@ class DynamicalGFSAnalysis(_DynamicalBase):
         return result.isel(lead_time=0, drop=True)
 
 
-class DynamicalGEFSAnalysis(_DynamicalBase):
+class DynamicalGEFS(_DynamicalBase):
     """NOAA GEFS analysis from the dynamical.org catalog.
 
     Best-estimate analysis (dimensions ``[time, lat, lon]``) built from the
@@ -666,7 +666,7 @@ class DynamicalGEFSAnalysis(_DynamicalBase):
         return result.isel(lead_time=0, drop=True)
 
 
-class DynamicalGFSForecast(_DynamicalBase):
+class DynamicalGFS_FX(_DynamicalBase):
     """NOAA GFS forecast from the dynamical.org catalog.
 
     Deterministic NOAA Global Forecast System forecasts (dimensions
@@ -704,7 +704,7 @@ class DynamicalGFSForecast(_DynamicalBase):
         super().__init__("noaa-gfs-forecast", cache=cache, verbose=verbose)
 
 
-class DynamicalGEFSForecast(_DynamicalBase):
+class DynamicalGEFS_FX(_DynamicalBase):
     """NOAA GEFS (35 day) ensemble forecast from the dynamical.org catalog.
 
     NOAA Global Ensemble Forecast System forecasts (dimensions
@@ -749,7 +749,7 @@ class DynamicalGEFSForecast(_DynamicalBase):
         )
 
 
-class DynamicalIFSENSForecast(_DynamicalBase):
+class DynamicalIFSENS_FX(_DynamicalBase):
     """ECMWF IFS ENS (15 day, 0.25 degree) ensemble forecast from dynamical.org.
 
     ECMWF Integrated Forecasting System ensemble forecasts (dimensions
@@ -797,7 +797,7 @@ class DynamicalIFSENSForecast(_DynamicalBase):
         )
 
 
-class DynamicalAIFSForecast(_DynamicalBase):
+class DynamicalAIFS_FX(_DynamicalBase):
     """ECMWF AIFS Single forecast from the dynamical.org catalog.
 
     Deterministic ECMWF Artificial Intelligence Forecasting System (AIFS)
@@ -835,7 +835,7 @@ class DynamicalAIFSForecast(_DynamicalBase):
         super().__init__("ecmwf-aifs-single-forecast", cache=cache, verbose=verbose)
 
 
-class DynamicalAIFSENSForecast(_DynamicalBase):
+class DynamicalAIFSENS_FX(_DynamicalBase):
     """ECMWF AIFS ENS ensemble forecast from the dynamical.org catalog.
 
     Ensemble ECMWF Artificial Intelligence Forecasting System (AIFS ENS)
