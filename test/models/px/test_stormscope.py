@@ -878,9 +878,10 @@ def create_spoof_nsrdb_model(
     lat = torch.linspace(25, 50, h).unsqueeze(1).repeat(1, w)
     lon = torch.linspace(-120, -80, w).unsqueeze(0).repeat(h, 1)
 
-    # NSRDB has a single output variable (ghi)
+    # NSRDB has a single output variable (ghi). The registry sigma_max doubles as
+    # the SDEdit warm-start noise level, so mirror the real package value (0.25).
     diffusion = PhooStormScopeDiffusionModel(nvar=1)
-    model_spec = [{"model": diffusion, "sigma_min": 0.004, "sigma_max": 500.0}]
+    model_spec = [{"model": diffusion, "sigma_min": 0.004, "sigma_max": 0.25}]
     regression = PhooRegressionModel()
 
     means = torch.zeros(1, 1, 1, 1)

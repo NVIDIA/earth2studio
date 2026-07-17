@@ -2433,9 +2433,9 @@ class StormScopeNSRDB(StormScopeBase):
 
     1. A deterministic regression network produces a first-guess GHI from the
        GOES conditioning.
-    2. That guess is refined by a diffusion model: noise is injected at a fixed
-       ``sigma_max`` and the EDM sampler denoises down to the model's minimum
-       sigma (a warm-started reverse diffusion).
+    2. That guess is refined by a diffusion model: noise is injected at the
+       checkpoint's registry ``sigma_max`` and the EDM sampler denoises down to
+       the model's minimum sigma (a warm-started reverse diffusion).
 
     GHI is modelled in *clearness-index* space (target divided by
     ``insolation + eps``); outputs are converted back to physical W/m^2 using the
@@ -2445,8 +2445,8 @@ class StormScopeNSRDB(StormScopeBase):
     sampler is reused unchanged.
     """
 
-    # Fixed inference configuration (what works best; override only for testing).
-    _SIGMA_MAX = 0.25  # warm-start noise level for the diffusion refinement
+    # Fixed inference configuration (override only for testing). The warm-start
+    # noise level is taken from the checkpoint's registry ``sigma_max``.
     _NUM_STEPS = 12  # EDM sampler steps
     _CLEARNESS_INDEX_EPS = 10.0  # W/m^2 added to the insolation denominator
     _SOLAR_CONSTANT = 1361.0  # W/m^2, for insolation
@@ -2498,7 +2498,8 @@ class StormScopeNSRDB(StormScopeBase):
             amp=amp,
         )
         self.regression_model = regression_model
-        self.sigma_max = float(self._SIGMA_MAX)
+        # SDEdit warm-start noise level = the checkpoint's registry sigma_max.
+        self.sigma_max = float(self.end_sigma)
         self.clearness_index_eps = float(self._CLEARNESS_INDEX_EPS)
         self.solar_constant = float(self._SOLAR_CONSTANT)
 
@@ -2731,6 +2732,21 @@ class StormScopeNSRDB(StormScopeBase):
         state, state_coords = self._zero_state(conditioning, conditioning_coords)
         return self.call_with_conditioning(
             state, state_coords, conditioning, conditioning_coords
+        )
+
+    @classmethod
+    def load_default_package(cls) -> Package:
+        """Load the default StormScope-Solar (NSRDB) package from Hugging Face.
+
+        The solar GHI estimator ships as its own package (separate from the
+        GOES/MRMS nowcasting package), with the flat registry entry
+        ``stormscope_solar_goes_nsrdb``.
+        """
+        return Package(
+            "hf://nvidia/StormScope-NSRDB",
+            cache_options={
+                "cache_storage": Package.default_cache("stormscope_solar_nsrdb")
+            },
         )
 
     @classmethod
