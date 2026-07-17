@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added dynamical.org analysis and forecast data sources, reading anonymous Icechunk
+  repositories: `DynamicalGFSAnalysis`, `DynamicalGEFSAnalysis`,
+  `DynamicalGFSForecast`, `DynamicalGEFSForecast`, `DynamicalIFSENSForecast`,
+  `DynamicalAIFSForecast`, `DynamicalAIFSENSForecast`.
+
 ### Changed
 
 - Updated StormScope model package to use improved higher resolution checkpoints. Model
@@ -54,12 +59,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   diagnostic, and ensemble inference workflows
 - Added EUMETNET OPERA European weather radar composite DataSource for DBZH
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
-- Added dynamical.org analysis and forecast data sources (`DynamicalAnalysis`,
-  `DynamicalForecast`) driven directly off the public STAC catalog
-  (`stac.dynamical.org`), reading anonymous Icechunk repositories, plus concrete
-  per-collection sources (`DynamicalGFSAnalysis`, `DynamicalGEFSAnalysis`,
-  `DynamicalGFSForecast`, `DynamicalGEFSForecast`, `DynamicalIFSENSForecast`,
-  `DynamicalAIFSForecast`, `DynamicalAIFSENSForecast`)
 - Added support for cumulative variables in ARCO data source
 - Added DLESyM-v0-ISCCP-ERA5 climate model
 

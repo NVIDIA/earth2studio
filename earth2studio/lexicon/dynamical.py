@@ -20,6 +20,10 @@ import numpy as np
 
 from .base import LexiconType
 
+# Standard gravity used to convert geopotential height [m] to geopotential
+# [m2 s-2], matching the Earth2Studio ``z<level>`` convention.
+GRAVITY = 9.80665
+
 # Pressure levels (hPa) currently served by dynamical.org collections as named
 # variables (e.g. ``geopotential_height_500hpa``). Requesting a level a given
 # collection does not provide raises a clear error in the data source after it
@@ -36,11 +40,12 @@ class DynamicalLexicon(metaclass=LexiconType):
     vertical level into the variable name rather than using a level dimension,
     so pressure-level fields map to dedicated ``*_<level>hpa`` names.
 
-    Unit conversions are intentionally NOT handled here. The
-    :class:`earth2studio.data.DynamicalAnalysis` data source reads each collection's
-    STAC ``cube:variables`` ``unit`` field and converts to the Earth2Studio
-    convention at fetch time. Variable names absent from this lexicon may still
-    be requested by their native dynamical.org name as a pass-through.
+    Unit conversions follow the same pattern as other Earth2Studio lexicons:
+    the modifier returned by :meth:`get_item` converts from the source's native
+    unit to the Earth2Studio convention (e.g. geopotential height in metres to
+    geopotential in m2 s-2, Celsius to Kelvin). Variable names absent from this
+    lexicon may still be requested by their native dynamical.org name as a
+    pass-through in the data source.
 
     Note
     ----
@@ -70,10 +75,13 @@ class DynamicalLexicon(metaclass=LexiconType):
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
-        """Return the dynamical.org variable name and an identity modifier.
+        """Return the dynamical.org variable name and a unit-conversion modifier.
 
-        Unit conversion is performed by the data source using the STAC-reported
-        unit, so the modifier returned here is always the identity function.
+        Conversions to the Earth2Studio convention:
+
+        - ``temperature_2m``, ``dew_point_temperature_2m``: Celsius -> Kelvin
+        - ``geopotential_height_*``: metres -> geopotential (m2 s-2)
+        - ``total_cloud_cover_atmosphere``: percent -> fraction
 
         Parameters
         ----------
@@ -83,11 +91,32 @@ class DynamicalLexicon(metaclass=LexiconType):
         Returns
         -------
         tuple[str, Callable]
-            The dynamical.org variable name and an identity modifier.
+            The dynamical.org variable name and a unit-conversion modifier.
         """
         dynamical_name = cls.VOCAB[val]
 
-        def mod(x: np.ndarray) -> np.ndarray:
-            return x
+        if val in ("t2m", "d2m"):
+            # Celsius -> Kelvin
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Convert Celsius to Kelvin."""
+                return np.asarray(x) + 273.15
+
+        elif val.startswith("z") and val[1:].isdigit():
+            # Geopotential height (m) -> geopotential (m2 s-2)
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Convert geopotential height to geopotential."""
+                return np.asarray(x) * GRAVITY
+
+        elif val == "tcc":
+            # Percent -> fraction
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Convert percent to fraction."""
+                return np.asarray(x) / 100.0
+
+        else:
+
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Identity modifier."""
+                return x
 
         return dynamical_name, mod

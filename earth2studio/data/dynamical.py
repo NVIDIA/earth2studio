@@ -25,13 +25,13 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import numpy as np
-import tqdm
 import xarray as xr
 from loguru import logger
+from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    _sync_async,
     datasource_cache_root,
-    prep_data_inputs,
     prep_forecast_inputs,
 )
 from earth2studio.lexicon import DynamicalLexicon
@@ -46,10 +46,6 @@ try:
 except ImportError:
     OptionalDependencyFailure("data")
     icechunk = None  # type: ignore[assignment]
-
-# Standard gravity used to convert geopotential height [m] to geopotential
-# [m2 s-2], matching the Earth2Studio ``z<level>`` convention.
-GRAVITY = 9.80665
 
 # Earth2Studio uses 0-360 ascending longitude and 90 -> -90 descending latitude.
 # dynamical.org serves -180..180 ascending longitude, so coordinates are
@@ -98,10 +94,12 @@ class _DynamicalBase:
     def __init__(
         self,
         collection: str,
+        member: int = 0,
         cache: bool = True,
         verbose: bool = True,
     ) -> None:
         self.collection = collection
+        self._member = member
         self._cache = cache
         self._verbose = verbose
 
@@ -294,10 +292,14 @@ class _DynamicalBase:
             this collection.
         """
         if variable in DynamicalLexicon.VOCAB:
-            dynamical_name, _ = DynamicalLexicon.get_item(variable)
+            dynamical_name, modifier = DynamicalLexicon.get_item(variable)
         elif variable in self._cube_variables:
             # Native pass-through for variables not in the lexicon.
             dynamical_name = variable
+
+            def modifier(x: np.ndarray) -> np.ndarray:
+                return x
+
         else:
             available = ", ".join(sorted(self._cube_variables))
             raise KeyError(
@@ -312,44 +314,7 @@ class _DynamicalBase:
                 f"collection {self.collection!r}. Available variables: {available}"
             )
 
-        source_unit = self._cube_variables[dynamical_name].get("unit")
-        return dynamical_name, self._make_modifier(
-            variable, dynamical_name, source_unit
-        )
-
-    @staticmethod
-    def _make_modifier(
-        variable: str, dynamical_name: str, source_unit: str | None
-    ) -> Callable:
-        """Build a unit-conversion modifier from the STAC-reported source unit.
-
-        Conversions to the Earth2Studio convention:
-
-        - ``degree_Celsius`` -> Kelvin (temperatures)
-        - geopotential height ``m`` -> geopotential ``m2 s-2`` (``z<level>`` ids)
-        - cloud cover ``percent`` -> fraction (``tcc``)
-
-        Parameters
-        ----------
-        variable : str
-            Earth2Studio variable id requested.
-        dynamical_name : str
-            Resolved dynamical.org variable name.
-        source_unit : str | None
-            Unit reported for the variable in the collection's STAC metadata.
-
-        Returns
-        -------
-        Callable
-            Modifier applied to the fetched numpy array.
-        """
-        if source_unit == "degree_Celsius":
-            return lambda x: np.asarray(x) + 273.15
-        if source_unit == "m" and dynamical_name.startswith("geopotential_height"):
-            return lambda x: np.asarray(x) * GRAVITY
-        if source_unit == "percent" and variable == "tcc":
-            return lambda x: np.asarray(x) / 100.0
-        return lambda x: x
+        return dynamical_name, modifier
 
     @property
     def cache(self) -> str:
@@ -437,158 +402,6 @@ class _DynamicalBase:
             return False
         return True
 
-
-class DynamicalAnalysis(_DynamicalBase):
-    """dynamical.org analysis data source backed by a STAC-described Icechunk store.
-
-    Connects to a dynamical.org analysis collection (dimensions
-    ``[time, latitude, longitude]``) selected by its STAC collection id, reading
-    data directly from the public, anonymously accessible Icechunk repository
-    advertised in the collection's STAC metadata.
-
-    For common collections prefer the concrete named subclasses (e.g.
-    :class:`DynamicalGFSAnalysis`), which fix the collection id; this generic
-    class is the escape hatch for any regular lat/lon collection not yet wrapped.
-
-    Parameters
-    ----------
-    collection : str
-        dynamical.org STAC collection id (e.g. ``"noaa-gfs-analysis"``,
-        ``"noaa-gefs-analysis"``). See the catalog for available collections.
-    cache : bool, optional
-        Retained for API parity; Icechunk reads chunks lazily on demand rather
-        than caching whole files locally, by default True
-    verbose : bool, optional
-        Print download progress, by default True
-
-    Warning
-    -------
-    This is a remote data source and can potentially download a large amount of
-    data to your local machine for large requests.
-
-    Note
-    ----
-    Only collections on a regular latitude/longitude grid are supported.
-    Projected datasets (e.g. HRRR, MRMS) raise an error. Additional information
-    on the data repository can be referenced here:
-
-    - https://dynamical.org/catalog/
-    - https://stac.dynamical.org/catalog.json
-
-    Badges
-    ------
-    region:global dataclass:analysis product:wind product:temp product:atmos
-    """
-
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Retrieve analysis data.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        variable : str | list[str] | VariableArray
-            Variable(s) to return, in the dynamical.org lexicon or native to the
-            collection.
-
-        Returns
-        -------
-        xr.DataArray
-            Data array with dimensions ``[time, variable, lat, lon]``.
-        """
-        ds = self._open()
-        times, variables = prep_data_inputs(time, variable)
-        self._validate_time(times, self._TIME_DIMENSION)
-
-        lat, lon = self._coords()
-        times_np = np.array(times, dtype="datetime64[ns]")
-        xr_array = xr.DataArray(
-            data=np.empty(
-                (len(times), len(variables), len(lat), len(lon)), dtype=np.float32
-            ),
-            dims=["time", "variable", "lat", "lon"],
-            coords={"time": times_np, "variable": variables, "lat": lat, "lon": lon},
-        )
-
-        for j, var in enumerate(
-            tqdm.tqdm(
-                variables,
-                desc=f"Fetching dynamical.org {self.collection} data",
-                disable=(not self._verbose),
-            )
-        ):
-            dynamical_name, modifier = self._resolve_variable(var)
-            logger.debug(f"Fetching dynamical.org variable {var} ({dynamical_name})")
-            da = ds[dynamical_name].sel(time=times_np)
-            da = da.transpose("time", "latitude", "longitude")
-            xr_array[:, j] = modifier(self._reorder(np.asarray(da.values)))
-
-        return xr_array
-
-
-class DynamicalForecast(_DynamicalBase):
-    """dynamical.org forecast data source backed by a STAC-described Icechunk store.
-
-    Connects to a dynamical.org forecast collection (dimensions
-    ``[init_time, lead_time, latitude, longitude]``, optionally with an
-    ``ensemble_member`` dimension) selected by its STAC collection id, reading
-    data directly from the public, anonymously accessible Icechunk repository
-    advertised in the collection's STAC metadata.
-
-    For common collections prefer the concrete named subclasses (e.g.
-    :class:`DynamicalGFSForecast`), which fix the collection id; this generic
-    class is the escape hatch for any regular lat/lon collection not yet wrapped.
-
-    Parameters
-    ----------
-    collection : str
-        dynamical.org STAC collection id (e.g. ``"noaa-gfs-forecast"``,
-        ``"ecmwf-aifs-single-forecast"``). See the catalog for available
-        collections.
-    member : int, optional
-        For ensemble collections, the ensemble member index to select, by
-        default 0 (control / first member). Ignored for deterministic
-        collections.
-    cache : bool, optional
-        Retained for API parity; Icechunk reads chunks lazily on demand rather
-        than caching whole files locally, by default True
-    verbose : bool, optional
-        Print download progress, by default True
-
-    Warning
-    -------
-    This is a remote data source and can potentially download a large amount of
-    data to your local machine for large requests.
-
-    Note
-    ----
-    Only collections on a regular latitude/longitude grid are supported.
-    Additional information on the data repository can be referenced here:
-
-    - https://dynamical.org/catalog/
-    - https://stac.dynamical.org/catalog.json
-
-    Badges
-    ------
-    region:global dataclass:simulation product:wind product:temp product:atmos
-    """
-
-    _TIME_DIMENSION = "init_time"
-
-    def __init__(
-        self,
-        collection: str,
-        member: int = 0,
-        cache: bool = True,
-        verbose: bool = True,
-    ) -> None:
-        super().__init__(collection, cache=cache, verbose=verbose)
-        self._member = member
-
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
@@ -612,6 +425,32 @@ class DynamicalForecast(_DynamicalBase):
         xr.DataArray
             Data array with dimensions ``[time, lead_time, variable, lat, lon]``.
         """
+        xr_array = _sync_async(self.fetch, time, lead_time, variable)
+        return xr_array
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to retrieve forecast data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Forecast initialization timestamps to return data for (UTC).
+        lead_time : timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to return.
+        variable : str | list[str] | VariableArray
+            Variable(s) to return, in the dynamical.org lexicon or native to the
+            collection.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, lead_time, variable, lat, lon]``.
+        """
         ds = self._open()
         times, lead_times, variables = prep_forecast_inputs(time, lead_time, variable)
         self._validate_time(times, self._TIME_DIMENSION)
@@ -619,6 +458,7 @@ class DynamicalForecast(_DynamicalBase):
         lat, lon = self._coords()
         times_np = np.array(times, dtype="datetime64[ns]")
         leads_np = np.array(lead_times, dtype="timedelta64[ns]")
+        has_lead_time = "lead_time" in ds.dims
         xr_array = xr.DataArray(
             data=np.empty(
                 (len(times), len(lead_times), len(variables), len(lat), len(lon)),
@@ -635,7 +475,7 @@ class DynamicalForecast(_DynamicalBase):
         )
 
         for j, var in enumerate(
-            tqdm.tqdm(
+            tqdm(
                 variables,
                 desc=f"Fetching dynamical.org {self.collection} data",
                 disable=(not self._verbose),
@@ -643,17 +483,26 @@ class DynamicalForecast(_DynamicalBase):
         ):
             dynamical_name, modifier = self._resolve_variable(var)
             logger.debug(f"Fetching dynamical.org variable {var} ({dynamical_name})")
-            da = ds[dynamical_name].sel(init_time=times_np, lead_time=leads_np)
-            if "ensemble_member" in da.dims:
-                da = da.isel(ensemble_member=self._member)
-            # Order to (time, lead_time, lat, lon)
-            da = da.transpose("init_time", "lead_time", "latitude", "longitude")
+            if has_lead_time:
+                da = ds[dynamical_name].sel(
+                    {self._TIME_DIMENSION: times_np, "lead_time": leads_np}
+                )
+                if "ensemble_member" in da.dims:
+                    da = da.isel(ensemble_member=self._member)
+                da = da.transpose(
+                    self._TIME_DIMENSION, "lead_time", "latitude", "longitude"
+                )
+            else:
+                da = ds[dynamical_name].sel({self._TIME_DIMENSION: times_np})
+                da = da.transpose(self._TIME_DIMENSION, "latitude", "longitude")
+                # Add lead_time axis for uniform output shape
+                da = da.expand_dims("lead_time", axis=1)
             xr_array[:, :, j] = modifier(self._reorder(np.asarray(da.values)))
 
         return xr_array
 
 
-class DynamicalGFSAnalysis(DynamicalAnalysis):
+class DynamicalGFSAnalysis(_DynamicalBase):
     """NOAA GFS analysis from the dynamical.org catalog.
 
     Best-estimate analysis (dimensions ``[time, lat, lon]``) built from the
@@ -688,8 +537,54 @@ class DynamicalGFSAnalysis(DynamicalAnalysis):
     def __init__(self, cache: bool = True, verbose: bool = True) -> None:
         super().__init__("noaa-gfs-analysis", cache=cache, verbose=verbose)
 
+    def __call__(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve analysis data.
 
-class DynamicalGEFSAnalysis(DynamicalAnalysis):
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            Variable(s) to return, in the dynamical.org lexicon or native to the
+            collection.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, lat, lon]``.
+        """
+        xr_array = _sync_async(self.fetch, time, variable)
+        return xr_array
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to retrieve analysis data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            Variable(s) to return, in the dynamical.org lexicon or native to the
+            collection.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, lat, lon]``.
+        """
+        result = await super().fetch(time, timedelta(0), variable)
+        return result.isel(lead_time=0, drop=True)
+
+
+class DynamicalGEFSAnalysis(_DynamicalBase):
     """NOAA GEFS analysis from the dynamical.org catalog.
 
     Best-estimate analysis (dimensions ``[time, lat, lon]``) built from the
@@ -724,8 +619,54 @@ class DynamicalGEFSAnalysis(DynamicalAnalysis):
     def __init__(self, cache: bool = True, verbose: bool = True) -> None:
         super().__init__("noaa-gefs-analysis", cache=cache, verbose=verbose)
 
+    def __call__(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve analysis data.
 
-class DynamicalGFSForecast(DynamicalForecast):
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            Variable(s) to return, in the dynamical.org lexicon or native to the
+            collection.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, lat, lon]``.
+        """
+        xr_array = _sync_async(self.fetch, time, variable)
+        return xr_array
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to retrieve analysis data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            Variable(s) to return, in the dynamical.org lexicon or native to the
+            collection.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, lat, lon]``.
+        """
+        result = await super().fetch(time, timedelta(0), variable)
+        return result.isel(lead_time=0, drop=True)
+
+
+class DynamicalGFSForecast(_DynamicalBase):
     """NOAA GFS forecast from the dynamical.org catalog.
 
     Deterministic NOAA Global Forecast System forecasts (dimensions
@@ -757,11 +698,13 @@ class DynamicalGFSForecast(DynamicalForecast):
     region:global dataclass:simulation product:wind product:temp product:atmos
     """
 
+    _TIME_DIMENSION = "init_time"
+
     def __init__(self, cache: bool = True, verbose: bool = True) -> None:
         super().__init__("noaa-gfs-forecast", cache=cache, verbose=verbose)
 
 
-class DynamicalGEFSForecast(DynamicalForecast):
+class DynamicalGEFSForecast(_DynamicalBase):
     """NOAA GEFS (35 day) ensemble forecast from the dynamical.org catalog.
 
     NOAA Global Ensemble Forecast System forecasts (dimensions
@@ -796,6 +739,8 @@ class DynamicalGEFSForecast(DynamicalForecast):
     region:global dataclass:simulation product:wind product:temp product:atmos
     """
 
+    _TIME_DIMENSION = "init_time"
+
     def __init__(
         self, member: int = 0, cache: bool = True, verbose: bool = True
     ) -> None:
@@ -804,7 +749,7 @@ class DynamicalGEFSForecast(DynamicalForecast):
         )
 
 
-class DynamicalIFSENSForecast(DynamicalForecast):
+class DynamicalIFSENSForecast(_DynamicalBase):
     """ECMWF IFS ENS (15 day, 0.25 degree) ensemble forecast from dynamical.org.
 
     ECMWF Integrated Forecasting System ensemble forecasts (dimensions
@@ -839,6 +784,8 @@ class DynamicalIFSENSForecast(DynamicalForecast):
     region:global dataclass:simulation product:wind product:temp product:atmos
     """
 
+    _TIME_DIMENSION = "init_time"
+
     def __init__(
         self, member: int = 0, cache: bool = True, verbose: bool = True
     ) -> None:
@@ -850,7 +797,7 @@ class DynamicalIFSENSForecast(DynamicalForecast):
         )
 
 
-class DynamicalAIFSForecast(DynamicalForecast):
+class DynamicalAIFSForecast(_DynamicalBase):
     """ECMWF AIFS Single forecast from the dynamical.org catalog.
 
     Deterministic ECMWF Artificial Intelligence Forecasting System (AIFS)
@@ -882,11 +829,13 @@ class DynamicalAIFSForecast(DynamicalForecast):
     region:global dataclass:simulation product:wind product:temp product:atmos
     """
 
+    _TIME_DIMENSION = "init_time"
+
     def __init__(self, cache: bool = True, verbose: bool = True) -> None:
         super().__init__("ecmwf-aifs-single-forecast", cache=cache, verbose=verbose)
 
 
-class DynamicalAIFSENSForecast(DynamicalForecast):
+class DynamicalAIFSENSForecast(_DynamicalBase):
     """ECMWF AIFS ENS ensemble forecast from the dynamical.org catalog.
 
     Ensemble ECMWF Artificial Intelligence Forecasting System (AIFS ENS)
@@ -920,6 +869,8 @@ class DynamicalAIFSENSForecast(DynamicalForecast):
     ------
     region:global dataclass:simulation product:wind product:temp product:atmos
     """
+
+    _TIME_DIMENSION = "init_time"
 
     def __init__(
         self, member: int = 0, cache: bool = True, verbose: bool = True

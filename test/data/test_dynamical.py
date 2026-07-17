@@ -23,14 +23,13 @@ import xarray as xr
 from earth2studio.data import (
     DynamicalAIFSENSForecast,
     DynamicalAIFSForecast,
-    DynamicalAnalysis,
-    DynamicalForecast,
     DynamicalGEFSAnalysis,
     DynamicalGEFSForecast,
     DynamicalGFSAnalysis,
     DynamicalGFSForecast,
     DynamicalIFSENSForecast,
 )
+from earth2studio.data.dynamical import _DynamicalBase
 
 # Un-normalized synthetic grid: ascending latitude and -180..180 longitude,
 # mirroring how dynamical.org serves coordinates.
@@ -118,9 +117,9 @@ def test_dynamical_call_mock(monkeypatch):
         {"time": times, "latitude": _LAT, "longitude": _LON},
         ("time", "latitude", "longitude"),
     )
-    _patch(monkeypatch, DynamicalAnalysis, "test-analysis", dims, ds_obj)
+    _patch(monkeypatch, DynamicalGFSAnalysis, "noaa-gfs-analysis", dims, ds_obj)
 
-    source = DynamicalAnalysis("test-analysis")
+    source = DynamicalGFSAnalysis()
     variables = ["t2m", "u10m", "tcc", "z500"]
     data = source(times, variables)
 
@@ -146,9 +145,9 @@ def test_dynamical_native_passthrough(monkeypatch):
         {"time": times, "latitude": _LAT, "longitude": _LON},
         ("time", "latitude", "longitude"),
     )
-    _patch(monkeypatch, DynamicalAnalysis, "test-analysis", dims, ds_obj)
+    _patch(monkeypatch, DynamicalGFSAnalysis, "noaa-gfs-analysis", dims, ds_obj)
 
-    source = DynamicalAnalysis("test-analysis")
+    source = DynamicalGFSAnalysis()
     # Native dynamical.org variable name not in the lexicon
     data = source(times, ["wind_u_10m"])
     np.testing.assert_allclose(data.values, 3.0)
@@ -175,9 +174,9 @@ def test_dynamical_forecast_call_mock(monkeypatch):
         },
         ("init_time", "lead_time", "latitude", "longitude"),
     )
-    _patch(monkeypatch, DynamicalForecast, "test-forecast", dims, ds_obj)
+    _patch(monkeypatch, DynamicalGFSForecast, "noaa-gfs-forecast", dims, ds_obj)
 
-    source = DynamicalForecast("test-forecast")
+    source = DynamicalGFSForecast()
     lead_list = [datetime.timedelta(hours=h) for h in (0, 6, 24)]
     data = source(init_times, lead_list, ["t2m", "z500"])
 
@@ -195,26 +194,26 @@ def test_dynamical_exceptions(monkeypatch):
         {"time": times, "latitude": _LAT, "longitude": _LON},
         ("time", "latitude", "longitude"),
     )
-    _patch(monkeypatch, DynamicalAnalysis, "test-analysis", dims, ds_obj)
+    _patch(monkeypatch, DynamicalGFSAnalysis, "noaa-gfs-analysis", dims, ds_obj)
 
     # Unknown variable (not in lexicon, not native to collection)
-    source = DynamicalAnalysis("test-analysis")
+    source = DynamicalGFSAnalysis()
     with pytest.raises(KeyError):
         source(times, ["definitely_not_a_variable"])
 
     # Variable in lexicon but not served by this collection
-    source = DynamicalAnalysis("test-analysis")
+    source = DynamicalGFSAnalysis()
     with pytest.raises(KeyError):
         source(times, ["t850"])
 
     # Time before the collection's temporal extent
-    source = DynamicalAnalysis("test-analysis")
+    source = DynamicalGFSAnalysis()
     with pytest.raises(ValueError):
         source(np.array(["1900-01-01T00:00"], dtype="datetime64[ns]"), ["t2m"])
 
     # Time after the last timestamp in the store (STAC extent is open-ended, so
     # the upper bound falls back to the store's actual last coordinate)
-    source = DynamicalAnalysis("test-analysis")
+    source = DynamicalGFSAnalysis()
     with pytest.raises(ValueError):
         source(np.array(["2030-01-01T00:00"], dtype="datetime64[ns]"), ["t2m"])
 
@@ -231,9 +230,9 @@ def test_dynamical_available(monkeypatch):
         {"time": times, "latitude": _LAT, "longitude": _LON},
         ("time", "latitude", "longitude"),
     )
-    _patch(monkeypatch, DynamicalAnalysis, "test-analysis", dims, ds_obj)
+    _patch(monkeypatch, DynamicalGFSAnalysis, "noaa-gfs-analysis", dims, ds_obj)
 
-    source = DynamicalAnalysis("test-analysis")
+    source = DynamicalGFSAnalysis()
     # Within the store's actual time span
     assert source.available(np.datetime64("2024-06-01T00:00")) is True
     assert source.available(datetime.datetime(2024, 1, 1)) is True
@@ -265,9 +264,9 @@ def test_dynamical_forecast_available(monkeypatch):
         },
         ("init_time", "lead_time", "latitude", "longitude"),
     )
-    _patch(monkeypatch, DynamicalForecast, "test-forecast", dims, ds_obj)
+    _patch(monkeypatch, DynamicalGFSForecast, "noaa-gfs-forecast", dims, ds_obj)
 
-    source = DynamicalForecast("test-forecast")
+    source = DynamicalGFSForecast()
     # Availability is checked against the init_time coordinate span
     assert source.available(np.datetime64("2024-03-01T00:00")) is True
     assert source.available(np.datetime64("2024-06-01T00:00")) is True
@@ -282,9 +281,13 @@ def test_dynamical_unknown_collection(monkeypatch):
         "earth2studio.data.dynamical._fetch_json",
         lambda url: _fake_catalog("noaa-gfs-analysis"),
     )
-    source = DynamicalAnalysis("does-not-exist")
+    source = _DynamicalBase("does-not-exist")
     with pytest.raises(ValueError):
-        source(np.array(["2024-01-01T00:00"], dtype="datetime64[ns]"), ["t2m"])
+        source(
+            np.array(["2024-01-01T00:00"], dtype="datetime64[ns]"),
+            [datetime.timedelta(0)],
+            ["t2m"],
+        )
 
 
 @pytest.mark.timeout(30)
@@ -301,9 +304,13 @@ def test_dynamical_projected_grid(monkeypatch):
         return _fake_collection(projected_dims)
 
     monkeypatch.setattr("earth2studio.data.dynamical._fetch_json", fake_fetch_json)
-    source = DynamicalAnalysis("noaa-hrrr-analysis")
+    source = _DynamicalBase("noaa-hrrr-analysis")
     with pytest.raises(ValueError):
-        source(np.array(["2024-01-01T00:00"], dtype="datetime64[ns]"), ["t2m"])
+        source(
+            np.array(["2024-01-01T00:00"], dtype="datetime64[ns]"),
+            [datetime.timedelta(0)],
+            ["t2m"],
+        )
 
 
 # Concrete named data source -> the STAC collection id it must resolve to.
@@ -328,10 +335,7 @@ def test_dynamical_concrete_collection_ids(klass, collection):
     # Concrete sources bake in their STAC collection id and take no collection arg
     source = klass()
     assert source.collection == collection
-    expected_base = (
-        DynamicalAnalysis if klass in _CONCRETE_ANALYSIS else DynamicalForecast
-    )
-    assert isinstance(source, expected_base)
+    assert isinstance(source, _DynamicalBase)
 
 
 @pytest.mark.timeout(30)
@@ -409,7 +413,7 @@ def test_dynamical_concrete_forecast_member(monkeypatch):
 )
 @pytest.mark.parametrize("variable", [["t2m", "u10m"], "msl"])
 def test_dynamical_fetch(time, variable):
-    source = DynamicalAnalysis("noaa-gfs-analysis")
+    source = DynamicalGFSAnalysis()
     data = source(time, variable)
 
     if isinstance(variable, str):
@@ -433,16 +437,17 @@ def test_dynamical_fetch(time, variable):
 @pytest.mark.xfail
 @pytest.mark.timeout(120)
 @pytest.mark.parametrize(
-    "collection,variable",
+    "klass",
     [
         # noaa-gfs-forecast is surface-only (no pressure levels)
-        ("noaa-gfs-forecast", ["t2m", "u10m"]),
+        DynamicalGFSForecast,
         # ecmwf-aifs-single-forecast carries pressure-level fields
-        ("ecmwf-aifs-single-forecast", ["t2m", "z500"]),
+        DynamicalAIFSForecast,
     ],
 )
-def test_dynamical_forecast_fetch(collection, variable):
-    source = DynamicalForecast(collection)
+def test_dynamical_forecast_fetch(klass):
+    source = klass()
+    variable = ["t2m", "u10m"] if klass is DynamicalGFSForecast else ["t2m", "z500"]
     # 2024-06-01 is valid for both GFS (from 2021) and AIFS (from 2024-04-01)
     time = [datetime.datetime(year=2024, month=6, day=1)]
     lead_time = [datetime.timedelta(hours=0), datetime.timedelta(hours=24)]

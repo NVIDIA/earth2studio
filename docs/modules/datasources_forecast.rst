@@ -29,7 +29,6 @@ Typically used in intercomparison workflows.
       data.CFS_FX_Flux
       data.CFS_Reforecast_FX
       data.CFS_Reforecast_FX_Flux
-      data.DynamicalForecast
       data.DynamicalGFSForecast
       data.DynamicalGEFSForecast
       data.DynamicalIFSENSForecast
