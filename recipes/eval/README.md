@@ -226,12 +226,29 @@ python main.py \
 
 ### Multi-source pipelines (StormScope)
 
-StormScope needs two IC sources (GOES satellite + MRMS radar) plus a
-conditioning source (GFS).  A single top-level `ic_source` doesn't fit,
-so the pipeline declares `needs_data_source = False` and resolves its
-own sources from per-component config blocks — `main.py` skips
-top-level source resolution and the predownload sentinel check for
-these pipelines.
+The default StormScope checkpoint is the **`3km_10min`** CONUS nowcasting
+variant (3 km grid, 10-minute step).  The pipeline runs two coupled models:
+
+- **`StormScopeGOES`** — forecasts the eight ABI satellite channels.  The
+  `3km_10min` variant is *pure obs*: it takes **no external conditioning**.
+- **`StormScopeMRMS`** — forecasts radar reflectivity (`refc`, `refc_base`)
+  **plus a gridded GLM lightning channel** (`glm_density`), conditioned on
+  GOES (observations at the IC time, then the GOES model's own predictions
+  during rollout via `call_with_conditioning`).
+
+So the pipeline needs three IC-side sources — GOES satellite, MRMS radar, and
+GLM lightning — living on three different native grids.  A single top-level
+`ic_source` doesn't fit, so the pipeline declares `needs_data_source = False`
+and resolves its own sources from per-component config blocks; `main.py` skips
+top-level source resolution and the predownload sentinel check for these
+pipelines.
+
+The **GLM channel** (`glm_density`) is a *state* channel — both an input
+(observation history) and a predicted output that evolves autoregressively.
+It comes from `earth2studio.data.GOESGLMGrid` on a 0.1° lat/lon grid and is
+regridded **bilinearly** onto the model grid (`src.regrid.BilinearRegridder`),
+matching the model's own `build_glm_interpolator` — unlike the
+nearest-neighbor path used for radar/satellite.
 
 BYO is done by overriding the per-component entries in `cfg.model`:
 
@@ -242,44 +259,57 @@ python main.py campaign=stormscope_2023_convection \
     model.goes.ic_grid._target_=my_pkg.my_goes_grid \
     model.mrms.ic_source._target_=my_pkg.MyMrmsZarrSource \
     model.mrms.ic_source.path=/data/my_mrms.zarr \
-    model.mrms.ic_grid._target_=my_pkg.my_mrms_grid
+    model.mrms.ic_grid._target_=my_pkg.my_mrms_grid \
+    model.mrms.glm_data_source._target_=my_pkg.MyGlmSource \
+    model.mrms.glm_grid._target_=my_pkg.my_glm_grid
 ```
 
-`ic_grid` is a Hydra-instantiable callable that returns `(lats, lons)`
-for the source's native grid — the pipeline uses it to build
-StormScope's internal nearest-neighbor interpolator.  If your BYO store
-is already on the HRRR grid, point `ic_grid` at a resolver that returns
-the model's own `y`/`x` — StormScope's `prep_input` detects the match
-and skips interpolation.
+`ic_grid` (and `glm_grid`) is a Hydra-instantiable callable that returns
+`(lats, lons)` for the source's native grid — the pipeline uses it to build
+StormScope's internal interpolator.  If your BYO store is already on the HRRR
+grid, point `ic_grid` at a resolver that returns the model's own `y`/`x` —
+StormScope's `prep_input` detects the match and skips interpolation.
 
 #### Predownload with HRRR-aligned storage
 
-Running `predownload.py` for a StormScope campaign writes two zarr
-stores, one per model, already resampled onto the model's HRRR
-sub-region via a nearest-neighbor regridder
-(`src.regrid.NearestNeighborRegridder`):
+Running `predownload.py` for a StormScope campaign writes **three** zarr
+stores, each already resampled onto the model's HRRR sub-region — radar and
+satellite via a nearest-neighbor regridder
+(`src.regrid.NearestNeighborRegridder`), GLM via the bilinear regridder
+(`src.regrid.BilinearRegridder`):
 
 ```bash
 python predownload.py campaign=stormscope_2023_convection
-# → <output.path>/data_goes.zarr   (time, y, x) on HRRR sub-region
-# → <output.path>/data_mrms.zarr   (time, y, x) on HRRR sub-region
+# → <output.path>/data_goes.zarr   (time, y, x)  GOES ABI channels (nearest)
+# → <output.path>/data_mrms.zarr   (time, y, x)  radar refc/refc_base (nearest)
+# → <output.path>/data_glm.zarr    (time, y, x)  glm_density (bilinear)
 ```
 
-At inference time, `main.py` auto-detects these stores under
-`<output.path>` and wires them in with `PredownloadedSource`;
-StormScope's `prep_input` sees the matching `y`/`x` and skips its
-live interpolator, so the predownload is both a disk-size win (raw
-GOES is ~10x the regridded footprint) and an inference-speed win.
+Each store covers both the IC input window and every forecast valid time, so
+`data_mrms.zarr` / `data_glm.zarr` double as verification for scoring the
+radar and lightning channels.
 
-Per-model BYO overrides of `ic_source` bypass predownload for that
-model.  To fully skip predownload for both models, either set
+At inference time, `main.py` auto-detects these stores under `<output.path>`.
+The MRMS state spans two grids (radar + GLM), so its IC is reassembled from
+`data_mrms.zarr` + `data_glm.zarr` via a `CompositeSource` that dispatches
+each variable to the store providing it; `data_goes.zarr` is wired in with
+`PredownloadedSource` directly.  Because every store is already on the model
+`y`/`x`, StormScope's `prep_input` skips its live interpolators — so the
+predownload is both a disk-size win (raw GOES is ~10× the regridded footprint;
+raw GLM is far larger still) and an inference-speed win.  After the first
+step, `glm_density` flows autoregressively from the model's own predictions.
+
+Per-model BYO overrides of `ic_source` (or `glm_data_source`) bypass
+predownload for that source.  To fully skip predownload, either set
 `model.goes.ic_byo=true model.mrms.ic_byo=true` or simply don't run
-`predownload.py` — the pipeline will fall back to the live sources.
+`predownload.py` — the pipeline falls back to the live sources, wrapping each
+in the appropriate regridder (nearest for radar/satellite, bilinear for GLM)
+so the assembled state still lands on the model grid.
 
-Conditioning data (GFS for the GOES model; GOES observations for
-MRMS) is still fetched live by each model's internal conditioning
-source — that path isn't predownloaded because the conditioning
-request shape changes every forecast step.
+Because the `3km_10min` GOES model is pure-obs, there is **no** conditioning
+source to predownload (no `cond_goes.zarr`).  MRMS conditioning is supplied
+externally in the coupling loop (the GOES state via `call_with_conditioning`),
+so its internal conditioning source is bypassed too.
 
 ## Multi-GPU Execution
 
@@ -612,7 +642,7 @@ recipes/eval/
 │   ├── distributed.py   # Rank-ordered execution, logging setup
 │   ├── models.py        # Model loading (prognostic + diagnostic)
 │   ├── output.py        # OutputManager (zarr lifecycle)
-│   ├── grids.py         # Grid-resolver helpers (goes, mrms, gfs, arco)
+│   ├── grids.py         # Grid-resolver helpers (goes, mrms, glm, gfs, arco)
 │   └── data.py          # PredownloadedSource (zarr → DataSource)
 └── pyproject.toml
 ```
@@ -629,7 +659,7 @@ Each source module has a specific scoped responsibilities:
 | `distributed.py` | Rank-ordered execution primitive; logging setup |
 | `models.py` | Load prognostic/diagnostic models from config |
 | `output.py` | Zarr store creation, validation, threaded writes, consolidation |
-| `grids.py` | Hydra-instantiable grid resolvers (`goes_grid`, `mrms_grid`, `gfs_grid`, `arco_grid`) |
+| `grids.py` | Hydra-instantiable grid resolvers (`goes_grid`, `mrms_grid`, `glm_grid`, `gfs_grid`, `arco_grid`) |
 | `data.py` | `PredownloadedSource` — DataSource wrapper for predownloaded zarr stores |
 <!-- markdownlint-enable MD013 -->
 

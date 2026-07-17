@@ -22,6 +22,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import pathlib
@@ -212,7 +213,12 @@ class _NNJAObsBase:
                 verbose=(not self._verbose),
             )
 
-        df = self._compile_dataframe(async_tasks, variable_list, schema)
+        # Decoding is CPU-bound and internally blocks on pool futures; run it in
+        # a worker thread so it does not stall the shared fsspec IO loop that
+        # _sync_async dispatches every data source's fetch onto.
+        df = await asyncio.to_thread(
+            self._compile_dataframe, async_tasks, variable_list, schema
+        )
         df.attrs["source"] = self.SOURCE_ID
         return df
 

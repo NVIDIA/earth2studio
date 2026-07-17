@@ -33,11 +33,16 @@ from .dynamical import (
     DynamicalGFSForecast,
     DynamicalIFSENSForecast,
 )
+from .earthmover import (
+    EarthMoverBrightBandIFS,
+    EarthMoverBrightBandIFS_FX,
+    EarthMoverERA5,
+)
 from .ecmwf import AIFS_ENS_FX, AIFS_FX, IFS, IFS_ENS, IFS_ENS_FX, IFS_FX
 from .gdas import NomadsGDASObsConv
 from .gefs import GEFS_FX, GEFS_FX_721x1440
 from .gfs import GFS, GFS_FX
-from .ghcn import GHCNDaily
+from .ghcn import GHCNDaily, GHCNHourly
 from .goes import GOES
 from .goes_glm import GOESGLM, GOESGLMGrid
 from .himawari_ahi import HimawariAHI

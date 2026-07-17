@@ -38,6 +38,8 @@ Used for fetching initial conditions for inference and validation data for scori
       data.CMIP6MultiRealm
       data.DynamicalGFSAnalysis
       data.DynamicalGEFSAnalysis
+      data.EarthMoverBrightBandIFS
+      data.EarthMoverERA5
       data.GFS
       data.GOES
       data.GOESGLMGrid
