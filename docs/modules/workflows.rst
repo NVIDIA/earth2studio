@@ -23,3 +23,32 @@ use cases.
     run.deterministic
     run.diagnostic
     run.ensemble
+
+
+:mod:`earth2studio.batched_workflows`: Batched Workflows
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Utilities for executing deterministic forecast requests with reusable model and
+data-source resources.
+
+.. automodule:: earth2studio.batched_workflows
+    :no-members:
+    :no-inherited-members:
+
+.. currentmodule:: earth2studio.batched_workflows
+
+.. autosummary::
+    :nosignatures:
+    :toctree: generated/workflows/
+    :template: class.rst
+
+    DeterministicBatchRequest
+    DeterministicBatchResponse
+    DeterministicBatchRuntime
+
+.. autosummary::
+    :nosignatures:
+    :toctree: generated/workflows/
+    :template: function.rst
+
+    run_deterministic_batch

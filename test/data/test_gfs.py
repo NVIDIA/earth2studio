@@ -15,15 +15,59 @@
 # limitations under the License.
 
 import asyncio
+import hashlib
+import json
 import pathlib
 import shutil
+import time
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 import pytest
 
+import earth2studio.data.gfs as gfs_module
 from earth2studio.data import GFS, GFS_FX
+
+
+def _run(coro):
+    return asyncio.run(coro)
+
+
+class _FakeFS:
+    def __init__(
+        self,
+        data: bytes = b"fake-grib-bytes",
+        delay: float = 0.0,
+        error: Exception | None = None,
+    ) -> None:
+        self.data = data
+        self.delay = delay
+        self.error = error
+        self.calls: list[tuple[str, int, int | None]] = []
+
+    def read_block(
+        self, path: str, *, offset: int = 0, length: int | None = None
+    ) -> bytes:
+        self.calls.append((path, offset, length))
+        if self.delay:
+            time.sleep(self.delay)
+        if self.error is not None:
+            raise self.error
+        return self.data
+
+
+def _gfs_cache_file(
+    cache: str,
+    uri: str,
+    byte_offset: int = 0,
+    byte_length: int | None = None,
+) -> pathlib.Path:
+    cache_key = json.dumps(
+        (uri, byte_offset, byte_length), separators=(",", ":")
+    ).encode()
+    filename = hashlib.sha256(cache_key).hexdigest()
+    return pathlib.Path(cache) / filename
 
 
 @pytest.mark.slow
@@ -146,6 +190,209 @@ def test_gfs_cache(time, variable, cache):
         shutil.rmtree(ds.cache)
     except FileNotFoundError:
         pass
+
+
+def test_gfs_fetch_remote_file_reuses_existing_cache(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = GFS(cache=True)
+    fake_fs = _FakeFS()
+    ds.fs = fake_fs
+
+    uri = "noaa-gfs-bdp-pds/gfs.20260101/00/atmos/gfs.t00z.pgrb2.0p25.f000"
+    cached_file = _gfs_cache_file(ds.cache, uri, byte_offset=12, byte_length=4)
+    cached_file.parent.mkdir(parents=True, exist_ok=True)
+    cached_file.write_bytes(b"data")
+
+    result = _run(ds._fetch_remote_file(uri, byte_offset=12, byte_length=4))
+
+    assert result == str(cached_file)
+    assert fake_fs.calls == []
+
+
+def test_gfs_fetch_remote_file_refetches_wrong_size_cache(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = GFS(cache=True)
+    fake_fs = _FakeFS(data=b"data")
+    ds.fs = fake_fs
+
+    uri = "noaa-gfs-bdp-pds/gfs.20260101/00/atmos/gfs.t00z.pgrb2.0p25.f000"
+    cached_file = _gfs_cache_file(ds.cache, uri, byte_offset=12, byte_length=4)
+    cached_file.parent.mkdir(parents=True, exist_ok=True)
+    cached_file.write_bytes(b"stale-data")
+
+    result = _run(ds._fetch_remote_file(uri, byte_offset=12, byte_length=4))
+
+    assert result == str(cached_file)
+    assert cached_file.read_bytes() == b"data"
+    assert fake_fs.calls == [(uri, 12, 4)]
+
+
+def test_gfs_fetch_remote_file_keys_cache_by_complete_range(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = GFS(cache=True)
+    fake_fs = _FakeFS(data=b"data")
+    ds.fs = fake_fs
+
+    uri = "noaa-gfs-bdp-pds/gfs.20260101/00/atmos/gfs.t00z.pgrb2.0p25.f000"
+
+    short_range = _run(ds._fetch_remote_file(uri, byte_offset=3, byte_length=4))
+    fake_fs.data = b"payload"
+    long_range = _run(ds._fetch_remote_file(uri, byte_offset=3, byte_length=7))
+
+    assert short_range != long_range
+    assert pathlib.Path(short_range).read_bytes() == b"data"
+    assert pathlib.Path(long_range).read_bytes() == b"payload"
+    assert fake_fs.calls == [(uri, 3, 4), (uri, 3, 7)]
+
+
+def test_gfs_fetch_remote_file_writes_cache_atomically(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = GFS(cache=True)
+    fake_fs = _FakeFS(data=b"payload")
+    ds.fs = fake_fs
+
+    uri = "noaa-gfs-bdp-pds/gfs.20260101/00/atmos/gfs.t00z.pgrb2.0p25.f000"
+    replace = MagicMock(wraps=gfs_module.os.replace)
+    monkeypatch.setattr(gfs_module.os, "replace", replace)
+
+    result = _run(ds._fetch_remote_file(uri, byte_offset=3, byte_length=7))
+
+    cache_path = pathlib.Path(result)
+    replace.assert_called_once()
+    temporary_path, published_path = map(pathlib.Path, replace.call_args.args)
+    assert published_path == cache_path
+    assert temporary_path.parent == cache_path.parent
+    assert temporary_path.name.startswith(f"{cache_path.name}.tmp.")
+    assert cache_path.read_bytes() == b"payload"
+    assert fake_fs.calls == [(uri, 3, 7)]
+    assert not list(cache_path.parent.glob("*.tmp.*"))
+
+
+def test_gfs_fetch_remote_file_rejects_size_mismatch(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = GFS(cache=True)
+    fake_fs = _FakeFS(data=b"short")
+    ds.fs = fake_fs
+
+    uri = "noaa-gfs-bdp-pds/gfs.20260101/00/atmos/gfs.t00z.pgrb2.0p25.f000"
+
+    with pytest.raises(IOError, match="GFS cache download size mismatch"):
+        _run(ds._fetch_remote_file(uri, byte_offset=3, byte_length=7))
+
+    cache_dir = pathlib.Path(ds.cache)
+    assert fake_fs.calls == [(uri, 3, 7)]
+    assert not [path for path in cache_dir.iterdir() if path.is_file()]
+    assert not list(cache_dir.glob("*.tmp.*"))
+
+
+def test_gfs_fetch_remote_file_cleans_up_failed_download(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = GFS(cache=True)
+    fake_fs = _FakeFS(error=RuntimeError("boom"))
+    ds.fs = fake_fs
+
+    uri = "noaa-gfs-bdp-pds/gfs.20260101/00/atmos/gfs.t00z.pgrb2.0p25.f000"
+
+    with pytest.raises(RuntimeError, match="boom"):
+        _run(ds._fetch_remote_file(uri, byte_offset=3, byte_length=7))
+
+    cache_dir = pathlib.Path(ds.cache)
+    assert not [path for path in cache_dir.iterdir() if path.is_file()]
+    assert not list(cache_dir.glob("*.tmp.*"))
+
+
+def test_gfs_fetch_remote_file_coalesces_concurrent_cache_misses(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = GFS(cache=True)
+    fake_fs = _FakeFS(data=b"data", delay=0.05)
+    ds.fs = fake_fs
+
+    uri = "noaa-gfs-bdp-pds/gfs.20260101/00/atmos/gfs.t00z.pgrb2.0p25.f000"
+
+    async def fetch_twice():
+        return await asyncio.gather(
+            ds._fetch_remote_file(uri, byte_offset=5, byte_length=4),
+            ds._fetch_remote_file(uri, byte_offset=5, byte_length=4),
+        )
+
+    first, second = _run(fetch_twice())
+
+    assert first == second
+    assert pathlib.Path(first).read_bytes() == b"data"
+    assert fake_fs.calls == [(uri, 5, 4)]
+    assert ds._cache_downloads == {}
+
+
+def test_gfs_fetch_remote_file_coalesces_after_event_loop_change(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = GFS(cache=True)
+    fake_fs = _FakeFS(data=b"data", delay=0.05)
+    ds.fs = fake_fs
+
+    uri = "noaa-gfs-bdp-pds/gfs.20260101/00/atmos/gfs.t00z.pgrb2.0p25.f000"
+
+    async def fetch_twice():
+        return await asyncio.gather(
+            ds._fetch_remote_file(uri, byte_offset=5, byte_length=4),
+            ds._fetch_remote_file(uri, byte_offset=5, byte_length=4),
+        )
+
+    first_paths = _run(fetch_twice())
+    pathlib.Path(first_paths[0]).unlink()
+    second_paths = _run(fetch_twice())
+
+    assert first_paths[0] == first_paths[1]
+    assert second_paths[0] == second_paths[1]
+    assert first_paths[0] == second_paths[0]
+    assert pathlib.Path(second_paths[0]).read_bytes() == b"data"
+    assert fake_fs.calls == [(uri, 5, 4), (uri, 5, 4)]
+    assert ds._cache_downloads == {}
+
+
+def test_gfs_fetch_array_removes_cached_file_on_grib_open_failure(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = GFS(cache=True)
+    fake_fs = _FakeFS(data=b"badgrb")
+    ds.fs = fake_fs
+
+    uri = "noaa-gfs-bdp-pds/gfs.20260101/00/atmos/gfs.t00z.pgrb2.0p25.f000"
+
+    def _raise_bad_grib(_path):
+        raise RuntimeError("bad grib")
+
+    monkeypatch.setattr(gfs_module.pygrib, "open", _raise_bad_grib)
+
+    with pytest.raises(RuntimeError, match="bad grib"):
+        _run(ds.fetch_array(uri, byte_offset=2, byte_length=6, modifier=lambda x: x))
+
+    cache_file = _gfs_cache_file(ds.cache, uri, byte_offset=2, byte_length=6)
+    assert fake_fs.calls == [(uri, 2, 6)]
+    assert not cache_file.exists()
+    assert not list(cache_file.parent.glob("*.tmp.*"))
+
+
+def test_gfs_fetch_array_keeps_cached_file_on_modifier_failure(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = GFS(cache=True)
+    fake_fs = _FakeFS(data=b"valid!")
+    ds.fs = fake_fs
+
+    uri = "noaa-gfs-bdp-pds/gfs.20260101/00/atmos/gfs.t00z.pgrb2.0p25.f000"
+    grbs = MagicMock()
+    grbs.__getitem__.return_value.values = np.array([1.0])
+    monkeypatch.setattr(gfs_module.pygrib, "open", lambda _path: grbs)
+
+    def fail_modifier(_values: np.ndarray) -> np.ndarray:
+        raise RuntimeError("modifier boom")
+
+    with pytest.raises(RuntimeError, match="modifier boom"):
+        _run(ds.fetch_array(uri, 2, 6, fail_modifier))
+
+    cache_file = _gfs_cache_file(ds.cache, uri, byte_offset=2, byte_length=6)
+    assert cache_file.read_bytes() == b"valid!"
+    grbs.close.assert_called_once_with()
 
 
 @pytest.mark.slow
