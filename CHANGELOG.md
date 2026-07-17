@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added Aurora v1.5 deterministic and ensemble model wrapper (`AuroraV1p5`, `AuroraV1p5Ensemble`)
+- Added Aurora v1.5 deterministic and ensemble model wrapper (`Aurora1p5`, `Aurora1p5Ensemble`)
 - Added EarthMover ERA5 0.25 degree reanalysis data source
 - Added EarthMover IFS 0.1 degree data source and forecast source hosted by BrightBand
 

@@ -34,15 +34,15 @@ from earth2studio.utils.imports import (
 from earth2studio.utils.type import CoordSystem
 
 try:
-    from aurora import AuroraV1p5 as AuroraV1p5_model
-    from aurora import AuroraV1p5Ensemble as AuroraV1p5Ensemble_model
+    from aurora import AuroraV1p5 as Aurora1p5_model
+    from aurora import AuroraV1p5Ensemble as Aurora1p5Ensemble_model
     from aurora import Batch, Metadata
     from aurora.insolation import insolation as aurora_insolation
     from aurora.normalisation import log_untransform as aurora_log_untransform
 except ImportError:
-    OptionalDependencyFailure("aurora-v1p5")
-    AuroraV1p5_model = None
-    AuroraV1p5Ensemble_model = None
+    OptionalDependencyFailure("aurora")
+    Aurora1p5_model = None
+    Aurora1p5Ensemble_model = None
     Batch = None
     Metadata = None
     aurora_insolation = None
@@ -137,7 +137,7 @@ _N_OUTPUT_ONLY = len(_OUTPUT_ONLY_SURF_VARS)  # 7
 _AR_STEP_HOURS = 6.0
 
 # Tensor-level clipping bounds applied to the AR feedback state at the 6h
-# boundary. Mirrors AuroraV1p5's default rollout_input_clipping dict.
+# boundary. Mirrors Aurora1p5's default rollout_input_clipping dict.
 # Entries are (variable_tensor_index, min_or_None, max_or_None).
 _AR_CLIP_BOUNDS: list[tuple[int, float | None, float | None]] = [
     (_N_ATMOS + _SURF_VARS_E2S.index("tcwv"), 0.0, None),
@@ -151,12 +151,12 @@ _AR_CLIP_BOUNDS: list[tuple[int, float | None, float | None]] = [
 ]
 
 
-def _load_aurora_v1p5_from_package(
+def _load_aurora1p5_from_package(
     package: Package,
     aurora_cls: type,
     checkpoint_name: str,
 ) -> tuple[torch.nn.Module, dict[str, torch.Tensor]]:
-    """Shared loader for AuroraV1p5 and AuroraV1p5Ensemble."""
+    """Shared loader for Aurora1p5 and Aurora1p5Ensemble."""
     static_path = package.resolve("aurora-0.25-v1.5-static.pickle")
     with open(static_path, "rb") as f:
         static_raw = pickle.load(f)  # noqa: S301
@@ -176,7 +176,7 @@ def _load_aurora_v1p5_from_package(
 
 # Adapted from https://microsoft.github.io/aurora/example_v1p5.html
 @check_optional_dependencies()
-class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Aurora v1.5 0.25 degree global forecast model. This model is the improved
     version of Aurora, featuring an expanded set of surface variables (18 vs 4)
     and a richer set of static fields. It consists of a single auto-regressive
@@ -190,12 +190,12 @@ class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Note
     ----
-    This model uses the checkpoints from the ikwessel/aurora-1.5 HuggingFace
+    This model uses the checkpoints from the microsoft/aurora HuggingFace
     repository. For additional information see the following resources:
 
     - https://arxiv.org/abs/2405.13063
     - https://github.com/microsoft/aurora
-    - https://huggingface.co/ikwessel/aurora-1.5
+    - https://huggingface.co/microsoft/aurora
     - https://microsoft.github.io/aurora/example_v1p5.html
 
     Aurora v1.5 was pretrained on ERA5 and fine-tuned on IFS operational
@@ -221,14 +221,14 @@ class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Parameters
     ----------
     core_model : torch.nn.Module
-        Core AuroraV1p5 model
+        Core Aurora1p5 model
     static_vars : dict[str, torch.Tensor]
-        Dictionary of 37 static field tensors (e.g., lsm, z, slt_*, tvh_*, tvl_*, ...)
+        Dictionary of static field tensors (e.g., lsm, z, slt_*, tvh_*, tvl_*, ...).
         Each tensor should have shape (720, 1440).
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2024 gpu:48gb
+    region:global class:mrf product:wind product:temp product:atmos product:precip product:land product:ocean product:solar year:2026 gpu:48gb
     """
 
     def __init__(
@@ -268,6 +268,7 @@ class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         self.device = torch.ones(1).device  # Hack to get default device
         self.preds_idx = 0
+        self.seed: int | None = None
 
     def _get_static_vars(self) -> dict[str, torch.Tensor]:
         return {k: getattr(self, f"static_var_{k}") for k in self._static_var_keys}
@@ -323,9 +324,9 @@ class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         return Package(
-            "hf://ikwessel/aurora-1.5@9751bb56e8e4a0f0a780e3cbe978f4c721e12bc7",
+            "hf://microsoft/aurora@c171214768997594e1a3fc6b8d9bbb489e9d21ab",
             cache_options={
-                "cache_storage": Package.default_cache("aurora-v1p5"),
+                "cache_storage": Package.default_cache("aurora1p5"),
                 "same_names": True,
             },
         )
@@ -337,8 +338,8 @@ class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package: Package,
     ) -> PrognosticModel:
         """Load prognostic from package"""
-        model, static_vars = _load_aurora_v1p5_from_package(
-            package, AuroraV1p5_model, "aurora-0.25-v1.5.ckpt"
+        model, static_vars = _load_aurora1p5_from_package(
+            package, Aurora1p5_model, "aurora-0.25-v1.5.ckpt"
         )
         return cls(model, static_vars)
 
@@ -369,11 +370,7 @@ class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return datetime.fromtimestamp(seconds, tz=timezone.utc)
 
     def _prepare_input(self, x: torch.Tensor, coords: CoordSystem) -> Batch:
-        """Build an Aurora Batch from a (B, 1, 2, 83, H, W) tensor.
-
-        Only the 83 AR input channels (65 atmos + 18 bidirectional surf) are
-        used; output-only channels, if present, are ignored.
-        """
+        """Build an Aurora Batch from a (B, 1, 2, 83, H, W) tensor."""
         B = x.shape[0]
 
         # x: (B, 1, 2, 83, H, W) — select the single time axis
@@ -444,7 +441,7 @@ class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Output-only diagnostic vars. scaled_tp_1h / scaled_sf_1h are stored
         # in log-space by Aurora's post-norm hook; invert to physical units.
         diag_tensors = []
-        for _e2s_name, aurora_name, log_scaled in _OUTPUT_ONLY_SURF_VARS:
+        for _, aurora_name, log_scaled in _OUTPUT_ONLY_SURF_VARS:
             v = output.surf_vars[aurora_name]
             if log_scaled:
                 v = aurora_log_untransform(v)
@@ -455,49 +452,17 @@ class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x.view(-1, 1, *x.shape[1:])  # (B, 1, 1, 90, H, W)
 
     @torch.inference_mode()
-    def _forward(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-        lead_time_hours: float = 1.0,
-    ) -> torch.Tensor:
-        """Single forward pass at the requested lead time (hours)."""
-        B = x.shape[0]
-        n_out = _N_ATMOS + _N_SURF + _N_OUTPUT_ONLY
-        out = torch.empty(
-            B, x.shape[1], 1, n_out, *x.shape[-2:], device=x.device, dtype=x.dtype
-        )
-
-        for t in range(coords["time"].shape[0]):
-            t_coords = coords.copy()
-            t_coords["time"] = t_coords["time"][t : t + 1]
-            input_batch = self._prepare_input(x[:, t : t + 1], t_coords)
-            lead_times = torch.full(
-                (B,), lead_time_hours, device=x.device, dtype=torch.float32
-            )
-            output_batch = self.model.forward(input_batch, lead_times=lead_times)
-            out[:, t : t + 1] = self._prepare_output(output_batch)
-
-        return out
-
-    @torch.inference_mode()
     def _forward_sub_steps(
         self,
         x: torch.Tensor,
         coords: CoordSystem,
+        lead_time_hours: list[int],
     ) -> list[torch.Tensor]:
-        """Compute hourly predictions (t+1h … t+6h) from one AR input pair.
+        """Run the model at each requested lead time from one AR input pair.
 
-        The same input Batch is used for all 6 sub-steps (they do not
-        autoregress onto each other). Clipping is intentionally NOT applied
-        here — the raw model output is returned so callers receive unmodified
-        predictions. The caller is responsible for clipping the AR feedback
-        state before the next cycle (see ``_default_generator``).
-
-        Returns
-        -------
-        list[torch.Tensor]
-            Six tensors of shape (B, T, 1, 90, H, W) for hours 1 through 6.
+        Returns one tensor of shape (B, T, 1, 90, H, W) per requested lead time.
+        Raw (unclipped) outputs are returned; clipping for AR feedback is the
+        caller's responsibility (see ``_default_generator``).
         """
         B = x.shape[0]
         T = coords["time"].shape[0]
@@ -505,21 +470,21 @@ class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         sub_preds: list[torch.Tensor] = [
             torch.empty(B, T, 1, n_out, *x.shape[-2:], device=x.device, dtype=x.dtype)
-            for _ in range(int(_AR_STEP_HOURS))
+            for _ in lead_time_hours
         ]
 
         for t in range(T):
             t_coords = coords.copy()
             t_coords["time"] = t_coords["time"][t : t + 1]
-            # Build the Batch once; reuse for all 6 lead-time queries
+            # Build the Batch once; reuse for all lead-time queries
             input_batch = self._prepare_input(x[:, t : t + 1], t_coords)
 
-            for h in range(1, int(_AR_STEP_HOURS) + 1):
+            for i, h in enumerate(lead_time_hours):
                 lead_times = torch.full(
-                    (B,), float(h), device=x.device, dtype=torch.float32
+                    (B,), h, device=x.device, dtype=torch.float32
                 )
                 output_batch = self.model.forward(input_batch, lead_times=lead_times)
-                sub_preds[h - 1][:, t : t + 1] = self._prepare_output(output_batch)
+                sub_preds[i][:, t : t + 1] = self._prepare_output(output_batch)
 
         return sub_preds
 
@@ -544,12 +509,12 @@ class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output tensor and coordinate system 1 hour in the future
         """
         output_coords = self.output_coords(coords)
-        x = self._forward(x, coords, lead_time_hours=1.0)
+        x = self._forward_sub_steps(x, coords, lead_time_hours=[1])[0]
         return x, output_coords
 
     @staticmethod
     def _clip_ar_input(x: torch.Tensor) -> torch.Tensor:
-        """Clamp AR feedback channels to physical bounds (mirrors AuroraV1p5 rollout_input_clipping)."""
+        """Clamp AR feedback channels to physical bounds (mirrors Aurora1p5 rollout_input_clipping)."""
         x = x.clone()
         for idx, lo, hi in _AR_CLIP_BOUNDS:
             x[..., idx, :, :] = x[..., idx, :, :].clamp(min=lo, max=hi)
@@ -587,7 +552,9 @@ class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             current_t_lead = coords["lead_time"][-1]
 
             # Compute t+1h … t+6h from the same AR input pair [t-6h, t]
-            sub_preds = self._forward_sub_steps(x, coords)
+            sub_preds = self._forward_sub_steps(
+                x, coords, lead_time_hours=list(range(1, int(_AR_STEP_HOURS) + 1))
+            )
 
             for sub_idx, sub_pred in enumerate(sub_preds):
                 h = sub_idx + 1
@@ -636,29 +603,29 @@ class AuroraV1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
 
 @check_optional_dependencies()
-class AuroraV1p5Ensemble(AuroraV1p5):
+class Aurora1p5Ensemble(Aurora1p5):
     """Aurora v1.5 ensemble 0.25 degree global forecast model. Identical to
-    :class:`AuroraV1p5` except it uses the stochastic ensemble checkpoint, where
+    :class:`Aurora1p5` except it uses the stochastic ensemble checkpoint, where
     each forward pass injects fresh Gaussian noise into the backbone conditioning
     context. Calling the model N times (or with a batch of N copies of the same
     initial condition) therefore produces N statistically independent members.
 
-    Like :class:`AuroraV1p5`, this wrapper uses an hourly rollout by default,
+    Like :class:`Aurora1p5`, this wrapper uses an hourly rollout by default,
     leveraging the 6-hour base time-step to produce hourly lead times without
     additional model evaluations per AR cycle.
 
     Note
     ----
-    This model uses the ensemble checkpoint from the ikwessel/aurora-1.5
+    This model uses the ensemble checkpoint from the microsoft/aurora
     HuggingFace repository. For additional information see the following resources:
 
     - https://arxiv.org/abs/2405.13063
     - https://github.com/microsoft/aurora
-    - https://huggingface.co/ikwessel/aurora-1.5
+    - https://huggingface.co/microsoft/aurora
     - https://microsoft.github.io/aurora/example_v1p5.html
 
     Aurora v1.5 was pretrained on ERA5 and fine-tuned on IFS operational
-    analyses. See :class:`AuroraV1p5` for data source recommendations.
+    analyses. See :class:`Aurora1p5` for data source recommendations.
 
     Warning
     -------
@@ -668,23 +635,48 @@ class AuroraV1p5Ensemble(AuroraV1p5):
     Parameters
     ----------
     core_model : torch.nn.Module
-        Core AuroraV1p5Ensemble model (stochastic=True)
+        Core Aurora1p5Ensemble model (stochastic=True)
     static_vars : dict[str, torch.Tensor]
-        Dictionary of 37 static field tensors (e.g., lsm, z, slt_*, tvh_*, tvl_*, ...)
+        Dictionary of static field tensors (e.g., lsm, z, slt_*, tvh_*, tvl_*, ...).
         Each tensor should have shape (720, 1440).
+    seed : int | None, optional
+        If specified, sets the random seed via :meth:`set_rng` at the start of
+        each :meth:`create_iterator` call for reproducible stochastic noise.
+        By default None (non-reproducible).
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2024 gpu:48gb
+    region:global class:mrf product:wind product:temp product:atmos product:precip product:land product:ocean product:solar year:2026 gpu:48gb
     """
+
+    def __init__(
+        self,
+        core_model: torch.nn.Module,
+        static_vars: dict[str, torch.Tensor],
+        seed: int | None = None,
+    ) -> None:
+        super().__init__(core_model, static_vars)
+        self.seed = seed
+
+    def set_rng(self, seed: int | None) -> None:
+        """Seed the global RNG and reset the model's internal noise cache.
+
+        Parameters
+        ----------
+        seed : int | None
+            Seed for :func:`torch.manual_seed`. If None, only resets the noise cache.
+        """
+        if seed is not None:
+            torch.manual_seed(seed)
+        self.model.reset_noise()
 
     @classmethod
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         return Package(
-            "hf://ikwessel/aurora-1.5@9751bb56e8e4a0f0a780e3cbe978f4c721e12bc7",
+            "hf://microsoft/aurora@c171214768997594e1a3fc6b8d9bbb489e9d21ab",
             cache_options={
-                "cache_storage": Package.default_cache("aurora-v1p5"),
+                "cache_storage": Package.default_cache("aurora1p5"),
                 "same_names": True,
             },
         )
@@ -696,8 +688,8 @@ class AuroraV1p5Ensemble(AuroraV1p5):
         package: Package,
     ) -> PrognosticModel:
         """Load prognostic from package"""
-        model, static_vars = _load_aurora_v1p5_from_package(
-            package, AuroraV1p5Ensemble_model, "aurora-0.25-v1.5-ensemble.ckpt"
+        model, static_vars = _load_aurora1p5_from_package(
+            package, Aurora1p5Ensemble_model, "aurora-0.25-v1.5-ensemble.ckpt"
         )
         return cls(model, static_vars)
 
@@ -706,9 +698,6 @@ class AuroraV1p5Ensemble(AuroraV1p5):
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
-
-        Resets the model's internal noise state before each rollout so that
-        independent calls produce statistically independent ensemble members.
 
         Parameters
         ----------
@@ -723,5 +712,5 @@ class AuroraV1p5Ensemble(AuroraV1p5):
             Iterator that generates time-steps of the prognostic model containing
             the output data tensor and coordinate system dictionary.
         """
-        self.model.reset_noise()
+        self.set_rng(self.seed)
         yield from self._default_generator(x, coords)

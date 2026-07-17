@@ -40,8 +40,8 @@ Thus are typically used to generate forecast predictions.
       AIFSENS
       Atlas
       Aurora
-      AuroraV1p5
-      AuroraV1p5Ensemble
+      Aurora1p5
+      Aurora1p5Ensemble
       CBottleVideo
       DiagnosticWrapper
       DLESyM

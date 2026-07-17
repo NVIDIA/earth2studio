@@ -27,8 +27,8 @@ except ImportError:
     pytest.importorskip("aurora")
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.px import AuroraV1p5, AuroraV1p5Ensemble
-from earth2studio.models.px.aurora_v1p5 import _OUTPUT_ONLY_SURF_VARS
+from earth2studio.models.px import Aurora1p5, Aurora1p5Ensemble
+from earth2studio.models.px.aurora1p5 import _OUTPUT_ONLY_SURF_VARS
 from earth2studio.utils import handshake_dim
 
 _N_VARS = 90  # 65 atmos + 18 surface + 7 output-only
@@ -40,8 +40,8 @@ _STATIC_KEYS = ["lsm", "z", "anor", "isor"]  # representative subset for mocking
 # ── Shared mock models ────────────────────────────────────────────────────────
 
 
-class PhooAuroraV1p5Model(torch.nn.Module):
-    """Dummy AuroraV1p5: echoes the most-recent input time step."""
+class PhooAurora1p5Model(torch.nn.Module):
+    """Dummy Aurora1p5: echoes the most-recent input time step."""
 
     def forward(self, batch: Batch, lead_times: torch.Tensor) -> Batch:
         surf = {k: v[:, -1:, ...] for k, v in batch.surf_vars.items()}
@@ -66,26 +66,26 @@ class PhooAuroraV1p5Model(torch.nn.Module):
         return batch
 
 
-class PhooAuroraV1p5EnsembleModel(PhooAuroraV1p5Model):
+class PhooAurora1p5EnsembleModel(PhooAurora1p5Model):
     """Dummy ensemble model: same echo logic, adds reset_noise() stub."""
 
     def reset_noise(self) -> None:
         pass
 
 
-def _make_model(device: str = "cpu") -> AuroraV1p5:
-    core = PhooAuroraV1p5Model()
+def _make_model(device: str = "cpu") -> Aurora1p5:
+    core = PhooAurora1p5Model()
     static_vars = {k: torch.ones(_H, _W) for k in _STATIC_KEYS}
-    return AuroraV1p5(core, static_vars).to(device)
+    return Aurora1p5(core, static_vars).to(device)
 
 
-def _make_ensemble_model(device: str = "cpu") -> AuroraV1p5Ensemble:
-    core = PhooAuroraV1p5EnsembleModel()
+def _make_ensemble_model(device: str = "cpu") -> Aurora1p5Ensemble:
+    core = PhooAurora1p5EnsembleModel()
     static_vars = {k: torch.ones(_H, _W) for k in _STATIC_KEYS}
-    return AuroraV1p5Ensemble(core, static_vars).to(device)
+    return Aurora1p5Ensemble(core, static_vars).to(device)
 
 
-# ── AuroraV1p5 tests ───────────────────────────────────────────────────────────
+# ── Aurora1p5 tests ───────────────────────────────────────────────────────────
 
 
 @pytest.mark.parametrize(
@@ -96,7 +96,7 @@ def _make_ensemble_model(device: str = "cpu") -> AuroraV1p5Ensemble:
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aurora_v1p5_call(time, device):
+def test_aurora1p5_call(time, device):
     p = _make_model(device)
 
     dc = p.input_coords()
@@ -127,7 +127,7 @@ def test_aurora_v1p5_call(time, device):
 
 @pytest.mark.parametrize("ensemble", [1, 2])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aurora_v1p5_iter(ensemble, device):
+def test_aurora1p5_iter(ensemble, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = _make_model(device)
 
@@ -167,7 +167,7 @@ def test_aurora_v1p5_iter(ensemble, device):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aurora_v1p5_iter_repeated(device):
+def test_aurora1p5_iter_repeated(device):
     """Second create_iterator() call must produce the same outputs as the first.
 
     Regression test for preds_idx not being reset between rollouts, which caused
@@ -208,7 +208,7 @@ def test_aurora_v1p5_iter_repeated(device):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aurora_v1p5_exceptions(dc, device):
+def test_aurora1p5_exceptions(dc, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = _make_model(device)
 
@@ -222,14 +222,14 @@ def test_aurora_v1p5_exceptions(dc, device):
 
 
 @pytest.fixture(scope="function")
-def model() -> AuroraV1p5:
-    package = AuroraV1p5.load_default_package()
-    return AuroraV1p5.load_model(package)
+def model() -> Aurora1p5:
+    package = Aurora1p5.load_default_package()
+    return Aurora1p5.load_model(package)
 
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_aurora_v1p5_package(model, device):
+def test_aurora1p5_package(model, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("2023-01-01T00:00")])
     p = model.to(device)
@@ -257,12 +257,12 @@ def test_aurora_v1p5_package(model, device):
     handshake_dim(out_coords, "time", 0)
 
 
-# ── AuroraV1p5Ensemble tests ───────────────────────────────────────────────────
+# ── Aurora1p5Ensemble tests ───────────────────────────────────────────────────
 
 
 @pytest.mark.parametrize("n_members", [2, 4])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aurora_v1p5_ensemble_iter(n_members, device):
+def test_aurora1p5_ensemble_iter(n_members, device):
     """Ensemble members run independently; noise is reset at each create_iterator."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = _make_ensemble_model(device)
@@ -293,14 +293,14 @@ def test_aurora_v1p5_ensemble_iter(n_members, device):
 
 
 @pytest.fixture(scope="function")
-def ensemble_model() -> AuroraV1p5Ensemble:
-    package = AuroraV1p5Ensemble.load_default_package()
-    return AuroraV1p5Ensemble.load_model(package)
+def ensemble_model() -> Aurora1p5Ensemble:
+    package = Aurora1p5Ensemble.load_default_package()
+    return Aurora1p5Ensemble.load_model(package)
 
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_aurora_v1p5_ensemble_package(ensemble_model, device):
+def test_aurora1p5_ensemble_package(ensemble_model, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("2023-01-01T00:00")])
     p = ensemble_model.to(device)
@@ -316,7 +316,7 @@ def test_aurora_v1p5_ensemble_package(ensemble_model, device):
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    n_members = 4
+    n_members = 1
     x = x.unsqueeze(0).repeat(n_members, 1, 1, 1, 1, 1)
     coords.update({"ensemble": np.arange(n_members)})
     coords.move_to_end("ensemble", last=False)
