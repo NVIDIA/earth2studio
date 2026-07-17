@@ -116,18 +116,14 @@ class ISD:
             pa.field(
                 "type",
                 pa.string(),
-                nullable=True,
                 metadata={"isd_name": "REPORT_TYPE"},
             ),
             pa.field(
                 "source",
                 pa.string(),
-                nullable=True,
                 metadata={"isd_name": "SOURCE"},
             ),
-            pa.field(
-                "elev", pa.float32(), nullable=True, metadata={"isd_name": "ELEVATION"}
-            ),
+            pa.field("elev", pa.float32(), metadata={"isd_name": "ELEVATION"}),
             pa.field("station", pa.string(), metadata={"isd_name": "STATION"}),
             pa.field("observation", pa.float32()),
             pa.field("variable", pa.string()),
