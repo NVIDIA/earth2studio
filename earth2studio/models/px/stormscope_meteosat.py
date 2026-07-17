@@ -43,11 +43,11 @@ try:
     from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
     from physicsnemo.diffusion.preconditioners import EDMPreconditioner
     from physicsnemo.diffusion.samplers import sample
+    from physicsnemo.utils.zenith_angle import zenith_azimuth_angles
 except ImportError:
     OptionalDependencyFailure("stormscope-meteosat")
     OmegaConf = None
 
-from earth2studio_extras.utils.cos_zenith import azimuth_zenith
 
 # Variables used in StormCastMTG
 VARIABLES = (
@@ -435,11 +435,11 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Compute solar angles for every time step in the list
         for i, t in enumerate(times):
             t_dt = datetime.fromisoformat(str(t))
-            zen_azi[0, i], zen_azi[1, i], zen_azi[2, i] = azimuth_zenith(
+            (_, zen_azi[0, i], zen_azi[1, i], zen_azi[2, i]) = zenith_azimuth_angles(
                 t_dt, self.lon_tensor, self.lat_tensor
             )
 
-        zen_azi[..., self.off_earth_mask_tensor] = 0
+        zen_azi.masked_fill_(self.off_earth_mask_tensor, 0)
 
         return zen_azi
 
@@ -605,6 +605,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return self.denormalize(x[:, :, -1:]), output_coords
 
+    @torch.no_grad()
     def create_generator(
         self,
         x: torch.Tensor,
