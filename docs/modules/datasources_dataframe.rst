@@ -34,5 +34,6 @@ Data sources that provide tabular data as DataFrames.
       data.NNJAObsConv
       data.NomadsGDASObsConv
       data.RandomDataFrame
+      data.RoutedObsSource
       data.UFSObsConv
       data.UFSObsSat
