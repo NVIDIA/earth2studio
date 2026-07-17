@@ -535,9 +535,12 @@ class GFS:
 
         tmp_path = f"{cache_path}.tmp.{os.getpid()}.{uuid.uuid4().hex}"
         try:
-            with open(tmp_path, "wb") as file:
-                await asyncio.to_thread(file.write, data)
-            await asyncio.to_thread(os.replace, tmp_path, cache_path)
+            def _write_and_replace() -> None:
+                with open(tmp_path, "wb") as file:
+                    file.write(data)
+                os.replace(tmp_path, cache_path)
+
+            await asyncio.to_thread(_write_and_replace)
         finally:
             pathlib.Path(tmp_path).unlink(missing_ok=True)
 
