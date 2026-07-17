@@ -82,8 +82,8 @@ class _DynamicalBase:
     Resolves a dynamical.org STAC collection to its Icechunk repository,
     opens it lazily with xarray, and maps Earth2Studio variable ids to the
     collection's variables (via :class:`DynamicalLexicon` plus native
-    pass-through), applying STAC-``unit``-driven conversions to the Earth2Studio
-    convention.
+    pass-through), applying lexicon-defined unit conversions to the
+    Earth2Studio convention.
     """
 
     STAC_CATALOG_URL = "https://stac.dynamical.org/catalog.json"
