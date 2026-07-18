@@ -241,12 +241,7 @@ corrdiff = [
 cosmo = [
     "einops>=0.8.1",
     "natten ; python_version < '3.14'",
-    # natten2d_rope (PR #1731) is only on physicsnemo main, not in a release yet.
-    # Pin the main commit so `earth2studio[cosmo]` is installable now. NOTE: PyPI
-    # rejects direct-URL deps, so this pin must be reverted to a version specifier
-    # before any tagged/PyPI release.
-    # TODO(cosmo): switch to `nvidia-physicsnemo>=2.2.0` once that release ships.
-    "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@f8d5d2f78147b03d8ed9b72736ef4bea70159a54",
+    "nvidia-physicsnemo>=2.2.0",
     "nvtx>=0.2.11",
 ]
 cyclone = [
@@ -287,10 +282,9 @@ da-stormcast = [
     "cudf-cu13>=26.2.0",
 ]
 # All, must not have conflicts
-# NOTE: `cosmo` is intentionally excluded here. It pins nvidia-physicsnemo to a
-# main git commit (for RoPE), which cannot co-resolve with `da-healda`'s
-# <=2.1.1 cap in `all`. TODO(cosmo): add `cosmo` back once physicsnemo>=2.2.0 is
-# released (the pin becomes a plain version) and `da-healda` moves off the cap.
+# NOTE: `cosmo` is intentionally excluded here. It needs nvidia-physicsnemo
+# >=2.2.0 (RoPE), which cannot co-resolve with `da-healda`'s <=2.1.1 cap in
+# `all`. TODO(cosmo): add `cosmo` back once `da-healda` moves off the 2.1.1 cap.
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
     "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",

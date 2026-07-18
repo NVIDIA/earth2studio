@@ -108,14 +108,10 @@ SHORTWAVE_VARIABLES = ("ASWDIR_S", "ASWDIFD_S")
 SUPPORTED_VARIANTS = ("rea6", "rea2")
 
 # Hosted URI for the combined (rea6/ + rea2/) downscaling package, used by
-# ``load_default_package`` / ``from_pretrained``. Left ``None`` until weight
-# hosting + license clearance land; flipping this on is the only change needed.
-# Planned host: Hugging Face (commit-pinned), e.g.:
-#   "hf://<org>/corrdiff-cosmo-era5@<commit-sha>"
-# (NGC also works: "ngc://models/nvidia/earth-2/corrdiff_cosmo_era5@v0.1")
-# The package nests rea6/ and rea2/ subfolders; ``load_model(..., resolution=)``
-# selects the subfolder, so one URI serves all four models.
-DEFAULT_PACKAGE_URI: str | None = None
+# ``load_default_package`` / ``from_pretrained``. The package nests rea6/ and
+# rea2/ subfolders; ``load_model(..., resolution=)`` selects the subfolder, so
+# one URI serves all four models.
+DEFAULT_PACKAGE_URI: str = "hf://nvidia/corrdiff-cosmo-era5"
 
 
 def _points_in_grid_footprint(
@@ -1584,21 +1580,10 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained COSMO-REA downscaling package (combined rea6/rea2).
 
-        Returns the hosted package once :data:`DEFAULT_PACKAGE_URI` is set; pick
-        the model within it via ``load_model(..., mode=, resolution=)`` (or rely
-        on the ``mean``/``rea6`` defaults through ``from_pretrained``). Until
-        weight hosting + license clearance land, ``DEFAULT_PACKAGE_URI`` is
-        ``None`` and this raises ``NotImplementedError`` — build a package
-        locally and pass its path to ``load_model``/``from_pretrained`` instead.
+        Returns the hosted package; pick the model within it via
+        ``load_model(..., mode=, resolution=)`` (or rely on the ``mean``/``rea6``
+        defaults through ``from_pretrained``).
         """
-        if DEFAULT_PACKAGE_URI is None:
-            raise NotImplementedError(
-                "No default COSMO-REA package is hosted yet (weight hosting + "
-                "license clearance pending). Build a package and pass its path "
-                "to load_model() or from_pretrained('<path>'). When hosting "
-                "lands, set DEFAULT_PACKAGE_URI in "
-                "earth2studio.models.dx.corrdiff_cosmo_era5.py."
-            )
         return Package(
             DEFAULT_PACKAGE_URI,
             cache_options={

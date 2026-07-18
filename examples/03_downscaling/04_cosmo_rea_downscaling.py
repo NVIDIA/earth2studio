@@ -40,9 +40,9 @@ In this example you will learn to:
 - Switch to the 2.2 km COSMO-REA2 resolution
 
 .. note::
-   COSMO-REA weights are not yet publicly hosted. This example loads a locally
-   built package directory (set ``$COSMO_REA_PACKAGE``); once the package is
-   hosted, model loading becomes ``CorrDiffCosmoEra5.from_pretrained()``.
+   The model package is hosted on Hugging Face
+   (``hf://nvidia/corrdiff-cosmo-era5``) and fetched by ``load_default_package()``.
+   Set ``$COSMO_REA_PACKAGE`` to a locally built package to use that instead.
 
 .. note::
    With the SFNO weights and ERA5 inputs already cached, this runs in a few
@@ -79,15 +79,10 @@ from scipy.interpolate import RegularGridInterpolator
 
 load_dotenv()  # pick up $COSMO_REA_PACKAGE from a .env file if present
 
-# Local COSMO-REA package (rea6/ + rea2/ subfolders). Point $COSMO_REA_PACKAGE at
-# a locally built package, or edit the fallback path. (Becomes from_pretrained()
-# once the package is hosted.)
-PACKAGE = os.environ.get("COSMO_REA_PACKAGE", "/path/to/cosmo_rea_package")
-if not os.path.isdir(PACKAGE):
-    raise RuntimeError(
-        f"COSMO-REA package not found at {PACKAGE!r}. Weights are not yet hosted; "
-        "build the package locally and set $COSMO_REA_PACKAGE to it."
-    )
+# The downscaling package (rea6/ + rea2/ subfolders) is hosted on Hugging Face and
+# fetched by load_default_package(). Set $COSMO_REA_PACKAGE to a locally built
+# package to use that instead. (Resolved after the imports below.)
+LOCAL_PACKAGE = os.environ.get("COSMO_REA_PACKAGE")
 
 INIT_TIME = datetime(2021, 7, 13, 0)  # forecast initialization
 LEAD_HOURS = 24  # forecast lead time to downscale
@@ -117,16 +112,23 @@ from earth2studio.models.auto import Package
 from earth2studio.models.dx import CorrDiffCosmoEra5
 from earth2studio.models.px import SFNO
 
+# Resolve the downscaling package: the hosted default, or a local build if
+# $COSMO_REA_PACKAGE was set above.
+if LOCAL_PACKAGE:
+    package = Package(LOCAL_PACKAGE)
+else:
+    package = CorrDiffCosmoEra5.load_default_package()
+
 sfno = SFNO.load_model(SFNO.load_default_package()).to(DEVICE)
 # Both models live in the same package; `mode` selects which checkpoint to load:
 # the diffusion model is generative, the mean model is the deterministic regression.
 dx = CorrDiffCosmoEra5.load_model(
-    Package(PACKAGE), device=DEVICE, mode="diffusion", resolution="rea6"
+    package, device=DEVICE, mode="diffusion", resolution="rea6"
 )
 dx.amp = AMP
 dx.number_of_steps = SAMPLER_STEPS
 dx_mean = CorrDiffCosmoEra5.load_model(
-    Package(PACKAGE), device=DEVICE, mode="mean", resolution="rea6"
+    package, device=DEVICE, mode="mean", resolution="rea6"
 )
 dx_mean.amp = AMP
 
@@ -459,7 +461,7 @@ plt.savefig(
 # ``DerivedWS(levels=["100m"])``, or take the magnitude directly as below -- here,
 # 100 m wind over Germany from the deterministic mean model.
 dx_hub = CorrDiffCosmoEra5.load_model(
-    Package(PACKAGE), device=DEVICE, mode="mean", resolution="rea6", hub_heights=[100]
+    package, device=DEVICE, mode="mean", resolution="rea6", hub_heights=[100]
 ).set_domain(**GERMANY)
 x_hub, coords_hub = sfno_to_downscaler(x_fc, coords_fc, dx_hub, valid_time)
 out_hub, hub_coords = dx_hub(x_hub, coords_hub)
@@ -496,7 +498,7 @@ plt.savefig(
 # REA2 covers a smaller domain; here we use the deterministic mean model over a
 # sub-region and plot 2 m temperature at 2.2 km.
 dx2 = CorrDiffCosmoEra5.load_model(
-    Package(PACKAGE), device=DEVICE, mode="mean", resolution="rea2"
+    package, device=DEVICE, mode="mean", resolution="rea2"
 ).set_domain(lat_min=47.5, lat_max=51.0, lon_min=7.0, lon_max=13.0)
 x2, coords2 = sfno_to_downscaler(x_fc, coords_fc, dx2, valid_time)
 out2, oc2 = dx2(x2, coords2)

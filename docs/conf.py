@@ -214,14 +214,6 @@ sphinx_gallery_conf = {
     "show_memory": False,
     "exclude_implicit_doc": {r"load_model", r"load_default_package"},
     "log_level": {"backreference_missing": "warning", "gallery_examples": "debug"},
-    # COSMO-REA weights are not yet publicly hosted, so this example raises without
-    # a local $COSMO_REA_PACKAGE. Whitelist it so the full gallery build does not
-    # fail.
-    # TODO(cosmo): remove this entry once the package is hosted and
-    # load_default_package resolves it (DEFAULT_PACKAGE_URI in corrdiff_cosmo_era5.py).
-    "expected_failing_examples": [
-        "../examples/03_downscaling/04_cosmo_rea_downscaling.py",
-    ],
 }
 
 # -- sphinx-badges configuration ----------------------------------------------

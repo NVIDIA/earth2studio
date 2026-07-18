@@ -38,22 +38,6 @@ import torch
 from earth2studio.lexicon import CosmoLexicon
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
 
-# The real (un-mocked) DiT (diffusion transformer) needs upstream physicsnemo's
-# natten2d_rope (PR #1731). On an older physicsnemo this symbol is absent -> the
-# real-weight package tests below are skipped (the fast suite otherwise mocks the
-# nets).
-# TODO(cosmo): #1731 isn't in a physicsnemo release yet. Remove this skip (run the
-# package tests unconditionally) once the physicsnemo pin is bumped to a release
-# containing #1731.
-try:
-    from physicsnemo.nn.module.dit_layers import (  # noqa: F401
-        RopeNatten2DSelfAttention,
-    )
-
-    _UPSTREAM_ROPE = True
-except ImportError:
-    _UPSTREAM_ROPE = False
-
 
 class _MockNet(torch.nn.Module):
     """Stand-in for the DiT; construction-only (forward not exercised)."""
@@ -1158,22 +1142,16 @@ def test_solar_gate_applies_identically_in_both_modes():
         assert night[0, sw].abs().max() < 1e-3
 
 
-def test_load_default_package_placeholder(monkeypatch):
-    """Placeholder hosting: with no DEFAULT_PACKAGE_URI, load_default_package
-    raises NotImplementedError; setting the URI makes it return a Package (so
-    enabling the hosted package later is a one-line change)."""
+def test_load_default_package():
+    """load_default_package returns a Package for the hosted HF URI, constructed
+    lazily (no network access)."""
     import earth2studio.models.dx.corrdiff_cosmo_era5 as m
     from earth2studio.models.auto import Package
 
-    monkeypatch.setattr(m, "DEFAULT_PACKAGE_URI", None)
-    with pytest.raises(NotImplementedError):
-        CorrDiffCosmoEra5.load_default_package()
-
-    monkeypatch.setattr(
-        m, "DEFAULT_PACKAGE_URI", "hf://nvidia/corrdiff-cosmo-era5@abc123"
-    )
+    assert m.DEFAULT_PACKAGE_URI == "hf://nvidia/corrdiff-cosmo-era5"
     pkg = CorrDiffCosmoEra5.load_default_package()
     assert isinstance(pkg, Package)
+    assert pkg.root == m.DEFAULT_PACKAGE_URI
 
 
 def test_load_model_invalid_selectors_rejected():
@@ -1246,17 +1224,10 @@ def test_corrdiff_cosmo_era5_package(mode, resolution):
     """Load-and-run on a real local package (set ``$COSMO_REA_PACKAGE`` to a
     built package dir). Loading validates the metadata-driven plumbing and a
     0/0 checkpoint load; the GPU forward exercises ``_forward``/``_denoise`` and
-    the output contract. Skipped until the package is hosted (then switch to
-    ``load_default_package``)."""
+    the output contract. Resource-gated: needs a GPU and a built package."""
     pkg_path = os.environ.get("COSMO_REA_PACKAGE")
     if not pkg_path:
         pytest.skip("set COSMO_REA_PACKAGE to a built package dir to run")
-    if not _UPSTREAM_ROPE:
-        # load_model reconstructs the real DiT (from_checkpoint), which needs
-        # natten2d_rope (PR #1731);
-        # skip (don't fail) on a physicsnemo without it.
-        # TODO(cosmo): remove once the physicsnemo pin includes #1731.
-        pytest.skip("needs upstream physicsnemo natten2d_rope (PR #1731)")
     from earth2studio.models.auto import Package
 
     device = "cuda:0" if torch.cuda.is_available() else None
