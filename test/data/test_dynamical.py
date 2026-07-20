@@ -106,7 +106,11 @@ def _patch(monkeypatch, klass, collection_id, dims, dataset):
         return _fake_collection(dims)
 
     monkeypatch.setattr("earth2studio.data.dynamical._fetch_json", fake_fetch_json)
-    monkeypatch.setattr(klass, "_open_icechunk", lambda self, asset: dataset)
+    monkeypatch.setattr(
+        klass,
+        "_open_icechunk",
+        lambda self, href, region=None, virtual_containers=None: dataset,
+    )
 
 
 @pytest.mark.timeout(30)
