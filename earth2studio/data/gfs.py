@@ -15,7 +15,9 @@
 # limitations under the License.
 
 import asyncio
+import functools
 import hashlib
+import json
 import os
 import pathlib
 import shutil
@@ -39,7 +41,7 @@ from earth2studio.data.utils import (
     cancellable_to_thread,
     datasource_cache_root,
     gather_with_concurrency,
-    obstore_fetch_to_cache,
+    obstore_read_range,
     obstore_store_from_url,
     prep_data_inputs,
     prep_forecast_inputs,
@@ -127,6 +129,9 @@ class GFS:
         self._async_workers = async_workers
         self._retries = retries
         self._tmp_cache_hash: str | None = None
+        self._cache_downloads: dict[
+            tuple[asyncio.AbstractEventLoop, str], asyncio.Task[str]
+        ] = {}
 
         self.store: ObjectStore | None = None
         if source == "aws":
@@ -390,7 +395,13 @@ class GFS:
             byte_length=byte_length,
         )
         # pygrib decode is blocking and GIL-bound; run in a thread with timeout
-        values = await cancellable_to_thread(_decode_gfs_grib, grib_file, timeout=30.0)
+        try:
+            values = await cancellable_to_thread(
+                _decode_gfs_grib, grib_file, timeout=30.0
+            )
+        except Exception:
+            pathlib.Path(grib_file).unlink(missing_ok=True)
+            raise
         return modifier(values)
 
     def _validate_time(self, times: list[datetime]) -> None:
@@ -457,35 +468,112 @@ class GFS:
         self, path: str, byte_offset: int = 0, byte_length: int | None = None
     ) -> str:
         """Fetches remote file into cache"""
-        # Hash the bucket-prefixed path (not the store-relative key) so warm
-        # caches populated before the obstore migration remain valid
-        sha = hashlib.sha256((path + str(byte_offset)).encode())
+        cache_key = json.dumps(
+            (path, byte_offset, byte_length), separators=(",", ":")
+        ).encode()
+        sha = hashlib.sha256(cache_key)
         filename = sha.hexdigest()
+        cache_path = os.path.join(self.cache, filename)
+        pathlib.Path(cache_path).parent.mkdir(parents=True, exist_ok=True)
+
+        if self._cache_file_is_valid(cache_path, byte_length):
+            return cache_path
+
+        loop = asyncio.get_running_loop()
+        task_key = (loop, cache_path)
+        download_task = self._cache_downloads.get(task_key)
+        if download_task is None:
+            download_task = loop.create_task(
+                self._download_remote_file(
+                    path,
+                    cache_path,
+                    byte_offset,
+                    byte_length,
+                )
+            )
+            self._cache_downloads[task_key] = download_task
+            download_task.add_done_callback(
+                functools.partial(self._remove_cache_download, task_key)
+            )
+
+        return await asyncio.shield(download_task)
+
+    async def _download_remote_file(
+        self,
+        path: str,
+        cache_path: str,
+        byte_offset: int,
+        byte_length: int | None,
+    ) -> str:
+        if self._cache_file_is_valid(cache_path, byte_length):
+            return cache_path
 
         if self.store is not None:
             key = path.removeprefix(self.GFS_BUCKET_NAME + "/")
-            return await obstore_fetch_to_cache(
+            data = await obstore_read_range(
                 self.store,
                 key,
-                self.cache,
                 byte_offset=byte_offset,
                 byte_length=byte_length,
-                cache_key=filename,
             )
-
-        if self.fs is None:
+        elif self.fs is not None:
+            data = await asyncio.to_thread(
+                self.fs.read_block,
+                path,
+                offset=byte_offset,
+                length=byte_length,
+            )
+        else:
             raise ValueError("File system is not initialized")
 
-        # ncep FTP source (sync filesystem)
-        cache_path = os.path.join(self.cache, filename)
-        if not pathlib.Path(cache_path).is_file():
-            data = await asyncio.to_thread(
-                self.fs.read_block, path, offset=byte_offset, length=byte_length
+        if byte_length is not None and len(data) != byte_length:
+            raise OSError(
+                "GFS cache download size mismatch "
+                f"remote={path} byte_offset={byte_offset} "
+                f"expected={byte_length} actual={len(data)}"
             )
-            with open(cache_path, "wb") as file:
-                await asyncio.to_thread(file.write, data)
+
+        tmp_path = f"{cache_path}.tmp.{os.getpid()}.{uuid.uuid4().hex}"
+        try:
+            def _write_and_replace() -> None:
+                with open(tmp_path, "wb") as file:
+                    file.write(data)
+                os.replace(tmp_path, cache_path)
+
+            await asyncio.to_thread(_write_and_replace)
+        finally:
+            pathlib.Path(tmp_path).unlink(missing_ok=True)
 
         return cache_path
+
+    def _cache_file_is_valid(self, cache_path: str, byte_length: int | None) -> bool:
+        cache_file = pathlib.Path(cache_path)
+        try:
+            if not cache_file.is_file():
+                return False
+            actual_size = cache_file.stat().st_size
+        except FileNotFoundError:
+            return False
+
+        if byte_length is None or actual_size == byte_length:
+            return True
+
+        logger.warning(
+            "GFS cache size mismatch cache_path={} expected={} actual={}; refetching",
+            cache_path,
+            byte_length,
+            actual_size,
+        )
+        cache_file.unlink(missing_ok=True)
+        return False
+
+    def _remove_cache_download(
+        self,
+        task_key: tuple[asyncio.AbstractEventLoop, str],
+        download_task: asyncio.Future[str],
+    ) -> None:
+        if self._cache_downloads.get(task_key) is download_task:
+            self._cache_downloads.pop(task_key, None)
 
     def _grib_uri(self, time: datetime, lead_time: timedelta) -> str:
         """Generates the URI for GFS grib files"""

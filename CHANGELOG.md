@@ -80,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
 - Added DLESyM-v0-ISCCP-ERA5 climate model
+- Added a deterministic shared-resource batching API
 
 ### Changed
 
@@ -96,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed ARCO data source `ARCO_TIME_STOP` fallback to 2025-12-31,
   reflecting the most recent available data in the bucket
 - Fixed `ZarrBackend` chunk metadata reload to skip coordinate arrays when reopening Zarr stores.
+- Fixed GFS cache identity, validation, atomic writes, and loop-safe download coalescing
 
 ### Dependencies
 
