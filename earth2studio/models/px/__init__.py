@@ -45,6 +45,7 @@ from earth2studio.models.px.persistence import Persistence
 from earth2studio.models.px.sfno import SFNO
 from earth2studio.models.px.stormcast import StormCast
 from earth2studio.models.px.stormscope import StormScopeGOES, StormScopeMRMS
+from earth2studio.models.px.stormscope_meteosat import StormScopeMeteosatEU
 from earth2studio.models.px.ucast import UCast
 
 # Silence warning spam from various models
