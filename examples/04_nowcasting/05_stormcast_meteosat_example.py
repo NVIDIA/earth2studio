@@ -78,7 +78,12 @@ import torch
 from tqdm import tqdm
 
 from earth2studio.data import fetch_data
-from earth2studio.data.meteosat_fci import MeteosatFCI
+from earth2studio.data.meteosat_fci import (
+    PERSPECTIVE_POINT_HEIGHT,
+    SEMI_MAJOR_AXIS,
+    SEMI_MINOR_AXIS,
+    MeteosatFCI,
+)
 from earth2studio.models.auto import Package
 from earth2studio.models.px.stormscope_meteosat import StormScopeMeteosatEU
 from earth2studio.utils.coords import map_coords
@@ -86,11 +91,7 @@ from earth2studio.utils.coords import map_coords
 # %%
 # Load Model
 # ----------
-# Load StormScopeMeteosatEU from a local model package.
-#
-# TBD: ``load_default_package()`` currently raises ``NotImplementedError``
-# because no public HuggingFace release exists yet. Replace the path below
-# with the actual package location when available.
+# Load StormScopeMeteosatEU from a package.
 
 # %%
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -118,12 +119,6 @@ model.eval()
 # ``MeteosatFCI`` is configured with ``pixel_bbox`` matching the model's
 # domain (``Model_FCI_BBox``) so that the returned ``y``/``x`` scan-angle
 # coordinates align exactly with what the model expects.
-#
-# TBD: Confirm the FCI resolution the model was trained on. All 16 FCI
-# channels are used: VIS/NIR channels are natively 1 km and IR/WV channels
-# are natively 2 km.  Specify ``resolution="2km"`` if the model was trained
-# on data downsampled to a common 2 km grid, or ``resolution="1km"`` if the
-# model was trained on the 1 km grid (with IR/WV upsampled).
 
 # %%
 bbox_2km = StormScopeMeteosatEU.Model_FCI_BBox
@@ -145,26 +140,22 @@ fci = {
 # ``start_time + lead_time`` for each lead-time offset defined by the model
 # (e.g. ``[-50 min, -40 min, ..., 0 min]`` for a 6-frame window).
 #
-# TBD: Choose a start time. Requirements:
-#   - After MTG-I1 FCI operational start: 2024-01-16T00:00Z
-#   - On a 10-minute scan boundary (minutes must be a multiple of 10,
-#     seconds = 0)
 
 # %%
 # TBD: Replace with the desired analysis time.
-start_time = np.datetime64(datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc))
+start_time = np.datetime64(datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc))
 in_coords = model.input_coords()
 variables = in_coords["variable"]
 
 x_res = {}
 for res in ["2km", "1km"]:
-    available_vars = fci[res].available_vars()
+    available_vars = fci[res].available_variables()
     if res == "1km":
         # use 2km version if variable available in both 1km and 2km
-        available_vars -= fci["2km"].available_vars()
+        available_vars -= fci["2km"].available_variables()
     variables_res = [var for var in variables if var in available_vars]
     x_res[res] = fetch_data(
-        fci,
+        fci[res],
         time=np.array([start_time]),
         variable=variables_res,
         lead_time=in_coords["lead_time"],
@@ -175,14 +166,13 @@ for res in ["2km", "1km"]:
 x = x_res["1km"][0]
 batch_dims = x.shape[:-3]
 x = torch.nn.functional.avg_pool2d(x.reshape(prod(batch_dims), *x.shape[-3:]), 2)
-x.reshape(*batch_dims, *x.shape[-3:])
+x = x.reshape(*batch_dims, *x.shape[-3:])
 
 # merge downsampled and native 2km data
 x = torch.concat([x, x_res["2km"][0]], dim=-3)
 coords = x_res["2km"][1]
-coords["variables"] = np.concatenate(
-    [x_res["1km"][1]["variables"], coords["variables"]]
-)
+coords["variable"] = np.concatenate([x_res["1km"][1]["variable"], coords["variable"]])
+del x_res
 
 # ensure data is on model grid
 (x, coords) = map_coords(x, coords, in_coords)
@@ -203,17 +193,16 @@ coords.move_to_end("ensemble", last=False)
 # %%
 # Execute the Nowcast
 # -------------------
-# We run the model autoregressively for ``n_steps`` steps, each advancing the
-# prediction by one 10-minute interval. At each step ``__call__`` predicts the
-# next frame, then we slide the window forward using the model's ``next_input``
-# helper.
+# ``create_iterator`` handles the autoregressive rollout for us: the first
+# yielded value is the (unchanged) initial condition, and each subsequent
+# value advances the prediction by one 10-minute interval.
 
 # %%
 # TBD: Set the number of 10-minute forecast steps.
 n_steps = 12  # 2 hours
 
 for step, (x_pred, coords_pred) in enumerate(
-    tqdm(model.create_iterator(x, coords), total=n_steps)
+    tqdm(model.create_iterator(x, coords), total=n_steps + 1)
 ):
     if step == n_steps:
         break
@@ -238,19 +227,26 @@ rgb = (x_pred[0, 0, 0, ch_idx] / 24.0).clamp(min=0, max=1) * 255
 rgb = rgb.permute(1, 2, 0).cpu().numpy()
 rgb = np.interp(rgb, [0, 30, 60, 120, 190, 255], [0, 110, 160, 210, 240, 255]) / 255.0
 
-proj = ccrs.Geostationary(central_longitude=0.0)
-extent = MeteosatFCI.projection_extent(resolution="2km")
+proj = ccrs.Geostationary(
+    central_longitude=0.0,
+    satellite_height=PERSPECTIVE_POINT_HEIGHT,
+    globe=ccrs.Globe(semimajor_axis=SEMI_MAJOR_AXIS, semiminor_axis=SEMI_MINOR_AXIS),
+)
+extent = MeteosatFCI.projection_extent(resolution="2km", pixel_bbox=bbox_2km)
 
 fig = plt.figure(figsize=(8, 8))
 ax = fig.add_subplot(1, 1, 1, projection=proj)
-ax.set_extent(extent, crs=proj)
+ax.set_xlim(extent[0], extent[1])
+ax.set_ylim(extent[2], extent[3])
 
 ax.coastlines(color="white", linewidth=0.8)
 
-im = ax.imshow(rgb, transform=proj, origin="lower")
+im = ax.imshow(rgb, transform=proj, extent=extent, origin="lower")
 
 valid_time = coords_pred["time"][0]
+valid_time = datetime.fromisoformat(str(valid_time)).strftime("%Y-%m-%d %H:%M")
 lead_min = coords_pred["lead_time"][0].astype("timedelta64[m]").item()
+lead_min = int(lead_min / np.timedelta64(1, "m"))
 ax.set_title(
     f"StormScopeMeteosatEU — RGB\n" f"Valid {valid_time} UTC  (+{lead_min} min)"
 )
