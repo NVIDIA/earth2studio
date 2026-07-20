@@ -396,7 +396,7 @@ class CFS_FX:
                     _, param_name, level = cfs_name_str.split("::", 2)
                     idx_key = f"{param_name}::{level}"
 
-                    record: tuple[int, int, int] | None = None
+                    record: tuple[int, int | None, int] | None = None
                     for key, value in index_table.items():
                         # key is "<recno>::<param>::<level>"; substring match
                         # tolerates the recno prefix and matches both scalar
@@ -526,7 +526,9 @@ class CFS_FX:
                     f"{_MAX_LEAD_HOURS // 24} days."
                 )
 
-    async def _fetch_index(self, index_uri: str) -> dict[str, tuple[int, int, int]]:
+    async def _fetch_index(
+        self, index_uri: str
+    ) -> dict[str, tuple[int, int | None, int]]:
         """Fetch a CFS grib `.idx` file and parse it into a byte-range lookup.
 
         The CFS pgbf product packs `UGRD`/`VGRD` into a single vector grib
@@ -544,11 +546,11 @@ class CFS_FX:
 
         Returns
         -------
-        dict[str, tuple[int, int, int]]
+        dict[str, tuple[int, int | None, int]]
             Mapping from `<recno>::<param>::<level>` to
-            `(byte_offset, byte_length, submsg_index)`. A negative
-            `byte_length` (last record) means "read from offset to the end of
-            the file".
+            `(byte_offset, byte_length, submsg_index)`. A `byte_length` of
+            `None` (last record) means "read from offset to the end of the
+            file".
             `submsg_index` is the 1-based pygrib message index within the
             cached byte-range file; for scalar records this is always 1, for
             vector siblings it is parsed from the decimal suffix of `recno`.
