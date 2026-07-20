@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Changed ISD schema `source` type to string since the field is alphanumeric. Enforced
+  `float32` dtypes for `lat`, `lon`, `elev`, and `observation`.
 - Fixed NNJA observation sources blocking the shared fsspec IO loop with
   CPU-bound PrepBUFR decode work, which stalled concurrent fetches from other
   data sources.
