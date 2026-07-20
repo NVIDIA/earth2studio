@@ -180,7 +180,9 @@ class _DynamicalBase:
         region = storage_options.get("client_kwargs", {}).get("region_name")
         virtual_containers = asset.get("icechunk:virtual_chunk_containers") or []
 
-        ds = self._open_icechunk(href, region=region, virtual_containers=virtual_containers)
+        ds = self._open_icechunk(
+            href, region=region, virtual_containers=virtual_containers
+        )
         ds = self._setup_grid(ds)
         self._ds = ds
         return self._ds
