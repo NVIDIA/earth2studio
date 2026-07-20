@@ -590,12 +590,16 @@ uv add earth2studio --extra corrdiff
 ::::
 :::::
 :::::{tab-item} CorrDiff COSMO-ERA5
-Notes: Additional dependencies for the `CorrDiffCosmoEra5` model.
+Notes: Additional dependencies for the `CorrDiffCosmoEra5` model. This model needs
+the RoPE / NATTEN attention backend from `nvidia-physicsnemo`, which is not on PyPI
+yet, so physicsnemo must be installed from a pinned git commit. The `uv` path picks
+this up automatically from `[tool.uv.sources]`; the `pip` path installs it explicitly.
 
 ::::{tab-set}
 :::{tab-item} pip
 
 ```bash
+pip install "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@ced75d93d014f70bb691372788eee2d201171c12"
 pip install earth2studio[cosmo]
 ```
 
