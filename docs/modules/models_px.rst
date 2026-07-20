@@ -62,5 +62,6 @@ Thus are typically used to generate forecast predictions.
       SFNO
       StormCast
       StormScopeGOES
+      StormScopeMeteosatEU
       StormScopeMRMS
       UCast
