@@ -27,11 +27,12 @@ from urllib.parse import urljoin, urlparse
 import numpy as np
 import xarray as xr
 from loguru import logger
-from tqdm.asyncio import tqdm
+from tqdm import tqdm
 
 from earth2studio.data.utils import (
     _sync_async,
     datasource_cache_root,
+    ensure_utc,
     prep_forecast_inputs,
 )
 from earth2studio.lexicon import DynamicalLexicon
@@ -106,12 +107,9 @@ class _DynamicalBase:
         self._ds: xr.Dataset | None = None
         self._cube_variables: dict[str, dict[str, Any]] = {}
         self._cube_dimensions: dict[str, dict[str, Any]] = {}
-        # Grid normalization (computed once on open): index arrays that reorder
-        # latitude to descending (90 -> -90) and longitude to [0, 360) ascending.
+        # Normalized grid coordinates (computed once on open).
         self._lat: np.ndarray = np.array([])
         self._lon: np.ndarray = np.array([])
-        self._lat_idx: np.ndarray = np.array([], dtype=int)
-        self._lon_idx: np.ndarray = np.array([], dtype=int)
 
     def _resolve_collection_url(self) -> str:
         """Resolve the STAC collection.json URL from the root catalog.
@@ -171,33 +169,52 @@ class _DynamicalBase:
             raise ValueError(
                 f"dynamical.org collection {self.collection!r} has no 'icechunk' asset"
             )
-        ds = self._open_icechunk(assets["icechunk"])
-        self._setup_grid(ds)
+        asset = assets["icechunk"]
+        if "href" not in asset:
+            raise KeyError(
+                f"dynamical.org collection {self.collection!r} icechunk asset is "
+                f"missing required 'href' key in STAC metadata"
+            )
+        href = asset["href"]
+        storage_options = asset.get("xarray:storage_options", {})
+        region = storage_options.get("client_kwargs", {}).get("region_name")
+        virtual_containers = asset.get("icechunk:virtual_chunk_containers") or []
+
+        ds = self._open_icechunk(href, region=region, virtual_containers=virtual_containers)
+        ds = self._setup_grid(ds)
         self._ds = ds
         return self._ds
 
-    def _open_icechunk(self, asset: dict[str, Any]) -> xr.Dataset:
+    def _open_icechunk(
+        self,
+        href: str,
+        region: str | None = None,
+        virtual_containers: list[dict[str, Any]] | None = None,
+    ) -> xr.Dataset:
         """Open the Icechunk repository described by a STAC asset.
 
         Parameters
         ----------
-        asset : dict[str, Any]
-            The collection's ``icechunk`` STAC asset.
+        href : str
+            S3 URL of the Icechunk repository (e.g. ``s3://bucket/prefix``).
+        region : str | None, optional
+            AWS region for the S3 bucket. If None, icechunk will attempt
+            auto-detection.
+        virtual_containers : list[dict[str, Any]] | None, optional
+            List of virtual chunk container entries from the STAC asset; each
+            entry should have a ``url_prefix`` key.
 
         Returns
         -------
         xr.Dataset
             Lazily opened dataset backed by the Icechunk session store.
         """
-        href = asset["href"]
         parsed = urlparse(href)
         if parsed.scheme != "s3":
             raise ValueError(
                 f"dynamical.org collection {self.collection!r} icechunk asset href "
                 f"is not an s3 url: {href!r}"
             )
-        storage_options = asset.get("xarray:storage_options", {})
-        region = storage_options.get("client_kwargs", {}).get("region_name")
         # region may be None if the STAC asset does not advertise it; icechunk
         # will attempt to auto-detect the AWS region in that case.
         storage = icechunk.s3_storage(
@@ -210,7 +227,7 @@ class _DynamicalBase:
         # Authorize anonymous access to any referenced virtual chunk containers.
         prefixes = [
             entry["url_prefix"]
-            for entry in asset.get("icechunk:virtual_chunk_containers", []) or []
+            for entry in (virtual_containers or [])
             if "url_prefix" in entry
         ]
         authorize = (
@@ -230,47 +247,34 @@ class _DynamicalBase:
         # manages its own metadata, so zarr consolidated metadata does not apply.
         return xr.open_zarr(session.store, consolidated=False, chunks=None)
 
-    def _setup_grid(self, ds: xr.Dataset) -> None:
-        """Compute index arrays that normalize to Earth2Studio's grid convention.
+    def _setup_grid(self, ds: xr.Dataset) -> xr.Dataset:
+        """Normalize the dataset grid to Earth2Studio's convention.
 
         Earth2Studio uses latitude descending (90 -> -90) and longitude in
-        [0, 360) ascending. Reordering is applied as cheap numpy indexing on the
-        small fetched arrays (see :meth:`_reorder`) rather than ``sortby`` on the
-        lazy dataset, which would force reading the entire store.
+        [0, 360) ascending. With ``chunks=None`` (no dask), ``sortby`` on the
+        lazy store only reorders metadata/coordinates without loading data.
 
         Parameters
         ----------
         ds : xr.Dataset
             Dataset opened from dynamical.org.
+
+        Returns
+        -------
+        xr.Dataset
+            Dataset with normalized grid coordinates.
         """
-        lat = np.asarray(ds["latitude"].values)
-        lon = np.asarray(ds["longitude"].values)
-        self._lat_idx = np.argsort(-lat, kind="stable")
         # TODO(regional): the unconditional 0-360 wrap tears a meridian-crossing
         # regional domain (e.g. DWD ICON-EU, lon -23.5..62.5) into two spatially
         # discontiguous halves. Only global collections are supported today; when
         # adding regional ones, make this wrap conditional on global coverage and
         # keep the native contiguous order otherwise.
-        lon_mod = lon % 360
-        self._lon_idx = np.argsort(lon_mod, kind="stable")
-        self._lat = lat[self._lat_idx]
-        self._lon = lon_mod[self._lon_idx]
-
-    def _reorder(self, arr: np.ndarray) -> np.ndarray:
-        """Reorder the trailing (latitude, longitude) axes to E2Studio convention.
-
-        Parameters
-        ----------
-        arr : np.ndarray
-            Array whose last two axes are (latitude, longitude) in the store's
-            native order.
-
-        Returns
-        -------
-        np.ndarray
-            Array with latitude descending and longitude in [0, 360) ascending.
-        """
-        return arr[..., self._lat_idx, :][..., self._lon_idx]
+        ds = ds.assign_coords(longitude=(ds["longitude"].values % 360))
+        ds = ds.sortby("latitude", ascending=False)
+        ds = ds.sortby("longitude", ascending=True)
+        self._lat = np.asarray(ds["latitude"].values)
+        self._lon = np.asarray(ds["longitude"].values)
+        return ds
 
     def _resolve_variable(self, variable: str) -> tuple[str, Callable]:
         """Resolve an Earth2Studio variable id to a collection variable and modifier.
@@ -328,9 +332,8 @@ class _DynamicalBase:
         def _parse(value: str | None) -> datetime | None:
             if value is None:
                 return None
-            return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(
-                tzinfo=None
-            )
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return ensure_utc(dt)
 
         return (
             _parse(extent[0] if len(extent) > 0 else None),
@@ -353,6 +356,7 @@ class _DynamicalBase:
         dimension : str
             Name of the temporal STAC dimension (``time`` or ``init_time``).
         """
+        times = [ensure_utc(t) for t in times]
         start, end = self._time_extent(dimension)
         if end is None and self._ds is not None and dimension in self._ds.coords:
             end = self._ds[dimension].values.max().astype("datetime64[us]").item()
@@ -497,7 +501,7 @@ class _DynamicalBase:
                 da = da.transpose(self._TIME_DIMENSION, "latitude", "longitude")
                 # Add lead_time axis for uniform output shape
                 da = da.expand_dims("lead_time", axis=1)
-            xr_array[:, :, j] = modifier(self._reorder(np.asarray(da.values)))
+            xr_array[:, :, j] = modifier(np.asarray(da.values, dtype=np.float32))
 
         return xr_array
 
