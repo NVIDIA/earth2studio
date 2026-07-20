@@ -101,6 +101,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/px/test_sfno.py": ["sfno"],
     "test/models/px/test_stormcast.py": ["stormcast"],
     "test/models/px/test_stormscope.py": ["stormscope"],
+    "test/models/px/test_stormscope_meteosat.py": ["stormscope-meteosat"],
     "test/models/px/test_dxwrapper.py": [
         "fcn3",
         "corrdiff",

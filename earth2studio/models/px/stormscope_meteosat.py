@@ -141,10 +141,10 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         only, by default ``[10 min]``
     ir_38_warm_scale_factor : float, optional
         Multiplier applied to the above-threshold branch of the ir_38 channel after
-        raw-to-physical conversion, by default 1.0
+        raw-to-physical conversion, by default 0.024222141
     ir_38_warm_threshold : float, optional
-        Normalised pixel-count boundary above which the warm ir_38 scaling is applied,
-        by default 0.024222141
+        Raw digital-count boundary (the 12-bit maximum) above which the warm/HDR
+        ir_38 scaling is applied, by default 4095.0
     num_diffusion_steps : int, optional
         Number of EDM diffusion sampling steps, by default 18
     sigma_threshold : float, optional
@@ -188,8 +188,8 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sampler_args: dict[str, float | int] | None = None,
         input_times: np.ndarray = np.arange(-5, 1) * np.timedelta64(10, "m"),
         output_times: np.ndarray = np.array([np.timedelta64(10, "m")]),
-        ir_38_warm_scale_factor: float = 1.0,
-        ir_38_warm_threshold: float = 0.024222141,
+        ir_38_warm_scale_factor: float = 0.024222141,
+        ir_38_warm_threshold: float = 4095.0,
         num_diffusion_steps: int = 48,
         sigma_threshold: float = 1.0,
         batch_size: int = 1,
@@ -505,7 +505,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         def x0_predictor(x_noisy: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
             diffusion_model = (
-                self.model_high if t >= self.sigma_threshold else self.model_low
+                self.model_high if t[0] >= self.sigma_threshold else self.model_low
             )
             with torch.autocast(
                 x_noisy.device.type, dtype=torch.bfloat16, enabled=self.use_amp
