@@ -45,7 +45,7 @@ try:
     from physicsnemo.diffusion.samplers import sample
     from physicsnemo.utils.zenith_angle import zenith_azimuth_angles
 except ImportError:
-    OptionalDependencyFailure("stormscope-meteosat")
+    OptionalDependencyFailure("stormscope")
     OmegaConf = None
 
 

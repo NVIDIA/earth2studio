@@ -32,11 +32,11 @@ In this example you will learn:
 - Creating a :py:class:`earth2studio.data.MeteosatFCI` data source
 - Fetching FCI observations as the model input
 - Running iterative nowcasting
-- Plotting a single FCI channel with cartopy
+- Plotting an RGB composite of FCI channels with cartopy
 """
 # /// script
 # dependencies = [
-#   "earth2studio[stormscope-meteosat] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[stormscope] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
 #   "eumdac",
 #   "netCDF4",
@@ -142,7 +142,7 @@ fci = {
 #
 
 # %%
-# TBD: Replace with the desired analysis time.
+# Analysis time; replace with any time for which MTG-I1 FCI data is available.
 start_time = np.datetime64(datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc))
 in_coords = model.input_coords()
 variables = in_coords["variable"]
@@ -179,7 +179,7 @@ del x_res
 
 # %%
 # Add Ensemble Dimension
-# -------------------
+# ----------------------
 # The model expects input of shape ``(ensemble, time, lead_time, variable, y, x)``.
 # Up to GPU memory limits, ``ensemble_size`` can be increased to produce multiple
 # independent ensemble members in a single forward pass.
@@ -198,8 +198,7 @@ coords.move_to_end("ensemble", last=False)
 # value advances the prediction by one 10-minute interval.
 
 # %%
-# TBD: Set the number of 10-minute forecast steps.
-n_steps = 12  # 2 hours
+n_steps = 12  # 2 hours of 10-minute forecast steps
 
 for step, (x_pred, coords_pred) in enumerate(
     tqdm(model.create_iterator(x, coords), total=n_steps + 1)
@@ -210,19 +209,15 @@ for step, (x_pred, coords_pred) in enumerate(
 # %%
 # Post Processing
 # ---------------
-# Plot the final predicted FCI frame for one channel in geostationary
-# projection. Off-Earth pixels are already set to NaN by ``denormalize``.
-#
-# TBD: Choose the channel to visualize. Good options for a first example:
-#   - ``"fci105ir"`` (IR 10.5 µm thermal IR, good cloud overview)
-#   - ``"fci06vis"``  (VIS 0.6 µm, visible reflectance — only useful in
-#                      daytime, colormap should be linear 0→1)
+# Plot the final predicted FCI frame as a true-color RGB composite (VIS 0.6 /
+# 0.5 / 0.4 µm) in geostationary projection. Off-Earth pixels are already set
+# to NaN by ``denormalize``.
 
 # %%
 rgb_channels = ["fci06vis", "fci05vis", "fci04vis"]
 ch_idx = [list(model.variables).index(ch) for ch in rgb_channels]
 
-# y_pred has shape (batch, time, 1, variable, y, x)
+# x_pred has shape (batch, time, 1, variable, y, x)
 rgb = (x_pred[0, 0, 0, ch_idx] / 24.0).clamp(min=0, max=1) * 255
 rgb = rgb.permute(1, 2, 0).cpu().numpy()
 rgb = np.interp(rgb, [0, 30, 60, 120, 190, 255], [0, 110, 160, 210, 240, 255]) / 255.0
