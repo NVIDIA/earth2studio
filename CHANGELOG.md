@@ -32,9 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   GRIB fetches; downloads now use bounded concurrency with retry on transient errors
 - Migrated the remaining GRIB byte-range data sources (HRRR / HRRR_FX, GEFS_FX /
   GEFS_FX_721x1440, CFS_FX / CFS_FX_Flux, NCAR_ERA5) from s3fs/gcsfs to obstore with
-  bounded concurrency and retry on transient errors; no fsspec fallbacks remain —
-  HTTP-backed sources (GFS `ncep`, HRRR `nomads`, CFS `nomads`) now use obstore
-  `HTTPStore` against the NOMADS HTTPS endpoint (GFS `ncep` previously used FTP)
+  bounded concurrency and retry on transient errors
+- Migrated HTTP-backed GRIB sources (GFS `ncep`, HRRR `nomads`, CFS `nomads`) to
+  obstore `HTTPStore` against the NOMADS HTTPS endpoint (GFS `ncep` previously used
+  FTP); no fsspec fallbacks remain in the GRIB byte-range sources
 - Refactored UFS observation sources (`UFSObsConv`, `UFSObsSat`) onto the shared
   obstore byte-range helpers
 - Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
