@@ -39,14 +39,14 @@ from earth2studio.lexicon import CosmoLexicon
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
 
 
-class _MockNet(torch.nn.Module):
+class PhooNet(torch.nn.Module):
     """Stand-in for the DiT; construction-only (forward not exercised)."""
 
     def forward(self, x, *args, **kwargs):  # pragma: no cover - construction-only
         return x
 
 
-class _MockRegDiT(torch.nn.Module):
+class PhooRegDiT(torch.nn.Module):
     """Structural stand-in for the bare upstream regression DiT: exercises the
     _regression_forward path (latent rebind + single forward, constant t=0) without
     pulling in physicsnemo. The rebind targets live directly on the module (the
@@ -63,7 +63,7 @@ class _MockRegDiT(torch.nn.Module):
         return x[:, : self.n_out]
 
 
-class _MockDiffusionDiT(torch.nn.Module):
+class PhooDiffusionDiT(torch.nn.Module):
     """Stand-in for EDMPreconditioner(ConcatConditionWrapper(DiT)): exposes the
     ``.model.model`` rebind target and a ``(x, sigma, condition)`` forward so the
     EDM/Karras Heun sampler in ``_denoise`` runs without physicsnemo/GPU.
@@ -147,7 +147,7 @@ def _build(**overrides):
     kwargs = dict(
         era5_variables=ERA5_VARIABLES,
         output_variables=OUTPUT_VARIABLES,
-        regression_model=_MockNet(),
+        regression_model=PhooNet(),
         diffusion_model=None,
         resolution="rea6",
         mode="mean",
@@ -469,7 +469,7 @@ def test_regression_forward_dit():
     """The DiT regression forward rebinds the latent grid to the run size and
     does a single forward returning [1, n_out, H, W]."""
     n_out = len(OUTPUT_VARIABLES)
-    dx = _build(regression_model=_MockRegDiT(n_out))
+    dx = _build(regression_model=PhooRegDiT(n_out))
     out = dx._regression_forward(torch.zeros(1, 12, 16, 24))  # H=16, W=24, patch 2
     assert out.shape == (1, n_out, 16, 24)
     # rebind set latent_hw = (H/patch, W/patch) and the detokenizer patch counts
@@ -815,7 +815,7 @@ def test_call_end_to_end_with_hub():
     in __call__ would raise here. Diffusion mode shares this path (``_derive_hub_
     wind`` runs in postprocess after sample assembly; allocation is mode-agnostic)."""
     ov = ["U_10M", "V_10M", "U_L40", "V_L40", "U_L39", "V_L39", "T_2M"]
-    dx = _build_hub(regression_model=_MockRegDiT(len(ov)))
+    dx = _build_hub(regression_model=PhooRegDiT(len(ov)))
     ic = dx.input_coords()
     coords = OrderedDict(
         batch=np.array([0]),
@@ -914,17 +914,21 @@ def _diffusion_coords(dx):
     return x, coords
 
 
-def test_call_diffusion_ensemble():
-    """Diffusion __call__ plumbing with a mock EDM net (GPU-free, gain=0.5 so the
-    result is a schedule-weighted multiple of the per-sample noise): exercises the
-    diffusion _forward, per-sample noise (seed+i), ensemble allocation, and the
-    mode-agnostic postprocess. (Schedule correctness is pinned separately below.)"""
+@pytest.mark.parametrize("number_of_samples", [1, 3])
+def test_corrdiff_cosmo_era5_samples(number_of_samples):
+    """Generative sample dim + diffusion __call__ plumbing with a mock EDM net
+    (GPU-free, gain=0.5 so the result is a
+    schedule-weighted multiple of the per-sample noise): exercises the diffusion
+    _forward, per-sample noise (seed+i), ensemble allocation sized by
+    number_of_samples, and the mode-agnostic postprocess. For an ensemble the
+    members differ (independent noise). (Schedule correctness is pinned separately
+    below; determinism in test_corrdiff_cosmo_era5_deterministic_seed.)"""
     ov = OUTPUT_VARIABLES
     dx = _build(
         mode="diffusion",
         regression_model=None,
-        diffusion_model=_MockDiffusionDiT(len(ov), gain=0.5),
-        number_of_samples=3,
+        diffusion_model=PhooDiffusionDiT(len(ov), gain=0.5),
+        number_of_samples=number_of_samples,
         seed=0,
         channel_transforms={},
         constraints={},
@@ -932,11 +936,40 @@ def test_call_diffusion_ensemble():
     x, coords = _diffusion_coords(dx)
     out, oc = dx(x, coords)
     H, W = dx.lat_output_numpy.shape
-    assert out.shape == (1, 3, 1, len(ov), H, W)
+    assert "sample" in oc and len(oc["sample"]) == number_of_samples
+    assert out.shape == (1, number_of_samples, 1, len(ov), H, W)
     assert torch.isfinite(out).all()
-    assert not torch.allclose(out[0, 0], out[0, 1])  # members differ (indep. noise)
-    out2, _ = dx(x, coords)
-    assert torch.allclose(out, out2)  # fixed seed -> reproducible
+    if number_of_samples > 1:
+        assert not torch.allclose(out[0, 0], out[0, 1])  # members differ (indep noise)
+
+
+def test_corrdiff_cosmo_era5_deterministic_seed():
+    """A fixed seed makes the diffusion sampler reproducible. Two checks cover the
+    two ways seeding can break: two separate models built with the same seed must
+    give the same output (nothing model-specific leaks into the seed when the model
+    is built), and the same model called twice must match (the noise generator is
+    re-seeded on every call, not built once and left to advance). The mocks have no
+    random weights, so two models are identical and only the seeding is tested."""
+    ov = OUTPUT_VARIABLES
+
+    def build():
+        return _build(
+            mode="diffusion",
+            regression_model=None,
+            diffusion_model=PhooDiffusionDiT(len(ov), gain=0.5),
+            number_of_samples=2,
+            seed=0,
+            channel_transforms={},
+            constraints={},
+        )
+
+    dx_a, dx_b = build(), build()
+    x, coords = _diffusion_coords(dx_a)
+    out_a, _ = dx_a(x, coords)
+    out_b, _ = dx_b(x, coords)
+    torch.testing.assert_close(out_a, out_b)  # cross-instance, same seed
+    out_a2, _ = dx_a(x, coords)
+    torch.testing.assert_close(out_a, out_a2)  # same instance re-called
 
 
 def test_diffusion_sampler_telescopes_to_zero():
@@ -951,7 +984,7 @@ def test_diffusion_sampler_telescopes_to_zero():
     dx = _build(
         mode="diffusion",
         regression_model=None,
-        diffusion_model=_MockDiffusionDiT(len(ov), gain=0.0),
+        diffusion_model=PhooDiffusionDiT(len(ov), gain=0.0),
         number_of_samples=1,
         seed=0,
         channel_transforms={},
@@ -975,7 +1008,7 @@ def test_diffusion_euler_differs_from_heun():
         return _build(
             mode="diffusion",
             regression_model=None,
-            diffusion_model=_MockDiffusionDiT(len(ov), gain=0.5),
+            diffusion_model=PhooDiffusionDiT(len(ov), gain=0.5),
             number_of_samples=1,
             seed=0,
             solver=solver,
@@ -1121,7 +1154,7 @@ def test_solar_gate_applies_identically_in_both_modes():
     diff = _build(
         mode="diffusion",
         regression_model=None,
-        diffusion_model=_MockDiffusionDiT(len(ov)),
+        diffusion_model=PhooDiffusionDiT(len(ov)),
         **common,
     )
     assert diff._sza_gate == mean._sza_gate  # diffusion parses the same gate as mean
@@ -1165,15 +1198,13 @@ def test_load_model_invalid_selectors_rejected():
         CorrDiffCosmoEra5.load_model(None, mode="both")
 
 
-def test_call_mean_end_to_end():
+def test_corrdiff_cosmo_era5_call():
     """Full ``dx(x, coords)`` for mean mode with a mock DiT, covering what the
     construction-only tests never reach: the 6-D output assembly, the batch/time
     loop with per-time valid_times indexing (day vs night frames), the
     sample-expand broadcast (number_of_samples>1), physical-space postprocess
     constraints, and the lexicon ``output_coords`` contract."""
-    dx = _build(
-        regression_model=_MockRegDiT(len(OUTPUT_VARIABLES)), number_of_samples=2
-    )
+    dx = _build(regression_model=PhooRegDiT(len(OUTPUT_VARIABLES)), number_of_samples=2)
     ic = dx.input_coords()
     coords = OrderedDict(
         {
@@ -1291,3 +1322,43 @@ def test_corrdiff_cosmo_era5_package(mode, resolution):
             assert sl.min().item() >= b["min"] - 1e-4, f"{ch} below min in {mode}"
         if b.get("max") is not None:
             assert sl.max().item() <= b["max"] + 1e-4, f"{ch} above max in {mode}"
+
+
+# The diagnostic-model skill requires a fixed set of greppable test names for
+# every generative diagnostic: _call (test_corrdiff_cosmo_era5_call above, mean
+# e2e), _package (above, @pytest.mark.package), _samples +
+# _deterministic_seed (above, diffusion), and _exceptions (below). The deeper
+# behaviors (day/night valid-time indexing, EDM schedule/solver, constraints,
+# hub wind) live in the descriptively-named tests throughout this file.
+
+
+def test_corrdiff_cosmo_era5_exceptions():
+    """The public dx(x, coords) rejects an unknown input variable name and a
+    swapped lat/lon dim order. (Grid-value and
+    sampler/constraint rejections are covered by the descriptive tests above:
+    test_output_coords_requires_native_grid, test_check_bounds_rejects_out_of_
+    range_target, test_invalid_sampler_params_rejected.)"""
+    dx = _build(regression_model=PhooRegDiT(len(OUTPUT_VARIABLES)))
+    ic = dx.input_coords()
+    x = torch.randn(1, 1, len(ERA5_VARIABLES), len(ic["lat"]), len(ic["lon"]))
+    t = np.array([np.datetime64("2021-07-14T12:00")])
+    # unknown variable name -> handshake_coords("variable") rejects
+    bad_var = OrderedDict(
+        batch=np.array([0]),
+        time=t,
+        variable=np.array(["bogus"] * len(ERA5_VARIABLES)),
+        lat=ic["lat"],
+        lon=ic["lon"],
+    )
+    with pytest.raises((KeyError, ValueError), match="required dim variable"):
+        dx(x, bad_var)
+    # swapped lat/lon order -> handshake_dim("lat", -2) rejects
+    bad_order = OrderedDict(
+        batch=np.array([0]),
+        time=t,
+        variable=np.array(ERA5_VARIABLES),
+        lon=ic["lon"],
+        lat=ic["lat"],
+    )
+    with pytest.raises((KeyError, ValueError), match="index -2"):
+        dx(x, bad_order)
