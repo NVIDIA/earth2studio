@@ -250,3 +250,64 @@ def test_stormcastconus_exceptions(device):
 
     with pytest.raises(RuntimeError):
         next(p.create_iterator(x, coords))
+
+
+@pytest.fixture(scope="function")
+def model() -> StormCastCONUS:
+    package = StormCastCONUS.load_default_package()
+    return StormCastCONUS.load_model(package)
+
+
+@pytest.mark.package
+@pytest.mark.parametrize(
+    "cond_dims",
+    [["time", "variable", "lat", "lon"], ["variable", "time", "lat", "lon"]],
+)
+@pytest.mark.parametrize("device", ["cuda:0"])
+def test_stormcastconus_package(cond_dims, device, model):
+    torch.cuda.empty_cache()
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    p = model.to(device)
+
+    lat_start, lat_end = p.hrrr_lat_lim
+    lon_start, lon_end = p.hrrr_lon_lim
+    r = Random(
+        OrderedDict(
+            [
+                ("hrrr_y", HRRR.HRRR_Y[lat_start:lat_end]),
+                ("hrrr_x", HRRR.HRRR_X[lon_start:lon_end]),
+            ]
+        )
+    )
+
+    class _RandomWithSpecifiedOrder(Random):
+        def __call__(self, time, variable):
+            x = super().__call__(time, variable)
+            return x.transpose(*cond_dims)
+
+    p.conditioning_data_source = _RandomWithSpecifiedOrder(
+        OrderedDict(
+            [
+                ("lat", np.linspace(90, -90, num=721, endpoint=True)),
+                ("lon", np.linspace(0, 360, num=1440)),
+            ]
+        )
+    )
+    p.num_diffusion_steps = 2
+
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+
+    out, out_coords = p(x, coords)
+
+    assert out.shape == torch.Size(
+        [len(time), 1, len(p.output_coords(coords)["variable"]), 1024, 1792]
+    )
+    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert np.all(out_coords["time"] == time)
+    handshake_dim(out_coords, "hrrr_x", 4)
+    handshake_dim(out_coords, "hrrr_y", 3)
+    handshake_dim(out_coords, "variable", 2)
+    handshake_dim(out_coords, "lead_time", 1)
+    handshake_dim(out_coords, "time", 0)
