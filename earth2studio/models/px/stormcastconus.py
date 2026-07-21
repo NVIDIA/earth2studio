@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import types
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
@@ -44,6 +45,7 @@ from earth2studio.utils.obs import ObsGridMapping
 from earth2studio.utils.type import CoordSystem
 
 try:
+    import physicsnemo.nn.module.dit_layers as _dit_layers
     from omegaconf import OmegaConf
     from physicsnemo.diffusion.guidance import (
         DataConsistencyDPSGuidance,
@@ -770,18 +772,37 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # load model registry:
         config = OmegaConf.load(package.resolve("model.yaml"))
 
-        model_high = EDMPreconditioner.from_checkpoint(
-            package.resolve("StormCastCONUS-high.mdlus")
-        ).eval()
-        model_pz_low = EDMPreconditioner.from_checkpoint(
-            package.resolve("StormCastCONUS-pz-low.mdlus")
-        ).eval()
-        model_tq_low = EDMPreconditioner.from_checkpoint(
-            package.resolve("StormCastCONUS-tq-low.mdlus")
-        ).eval()
-        model_uv_low = EDMPreconditioner.from_checkpoint(
-            package.resolve("StormCastCONUS-uv-low.mdlus")
-        ).eval()
+        # Checkpoints embed layernorm_backend=apex in the model constructors, which will
+        # fail if apex is not installed. Here we patch APEX_AVAILABLE in physicsnemo
+        # dit_layers to avoid the import error. FusedLayerNorm uses elementwise_affine=False
+        # (no learned parameters), so torch.nn.LayerNorm is state-dict-compatible.
+        # TODO remove when upstream physicsnemo falls back to torch with a warning.
+        _apex_restore: tuple | None = None
+        if not _dit_layers.APEX_AVAILABLE:
+            _apex_restore = (_dit_layers.APEX_AVAILABLE, _dit_layers.apex_normalization)
+            _dit_layers.APEX_AVAILABLE = True
+            _dit_layers.apex_normalization = types.SimpleNamespace(
+                FusedLayerNorm=torch.nn.LayerNorm
+            )
+
+        try:
+            model_high = EDMPreconditioner.from_checkpoint(
+                package.resolve("StormCastCONUS-high.mdlus")
+            ).eval()
+            model_pz_low = EDMPreconditioner.from_checkpoint(
+                package.resolve("StormCastCONUS-pz-low.mdlus")
+            ).eval()
+            model_tq_low = EDMPreconditioner.from_checkpoint(
+                package.resolve("StormCastCONUS-tq-low.mdlus")
+            ).eval()
+            model_uv_low = EDMPreconditioner.from_checkpoint(
+                package.resolve("StormCastCONUS-uv-low.mdlus")
+            ).eval()
+        finally:
+            if _apex_restore is not None:
+                _dit_layers.APEX_AVAILABLE, _dit_layers.apex_normalization = (
+                    _apex_restore
+                )
 
         # Load metadata: means, stds, grid
         with xr.open_dataset(package.resolve("metadata.nc")) as metadata:
