@@ -631,6 +631,9 @@ class CFS_FX:
         str
             Path to the cached file on local disk.
         """
+        if byte_length is not None and byte_length < 0:
+            byte_length = None
+
         # Hash the original path string (bucket-prefixed for AWS, full HTTPS
         # URL for NOMADS) so warm caches populated before the obstore
         # migration remain valid

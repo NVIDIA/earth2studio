@@ -255,11 +255,11 @@ def test_cfs_index_parser_vector_records(tmp_path):
     assert u_len == v_len == (147274 - 96515)
     assert (u_submsg, v_submsg) == (1, 2)
 
-    # Last record gets the negative "read to end of file" sentinel.
+    # Last record gets the None "read to end of file" sentinel.
     tmp_key = next(k for k in table if "TMP::500 mb" in k)
     tmp_offset, tmp_length, tmp_submsg = table[tmp_key]
     assert tmp_offset == 147274
-    assert tmp_length < 0
+    assert tmp_length is None
     assert tmp_submsg == 1
 
 
