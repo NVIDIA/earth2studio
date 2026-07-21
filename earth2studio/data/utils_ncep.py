@@ -6,9 +6,11 @@
 
 from __future__ import annotations
 
+import pathlib
 import time
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
@@ -45,7 +47,7 @@ from earth2studio.data.utils_bufr import (
     parse_prepbufr_messages as _parse_prepbufr_messages,
 )
 from earth2studio.data.utils_bufr import silence_bufr_noise as _silence_bufr_noise
-from earth2studio.lexicon.base import E2STUDIO_SCHEMA
+from earth2studio.lexicon.base import E2STUDIO_SCHEMA, LexiconType
 
 # GPS RO BUFR descriptor IDs (NCEP gpsro encoding). GPSRO is not a PrepBUFR
 # conventional report, so conventional semantics do not apply: there is no TYP
@@ -893,13 +895,16 @@ class _NCEPGpsroAdapter:
     def decode_file(
         self,
         path: str,
-        plan: Mapping[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]],
+        plan: Mapping[str, tuple[str | int, Callable[[pd.DataFrame], pd.DataFrame]]],
         dt_min: datetime,
         dt_max: datetime,
     ) -> pd.DataFrame:
-        # Descriptors drive decode (pickled to workers); modifiers stay here
-        # for finalize (closures cannot cross the process-pool boundary).
-        wanted_descrs = {key: variable for variable, (key, _) in plan.items()}
+        # Descriptors drive decode (pickled to workers); modifiers stay here for
+        # finalize (closures cannot cross the process-pool boundary). Callers
+        # pass the descriptor id as a string (shared planner) or int (GDAS until
+        # it migrates). TODO(gdas migration): once GDAS uses the shared planner
+        # (str keys), narrow the union to str and drop the int coercion.
+        wanted_descrs = {int(key): variable for variable, (key, _) in plan.items()}
         modifiers = {variable: modifier for variable, (_, modifier) in plan.items()}
         with open(path, "rb") as file:
             file_data = file.read()
@@ -944,3 +949,260 @@ class _NCEPGpsroAdapter:
             modifiers,
             convert_pres_mb_to_pa=False,
         )
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Shared NCEP observation request helpers. Keep these as stateless utilities:
+# concrete data sources own transport/cache state and pass callables in where
+# source-specific behavior is needed.
+# ──────────────────────────────────────────────────────────────────────────
+
+_NCEPObsModifier = Callable[[pd.DataFrame], pd.DataFrame]
+# Decode plan: variable id -> (route-specific decode key, post-decode modifier).
+# The key is the raw string after the lexicon "route::" prefix; each adapter
+# interprets it (PrepBUFR mnemonic, or GPS RO descriptor id parsed to int).
+_NCEPPlan = Mapping[str, tuple[str, _NCEPObsModifier]]
+
+
+@dataclass(frozen=True)
+class _NCEPObsTask:
+    """One conventional NCEP observation cycle file to fetch and decode."""
+
+    uri: str
+    route: str
+    datetime_file: datetime
+    datetime_min: datetime
+    datetime_max: datetime
+    var_plan: _NCEPPlan
+
+
+def plan_conv_tasks(
+    windows: Mapping[datetime, tuple[datetime, datetime]],
+    variable: list[str],
+    lexicon: LexiconType,
+    build_uri: Callable[[str, datetime], str],
+) -> list[_NCEPObsTask]:
+    """Partition variables by lexicon route prefix into per-cycle conv tasks.
+
+    Parameters
+    ----------
+    windows : Mapping[datetime, tuple[datetime, datetime]]
+        Cycle datetime -> (min, max) observation-time window, already merged.
+    variable : list[str]
+        Requested variable ids, routed by their ``"route::key"`` lexicon prefix.
+    lexicon : LexiconType
+        Source lexicon mapping a variable id to ``("route::key", modifier)``.
+    build_uri : Callable[[str, datetime], str]
+        Source hook returning the archive URI for a ``(route, cycle)`` pair.
+
+    Returns
+    -------
+    list[_NCEPObsTask]
+        One task per ``(route, cycle)``.
+    """
+    plans: dict[str, dict[str, tuple[str, _NCEPObsModifier]]] = {}
+    for v in variable:
+        try:
+            source_key, modifier = lexicon[v]
+        except KeyError:
+            logger.error(f"Variable id '{v}' not found in {lexicon.__name__}")
+            raise
+        route, _, rest = source_key.partition("::")
+        plans.setdefault(route, {})[v] = (rest, modifier)
+
+    tasks: list[_NCEPObsTask] = []
+    for cycle, (tmin, tmax) in windows.items():
+        for route, plan in plans.items():
+            tasks.append(
+                _NCEPObsTask(
+                    uri=build_uri(route, cycle),
+                    route=route,
+                    datetime_file=cycle,
+                    datetime_min=tmin,
+                    datetime_max=tmax,
+                    var_plan=plan,
+                )
+            )
+    return tasks
+
+
+def observation_cycle_times(
+    time: datetime,
+    tolerance_lower: timedelta,
+    tolerance_upper: timedelta,
+    cadence: timedelta = timedelta(hours=6),
+) -> list[datetime]:
+    """Return cadence file times whose observation windows overlap a request.
+
+    Each file timestamp is treated as the end of its observation window, so a
+    file at ``T`` may contain observations from ``(T - cadence, T]``. This means
+    requests often need the next cycle file as well as the cycle at or before
+    the requested time.
+
+    Parameters
+    ----------
+    time : datetime
+        Requested observation timestamp.
+    tolerance_lower : timedelta
+        Lower tolerance bound relative to ``time``.
+    tolerance_upper : timedelta
+        Upper tolerance bound relative to ``time``.
+    cadence : timedelta, optional
+        Cadence between published files, by default ``timedelta(hours=6)``.
+
+    Returns
+    -------
+    list[datetime]
+        Cadence-aligned file timestamps whose backward-looking observation
+        windows overlap ``[time + tolerance_lower, time + tolerance_upper]``.
+
+    Raises
+    ------
+    ValueError
+        If ``cadence`` is not positive.
+    """
+    if cadence <= timedelta(0):
+        raise ValueError("cadence must be positive")
+
+    tmin = time + tolerance_lower
+    tmax = time + tolerance_upper
+    day_start = tmin.replace(hour=0, minute=0, second=0, microsecond=0)
+    cycle = day_start + ((tmin - day_start) // cadence) * cadence
+    if cycle < tmin:
+        cycle += cadence
+
+    cycles: list[datetime] = []
+    while cycle < tmax + cadence:
+        cycles.append(cycle)
+        cycle += cadence
+    return cycles
+
+
+def cycle_windows(
+    time_list: list[datetime],
+    tolerance_lower: timedelta,
+    tolerance_upper: timedelta,
+    cadence: timedelta = timedelta(hours=6),
+) -> dict[datetime, tuple[datetime, datetime]]:
+    """Map cadence file times to merged requested observation windows.
+
+    Parameters
+    ----------
+    time_list : list[datetime]
+        Requested observation timestamps.
+    tolerance_lower : timedelta
+        Lower tolerance bound relative to each requested timestamp.
+    tolerance_upper : timedelta
+        Upper tolerance bound relative to each requested timestamp.
+    cadence : timedelta, optional
+        Cadence between published files, by default ``timedelta(hours=6)``.
+
+    Returns
+    -------
+    dict[datetime, tuple[datetime, datetime]]
+        Mapping from each required cadence file timestamp to the merged
+        observation-time window covered by requests for that file.
+    """
+    windows: dict[datetime, tuple[datetime, datetime]] = {}
+    for t in time_list:
+        tmin = t + tolerance_lower
+        tmax = t + tolerance_upper
+        for cycle in observation_cycle_times(
+            t, tolerance_lower, tolerance_upper, cadence
+        ):
+            existing = windows.get(cycle)
+            windows[cycle] = (
+                (min(existing[0], tmin), max(existing[1], tmax))
+                if existing is not None
+                else (tmin, tmax)
+            )
+    return windows
+
+
+def resolve_output_schema(
+    schema: pa.Schema,
+    fields: str | list[str] | pa.Schema | None,
+    *,
+    class_name: str,
+) -> pa.Schema:
+    """Resolve a requested field subset against a source schema."""
+    if fields is None:
+        return schema
+    if isinstance(fields, str):
+        fields = [fields]
+    if isinstance(fields, pa.Schema):
+        for f in fields:
+            if f.name not in schema.names:
+                raise KeyError(
+                    f"Field '{f.name}' not in {class_name} SCHEMA. "
+                    f"Available: {schema.names}"
+                )
+            expected = schema.field(f.name).type
+            if f.type != expected:
+                raise TypeError(
+                    f"Field '{f.name}' has type {f.type}, expected "
+                    f"{expected} from class SCHEMA"
+                )
+        return fields
+    selected = []
+    for name in fields:
+        if name not in schema.names:
+            raise KeyError(
+                f"Field '{name}' not in {class_name} SCHEMA. "
+                f"Available: {schema.names}"
+            )
+        selected.append(schema.field(name))
+    return pa.schema(selected)
+
+
+def compile_dataframe(
+    tasks: Sequence[_NCEPObsTask],
+    schema: pa.Schema,
+    source_id: str,
+    local_path: Callable[[str], str],
+    decode_task: Callable[[str, _NCEPObsTask], pd.DataFrame],
+) -> pd.DataFrame:
+    """Decode cached task files and concatenate them into a DataFrame."""
+    frames: list[pd.DataFrame] = []
+    n_tasks = len(tasks)
+    compile_t0 = time.perf_counter()
+    for idx, task in enumerate(tasks, start=1):
+        uri = task.uri
+        path = local_path(uri)
+        if not pathlib.Path(path).is_file():
+            logger.warning(f"Cached file missing for {uri}, skipping")
+            continue
+        short_uri = uri.rsplit("/", 1)[-1]
+        logger.info(f"[{source_id}] decode {idx}/{n_tasks} start: {short_uri}")
+        t0 = time.perf_counter()
+        try:
+            df = decode_task(path, task)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error(f"Failed to decode {path}: {exc}")
+            continue
+        elapsed = time.perf_counter() - t0
+        if df is None or df.empty:
+            logger.info(
+                f"[{source_id}] decode {idx}/{n_tasks} done : "
+                f"{short_uri} (empty) in {elapsed:.1f}s"
+            )
+            continue
+        logger.info(
+            f"[{source_id}] decode {idx}/{n_tasks} done : "
+            f"{short_uri} ({len(df):,} rows) in {elapsed:.1f}s"
+        )
+        df.attrs["source"] = source_id
+        frames.append(df)
+
+    logger.info(
+        f"[{source_id}] compile finished: {len(frames)} non-empty "
+        f"frames, total {time.perf_counter() - compile_t0:.1f}s"
+    )
+
+    if not frames:
+        result = _empty_dataframe(schema)
+    else:
+        result = pd.concat(frames, ignore_index=True)
+        result = result[[name for name in schema.names if name in result.columns]]
+    result.attrs["source"] = source_id
+    return result
