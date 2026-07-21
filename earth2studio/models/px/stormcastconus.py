@@ -731,15 +731,14 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
-        # package = Package(
-        #     "hf://nvidia/stormcast-conus@...",
-        #     cache_options={
-        #         "cache_storage": Package.default_cache("stormcast-conus"),
-        #         "same_names": True,
-        #     },
-        # )
-        # return package
-        raise NotImplementedError("No default package.")
+        package = Package(
+            "hf://nvidia/stormcast-conus@a3346e4407434128efb387ba1b79c82765254d73",
+            cache_options={
+                "cache_storage": Package.default_cache("stormcast-conus"),
+                "same_names": True,
+            },
+        )
+        return package
 
     @classmethod
     @check_optional_dependencies()
