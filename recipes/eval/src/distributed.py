@@ -28,6 +28,16 @@ from physicsnemo.distributed import DistributedManager
 T = TypeVar("T")
 
 
+def get_rank() -> int:
+    """Return the process rank, or 0 when distribution is not initialized.
+
+    Guards on ``DistributedManager.is_initialized()`` so we don't instantiate
+    an uninitialized manager (which warns / errors on CPU / unit-test runs).
+    Callers typically use this only to gate rank-0-only output such as tqdm.
+    """
+    return DistributedManager().rank if DistributedManager.is_initialized() else 0
+
+
 def run_on_rank0_first(func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
     """Execute a function on rank 0 first, barrier, then on remaining ranks.
 
