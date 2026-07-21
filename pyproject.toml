@@ -198,6 +198,11 @@ graphcast = [
     "dm-tree>=0.1.9",
     "xarray<2026.4.0", # https://github.com/google-deepmind/graphcast/issues/213
 ]
+interp-crps-dit = [
+    # 2.2.0 is the first release with natten2d_rope + proj_reshape_2d_conv (PR #1731).
+    "natten ; python_version < '3.14'",
+    "nvidia-physicsnemo>=2.2.0",
+]
 interp-modafno = [
     "nvidia-physicsnemo>=2.0",
 ]
@@ -279,6 +284,9 @@ da-stormcast = [
     "cudf-cu13>=26.2.0",
 ]
 # All, must not have conflicts
+# NOTE: `interp-crps-dit` is intentionally excluded here. It needs nvidia-physicsnemo>=2.2.0, which
+# conflicts with the <=2.1.1 cap `da-healda` imposes on `all`. TODO(interp-crps-dit): add it back
+# once `da-healda` also moves to physicsnemo>=2.2.0 (or its cap is lifted).
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
     "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",
@@ -289,6 +297,17 @@ all = [
 # ==== UV configuration ====
 [tool.uv]
 conflicts = [
+  [
+    # interp-crps-dit needs physicsnemo>=2.2.0; da-healda caps it at <=2.1.1 (and `all` pulls da-healda).
+    { extra = "interp-crps-dit" },
+    { extra = "da-healda" },
+  ],
+  [
+    # interp-crps-dit's physicsnemo>=2.2.0 also conflicts with `all`, which pulls in da-healda and its
+    # physicsnemo <=2.1.1 cap.
+    { extra = "interp-crps-dit" },
+    { extra = "all" },
+  ],
   [
     { extra = "ace2" },
     { extra = "atlas" },

@@ -41,6 +41,7 @@ Thus are typically used to generate forecast predictions.
       Atlas
       Aurora
       CBottleVideo
+      DataReplay
       DiagnosticWrapper
       DLESyM
       DLESyMLatLon
@@ -54,6 +55,7 @@ Thus are typically used to generate forecast predictions.
       GenCastMini
       GraphCastOperational
       GraphCastSmall
+      InterpCRPSDiT
       InterpModAFNO
       Pangu24
       Pangu6
