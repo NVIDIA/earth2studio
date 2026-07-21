@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import pathlib
 import time
 from collections.abc import Callable, Mapping, Sequence
@@ -21,7 +20,6 @@ import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
-from earth2studio.data.utils import _sync_async, prep_data_inputs
 from earth2studio.data.utils_bufr import (
     HDR_DHR,
     HDR_ELV,
@@ -50,8 +48,6 @@ from earth2studio.data.utils_bufr import (
 )
 from earth2studio.data.utils_bufr import silence_bufr_noise as _silence_bufr_noise
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA, LexiconType
-from earth2studio.utils.time import normalize_time_tolerance
-from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
 # GPS RO BUFR descriptor IDs (NCEP gpsro encoding). GPSRO is not a PrepBUFR
 # conventional report, so conventional semantics do not apply: there is no TYP
@@ -956,9 +952,9 @@ class _NCEPGpsroAdapter:
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# Shared NCEP observation request orchestration: task types, the request
-# lifecycle mixin (input handling, cycle-window planning, fetch, DataFrame
-# assembly), consumed by the NNJA / NOMADS-GDAS / GFS observation sources.
+# Shared NCEP observation request helpers. Keep these as stateless utilities:
+# concrete data sources own transport/cache state and pass callables in where
+# source-specific behavior is needed.
 # ──────────────────────────────────────────────────────────────────────────
 
 _NCEPObsModifier = Callable[[pd.DataFrame], pd.DataFrame]
@@ -970,33 +966,17 @@ _NCEPPlan = Mapping[str, tuple[str, _NCEPObsModifier]]
 
 @dataclass(frozen=True)
 class _NCEPObsTask:
-    """One NCEP observation cycle file to fetch and decode.
-
-    Minimal base carrying only what the shared request lifecycle needs: the URI
-    and the cycle's time window. Route/product-specific fields live on
-    subclasses such as :class:`_NCEPConvTask`.
-    """
+    """One conventional NCEP observation cycle file to fetch and decode."""
 
     uri: str
+    route: str
     datetime_file: datetime
     datetime_min: datetime
     datetime_max: datetime
-
-
-@dataclass(frozen=True)
-class _NCEPConvTask(_NCEPObsTask):
-    """A conventional (PrepBUFR / GPS RO) cycle file.
-
-    ``route`` (``"prepbufr"`` / ``"gpsro"``) selects the decoder and URI layout;
-    ``var_plan`` maps each requested variable to its route-specific decode key
-    and post-decode modifier.
-    """
-
-    route: str
     var_plan: _NCEPPlan
 
 
-def _plan_conv_tasks(
+def plan_conv_tasks(
     windows: Mapping[datetime, tuple[datetime, datetime]],
     variable: list[str],
     lexicon: LexiconType,
@@ -1007,8 +987,7 @@ def _plan_conv_tasks(
     Parameters
     ----------
     windows : Mapping[datetime, tuple[datetime, datetime]]
-        Cycle datetime -> (min, max) observation-time window, already merged
-        across requested times (see ``NCEPObsRequestMixin._cycle_windows``).
+        Cycle datetime -> (min, max) observation-time window, already merged.
     variable : list[str]
         Requested variable ids, routed by their ``"route::key"`` lexicon prefix.
     lexicon : LexiconType
@@ -1019,9 +998,7 @@ def _plan_conv_tasks(
     Returns
     -------
     list[_NCEPObsTask]
-        One ``_NCEPConvTask`` (typed as the base) per ``(route, cycle)``.
-        ``prepbufr`` uses the PrepBUFR decoder, ``gpsro`` the GPS RO BUFR
-        decoder; the key after ``::`` is kept verbatim for the adapter.
+        One task per ``(route, cycle)``.
     """
     plans: dict[str, dict[str, tuple[str, _NCEPObsModifier]]] = {}
     for v in variable:
@@ -1037,246 +1014,125 @@ def _plan_conv_tasks(
     for cycle, (tmin, tmax) in windows.items():
         for route, plan in plans.items():
             tasks.append(
-                _NCEPConvTask(
+                _NCEPObsTask(
                     uri=build_uri(route, cycle),
+                    route=route,
                     datetime_file=cycle,
                     datetime_min=tmin,
                     datetime_max=tmax,
-                    route=route,
                     var_plan=plan,
                 )
             )
     return tasks
 
 
-class NCEPObsRequestMixin:
-    """Request-orchestration behavior for NCEP DataFrame observation sources.
-
-    Provides the synchronous entry point, async fetch orchestration, six-hour
-    cycle-window planning, output-schema resolution, and cached-file assembly.
-    Compose with a transport mixin that supplies ``fetch_files``,
-    ``local_path``, ``cleanup``, and ``_validate_time``, and a concrete source
-    that supplies ``_create_tasks`` and ``_decode_file``. Conventional sources
-    build ``_create_tasks`` from the shared :func:`plan_conv_tasks` helper;
-    satellite sources implement their own per-sensor planner.
-    """
-
-    SOURCE_ID: str
-    SCHEMA: pa.Schema
-
-    def _init_request(
-        self,
-        *,
-        time_tolerance: TimeTolerance,
-        verbose: bool,
-        async_timeout: int,
-        decode_workers: int,
-    ) -> None:
-        """Initialize shared request state; call from the concrete constructor."""
-        self._verbose = verbose
-        self._decode_workers = max(1, decode_workers)
-        self.async_timeout = async_timeout
-
-        lower, upper = normalize_time_tolerance(time_tolerance)
-        self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
-        self._tolerance_upper = pd.to_timedelta(upper).to_pytimedelta()
-
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-        fields: str | list[str] | pa.Schema | None = None,
-    ) -> pd.DataFrame:
-        """Fetch observations for a set of timestamps.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        variable : str | list[str] | VariableArray
-            Variables defined by the concrete data source lexicon.
-        fields : str | list[str] | pa.Schema | None, optional
-            Output column subset. ``None`` returns all schema fields.
-
-        Returns
-        -------
-        pd.DataFrame
-            Observation DataFrame with columns matching the resolved schema.
-        """
-        try:
-            df = _sync_async(
-                self.fetch, time, variable, fields, timeout=self.async_timeout
+def cycle_windows(
+    time_list: list[datetime],
+    tolerance_lower: timedelta,
+    tolerance_upper: timedelta,
+) -> dict[datetime, tuple[datetime, datetime]]:
+    """Map each unique 6-hour cycle to the union of requested time windows."""
+    windows: dict[datetime, tuple[datetime, datetime]] = {}
+    for t in time_list:
+        tmin = t + tolerance_lower
+        tmax = t + tolerance_upper
+        day = tmin.replace(minute=0, second=0, microsecond=0)
+        day = day.replace(hour=(day.hour // 6) * 6)
+        while day <= tmax:
+            existing = windows.get(day)
+            windows[day] = (
+                (min(existing[0], tmin), max(existing[1], tmax))
+                if existing is not None
+                else (tmin, tmax)
             )
-        finally:
-            self.cleanup()
+            day += timedelta(hours=6)
+    return windows
 
-        return df
 
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-        fields: str | list[str] | pa.Schema | None = None,
-    ) -> pd.DataFrame:
-        """Async function to get data."""
-        time_list, variable_list = prep_data_inputs(time, variable)
-        self._validate_time(time_list)
-        schema = self._resolve_output_schema(fields)
-
-        async_tasks = self._create_tasks(time_list, variable_list)
-        file_uri_set = list({task.uri for task in async_tasks})
-        await self.fetch_files(file_uri_set)
-
-        # Decoding is CPU-bound and internally blocks on pool futures; run it in
-        # a worker thread so it does not stall the shared fsspec IO loop that
-        # _sync_async dispatches every data source's fetch onto.
-        df = await asyncio.to_thread(self._compile_dataframe, async_tasks, schema)
-        df.attrs["source"] = self.SOURCE_ID
-        return df
-
-    def _compile_dataframe(
-        self,
-        async_tasks: Sequence[_NCEPObsTask],
-        schema: pa.Schema,
-    ) -> pd.DataFrame:
-        """Decode each fetched file and concatenate into a single DataFrame."""
-        frames: list[pd.DataFrame] = []
-        n_tasks = len(async_tasks)
-        compile_t0 = time.perf_counter()
-        for idx, task in enumerate(async_tasks, start=1):
-            uri = task.uri
-            local_path = self.local_path(uri)
-            if not pathlib.Path(local_path).is_file():
-                logger.warning(f"Cached file missing for {uri}, skipping")
-                continue
-            short_uri = uri.rsplit("/", 1)[-1]
-            logger.info(f"[{self.SOURCE_ID}] decode {idx}/{n_tasks} start: {short_uri}")
-            t0 = time.perf_counter()
-            try:
-                df = self._decode_file(local_path, task)
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.error(f"Failed to decode {local_path}: {exc}")
-                continue
-            elapsed = time.perf_counter() - t0
-            if df is None or df.empty:
-                logger.info(
-                    f"[{self.SOURCE_ID}] decode {idx}/{n_tasks} done : "
-                    f"{short_uri} (empty) in {elapsed:.1f}s"
-                )
-                continue
-            logger.info(
-                f"[{self.SOURCE_ID}] decode {idx}/{n_tasks} done : "
-                f"{short_uri} ({len(df):,} rows) in {elapsed:.1f}s"
-            )
-            df.attrs["source"] = self.SOURCE_ID
-            frames.append(df)
-
-        logger.info(
-            f"[{self.SOURCE_ID}] compile finished: {len(frames)} non-empty "
-            f"frames, total {time.perf_counter() - compile_t0:.1f}s"
-        )
-
-        if not frames:
-            return _empty_dataframe(self.SCHEMA)[schema.names]
-
-        result = pd.concat(frames, ignore_index=True)
-        return result[[name for name in schema.names if name in result.columns]]
-
-    def _cycle_windows(
-        self, time_list: list[datetime]
-    ) -> dict[datetime, tuple[datetime, datetime]]:
-        """Map each unique 6-hour cycle to the union of requested time windows.
-
-        For each ``t`` in ``time_list`` we cover all 6-hour cycles
-        whose synoptic time falls within ``[t + tol_lower, t + tol_upper]``.
-        Multiple input times that map to the same cycle are merged by
-        taking the union of their windows so the cycle file is fetched
-        once while keeping observations valid for any of them.
-        """
-        windows: dict[datetime, tuple[datetime, datetime]] = {}
-        for t in time_list:
-            tmin = t + self._tolerance_lower
-            tmax = t + self._tolerance_upper
-            day = tmin.replace(minute=0, second=0, microsecond=0)
-            day = day.replace(hour=(day.hour // 6) * 6)
-            while day <= tmax:
-                existing = windows.get(day)
-                windows[day] = (
-                    (min(existing[0], tmin), max(existing[1], tmax))
-                    if existing is not None
-                    else (tmin, tmax)
-                )
-                day += timedelta(hours=6)
-        return windows
-
-    @classmethod
-    def _resolve_output_schema(
-        cls, fields: str | list[str] | pa.Schema | None
-    ) -> pa.Schema:
-        if fields is None:
-            return cls.SCHEMA
-        if isinstance(fields, str):
-            fields = [fields]
-        if isinstance(fields, pa.Schema):
-            for f in fields:
-                if f.name not in cls.SCHEMA.names:
-                    raise KeyError(
-                        f"Field '{f.name}' not in {cls.__name__} SCHEMA. "
-                        f"Available: {cls.SCHEMA.names}"
-                    )
-                expected = cls.SCHEMA.field(f.name).type
-                if f.type != expected:
-                    raise TypeError(
-                        f"Field '{f.name}' has type {f.type}, expected "
-                        f"{expected} from class SCHEMA"
-                    )
-            return fields
-        selected = []
-        for name in fields:
-            if name not in cls.SCHEMA.names:
+def resolve_output_schema(
+    schema: pa.Schema,
+    fields: str | list[str] | pa.Schema | None,
+    *,
+    class_name: str,
+) -> pa.Schema:
+    """Resolve a requested field subset against a source schema."""
+    if fields is None:
+        return schema
+    if isinstance(fields, str):
+        fields = [fields]
+    if isinstance(fields, pa.Schema):
+        for f in fields:
+            if f.name not in schema.names:
                 raise KeyError(
-                    f"Field '{name}' not in {cls.__name__} SCHEMA. "
-                    f"Available: {cls.SCHEMA.names}"
+                    f"Field '{f.name}' not in {class_name} SCHEMA. "
+                    f"Available: {schema.names}"
                 )
-            selected.append(cls.SCHEMA.field(name))
-        return pa.schema(selected)
+            expected = schema.field(f.name).type
+            if f.type != expected:
+                raise TypeError(
+                    f"Field '{f.name}' has type {f.type}, expected "
+                    f"{expected} from class SCHEMA"
+                )
+        return fields
+    selected = []
+    for name in fields:
+        if name not in schema.names:
+            raise KeyError(
+                f"Field '{name}' not in {class_name} SCHEMA. "
+                f"Available: {schema.names}"
+            )
+        selected.append(schema.field(name))
+    return pa.schema(selected)
 
-    @classmethod
-    def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
-        """Resolve ``fields`` into a validated PyArrow schema subset."""
-        return cls._resolve_output_schema(fields)
 
-    # Extension points supplied by the composed transport mixin and concrete
-    # source. Keep the transport mixin ahead of this mixin in the MRO, e.g.
-    # ``class Foo(SomeTransportMixin, NCEPObsRequestMixin)``, so its concrete
-    # implementations override these fallbacks.
-    async def fetch_files(self, uris: Sequence[str]) -> None:
-        """Download the requested remote objects into the local cache."""
-        raise NotImplementedError
+def compile_dataframe(
+    tasks: Sequence[_NCEPObsTask],
+    schema: pa.Schema,
+    source_id: str,
+    local_path: Callable[[str], str],
+    decode_task: Callable[[str, _NCEPObsTask], pd.DataFrame],
+) -> pd.DataFrame:
+    """Decode cached task files and concatenate them into a DataFrame."""
+    frames: list[pd.DataFrame] = []
+    n_tasks = len(tasks)
+    compile_t0 = time.perf_counter()
+    for idx, task in enumerate(tasks, start=1):
+        uri = task.uri
+        path = local_path(uri)
+        if not pathlib.Path(path).is_file():
+            logger.warning(f"Cached file missing for {uri}, skipping")
+            continue
+        short_uri = uri.rsplit("/", 1)[-1]
+        logger.info(f"[{source_id}] decode {idx}/{n_tasks} start: {short_uri}")
+        t0 = time.perf_counter()
+        try:
+            df = decode_task(path, task)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error(f"Failed to decode {path}: {exc}")
+            continue
+        elapsed = time.perf_counter() - t0
+        if df is None or df.empty:
+            logger.info(
+                f"[{source_id}] decode {idx}/{n_tasks} done : "
+                f"{short_uri} (empty) in {elapsed:.1f}s"
+            )
+            continue
+        logger.info(
+            f"[{source_id}] decode {idx}/{n_tasks} done : "
+            f"{short_uri} ({len(df):,} rows) in {elapsed:.1f}s"
+        )
+        df.attrs["source"] = source_id
+        frames.append(df)
 
-    def local_path(self, uri: str) -> str:
-        """Return the deterministic local cache path for a remote URI."""
-        raise NotImplementedError
+    logger.info(
+        f"[{source_id}] compile finished: {len(frames)} non-empty "
+        f"frames, total {time.perf_counter() - compile_t0:.1f}s"
+    )
 
-    def cleanup(self) -> None:
-        """Release any temporary storage after a request."""
-        raise NotImplementedError
-
-    @classmethod
-    def _validate_time(cls, times: list[datetime]) -> None:
-        """Validate requested times against product availability."""
-        raise NotImplementedError
-
-    def _create_tasks(
-        self, time_list: list[datetime], variable: list[str]
-    ) -> list[_NCEPObsTask]:
-        """Plan the per-file fetch/decode tasks for a request.
-
-        Conventional sources delegate to :func:`plan_conv_tasks`; satellite
-        sources implement their own per-sensor planner.
-        """
-        raise NotImplementedError
-
-    def _decode_file(self, local_path: str, task: _NCEPObsTask) -> pd.DataFrame:
-        """Decode one cached file into a DataFrame."""
-        raise NotImplementedError
+    if not frames:
+        result = _empty_dataframe(schema)
+    else:
+        result = pd.concat(frames, ignore_index=True)
+        result = result[[name for name in schema.names if name in result.columns]]
+    result.attrs["source"] = source_id
+    return result

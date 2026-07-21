@@ -140,7 +140,7 @@ def test_same_local_prepbufr_bytes_are_adapter_exact(tmp_path, monkeypatch):
         assert schema.field("level_cat").type == pa.uint16()
         assert schema.field("pressure_quality").type == pa.uint16()
 
-    nnja_task = utils_ncep._NCEPConvTask(
+    nnja_task = utils_ncep._NCEPObsTask(
         route="prepbufr",
         uri="s3://example/same.prepbufr.nr",
         datetime_file=datetime(2024, 1, 1),
@@ -220,7 +220,7 @@ def test_same_local_gpsro_bytes_preserve_default_product(tmp_path, monkeypatch):
     assert pd.isna(nnja_df.loc[0, "pres"])
     assert nnja_df.loc[0, "elev"] == pytest.approx(2_000.0)
 
-    nnja_task = utils_ncep._NCEPConvTask(
+    nnja_task = utils_ncep._NCEPObsTask(
         route="gpsro",
         uri="s3://example/same.gpsro.bufr",
         datetime_file=datetime(2024, 1, 1),
@@ -304,7 +304,13 @@ def test_empty_public_facades_use_shared_schema_dtypes():
     nnja = NNJAObsConv(cache=False, verbose=False, decode_workers=1)
 
     gdas_empty = gdas._compile_dataframe([], ["t"])
-    nnja_empty = nnja._compile_dataframe([], NNJAObsConv.SCHEMA)
+    nnja_empty = utils_ncep.compile_dataframe(
+        [],
+        NNJAObsConv.SCHEMA,
+        nnja.SOURCE_ID,
+        lambda uri: uri,
+        lambda path, task: pd.DataFrame(),
+    )
 
     assert gdas_empty.dtypes.astype(str).to_dict() == {
         name: str(dtype)

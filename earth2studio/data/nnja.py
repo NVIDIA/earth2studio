@@ -32,182 +32,41 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 import s3fs  # type: ignore[import-untyped]
 from loguru import logger
 
 from earth2studio.data.utils import (
+    _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
     managed_session,
+    prep_data_inputs,
 )
 from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
 from earth2studio.data.utils_ncep import (
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
-    NCEPObsRequestMixin,
-    _NCEPConvTask,
     _NCEPGpsroAdapter,
     _NCEPObsTask,
     _NCEPPrepbufrAdapter,
-    _plan_conv_tasks,
+    compile_dataframe,
+    cycle_windows,
     map_aircraft_profile_types,
+    plan_conv_tasks,
+    resolve_output_schema,
 )
 from earth2studio.lexicon import NNJAObsConvLexicon
 from earth2studio.utils.imports import check_optional_dependencies
-from earth2studio.utils.type import TimeTolerance
+from earth2studio.utils.time import normalize_time_tolerance
+from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
 NNJA_BUCKET = "noaa-reanalyses-pds"
 NNJA_PREFIX = "observations/reanalysis"
 
 
-class NNJAObsMixin:
-    """NNJA archive mechanics shared across NNJA observation products.
-
-    Supplies the anonymous-S3 session with bounded concurrency and retries,
-    deterministic raw-file caching, temporary-cache cleanup, six-hour cycle
-    validation, availability, and the missing-file policy. Compose with
-    :class:`NCEPObsRequestMixin`. The concrete source supplies ``MIN_DATE``.
-    """
-
-    MIN_DATE: datetime
-    _verbose: bool  # set by NCEPObsRequestMixin._init_request
-
-    def _handle_missing_file(self, path: str) -> None:
-        """Warn instead of raising on missing NNJA cycle files.
-
-        NNJA does not guarantee every cycle/sub-archive combination exists
-        (e.g. the ``gps/gpsro/`` archive only goes back to the early 2000s, and
-        individual cycles can be absent). Returning a partial DataFrame is more
-        useful than aborting a multi-cycle request because of one missing file.
-        """
-        logger.warning(f"NNJA file {path} not found, skipping")
-
-    def _init_transport(
-        self,
-        *,
-        cache: bool,
-        async_workers: int,
-        retries: int,
-    ) -> None:
-        """Initialize NNJA transport state; call from the concrete constructor."""
-        self._cache = cache
-        self._async_workers = async_workers
-        self._retries = retries
-        self._tmp_cache_hash: str | None = None
-        self.fs: s3fs.S3FileSystem | None = None
-
-    async def fetch_files(self, uris: Sequence[str]) -> None:
-        """Download remote files into the NNJA cache."""
-        if self.fs is None:
-            self.fs = s3fs.S3FileSystem(
-                anon=True,
-                client_kwargs={},
-                asynchronous=True,
-                skip_instance_cache=True,
-            )
-
-        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
-        async with managed_session(self.fs):
-            coros = [
-                async_retry(
-                    self._fetch_remote_file,
-                    uri,
-                    retries=self._retries,
-                    backoff=1.0,
-                    task_timeout=120.0,
-                    exceptions=(OSError, IOError, TimeoutError, ConnectionError),
-                )
-                for uri in uris
-            ]
-            await gather_with_concurrency(
-                coros,
-                max_workers=self._async_workers,
-                desc="Fetching NNJA files",
-                verbose=(not self._verbose),
-            )
-
-    async def _fetch_remote_file(self, path: str) -> None:
-        """Download a single remote file into the cache directory."""
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
-
-        cache_path = self.local_path(path)
-        if pathlib.Path(cache_path).is_file():
-            return
-        try:
-            data = await self.fs._cat_file(path)
-            with open(cache_path, "wb") as fh:
-                fh.write(data)
-        except FileNotFoundError:
-            self._handle_missing_file(path)
-
-    def local_path(self, uri: str) -> str:
-        """Return the deterministic cache path for an S3 URI."""
-        sha = hashlib.sha256(uri.encode()).hexdigest()
-        return os.path.join(self.cache, sha)
-
-    @property
-    def cache(self) -> str:
-        """Local cache directory for NNJA observation files."""
-        cache_location = os.path.join(datasource_cache_root(), "nnja")
-        if not self._cache:
-            if self._tmp_cache_hash is None:
-                self._tmp_cache_hash = uuid.uuid4().hex[:8]
-            cache_location = os.path.join(
-                cache_location, f"tmp_nnja_{self._tmp_cache_hash}"
-            )
-        return cache_location
-
-    def cleanup(self) -> None:
-        """Remove temporary files when persistent caching is disabled."""
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
-
-    @classmethod
-    def _validate_time(cls, times: list[datetime]) -> None:
-        """Validate that times align to a 6-hour cycle and are in range."""
-        for t in times:
-            if t.minute != 0 or t.second != 0 or t.microsecond != 0:
-                raise ValueError(
-                    f"Requested datetime {t} must be on a whole hour "
-                    f"(NNJA cycles are 6-hourly)."
-                )
-            if t.hour % 6 != 0:
-                raise ValueError(
-                    f"Requested datetime {t} must align to a 6-hour cycle "
-                    f"(00, 06, 12, 18z)."
-                )
-            if t < cls.MIN_DATE:
-                raise ValueError(
-                    f"Requested datetime {t} is earlier than {cls.__name__}.MIN_DATE "
-                    f"({cls.MIN_DATE.isoformat()})."
-                )
-
-    @classmethod
-    def available(cls, time: datetime | np.datetime64) -> bool:
-        """Check if given date time is available.
-
-        Parameters
-        ----------
-        time : datetime | np.datetime64
-            Date time to check
-
-        Returns
-        -------
-        bool
-            If date time is available
-        """
-        if isinstance(time, np.datetime64):
-            time = time.astype("datetime64[ns]").astype("datetime64[us]").item()
-        try:
-            cls._validate_time([time])
-        except ValueError:
-            return False
-        return True
-
-
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
-class NNJAObsConv(NNJAObsMixin, NCEPObsRequestMixin):
+class NNJAObsConv:
     """NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint
     Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for
     developing observation-driven weather forecasting tools, as it includes a wide
@@ -318,25 +177,145 @@ class NNJAObsConv(NNJAObsMixin, NCEPObsRequestMixin):
         # output maps profile-stage 33x/43x/53x report codes to the standard
         # GSI/PREPBUFR aircraft 23x codes in ``type``
         self._map_acft_profile_report_types = True
-        self._init_request(
-            time_tolerance=time_tolerance,
-            verbose=verbose,
-            async_timeout=async_timeout,
-            decode_workers=decode_workers,
-        )
-        self._init_transport(
-            cache=cache,
-            async_workers=async_workers,
-            retries=retries,
-        )
+        self._verbose = verbose
+        self._cache = cache
+        self._async_workers = async_workers
+        self._decode_workers = max(1, decode_workers)
+        self._retries = retries
+        self.async_timeout = async_timeout
+        self._tmp_cache_hash: str | None = None
+        self.fs: s3fs.S3FileSystem | None = None
+
+        lower, upper = normalize_time_tolerance(time_tolerance)
+        self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
+        self._tolerance_upper = pd.to_timedelta(upper).to_pytimedelta()
+
         self._prepbufr_adapter = _NCEPPrepbufrAdapter(self._decode_workers)
         self._gpsro_adapter = _NCEPGpsroAdapter(self._decode_workers)
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+        fields: str | list[str] | pa.Schema | None = None,
+    ) -> pd.DataFrame:
+        """Fetch observations for a set of timestamps."""
+        try:
+            df = _sync_async(
+                self.fetch, time, variable, fields, timeout=self.async_timeout
+            )
+        finally:
+            self.cleanup()
+
+        return df
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+        fields: str | list[str] | pa.Schema | None = None,
+    ) -> pd.DataFrame:
+        """Async function to get data."""
+        time_list, variable_list = prep_data_inputs(time, variable)
+        self._validate_time(time_list)
+        schema = self.resolve_fields(fields)
+
+        tasks = self._create_tasks(time_list, variable_list)
+        await self.fetch_files(list({task.uri for task in tasks}))
+
+        return compile_dataframe(
+            tasks,
+            schema,
+            self.SOURCE_ID,
+            self.local_path,
+            self._decode_file,
+        )
+
+    async def fetch_files(self, uris: Sequence[str]) -> None:
+        """Download remote files into the NNJA cache."""
+        if self.fs is None:
+            self.fs = s3fs.S3FileSystem(
+                anon=True,
+                client_kwargs={},
+                asynchronous=True,
+                skip_instance_cache=True,
+            )
+
+        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+        async with managed_session(self.fs):
+            coros = [
+                async_retry(
+                    self._fetch_remote_file,
+                    uri,
+                    retries=self._retries,
+                    backoff=1.0,
+                    task_timeout=120.0,
+                    exceptions=(OSError, IOError, TimeoutError, ConnectionError),
+                )
+                for uri in uris
+            ]
+            await gather_with_concurrency(
+                coros,
+                max_workers=self._async_workers,
+                desc="Fetching NNJA files",
+                verbose=(not self._verbose),
+            )
+
+    async def _fetch_remote_file(self, path: str) -> None:
+        """Download a single remote file into the cache directory."""
+        if self.fs is None:
+            raise ValueError("File system is not initialized")
+
+        cache_path = self.local_path(path)
+        if pathlib.Path(cache_path).is_file():
+            return
+        try:
+            data = await self.fs._cat_file(path)
+            with open(cache_path, "wb") as fh:
+                fh.write(data)
+        except FileNotFoundError:
+            self._handle_missing_file(path)
+
+    def _handle_missing_file(self, path: str) -> None:
+        """Warn instead of raising on missing NNJA cycle files.
+
+        NNJA does not guarantee every cycle/sub-archive combination exists
+        (e.g. the ``gps/gpsro/`` archive only goes back to the early 2000s, and
+        individual cycles can be absent). Returning a partial DataFrame is more
+        useful than aborting a multi-cycle request because of one missing file.
+        """
+        logger.warning(f"NNJA file {path} not found, skipping")
+
+    def local_path(self, uri: str) -> str:
+        """Return the deterministic cache path for an S3 URI."""
+        sha = hashlib.sha256(uri.encode()).hexdigest()
+        return os.path.join(self.cache, sha)
+
+    @property
+    def cache(self) -> str:
+        """Local cache directory for NNJA observation files."""
+        cache_location = os.path.join(datasource_cache_root(), "nnja")
+        if not self._cache:
+            if self._tmp_cache_hash is None:
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            cache_location = os.path.join(
+                cache_location, f"tmp_nnja_{self._tmp_cache_hash}"
+            )
+        return cache_location
+
+    def cleanup(self) -> None:
+        """Remove temporary files when persistent caching is disabled."""
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
 
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]
     ) -> list[_NCEPObsTask]:
-        return _plan_conv_tasks(
-            self._cycle_windows(time_list), variable, self.LEXICON, self._build_uri
+        return plan_conv_tasks(
+            cycle_windows(time_list, self._tolerance_lower, self._tolerance_upper),
+            variable,
+            self.LEXICON,
+            self._build_uri,
         )
 
     def _build_uri(self, route: str, cycle: datetime) -> str:
@@ -366,8 +345,6 @@ class NNJAObsConv(NNJAObsMixin, NCEPObsRequestMixin):
     # File decode (dispatch by task route)
     # ------------------------------------------------------------------
     def _decode_file(self, local_path: str, task: _NCEPObsTask) -> pd.DataFrame:
-        if not isinstance(task, _NCEPConvTask):
-            raise TypeError(f"Expected a conventional task, got {type(task).__name__}")
         if task.route == "gpsro":
             frame = self._gpsro_adapter.decode_file(
                 local_path, task.var_plan, task.datetime_min, task.datetime_max
@@ -384,3 +361,50 @@ class NNJAObsConv(NNJAObsMixin, NCEPObsRequestMixin):
                 frame = map_aircraft_profile_types(frame)
             return frame[self.SCHEMA.names]
         raise ValueError(f"Unsupported route '{task.route}'")
+
+    @classmethod
+    def _validate_time(cls, times: list[datetime]) -> None:
+        """Validate that times align to a 6-hour cycle and are in range."""
+        for t in times:
+            if t.minute != 0 or t.second != 0 or t.microsecond != 0:
+                raise ValueError(
+                    f"Requested datetime {t} must be on a whole hour "
+                    f"(NNJA cycles are 6-hourly)."
+                )
+            if t.hour % 6 != 0:
+                raise ValueError(
+                    f"Requested datetime {t} must align to a 6-hour cycle "
+                    f"(00, 06, 12, 18z)."
+                )
+            if t < cls.MIN_DATE:
+                raise ValueError(
+                    f"Requested datetime {t} is earlier than {cls.__name__}.MIN_DATE "
+                    f"({cls.MIN_DATE.isoformat()})."
+                )
+
+    @classmethod
+    def available(cls, time: datetime | np.datetime64) -> bool:
+        """Check if given date time is available.
+
+        Parameters
+        ----------
+        time : datetime | np.datetime64
+            Date time to check
+
+        Returns
+        -------
+        bool
+            If date time is available
+        """
+        if isinstance(time, np.datetime64):
+            time = time.astype("datetime64[ns]").astype("datetime64[us]").item()
+        try:
+            cls._validate_time([time])
+        except ValueError:
+            return False
+        return True
+
+    @classmethod
+    def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
+        """Resolve ``fields`` into a validated PyArrow schema subset."""
+        return resolve_output_schema(cls.SCHEMA, fields, class_name=cls.__name__)

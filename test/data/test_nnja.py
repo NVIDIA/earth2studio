@@ -75,7 +75,7 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
         }
     )
 
-    with patch("earth2studio.data.utils_ncep._sync_async") as mock_sync:
+    with patch("earth2studio.data.nnja._sync_async") as mock_sync:
         mock_sync.return_value = mock_df
 
         ds = NNJAObsConv(time_tolerance=timedelta(0), cache=cache, verbose=False)
@@ -234,7 +234,7 @@ def test_nnja_obs_conv_mock_fetch():
         ds = NNJAObsConv(time_tolerance=timedelta(0), cache=False, verbose=False)
 
         # Patch _sync_async to call the mock directly
-        with patch("earth2studio.data.utils_ncep._sync_async") as mock_sync:
+        with patch("earth2studio.data.nnja._sync_async") as mock_sync:
             mock_sync.return_value = mock_df
             df = ds(datetime(2024, 1, 1, 0), ["t"])
 
@@ -247,7 +247,7 @@ def test_nnja_obs_conv_mock_fetch():
 def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
     """Exercise the composed request/transport seam through __call__.
 
-    Verifies the request mixin drives the transport ``fetch_files`` and
+    Verifies the request path drives the transport ``fetch_files`` and
     ``local_path`` and delegates teardown to ``cleanup`` in the ``__call__``
     finally, including when the request fails mid-flight.
     """
