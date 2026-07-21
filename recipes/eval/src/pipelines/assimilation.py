@@ -47,7 +47,7 @@ from omegaconf import DictConfig
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.da.base import AssimilationModel
-from earth2studio.models.prognostic.base import PrognosticModel
+from earth2studio.models.px.base import PrognosticModel
 from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
 
 from ..assimilation import (
