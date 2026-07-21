@@ -117,7 +117,7 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
             "PrecipitationAFNOv2 performs worse than PrecipitationAFNO v1 and "
             "will be deprecated in upcoming releases.",
             DeprecationWarning,
-            stacklevel=2,
+            stacklevel=3,
         )
         self.core_model = core_model
         self.register_buffer("center", center)
