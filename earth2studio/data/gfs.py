@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import hashlib
 import os
 import pathlib
@@ -28,7 +27,6 @@ import numpy as np
 import obstore as obs
 import pygrib
 import xarray as xr
-from fsspec.implementations.ftp import FTPFileSystem
 from loguru import logger
 from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
@@ -43,6 +41,7 @@ from earth2studio.data.utils import (
     obstore_store_from_url,
     prep_data_inputs,
     prep_forecast_inputs,
+    resolve_async_workers,
 )
 from earth2studio.lexicon import GFSLexicon
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
@@ -80,7 +79,8 @@ class GFS:
         Time in sec after which download will be cancelled if not finished successfully,
         by default 600
     async_workers : int, optional
-        Maximum number of concurrent downloads, by default 16
+        Maximum number of concurrent downloads. By default None, which autoscales
+        to the number of download tasks (capped at 64)
     retries : int, optional
         Number of retries for each download task on transient errors, by default 3
 
@@ -119,7 +119,7 @@ class GFS:
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
-        async_workers: int = 16,
+        async_workers: int | None = None,
         retries: int = 3,
     ):
         self._cache = cache
@@ -131,7 +131,7 @@ class GFS:
         self.store: ObjectStore | None = None
         if source == "aws":
             self.uri_prefix = "noaa-gfs-bdp-pds"
-            self.fs: FTPFileSystem | None = None
+            self._store_url = f"s3://{self.GFS_BUCKET_NAME}"
 
             # To update search "gfs." at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html
             # They are slowly adding more data
@@ -143,10 +143,11 @@ class GFS:
 
             self._history_range = _range
         elif source == "ncep":
-            # Could use http location, but using ftp since better for larger data
+            # NOMADS HTTPS mirror of the NCEP production feed, supports the
+            # ranged GETs obstore's HTTPStore issues for byte-range fetches
             # https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/
             self.uri_prefix = "pub/data/nccf/com/gfs/prod/"
-            self.fs = FTPFileSystem(host="ftpprd.ncep.noaa.gov")  # Not async
+            self._store_url = "https://nomads.ncep.noaa.gov"
 
             def _range(time: datetime) -> None:
                 if time + timedelta(days=10) < datetime.today():
@@ -170,8 +171,8 @@ class GFS:
         method to preserve the initialization seam.
         """
         self.store = obstore_store_from_url(
-            f"s3://{self.GFS_BUCKET_NAME}",
-            max_pool_connections=self._async_workers,
+            self._store_url,
+            max_pool_connections=self._async_workers or 64,
         )
 
     def __call__(
@@ -226,7 +227,7 @@ class GFS:
             GFS weather data array
         """
         # Lazily initialize the object store on first use
-        if self.store is None and self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
@@ -258,7 +259,7 @@ class GFS:
 
         await gather_with_concurrency(
             coros,
-            max_workers=self._async_workers,
+            max_workers=resolve_async_workers(self._async_workers, len(coros)),
             task_timeout=120.0,
             desc="Fetching GFS data",
             verbose=(not self._verbose),
@@ -289,7 +290,7 @@ class GFS:
         args = [self._grib_index_uri(t, lt) for t in time for lt in lead_time]
         results = await gather_with_concurrency(
             [self._fetch_index(uri) for uri in args],
-            max_workers=self._async_workers,
+            max_workers=resolve_async_workers(self._async_workers, len(args)),
             task_timeout=60.0,
             desc="Fetching GFS index files",
             verbose=True,
@@ -462,30 +463,19 @@ class GFS:
         sha = hashlib.sha256((path + str(byte_offset)).encode())
         filename = sha.hexdigest()
 
-        if self.store is not None:
-            key = path.removeprefix(self.GFS_BUCKET_NAME + "/")
-            return await obstore_fetch_to_cache(
-                self.store,
-                key,
-                self.cache,
-                byte_offset=byte_offset,
-                byte_length=byte_length,
-                cache_key=filename,
-            )
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
 
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
-
-        # ncep FTP source (sync filesystem)
-        cache_path = os.path.join(self.cache, filename)
-        if not pathlib.Path(cache_path).is_file():
-            data = await asyncio.to_thread(
-                self.fs.read_block, path, offset=byte_offset, length=byte_length
-            )
-            with open(cache_path, "wb") as file:
-                await asyncio.to_thread(file.write, data)
-
-        return cache_path
+        # aws paths are bucket-prefixed; ncep paths are already store-relative
+        key = path.removeprefix(self.GFS_BUCKET_NAME + "/")
+        return await obstore_fetch_to_cache(
+            self.store,
+            key,
+            self.cache,
+            byte_offset=byte_offset,
+            byte_length=byte_length,
+            cache_key=filename,
+        )
 
     def _grib_uri(self, time: datetime, lead_time: timedelta) -> str:
         """Generates the URI for GFS grib files"""
@@ -653,7 +643,7 @@ class GFS_FX(GFS):
             GFS weather data array
         """
         # Lazily initialize the object store on first use
-        if self.store is None and self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
@@ -692,7 +682,7 @@ class GFS_FX(GFS):
 
         await gather_with_concurrency(
             coros,
-            max_workers=self._async_workers,
+            max_workers=resolve_async_workers(self._async_workers, len(coros)),
             task_timeout=120.0,
             desc="Fetching GFS data",
             verbose=(not self._verbose),
