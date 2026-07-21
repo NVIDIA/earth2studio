@@ -158,6 +158,9 @@ class OPERA:
     pixel resolutions, a :exc:`ValueError` is raised — request each resolution
     group separately.
 
+    OPERA undetect values (active radar echo but no detectable precipitation) are
+    set to -99.0 dbZ, and nodata values are set to NaN (no active radar echo).
+    All other values are scaled by the gain and offset parameters in the ODIM HDF5 file.
 
     Parameters
     ----------
@@ -236,7 +239,7 @@ class OPERA:
 
     @classmethod
     def _apply_linear_scaling(cls, raw: np.ndarray, what: dict[str, Any]) -> np.ndarray:
-        """Apply ODIM gain/offset scaling; nodata→NaN, undetect→NO_DETECTION_FILL."""
+        """Apply ODIM gain/offset scaling; replace nodata with NaN and undetect with NO_DETECTION_FILL."""
         gain = float(what.get("gain", 1.0))
         offset = float(what.get("offset", 0.0))
         nodata = what.get("nodata")
