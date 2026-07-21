@@ -146,7 +146,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Raw digital-count boundary (the 12-bit maximum) above which the warm/HDR
         ir_38 scaling is applied, by default 4095.0
     num_diffusion_steps : int, optional
-        Number of EDM diffusion sampling steps, by default 18
+        Number of EDM diffusion sampling steps, by default 48
     sigma_threshold : float, optional
         Noise level that splits the forward pass between ``model_high``
         (sigma ≥ sigma_threshold) and ``model_low`` (sigma < sigma_threshold),
