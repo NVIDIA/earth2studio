@@ -61,6 +61,7 @@ data = [
     "eccodes>=2.39.2",
     "eccodeslib>=2.39.2",
     "ecmwf-opendata>=0.3.29",
+    "icechunk>=2.0.0; python_version>='3.12'",
     "intake-esgf>=2026.1.26; python_version>='3.12'",
     "planetary-computer>=0.5.0",
     "pcodec>=1.0.2; python_version>='3.12'",
