@@ -75,6 +75,11 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
     inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)
     [720 x 1440].
 
+    Warning
+    -------
+    PrecipitationAFNOv2 performs worse than PrecipitationAFNO v1 and will be
+    deprecated in upcoming releases.
+
     Note
     ----
     For more information on the model, please refer to:
