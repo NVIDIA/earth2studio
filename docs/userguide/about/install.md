@@ -454,6 +454,26 @@ uv add earth2studio --extra stormcast
 :::
 ::::
 :::::
+:::::{tab-item} StormCast-CONUS
+::::{tab-set}
+:::{tab-item} pip
+Notes: The StormCast-CONUS model depends on [natten](https://github.com/SHI-Labs/NATTEN),
+which can take a long time to compile.
+
+```bash
+pip install earth2studio[stormcast-conus]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra stormcast-conus
+```
+
+:::
+::::
+:::::
 :::::{tab-item} StormScope
 Notes: The StormScope model depends on [natten](https://github.com/SHI-Labs/NATTEN),
 which can take a long time to compile. [Earth2Grid](https://github.com/NVlabs/earth2grid)
