@@ -192,6 +192,8 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Warning
     -------
+    The model weights are not yet hosted, so :meth:`load_default_package` returns a placeholder URL that
+    fails to download; pass your own local ``Package`` to :meth:`load_model` until they are published.
     A base forecast/reanalysis model must be set (``px_model`` / :meth:`load_model`) before running. Its
     coarse step must be divisible by ``num_interp_steps``; a step outside the trained 3-10 h range only
     warns (off-distribution, but still run). The DiT runs in fp32 by default; ``amp_dtype`` runs its
@@ -624,14 +626,23 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load the default model package.
 
+        .. warning::
+            The model weights are **not yet hosted**: the returned package points at a placeholder
+            Hugging Face URL, so downloading it (e.g. via :meth:`load_model`) will fail until the weights
+            are published. Until then, pass your own local ``Package`` to :meth:`load_model` instead.
+
         Returns
         -------
         Package
-            The default model package. The weights are not yet hosted, so the returned URL is a
-            placeholder; to load a local or custom bundle, pass your own ``Package`` to
-            :meth:`load_model` instead.
+            The default model package (placeholder URL; see the warning above).
         """
         # TODO: PLACEHOLDER Hugging Face URL -- replace with the real repo once the package is uploaded.
+        warnings.warn(
+            "InterpCRPSDiT weights are not yet hosted: load_default_package() returns a placeholder "
+            "Hugging Face URL that will fail to download. Pass a local Package(...) to load_model() "
+            "until the weights are published.",
+            stacklevel=2,
+        )
         return Package(
             "hf://nvidia/earth2studio-interp-crps-dit",
             cache_options={
