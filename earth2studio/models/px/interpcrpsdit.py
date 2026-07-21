@@ -146,8 +146,9 @@ def _gaussian_radius(sigma: float) -> int:
 
 def _gaussian_blur_valid(x: torch.Tensor, sigma: float) -> torch.Tensor:
     # Valid (no-pad) separable Gaussian blur; ``x`` must be oversized by the kernel radius on each side.
-    # Divides by the analytic ``sum(k*k)`` so unit-variance white noise stays unit-variance (stationary
-    # variance, no reflect-pad edge artifact). Reproduces the noise generator used at training.
+    # The separable blur multiplies the marginal (per-pixel) variance of white noise by S**2 (each of the
+    # two orthogonal 1D passes contributes a factor S = sum(k**2)); dividing by S restores unit marginal
+    # variance -- stationary, no reflect-pad edge artifact. Reproduces the noise generator used at training.
     r = _gaussian_radius(sigma)
     t = torch.arange(-r, r + 1, device=x.device, dtype=x.dtype)
     k = torch.exp(-0.5 * (t / sigma) ** 2)
