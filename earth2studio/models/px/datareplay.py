@@ -147,7 +147,6 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
             Coordinate system dictionary.
         """
         output_coords = self._input_coords.copy()
-        output_coords["lead_time"] = np.array([self.step])
         target = self.input_coords()
         handshake_dim(input_coords, "variable", -3)
         handshake_dim(input_coords, "lat", -2)
@@ -158,7 +157,7 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         output_coords["batch"] = input_coords["batch"]
         output_coords["time"] = input_coords.get("time", np.empty(0))
         output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"][-1]
+            np.array([self.step]) + input_coords["lead_time"][-1]
         )
         return output_coords
 
@@ -218,6 +217,12 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         -------
         tuple[torch.Tensor, CoordSystem]
             The fetched frame and its coordinate system, one ``step`` ahead.
+
+        Notes
+        -----
+        ``front_hook`` / ``rear_hook`` are **not** applied here -- they fire only in
+        :meth:`create_iterator` (matching :class:`~earth2studio.models.px.persistence.Persistence`).
+        Use :meth:`create_iterator` when hook transformations are required.
         """
         self._require_time(coords)
         out_coords = self.output_coords(coords)
