@@ -657,7 +657,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
                 # roll time step
                 coords["lead_time"] = coords["lead_time"] + time_step
-                for k in range(L - 1):
+                for k in range(L):
                     zen_azi[:, :, k] = zen_azi[:, :, k + 1]
                 for j, time in enumerate(coords["time"]):
                     self._azimuth_zenith(
