@@ -11,6 +11,9 @@ forecast outputs to zarr.
 Key features:
 
 - Works with **any** Earth2Studio prognostic or diagnostic model
+- **Data assimilation support** — evaluate `AssimilationModel`-class models
+  (e.g. HealDA) directly against reanalysis, or use them to initialize a
+  forecast (e.g. HealDA + FCN3)
 - **Extensible pipeline interface** — subclass `Pipeline` to add custom inference loops
 - Multi-GPU distributed inference via `torchrun` / SLURM / MPI
 - Clean work-distribution with automatic load balancing across ranks
@@ -26,6 +29,7 @@ Key features:
   - [Disable the per-source cache](#disable-the-per-source-cache)
   - [Resume after interruption](#resume-after-interruption)
 - [Using Your Own Data](#using-your-own-data)
+- [Data Assimilation Models](#data-assimilation-models)
 - [Multi-GPU Execution](#multi-gpu-execution)
 - [Resuming and Multi-Job Runs](#resuming-and-multi-job-runs)
   - [Resuming after a failure](#resuming-after-a-failure)
@@ -112,6 +116,7 @@ Predownload creates the following stores in `<output.path>/`:
 |---|---|---|
 | `data.zarr` | `(time, variable, <spatial...>)` | IC data (plus verification if same source) |
 | `verification.zarr` | `(time, variable, <spatial...>)` | Only when verification source differs |
+| `obs_<name>.parquet/` | one parquet file per analysis time | DA pipelines only — observation DataFrames (see [Observation predownload](#observation-predownload)) |
 
 `main.py` automatically detects and reads from `data.zarr` when
 `require_predownload=true` (the default).
@@ -310,6 +315,159 @@ Because the `3km_10min` GOES model is pure-obs, there is **no** conditioning
 source to predownload (no `cond_goes.zarr`).  MRMS conditioning is supplied
 externally in the coupling loop (the GOES state via `call_with_conditioning`),
 so its internal conditioning source is bypassed too.
+
+## Data Assimilation Models
+
+Models implementing the `AssimilationModel` protocol
+(`earth2studio.models.da`) produce gridded analyses from sparse
+observations rather than stepping a gridded state forward.  The recipe
+supports two evaluation modes, both driven by the same predownload /
+inference / scoring / report entry points:
+
+| Mode | Pipeline | Campaign example |
+|---|---|---|
+| Analysis vs. reanalysis | `src.pipelines.assimilation.AssimilationPipeline` | `healda_2024_analysis` |
+| DA-initialized forecast | `src.pipelines.assimilation.AssimilationForecastPipeline` | `healda_dlwp_2024_monthly`, `healda_fcn3_2024_monthly` |
+
+```bash
+# Analysis mode — score HealDA analyses directly against ERA5
+python predownload.py campaign=healda_2024_analysis   # obs + verification
+python main.py campaign=healda_2024_analysis
+python score.py campaign=healda_2024_analysis
+python report.py campaign=healda_2024_analysis
+
+# Forecast mode — HealDA analyses initialize a prognostic rollout.
+# healda_dlwp_2024_monthly is the lightweight example (DLWP, slim deps,
+# NGC checkpoint); healda_fcn3_2024_monthly is the FCN3 variant.
+python predownload.py campaign=healda_dlwp_2024_monthly
+python main.py campaign=healda_dlwp_2024_monthly
+```
+
+### Observation sources
+
+DA models consume observation **DataFrames**, not gridded fields, so
+there is no gridded IC store.  Observations come from the sources
+declared under `model.da.obs_sources`:
+
+```yaml
+da:
+    architecture: earth2studio.models.da.HealDA
+    load_args:
+        lat_lon: true
+        output_resolution: [721, 1440]   # match the verification grid
+    obs_sources:
+        conv:
+            _target_: earth2studio.data.UFSObsConv
+            time_tolerance_hours: [-21, 3]
+        sat:
+            _target_: earth2studio.data.UFSObsSat
+            time_tolerance_hours: [-21, 3]
+```
+
+Entries are matched **positionally, in declaration order** against the
+model's `input_coords()` tuple.  Two convenience keys are handled by the
+recipe rather than passed to the source constructor: `enabled: false`
+disables a slot (the model receives `None` — e.g. a conv-only ablation),
+and `time_tolerance_hours: [lo, hi]` sets the observation window as
+hours around each analysis time.
+
+### Observation predownload
+
+`predownload.py` caches observations alongside the gridded stores: one
+parquet file per analysis time under `<output.path>/obs_<name>.parquet/`
+(e.g. `obs_conv.parquet/`, `obs_sat.parquet/`), each holding the full
+`time_tolerance` window for that analysis time.  The same per-timestamp
+resume markers and multi-rank distribution as the zarr stores apply, so
+an interrupted download continues where it left off and
+`torchrun --nproc_per_node=N predownload.py` parallelizes the fetch.
+
+At inference time the pipelines **automatically prefer** a predownloaded
+`obs_<name>.parquet` store over the live source when it exists — the
+observation analogue of the `data.zarr` substitution — so `main.py`
+needs no network access to the obs archives.  Requesting an analysis
+time that was not predownloaded fails loudly rather than silently
+falling back to a live fetch.
+
+In forecast mode, observations are cached at every analysis time IC
+assembly touches (`IC time + each prognostic input lead offset`).  To
+skip obs caching and always fetch live (e.g. when the source's own
+`~/.cache/earth2studio` cache is already warm), set
+`predownload.observations.enabled=false`.
+
+### Missing observations and archive coverage
+
+GSI observation archives have gaps — an individual platform or obs type
+can be absent for some assimilation cycles (a decommissioned satellite,
+or a GNSS radio-occultation `gps` cycle with no contributing RO
+satellite).  The UFS obs sources **tolerate** this: a missing diag file
+is logged and skipped rather than aborting the fetch, and the analysis
+runs on whatever observation subset is present.  This is intended — DA
+models are built to assimilate the obs actually available at a given
+time — so scattered `File ... not found` warnings during predownload are
+benign.
+
+Two degrees of missingness matter for interpreting results:
+
+* **Partial gaps** (some files present) — normal.  The analysis is built
+  from a reduced obs set; predownload logs a per-store summary of how
+  many frames were affected.
+* **Total gaps** (every file missing for a request) — the obs source
+  returns an empty frame and the DA model produces an **all-NaN
+  analysis**, which propagates to NaN scores.  This almost always means
+  the campaign's `start_times` fall outside the observation archive's
+  coverage window.  Because the obs sources might not raise on missing
+  files, `predownload.py` guards this instead: if *every* fetched frame
+  for a store comes back empty it logs a prominent `ERROR` pointing at
+  the date range.  **If your scores come back all-NaN, check that
+  message first** — verify the IC dates are within the UFS replay
+  archive's range before anything else.
+
+Verification and fill data come from gridded reanalysis (ARCO / WB2
+ERA5), which is effectively gap-free *within its range* but has a
+trailing edge a few days behind real time — the same constraint as any
+forecast campaign.  Predownload of `verification.zarr` / `data.zarr`
+fails loudly (not silently) on an out-of-range valid time, so those
+gaps surface immediately.
+
+### Analysis mode
+
+Each work-item time produces one analysis, written with a singleton
+`lead_time=[0]` axis (the same layout as `DiagnosticPipeline`), so the
+standard scoring aligns verification at the analysis time itself and the
+report reads "analysis error per cycle time".  The DA model must emit
+its analysis on the verification grid — for HealDA, `lat_lon: true` with
+`output_resolution: [721, 1440]` matches ARCO/ERA5 0.25°.  Predownload
+declares the `obs_*.parquet` stores plus a `verification.zarr` (set
+`predownload.verification.enabled=true` in the campaign).
+
+### Forecast mode (e.g. HealDA + FCN3)
+
+`AssimilationForecastPipeline` subclasses `ForecastPipeline` and replaces
+only initial-condition acquisition: one analysis per prognostic input
+lead offset (history models get one per offset) instead of a
+`data_source` fetch.  Rollout, diagnostics, ensemble/perturbation,
+output, scoring, and report are the standard forecast path — a HealDA+FCN3
+campaign is directly comparable against a plain FCN3 campaign with
+reanalysis ICs by diffing their `scores_summary.csv`.
+
+Prognostic input variables the DA analysis does not provide are **filled**
+from the standard IC path (`ic_source` BYO → predownloaded `data.zarr` →
+`data_source`); predownload narrows `data.zarr` to exactly that fill set
+(no store is created when the DA model covers all inputs).  The fill set
+is logged prominently at setup.  Set `model.fill_missing_variables=false`
+to error on any gap instead (pure-DA ICs only).
+
+### Stateful DA models
+
+The pipelines drive DA models through an `AssimilationRunner` seam
+(`src/assimilation.py`).  Stateless models (where `init_coords()` is
+`None`, e.g. in HealDA) use the default `StatelessAssimilationRunner`, which calls the
+model independently per analysis time so work items distribute freely
+across ranks.  Stateful/cycling models (e.g. StormCastSDA, which carries
+a background state between cycles) need a cycling runner that steps
+`model.create_generator()` sequentially — wire one in via the optional
+`model.da.runner` Hydra block; the stateless runner refuses stateful
+models with a clear error.
 
 ## Multi-GPU Execution
 
@@ -628,8 +786,9 @@ recipes/eval/
 │       └── fcn3_2024_monthly.yaml
 ├── src/
 │   ├── pipelines/       # Pipeline package — ABC + built-in pipelines
-│   │   ├── base.py      #   Pipeline ABC, PredownloadStore, shared run loop
+│   │   ├── base.py      #   Pipeline ABC, Predownload(Frame)Store, shared run loop
 │   │   ├── forecast.py  #   ForecastPipeline + DiagnosticPipeline
+│   │   ├── assimilation.py # AssimilationPipeline + AssimilationForecastPipeline
 │   │   ├── dlesym.py    #   DLESyMPipeline (HEALPix forecast variant)
 │   │   └── stormscope.py #  StormScopePipeline (coupled GOES+MRMS nowcasting)
 │   ├── report/          # Report package — aggregation, plotting, sections
@@ -637,13 +796,14 @@ recipes/eval/
 │   │   ├── plotting.py  #   Matplotlib + cartopy primitives
 │   │   ├── sections.py  #   Section renderers (summary, curves, heatmaps, visualization)
 │   │   └── main.py      #   generate_report orchestration
+│   ├── assimilation.py  # DA plumbing — model loader, obs sources, runners
 │   ├── scoring.py       # Scoring logic — metrics, data alignment, score loop
 │   ├── work.py          # WorkItem, distribution, resume markers
 │   ├── distributed.py   # Rank-ordered execution, logging setup
 │   ├── models.py        # Model loading (prognostic + diagnostic)
 │   ├── output.py        # OutputManager (zarr lifecycle)
 │   ├── grids.py         # Grid-resolver helpers (goes, mrms, glm, gfs, arco)
-│   └── data.py          # PredownloadedSource (zarr → DataSource)
+│   └── data.py          # Predownloaded(Frame)Source (zarr/parquet → source)
 └── pyproject.toml
 ```
 
@@ -652,7 +812,8 @@ Each source module has a specific scoped responsibilities:
 <!-- markdownlint-disable MD013 -->
 | Module | Responsibility |
 |---|---|
-| `pipelines/` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic, DLESyM, StormScope) |
+| `pipelines/` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic, Assimilation, DLESyM, StormScope) |
+| `assimilation.py` | DA plumbing — `load_assimilation`, `ObsSourceSet`, `AssimilationRunner`, analysis→tensor conversion |
 | `report/` | Score aggregation, matplotlib plotting, section rendering, markdown report assembly |
 | `scoring.py` | Metric instantiation, data loading/alignment, scoring loop |
 | `work.py` | Define work units; parse ICs from config; distribute across ranks |
@@ -660,7 +821,7 @@ Each source module has a specific scoped responsibilities:
 | `models.py` | Load prognostic/diagnostic models from config |
 | `output.py` | Zarr store creation, validation, threaded writes, consolidation |
 | `grids.py` | Hydra-instantiable grid resolvers (`goes_grid`, `mrms_grid`, `glm_grid`, `gfs_grid`, `arco_grid`) |
-| `data.py` | `PredownloadedSource` — DataSource wrapper for predownloaded zarr stores |
+| `data.py` | `PredownloadedSource` / `PredownloadedFrameSource` — wrappers serving predownloaded zarr / parquet stores |
 <!-- markdownlint-enable MD013 -->
 
 ### Pipeline interface
@@ -688,6 +849,12 @@ Built-in pipelines (pass the fully qualified class path via `cfg.pipeline`):
 - **`DiagnosticPipeline`** (`src.pipelines.forecast.DiagnosticPipeline`) —
   diagnostic-only (no prognostic model).  Yields a single output per work
   item.
+- **`AssimilationPipeline`** (`src.pipelines.assimilation.AssimilationPipeline`)
+  — data-assimilation analysis scored directly against reanalysis.  Yields
+  a single `lead_time=0` output per work item.
+- **`AssimilationForecastPipeline`**
+  (`src.pipelines.assimilation.AssimilationForecastPipeline`) — prognostic
+  rollout initialized from a data-assimilation analysis (e.g. HealDA+FCN3).
 - **`DLESyMPipeline`** (`src.pipelines.dlesym.DLESyMPipeline`) — coupled
   Earth-system forecast (atmos + ocean on different cadences).
 - **`StormScopePipeline`** (`src.pipelines.stormscope.StormScopePipeline`) —
