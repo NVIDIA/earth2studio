@@ -55,6 +55,7 @@ Thus are typically used to generate forecast predictions.
       GenCastMini
       GraphCastOperational
       GraphCastSmall
+      InterpCRPSDiT
       InterpModAFNO
       Pangu24
       Pangu6

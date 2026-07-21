@@ -519,6 +519,26 @@ uv add earth2studio --extra interp-modafno
 :::
 ::::
 :::::
+:::::{tab-item} InterpCRPSDiT
+Notes: Requires a base prognostic model to be installed.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[interp-crps-dit]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra interp-crps-dit
+```
+
+:::
+::::
+:::::
 ::::::
 
 #### Diagnostics

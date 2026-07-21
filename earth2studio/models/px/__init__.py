@@ -40,6 +40,7 @@ from earth2studio.models.px.fuxi import FuXi
 from earth2studio.models.px.gencast_mini import GenCastMini
 from earth2studio.models.px.graphcast_operational import GraphCastOperational
 from earth2studio.models.px.graphcast_small import GraphCastSmall
+from earth2studio.models.px.interpcrpsdit import InterpCRPSDiT
 from earth2studio.models.px.interpmodafno import InterpModAFNO
 from earth2studio.models.px.pangu import Pangu3, Pangu6, Pangu24
 from earth2studio.models.px.persistence import Persistence

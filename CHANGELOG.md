@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   number of pending tasks (capped at 64)
 - Added shared obstore byte-range helpers (`obstore_store_from_url`,
   `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
+- Added `InterpCRPSDiT`, a one-shot endpoint-pinned CRPS temporal-interpolation model
+  (DiT backbone) that upsamples a base model's coarse trajectory to finer sub-steps (down to sub-hourly),
+  with optional regional sub-domain inference via `set_domain`.
 - Added `DataReplay`, a prognostic adapter that steps any `DataSource` through the
   prognostic-iterator interface, yielding the source's own reanalysis/analysis frames
   instead of a forecast rollout -- e.g. supplying the coarse input to a temporal
