@@ -4,7 +4,7 @@
 
 """Regression tests for shared NCEP conventional format adapters."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import numpy as np
@@ -65,6 +65,51 @@ def _gpsro_plan(lexicon: type, variable: str, descriptor: int) -> dict:
 
 def _modifiers(lexicon: type, *variables: str) -> dict:
     return {variable: lexicon.get_item(variable)[1] for variable in variables}
+
+
+def test_observation_cycle_times_select_covering_files():
+    cases = [
+        (
+            datetime(2024, 1, 1, 0),
+            timedelta(0),
+            timedelta(hours=4),
+            timedelta(hours=6),
+            [datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 6)],
+        ),
+        (
+            datetime(2024, 1, 1, 0),
+            timedelta(0),
+            timedelta(0),
+            timedelta(hours=6),
+            [datetime(2024, 1, 1, 0)],
+        ),
+        (
+            datetime(2024, 1, 1, 3),
+            timedelta(0),
+            timedelta(0),
+            timedelta(hours=6),
+            [datetime(2024, 1, 1, 6)],
+        ),
+        (
+            datetime(2024, 1, 1, 5),
+            timedelta(0),
+            timedelta(hours=3),
+            timedelta(hours=6),
+            [datetime(2024, 1, 1, 6), datetime(2024, 1, 1, 12)],
+        ),
+        (
+            datetime(2024, 1, 1, 1),
+            timedelta(0),
+            timedelta(0),
+            timedelta(hours=3),
+            [datetime(2024, 1, 1, 3)],
+        ),
+    ]
+
+    for time, lower, upper, cadence, expected in cases:
+        assert (
+            utils_ncep.observation_cycle_times(time, lower, upper, cadence) == expected
+        )
 
 
 def test_same_local_prepbufr_bytes_are_adapter_exact(tmp_path, monkeypatch):

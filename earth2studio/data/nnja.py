@@ -125,11 +125,9 @@ class NNJAObsConv:
     This is a remote data source and can potentially download a large amount of data
     to your local machine for large requests.
 
+
     Note
     ----
-    Requested times must align to a 6-hour cycle (00, 06, 12, 18z); the time
-    tolerance brackets the cycle when selecting observations.
-
     Additional information on the data repository can be referenced here:
 
     - https://www.brightband.com/data/nnja-ai/
@@ -364,18 +362,8 @@ class NNJAObsConv:
 
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
-        """Validate that times align to a 6-hour cycle and are in range."""
+        """Validate that requested times are in the NNJA archive range."""
         for t in times:
-            if t.minute != 0 or t.second != 0 or t.microsecond != 0:
-                raise ValueError(
-                    f"Requested datetime {t} must be on a whole hour "
-                    f"(NNJA cycles are 6-hourly)."
-                )
-            if t.hour % 6 != 0:
-                raise ValueError(
-                    f"Requested datetime {t} must align to a 6-hour cycle "
-                    f"(00, 06, 12, 18z)."
-                )
             if t < cls.MIN_DATE:
                 raise ValueError(
                     f"Requested datetime {t} is earlier than {cls.__name__}.MIN_DATE "

@@ -140,12 +140,8 @@ def test_nnja_obs_conv_validate_time():
     NNJAObsConv._validate_time([datetime(2024, 1, 1, 6)])
     NNJAObsConv._validate_time([datetime(2024, 1, 1, 12)])
     NNJAObsConv._validate_time([datetime(2024, 1, 1, 18)])
-
-    with pytest.raises(ValueError):
-        NNJAObsConv._validate_time([datetime(2024, 1, 1, 1)])
-
-    with pytest.raises(ValueError):
-        NNJAObsConv._validate_time([datetime(2024, 1, 1, 0, 30)])
+    NNJAObsConv._validate_time([datetime(2024, 1, 1, 1)])
+    NNJAObsConv._validate_time([datetime(2024, 1, 1, 0, 30)])
 
     with pytest.raises(ValueError):
         NNJAObsConv._validate_time([datetime(1970, 1, 1, 0)])
@@ -305,25 +301,20 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
 
 def test_nnja_obs_conv_available():
     """Test NNJAObsConv.available() classmethod with both datetime types."""
-    # Valid 6-hourly cycle times
     assert NNJAObsConv.available(datetime(2024, 1, 1, 0)) is True
     assert NNJAObsConv.available(datetime(2024, 1, 1, 6)) is True
     assert NNJAObsConv.available(datetime(2024, 1, 1, 12)) is True
     assert NNJAObsConv.available(datetime(2024, 1, 1, 18)) is True
-
-    # Invalid hours
-    assert NNJAObsConv.available(datetime(2024, 1, 1, 1)) is False
-    assert NNJAObsConv.available(datetime(2024, 1, 1, 7)) is False
+    assert NNJAObsConv.available(datetime(2024, 1, 1, 1)) is True
+    assert NNJAObsConv.available(datetime(2024, 1, 1, 7, 30)) is True
 
     # Before MIN_DATE
     assert NNJAObsConv.available(datetime(1970, 1, 1, 0)) is False
 
-    # np.datetime64 input - valid
     assert NNJAObsConv.available(np.datetime64("2024-01-01T00:00:00")) is True
     assert NNJAObsConv.available(np.datetime64("2024-01-01T06:00:00")) is True
+    assert NNJAObsConv.available(np.datetime64("2024-01-01T01:00:00")) is True
 
-    # np.datetime64 input - invalid
-    assert NNJAObsConv.available(np.datetime64("2024-01-01T01:00:00")) is False
     assert NNJAObsConv.available(np.datetime64("1970-01-01T00:00:00")) is False
 
 
@@ -598,6 +589,22 @@ def test_nnja_obs_conv_create_tasks():
         [datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 6)], ["t"]
     )
     assert len(tasks_times) == 2  # Two different cycles
+
+    # Non-cycle request times select the next cycle file containing past obs
+    tasks_offset = ds._create_tasks([datetime(2024, 1, 1, 1)], ["t"])
+    assert len(tasks_offset) == 1
+    assert tasks_offset[0].datetime_file == datetime(2024, 1, 1, 6)
+
+    ds_window = NNJAObsConv(
+        time_tolerance=(timedelta(0), timedelta(hours=4)),
+        cache=False,
+        verbose=False,
+    )
+    tasks_window = ds_window._create_tasks([datetime(2024, 1, 1, 0)], ["t"])
+    assert [task.datetime_file for task in tasks_window] == [
+        datetime(2024, 1, 1, 0),
+        datetime(2024, 1, 1, 6),
+    ]
 
 
 def test_nnja_obs_conv_create_tasks_gpsro_route():

@@ -1026,26 +1026,96 @@ def plan_conv_tasks(
     return tasks
 
 
+def observation_cycle_times(
+    time: datetime,
+    tolerance_lower: timedelta,
+    tolerance_upper: timedelta,
+    cadence: timedelta = timedelta(hours=6),
+) -> list[datetime]:
+    """Return cadence file times whose observation windows overlap a request.
+
+    Each file timestamp is treated as the end of its observation window, so a
+    file at ``T`` may contain observations from ``(T - cadence, T]``. This means
+    requests often need the next cycle file as well as the cycle at or before
+    the requested time.
+
+    Parameters
+    ----------
+    time : datetime
+        Requested observation timestamp.
+    tolerance_lower : timedelta
+        Lower tolerance bound relative to ``time``.
+    tolerance_upper : timedelta
+        Upper tolerance bound relative to ``time``.
+    cadence : timedelta, optional
+        Cadence between published files, by default ``timedelta(hours=6)``.
+
+    Returns
+    -------
+    list[datetime]
+        Cadence-aligned file timestamps whose backward-looking observation
+        windows overlap ``[time + tolerance_lower, time + tolerance_upper]``.
+
+    Raises
+    ------
+    ValueError
+        If ``cadence`` is not positive.
+    """
+    if cadence <= timedelta(0):
+        raise ValueError("cadence must be positive")
+
+    tmin = time + tolerance_lower
+    tmax = time + tolerance_upper
+    day_start = tmin.replace(hour=0, minute=0, second=0, microsecond=0)
+    cycle = day_start + ((tmin - day_start) // cadence) * cadence
+    if cycle < tmin:
+        cycle += cadence
+
+    cycles: list[datetime] = []
+    while cycle < tmax + cadence:
+        cycles.append(cycle)
+        cycle += cadence
+    return cycles
+
+
 def cycle_windows(
     time_list: list[datetime],
     tolerance_lower: timedelta,
     tolerance_upper: timedelta,
+    cadence: timedelta = timedelta(hours=6),
 ) -> dict[datetime, tuple[datetime, datetime]]:
-    """Map each unique 6-hour cycle to the union of requested time windows."""
+    """Map cadence file times to merged requested observation windows.
+
+    Parameters
+    ----------
+    time_list : list[datetime]
+        Requested observation timestamps.
+    tolerance_lower : timedelta
+        Lower tolerance bound relative to each requested timestamp.
+    tolerance_upper : timedelta
+        Upper tolerance bound relative to each requested timestamp.
+    cadence : timedelta, optional
+        Cadence between published files, by default ``timedelta(hours=6)``.
+
+    Returns
+    -------
+    dict[datetime, tuple[datetime, datetime]]
+        Mapping from each required cadence file timestamp to the merged
+        observation-time window covered by requests for that file.
+    """
     windows: dict[datetime, tuple[datetime, datetime]] = {}
     for t in time_list:
         tmin = t + tolerance_lower
         tmax = t + tolerance_upper
-        day = tmin.replace(minute=0, second=0, microsecond=0)
-        day = day.replace(hour=(day.hour // 6) * 6)
-        while day <= tmax:
-            existing = windows.get(day)
-            windows[day] = (
+        for cycle in observation_cycle_times(
+            t, tolerance_lower, tolerance_upper, cadence
+        ):
+            existing = windows.get(cycle)
+            windows[cycle] = (
                 (min(existing[0], tmin), max(existing[1], tmax))
                 if existing is not None
                 else (tmin, tmax)
             )
-            day += timedelta(hours=6)
     return windows
 
 
