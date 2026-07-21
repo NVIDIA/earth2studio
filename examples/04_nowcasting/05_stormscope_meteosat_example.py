@@ -105,7 +105,7 @@ else:
     package = Package(
         model_path,
         cache_options={
-            "cache_storage": Package.default_cache("stormcast-conus"),
+            "cache_storage": Package.default_cache("stormscope-meteosat"),
             "same_names": True,
         },
     )
