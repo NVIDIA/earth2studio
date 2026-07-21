@@ -14,7 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added GHCN hourly data source (`GHCNHourly`), superseding the deprecated ISD source
 - Added EarthMover ERA5 0.25 degree reanalysis data source
 - Added EarthMover IFS 0.1 degree data source and forecast source hosted by BrightBand
-- Added `async_workers` and `retries` parameters to GFS / GFS_FX data sources
+- Added `async_workers` and `retries` parameters to GFS / GFS_FX, HRRR / HRRR_FX,
+  GEFS_FX / GEFS_FX_721x1440, CFS_FX / CFS_FX_Flux and NCAR_ERA5 data sources;
+  `async_workers` defaults to None which autoscales download concurrency to the
+  number of pending tasks (capped at 64)
 - Added shared obstore byte-range helpers (`obstore_store_from_url`,
   `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
 
@@ -27,11 +30,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   predictions for GOES GLM Lightning density.
 - Migrated GFS / GFS_FX data sources from s3fs to obstore for index and byte-range
   GRIB fetches; downloads now use bounded concurrency with retry on transient errors
+- Migrated the remaining GRIB byte-range data sources (HRRR / HRRR_FX, GEFS_FX /
+  GEFS_FX_721x1440, CFS_FX / CFS_FX_Flux, NCAR_ERA5) from s3fs/gcsfs to obstore with
+  bounded concurrency and retry on transient errors
+- Migrated HTTP-backed GRIB sources (GFS `ncep`, HRRR `nomads`, CFS `nomads`) to
+  obstore `HTTPStore` against the NOMADS HTTPS endpoint (GFS `ncep` previously used
+  FTP); no fsspec fallbacks remain in the GRIB byte-range sources
 - Refactored UFS observation sources (`UFSObsConv`, `UFSObsSat`) onto the shared
   obstore byte-range helpers
 - Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
   the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
   fsspec
+- Updated the OPERA data source to represent undetect values as `-99.0`, while
+  retaining `NaN` for no-data values.
 
 ### Deprecated
 
@@ -39,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Changed ISD schema `source` type to string since the field is alphanumeric. Enforced
+  `float32` dtypes for `lat`, `lon`, `elev`, and `observation`.
 - Fixed NNJA observation sources blocking the shared fsspec IO loop with
   CPU-bound PrepBUFR decode work, which stalled concurrent fetches from other
   data sources.
