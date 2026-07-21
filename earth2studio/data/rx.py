@@ -19,12 +19,15 @@ import pathlib
 import shutil
 from datetime import datetime, timezone
 
-import gcsfs
 import numpy as np
 import xarray as xr
 import zarr
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    datasource_cache_root,
+    obstore_zarr_store,
+    prep_data_inputs,
+)
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.type import CoordSystem, TimeArray, VariableArray
 
@@ -59,16 +62,11 @@ class ARCORxBase:
         self._cache = cache
         self._verbose = verbose
 
-        fs = gcsfs.GCSFileSystem(
-            cache_timeout=-1,
-            token="anon",  # noqa: S106 # nosec B106
-            access="read_only",
-            block_size=2**20,
+        store_path = (
+            "/gcp-public-data-arco-era5/ar/1959-2022-full_37-1h-0p25deg-chunk-1.zarr-v2"
         )
-
-        zstore = zarr.storage.FsspecStore(
-            fs,
-            path="/gcp-public-data-arco-era5/ar/1959-2022-full_37-1h-0p25deg-chunk-1.zarr-v2",
+        zstore = obstore_zarr_store(
+            f"gs://{store_path.lstrip('/')}", store_kwargs={"skip_signature": True}
         )
         self.zarr_group = zarr.open(zstore, mode="r")
 

@@ -227,7 +227,7 @@ partd==1.4.2
     # via dask
 pathspec==1.0.3
     # via hatchling
-pillow==12.2.0
+pillow==12.3.0
     # via bokeh
 pluggy==1.6.0
     # via hatchling
@@ -251,7 +251,7 @@ psutil==7.2.1
     # via distributed
 pyarrow==23.0.0
     # via dask
-pyasn1==0.6.3
+pyasn1==0.6.4
     # via
     #   pyasn1-modules
     #   rsa
