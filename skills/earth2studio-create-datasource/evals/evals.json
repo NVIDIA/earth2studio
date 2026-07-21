@@ -57,11 +57,11 @@
     "expected_skill": "earth2studio-create-datasource",
     "expected_script": "evals/targets/eval_4_target.py",
     "expected_test": "evals/targets/test/eval_4_test_target.py",
-    "ground_truth": "Creates an async S3 DataSource with lexicon, _sync_async, managed_session, gather_with_concurrency, async_retry, and pure async I/O. Test file follows Step 11 canonical names: slow/xfail fetch and cache tests, call_mock with patched network, exceptions, and available.",
+    "ground_truth": "Creates an async S3 DataSource with lexicon, _sync_async, obstore_store_from_url, obstore_fetch_to_cache, gather_with_concurrency, async_retry, and cached object reads. Test file follows Step 11 canonical names: slow/xfail fetch and cache tests, call_mock with patched network, exceptions, and available.",
     "expected_behavior": [
       "Activates earth2studio-create-datasource before implementing",
       "Writes async S3 source and lexicon files under earth2studio/",
-      "Source uses _sync_async, managed_session, gather_with_concurrency, and async_retry",
+      "Source uses _sync_async, obstore_store_from_url, obstore_fetch_to_cache, gather_with_concurrency, and async_retry",
       "Writes test/data/test_phoo.py with Step 11 canonical test function names",
       "Test file includes test_phoo_call_mock that patches network I/O",
       "Test file includes slow/xfail fetch and cache tests plus exceptions and available tests",

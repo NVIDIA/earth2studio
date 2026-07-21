@@ -79,7 +79,7 @@ def test_phoo_cache(cache):
 
 @pytest.mark.timeout(15)
 def test_phoo_call_mock(tmp_path):
-    """Exercise the full __call__ path with mocked S3 fetch (no network)."""
+    """Exercise the full __call__ path with mocked object fetch (no network)."""
     fake_data = np.full((181, 360), 273.15, dtype=np.float32)
 
     # Create a fake NetCDF file in tmp_path
@@ -98,7 +98,7 @@ def test_phoo_call_mock(tmp_path):
             PhooAnalysis, "_fetch_remote_file", side_effect=_fake_fetch_remote_file
         ),
     ):
-        ds.fs = object()  # type: ignore[assignment]
+        ds.store = object()  # type: ignore[assignment]
         data = ds(datetime(2024, 1, 1, 0), ["t2m", "msl"])
 
     assert data.shape == (1, 2, 181, 360)
