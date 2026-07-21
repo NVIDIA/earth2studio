@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
   the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
   fsspec
+- UFS observation sources (`UFSObsConv`, `UFSObsSat`) now tolerate missing diag files
+  by warning and skipping instead of erroring, so archive gaps (e.g. an absent GNSS-RO
+  `gps` cycle or a decommissioned satellite platform) no longer abort a fetch; the
+  warn-and-skip behavior lives on the shared base class rather than only on the
+  satellite source
 
 ### Deprecated
 
