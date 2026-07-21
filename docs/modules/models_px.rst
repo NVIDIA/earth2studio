@@ -41,6 +41,7 @@ Thus are typically used to generate forecast predictions.
       Atlas
       Aurora
       CBottleVideo
+      DataReplay
       DiagnosticWrapper
       DLESyM
       DLESyMLatLon

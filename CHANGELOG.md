@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   number of pending tasks (capped at 64)
 - Added shared obstore byte-range helpers (`obstore_store_from_url`,
   `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
+- Added `DataReplay`, a prognostic adapter that steps any `DataSource` through the
+  prognostic-iterator interface, yielding the source's own reanalysis/analysis frames
+  instead of a forecast rollout -- e.g. supplying the coarse input to a temporal
+  interpolator, providing a reference trajectory to score forecasts against, or
+  sub-sampling a finer source in time.
 
 ### Changed
 
