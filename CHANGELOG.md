@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
   was decoded from, since an observation at a file's window edge can be in two files.
 - Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+- Added `InterpCRPSDiT`, a one-shot endpoint-pinned CRPS temporal-interpolation model
+  (DiT backbone) that upsamples a base model's coarse trajectory to finer sub-steps (down to sub-hourly),
+  with optional regional sub-domain inference via `set_domain`.
 
 ### Changed
 

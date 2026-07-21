@@ -251,6 +251,12 @@ categories:
             Before importing JAX or Earth2Studio, set
             XLA_PYTHON_CLIENT_PREALLOCATE=false and
             XLA_PYTHON_CLIENT_ALLOCATOR=vmm.
+      - id: interp-crps-dit
+        label: InterpCRPSDiT
+        extra: interp-crps-dit
+        summary: Dependencies for the InterpCRPSDiT CRPS temporal interpolation model. Requires a base prognostic model.
+        api_refs:
+          - earth2studio.models.px.InterpCRPSDiT
       - id: interp-modafno
         label: InterpModAFNO
         extra: interp-modafno
