@@ -186,10 +186,24 @@ class _UFSObsBase:
             self._handle_missing_file(key)
 
     def _handle_missing_file(self, key: str) -> None:
-        """Handle missing file during fetch. Can be overridden by subclasses."""
+        """Handle a missing diag file during fetch.
+
+        GSI diag archives have gaps: a given observation platform or
+        conventional obs type may simply be absent for some assimilation
+        cycles — e.g. GNSS radio-occultation (``gps``) obs when no RO
+        satellites fed that cycle, or a decommissioned satellite platform.
+        Rather than aborting the whole fetch (which, over the many cycles
+        an observation window spans, would make missing-data gaps fatal),
+        log a warning and skip the file.  :meth:`_compile_dataframe` omits
+        any task whose file was not fetched, so downstream consumers
+        receive whatever observation subset is available — the intended
+        behavior for assimilation models, which are built to run on the
+        obs actually present at a given time.
+
+        Can be overridden by subclasses that require stricter handling.
+        """
         uri = f"s3://{self.UFS_BUCKET}/{key}"
-        logger.error(f"File {uri} not found")
-        raise FileNotFoundError(f"File {uri} not found")
+        logger.warning(f"File {uri} not found")
 
     def _compile_dataframe(
         self,
@@ -276,6 +290,18 @@ class _UFSObsBase:
             mask = (df["time"] >= task.datetime_min) & (df["time"] <= task.datetime_max)
             df = df.loc[mask]
             frames.append(task.gsi_modifier(df))
+
+        if not frames:
+            # Every diag file for this request was missing or skipped (see
+            # _handle_missing_file).  Return a schema-shaped empty frame
+            # rather than letting pd.concat raise "No objects to
+            # concatenate" — consumers (e.g. assimilation models) can then
+            # apply their own empty-observation handling.
+            logger.warning(
+                "No observation files were available for this request; "
+                "returning an empty DataFrame."
+            )
+            return schema.empty_table().to_pandas()
 
         result = pd.concat(frames, ignore_index=True)
         return result[[name for name in schema.names if name in result.columns]]
@@ -756,11 +782,6 @@ class UFSObsSat(_UFSObsBase):
                         )
                         day = day + timedelta(hours=6)
         return tasks
-
-    def _handle_missing_file(self, key: str) -> None:
-        """Satellite data may have missing platforms, just warn instead of error."""
-        uri = f"s3://{self.UFS_BUCKET}/{key}"
-        logger.warning(f"File {uri} not found")
 
     def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
         """Build column map, always including Channel_Index for channel-indexed fields."""
