@@ -49,7 +49,7 @@ except ImportError:
     OmegaConf = None
 
 
-# Variables used in StormCastMTG
+# Variables used in StormScopeMeteosatEU
 VARIABLES = (
     "fci04vis",
     "fci05vis",
