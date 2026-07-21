@@ -235,9 +235,7 @@ class OPERA:
         )
 
     @classmethod
-    def _apply_linear_scaling(
-        cls, raw: np.ndarray, what: dict[str, Any]
-    ) -> np.ndarray:
+    def _apply_linear_scaling(cls, raw: np.ndarray, what: dict[str, Any]) -> np.ndarray:
         """Apply ODIM gain/offset scaling; nodata→NaN, undetect→NO_DETECTION_FILL."""
         gain = float(what.get("gain", 1.0))
         offset = float(what.get("offset", 0.0))
