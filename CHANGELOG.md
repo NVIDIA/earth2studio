@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   GEFS_FX / GEFS_FX_721x1440, CFS_FX / CFS_FX_Flux and NCAR_ERA5 data sources
 - Added shared obstore byte-range helpers (`obstore_store_from_url`,
   `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
+- Added dynamical.org analysis and forecast data sources, reading anonymous Icechunk
+  repositories: `DynamicalGFS`, `DynamicalGEFS`,
+  `DynamicalGFS_FX`, `DynamicalGEFS_FX`, `DynamicalIFSENS_FX`,
+  `DynamicalAIFS_FX` and `DynamicalAIFSENS_FX`.
 
 ### Changed
 
@@ -66,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed `multi-storage-client` from the `data` optional dependency group,
   succeeded by `obstore`
+- Added `icechunk>=2.0.0` to the `data` optional dependency group (Python ≥3.12 only)
 
 ## [0.16.0] - 2026-06-29
 
