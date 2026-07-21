@@ -588,9 +588,7 @@ class TestAssimilationForecastPipeline:
         prognostic = Persistence(variable=DA_VARIABLES, domain_coords=domain)
         fill = Random(domain)
 
-        with patch(
-            "src.pipelines.forecast.load_prognostic", return_value=prognostic
-        ):
+        with patch("src.pipelines.forecast.load_prognostic", return_value=prognostic):
             with patch("src.data.resolve_ic_source", return_value=fill):
                 pipeline = _setup_pipeline(AssimilationForecastPipeline(), cfg)
 
@@ -606,9 +604,7 @@ class TestAssimilationForecastPipeline:
         domain = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
         prognostic = Persistence(variable=DA_VARIABLES, domain_coords=domain)
 
-        with patch(
-            "src.pipelines.forecast.load_prognostic", return_value=prognostic
-        ):
+        with patch("src.pipelines.forecast.load_prognostic", return_value=prognostic):
             with pytest.raises(ValueError, match="does not provide"):
                 _setup_pipeline(AssimilationForecastPipeline(), cfg)
 
@@ -834,7 +830,6 @@ class TestDownloadFrameStore:
         from pathlib import Path
 
         from loguru import logger
-
         from src.pipelines import PredownloadFrameStore
 
         cfg = _analysis_cfg(tmp_path)

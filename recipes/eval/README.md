@@ -324,10 +324,12 @@ observations rather than stepping a gridded state forward.  The recipe
 supports two evaluation modes, both driven by the same predownload /
 inference / scoring / report entry points:
 
+<!-- markdownlint-disable MD013 -->
 | Mode | Pipeline | Campaign example |
 |---|---|---|
 | Analysis vs. reanalysis | `src.pipelines.assimilation.AssimilationPipeline` | `healda_2024_analysis` |
 | DA-initialized forecast | `src.pipelines.assimilation.AssimilationForecastPipeline` | `healda_dlwp_2024_monthly`, `healda_fcn3_2024_monthly` |
+<!-- markdownlint-enable MD013 -->
 
 ```bash
 # Analysis mode — score HealDA analyses directly against ERA5
@@ -408,10 +410,10 @@ benign.
 
 Two degrees of missingness matter for interpreting results:
 
-* **Partial gaps** (some files present) — normal.  The analysis is built
+- **Partial gaps** (some files present) — normal.  The analysis is built
   from a reduced obs set; predownload logs a per-store summary of how
   many frames were affected.
-* **Total gaps** (every file missing for a request) — the obs source
+- **Total gaps** (every file missing for a request) — the obs source
   returns an empty frame and the DA model produces an **all-NaN
   analysis**, which propagates to NaN scores.  This almost always means
   the campaign's `start_times` fall outside the observation archive's

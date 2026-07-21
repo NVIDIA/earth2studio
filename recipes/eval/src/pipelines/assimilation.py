@@ -47,6 +47,7 @@ from omegaconf import DictConfig
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.da.base import AssimilationModel
+from earth2studio.models.prognostic.base import PrognosticModel
 from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
 
 from ..assimilation import (
@@ -285,7 +286,14 @@ class AssimilationForecastPipeline(ForecastPipeline):
             analysis = self.runner.analysis(item.time + lt)
             x_a, analysis_coords = analysis_to_tensor(analysis, device)
             slices.append(x_a.squeeze(0))  # drop singleton time dim
-        assert analysis_coords is not None
+        if analysis_coords is None:
+            raise ValueError(
+                "Failed to extract coordinates from analysis — 'analysis_coords' is None. "
+                "This likely means the analysis runner did not return a valid analysis "
+                "at the requested time(s), or the analysis object is missing required metadata. "
+                "Check that your DA runner produces valid analysis results and that the "
+                "'analysis_to_tensor' function is compatible with your analysis structure."
+            )
 
         x = torch.stack(slices, dim=0).unsqueeze(0)
         coords: CoordSystem = OrderedDict()
@@ -321,7 +329,7 @@ class AssimilationForecastPipeline(ForecastPipeline):
     need its ``input_coords()``, and loading a large model twice in one
     ``predownload.py`` run is wasteful."""
 
-    def _load_prognostic_for_predownload(self, cfg: DictConfig):
+    def _load_prognostic_for_predownload(self, cfg: DictConfig) -> PrognosticModel:
         if self._predownload_prognostic is None:
             from ..models import load_prognostic
 
