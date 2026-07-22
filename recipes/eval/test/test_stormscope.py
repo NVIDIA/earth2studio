@@ -842,3 +842,153 @@ class TestBuildConditioningStore:
         assert store is not None
         # 4 distinct valid times when no rounding applies.
         assert len(store.times) == 4
+
+
+# ---------------------------------------------------------------------------
+# _build_glm_store — GLM (glm_density) predownload store
+# ---------------------------------------------------------------------------
+
+
+class _FakeGlmModel:
+    """StormScope-MRMS-shaped stub sufficient for ``_build_glm_store`` /
+    ``_resolve_mrms_ic_source``.
+
+    Advertises a ``glm_density`` state channel, the cropped HRRR sub-region
+    (``latitudes`` / ``longitudes``), and numpy ``y`` / ``x`` — the surface the
+    bilinear regridder reads.  No forward pass.
+    """
+
+    def __init__(self, *, with_glm: bool = True):
+        self.variables = ["refc", "refc_base"] + (["glm_density"] if with_glm else [])
+        self.glm_variables = np.array(["glm_density"]) if with_glm else np.array([])
+        self.n_glm_channels = 1 if with_glm else 0
+        self.latitudes = torch.zeros(4, 5, dtype=torch.float32)
+        self.longitudes = torch.zeros(4, 5, dtype=torch.float32)
+        self.y = np.arange(4)
+        self.x = np.arange(5)
+
+
+class TestBuildGlmStore:
+    """``StormScopePipeline._build_glm_store`` — the bilinear-regridded
+    ``data_glm.zarr`` store for GLM-bearing MRMS variants."""
+
+    def _make_model_cfg(self, *, with_glm_source=True, with_glm_grid=True):
+        mod = _grid_resolver_registered()
+        block: dict[str, Any] = {"load_args": {}}
+        if with_glm_source:
+            block["load_args"]["glm_data_source"] = {
+                "_target_": f"{mod}._StubDataSource",
+            }
+        if with_glm_grid:
+            block["glm_grid"] = {"_target_": f"{mod}.stub_grid"}
+        return OmegaConf.create(block)
+
+    def test_builds_bilinear_regridded_store(self):
+        from src.regrid import BilinearRegridder, RegriddedSource
+
+        pipeline = StormScopePipeline()
+        model = _FakeGlmModel()
+        model_cfg = self._make_model_cfg()
+        spatial_ref = OrderedDict([("y", model.y), ("x", model.x)])
+        fetch_times = [
+            np.datetime64("2023-12-05T12:00:00", "ns"),
+            np.datetime64("2023-12-05T12:10:00", "ns"),
+        ]
+
+        store = pipeline._build_glm_store(
+            model=model,
+            model_cfg=model_cfg,
+            fetch_times=fetch_times,
+            spatial_ref=spatial_ref,
+        )
+        assert store is not None
+        assert store.name == "data_glm"
+        assert store.role == "ic"
+        assert store.variables == ["glm_density"]
+        assert store.times == fetch_times
+        assert isinstance(store.source, RegriddedSource)
+        assert isinstance(store.source._regridder, BilinearRegridder)
+
+    def test_returns_none_without_glm_source(self):
+        pipeline = StormScopePipeline()
+        model = _FakeGlmModel()
+        model_cfg = self._make_model_cfg(with_glm_source=False)
+        store = pipeline._build_glm_store(
+            model=model,
+            model_cfg=model_cfg,
+            fetch_times=[np.datetime64("2023-12-05T12:00:00", "ns")],
+            spatial_ref=OrderedDict([("y", model.y), ("x", model.x)]),
+        )
+        assert store is None
+
+    def test_returns_none_without_glm_grid(self):
+        pipeline = StormScopePipeline()
+        model = _FakeGlmModel()
+        model_cfg = self._make_model_cfg(with_glm_grid=False)
+        store = pipeline._build_glm_store(
+            model=model,
+            model_cfg=model_cfg,
+            fetch_times=[np.datetime64("2023-12-05T12:00:00", "ns")],
+            spatial_ref=OrderedDict([("y", model.y), ("x", model.x)]),
+        )
+        assert store is None
+
+    def test_returns_none_without_glm_channels(self):
+        pipeline = StormScopePipeline()
+        model = _FakeGlmModel(with_glm=False)
+        model_cfg = self._make_model_cfg()
+        store = pipeline._build_glm_store(
+            model=model,
+            model_cfg=model_cfg,
+            fetch_times=[np.datetime64("2023-12-05T12:00:00", "ns")],
+            spatial_ref=OrderedDict([("y", model.y), ("x", model.x)]),
+        )
+        assert store is None
+
+
+# ---------------------------------------------------------------------------
+# _resolve_mrms_ic_source — radar + GLM composite vs single-source
+# ---------------------------------------------------------------------------
+
+
+class TestResolveMrmsIcSource:
+    """``StormScopePipeline._resolve_mrms_ic_source`` assembles the MRMS IC.
+
+    For GLM-bearing variants the radar (``data_mrms.zarr``) and lightning
+    (``data_glm.zarr``) stores are recombined via a
+    :class:`~src.data.CompositeSource`; variants without GLM keep the legacy
+    single-source resolution.
+    """
+
+    def test_composite_when_both_stores_exist(self, tmp_path):
+        _write_yx_zarr(tmp_path / "data_mrms.zarr", ["refc", "refc_base"])
+        _write_yx_zarr(tmp_path / "data_glm.zarr", ["glm_density"])
+        cfg = OmegaConf.create(
+            {"output": {"path": str(tmp_path)}, "model": {"mrms": {}}}
+        )
+
+        pipeline = StormScopePipeline()
+        pipeline.model_mrms = _FakeGlmModel()
+        src = pipeline._resolve_mrms_ic_source(cfg)
+        assert isinstance(src, CompositeSource)
+
+        # Dispatch must reach both component stores.
+        t = np.array(["2023-12-05T12:00:00"], dtype="datetime64[ns]")
+        result = src(t, ["refc", "glm_density"])
+        assert result.sizes["variable"] == 2
+
+    def test_single_source_path_without_glm(self, tmp_path):
+        # No GLM channels → legacy single-source resolution.  No cache on disk,
+        # so the live source (a trivial built-in) is instantiated.
+        cfg = OmegaConf.create(
+            {
+                "output": {"path": str(tmp_path)},
+                "model": {
+                    "mrms": {"ic_source": {"_target_": "collections.OrderedDict"}}
+                },
+            }
+        )
+        pipeline = StormScopePipeline()
+        pipeline.model_mrms = _FakeGlmModel(with_glm=False)
+        src = pipeline._resolve_mrms_ic_source(cfg)
+        assert isinstance(src, OrderedDict)

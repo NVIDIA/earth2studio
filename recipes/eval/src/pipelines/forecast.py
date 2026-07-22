@@ -26,7 +26,6 @@ import numpy as np
 import torch
 import xarray as xr
 from omegaconf import DictConfig
-from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
@@ -35,6 +34,7 @@ from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
 
+from ..distributed import get_rank
 from ..models import load_diagnostics, load_prognostic
 from ..output import build_diagnostic_coords, build_forecast_coords
 from ..work import WorkItem
@@ -205,7 +205,8 @@ class ForecastPipeline(Pipeline):
 
         model_iter = self.prognostic.create_iterator(x, coords)
 
-        rank = DistributedManager().rank
+        # Rank only gates tqdm output below.
+        rank = get_rank()
 
         for step, (x_step, coords_step) in enumerate(
             tqdm(

@@ -31,7 +31,7 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.13
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.16.0"
 ```
 
 :::{dropdown} uv Install
@@ -224,7 +224,28 @@ uv add earth2studio --extra atlas
 ::::
 :::::
 :::::{tab-item} Aurora
-Notes: The Aurora model relies on the [microsoft aurora](https://github.com/microsoft/aurora)
+Notes: The Aurora model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
+package for inference.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[aurora]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra aurora
+```
+
+:::
+::::
+:::::
+:::::{tab-item} Aurora v1.5
+Notes: The Aurora v1.5 model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
 package for inference.
 
 ::::{tab-set}
@@ -449,6 +470,26 @@ pip install earth2studio[stormcast]
 
 ```bash
 uv add earth2studio --extra stormcast
+```
+
+:::
+::::
+:::::
+:::::{tab-item} StormCast-CONUS
+::::{tab-set}
+:::{tab-item} pip
+Notes: The StormCast-CONUS model depends on [natten](https://github.com/SHI-Labs/NATTEN),
+which can take a long time to compile.
+
+```bash
+pip install earth2studio[stormcast-conus]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra stormcast-conus
 ```
 
 :::
@@ -952,14 +993,14 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.13
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.16.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.13
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.16.0"
 ```
 
 (pytorch_container_environment)=
@@ -982,7 +1023,7 @@ docker run -it -t nvcr.io/nvidia/pytorch:26.04-py3
     libeccodes-tools libeccodes-dev
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.16.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -995,7 +1036,7 @@ do with pip, for example:
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.16.0"
 ```
 
 :::
@@ -1024,7 +1065,7 @@ package tooling.
 conda create -n earth2studio python=3.13
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.16.0"
 ```
 
 # System Recommendations
@@ -1077,5 +1118,3 @@ this overrides `EARTH2STUDIO_CACHE` for data source caching operations.
     set, this overrides `EARTH2STUDIO_CACHE` for model checkpoint caching operations.
 - `EARTH2STUDIO_PACKAGE_TIMEOUT`: The max number of seconds for a download operation of
 a model package file from a remote store such as NGC, Huggingface or S3.
-- `EARTH2STUDIO_DISABLE_MSC`: Can be used to disable use of the [multi-storage client](https://github.com/NVIDIA/multi-storage-client)
-for relevant data sources.

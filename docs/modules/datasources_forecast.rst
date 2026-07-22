@@ -29,6 +29,12 @@ Typically used in intercomparison workflows.
       data.CFS_FX_Flux
       data.CFS_Reforecast_FX
       data.CFS_Reforecast_FX_Flux
+      data.DynamicalGFS_FX
+      data.DynamicalGEFS_FX
+      data.DynamicalIFSENS_FX
+      data.DynamicalAIFS_FX
+      data.DynamicalAIFSENS_FX
+      data.EarthMoverBrightBandIFS_FX
       data.GFS_FX
       data.GEFS_FX
       data.GEFS_FX_721x1440
