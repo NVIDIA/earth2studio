@@ -28,9 +28,9 @@ class CosmoLexicon(metaclass=LexiconType):
     used by :class:`~earth2studio.models.dx.CorrDiffCosmoEra5` (COSMO-REA6 and
     COSMO-REA2). The vocabulary is the union over both resolutions: where a field
     has a canonical Earth2Studio name and matching units it maps to that name
-    (e.g. ``t2m``, ``sp``); COSMO-specific fields with no canonical equivalent
-    (model-level winds/temperatures/humidity, turbulent fluxes, TKE, PBL height,
-    ...) keep a descriptive lowercase name.
+    (e.g. ``t2m``, ``sp``, ``tp``, ``blh``); COSMO-specific fields with no canonical
+    equivalent (model-level winds/temperatures/humidity, turbulent fluxes, TKE,
+    averaged radiation fluxes, ...) keep a descriptive lowercase name.
 
     Each entry's value is ``(cosmo_name(s), scale)``: ``cosmo_name`` is the
     interior COSMO output name (a tuple when the two resolutions spell the same
@@ -54,21 +54,48 @@ class CosmoLexicon(metaclass=LexiconType):
             "u10m": (("U_10M", "10U"), 1.0),  # REA6 / REA2 spellings
             "v10m": (("V_10M", "10V"), 1.0),
             "t2m": (("T_2M", "2MT"), 1.0),
-            "d2m": ("TD_2M", 1.0),  # 2 m dewpoint (K) -- same units
+            "d2m": ("TD_2M", 1.0),  # 2 m dewpoint (K)
             "sp": ("PS", 1.0),  # surface pressure (Pa)
-            "tcc": ("CLCT", 0.01),  # cloud cover: COSMO % -> E2S 0-1 fraction
-            # COSMO-specific fields (no canonical Earth2Studio name): the name is
-            # the lowercased COSMO output name, units unchanged.
-            "tp": ("TOT_PRECIP", 1.0),
-            "aswdifd_s": ("ASWDIFD_S", 1.0),
-            "aswdir_s": ("ASWDIR_S", 1.0),
-            "alwu_s": ("ALWU_S", 1.0),
-            "athd_s": ("ATHD_S", 1.0),
-            "qv2m": ("QV_2M", 1.0),
-            "vmax10m": ("VMAX_10M", 1.0),
-            "lhfl_s": ("LHFL_S", 1.0),
-            "shfl_s": ("SHFL_S", 1.0),
-            "h_pbl": ("H_PBL", 1.0),
+            "tcc": ("CLCT", 0.01),  # CLCT is a percentage; tcc is 0-1 fraction
+            "tp": ("TOT_PRECIP", 1e-3),  # TOT_PRECIP in kg m-2 (= mm); tp in m
+            "q2m": ("QV_2M", 1.0),  # specific humidity at 2 m (kg kg-1)
+            "fg10m": (
+                "VMAX_10M",
+                1.0,
+            ),  # max 10 m wind speed over output interval (m s-1); DWD classifies as wind_speed_of_gust
+            "blh": (
+                "H_PBL",
+                1.0,
+            ),  # planetary boundary layer height (m), from bulk Richardson number
+            # COSMO-specific fields with no canonical Earth2Studio equivalent.
+            # All radiation fields carry the "A" prefix meaning *averaged* (time-mean
+            # W m-2 since model start), NOT accumulated J m-2.  Other E2S names
+            # ssrd/strd/fdir are J m-2 (accumulated), so these stay COSMO-specific.
+            "aswdifd_s": (
+                "ASWDIFD_S",
+                1.0,
+            ),  # avg diffuse downward SW at surface (W m-2); diffuse-only component of GHI
+            "aswdir_s": (
+                "ASWDIR_S",
+                1.0,
+            ),  # avg direct (beam) downward SW at surface (W m-2); direct component of GHI
+            "alwu_s": (
+                "ALWU_S",
+                1.0,
+            ),  # avg upward LW radiation at surface (W m-2); formerly LWU_S
+            "athd_s": (
+                "ATHD_S",
+                1.0,
+            ),  # avg downward LW (thermal) radiation at surface (W m-2); formerly LWD_S
+            # Instantaneous surface heat fluxes (W m-2); related E2S vars slhf/shfl are J m-2 (time-integrated).
+            "lhfl_s": (
+                "LHFL_S",
+                1.0,
+            ),  # instantaneous latent heat flux at surface (W m-2), positive upward
+            "shfl_s": (
+                "SHFL_S",
+                1.0,
+            ),  # instantaneous sensible heat flux at surface (W m-2), positive upward
         }
         # Model-level fields. REA6 ships levels 35-40 as ``<P>_L<lvl>``; REA2 ships
         # levels 45-50 as ``<P>3D_L<lvl>``. Distinct names, no overlap.

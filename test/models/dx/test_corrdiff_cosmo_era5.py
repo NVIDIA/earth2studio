@@ -178,7 +178,7 @@ def test_output_coords_lexicon_mapping():
     dx = _build()
     coord = list(dx._output_coord_variables)
     # overlap vars -> canonical lexicon; COSMO-only -> lowercased interior name
-    assert coord == ["u10m", "t2m", "tot_precip", "tcc", "aswdir_s", "tke_l40"]
+    assert coord == ["u10m", "t2m", "tp", "tcc", "aswdir_s", "tke_l40"]
     # internal indexing is unchanged (interior names)
     assert dx.output_variables == OUTPUT_VARIABLES
     # mapping comes from CosmoLexicon (name + unit scale)
@@ -187,8 +187,11 @@ def test_output_coords_lexicon_mapping():
     # both resolution spellings of the same field resolve to one E2S name
     assert CosmoLexicon.to_e2studio("U_10M")[0] == "u10m"  # REA6 spelling
     assert CosmoLexicon.to_e2studio("10U")[0] == "u10m"  # REA2 spelling
-    # CLCT carries a % -> fraction value rescale at the right channel index
-    assert dx._output_unit_scale == [(OUTPUT_VARIABLES.index("CLCT"), 0.01)]
+    # TOT_PRECIP carries a kg m-2 -> m rescale; CLCT carries a % -> fraction rescale
+    assert dx._output_unit_scale == [
+        (OUTPUT_VARIABLES.index("TOT_PRECIP"), 1e-3),
+        (OUTPUT_VARIABLES.index("CLCT"), 0.01),
+    ]
 
 
 def test_output_coords_requires_native_grid():
@@ -1231,7 +1234,7 @@ def test_corrdiff_cosmo_era5_call():
     assert list(out_coords["variable"]) == [
         "u10m",
         "t2m",
-        "tot_precip",
+        "tp",
         "tcc",
         "aswdir_s",
         "tke_l40",

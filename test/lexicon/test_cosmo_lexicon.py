@@ -25,7 +25,7 @@ from earth2studio.lexicon import CosmoLexicon
     [
         ["t2m"],
         ["u10m", "v10m", "sp"],
-        ["tcc", "d2m", "tot_precip", "h_pbl", "tke_l40", "u3d_l45"],
+        ["tcc", "d2m", "tp", "blh", "fg10m", "q2m", "tke_l40", "u3d_l45"],
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -50,8 +50,12 @@ def test_cosmo_lexicon_to_e2studio():
     assert CosmoLexicon.to_e2studio("2MT") == ("t2m", 1.0)
     # cloud cover carries a % -> 0-1 fraction rescale
     assert CosmoLexicon.to_e2studio("CLCT") == ("tcc", 0.01)
+    # canonical fields that needed a unit scale
+    assert CosmoLexicon.to_e2studio("TOT_PRECIP") == ("tp", 1e-3)
+    # canonical fields with no unit conversion needed
+    assert CosmoLexicon.to_e2studio("H_PBL") == ("blh", 1.0)
+    assert CosmoLexicon.to_e2studio("VMAX_10M") == ("fg10m", 1.0)
     # COSMO-specific fields keep a descriptive lowercase name, scale 1.0
-    assert CosmoLexicon.to_e2studio("H_PBL") == ("h_pbl", 1.0)
     assert CosmoLexicon.to_e2studio("U3D_L45") == ("u3d_l45", 1.0)
     # unknown name -> lowercased fallback (no raise)
     assert CosmoLexicon.to_e2studio("FUTURE_VAR") == ("future_var", 1.0)
