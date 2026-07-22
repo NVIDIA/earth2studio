@@ -1190,6 +1190,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         any crop size (the resolution is fixed); only the latent reshape metadata
         is rebound per grid (constant t=0 is applied inside the net).
         """
+        if self.regression_model is None:
+            raise RuntimeError("regression_model is not loaded")
         H, W = background.shape[-2:]
         self._rebind_latent(self.regression_model, H, W)
         bg = background.to(torch.float32)
@@ -1212,6 +1214,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         axial RoPE run at any crop size (the resolution is fixed). This is the
         single overridable seam for per-step cross-domain blending.
         """
+        if self.diffusion_model is None:
+            raise RuntimeError("diffusion_model is not loaded")
         net = self.diffusion_model
         dev = background.device
         H, W = background.shape[-2:]
@@ -1413,8 +1417,14 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         # Slice from the extended grid when available (it contains the native
         # footprint as a sub-block); otherwise the native grid only.
         ext = self._ext_lat_numpy is not None
-        latg = self._ext_lat_numpy if ext else self.lat_output_numpy
-        long_ = self._ext_lon_numpy if ext else self.lon_output_numpy
+        if ext:
+            if self._ext_lat_numpy is None or self._ext_lon_numpy is None:
+                raise RuntimeError("extended grid arrays are not set")
+            latg = self._ext_lat_numpy
+            long_ = self._ext_lon_numpy
+        else:
+            latg = self.lat_output_numpy
+            long_ = self.lon_output_numpy
 
         # All four corners must lie inside the available footprint (a partially
         # outside bbox would silently clip to a wrong region — refuse instead).
@@ -1434,11 +1444,10 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
                 corner_lat, corner_lon, self.lat_output_numpy, self.lon_output_numpy
             ).all()
         ):
-            warnings.warn(
+            logger.warning(
                 "domain extends beyond the validated COSMO-REA footprint into the "
                 "extended margin: invariants exist there but the model is "
-                "out-of-distribution (skill unvalidated).",
-                stacklevel=2,
+                "out-of-distribution (skill unvalidated)."
             )
 
         inside = (
@@ -1497,6 +1506,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
         dev = self.lat_output_grid.device
         if ext:
+            if self._ext_static_numpy is None:
+                raise RuntimeError("extended static array is not set")
             lat_out = torch.as_tensor(
                 latg[i0:i1, j0:j1], device=dev, dtype=torch.float32
             )

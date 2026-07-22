@@ -44,6 +44,8 @@ class CosmoLexicon(metaclass=LexiconType):
     * COSMO-REA2 (~2.2 km): https://reanalysis.meteo.uni-bonn.de/?COSMO-REA2
     """
 
+    _REVERSE: dict[str, tuple[str, float]]
+
     @staticmethod
     def build_vocab() -> dict[str, tuple[tuple[str, ...] | str, float]]:
         """Create the COSMO-REA vocab dictionary."""
@@ -57,13 +59,13 @@ class CosmoLexicon(metaclass=LexiconType):
             "tcc": ("CLCT", 0.01),  # cloud cover: COSMO % -> E2S 0-1 fraction
             # COSMO-specific fields (no canonical Earth2Studio name): the name is
             # the lowercased COSMO output name, units unchanged.
-            "tot_precip": ("TOT_PRECIP", 1.0),
+            "tp": ("TOT_PRECIP", 1.0),
             "aswdifd_s": ("ASWDIFD_S", 1.0),
             "aswdir_s": ("ASWDIR_S", 1.0),
             "alwu_s": ("ALWU_S", 1.0),
             "athd_s": ("ATHD_S", 1.0),
-            "qv_2m": ("QV_2M", 1.0),
-            "vmax_10m": ("VMAX_10M", 1.0),
+            "qv2m": ("QV_2M", 1.0),
+            "vmax10m": ("VMAX_10M", 1.0),
             "lhfl_s": ("LHFL_S", 1.0),
             "shfl_s": ("SHFL_S", 1.0),
             "h_pbl": ("H_PBL", 1.0),
