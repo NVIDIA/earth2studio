@@ -63,6 +63,7 @@ Thus are typically used to generate forecast predictions.
       Persistence
       SFNO
       StormCast
+      StormCastCONUS
       StormScopeGOES
       StormScopeMRMS
       UCast
