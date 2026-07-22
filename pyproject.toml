@@ -225,7 +225,7 @@ stormcast = [
 ]
 stormcast-conus = [
     "natten ; python_version < '3.14'",
-    "nvidia-physicsnemo>=2.2", # TODO introduce a >=2.2 constraint and drop the git pin when PNM releases
+    "nvidia-physicsnemo>=2.2.0a0", # TODO introduce a >=2.2 constraint and drop the git pin when PNM releases
     "nvtx>=0.2.11",
     "omegaconf>=2.3.0",
     "scipy>=1.15.2",
