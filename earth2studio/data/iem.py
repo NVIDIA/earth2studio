@@ -88,8 +88,8 @@ class IEM_ASOS:
     async_timeout : int, optional
         Total timeout in seconds for an async fetch, by default 600.
     async_workers : int, optional
-        Maximum number of scheduled async fetch tasks. Requests are serialized
-        to comply with the IEM rate limit, by default 16.
+        Maximum number of concurrent fetch tasks. Request starts are rate-limited
+        to one per second to comply with the IEM service limit, by default 16.
     retries : int, optional
         Number of retries for transient download failures, by default 3.
 
@@ -334,15 +334,16 @@ class IEM_ASOS:
                 )
                 if delay > 0:
                     await asyncio.sleep(delay)
-            try:
-                payload = await self.fs._cat_file(task.remote_url)
-            except ClientResponseError as exc:
-                if exc.status not in {429, 503}:
-                    raise
-                raise ConnectionError(
-                    f"IEM ASOS service returned transient HTTP {exc.status}"
-                ) from exc
             self._last_request_time = loop.time()
+
+        try:
+            payload = await self.fs._cat_file(task.remote_url)
+        except ClientResponseError as exc:
+            if exc.status not in {429, 503}:
+                raise
+            raise ConnectionError(
+                f"IEM ASOS service returned transient HTTP {exc.status}"
+            ) from exc
 
         if payload.lstrip().startswith((b"ERROR", b"<!DOCTYPE", b"<html")):
             raise OSError("IEM ASOS service returned an error response")

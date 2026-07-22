@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 from datetime import datetime, timedelta
 from urllib.parse import parse_qs, urlparse
@@ -182,6 +183,37 @@ def test_iem_asos_available():
     assert IEM_ASOS.available(_TEST_TIME)
     assert IEM_ASOS.available(np.datetime64("2026-07-20T00:54"))
     assert not IEM_ASOS.available(datetime(1899, 12, 31, 23, 59))
+
+
+@pytest.mark.asyncio
+async def test_iem_asos_request_rate_limit_allows_concurrency(tmp_path, monkeypatch):
+    """Request starts are throttled without serializing response downloads."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    request_starts: list[float] = []
+    active_requests = 0
+    max_active_requests = 0
+
+    class FakeHTTPFileSystem:
+        async def _cat_file(self, remote_url):
+            nonlocal active_requests, max_active_requests
+            request_starts.append(asyncio.get_running_loop().time())
+            active_requests += 1
+            max_active_requests = max(max_active_requests, active_requests)
+            await asyncio.sleep(0.03)
+            active_requests -= 1
+            return _PARSED_CSV
+
+    source = IEM_ASOS(cache=True, verbose=False)
+    source.REQUEST_INTERVAL_SECONDS = 0.01
+    monkeypatch.setattr(source, "fs", FakeHTTPFileSystem())
+    source._request_lock = asyncio.Lock()
+    tasks = source._create_tasks([_TEST_TIME, _TEST_TIME + timedelta(days=1)], ["t2m"])
+
+    await asyncio.gather(*(source.fetch_array(task) for task in tasks))
+
+    assert len(request_starts) == 2
+    assert request_starts[1] - request_starts[0] >= source.REQUEST_INTERVAL_SECONDS
+    assert max_active_requests == 2
 
 
 def test_iem_asos_station_bbox(tmp_path, monkeypatch):
