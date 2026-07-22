@@ -2425,7 +2425,7 @@ class StormScopeMRMS(StormScopeBase):
 
 
 class StormScopeNSRDB(StormScopeBase):
-    """Solar irradiance (GHI) estimator chained after StormScopeGOES.
+    """StormScope model estimating solar irradiance (GHI) from GOES data.
 
     Given a GOES image at time ``T`` this estimates surface Global Horizontal
     Irradiance (GHI) at ``T`` on the model's 3-km grid. It runs a single, fixed
@@ -2437,12 +2437,58 @@ class StormScopeNSRDB(StormScopeBase):
        checkpoint's registry ``sigma_max`` and the EDM sampler denoises down to
        the model's minimum sigma (a warm-started reverse diffusion).
 
-    GHI is modelled in *clearness-index* space (target divided by
-    ``insolation + eps``); outputs are converted back to physical W/m^2 using the
-    insolation at the observation time. Both networks are complete
-    ``physicsnemo`` checkpoints loaded via :py:meth:`StormScopeBase._load_checkpoints`
-    / :py:meth:`physicsnemo.Module.from_checkpoint`, and the shared base EDM
-    sampler is reused unchanged.
+    Parameters
+    ----------
+    model_spec : list[dict[str, Any]]
+        Sequence of stage specifications; see `StormScopeBase`.
+    means : torch.Tensor
+        Per-variable mean for normalization, shape [1, C, 1, 1].
+    stds : torch.Tensor
+        Per-variable std for normalization, shape [1, C, 1, 1].
+    variables : np.ndarray
+        Target output variable names (e.g. ``["ghi"]``).
+    latitudes : torch.Tensor
+        Latitudes of the grid, expected shape [H, W].
+    longitudes : torch.Tensor
+        Longitudes of the grid, expected shape [H, W].
+    regression_model : nn.Module
+        Pre-trained deterministic regression network that produces the first-guess
+        GHI estimate from GOES conditioning.
+    conditioning_means : torch.Tensor | None, optional
+        Means to normalize any external conditioning data. Default is None.
+    conditioning_stds : torch.Tensor | None, optional
+        Stds to normalize any external conditioning data. Default is None.
+    conditioning_variables : np.ndarray | None, optional
+        Auxiliary conditioning variable names (typically GOES channels). Default is None.
+    invariants : torch.Tensor | None, optional
+        Static invariant fields (e.g. terrain, land-sea mask) appended to the
+        model input. Default is None.
+    valid_mask : torch.Tensor | None, optional
+        Boolean mask of shape ``[H, W]`` indicating valid (on-domain) grid cells.
+        Off-domain pixels are zeroed after every sampling step. Default is None.
+    conditioning_data_source : DataSource | ForecastSource | None, optional
+        Data source for external conditioning (GOES). Default is None.
+    input_times : np.ndarray, optional
+        Input timesteps, of type timedelta64. Default is [0 m] (i.e., the current time).
+    output_times : np.ndarray, optional
+        Output timesteps, of type timedelta64. Default is [10 m].
+    y_coords : np.ndarray | None, optional
+        Y coordinates of the grid, expected shape [H, W]. Default is None, in which
+        case the model uses the enumerated indices inferred from the latitude and
+        longitude grid shapes.
+    x_coords : np.ndarray | None, optional
+        X coordinates of the grid, expected shape [H, W]. Default is None, in which
+        case the model uses the enumerated indices inferred from the latitude and
+        longitude grid shapes.
+    input_interp_max_dist_km : float, optional
+        Maximum distance in kilometers for nearest neighbor interpolation of input data.
+        Points beyond this distance are masked as invalid. Default is 12.0.
+    amp : bool, optional
+        Enable automatic mixed precision during inference. Default is True.
+
+    Badges
+    ------
+    region:na class:nwc product:solar year:2026 gpu:60gb
     """
 
     # Fixed inference configuration (override only for testing). The warm-start
@@ -2557,6 +2603,13 @@ class StormScopeNSRDB(StormScopeBase):
         return torch.from_numpy(sol)[:, None, :, :]
 
     def input_coords(self) -> CoordSystem:
+        """Input coordinate system.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary.
+        """
         return OrderedDict(
             {
                 "batch": np.empty(0),
@@ -2570,6 +2623,18 @@ class StormScopeNSRDB(StormScopeBase):
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output coordinates.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary.
+        """
         output_coords = OrderedDict(
             {
                 "batch": np.empty(0),
@@ -2596,6 +2661,20 @@ class StormScopeNSRDB(StormScopeBase):
     def fetch_conditioning(
         self, coords: CoordSystem, device: torch.device
     ) -> tuple[torch.Tensor, CoordSystem]:
+        """Fetch external conditioning data.
+
+        Parameters
+        ----------
+        coords : CoordSystem
+            Input coordinate system.
+        device : torch.device
+            Device on which the conditioning tensor should reside.
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Conditioning tensor and its coordinate system.
+        """
         if self.conditioning_data_source is None:
             raise RuntimeError(
                 "StormScopeNSRDB has no conditioning_data_source; provide GOES "
@@ -2616,10 +2695,27 @@ class StormScopeNSRDB(StormScopeBase):
         conditioning: torch.Tensor | None = None,
         conditioning_coords: CoordSystem | None = None,
     ) -> torch.Tensor:
-        """Diffusion/regression condition: ``[GOES(C), insolation(1), invariants]``.
+        """Build the conditioning tensor for the diffusion/regression networks.
 
-        The noisy GHI state is not included here -- the EDM preconditioner handles
-        the state internally.
+        Assembles ``[GOES(C), insolation(1), invariants]`` along the channel
+        dimension. The noisy GHI state is not included here — the EDM
+        preconditioner handles the state internally.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Current state tensor (used only for shape/device inference).
+        coords : CoordSystem
+            Coordinate system of the current state.
+        conditioning : torch.Tensor | None, optional
+            External GOES conditioning tensor. Default is None.
+        conditioning_coords : CoordSystem | None, optional
+            Coordinate system for the conditioning tensor. Default is None.
+
+        Returns
+        -------
+        torch.Tensor
+            Condition tensor of shape ``[B*T, C_cond, H, W]``.
         """
         b, t = x.shape[0], x.shape[1]
         parts: list[torch.Tensor] = []
@@ -2728,7 +2824,24 @@ class StormScopeNSRDB(StormScopeBase):
         conditioning: torch.Tensor,
         conditioning_coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Estimate GHI from GOES conditioning (the StormScopeGOES -> NSRDB entry point)."""
+        """Estimate GHI from GOES conditioning.
+
+        This is the primary entry point when chaining StormScopeGOES -> NSRDB:
+        pass the GOES prediction tensor directly and receive a GHI estimate.
+
+        Parameters
+        ----------
+        conditioning : torch.Tensor
+            GOES conditioning tensor of shape ``[B, T, L, C, H, W]`` (or 5-D
+            without batch).
+        conditioning_coords : CoordSystem
+            Coordinate system for the conditioning tensor.
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Estimated GHI tensor and its output coordinate system.
+        """
         state, state_coords = self._zero_state(conditioning, conditioning_coords)
         return self.call_with_conditioning(
             state, state_coords, conditioning, conditioning_coords
@@ -2741,6 +2854,11 @@ class StormScopeNSRDB(StormScopeBase):
         The solar GHI estimator ships as its own package (separate from the
         GOES/MRMS nowcasting package), with the flat registry entry
         ``stormscope_solar_goes_nsrdb``.
+
+        Returns
+        -------
+        Package
+            Model package for StormScope-Solar NSRDB.
         """
         return Package(
             "hf://nvidia/StormScope-NSRDB",
@@ -2769,6 +2887,11 @@ class StormScopeNSRDB(StormScopeBase):
             Optional GOES data source; when omitted use ``estimate_from_goes(...)``.
         amp : bool, optional
             Enable autocast for the sampler network forward passes, by default True.
+
+        Returns
+        -------
+        StormScopeNSRDB
+            Instantiated StormScopeNSRDB model.
         """
         try:
             package.resolve("config.json")  # HF tracking download statistics
@@ -2833,4 +2956,3 @@ class StormScopeNSRDB(StormScopeBase):
             input_interp_max_dist_km=6.0 * spatial_downsample,
             amp=amp,
         )
-
