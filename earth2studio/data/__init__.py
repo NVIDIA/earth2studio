@@ -48,6 +48,7 @@ from .goes_glm import GOESGLM, GOESGLMGrid
 from .himawari_ahi import HimawariAHI
 from .hrrr import HRRR, HRRR_FX
 from .ibtracs import IBTrACS
+from .iem import IEM_ASOS
 from .isd import ISD
 from .jpss import JPSS
 from .jpss_atms import JPSS_ATMS
