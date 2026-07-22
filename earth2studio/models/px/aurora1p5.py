@@ -480,9 +480,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             input_batch = self._prepare_input(x[:, t : t + 1], t_coords)
 
             for i, h in enumerate(lead_time_hours):
-                lead_times = torch.full(
-                    (B,), h, device=x.device, dtype=torch.float32
-                )
+                lead_times = torch.full((B,), h, device=x.device, dtype=torch.float32)
                 output_batch = self.model.forward(input_batch, lead_times=lead_times)
                 sub_preds[i][:, t : t + 1] = self._prepare_output(output_batch)
 

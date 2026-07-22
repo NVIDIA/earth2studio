@@ -196,7 +196,9 @@ def test_aurora1p5_iter_repeated(device):
     second = collect()
 
     for a, b in zip(first, second):
-        assert torch.equal(a, b), "create_iterator() results differ across repeated calls"
+        assert torch.equal(
+            a, b
+        ), "create_iterator() results differ across repeated calls"
 
 
 @pytest.mark.parametrize(
