@@ -54,8 +54,6 @@ IEM_ASOS_STATIONS_ENDPOINT = (
 
 @dataclass
 class _IEM_ASOSAsyncTask:
-    datetime_min: datetime
-    datetime_max: datetime
     remote_url: str
     local_path: str
 
@@ -284,8 +282,6 @@ class IEM_ASOS:
                 digest = hashlib.sha256(remote_url.encode()).hexdigest()
                 tasks.append(
                     _IEM_ASOSAsyncTask(
-                        datetime_min=window_start,
-                        datetime_max=window_end,
                         remote_url=remote_url,
                         local_path=os.path.join(self.cache, f"{digest}.csv"),
                     )
