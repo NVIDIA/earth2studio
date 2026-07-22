@@ -32,17 +32,17 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 import numpy as np
+import obstore as obs
 import pandas as pd
 import pyarrow as pa
-import s3fs  # type: ignore[import-untyped]
 from loguru import logger
+from obstore.store import S3Store
 
 from earth2studio.data.utils import (
     _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
-    managed_session,
     prep_data_inputs,
 )
 from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
@@ -219,7 +219,13 @@ class NNJAObsConv:
         self._retries = retries
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
-        self.fs: s3fs.S3FileSystem | None = None
+        # Anonymous obstore S3 store for the public NNJA bucket.
+        self._store = S3Store(
+            NNJA_BUCKET,
+            region="us-east-1",
+            skip_signature=True,
+            client_options={"pool_max_idle_per_host": str(async_workers)},
+        )
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
@@ -268,47 +274,38 @@ class NNJAObsConv:
 
     async def fetch_files(self, uris: Sequence[str]) -> None:
         """Download remote files into the NNJA cache."""
-        if self.fs is None:
-            self.fs = s3fs.S3FileSystem(
-                anon=True,
-                client_kwargs={},
-                asynchronous=True,
-                skip_instance_cache=True,
-            )
-
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
-        async with managed_session(self.fs):
-            coros = [
-                async_retry(
-                    self._fetch_remote_file,
-                    uri,
-                    retries=self._retries,
-                    backoff=1.0,
-                    task_timeout=120.0,
-                    exceptions=(OSError, IOError, TimeoutError, ConnectionError),
-                )
-                for uri in uris
-            ]
-            await gather_with_concurrency(
-                coros,
-                max_workers=self._async_workers,
-                desc="Fetching NNJA files",
-                verbose=(not self._verbose),
+        coros = [
+            async_retry(
+                self._fetch_remote_file,
+                uri,
+                retries=self._retries,
+                backoff=1.0,
+                task_timeout=120.0,
+                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
+            for uri in uris
+        ]
+        await gather_with_concurrency(
+            coros,
+            max_workers=self._async_workers,
+            desc="Fetching NNJA files",
+            verbose=(not self._verbose),
+        )
 
     async def _fetch_remote_file(self, path: str) -> None:
         """Download a single remote file into the cache directory."""
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
-
         cache_path = self.local_path(path)
         if pathlib.Path(cache_path).is_file():
             return
+        # Strip the s3://bucket/ prefix to get the object key for obstore.
+        key = path.removeprefix(f"s3://{NNJA_BUCKET}/")
         try:
-            data = await self.fs._cat_file(path)
+            response = await obs.get_async(self._store, key)
+            data = await response.bytes_async()
             with open(cache_path, "wb") as fh:
-                fh.write(data)
-        except FileNotFoundError:
+                fh.write(bytes(data))
+        except (FileNotFoundError, obs.exceptions.NotFoundError):
             self._handle_missing_file(path)
 
     def _handle_missing_file(self, path: str) -> None:
@@ -376,9 +373,6 @@ class NNJAObsConv:
             )
         raise ValueError(f"Unsupported route '{route}'")
 
-    # ------------------------------------------------------------------
-    # File decode (dispatch by task route)
-    # ------------------------------------------------------------------
     def _decode_file(self, local_path: str, task: _NCEPObsTask) -> pd.DataFrame:
         if task.route == "gpsro":
             frame = self._gpsro_adapter.decode_file(
@@ -439,7 +433,7 @@ class NNJAObsConv:
 class NNJAObsSat:
     """NNJA historical NCEP aggregate microwave satellite observations.
 
-    This source reads the NCEP six-hour aggregate ATMS, MHS, AMSU-A, and AMSU-B
+    This source reads the NCEP satellite ATMS, MHS, AMSU-A, and AMSU-B
     BUFR products from the NNJA archive. It returns one long-format row per
     finite encoded channel value. ``sensor_index`` is the physical ``CHNM``
     channel number, not a dense index into a selected channel list.
@@ -468,7 +462,7 @@ class NNJAObsSat:
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single
         value (symmetric +/- window) or a tuple (lower, upper) for asymmetric
-        windows, by default ``np.timedelta64(3, "h")``.
+        windows, by default np.timedelta64(10, 'm').
     satellites : list[str] | None, optional
         Satellite platforms to include. ``None`` includes every platform in
         the requested aggregate files.
@@ -509,18 +503,6 @@ class NNJAObsSat:
     - https://user.eumetsat.int/s3/ope-eup-strapi-media/ATOVS_Level_1b_Product_Guide_f89971ac20.pdf
     - https://www.ncei.noaa.gov/pub/data/cdo/documentation/podguides/N-15%20thru%20N-19/pdf/APPENDIX%20J%20Instrument%20Scan%20Properties.pdf
 
-    Example
-    -------
-    .. highlight:: python
-    .. code-block:: python
-
-        # Compare the two encoded ATMS temperature products for NOAA-20.
-        source = NNJAObsSat(satellites=["n20"])
-        df = source(
-            datetime(2024, 1, 1),
-            ["atms", "atms_antenna_temperature"],
-        )
-
     Badges
     ------
     region:global dataclass:observation product:atmos product:sat
@@ -534,7 +516,7 @@ class NNJAObsSat:
 
     def __init__(
         self,
-        time_tolerance: TimeTolerance = np.timedelta64(3, "h"),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         satellites: list[str] | None = None,
         cache: bool = True,
         verbose: bool = True,
@@ -561,7 +543,13 @@ class NNJAObsSat:
         self._retries = retries
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
-        self.fs: s3fs.S3FileSystem | None = None
+        # Anonymous obstore S3 store for the public NNJA bucket.
+        self._store = S3Store(
+            NNJA_BUCKET,
+            region="us-east-1",
+            skip_signature=True,
+            client_options={"pool_max_idle_per_host": str(async_workers)},
+        )
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
@@ -615,47 +603,38 @@ class NNJAObsSat:
 
     async def fetch_files(self, uris: Sequence[str]) -> None:
         """Download remote files into the NNJA cache."""
-        if self.fs is None:
-            self.fs = s3fs.S3FileSystem(
-                anon=True,
-                client_kwargs={},
-                asynchronous=True,
-                skip_instance_cache=True,
-            )
-
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
-        async with managed_session(self.fs):
-            coros = [
-                async_retry(
-                    self._fetch_remote_file,
-                    uri,
-                    retries=self._retries,
-                    backoff=1.0,
-                    task_timeout=120.0,
-                    exceptions=(OSError, IOError, TimeoutError, ConnectionError),
-                )
-                for uri in uris
-            ]
-            await gather_with_concurrency(
-                coros,
-                max_workers=self._async_workers,
-                desc="Fetching NNJA satellite files",
-                verbose=(not self._verbose),
+        coros = [
+            async_retry(
+                self._fetch_remote_file,
+                uri,
+                retries=self._retries,
+                backoff=1.0,
+                task_timeout=120.0,
+                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
+            for uri in uris
+        ]
+        await gather_with_concurrency(
+            coros,
+            max_workers=self._async_workers,
+            desc="Fetching NNJA satellite files",
+            verbose=(not self._verbose),
+        )
 
     async def _fetch_remote_file(self, path: str) -> None:
         """Download a single remote file into the cache directory."""
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
-
         cache_path = self.local_path(path)
         if pathlib.Path(cache_path).is_file():
             return
+        # Strip the s3://bucket/ prefix to get the object key for obstore.
+        key = path.removeprefix(f"s3://{NNJA_BUCKET}/")
         try:
-            data = await self.fs._cat_file(path)
+            response = await obs.get_async(self._store, key)
+            data = await response.bytes_async()
             with open(cache_path, "wb") as fh:
-                fh.write(data)
-        except FileNotFoundError:
+                fh.write(bytes(data))
+        except (FileNotFoundError, obs.exceptions.NotFoundError):
             self._handle_missing_file(path)
 
     def _handle_fetch_failure(self, uris: Sequence[str], cause: Exception) -> None:
