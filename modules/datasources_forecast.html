@@ -502,6 +502,8 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.CDS.html">CDS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.CMIP6.html">CMIP6</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.CMIP6MultiRealm.html">CMIP6MultiRealm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.DynamicalGFS.html">DynamicalGFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.DynamicalGEFS.html">DynamicalGEFS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.EarthMoverBrightBandIFS.html">EarthMoverBrightBandIFS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.EarthMoverERA5.html">EarthMoverERA5</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.GFS.html">GFS</a></li>
@@ -541,6 +543,11 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.CFS_FX_Flux.html">CFS_FX_Flux</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.CFS_Reforecast_FX.html">CFS_Reforecast_FX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.CFS_Reforecast_FX_Flux.html">CFS_Reforecast_FX_Flux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.DynamicalGFS_FX.html">DynamicalGFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.DynamicalGEFS_FX.html">DynamicalGEFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.DynamicalIFSENS_FX.html">DynamicalIFSENS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.DynamicalAIFS_FX.html">DynamicalAIFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.DynamicalAIFSENS_FX.html">DynamicalAIFSENS_FX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.EarthMoverBrightBandIFS_FX.html">EarthMoverBrightBandIFS_FX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.GFS_FX.html">GFS_FX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/earth2studio.data.GEFS_FX.html">GEFS_FX</a></li>
@@ -774,25 +781,40 @@ Typically used in intercomparison workflows.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.CFS_Reforecast_FX_Flux.html#earth2studio.data.CFS_Reforecast_FX_Flux" title="earth2studio.data.CFS_Reforecast_FX_Flux"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.CFS_Reforecast_FX_Flux</span></code></a></p></td>
 <td><p>NCEP CFSv2 6-hourly 9-month reforecast (surface-flux product).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.EarthMoverBrightBandIFS_FX.html#earth2studio.data.EarthMoverBrightBandIFS_FX" title="earth2studio.data.EarthMoverBrightBandIFS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.EarthMoverBrightBandIFS_FX</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DynamicalGFS_FX.html#earth2studio.data.DynamicalGFS_FX" title="earth2studio.data.DynamicalGFS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DynamicalGFS_FX</span></code></a></p></td>
+<td><p>NOAA GFS forecast from the dynamical.org catalog.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DynamicalGEFS_FX.html#earth2studio.data.DynamicalGEFS_FX" title="earth2studio.data.DynamicalGEFS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DynamicalGEFS_FX</span></code></a></p></td>
+<td><p>NOAA GEFS (35 day) ensemble forecast from the dynamical.org catalog.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DynamicalIFSENS_FX.html#earth2studio.data.DynamicalIFSENS_FX" title="earth2studio.data.DynamicalIFSENS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DynamicalIFSENS_FX</span></code></a></p></td>
+<td><p>ECMWF IFS ENS (15 day, 0.25 degree) ensemble forecast from dynamical.org.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DynamicalAIFS_FX.html#earth2studio.data.DynamicalAIFS_FX" title="earth2studio.data.DynamicalAIFS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DynamicalAIFS_FX</span></code></a></p></td>
+<td><p>ECMWF AIFS Single forecast from the dynamical.org catalog.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DynamicalAIFSENS_FX.html#earth2studio.data.DynamicalAIFSENS_FX" title="earth2studio.data.DynamicalAIFSENS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DynamicalAIFSENS_FX</span></code></a></p></td>
+<td><p>ECMWF AIFS ENS ensemble forecast from the dynamical.org catalog.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.EarthMoverBrightBandIFS_FX.html#earth2studio.data.EarthMoverBrightBandIFS_FX" title="earth2studio.data.EarthMoverBrightBandIFS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.EarthMoverBrightBandIFS_FX</span></code></a></p></td>
 <td><p>Brightband ECMWF IFS 0.1 degree (10km) 15-day forecast data source on Earthmover Arraylake.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.GFS_FX.html#earth2studio.data.GFS_FX" title="earth2studio.data.GFS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.GFS_FX</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.GFS_FX.html#earth2studio.data.GFS_FX" title="earth2studio.data.GFS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.GFS_FX</span></code></a></p></td>
 <td><p>The global forecast service (GFS) forecast source provided on an equirectangular grid.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX" title="earth2studio.data.GEFS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.GEFS_FX</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX" title="earth2studio.data.GEFS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.GEFS_FX</span></code></a></p></td>
 <td><p>The Global Ensemble Forecast System (GEFS) forecast source is a 30 member ensemble forecast provided on an 0.5 degree equirectangular grid.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.GEFS_FX_721x1440.html#earth2studio.data.GEFS_FX_721x1440" title="earth2studio.data.GEFS_FX_721x1440"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.GEFS_FX_721x1440</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.GEFS_FX_721x1440.html#earth2studio.data.GEFS_FX_721x1440" title="earth2studio.data.GEFS_FX_721x1440"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.GEFS_FX_721x1440</span></code></a></p></td>
 <td><p>The Global Ensemble Forecast System (GEFS) forecast source is a 30 member ensemble forecast provided on an 0.25 degree equirectangular grid.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.HRRR_FX.html#earth2studio.data.HRRR_FX" title="earth2studio.data.HRRR_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.HRRR_FX</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.HRRR_FX.html#earth2studio.data.HRRR_FX" title="earth2studio.data.HRRR_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.HRRR_FX</span></code></a></p></td>
 <td><p>High-Resolution Rapid Refresh (HRRR) forecast source provides a North-American weather forecasts with hourly forecast runs developed by NOAA.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.IFS_FX.html#earth2studio.data.IFS_FX" title="earth2studio.data.IFS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.IFS_FX</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.IFS_FX.html#earth2studio.data.IFS_FX" title="earth2studio.data.IFS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.IFS_FX</span></code></a></p></td>
 <td><p>Integrated forecast system (IFS) HRES forecast data source on an equirectangular grid at 0.25 degree resolution.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.IFS_ENS_FX.html#earth2studio.data.IFS_ENS_FX" title="earth2studio.data.IFS_ENS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.IFS_ENS_FX</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.IFS_ENS_FX.html#earth2studio.data.IFS_ENS_FX" title="earth2studio.data.IFS_ENS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.IFS_ENS_FX</span></code></a></p></td>
 <td><p>Integrated forecast system (IFS) ensemble (ENS) forecast data source on an equirectangular grid at 0.25 degree resolution.</p></td>
 </tr>
 </tbody>
