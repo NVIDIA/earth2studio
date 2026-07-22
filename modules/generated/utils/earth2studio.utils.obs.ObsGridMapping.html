@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>std &#8212; Earth2Studio</title>
+    <title>ObsGridMapping &#8212; Earth2Studio</title>
   
   
   
@@ -62,7 +62,7 @@
     <script src="../../../_static/togglebutton.js?v=b8b12719"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/statistics/earth2studio.statistics.std';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/utils/earth2studio.utils.obs.ObsGridMapping';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.19.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -76,8 +76,8 @@
 
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="variance" href="earth2studio.statistics.variance.html" />
-    <link rel="prev" title="spread_skill_ratio" href="earth2studio.statistics.spread_skill_ratio.html" />
+    <link rel="next" title="timearray_to_datetime" href="earth2studio.utils.time.timearray_to_datetime.html" />
+    <link rel="prev" title="LatLonInterpolation" href="earth2studio.utils.interp.LatLonInterpolation.html" />
 
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -602,21 +602,21 @@
 <li class="toctree-l3"><a class="reference internal" href="../perturbation/earth2studio.perturbation.Zero.html">Zero</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="../../statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.statistics.acc.html">acc</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.statistics.brier.html">brier</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.statistics.crps.html">crps</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.statistics.energy_score.html">energy_score</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.statistics.fss.html">fss</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.statistics.lsd.html">lsd</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.statistics.mae.html">mae</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.statistics.mean.html">mean</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.statistics.rank_histogram.html">rank_histogram</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.statistics.rmse.html">rmse</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.statistics.spread_skill_ratio.html">spread_skill_ratio</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">std</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.statistics.variance.html">variance</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.statistics.weights.lat_weight.html">lat_weight</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.acc.html">acc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.brier.html">brier</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.crps.html">crps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.energy_score.html">energy_score</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.fss.html">fss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.lsd.html">lsd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.mae.html">mae</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.mean.html">mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.rank_histogram.html">rank_histogram</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.rmse.html">rmse</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.spread_skill_ratio.html">spread_skill_ratio</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.std.html">std</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.variance.html">variance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../statistics/earth2studio.statistics.weights.lat_weight.html">lat_weight</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -625,21 +625,21 @@
 <li class="toctree-l3"><a class="reference internal" href="../workflows/earth2studio.run.ensemble.html">ensemble</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../utils_all.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio</span></code>: Utilities</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_dim.html">handshake_dim</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_coords.html">handshake_coords</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_size.html">handshake_size</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.coords.map_coords.html">map_coords</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.coords.split_coords.html">split_coords</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.obs.ObsGridMapping.html">ObsGridMapping</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.time.to_time_array.html">to_time_array</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.checkpoint.Checkpoint.html">Checkpoint</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.checkpoint.CheckpointSession.html">CheckpointSession</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.checkpoint.CheckpointState.html">CheckpointState</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.checkpoint.NullCheckpoint.html">NullCheckpoint</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../utils/earth2studio.utils.checkpoint.bind_checkpoint_state.html">bind_checkpoint_state</a></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../../utils_all.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio</span></code>: Utilities</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.coords.handshake_dim.html">handshake_dim</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.coords.handshake_coords.html">handshake_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.coords.handshake_size.html">handshake_size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.coords.map_coords.html">map_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.coords.split_coords.html">split_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">ObsGridMapping</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.time.to_time_array.html">to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.checkpoint.Checkpoint.html">Checkpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.checkpoint.CheckpointSession.html">CheckpointSession</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.checkpoint.CheckpointState.html">CheckpointState</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.checkpoint.NullCheckpoint.html">NullCheckpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.utils.checkpoint.bind_checkpoint_state.html">bind_checkpoint_state</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/earth2studio.data.datasource_to_file.html">datasource_to_file</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/earth2studio.data.fetch_data.html">fetch_data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/earth2studio.data.prep_data_array.html">prep_data_array</a></li>
@@ -745,9 +745,9 @@
     <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">API Reference</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../../statistics.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a></li>
+    <li class="breadcrumb-item"><a href="../../utils_all.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio</span></code>: Utilities</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">std</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">ObsGridMapping</span></li>
   </ul>
 </nav>
 </div>
@@ -764,45 +764,142 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="std">
-<h1>std<a class="headerlink" href="#std" title="Link to this heading">#</a></h1>
+  <section id="obsgridmapping">
+<h1>ObsGridMapping<a class="headerlink" href="#obsgridmapping" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.statistics.std">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.statistics.</span></span><span class="sig-name descname"><span class="pre">std</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reduction_dimensions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/statistics/moments.py#L274-L353"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.std" title="Link to this definition">#</a></dt>
-<dd><p>Statistic for calculating the sample standard deviation over a set of given dimensions.</p>
+<dt class="sig sig-object py" id="earth2studio.utils.obs.ObsGridMapping">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.utils.obs.</span></span><span class="sig-name descname"><span class="pre">ObsGridMapping</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid_variables</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grid_lat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grid_lon</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/utils/obs.py#L119-L443"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.utils.obs.ObsGridMapping" title="Link to this definition">#</a></dt>
+<dd><p>Maps point observations to and from a 2-D model grid.</p>
+<p>Supports regular (1-D lat/lon axes) and irregular (2-D lat/lon) grids.
+CuPy is used automatically when available and the target device is a GPU.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>reduction_dimensions</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – A list of names corresponding to dimensions to perform the
-statistical reduction over. Example: [‘lat’, ‘lon’]</p></li>
-<li><p><strong>weights</strong> (<em>torch.Tensor</em><em>, </em><em>optional</em>) – A tensor containing weights to assign to the reduction dimensions.
-Note that these weights must have the same number of dimensions
-as passed in reduction_dimensions.
-Example: if reduction_dimensions = [‘lat’, ‘lon’] then
-assert weights.ndim == 2.
-By default None.</p></li>
-<li><p><strong>batch_update</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to applying batch updates to the standard deviation with each invocation of __call__.
-This is particularly useful when data is recieved in a stream of batches. Each
-invocation of __call__ will return the running standard deviation.
-By default False.</p></li>
+<li><p><strong>grid_variables</strong> (<em>np.ndarray</em>) – Ordered array of variable names that define the channel dimension.</p></li>
+<li><p><strong>grid_lat</strong> (<em>np.ndarray</em><em> or </em><em>torch.Tensor</em>) – Latitude coordinates. Shape <code class="docutils literal notranslate"><span class="pre">(H,)</span></code> for a regular grid or
+<code class="docutils literal notranslate"><span class="pre">(H,</span> <span class="pre">W)</span></code> for an irregular grid.</p></li>
+<li><p><strong>grid_lon</strong> (<em>np.ndarray</em><em> or </em><em>torch.Tensor</em>) – Longitude coordinates. Shape <code class="docutils literal notranslate"><span class="pre">(W,)</span></code> for a regular grid or
+<code class="docutils literal notranslate"><span class="pre">(H,</span> <span class="pre">W)</span></code> for an irregular grid. Values are expected in [0, 360).</p></li>
+<li><p><strong>device</strong> (<em>torch.device</em><em>, </em><em>str</em><em>, or </em><em>None</em><em>, </em><em>optional</em>) – Target device. Inferred from <code class="docutils literal notranslate"><span class="pre">grid_lat</span></code> when it is a
+<code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code>; defaults to CPU otherwise.</p></li>
 </ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If <code class="docutils literal notranslate"><span class="pre">grid_lat</span></code> is neither 1-D nor 2-D.</p>
 </dd>
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.statistics.std.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/statistics/moments.py#L336-L353"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.std.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Apply the sample standard deviation operation over the tensor x.</p>
-<p>If batch_update was passed True upon metric initialization then this method
-returns the running sample standard deviation over all seen batches.</p>
+<dt class="sig sig-object py" id="earth2studio.utils.obs.ObsGridMapping.grid_to_obs">
+<span class="sig-name descname"><span class="pre">grid_to_obs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obs_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obs_i</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obs_j</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'linear'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/utils/obs.py#L377-L443"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.utils.obs.ObsGridMapping.grid_to_obs" title="Link to this definition">#</a></dt>
+<dd><p>Sample grid values at observation locations (differentiable).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input data to compute sample standard deviation.</p></li>
-<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Coordinates referring to the input data, x.</p></li>
+<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Grid tensor of shape <code class="docutils literal notranslate"><span class="pre">(C,</span> <span class="pre">H,</span> <span class="pre">W)</span></code>.</p></li>
+<li><p><strong>obs_c</strong> (<em>torch.Tensor</em>) – Channel index for each observation.</p></li>
+<li><p><strong>obs_i</strong> (<em>torch.Tensor</em>) – Fractional row index for each observation.</p></li>
+<li><p><strong>obs_j</strong> (<em>torch.Tensor</em>) – Fractional column index for each observation.</p></li>
+<li><p><strong>method</strong> (<em>{&quot;nearest&quot;</em><em>, </em><em>&quot;linear&quot;}</em><em>, </em><em>optional</em>) – Interpolation method.  <code class="docutils literal notranslate"><span class="pre">&quot;linear&quot;</span></code> (default) performs bilinear
+interpolation and supports gradient backpropagation.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>tuple[<em>Tensor</em>, <em>OrderedDict</em>[str, <em>ndarray</em>]]</p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Sampled values, shape <code class="docutils literal notranslate"><span class="pre">(N,)</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>torch.Tensor</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If <code class="docutils literal notranslate"><span class="pre">method</span></code> is not <code class="docutils literal notranslate"><span class="pre">&quot;nearest&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;linear&quot;</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="earth2studio.utils.obs.ObsGridMapping.obs_coords">
+<span class="sig-name descname"><span class="pre">obs_coords</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">obs_var</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">obs_lat</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">obs_lon</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">remove_out_of_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/utils/obs.py#L195-L264"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.utils.obs.ObsGridMapping.obs_coords" title="Link to this definition">#</a></dt>
+<dd><p>Convert observation locations to fractional grid indices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>obs_var</strong> (<em>np.ndarray</em>) – Variable name for each observation.</p></li>
+<li><p><strong>obs_lat</strong> (<em>np.ndarray</em>) – Latitude of each observation in degrees.</p></li>
+<li><p><strong>obs_lon</strong> (<em>np.ndarray</em>) – Longitude of each observation in degrees, in [0, 360).</p></li>
+<li><p><strong>remove_out_of_bounds</strong> (<em>bool</em><em>, </em><em>optional</em>) – When <code class="docutils literal notranslate"><span class="pre">True</span></code> (default), observations outside the grid or with an
+unknown variable are removed from the returned arrays.  The full
+boolean mask is always returned as the fourth element.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>obs_c</strong> (<em>torch.Tensor</em>) – Channel index for each (retained) observation.</p></li>
+<li><p><strong>obs_i</strong> (<em>torch.Tensor</em>) – Fractional row index in the grid for each observation.</p></li>
+<li><p><strong>obs_j</strong> (<em>torch.Tensor</em>) – Fractional column index in the grid for each observation.</p></li>
+<li><p><strong>obs_in_bounds</strong> (<em>torch.Tensor</em>) – Boolean mask of length <code class="docutils literal notranslate"><span class="pre">N</span></code> indicating which of the original
+observations are in-bounds and have a known variable.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[<em>Tensor</em>, <em>Tensor</em>, <em>Tensor</em>, <em>Tensor</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="earth2studio.utils.obs.ObsGridMapping.obs_to_grid">
+<span class="sig-name descname"><span class="pre">obs_to_grid</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">obs</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">request_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">time_tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">return_empty_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/utils/obs.py#L266-L375"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.utils.obs.ObsGridMapping.obs_to_grid" title="Link to this definition">#</a></dt>
+<dd><p>Bin point observations onto the model grid.</p>
+<p>Observations are filtered to <code class="docutils literal notranslate"><span class="pre">variables</span></code> and to those within
+<code class="docutils literal notranslate"><span class="pre">time_tolerance</span></code> of <code class="docutils literal notranslate"><span class="pre">request_time</span></code>.  Multiple observations that
+fall in the same grid cell are averaged.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>obs</strong> (<em>pd.DataFrame</em><em> or </em><em>None</em>) – Observation table with columns <code class="docutils literal notranslate"><span class="pre">variable</span></code>, <code class="docutils literal notranslate"><span class="pre">lat</span></code>, <code class="docutils literal notranslate"><span class="pre">lon</span></code>, <code class="docutils literal notranslate"><span class="pre">observation</span></code>.
+If <code class="docutils literal notranslate"><span class="pre">request_time</span></code> is used, <code class="docutils literal notranslate"><span class="pre">obs</span></code> must also have a <code class="docutils literal notranslate"><span class="pre">time</span></code> column.</p></li>
+<li><p><strong>variables</strong> (<em>list</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Variable names to retain; others are discarded. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) uses all variables.</p></li>
+<li><p><strong>request_time</strong> (<em>np.datetime64</em><em>, </em><em>optional</em>) – Target valid time for the observations. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) skips time filtering.</p></li>
+<li><p><strong>time_tolerance</strong> (<em>np.timedelta64</em><em>, </em><em>tuple</em><em>[</em><em>np.timedelta64</em><em>, </em><em>np.timedelta64</em><em>]</em><em>, </em><em>optional</em>) – Time window used to filter observations around <code class="docutils literal notranslate"><span class="pre">request_time</span></code>.
+A single <code class="docutils literal notranslate"><span class="pre">np.timedelta64</span></code> creates a symmetric window
+<code class="docutils literal notranslate"><span class="pre">[-time_tolerance,</span> <span class="pre">+time_tolerance]</span></code>.  A 2-tuple
+<code class="docutils literal notranslate"><span class="pre">(lower,</span> <span class="pre">upper)</span></code> is passed directly to <code class="docutils literal notranslate"><span class="pre">filter_time_range</span></code>
+as an asymmetric window. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) skips time filtering.</p></li>
+<li><p><strong>return_empty_grid</strong> (<em>bool</em><em>, </em><em>optional</em>) – When <code class="docutils literal notranslate"><span class="pre">True</span></code>, return zero-filled tensors instead of
+<code class="docutils literal notranslate"><span class="pre">(None,</span> <span class="pre">None)</span></code> when no observations are gridded.
+Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>y_obs</strong> (<em>torch.Tensor or None</em>) – Gridded observations, shape <code class="docutils literal notranslate"><span class="pre">(1,</span> <span class="pre">C,</span> <span class="pre">H,</span> <span class="pre">W)</span></code>, or <code class="docutils literal notranslate"><span class="pre">None</span></code> when no
+observations remain and <code class="docutils literal notranslate"><span class="pre">return_empty_grid</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><strong>mask</strong> (<em>torch.Tensor or None</em>) – Observation count per cell (float), same shape as <code class="docutils literal notranslate"><span class="pre">y_obs</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">None</span></code> under the same condition as above.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[<em>Tensor</em>, <em>Tensor</em>] | tuple[None, None]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -822,20 +919,20 @@ returns the running sample standard deviation over all seen batches.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.statistics.spread_skill_ratio.html"
+       href="earth2studio.utils.interp.LatLonInterpolation.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">spread_skill_ratio</p>
+        <p class="prev-next-title">LatLonInterpolation</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.statistics.variance.html"
+       href="earth2studio.utils.time.timearray_to_datetime.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">variance</p>
+        <p class="prev-next-title">timearray_to_datetime</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -860,8 +957,10 @@ returns the running sample standard deviation over all seen batches.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.statistics.std"><code class="docutils literal notranslate"><span class="pre">std</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.statistics.std.__call__"><code class="docutils literal notranslate"><span class="pre">__call__()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.utils.obs.ObsGridMapping"><code class="docutils literal notranslate"><span class="pre">ObsGridMapping</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.utils.obs.ObsGridMapping.grid_to_obs"><code class="docutils literal notranslate"><span class="pre">grid_to_obs()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.utils.obs.ObsGridMapping.obs_coords"><code class="docutils literal notranslate"><span class="pre">obs_coords()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.utils.obs.ObsGridMapping.obs_to_grid"><code class="docutils literal notranslate"><span class="pre">obs_to_grid()</span></code></a></li>
 </ul>
 </li>
 </ul>

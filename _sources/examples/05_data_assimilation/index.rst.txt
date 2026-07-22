@@ -23,7 +23,7 @@ Examples demonstrating data assimilation workflows in Earth2Studio.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="Running StormCast with guided diffusion posterior sampling to assimilate observations.">
+    <div class="sphx-glr-thumbcontainer" tooltip="Running StormCast-CONUS with guided diffusion posterior sampling to assimilate observations.">
 
 .. only:: html
 
@@ -34,7 +34,7 @@ Examples demonstrating data assimilation workflows in Earth2Studio.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">StormCast Score-Based Data Assimilation</div>
+      <div class="sphx-glr-thumbnail-title">StormCast-CONUS Score-Based Data Assimilation</div>
     </div>
 
 
