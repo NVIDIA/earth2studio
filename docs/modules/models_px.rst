@@ -40,6 +40,8 @@ Thus are typically used to generate forecast predictions.
       AIFSENS
       Atlas
       Aurora
+      Aurora1p5
+      Aurora1p5Ensemble
       CBottleVideo
       DiagnosticWrapper
       DLESyM
@@ -61,6 +63,7 @@ Thus are typically used to generate forecast predictions.
       Persistence
       SFNO
       StormCast
+      StormCastCONUS
       StormScopeGOES
       StormScopeMRMS
       StormScopeNSRDB

@@ -96,6 +96,32 @@ def arco_grid() -> tuple[torch.Tensor, torch.Tensor]:
     return _as_tensor(ARCO.ARCO_LAT), _as_tensor(ARCO.ARCO_LON)
 
 
+def glm_grid(
+    satellite: str = "east",
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return ``(lats, lons)`` for the gridded GOES GLM lightning source.
+
+    Reads the 0.1-degree cell-centre ``lat`` / ``lon`` vectors exposed by
+    :class:`earth2studio.data.GOESGLMGrid`.  These are the source grid for
+    StormScope's ``glm_density`` state channel; the recipe pairs this
+    resolver with :class:`~src.regrid.BilinearRegridder` at predownload time
+    to resample GLM onto the model's HRRR sub-region exactly as the model's
+    internal ``build_glm_interpolator`` would.
+
+    The grid is fixed (regular 0.1-degree CONUS box) and independent of the
+    ``satellite`` selector, but the argument is accepted for symmetry with
+    the ``GOESGLMGrid`` constructor and the ``glm_data_source`` config block::
+
+        glm_grid:
+            _target_: src.grids.glm_grid
+            satellite: east
+    """
+    from earth2studio.data import GOESGLMGrid
+
+    grid = GOESGLMGrid(satellite=satellite)
+    return _as_tensor(grid.lat), _as_tensor(grid.lon)
+
+
 def mrms_grid(
     sample_time: str | datetime | None = None,
     variable: str = "refc",

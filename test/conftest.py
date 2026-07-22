@@ -53,6 +53,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/data/test_cds.py": ["data"],
     "test/data/test_cams.py": ["data"],
     "test/data/test_cmip6.py": ["data"],
+    "test/data/test_dynamical.py": ["data"],
     "test/data/test_gdas.py": ["data"],
     "test/data/test_planetary_computer.py": ["data"],
     "test/data/test_hrrr.py": ["data"],
@@ -100,6 +101,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/px/test_pangu.py": ["pangu"],
     "test/models/px/test_sfno.py": ["sfno"],
     "test/models/px/test_stormcast.py": ["stormcast"],
+    "test/models/px/test_stormcastconus.py": ["stormcast-conus"],
     "test/models/px/test_stormscope.py": ["stormscope"],
     "test/models/px/test_dxwrapper.py": [
         "fcn3",
@@ -135,6 +137,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/perturbation/test_gaussian.py": ["perturbation"],
     # Utils tests
     "test/utils/test_interp.py": ["utils"],
+    "test/utils/test_obs.py": ["utils"],
 }
 
 
