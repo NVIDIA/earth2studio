@@ -207,11 +207,11 @@ test-px-models:
     - <<: *test_rule_never
 
 # TODO: REMOVE, CONFLICT CURRENTLY
-test-px-ace2:
+test-px-conflics:
   extends:
     - .test:base
   variables:
-    TOX_ENV: test-px-models-ace2
+    TOX_ENV: test-px-models-conflicts
   rules:
     - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
