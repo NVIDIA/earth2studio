@@ -23,6 +23,7 @@ import torch
 
 from earth2studio.data import HRRR, Random, fetch_data
 from earth2studio.models.px import StormCastCONUS
+from earth2studio.models.px.stormcastconus import _SplitModelWrapper
 from earth2studio.utils import handshake_dim
 
 # Small subdomain aligned to the mock patch size (8, 8) so that crop_model
@@ -40,17 +41,20 @@ class _PatchConfig:
     patch_size = (8, 8)
 
 
-class PhooStormCastCONUSDiffusionModel(torch.nn.Module):
+class PhooStormCastCONUSDiffusionModel(_SplitModelWrapper):
     """Minimal diffusion model stub for StormCastCONUS unit tests.
 
-    Exposes ``model_high.model.model.patch_size`` as required by the crop_model
-    path in ``StormCastCONUS.__init__``.  ``crop_model`` is a no-op.
+    Subclasses :class:`_SplitModelWrapper` so that it passes the ``isinstance``
+    check in ``StormCastCONUS.__init__``.  Skips the real ``__init__`` and
+    exposes ``model_high.model.model.patch_size`` as required by the crop_model
+    path.  ``crop_model`` is a no-op.
     The forward pass returns the (unchanged) noisy input so the diffusion
     sampler converges trivially.
     """
 
     def __init__(self, nvar: int):
-        super().__init__()
+        # Skip _SplitModelWrapper.__init__; only call torch.nn.Module.__init__
+        torch.nn.Module.__init__(self)
         self._nvar = nvar
         dit = _PatchConfig()
         inner = type("_Inner", (), {"model": dit})()
