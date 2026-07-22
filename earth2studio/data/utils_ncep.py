@@ -6,12 +6,14 @@
 
 from __future__ import annotations
 
+import pathlib
 import time
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Protocol, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -45,7 +47,7 @@ from earth2studio.data.utils_bufr import (
     parse_prepbufr_messages as _parse_prepbufr_messages,
 )
 from earth2studio.data.utils_bufr import silence_bufr_noise as _silence_bufr_noise
-from earth2studio.lexicon.base import E2STUDIO_SCHEMA
+from earth2studio.lexicon.base import E2STUDIO_SCHEMA, LexiconType
 
 # GPS RO BUFR descriptor IDs (NCEP gpsro encoding). GPSRO is not a PrepBUFR
 # conventional report, so conventional semantics do not apply: there is no TYP
@@ -893,13 +895,16 @@ class _NCEPGpsroAdapter:
     def decode_file(
         self,
         path: str,
-        plan: Mapping[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]],
+        plan: Mapping[str, tuple[str | int, Callable[[pd.DataFrame], pd.DataFrame]]],
         dt_min: datetime,
         dt_max: datetime,
     ) -> pd.DataFrame:
-        # Descriptors drive decode (pickled to workers); modifiers stay here
-        # for finalize (closures cannot cross the process-pool boundary).
-        wanted_descrs = {key: variable for variable, (key, _) in plan.items()}
+        # Descriptors drive decode (pickled to workers); modifiers stay here for
+        # finalize (closures cannot cross the process-pool boundary). Callers
+        # pass the descriptor id as a string (shared planner) or int (GDAS until
+        # it migrates). TODO(gdas migration): once GDAS uses the shared planner
+        # (str keys), narrow the union to str and drop the int coercion.
+        wanted_descrs = {int(key): variable for variable, (key, _) in plan.items()}
         modifiers = {variable: modifier for variable, (_, modifier) in plan.items()}
         with open(path, "rb") as file:
             file_data = file.read()
@@ -944,3 +949,699 @@ class _NCEPGpsroAdapter:
             modifiers,
             convert_pres_mb_to_pa=False,
         )
+
+
+# -----------------------------------------------------------------------------
+# Shared NCEP observation request helpers. Keep these as stateless utilities:
+# concrete data sources own transport/cache state and pass callables in where
+# source-specific behavior is needed.
+# -----------------------------------------------------------------------------
+
+_NCEPObsModifier = Callable[[pd.DataFrame], pd.DataFrame]
+# Decode plan: variable id -> (route-specific decode key, post-decode modifier).
+# The key is the raw string after the lexicon "route::" prefix; each adapter
+# interprets it (PrepBUFR mnemonic, or GPS RO descriptor id parsed to int).
+_NCEPPlan = Mapping[str, tuple[str, _NCEPObsModifier]]
+
+
+@dataclass(frozen=True)
+class _NCEPObsTask:
+    """One conventional NCEP observation cycle file to fetch and decode."""
+
+    uri: str
+    route: str
+    datetime_file: datetime
+    datetime_min: datetime
+    datetime_max: datetime
+    var_plan: _NCEPPlan
+
+
+class _NCEPObsTaskLike(Protocol):
+    """Minimal task interface required by ``compile_dataframe``."""
+
+    @property
+    def uri(self) -> str: ...
+
+
+_NCEPObsTaskT = TypeVar("_NCEPObsTaskT", bound=_NCEPObsTaskLike)
+
+
+def plan_conv_tasks(
+    windows: Mapping[datetime, tuple[datetime, datetime]],
+    variable: list[str],
+    lexicon: LexiconType,
+    build_uri: Callable[[str, datetime], str],
+) -> list[_NCEPObsTask]:
+    """Partition variables by lexicon route prefix into per-cycle conv tasks.
+
+    Parameters
+    ----------
+    windows : Mapping[datetime, tuple[datetime, datetime]]
+        Cycle datetime -> (min, max) observation-time window, already merged.
+    variable : list[str]
+        Requested variable ids, routed by their ``"route::key"`` lexicon prefix.
+    lexicon : LexiconType
+        Source lexicon mapping a variable id to ``("route::key", modifier)``.
+    build_uri : Callable[[str, datetime], str]
+        Source hook returning the archive URI for a ``(route, cycle)`` pair.
+
+    Returns
+    -------
+    list[_NCEPObsTask]
+        One task per ``(route, cycle)``.
+    """
+    plans: dict[str, dict[str, tuple[str, _NCEPObsModifier]]] = {}
+    for v in variable:
+        try:
+            source_key, modifier = lexicon[v]
+        except KeyError:
+            logger.error(f"Variable id '{v}' not found in {lexicon.__name__}")
+            raise
+        route, _, rest = source_key.partition("::")
+        plans.setdefault(route, {})[v] = (rest, modifier)
+
+    tasks: list[_NCEPObsTask] = []
+    for cycle, (tmin, tmax) in windows.items():
+        for route, plan in plans.items():
+            tasks.append(
+                _NCEPObsTask(
+                    uri=build_uri(route, cycle),
+                    route=route,
+                    datetime_file=cycle,
+                    datetime_min=tmin,
+                    datetime_max=tmax,
+                    var_plan=plan,
+                )
+            )
+    return tasks
+
+
+def observation_cycle_times(
+    time: datetime,
+    tolerance_lower: timedelta,
+    tolerance_upper: timedelta,
+    cadence: timedelta = timedelta(hours=6),
+) -> list[datetime]:
+    """Return cadence file times whose observation windows overlap a request.
+
+    Each file timestamp is treated as the end of its observation window, so a
+    file at ``T`` may contain observations from ``(T - cadence, T]``. This means
+    requests often need the next cycle file as well as the cycle at or before
+    the requested time.
+
+    Parameters
+    ----------
+    time : datetime
+        Requested observation timestamp.
+    tolerance_lower : timedelta
+        Lower tolerance bound relative to ``time``.
+    tolerance_upper : timedelta
+        Upper tolerance bound relative to ``time``.
+    cadence : timedelta, optional
+        Cadence between published files, by default ``timedelta(hours=6)``.
+
+    Returns
+    -------
+    list[datetime]
+        Cadence-aligned file timestamps whose backward-looking observation
+        windows overlap ``[time + tolerance_lower, time + tolerance_upper]``.
+
+    Raises
+    ------
+    ValueError
+        If ``cadence`` is not positive.
+    """
+    if cadence <= timedelta(0):
+        raise ValueError("cadence must be positive")
+
+    tmin = time + tolerance_lower
+    tmax = time + tolerance_upper
+    day_start = tmin.replace(hour=0, minute=0, second=0, microsecond=0)
+    cycle = day_start + ((tmin - day_start) // cadence) * cadence
+    if cycle < tmin:
+        cycle += cadence
+
+    cycles: list[datetime] = []
+    while cycle < tmax + cadence:
+        cycles.append(cycle)
+        cycle += cadence
+    return cycles
+
+
+def cycle_windows(
+    time_list: list[datetime],
+    tolerance_lower: timedelta,
+    tolerance_upper: timedelta,
+    cadence: timedelta = timedelta(hours=6),
+) -> dict[datetime, tuple[datetime, datetime]]:
+    """Map cadence file times to merged requested observation windows.
+
+    Parameters
+    ----------
+    time_list : list[datetime]
+        Requested observation timestamps.
+    tolerance_lower : timedelta
+        Lower tolerance bound relative to each requested timestamp.
+    tolerance_upper : timedelta
+        Upper tolerance bound relative to each requested timestamp.
+    cadence : timedelta, optional
+        Cadence between published files, by default ``timedelta(hours=6)``.
+
+    Returns
+    -------
+    dict[datetime, tuple[datetime, datetime]]
+        Mapping from each required cadence file timestamp to the merged
+        observation-time window covered by requests for that file.
+    """
+    windows: dict[datetime, tuple[datetime, datetime]] = {}
+    for t in time_list:
+        tmin = t + tolerance_lower
+        tmax = t + tolerance_upper
+        for cycle in observation_cycle_times(
+            t, tolerance_lower, tolerance_upper, cadence
+        ):
+            existing = windows.get(cycle)
+            windows[cycle] = (
+                (min(existing[0], tmin), max(existing[1], tmax))
+                if existing is not None
+                else (tmin, tmax)
+            )
+    return windows
+
+
+def resolve_output_schema(
+    schema: pa.Schema,
+    fields: str | list[str] | pa.Schema | None,
+    *,
+    class_name: str,
+) -> pa.Schema:
+    """Resolve a requested field subset against a source schema."""
+    if fields is None:
+        return schema
+    if isinstance(fields, str):
+        fields = [fields]
+    if isinstance(fields, pa.Schema):
+        for f in fields:
+            if f.name not in schema.names:
+                raise KeyError(
+                    f"Field '{f.name}' not in {class_name} SCHEMA. "
+                    f"Available: {schema.names}"
+                )
+            expected = schema.field(f.name).type
+            if f.type != expected:
+                raise TypeError(
+                    f"Field '{f.name}' has type {f.type}, expected "
+                    f"{expected} from class SCHEMA"
+                )
+        return fields
+    selected = []
+    for name in fields:
+        if name not in schema.names:
+            raise KeyError(
+                f"Field '{name}' not in {class_name} SCHEMA. "
+                f"Available: {schema.names}"
+            )
+        selected.append(schema.field(name))
+    return pa.schema(selected)
+
+
+def compile_dataframe(
+    tasks: Sequence[_NCEPObsTaskT],
+    schema: pa.Schema,
+    source_id: str,
+    local_path: Callable[[str], str],
+    decode_task: Callable[[str, _NCEPObsTaskT], pd.DataFrame],
+    handle_incomplete_task: Callable[[str, int, int, Exception], None] | None = None,
+) -> pd.DataFrame:
+    """Decode cached task files and concatenate them into a DataFrame."""
+    frames: list[pd.DataFrame] = []
+    n_tasks = len(tasks)
+    compile_t0 = time.perf_counter()
+    for idx, task in enumerate(tasks, start=1):
+        uri = task.uri
+        path = local_path(uri)
+        if not pathlib.Path(path).is_file():
+            error = FileNotFoundError(path)
+            if handle_incomplete_task is not None:
+                handle_incomplete_task(uri, idx, n_tasks, error)
+            logger.warning(f"Cached file missing for {uri}, skipping")
+            continue
+        short_uri = uri.rsplit("/", 1)[-1]
+        logger.info(f"[{source_id}] decode {idx}/{n_tasks} start: {short_uri}")
+        t0 = time.perf_counter()
+        try:
+            df = decode_task(path, task)
+        except Exception as exc:  # pragma: no cover - defensive
+            if handle_incomplete_task is not None:
+                handle_incomplete_task(uri, idx, n_tasks, exc)
+            logger.error(f"Failed to decode {path}: {exc}")
+            continue
+        elapsed = time.perf_counter() - t0
+        if df is None or df.empty:
+            logger.info(
+                f"[{source_id}] decode {idx}/{n_tasks} done : "
+                f"{short_uri} (empty) in {elapsed:.1f}s"
+            )
+            continue
+        logger.info(
+            f"[{source_id}] decode {idx}/{n_tasks} done : "
+            f"{short_uri} ({len(df):,} rows) in {elapsed:.1f}s"
+        )
+        df.attrs["source"] = source_id
+        frames.append(df)
+
+    logger.info(
+        f"[{source_id}] compile finished: {len(frames)} non-empty "
+        f"frames, total {time.perf_counter() - compile_t0:.1f}s"
+    )
+
+    if not frames:
+        result = _empty_dataframe(schema)
+    else:
+        result = pd.concat(frames, ignore_index=True)
+        result = result[[name for name in schema.names if name in result.columns]]
+    result.attrs["source"] = source_id
+    return result
+
+
+# NCEP aggregate microwave BUFR decoding.
+_C_CM_S = 2.99792458e10
+_DECODE_BATCH_SIZE = 32
+
+_NCEP_SATELLITE_NAME_BY_SAID: dict[int, str] = {
+    3: "metop-b",
+    4: "metop-a",
+    5: "metop-c",
+    206: "n15",
+    207: "n16",
+    208: "n17",
+    209: "n18",
+    223: "n19",
+    224: "npp",
+    225: "n20",
+    226: "n21",
+}
+_NCEP_MICROWAVE_SATELLITES = frozenset(_NCEP_SATELLITE_NAME_BY_SAID.values())
+
+# BUFR descriptors used by the NCEP aggregate microwave templates.
+_SAID = 1007
+_YEAR = 4001
+_MONTH = 4002
+_DAY = 4003
+_HOUR = 4004
+_MINUTE = 4005
+_SECOND = 4006
+_SCAN_LINE = 5041
+_CHANNEL_NUMBER = 5042
+_FOV_NUMBER = 5043
+_LAT_HIGH = 5001
+_LAT_COARSE = 5002
+_LON_HIGH = 6001
+_LON_COARSE = 6002
+_SATELLITE_ZENITH = 7024
+_SOLAR_ZENITH = 7025
+_SURFACE_ELEVATION = 10001
+_BEARING_OR_AZIMUTH = 5021
+_SOLAR_AZIMUTH = 5022
+_CHANNEL_FREQUENCY = 2153
+_ANTENNA_TEMPERATURE = 12066
+_BRIGHTNESS_TEMPERATURE = 12163
+_CHANNEL_QUALITY = 33081
+
+_SCALAR_DESCRIPTORS = {
+    _SAID,
+    _YEAR,
+    _MONTH,
+    _DAY,
+    _HOUR,
+    _MINUTE,
+    _SECOND,
+    _SCAN_LINE,
+    _FOV_NUMBER,
+    _LAT_HIGH,
+    _LAT_COARSE,
+    _LON_HIGH,
+    _LON_COARSE,
+    _SATELLITE_ZENITH,
+    _SOLAR_ZENITH,
+    _SURFACE_ELEVATION,
+    _BEARING_OR_AZIMUTH,
+    _SOLAR_AZIMUTH,
+}
+
+_CHANNEL_DESCRIPTORS = {
+    _CHANNEL_FREQUENCY,
+    _ANTENNA_TEMPERATURE,
+    _BRIGHTNESS_TEMPERATURE,
+    _CHANNEL_QUALITY,
+}
+
+_SOURCE_FIELD_DESCRIPTORS = {
+    "TMANT": _ANTENNA_TEMPERATURE,
+    "TMBR": _BRIGHTNESS_TEMPERATURE,
+}
+
+# Signed nominal cross-track geometry. These are the instrument defaults used
+# by GSI's ``satstep`` routine, not experiment-specific ``scaninfo`` overrides:
+# https://github.com/NOAA-EMC/GSI/blob/860d13740352004fca0136a8c3d0ac9dea30e0da/src/gsi/radinfo.f90#L1523-L1643
+_NCEP_MICROWAVE_SCAN_GEOMETRY: dict[str, tuple[float, float]] = {
+    "atms": (-52.725, 1.11),
+    "amsua": (-48.0 - 1.0 / 3.0, 3.0 + 1.0 / 3.0),
+    "amsub": (-48.95, 1.1),
+    "mhs": (-445.0 / 9.0, 10.0 / 9.0),
+}
+
+
+class _NCEPMicrowaveDecodeError(RuntimeError):
+    def __init__(self, path: str, failed_messages: int, total_messages: int) -> None:
+        self.context: dict[str, object] = {
+            "path": path,
+            "decoded_messages": total_messages - failed_messages,
+            "failed_messages": failed_messages,
+            "total_messages": total_messages,
+        }
+        super().__init__(f"Incomplete microwave BUFR decode: {self.context}")
+
+
+_NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
+    [
+        E2STUDIO_SCHEMA.field("time"),
+        E2STUDIO_SCHEMA.field("class"),
+        E2STUDIO_SCHEMA.field("lat"),
+        E2STUDIO_SCHEMA.field("lon"),
+        E2STUDIO_SCHEMA.field("elev"),
+        E2STUDIO_SCHEMA.field("scan_angle"),
+        pa.field(
+            "scan_position",
+            pa.uint16(),
+            metadata={"description": "Encoded one-based field-of-view number"},
+        ),
+        pa.field("scan_line", pa.uint32(), nullable=True),
+        E2STUDIO_SCHEMA.field("sensor_index"),
+        E2STUDIO_SCHEMA.field("wavenumber"),
+        E2STUDIO_SCHEMA.field("solza"),
+        E2STUDIO_SCHEMA.field("solaza"),
+        E2STUDIO_SCHEMA.field("satellite_za"),
+        E2STUDIO_SCHEMA.field("satellite_aza"),
+        pa.field(
+            "quality",
+            pa.uint16(),
+            nullable=True,
+            metadata={
+                "description": (
+                    "Encoded channel-quality flags; interpretation is sensor "
+                    "and product specific"
+                )
+            },
+        ),
+        E2STUDIO_SCHEMA.field("satellite"),
+        E2STUDIO_SCHEMA.field("observation"),
+        E2STUDIO_SCHEMA.field("variable"),
+    ]
+)
+
+
+def _as_float(value: Any) -> float:
+    if value is None:
+        return np.nan
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return np.nan
+    return result if np.isfinite(result) else np.nan
+
+
+def _as_optional_int(value: Any) -> int | None:
+    number = _as_float(value)
+    if not np.isfinite(number):
+        return None
+    return int(round(number))
+
+
+def _nominal_microwave_scan_angle(sensor: str, scan_position: int) -> float:
+    """Return the signed nominal instrument look angle in degrees."""
+    try:
+        start, step = _NCEP_MICROWAVE_SCAN_GEOMETRY[sensor]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported NCEP microwave sensor: {sensor}") from exc
+    return start + (scan_position - 1) * step
+
+
+def _observation_time(scalars: Mapping[int, Any]) -> np.datetime64 | None:
+    required = (_YEAR, _MONTH, _DAY, _HOUR, _MINUTE, _SECOND)
+    if any(descriptor not in scalars for descriptor in required):
+        return None
+    second = _as_float(scalars[_SECOND])
+    if not np.isfinite(second) or second < 0.0 or second >= 61.0:
+        return None
+    try:
+        minute = datetime(
+            int(scalars[_YEAR]),
+            int(scalars[_MONTH]),
+            int(scalars[_DAY]),
+            int(scalars[_HOUR]),
+            int(scalars[_MINUTE]),
+        )
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+    # Fractional SECO is source data; no per-FOV timing is synthesized.
+    second_ns = int(np.rint(second * 1_000_000_000.0))
+    return np.datetime64(minute, "ns") + np.timedelta64(second_ns, "ns")
+
+
+def _decode_microwave_subset(
+    descriptors: Sequence[Any],
+    values: Sequence[Any],
+    sensor: str,
+    variable_fields: tuple[tuple[str, int], ...],
+    datetime_min: datetime,
+    datetime_max: datetime,
+    satellites: frozenset[str] | None,
+) -> list[dict[str, Any]]:
+    """Decode one aggregate microwave subset directly to long rows."""
+    scalars: dict[int, Any] = {}
+    channels: dict[int, dict[int, Any]] = {}
+    current_channel: int | None = None
+
+    for descriptor, value in zip(descriptors, values):
+        descriptor_id = int(descriptor.id)
+        if descriptor_id == _CHANNEL_NUMBER:
+            current_channel = _as_optional_int(value)
+            if current_channel is not None:
+                channels.setdefault(current_channel, {})
+            continue
+        if descriptor_id in _CHANNEL_DESCRIPTORS and current_channel is not None:
+            channels[current_channel].setdefault(descriptor_id, value)
+            continue
+        if (
+            descriptor_id in _SCALAR_DESCRIPTORS
+            and value is not None
+            and descriptor_id not in scalars
+        ):
+            scalars[descriptor_id] = value
+
+    observation_time = _observation_time(scalars)
+    satellite_id = _as_optional_int(scalars.get(_SAID))
+    scan_position = _as_optional_int(scalars.get(_FOV_NUMBER))
+    if (
+        observation_time is None
+        or satellite_id is None
+        or scan_position is None
+        or not channels
+    ):
+        return []
+    if observation_time < np.datetime64(
+        datetime_min, "ns"
+    ) or observation_time > np.datetime64(datetime_max, "ns"):
+        return []
+
+    latitude = _as_float(scalars.get(_LAT_HIGH))
+    longitude = _as_float(scalars.get(_LON_HIGH))
+    if not np.isfinite(latitude) or not np.isfinite(longitude):
+        latitude = _as_float(scalars.get(_LAT_COARSE))
+        longitude = _as_float(scalars.get(_LON_COARSE))
+    if (
+        not np.isfinite(latitude)
+        or latitude < -90.0
+        or latitude > 90.0
+        or not np.isfinite(longitude)
+    ):
+        return []
+
+    satellite = _NCEP_SATELLITE_NAME_BY_SAID.get(
+        satellite_id, f"satellite-{satellite_id}"
+    )
+    if satellites is not None and satellite not in satellites:
+        return []
+
+    scalar_values = {
+        "time": observation_time,
+        "class": "rad",
+        "lat": latitude,
+        "lon": longitude % 360.0,
+        "elev": _as_float(scalars.get(_SURFACE_ELEVATION)),
+        "scan_angle": _nominal_microwave_scan_angle(sensor, scan_position),
+        "scan_position": scan_position,
+        "scan_line": _as_optional_int(scalars.get(_SCAN_LINE)),
+        "solza": _as_float(scalars.get(_SOLAR_ZENITH)),
+        "solaza": _as_float(scalars.get(_SOLAR_AZIMUTH)),
+        "satellite_za": _as_float(scalars.get(_SATELLITE_ZENITH)),
+        "satellite_aza": _as_float(scalars.get(_BEARING_OR_AZIMUTH)),
+        "satellite": satellite,
+    }
+
+    rows: list[dict[str, Any]] = []
+    # Dict insertion order is the encoded CHNM order.
+    for channel_number in channels:
+        channel = channels[channel_number]
+        frequency = _as_float(channel.get(_CHANNEL_FREQUENCY))
+        channel_values = {
+            "sensor_index": channel_number,
+            "wavenumber": frequency / _C_CM_S,
+            "quality": _as_optional_int(channel.get(_CHANNEL_QUALITY)),
+        }
+        for variable, source_descriptor in variable_fields:
+            observation = _as_float(channel.get(source_descriptor))
+            if not np.isfinite(observation):
+                continue
+            rows.append(
+                {
+                    **scalar_values,
+                    **channel_values,
+                    "observation": observation,
+                    "variable": variable,
+                }
+            )
+    return rows
+
+
+def _decode_message_batch(
+    arguments: tuple[
+        str,
+        list[tuple[int, bytes]],
+        tuple[tuple[str, int], ...],
+        datetime,
+        datetime,
+        tuple[str, ...] | None,
+    ],
+) -> tuple[list[dict[str, Any]], int]:
+    sensor, messages, variable_fields, datetime_min, datetime_max, satellite_names = (
+        arguments
+    )
+    satellites = frozenset(satellite_names) if satellite_names is not None else None
+    if _worker_decoder is None:
+        raise RuntimeError("BUFR decoder worker is not initialized")
+
+    rows: list[dict[str, Any]] = []
+    failures = 0
+    with _silence_bufr_noise():
+        for _message_index, message_bytes in messages:
+            try:
+                message = _worker_decoder.process(message_bytes)
+                template_data = message.template_data.value
+                descriptors_all = template_data.decoded_descriptors_all_subsets
+                values_all = template_data.decoded_values_all_subsets
+            except Exception:
+                failures += 1
+                continue
+
+            for descriptors, values in zip(descriptors_all, values_all):
+                rows.extend(
+                    _decode_microwave_subset(
+                        descriptors,
+                        values,
+                        sensor,
+                        variable_fields,
+                        datetime_min,
+                        datetime_max,
+                        satellites,
+                    )
+                )
+    return rows, failures
+
+
+def _rows_to_dataframe(rows: list[dict[str, Any]]) -> pd.DataFrame:
+    table = pa.Table.from_pylist(rows, schema=_NCEP_MICROWAVE_OUTPUT_SCHEMA)
+
+    def types_mapper(data_type: pa.DataType) -> pd.ArrowDtype | None:
+        if pa.types.is_unsigned_integer(data_type):
+            return pd.ArrowDtype(data_type)
+        return None
+
+    return table.to_pandas(types_mapper=types_mapper)
+
+
+class _NCEPMicrowaveAdapter:
+    """Decode NCEP aggregate microwave BUFR independently of its transport."""
+
+    def __init__(self, decode_workers: int = 8) -> None:
+        self.decode_workers = max(1, decode_workers)
+
+    def decode_file(
+        self,
+        path: str,
+        sensor: str,
+        plan: Mapping[str, str],
+        datetime_min: datetime,
+        datetime_max: datetime,
+        satellites: tuple[str, ...] | None = None,
+    ) -> pd.DataFrame:
+        """Decode one local NCEP aggregate microwave BUFR file."""
+        variable_fields = tuple(
+            (variable, _SOURCE_FIELD_DESCRIPTORS[source_field])
+            for variable, source_field in plan.items()
+        )
+        file_data = pathlib.Path(path).read_bytes()
+        table_b, table_d, messages = _parse_prepbufr_messages(
+            file_data, silence_noise=True
+        )
+        if not table_b or not table_d:
+            raise ValueError(f"Embedded NCEP BUFR tables are missing from {path}")
+        indexed_messages = list(enumerate(message for message, _ in messages))
+        batches = [
+            indexed_messages[index : index + _DECODE_BATCH_SIZE]
+            for index in range(0, len(indexed_messages), _DECODE_BATCH_SIZE)
+        ]
+        arguments = [
+            (
+                sensor,
+                batch,
+                variable_fields,
+                datetime_min,
+                datetime_max,
+                satellites,
+            )
+            for batch in batches
+        ]
+
+        started = time.perf_counter()
+        rows: list[dict[str, Any]] = []
+        failures = 0
+        if self.decode_workers > 1 and len(batches) > 1:
+            with ProcessPoolExecutor(
+                max_workers=min(self.decode_workers, len(batches)),
+                initializer=_init_decode_worker,
+                initargs=(table_b, table_d),
+            ) as pool:
+                # Executor.map preserves input order, so batch assembly remains
+                # in exact source-message order even when workers finish out of order.
+                for batch_rows, batch_failures in pool.map(
+                    _decode_message_batch, arguments
+                ):
+                    rows.extend(batch_rows)
+                    failures += batch_failures
+        else:
+            _init_decode_worker(table_b, table_d)
+            for argument in arguments:
+                batch_rows, batch_failures = _decode_message_batch(argument)
+                rows.extend(batch_rows)
+                failures += batch_failures
+
+        if failures:
+            raise _NCEPMicrowaveDecodeError(path, failures, len(messages))
+        logger.debug(
+            f"Decoded {len(rows):,} {sensor} channel rows in "
+            f"{time.perf_counter() - started:.1f}s"
+        )
+        return _rows_to_dataframe(rows)

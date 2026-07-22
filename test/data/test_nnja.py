@@ -26,9 +26,10 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-import earth2studio.data.ncep_obs as ncep_microwave
 import earth2studio.data.nnja as nnja
 from earth2studio.data import NNJAObsConv, NNJAObsSat, utils_ncep
+
+ncep_microwave = utils_ncep
 
 pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
 
@@ -80,7 +81,7 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
         }
     )
 
-    with patch("earth2studio.data.ncep_obs._sync_async") as mock_sync:
+    with patch("earth2studio.data.nnja._sync_async") as mock_sync:
         mock_sync.return_value = mock_df
 
         ds = NNJAObsConv(time_tolerance=timedelta(0), cache=cache, verbose=False)
@@ -145,12 +146,8 @@ def test_nnja_obs_conv_validate_time():
     NNJAObsConv._validate_time([datetime(2024, 1, 1, 6)])
     NNJAObsConv._validate_time([datetime(2024, 1, 1, 12)])
     NNJAObsConv._validate_time([datetime(2024, 1, 1, 18)])
-
-    with pytest.raises(ValueError):
-        NNJAObsConv._validate_time([datetime(2024, 1, 1, 1)])
-
-    with pytest.raises(ValueError):
-        NNJAObsConv._validate_time([datetime(2024, 1, 1, 0, 30)])
+    NNJAObsConv._validate_time([datetime(2024, 1, 1, 1)])
+    NNJAObsConv._validate_time([datetime(2024, 1, 1, 0, 30)])
 
     with pytest.raises(ValueError):
         NNJAObsConv._validate_time([datetime(1970, 1, 1, 0)])
@@ -239,7 +236,7 @@ def test_nnja_obs_conv_mock_fetch():
         ds = NNJAObsConv(time_tolerance=timedelta(0), cache=False, verbose=False)
 
         # Patch _sync_async to call the mock directly
-        with patch("earth2studio.data.ncep_obs._sync_async") as mock_sync:
+        with patch("earth2studio.data.nnja._sync_async") as mock_sync:
             mock_sync.return_value = mock_df
             df = ds(datetime(2024, 1, 1, 0), ["t"])
 
@@ -250,29 +247,15 @@ def test_nnja_obs_conv_mock_fetch():
 
 
 def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
-    """Exercise the three-operation store seam through __call__.
+    """Exercise the composed request/transport seam through __call__.
 
-    Verifies the shared lifecycle drives ``fetch_files`` and ``local_path`` and
-    delegates teardown to ``cleanup`` in the ``__call__`` finally, including
-    when the request fails mid-flight.
+    Verifies the request path drives the transport ``fetch_files`` and
+    ``local_path`` and delegates teardown to ``cleanup`` in the ``__call__``
+    finally, including when the request fails mid-flight.
     """
 
     cached_file = tmp_path / "cached.bufr"
     cached_file.write_bytes(b"fixture")
-
-    class FakeStore:
-        def __init__(self):
-            self.fetched: list[str] = []
-            self.cleanup_calls = 0
-
-        async def fetch_files(self, uris):
-            self.fetched = list(uris)
-
-        def local_path(self, uri):
-            return str(cached_file)
-
-        def cleanup(self):
-            self.cleanup_calls += 1
 
     frame = pd.DataFrame(
         {
@@ -282,8 +265,19 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
         }
     )
     source = NNJAObsConv(cache=True, verbose=False)
-    store = FakeStore()
-    source._store = store
+
+    fetched: list[str] = []
+    cleanup_calls = {"n": 0}
+
+    async def fake_fetch_files(uris):
+        fetched.extend(uris)
+
+    def fake_cleanup():
+        cleanup_calls["n"] += 1
+
+    monkeypatch.setattr(source, "fetch_files", fake_fetch_files)
+    monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
+    monkeypatch.setattr(source, "cleanup", fake_cleanup)
     monkeypatch.setattr(source, "_decode_file", lambda path, task: frame)
 
     result = source(
@@ -292,72 +286,41 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
         fields=["time", "observation", "variable"],
     )
 
-    assert store.fetched == [source._build_prepbufr_uri(datetime(2024, 1, 1))]
+    assert fetched == [source._build_uri("prepbufr", datetime(2024, 1, 1))]
     assert result.equals(frame)
     assert result.attrs == {"source": source.SOURCE_ID}
-    assert store.cleanup_calls == 1
+    assert cleanup_calls["n"] == 1
 
     # cleanup must still run if the request fails mid-flight
     async def boom_fetch(uris):
         raise RuntimeError("fetch failed")
 
-    monkeypatch.setattr(store, "fetch_files", boom_fetch)
+    monkeypatch.setattr(source, "fetch_files", boom_fetch)
     with pytest.raises(RuntimeError):
         source(
             datetime(2024, 1, 1),
             ["t"],
             fields=["time", "observation", "variable"],
         )
-    assert store.cleanup_calls == 2
-
-
-@pytest.mark.asyncio
-async def test_nnja_obs_conv_missing_cached_file_remains_permissive(tmp_path):
-    class MissingStore:
-        async def fetch_files(self, uris):
-            return None
-
-        def local_path(self, uri):
-            return str(tmp_path / "missing.bufr")
-
-        def cleanup(self):
-            return None
-
-    source = NNJAObsConv(cache=True, verbose=False)
-    source._store = MissingStore()
-
-    result = await source.fetch(
-        datetime(2024, 1, 1),
-        ["t"],
-        fields=["time", "observation", "variable"],
-    )
-
-    assert result.empty
-    assert list(result.columns) == ["time", "observation", "variable"]
-    assert result.attrs == {"source": source.SOURCE_ID}
+    assert cleanup_calls["n"] == 2
 
 
 def test_nnja_obs_conv_available():
     """Test NNJAObsConv.available() classmethod with both datetime types."""
-    # Valid 6-hourly cycle times
     assert NNJAObsConv.available(datetime(2024, 1, 1, 0)) is True
     assert NNJAObsConv.available(datetime(2024, 1, 1, 6)) is True
     assert NNJAObsConv.available(datetime(2024, 1, 1, 12)) is True
     assert NNJAObsConv.available(datetime(2024, 1, 1, 18)) is True
-
-    # Invalid hours
-    assert NNJAObsConv.available(datetime(2024, 1, 1, 1)) is False
-    assert NNJAObsConv.available(datetime(2024, 1, 1, 7)) is False
+    assert NNJAObsConv.available(datetime(2024, 1, 1, 1)) is True
+    assert NNJAObsConv.available(datetime(2024, 1, 1, 7, 30)) is True
 
     # Before MIN_DATE
     assert NNJAObsConv.available(datetime(1970, 1, 1, 0)) is False
 
-    # np.datetime64 input - valid
     assert NNJAObsConv.available(np.datetime64("2024-01-01T00:00:00")) is True
     assert NNJAObsConv.available(np.datetime64("2024-01-01T06:00:00")) is True
+    assert NNJAObsConv.available(np.datetime64("2024-01-01T01:00:00")) is True
 
-    # np.datetime64 input - invalid
-    assert NNJAObsConv.available(np.datetime64("2024-01-01T01:00:00")) is False
     assert NNJAObsConv.available(np.datetime64("1970-01-01T00:00:00")) is False
 
 
@@ -592,7 +555,7 @@ def test_nnja_obs_conv_build_uris():
 
     # Test prepbufr URI
     cycle = datetime(2024, 1, 15, 6)
-    prepbufr_uri = ds._build_prepbufr_uri(cycle)
+    prepbufr_uri = ds._build_uri("prepbufr", cycle)
     assert "2024" in prepbufr_uri
     assert "01" in prepbufr_uri
     assert "20240115" in prepbufr_uri
@@ -600,29 +563,24 @@ def test_nnja_obs_conv_build_uris():
     assert "prepbufr" in prepbufr_uri
 
     # Test gpsro URI
-    gpsro_uri = ds._build_gpsro_uri(cycle)
+    gpsro_uri = ds._build_uri("gpsro", cycle)
     assert "2024" in gpsro_uri
     assert "01" in gpsro_uri
     assert "20240115" in gpsro_uri
     assert "t06z" in gpsro_uri
     assert "gpsro" in gpsro_uri
 
-    # Test backward compat alias
-    assert ds._build_uri(cycle) == ds._build_prepbufr_uri(cycle)
-
 
 def test_nnja_obs_conv_create_tasks():
     """Test _create_tasks method for prepbufr variables."""
-    from earth2studio.data.nnja import _NNJAConvTask
-
     # Use zero tolerance to get exactly one task per cycle
     ds = NNJAObsConv(time_tolerance=timedelta(0), cache=False, verbose=False)
 
     # Test prepbufr-only variable
     tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["t"])
     assert len(tasks) == 1
-    assert isinstance(tasks[0], _NNJAConvTask)
-    assert "prepbufr" in tasks[0].s3_uri
+    assert tasks[0].route == "prepbufr"
+    assert "prepbufr" in tasks[0].uri
     assert tasks[0].datetime_file == datetime(2024, 1, 1, 0)
 
     # Test multiple variables (same route)
@@ -638,6 +596,22 @@ def test_nnja_obs_conv_create_tasks():
     )
     assert len(tasks_times) == 2  # Two different cycles
 
+    # Non-cycle request times select the next cycle file containing past obs
+    tasks_offset = ds._create_tasks([datetime(2024, 1, 1, 1)], ["t"])
+    assert len(tasks_offset) == 1
+    assert tasks_offset[0].datetime_file == datetime(2024, 1, 1, 6)
+
+    ds_window = NNJAObsConv(
+        time_tolerance=(timedelta(0), timedelta(hours=4)),
+        cache=False,
+        verbose=False,
+    )
+    tasks_window = ds_window._create_tasks([datetime(2024, 1, 1, 0)], ["t"])
+    assert [task.datetime_file for task in tasks_window] == [
+        datetime(2024, 1, 1, 0),
+        datetime(2024, 1, 1, 6),
+    ]
+
 
 def test_nnja_obs_conv_create_tasks_gpsro_route():
     ds = NNJAObsConv(time_tolerance=timedelta(0), cache=False, verbose=False)
@@ -645,10 +619,10 @@ def test_nnja_obs_conv_create_tasks_gpsro_route():
     tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["gps"])
 
     assert len(tasks) == 1
-    assert isinstance(tasks[0], nnja._NNJAGpsRoTask)
-    assert "gpsro" in tasks[0].s3_uri
+    assert tasks[0].route == "gpsro"
+    assert "gpsro" in tasks[0].uri
     assert tasks[0].datetime_file == datetime(2024, 1, 1, 0)
-    assert tasks[0].var_plan["gps"][0] == utils_ncep.GPSRO_BNDA
+    assert tasks[0].var_plan["gps"][0] == str(utils_ncep.GPSRO_BNDA)
 
 
 def test_nnja_obs_conv_create_tasks_mixed_prepbufr_and_gpsro():
@@ -657,11 +631,11 @@ def test_nnja_obs_conv_create_tasks_mixed_prepbufr_and_gpsro():
     tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["gps", "t"])
 
     assert len(tasks) == 2
-    conv_task = next(task for task in tasks if isinstance(task, nnja._NNJAConvTask))
-    gpsro_task = next(task for task in tasks if isinstance(task, nnja._NNJAGpsRoTask))
+    conv_task = next(t for t in tasks if t.route == "prepbufr")
+    gpsro_task = next(t for t in tasks if t.route == "gpsro")
     assert set(conv_task.var_plan) == {"t"}
     assert set(gpsro_task.var_plan) == {"gps"}
-    assert gpsro_task.var_plan["gps"][0] == utils_ncep.GPSRO_BNDA
+    assert gpsro_task.var_plan["gps"][0] == str(utils_ncep.GPSRO_BNDA)
 
 
 def test_nnja_obs_conv_pres_modifier_keeps_station_pressure_only():
@@ -880,23 +854,27 @@ def test_ncep_microwave_adapter_serial_and_parallel_batch_paths(
     decoder = SimpleNamespace(
         process=lambda _message: _microwave_message(_atms_microwave_pairs())
     )
-    monkeypatch.setattr(ncep_microwave, "get_worker_decoder", lambda: decoder)
+    monkeypatch.setattr(ncep_microwave, "_worker_decoder", decoder)
     monkeypatch.setattr(
         ncep_microwave,
-        "parse_prepbufr_messages",
-        lambda _data: ({1: ("B",)}, {1: ("D",)}, [(b"message", 0)] * message_count),
+        "_parse_prepbufr_messages",
+        lambda _data, silence_noise=True: (
+            {1: ("B",)},
+            {1: ("D",)},
+            [(b"message", 0)] * message_count,
+        ),
     )
     initialized = []
     monkeypatch.setattr(
         ncep_microwave,
-        "init_decode_worker",
+        "_init_decode_worker",
         lambda table_b, table_d: initialized.append((table_b, table_d)),
     )
 
     class _Executor:
         def __init__(self, *, max_workers, initializer, initargs):
             assert max_workers == 2
-            assert initializer is ncep_microwave.init_decode_worker
+            assert initializer is ncep_microwave._init_decode_worker
             assert initargs == ({1: ("B",)}, {1: ("D",)})
 
         def __enter__(self):
@@ -937,8 +915,8 @@ def test_ncep_microwave_message_preserves_mixed_satellite_order(monkeypatch):
     )
     monkeypatch.setattr(
         ncep_microwave,
-        "get_worker_decoder",
-        lambda: SimpleNamespace(process=lambda _message: message),
+        "_worker_decoder",
+        SimpleNamespace(process=lambda _message: message),
     )
     rows, failures = ncep_microwave._decode_message_batch(
         (
@@ -973,8 +951,8 @@ def test_ncep_microwave_adapter_rejects_missing_tables_and_failed_messages(
 
     monkeypatch.setattr(
         ncep_microwave,
-        "parse_prepbufr_messages",
-        lambda _data: ({}, {}, []),
+        "_parse_prepbufr_messages",
+        lambda _data, silence_noise=True: ({}, {}, []),
     )
     with pytest.raises(ValueError, match="tables are missing"):
         adapter.decode_file(
@@ -987,18 +965,18 @@ def test_ncep_microwave_adapter_rejects_missing_tables_and_failed_messages(
 
     monkeypatch.setattr(
         ncep_microwave,
-        "parse_prepbufr_messages",
-        lambda _data: (
+        "_parse_prepbufr_messages",
+        lambda _data, silence_noise=True: (
             {1: ("B",)},
             {1: ("D",)},
             [(b"good-message", 0), (b"bad-message", 0)],
         ),
     )
-    monkeypatch.setattr(ncep_microwave, "init_decode_worker", lambda *_args: None)
+    monkeypatch.setattr(ncep_microwave, "_init_decode_worker", lambda *_args: None)
     monkeypatch.setattr(
         ncep_microwave,
-        "get_worker_decoder",
-        lambda: SimpleNamespace(
+        "_worker_decoder",
+        SimpleNamespace(
             process=lambda message: (
                 _microwave_message(_atms_microwave_pairs())
                 if message == b"good-message"
@@ -1064,10 +1042,15 @@ def test_nnja_obs_sat_decode_uses_coarse_location_and_preserves_missingness():
 @pytest.mark.asyncio
 async def test_nnja_obs_sat_fetch_uses_foundation_store(tmp_path, monkeypatch):
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-    source = NNJAObsSat(cache=True, verbose=False, decode_workers=1)
+    source = NNJAObsSat(
+        time_tolerance=timedelta(0),
+        cache=True,
+        verbose=False,
+        decode_workers=1,
+    )
     local_path = tmp_path / "atms.bufr"
     local_path.write_bytes(b"fixture")
-    monkeypatch.setattr(source._store, "local_path", lambda _uri: str(local_path))
+    monkeypatch.setattr(source, "local_path", lambda _uri: str(local_path))
 
     rows = _decode_microwave_pairs(
         _atms_microwave_pairs(),
@@ -1078,7 +1061,7 @@ async def test_nnja_obs_sat_fetch_uses_foundation_store(tmp_path, monkeypatch):
     async def fetch_files(_uris):
         return None
 
-    monkeypatch.setattr(source._store, "fetch_files", fetch_files)
+    monkeypatch.setattr(source, "fetch_files", fetch_files)
     monkeypatch.setattr(source._microwave_adapter, "decode_file", lambda *args: decoded)
 
     result = await source.fetch(
@@ -1096,13 +1079,18 @@ async def test_nnja_obs_sat_fetch_uses_foundation_store(tmp_path, monkeypatch):
 async def test_nnja_obs_sat_fetch_and_task_failures_are_structured(
     tmp_path, monkeypatch
 ):
-    source = NNJAObsSat(cache=True, verbose=False, decode_workers=1)
+    source = NNJAObsSat(
+        time_tolerance=timedelta(0),
+        cache=True,
+        verbose=False,
+        decode_workers=1,
+    )
     requested_uri = source._build_satellite_uri(datetime(2024, 1, 1), "atms")
 
     async def failed_fetch(_uris):
         raise OSError("fetch failed")
 
-    monkeypatch.setattr(source._store, "fetch_files", failed_fetch)
+    monkeypatch.setattr(source, "fetch_files", failed_fetch)
     with pytest.raises(nnja._NNJAObsSatIncompleteError) as fetch_error:
         await source.fetch(datetime(2024, 1, 1), "atms")
     assert fetch_error.value.context == {
@@ -1125,8 +1113,8 @@ async def test_nnja_obs_sat_fetch_and_task_failures_are_structured(
     async def successful_fetch(_uris):
         return None
 
-    monkeypatch.setattr(source._store, "fetch_files", successful_fetch)
-    monkeypatch.setattr(source._store, "local_path", lambda _uri: str(local_path))
+    monkeypatch.setattr(source, "fetch_files", successful_fetch)
+    monkeypatch.setattr(source, "local_path", lambda _uri: str(local_path))
     monkeypatch.setattr(
         source._microwave_adapter,
         "decode_file",
@@ -1185,10 +1173,10 @@ def test_nnja_obs_sat_tasks_group_fields_and_use_verified_archive_routes():
     }
     assert atms.datetime_min == cycle
     assert atms.datetime_max == cycle
-    assert atms.s3_uri.endswith("gdas.20240101.t00z.atms.tm00.bufr_d")
+    assert atms.uri.endswith("gdas.20240101.t00z.atms.tm00.bufr_d")
     amsub = next(task for task in tasks if task.sensor == "amsub")
     assert amsub.var_plan == {"amsub": "TMBR"}
-    assert amsub.s3_uri.endswith("gdas.20240101.t00z.1bamub.tm00.bufr_d")
+    assert amsub.uri.endswith("gdas.20240101.t00z.1bamub.tm00.bufr_d")
 
 
 def test_nnja_obs_sat_cycle_windows_follow_nnja_cycle_selection():
@@ -1196,8 +1184,8 @@ def test_nnja_obs_sat_cycle_windows_follow_nnja_cycle_selection():
     requested = datetime(2024, 1, 1)
     tasks = source._create_tasks([requested, requested], ["atms"])
     assert [task.datetime_file for task in tasks] == [
-        requested - timedelta(hours=6),
         requested,
+        requested + timedelta(hours=6),
     ]
 
     source = NNJAObsSat(
@@ -1208,11 +1196,11 @@ def test_nnja_obs_sat_cycle_windows_follow_nnja_cycle_selection():
     )
     tasks = source._create_tasks([requested], ["atms"])
     assert [task.datetime_file for task in tasks] == [
-        datetime(2023, 12, 31, 0),
         datetime(2023, 12, 31, 6),
         datetime(2023, 12, 31, 12),
         datetime(2023, 12, 31, 18),
         requested,
+        datetime(2024, 1, 1, 6),
     ]
 
 
@@ -1220,7 +1208,7 @@ def test_nnja_obs_sat_fields_time_platform_and_adapter_validation():
     source = NNJAObsSat(cache=False, verbose=False, decode_workers=1)
     assert NNJAObsSat.available(datetime(2024, 1, 1, 6))
     assert NNJAObsSat.available(np.datetime64("2024-01-01T12:00"))
-    assert not NNJAObsSat.available(datetime(2024, 1, 1, 1))
+    assert NNJAObsSat.available(datetime(2024, 1, 1, 1))
     assert not NNJAObsSat.available(datetime(1997, 1, 1))
     assert NNJAObsSat.resolve_fields(["time", "observation"]).names == [
         "time",
