@@ -224,7 +224,28 @@ uv add earth2studio --extra atlas
 ::::
 :::::
 :::::{tab-item} Aurora
-Notes: The Aurora model relies on the [microsoft aurora](https://github.com/microsoft/aurora)
+Notes: The Aurora model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
+package for inference.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[aurora]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra aurora
+```
+
+:::
+::::
+:::::
+:::::{tab-item} Aurora v1.5
+Notes: The Aurora v1.5 model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
 package for inference.
 
 ::::{tab-set}

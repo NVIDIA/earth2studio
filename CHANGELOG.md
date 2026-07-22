@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   repositories: `DynamicalGFS`, `DynamicalGEFS`,
   `DynamicalGFS_FX`, `DynamicalGEFS_FX`, `DynamicalIFSENS_FX`,
   `DynamicalAIFS_FX` and `DynamicalAIFSENS_FX`.
+- Added Aurora v1.5 deterministic and ensemble model wrapper (`Aurora1p5`, `Aurora1p5Ensemble`)
 
 ### Changed
 
