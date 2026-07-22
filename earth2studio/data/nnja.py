@@ -139,7 +139,7 @@ class NNJAObsConv:
           to ordinary aircraft report types during processing.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single
-        value (symmetric Â± window) or a tuple ``(lower, upper)`` for
+        value (symmetric ± window) or a tuple ``(lower, upper)`` for
         asymmetric windows, by default ``np.timedelta64(0, 'm')``.
     cache : bool, optional
         Cache downloaded files in the local filesystem cache, by default True.
@@ -373,6 +373,9 @@ class NNJAObsConv:
             )
         raise ValueError(f"Unsupported route '{route}'")
 
+    # ------------------------------------------------------------------
+    # File decode (dispatch by task route)
+    # ------------------------------------------------------------------
     def _decode_file(self, local_path: str, task: _NCEPObsTask) -> pd.DataFrame:
         if task.route == "gpsro":
             frame = self._gpsro_adapter.decode_file(

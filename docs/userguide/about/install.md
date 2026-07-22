@@ -224,7 +224,28 @@ uv add earth2studio --extra atlas
 ::::
 :::::
 :::::{tab-item} Aurora
-Notes: The Aurora model relies on the [microsoft aurora](https://github.com/microsoft/aurora)
+Notes: The Aurora model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
+package for inference.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[aurora]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra aurora
+```
+
+:::
+::::
+:::::
+:::::{tab-item} Aurora v1.5
+Notes: The Aurora v1.5 model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
 package for inference.
 
 ::::{tab-set}
@@ -449,6 +470,26 @@ pip install earth2studio[stormcast]
 
 ```bash
 uv add earth2studio --extra stormcast
+```
+
+:::
+::::
+:::::
+:::::{tab-item} StormCast-CONUS
+::::{tab-set}
+:::{tab-item} pip
+Notes: The StormCast-CONUS model depends on [natten](https://github.com/SHI-Labs/NATTEN),
+which can take a long time to compile.
+
+```bash
+pip install earth2studio[stormcast-conus]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra stormcast-conus
 ```
 
 :::
@@ -1053,5 +1094,3 @@ this overrides `EARTH2STUDIO_CACHE` for data source caching operations.
     set, this overrides `EARTH2STUDIO_CACHE` for model checkpoint caching operations.
 - `EARTH2STUDIO_PACKAGE_TIMEOUT`: The max number of seconds for a download operation of
 a model package file from a remote store such as NGC, Huggingface or S3.
-- `EARTH2STUDIO_DISABLE_MSC`: Can be used to disable use of the [multi-storage client](https://github.com/NVIDIA/multi-storage-client)
-for relevant data sources.

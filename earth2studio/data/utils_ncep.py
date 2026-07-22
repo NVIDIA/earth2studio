@@ -1,8 +1,18 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-
-"""NCEP conventional PrepBUFR and GPSRO decode utilities."""
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 from __future__ import annotations
 
@@ -13,7 +23,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
-from typing import Any, Protocol, TypeVar
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -951,11 +961,11 @@ class _NCEPGpsroAdapter:
         )
 
 
-# -----------------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────
 # Shared NCEP observation request helpers. Keep these as stateless utilities:
 # concrete data sources own transport/cache state and pass callables in where
 # source-specific behavior is needed.
-# -----------------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────
 
 _NCEPObsModifier = Callable[[pd.DataFrame], pd.DataFrame]
 # Decode plan: variable id -> (route-specific decode key, post-decode modifier).
@@ -974,16 +984,6 @@ class _NCEPObsTask:
     datetime_min: datetime
     datetime_max: datetime
     var_plan: _NCEPPlan
-
-
-class _NCEPObsTaskLike(Protocol):
-    """Minimal task interface required by ``compile_dataframe``."""
-
-    @property
-    def uri(self) -> str: ...
-
-
-_NCEPObsTaskT = TypeVar("_NCEPObsTaskT", bound=_NCEPObsTaskLike)
 
 
 def plan_conv_tasks(
@@ -1166,14 +1166,32 @@ def resolve_output_schema(
 
 
 def compile_dataframe(
-    tasks: Sequence[_NCEPObsTaskT],
+    tasks: Sequence[Any],
     schema: pa.Schema,
     source_id: str,
     local_path: Callable[[str], str],
-    decode_task: Callable[[str, _NCEPObsTaskT], pd.DataFrame],
-    handle_incomplete_task: Callable[[str, int, int, Exception], None] | None = None,
+    decode_task: Callable[[str, Any], pd.DataFrame],
+    on_error: Callable[[str, int, int, Exception], None] | None = None,
 ) -> pd.DataFrame:
-    """Decode cached task files and concatenate them into a DataFrame."""
+    """Decode cached task files and concatenate them into a DataFrame.
+
+    Parameters
+    ----------
+    tasks : Sequence
+        Task objects; each must expose a ``.uri`` attribute.
+    schema : pa.Schema
+        Output schema for column selection and empty-frame creation.
+    source_id : str
+        Identifier string attached to ``df.attrs["source"]``.
+    local_path : Callable[[str], str]
+        Maps a URI to its local cache path.
+    decode_task : Callable[[str, task], pd.DataFrame]
+        Decodes one local file given ``(path, task)``.
+    on_error : Callable[[str, int, int, Exception], None] | None
+        Optional error callback invoked as ``on_error(uri, idx, n_tasks, exc)``
+        when ``decode_task`` raises.  If ``None`` the error is logged and the
+        task is skipped.
+    """
     frames: list[pd.DataFrame] = []
     n_tasks = len(tasks)
     compile_t0 = time.perf_counter()
@@ -1181,9 +1199,6 @@ def compile_dataframe(
         uri = task.uri
         path = local_path(uri)
         if not pathlib.Path(path).is_file():
-            error = FileNotFoundError(path)
-            if handle_incomplete_task is not None:
-                handle_incomplete_task(uri, idx, n_tasks, error)
             logger.warning(f"Cached file missing for {uri}, skipping")
             continue
         short_uri = uri.rsplit("/", 1)[-1]
@@ -1192,8 +1207,8 @@ def compile_dataframe(
         try:
             df = decode_task(path, task)
         except Exception as exc:  # pragma: no cover - defensive
-            if handle_incomplete_task is not None:
-                handle_incomplete_task(uri, idx, n_tasks, exc)
+            if on_error is not None:
+                on_error(uri, idx, n_tasks, exc)
             logger.error(f"Failed to decode {path}: {exc}")
             continue
         elapsed = time.perf_counter() - t0
