@@ -77,7 +77,7 @@
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="RandomDataFrame" href="earth2studio.data.RandomDataFrame.html" />
-    <link rel="prev" title="NNJAObsConv" href="earth2studio.data.NNJAObsConv.html" />
+    <link rel="prev" title="NNJAObsSat" href="earth2studio.data.NNJAObsSat.html" />
 
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -579,6 +579,7 @@
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.MetOpIASI.html">MetOpIASI</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.MetOpMHS.html">MetOpMHS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.NNJAObsConv.html">NNJAObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.data.NNJAObsSat.html">NNJAObsSat</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">NomadsGDASObsConv</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.RandomDataFrame.html">RandomDataFrame</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.UFSObsConv.html">UFSObsConv</a></li>
@@ -775,15 +776,15 @@
 
 <dl>
 <dd><em class="sig-param"><span class="n"><span class="pre">time_tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">numpy.timedelta64(10,</span> <span class="pre">'m')</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">max_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">decode_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">async_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">decode_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">retries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/gdas.py#L72-L695"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NomadsGDASObsConv" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/gdas.py#L60-L421"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NomadsGDASObsConv" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:observation" style="background-color:#15803d;color:#fff;" title="Direct Observations"><i class="fa-solid fa-binoculars"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:wind" style="background-color:#4dabf7;color:#fff;" title="Surface Winds"><i class="fa-solid fa-wind"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:temp" style="background-color:#fd7e14;color:#fff;" title="Surface Temperature"><i class="fa-solid fa-temperature-half"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:atmos" style="background-color:#74c0fc;color:#fff;" title="Atmosphere"><i class="fa-solid fa-cloud"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:insitu" style="background-color:#2f9e44;color:#fff;" title="In-Situ Observations"><i class="fa-solid fa-tower-observation"></i></span></span><p>Real-time GDAS conventional observations from NOAA NOMADS.</p>
 <p>Provides near-real-time access to quality-controlled conventional
 (in-situ) observations from the NOAA Global Data Assimilation System
@@ -807,13 +808,12 @@ identifiers, <code class="docutils literal notranslate"><span class="pre">qualit
 <li><p><strong>time_tolerance</strong> (<em>TimeTolerance</em><em>, </em><em>optional</em>) – Time tolerance window for filtering observations. Accepts a single value
 (symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
 by default np.timedelta64(10, “m”).</p></li>
-<li><p><strong>max_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum concurrent async download tasks, by default 4.</p></li>
-<li><p><strong>decode_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of parallel processes for BUFR message decoding.  Higher values
-speed up decoding of large PrepBUFR files at the cost of more memory.
-Set to 1 to disable multiprocessing, by default 8.</p></li>
 <li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache downloaded observation files locally, by default True.</p></li>
 <li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress, by default True.</p></li>
 <li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Total timeout in seconds for the entire fetch, by default 600.</p></li>
+<li><p><strong>async_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum concurrent async download tasks, by default 4.</p></li>
+<li><p><strong>decode_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of parallel processes for BUFR message decoding. Set to 1 to disable
+multiprocessing, by default 8.</p></li>
 <li><p><strong>retries</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of retry attempts per failed download with exponential
 backoff, by default 3.</p></li>
 </ul>
@@ -823,8 +823,7 @@ backoff, by default 3.</p></li>
 <p class="admonition-title">Warning</p>
 <p>This is a remote data source and can potentially download a large
 amount of data to your local machine for large requests. Each 6-hourly
-PrepBUFR file is approximately 60-100 MB; GPSRO is downloaded only when
-<code class="docutils literal notranslate"><span class="pre">gps</span></code> is requested.</p>
+PrepBUFR file is approximately 60-100 MB.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -840,7 +839,7 @@ dataset via <a class="reference internal" href="earth2studio.data.UFSObsConv.htm
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.NomadsGDASObsConv.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/gdas.py#L186-L224"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NomadsGDASObsConv.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/gdas.py#L159-L197"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NomadsGDASObsConv.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Fetch conventional observation data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -868,7 +867,7 @@ dataset via <a class="reference internal" href="earth2studio.data.UFSObsConv.htm
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.NomadsGDASObsConv.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/gdas.py#L226-L277"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NomadsGDASObsConv.fetch" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/gdas.py#L199-L261"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NomadsGDASObsConv.fetch" title="Link to this definition">#</a></dt>
 <dd><p>Async fetch of conventional observation data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -889,7 +888,7 @@ dataset via <a class="reference internal" href="earth2studio.data.UFSObsConv.htm
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.NomadsGDASObsConv.available">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/gdas.py#L632-L655"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NomadsGDASObsConv.available" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/gdas.py#L358-L381"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NomadsGDASObsConv.available" title="Link to this definition">#</a></dt>
 <dd><p>Check if date time is available on NOMADS.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -919,12 +918,12 @@ dataset via <a class="reference internal" href="earth2studio.data.UFSObsConv.htm
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.data.NNJAObsConv.html"
+       href="earth2studio.data.NNJAObsSat.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">NNJAObsConv</p>
+        <p class="prev-next-title">NNJAObsSat</p>
       </div>
     </a>
     <a class="right-next"
