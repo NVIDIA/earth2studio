@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated the OPERA data source to represent undetect values as `-99.0`, while
   retaining `NaN` for no-data values.
 - NNJA Obs data source now accepts any time / tolerance rather than 6-hour strides
+- Renamed `NomadsGDASObsConv` `max_workers` parameter to `async_workers` for
+  consistency with other observation data sources
 
 ### Deprecated
 

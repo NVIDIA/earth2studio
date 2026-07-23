@@ -87,18 +87,17 @@ class NomadsGDASObsConv:
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
         by default np.timedelta64(10, "m").
-    max_workers : int, optional
-        Maximum concurrent async download tasks, by default 4.
-    decode_workers : int, optional
-        Number of parallel processes for BUFR message decoding.  Higher values
-        speed up decoding of large PrepBUFR files at the cost of more memory.
-        Set to 1 to disable multiprocessing, by default 8.
     cache : bool, optional
         Cache downloaded observation files locally, by default True.
     verbose : bool, optional
         Print download progress, by default True.
     async_timeout : int, optional
         Total timeout in seconds for the entire fetch, by default 600.
+    async_workers : int, optional
+        Maximum concurrent async download tasks, by default 4.
+    decode_workers : int, optional
+        Number of parallel processes for BUFR message decoding. Set to 1 to disable
+        multiprocessing, by default 8.
     retries : int, optional
         Number of retry attempts per failed download with exponential
         backoff, by default 3.
@@ -107,8 +106,7 @@ class NomadsGDASObsConv:
     -------
     This is a remote data source and can potentially download a large
     amount of data to your local machine for large requests. Each 6-hourly
-    PrepBUFR file is approximately 60-100 MB; GPSRO is downloaded only when
-    ``gps`` is requested.
+    PrepBUFR file is approximately 60-100 MB.
 
     Note
     ----
@@ -134,11 +132,11 @@ class NomadsGDASObsConv:
     def __init__(
         self,
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
-        max_workers: int = 4,
-        decode_workers: int = 8,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
+        async_workers: int = 4,
+        decode_workers: int = 8,
         retries: int = 3,
     ) -> None:
         self._tolerance_lower, self._tolerance_upper = normalize_time_tolerance(
@@ -150,12 +148,12 @@ class NomadsGDASObsConv:
         self._cache = cache
         self._verbose = verbose
         self.async_timeout = async_timeout
-        self._max_workers = max_workers
+        self._async_workers = async_workers
         self._decode_workers = max(1, decode_workers)
         self._retries = retries
         self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
         self._store = obstore_store_from_url(
-            NOMADS_STORE_URL, anonymous=False, max_pool_connections=max_workers
+            NOMADS_STORE_URL, anonymous=False, max_pool_connections=async_workers
         )
 
     def __call__(
@@ -241,7 +239,7 @@ class NomadsGDASObsConv:
         ]
         await gather_with_concurrency(
             coros,
-            max_workers=self._max_workers,
+            max_workers=self._async_workers,
             desc="Fetching GDAS conventional observations",
             verbose=(not self._verbose),
         )
