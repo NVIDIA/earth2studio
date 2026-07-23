@@ -36,9 +36,20 @@ IO loop during individual test teardown because:
 
 from __future__ import annotations
 
+import logging
 import threading
 
 import pytest
+from loguru import logger
+
+
+@pytest.fixture
+def caplog(caplog):
+    """Extend caplog to also capture loguru log records."""
+    handler_id = logger.add(caplog.handler, format="{message}", level=0)
+    with caplog.at_level(logging.DEBUG):
+        yield caplog
+    logger.remove(handler_id)
 
 
 @pytest.fixture(autouse=True, scope="session")

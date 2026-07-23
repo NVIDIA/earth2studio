@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `DynamicalAIFS_FX` and `DynamicalAIFSENS_FX`.
 - Added Aurora v1.5 deterministic and ensemble model wrapper (`Aurora1p5`, `Aurora1p5Ensemble`)
 - Added StormCast CONUS prognostic model (`StormCastCONUS`)
+- Added `DataReplay` for replaying `DataSource` and `ForecastSource` data through the
+  prognostic iterator interface.
+- Added NNJA satellite observation data frame source (`NNJAObsSat`)
 
 ### Changed
 
@@ -47,9 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
   the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
   fsspec
+- UFS observation sources (`UFSObsConv`, `UFSObsSat`) now tolerate missing diag files
+  by warning and skipping instead of erroring
 - Updated the OPERA data source to represent undetect values as `-99.0`, while
   retaining `NaN` for no-data values.
 - NNJA Obs data source now accepts any time / tolerance rather than 6-hour strides
+- Renamed `NomadsGDASObsConv` `max_workers` parameter to `async_workers` for
+  consistency with other observation data sources
 
 ### Deprecated
 
