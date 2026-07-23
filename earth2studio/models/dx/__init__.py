@@ -43,6 +43,7 @@ from earth2studio.models.dx.solarradiation_afno import (
     SolarRadiationAFNO1H,
     SolarRadiationAFNO6H,
 )
+from earth2studio.models.dx.stormscope_dx_nsrdb import StormScopeDxNSRDB
 from earth2studio.models.dx.tc_tracking import (
     TCTrackerVitart,
     TCTrackerWuDuan,
@@ -59,6 +60,7 @@ __all__ = [
     "PrecipitationAFNOv2",
     "SolarRadiationAFNO1H",
     "SolarRadiationAFNO6H",
+    "StormScopeDxNSRDB",
     "WindgustAFNO",
     "OrbitGlobalPrecip",
 ]

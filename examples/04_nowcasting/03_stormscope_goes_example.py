@@ -73,11 +73,11 @@ import torch
 from tqdm import trange
 
 from earth2studio.data import GOES, MRMS, GOESGLMGrid, fetch_data
+from earth2studio.models.dx import StormScopeDxNSRDB
 from earth2studio.models.px.stormscope import (
     StormScopeBase,
     StormScopeGOES,
     StormScopeMRMS,
-    StormScopeNSRDB,
 )
 
 # %%
@@ -133,9 +133,8 @@ model_mrms.eval()
 # GHI estimator: derives surface solar irradiance (GHI) from GOES imagery. It is
 # a same-time estimator, so during the rollout it consumes each forecasted GOES
 # frame rather than integrating its own state.
-model_nsrdb = StormScopeNSRDB.load_model(
-    package=package,
-    conditioning_data_source=None,
+model_nsrdb = StormScopeDxNSRDB.load_model(
+    package=StormScopeDxNSRDB.load_default_package(),
 )
 model_nsrdb = model_nsrdb.to(device)
 model_nsrdb.eval()
@@ -167,7 +166,7 @@ model.build_input_interpolator(goes_lat, goes_lon)
 
 # The GHI estimator's conditioning interpolator is built from the raw GOES grid so
 # off-disk pixels are correctly flagged invalid.
-model_nsrdb.build_conditioning_interpolator(goes_lat, goes_lon)
+model_nsrdb.build_input_interpolator(goes_lat, goes_lon)
 
 in_coords = model.input_coords()
 
@@ -281,7 +280,9 @@ for step_idx in trange(n_steps, desc="Forecast steps"):
     )
 
     # Estimate GHI from the forecasted GOES imagery (same-time estimator)
-    ghi_pred, ghi_pred_coords = model_nsrdb.estimate_from_goes(y_pred, y_pred_coords)
+    ghi_input_coords = y_pred_coords.copy()
+    del ghi_input_coords["lead_time"]
+    ghi_pred, ghi_pred_coords = model_nsrdb(y_pred.squeeze(2), ghi_input_coords)
 
     # Advance the sliding window for the next step: drop the oldest input frame
     # and append the new prediction. We assign directly into the loop carry
@@ -378,10 +379,13 @@ plt.savefig("outputs/03_stormscope_goes_example.png", dpi=300)
 
 # %%
 # Plot the estimated GHI (from the forecasted GOES imagery) on the same grid.
-ghi = model_nsrdb.variables.tolist().index("ghi")
-ghi_field = torch.where(
-    model_nsrdb.valid_mask, ghi_pred[0, 0, 0, ghi], torch.nan
-).detach().cpu().numpy()
+ghi = model_nsrdb.output_variables.tolist().index("ghi")
+ghi_field = (
+    torch.where(model_nsrdb.valid_mask, ghi_pred[0, 0, 0, ghi], torch.nan)
+    .detach()
+    .cpu()
+    .numpy()
+)
 
 plt.figure(figsize=(9, 6))
 ax = plt.axes(projection=proj_hrrr)

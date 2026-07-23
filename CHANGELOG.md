@@ -101,7 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for cumulative variables in ARCO data source
 - Added DLESyM-v0-ISCCP-ERA5 climate model
 - Added StormScope NSRDB solar irradiance (GHI) estimation model
-  (`StormScopeNSRDB`) that estimates surface GHI from StormScope GOES imagery
+  (`StormScopeDxNSRDB`) that estimates surface GHI from StormScope GOES imagery
   (demonstrated in the StormScope GOES/MRMS nowcasting example)
 
 ### Changed

@@ -78,6 +78,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/dx/test_precip_afno_v2.py": ["precip-afno-v2"],
     "test/models/dx/test_solarradiation_afno.py": ["solarradiation-afno"],
     "test/models/dx/test_tc_tracking.py": ["cyclone"],
+    "test/models/dx/test_stormscope_dx_nsrdb.py": ["stormscope"],
     "test/models/dx/test_wind_gust.py": ["windgust-afno"],
     # Model px tests
     "test/models/px/test_ace2.py": ["ace2"],

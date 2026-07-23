@@ -66,5 +66,4 @@ Thus are typically used to generate forecast predictions.
       StormCastCONUS
       StormScopeGOES
       StormScopeMRMS
-      StormScopeNSRDB
       UCast
