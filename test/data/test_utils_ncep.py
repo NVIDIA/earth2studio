@@ -193,8 +193,16 @@ def test_same_local_prepbufr_bytes_are_adapter_exact(tmp_path, monkeypatch):
         datetime_max=bounds[1],
         var_plan=_prepbufr_plan(NNJAObsConvLexicon, "t"),
     )
+    gdas_task = utils_ncep.NCEPObsTask(
+        route="prepbufr",
+        uri="s3://example/same.prepbufr.nr",
+        datetime_file=datetime(2024, 1, 1),
+        datetime_min=bounds[0],
+        datetime_max=bounds[1],
+        var_plan=_prepbufr_plan(GDASObsConvLexicon, "t"),
+    )
     nnja_public = nnja._decode_file(str(local_path), nnja_task)
-    gdas_public = gdas._decode_prepbufr(str(local_path), ["t"], *bounds)
+    gdas_public = gdas._decode_file(str(local_path), gdas_task)
     pd.testing.assert_frame_equal(nnja_public, gdas_public, check_exact=True)
 
 
@@ -273,8 +281,16 @@ def test_same_local_gpsro_bytes_preserve_default_product(tmp_path, monkeypatch):
         datetime_max=bounds[1],
         var_plan=_gpsro_plan(NNJAObsConvLexicon, "gps", utils_ncep.GPSRO_BNDA),
     )
+    gdas_task = utils_ncep.NCEPObsTask(
+        route="gpsro",
+        uri="s3://example/same.gpsro.bufr",
+        datetime_file=datetime(2024, 1, 1),
+        datetime_min=bounds[0],
+        datetime_max=bounds[1],
+        var_plan=_gpsro_plan(GDASObsConvLexicon, "gps", utils_ncep.GPSRO_BNDA),
+    )
     nnja_public = nnja._decode_file(str(local_path), nnja_task)
-    gdas_public = gdas._decode_gpsro(str(local_path), ["gps"], *bounds)
+    gdas_public = gdas._decode_file(str(local_path), gdas_task)
     pd.testing.assert_frame_equal(nnja_public, gdas_public, check_exact=True)
 
 
@@ -348,7 +364,13 @@ def test_empty_public_facades_use_shared_schema_dtypes():
     gdas = NomadsGDASObsConv(cache=False, verbose=False, decode_workers=1)
     nnja = NNJAObsConv(cache=False, verbose=False, decode_workers=1)
 
-    gdas_empty = gdas._compile_dataframe([], ["t"])
+    gdas_empty = utils_ncep.compile_dataframe(
+        [],
+        NomadsGDASObsConv.SCHEMA,
+        gdas.SOURCE_ID,
+        gdas.local_path,
+        gdas._decode_file,
+    )
     nnja_empty = utils_ncep.compile_dataframe(
         [],
         NNJAObsConv.SCHEMA,
