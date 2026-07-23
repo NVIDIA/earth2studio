@@ -69,6 +69,7 @@ class DynamicalLexicon(metaclass=LexiconType):
         "tcc": "total_cloud_cover_atmosphere",
         "tcwv": "precipitable_water_atmosphere",
         "tpf": "precipitation_surface",
+        "ptype": "categorical_precipitation_type_surface",
     }
     # Pressure-level fields (level baked into the dynamical.org variable name).
     VOCAB.update({f"z{level}": f"geopotential_height_{level}hpa" for level in LEVELS})

@@ -88,6 +88,7 @@ E2STUDIO_VOCAB = {
     "flashc": "lightning flash event count (per detected event, 1.0)",
     "aerot": "aerosol optical thickness",
     "snowc": "snow coverage (%)",
+    "ptype": "categorical precipitation type",
     "csnow": "categorical snow",
     "cicep": "categorical (80, 90, or 100  percent chance of measurable precipitation (0.01 inch)) ice pellets",
     "cfrzr": "categorical (80, 90, or 100  percent chance of measurable precipitation (0.01 inch)) freezing rain",

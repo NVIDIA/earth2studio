@@ -64,6 +64,7 @@ _VARS = {
     "wind_u_10m": ("m s-1", 3.0),
     "precipitation_surface": ("kg m-2 s-1", 0.001),
     "precipitation_rate_surface": ("kg m-2 s-1", 0.002),
+    "categorical_precipitation_type_surface": ("1", 3.0),
     "total_cloud_cover_atmosphere": ("percent", 50.0),
     "geopotential_height_500hpa": ("m", 5500.0),
     "temperature_500hpa": ("degree_Celsius", -10.0),
@@ -159,7 +160,7 @@ def test_dynamical_call_mock(monkeypatch):
     _patch(monkeypatch, DynamicalGFS, "noaa-gfs-analysis", dims, ds_obj)
 
     source = DynamicalGFS()
-    variables = ["t2m", "u10m", "tpf", "tcc", "z500", "t500"]
+    variables = ["t2m", "u10m", "tpf", "ptype", "tcc", "z500", "t500"]
     data = source(times, variables)
 
     assert data.shape == (2, len(variables), len(_LAT), len(_LON))
@@ -173,6 +174,7 @@ def test_dynamical_call_mock(monkeypatch):
     np.testing.assert_allclose(data.sel(variable="t2m").values, 20.0 + 273.15)
     np.testing.assert_allclose(data.sel(variable="u10m").values, 3.0)
     np.testing.assert_allclose(data.sel(variable="tpf").values, 0.001)
+    np.testing.assert_allclose(data.sel(variable="ptype").values, 3.0)
     np.testing.assert_allclose(data.sel(variable="tcc").values, 0.5)
     np.testing.assert_allclose(data.sel(variable="z500").values, 5500.0 * 9.80665)
     np.testing.assert_allclose(data.sel(variable="t500").values, -10.0 + 273.15)
@@ -211,6 +213,7 @@ def test_dynamical_variables(monkeypatch):
         "t2m",
         "tcc",
         "tpf",
+        "ptype",
         "z500",
         "t500",
         "precipitation_rate_surface",
