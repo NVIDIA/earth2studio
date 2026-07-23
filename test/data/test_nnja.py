@@ -23,7 +23,6 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-import earth2studio.data.nnja as nnja
 from earth2studio.data import NNJAObsConv, utils_ncep
 
 pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
@@ -141,12 +140,8 @@ def test_nnja_obs_conv_validate_time():
     NNJAObsConv._validate_time([datetime(2024, 1, 1, 6)])
     NNJAObsConv._validate_time([datetime(2024, 1, 1, 12)])
     NNJAObsConv._validate_time([datetime(2024, 1, 1, 18)])
-
-    with pytest.raises(ValueError):
-        NNJAObsConv._validate_time([datetime(2024, 1, 1, 1)])
-
-    with pytest.raises(ValueError):
-        NNJAObsConv._validate_time([datetime(2024, 1, 1, 0, 30)])
+    NNJAObsConv._validate_time([datetime(2024, 1, 1, 1)])
+    NNJAObsConv._validate_time([datetime(2024, 1, 1, 0, 30)])
 
     with pytest.raises(ValueError):
         NNJAObsConv._validate_time([datetime(1970, 1, 1, 0)])
@@ -245,27 +240,81 @@ def test_nnja_obs_conv_mock_fetch():
     assert df["observation"].iloc[0] == pytest.approx(273.15)
 
 
+def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
+    """Exercise the composed request/transport seam through __call__.
+
+    Verifies the request path drives the transport ``fetch_files`` and
+    ``local_path`` and delegates teardown to ``cleanup`` in the ``__call__``
+    finally, including when the request fails mid-flight.
+    """
+
+    cached_file = tmp_path / "cached.bufr"
+    cached_file.write_bytes(b"fixture")
+
+    frame = pd.DataFrame(
+        {
+            "time": pd.to_datetime(["2024-01-01 00:00:00"]),
+            "observation": [273.15],
+            "variable": ["t"],
+        }
+    )
+    source = NNJAObsConv(cache=True, verbose=False)
+
+    fetched: list[str] = []
+    cleanup_calls = {"n": 0}
+
+    async def fake_fetch_files(uris):
+        fetched.extend(uris)
+
+    def fake_cleanup():
+        cleanup_calls["n"] += 1
+
+    monkeypatch.setattr(source, "fetch_files", fake_fetch_files)
+    monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
+    monkeypatch.setattr(source, "cleanup", fake_cleanup)
+    monkeypatch.setattr(source, "_decode_file", lambda path, task: frame)
+
+    result = source(
+        datetime(2024, 1, 1),
+        ["t"],
+        fields=["time", "observation", "variable"],
+    )
+
+    assert fetched == [source._build_uri("prepbufr", datetime(2024, 1, 1))]
+    assert result.equals(frame)
+    assert result.attrs == {"source": source.SOURCE_ID}
+    assert cleanup_calls["n"] == 1
+
+    # cleanup must still run if the request fails mid-flight
+    async def boom_fetch(uris):
+        raise RuntimeError("fetch failed")
+
+    monkeypatch.setattr(source, "fetch_files", boom_fetch)
+    with pytest.raises(RuntimeError):
+        source(
+            datetime(2024, 1, 1),
+            ["t"],
+            fields=["time", "observation", "variable"],
+        )
+    assert cleanup_calls["n"] == 2
+
+
 def test_nnja_obs_conv_available():
     """Test NNJAObsConv.available() classmethod with both datetime types."""
-    # Valid 6-hourly cycle times
     assert NNJAObsConv.available(datetime(2024, 1, 1, 0)) is True
     assert NNJAObsConv.available(datetime(2024, 1, 1, 6)) is True
     assert NNJAObsConv.available(datetime(2024, 1, 1, 12)) is True
     assert NNJAObsConv.available(datetime(2024, 1, 1, 18)) is True
-
-    # Invalid hours
-    assert NNJAObsConv.available(datetime(2024, 1, 1, 1)) is False
-    assert NNJAObsConv.available(datetime(2024, 1, 1, 7)) is False
+    assert NNJAObsConv.available(datetime(2024, 1, 1, 1)) is True
+    assert NNJAObsConv.available(datetime(2024, 1, 1, 7, 30)) is True
 
     # Before MIN_DATE
     assert NNJAObsConv.available(datetime(1970, 1, 1, 0)) is False
 
-    # np.datetime64 input - valid
     assert NNJAObsConv.available(np.datetime64("2024-01-01T00:00:00")) is True
     assert NNJAObsConv.available(np.datetime64("2024-01-01T06:00:00")) is True
+    assert NNJAObsConv.available(np.datetime64("2024-01-01T01:00:00")) is True
 
-    # np.datetime64 input - invalid
-    assert NNJAObsConv.available(np.datetime64("2024-01-01T01:00:00")) is False
     assert NNJAObsConv.available(np.datetime64("1970-01-01T00:00:00")) is False
 
 
@@ -500,7 +549,7 @@ def test_nnja_obs_conv_build_uris():
 
     # Test prepbufr URI
     cycle = datetime(2024, 1, 15, 6)
-    prepbufr_uri = ds._build_prepbufr_uri(cycle)
+    prepbufr_uri = ds._build_uri("prepbufr", cycle)
     assert "2024" in prepbufr_uri
     assert "01" in prepbufr_uri
     assert "20240115" in prepbufr_uri
@@ -508,29 +557,24 @@ def test_nnja_obs_conv_build_uris():
     assert "prepbufr" in prepbufr_uri
 
     # Test gpsro URI
-    gpsro_uri = ds._build_gpsro_uri(cycle)
+    gpsro_uri = ds._build_uri("gpsro", cycle)
     assert "2024" in gpsro_uri
     assert "01" in gpsro_uri
     assert "20240115" in gpsro_uri
     assert "t06z" in gpsro_uri
     assert "gpsro" in gpsro_uri
 
-    # Test backward compat alias
-    assert ds._build_uri(cycle) == ds._build_prepbufr_uri(cycle)
-
 
 def test_nnja_obs_conv_create_tasks():
     """Test _create_tasks method for prepbufr variables."""
-    from earth2studio.data.nnja import _NNJAConvTask
-
     # Use zero tolerance to get exactly one task per cycle
     ds = NNJAObsConv(time_tolerance=timedelta(0), cache=False, verbose=False)
 
     # Test prepbufr-only variable
     tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["t"])
     assert len(tasks) == 1
-    assert isinstance(tasks[0], _NNJAConvTask)
-    assert "prepbufr" in tasks[0].s3_uri
+    assert tasks[0].route == "prepbufr"
+    assert "prepbufr" in tasks[0].uri
     assert tasks[0].datetime_file == datetime(2024, 1, 1, 0)
 
     # Test multiple variables (same route)
@@ -546,6 +590,22 @@ def test_nnja_obs_conv_create_tasks():
     )
     assert len(tasks_times) == 2  # Two different cycles
 
+    # Non-cycle request times select the next cycle file containing past obs
+    tasks_offset = ds._create_tasks([datetime(2024, 1, 1, 1)], ["t"])
+    assert len(tasks_offset) == 1
+    assert tasks_offset[0].datetime_file == datetime(2024, 1, 1, 6)
+
+    ds_window = NNJAObsConv(
+        time_tolerance=(timedelta(0), timedelta(hours=4)),
+        cache=False,
+        verbose=False,
+    )
+    tasks_window = ds_window._create_tasks([datetime(2024, 1, 1, 0)], ["t"])
+    assert [task.datetime_file for task in tasks_window] == [
+        datetime(2024, 1, 1, 0),
+        datetime(2024, 1, 1, 6),
+    ]
+
 
 def test_nnja_obs_conv_create_tasks_gpsro_route():
     ds = NNJAObsConv(time_tolerance=timedelta(0), cache=False, verbose=False)
@@ -553,10 +613,10 @@ def test_nnja_obs_conv_create_tasks_gpsro_route():
     tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["gps"])
 
     assert len(tasks) == 1
-    assert isinstance(tasks[0], nnja._NNJAGpsRoTask)
-    assert "gpsro" in tasks[0].s3_uri
+    assert tasks[0].route == "gpsro"
+    assert "gpsro" in tasks[0].uri
     assert tasks[0].datetime_file == datetime(2024, 1, 1, 0)
-    assert tasks[0].var_plan["gps"][0] == utils_ncep.GPSRO_BNDA
+    assert tasks[0].var_plan["gps"][0] == str(utils_ncep.GPSRO_BNDA)
 
 
 def test_nnja_obs_conv_create_tasks_mixed_prepbufr_and_gpsro():
@@ -565,11 +625,11 @@ def test_nnja_obs_conv_create_tasks_mixed_prepbufr_and_gpsro():
     tasks = ds._create_tasks([datetime(2024, 1, 1, 0)], ["gps", "t"])
 
     assert len(tasks) == 2
-    conv_task = next(task for task in tasks if isinstance(task, nnja._NNJAConvTask))
-    gpsro_task = next(task for task in tasks if isinstance(task, nnja._NNJAGpsRoTask))
+    conv_task = next(t for t in tasks if t.route == "prepbufr")
+    gpsro_task = next(t for t in tasks if t.route == "gpsro")
     assert set(conv_task.var_plan) == {"t"}
     assert set(gpsro_task.var_plan) == {"gps"}
-    assert gpsro_task.var_plan["gps"][0] == utils_ncep.GPSRO_BNDA
+    assert gpsro_task.var_plan["gps"][0] == str(utils_ncep.GPSRO_BNDA)
 
 
 def test_nnja_obs_conv_pres_modifier_keeps_station_pressure_only():
