@@ -95,7 +95,7 @@ def test_datareplay_input_coords_copy():
     coords = replay.input_coords()
     coords["variable"][0] = "msl"
 
-    assert str(replay) == "DataReplay"
+    assert str(replay) == "DataReplay()"
     assert replay.input_coords()["variable"][0] == "t2m"
 
 
