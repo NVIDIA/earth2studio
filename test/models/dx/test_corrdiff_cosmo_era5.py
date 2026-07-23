@@ -23,20 +23,30 @@ preserves the full per-resolution/per-mode config: it re-lists the constructor
 args by hand, so a field can be silently dropped if one is missed.
 """
 
+import contextlib
 import inspect
+import json
 import math
 import os
 import types
 import warnings
 from collections import OrderedDict
 from datetime import datetime
+from pathlib import Path
+from typing import Any
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.lexicon import CosmoLexicon
-from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
+from earth2studio.models.auto import Package
+from earth2studio.models.dx.corrdiff_cosmo_era5 import (
+    CorrDiffCosmoEra5,
+    _interp_levels_to_height,
+)
 
 
 class PhooNet(torch.nn.Module):
@@ -532,6 +542,24 @@ def test_postprocess_physical_sane():
         0
     ].numpy()
     assert np.abs(out_n[ov.index("ASWDIR_S")]).max() < 1e-3
+
+
+def test_postprocess_physical_clamp_disabled():
+    dx = _build(physical_clamp=False)
+    ov = OUTPUT_VARIABLES
+    H, W = dx.lat_output_numpy.shape
+    lat2d, lon2d = dx.lat_output_numpy, dx.lon_output_numpy
+    x = torch.zeros(1, len(ov), H, W)
+    x[0, ov.index("TOT_PRECIP")] = -3.0  # log_eps pre-image -> small negative precip
+    x[0, ov.index("ASWDIR_S")] = 2.0  # positive shortwave pre-image
+    # winter midnight over central Europe: physical_clamp=True would gate ASWDIR_S
+    # to 0 here and clamp TOT_PRECIP up to 0; with the flag off, neither happens.
+    out = dx.postprocess_output(x, datetime(2021, 1, 1, 0), lat2d, lon2d)[0].numpy()
+    assert np.isfinite(out).all()
+    # min/max bound not applied -> precip stays below zero
+    assert out[ov.index("TOT_PRECIP")].min() < 0.0
+    # solar gate not applied -> night shortwave stays non-zero
+    assert out[ov.index("ASWDIR_S")].max() > 1e-3
 
 
 def _build_hub(**overrides):
@@ -1365,3 +1393,499 @@ def test_corrdiff_cosmo_era5_exceptions():
     )
     with pytest.raises((KeyError, ValueError), match="index -2"):
         dx(x, bad_order)
+
+
+# ── load_model assembly (synthetic local package, no real weights) ───────────
+#
+# These build a real on-disk ``Package`` (tmp_path/rea6/*) with the exact
+# metadata/stats/grids/invariants schema ``load_model`` reads, and patch the two
+# checkpoint loaders (``DiT.from_checkpoint`` / ``EDMPreconditioner.from_checkpoint``)
+# so the Phoo* mock networks stand in for real weights.
+
+# Non-position invariants (the channels load_model reads from disk):
+# PRE_INV + POST_INV minus the position channels (sin/cos lat/lon).
+_INV_NAMES = ["elevation_norm", "land_fraction", "z0_lu_norm"]
+
+
+def _write_grids(res_dir: Path) -> tuple[int, int]:
+    lat_in = np.arange(45.0, 56.0, 1.0, dtype=np.float32)  # 11, regular
+    lon_in = np.arange(5.0, 17.0, 1.0, dtype=np.float32)  # 12, regular
+    lat2d, lon2d = np.meshgrid(
+        np.linspace(47.0, 53.0, 8, dtype=np.float32),
+        np.linspace(7.0, 14.0, 8, dtype=np.float32),
+        indexing="ij",
+    )
+    xr.Dataset(
+        {
+            "lat_input": (("lat_in",), lat_in),
+            "lon_input": (("lon_in",), lon_in),
+            "lat_output": (("y", "x"), lat2d),
+            "lon_output": (("y", "x"), lon2d),
+        }
+    ).to_netcdf(res_dir / "grids.nc")
+    return lat2d.shape  # (H, W)
+
+
+def _base_metadata() -> dict[str, Any]:
+    return {
+        "era5_variables": ERA5_VARIABLES,
+        "output_variables": OUTPUT_VARIABLES,
+        "pre_invariant_variables": PRE_INV,
+        "post_invariant_variables": POST_INV,
+        "channel_transforms": CHANNEL_TRANSFORMS,
+        "constraints": CONSTRAINTS,
+        "number_of_samples": 2,
+        "sampler": {
+            "num_steps": 20,
+            "sigma_min": 0.001,
+            "sigma_max": 700.0,
+            "rho": 8.0,
+            "solver": "euler",
+        },
+        "checkpoints": {
+            "rea6_mean": "ckpt_mean.mdlus",
+            "rea6_diffusion": "ckpt_diff.mdlus",
+        },
+        "regression": {"patch_size": 2, "attn_kernel_size": 3},
+        "diffusion": {"patch_size": 4, "attn_kernel_size": 2},
+    }
+
+
+def _write_stats(
+    res_dir: Path,
+    *,
+    drop_output: str | None = None,
+    bad_std: bool = False,
+    alt_output_key: str | None = None,
+) -> None:
+    era5 = {v: {"mean": 0.0, "std": 1.0} for v in ERA5_VARIABLES}
+    out = {v: {"mean": 0.0, "std": 1.0} for v in OUTPUT_VARIABLES}
+    if drop_output is not None:
+        del out[drop_output]
+    if bad_std:
+        out[OUTPUT_VARIABLES[0]]["std"] = 0.0  # std<=0 -> invalid
+    payload = {"era5": era5, "output": out}
+    if alt_output_key is not None:
+        # An alternate output-stats block with distinct values from "output", so a
+        # per-mode 'stats' override that points here is observable in out_center/scale.
+        payload[alt_output_key] = {
+            v: {"mean": 5.0, "std": 2.0} for v in OUTPUT_VARIABLES
+        }
+    (res_dir / "stats.json").write_text(json.dumps(payload))
+
+
+def _write_fallback_invariants(res_dir: Path, shape: tuple[int, int]) -> None:
+    H, W = shape
+    g = np.random.default_rng(0)
+    xr.Dataset(
+        {
+            n: (("y", "x"), g.standard_normal((H, W)).astype(np.float32))
+            for n in _INV_NAMES
+        }
+    ).to_netcdf(res_dir / "invariants.nc")
+
+
+def _write_extended_invariants(
+    res_dir: Path, *, bad_std: bool = False
+) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    # 12x12 physical extended grid; native sub-block is 8x8 at offset (2, 2).
+    # Returns (invariants_meta, raw_physical): raw_physical maps each bare channel
+    # to the un-normalized 12x12 array, so a test can check the z-score independently.
+    lat_e, lon_e = np.meshgrid(
+        np.linspace(45.5, 54.5, 12, dtype=np.float32),
+        np.linspace(5.5, 15.5, 12, dtype=np.float32),
+        indexing="ij",
+    )
+    g = np.random.default_rng(1)
+    raw = {
+        "elevation": g.standard_normal((12, 12)).astype(np.float32),
+        "land_fraction": g.random((12, 12)).astype(np.float32),
+        "z0_lu": g.random((12, 12)).astype(np.float32),
+    }
+    data = {
+        "lat": (("y", "x"), lat_e),
+        "lon": (("y", "x"), lon_e),
+        **{name: (("y", "x"), arr) for name, arr in raw.items()},
+    }
+    xr.Dataset(data).to_netcdf(res_dir / "invariants_ext.nc")
+    norm = {
+        "channels": {
+            "elevation": {"method": "zscore", "mean": 100.0, "std": 50.0},
+            "z0_lu": {
+                "method": "zscore",
+                "mean": 0.1,
+                "std": 0.0 if bad_std else 0.05,
+            },
+            # land_fraction absent -> identity (default) path
+        }
+    }
+    (res_dir / "invariant_norm.json").write_text(json.dumps(norm))
+    inv_meta = {
+        "file": "invariants_ext.nc",
+        "native_offset": [2, 2],
+        "native_shape": [8, 8],
+        "norm_stats_file": "invariant_norm.json",
+    }
+    return inv_meta, raw
+
+
+def _make_package(
+    tmp_path: Path,
+    metadata: dict[str, Any],
+    *,
+    drop_output: str | None = None,
+    bad_std: bool = False,
+    extended: bool = False,
+    alt_output_key: str | None = None,
+) -> Package:
+    res_dir = tmp_path / "rea6"
+    res_dir.mkdir(parents=True, exist_ok=True)
+    shape = _write_grids(res_dir)
+    (res_dir / "metadata.json").write_text(json.dumps(metadata))
+    _write_stats(
+        res_dir, drop_output=drop_output, bad_std=bad_std, alt_output_key=alt_output_key
+    )
+    if not extended:
+        _write_fallback_invariants(res_dir, shape)
+    # Bare (empty) checkpoint files: package.resolve requires the file to exist,
+    # but the loaders are patched so the content is never read.
+    (res_dir / "ckpt_mean.mdlus").write_bytes(b"")
+    (res_dir / "ckpt_diff.mdlus").write_bytes(b"")
+    return Package(str(tmp_path))
+
+
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.EDMPreconditioner")
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.DiT")
+def test_load_model_assembles_mean(mock_dit, mock_edm, tmp_path):
+    mock_dit.from_checkpoint.return_value = PhooRegDiT(len(OUTPUT_VARIABLES))
+    pkg = _make_package(tmp_path, _base_metadata())  # config.json absent -> tolerated
+
+    # on a CPU runner the device check can't distinguish a missing .to() move
+    # (buffers are already on cpu), so it is a sanity assert, not proof of placement.
+    dx = CorrDiffCosmoEra5.load_model(pkg, device="cpu", mode="mean", resolution="rea6")
+
+    assert isinstance(dx, CorrDiffCosmoEra5)
+    assert dx.lat_output_grid.device.type == "cpu"  # sanity (see note above)
+    assert dx.output_variables == OUTPUT_VARIABLES
+    assert dx.regression_model is not None and dx.diffusion_model is None
+    # regression from_checkpoint was the loader used (not the diffusion one)
+    mock_dit.from_checkpoint.assert_called_once()
+    mock_edm.from_checkpoint.assert_not_called()
+    # lexicon output-coordinate mapping (TOT_PRECIP -> tp, CLCT -> tcc, ...)
+    assert list(dx._output_coord_variables) == [
+        "u10m",
+        "t2m",
+        "tp",
+        "tcc",
+        "aswdir_s",
+        "tke_l40",
+    ]
+    # sampler + number_of_samples parsed from metadata
+    assert dx.number_of_samples == 2
+    assert dx.number_of_steps == 20 and dx.solver == "euler"
+    assert dx.sigma_min == 0.001 and dx.sigma_max == 700.0 and dx.rho == 8.0
+    # constraints parsed (bounds + solar gate) in mean mode
+    assert dx._bound_lo and dx._bound_up and dx._sza_gate
+    # architecture block -> patch/min-domain (regression: patch 2, kernel 3 -> 6)
+    assert dx._patch_size == 2 and dx._min_domain_cells == 6
+    # fallback invariants: native 2D arrays matching the output grid, no extended
+    assert dx._static_names == _INV_NAMES
+    H, W = dx.lat_output_numpy.shape
+    assert dx.static_invariants.shape == (len(_INV_NAMES), H, W)
+    assert dx._ext_static_numpy is None
+
+
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.EDMPreconditioner")
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.DiT")
+def test_load_model_assembles_diffusion(mock_dit, mock_edm, tmp_path):
+    mock_edm.from_checkpoint.return_value = PhooDiffusionDiT(len(OUTPUT_VARIABLES))
+    pkg = _make_package(tmp_path, _base_metadata())
+
+    dx = CorrDiffCosmoEra5.load_model(pkg, mode="diffusion", resolution="rea6")
+
+    assert isinstance(dx, CorrDiffCosmoEra5)
+    assert dx.mode == "diffusion"
+    assert dx.diffusion_model is not None and dx.regression_model is None
+    mock_edm.from_checkpoint.assert_called_once()
+    mock_dit.from_checkpoint.assert_not_called()
+    # diffusion architecture block (patch 4, kernel 2 -> 8)
+    assert dx._patch_size == 4 and dx._min_domain_cells == 8
+
+
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.DiT")
+def test_load_model_per_mode_stats_and_transforms_override(mock_dit, tmp_path):
+    mock_dit.from_checkpoint.return_value = PhooRegDiT(len(OUTPUT_VARIABLES))
+    meta = _base_metadata()
+    meta["modes"] = {"mean": {"stats": "output_mean", "channel_transforms": False}}
+    pkg = _make_package(tmp_path, meta, alt_output_key="output_mean")
+
+    dx = CorrDiffCosmoEra5.load_model(pkg, mode="mean", resolution="rea6")
+
+    # (a) out_center/out_scale pulled from the alt "output_mean" block (5.0/2.0),
+    # distinct from the default "output" block (0.0/1.0) -- so the 'stats' key was
+    # honoured, not the default.
+    n = len(OUTPUT_VARIABLES)
+    assert torch.allclose(dx.out_center, torch.full((n,), 5.0))
+    assert torch.allclose(dx.out_scale, torch.full((n,), 2.0))
+    # (b) channel_transforms disabled for this mode -> no inverse transforms parsed,
+    # even though the metadata carries a full channel_transforms block (log_eps + logit).
+    assert dx._log_eps_idx == []
+    assert dx._logit_idx == []
+
+
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.EDMPreconditioner")
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.DiT")
+def test_load_model_extended_invariants(mock_dit, mock_edm, tmp_path):
+    mock_dit.from_checkpoint.return_value = PhooRegDiT(len(OUTPUT_VARIABLES))
+    meta = _base_metadata()
+    res_dir = tmp_path / "rea6"
+    res_dir.mkdir(parents=True, exist_ok=True)
+    meta["invariants"], raw = _write_extended_invariants(res_dir)
+    pkg = _make_package(tmp_path, meta, extended=True)
+
+    dx = CorrDiffCosmoEra5.load_model(pkg, mode="mean", resolution="rea6")
+
+    assert dx._static_names == _INV_NAMES
+    H, W = dx.lat_output_numpy.shape
+    assert (H, W) == (8, 8)
+    # native invariants are the 8x8 sub-block sliced from the 12x12 extended grid
+    assert dx.static_invariants.shape == (len(_INV_NAMES), 8, 8)
+    # extended arrays stashed for set_domain (full 12x12 z-scored stack + grid)
+    assert dx._ext_static_numpy is not None
+    assert dx._ext_static_numpy.shape == (len(_INV_NAMES), 12, 12)
+    assert dx._ext_lat_numpy.shape == (12, 12)
+    assert dx._ext_lon_numpy.shape == (12, 12)
+    # compare against the z-score applied to the raw physical arrays (from disk),
+    # an independent expected value rather than dx._ext_static_numpy (same code path).
+    ke = _INV_NAMES.index("elevation_norm")
+    exp_elev = (raw["elevation"][2:10, 2:10] - 100.0) / 50.0  # zscore mean=100/std=50
+    assert np.allclose(dx.static_invariants[ke].cpu().numpy(), exp_elev)
+    # land_fraction is absent from norm-stats -> identity: untouched physical values
+    kl = _INV_NAMES.index("land_fraction")
+    exp_land = raw["land_fraction"][2:10, 2:10]
+    assert np.allclose(dx.static_invariants[kl].cpu().numpy(), exp_land)
+
+
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.DiT")
+def test_load_model_missing_checkpoint_entry_rejected(mock_dit, tmp_path):
+    meta = _base_metadata()
+    del meta["checkpoints"]["rea6_mean"]
+    pkg = _make_package(tmp_path, meta)
+    with pytest.raises(ValueError, match="no checkpoint entry 'rea6_mean'"):
+        CorrDiffCosmoEra5.load_model(pkg, mode="mean", resolution="rea6")
+
+
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.DiT")
+def test_load_model_from_checkpoint_failure_rejected(mock_dit, tmp_path):
+    mock_dit.from_checkpoint.side_effect = RuntimeError("corrupt")
+    pkg = _make_package(tmp_path, _base_metadata())
+    with pytest.raises(ValueError, match="could not load the regression network"):
+        CorrDiffCosmoEra5.load_model(pkg, mode="mean", resolution="rea6")
+
+
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.DiT")
+def test_load_model_empty_metadata_rejected(mock_dit, tmp_path):
+    res_dir = tmp_path / "rea6"
+    res_dir.mkdir(parents=True, exist_ok=True)
+    _write_grids(res_dir)
+    (res_dir / "metadata.json").write_text("   ")  # whitespace-only -> empty
+    with pytest.raises(ValueError, match="metadata.json is empty"):
+        CorrDiffCosmoEra5.load_model(Package(str(tmp_path)), resolution="rea6")
+
+
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.DiT")
+def test_load_model_modes_block_missing_mode_rejected(mock_dit, tmp_path):
+    meta = _base_metadata()
+    meta["modes"] = {"diffusion": {"stats": "output"}}  # no 'mean' entry
+    pkg = _make_package(tmp_path, meta)
+    with pytest.raises(ValueError, match="no entry for mode='mean'"):
+        CorrDiffCosmoEra5.load_model(pkg, mode="mean", resolution="rea6")
+
+
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.DiT")
+def test_load_model_missing_stats_rejected(mock_dit, tmp_path):
+    mock_dit.from_checkpoint.return_value = PhooRegDiT(len(OUTPUT_VARIABLES))
+    pkg = _make_package(tmp_path, _base_metadata(), drop_output=OUTPUT_VARIABLES[0])
+    with pytest.raises(ValueError, match="missing normalization stats"):
+        CorrDiffCosmoEra5.load_model(pkg, mode="mean", resolution="rea6")
+
+
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.DiT")
+def test_load_model_invalid_stats_rejected(mock_dit, tmp_path):
+    mock_dit.from_checkpoint.return_value = PhooRegDiT(len(OUTPUT_VARIABLES))
+    pkg = _make_package(tmp_path, _base_metadata(), bad_std=True)  # std<=0 in stats
+    with pytest.raises(ValueError, match="normalization stats are invalid"):
+        CorrDiffCosmoEra5.load_model(pkg, mode="mean", resolution="rea6")
+
+
+@patch("earth2studio.models.dx.corrdiff_cosmo_era5.DiT")
+def test_load_model_invalid_invariant_zscore_rejected(mock_dit, tmp_path):
+    mock_dit.from_checkpoint.return_value = PhooRegDiT(len(OUTPUT_VARIABLES))
+    meta = _base_metadata()
+    res_dir = tmp_path / "rea6"
+    res_dir.mkdir(parents=True, exist_ok=True)
+    meta["invariants"], _ = _write_extended_invariants(res_dir, bad_std=True)
+    pkg = _make_package(tmp_path, meta, extended=True)
+    with pytest.raises(ValueError, match="invalid z-score stats"):
+        CorrDiffCosmoEra5.load_model(pkg, mode="mean", resolution="rea6")
+
+
+# ── constructor / validation branches ───────────────────────────────────────
+
+
+def test_construct_rejects_invalid_mode_model_and_resolution():
+    with pytest.raises(ValueError, match="mode='mean' requires regression_model"):
+        _build(mode="mean", regression_model=None)
+    with pytest.raises(ValueError, match="mode='diffusion' requires diffusion_model"):
+        _build(mode="diffusion", regression_model=None, diffusion_model=None)
+    with pytest.raises(ValueError, match="mode must be 'mean' or 'diffusion'"):
+        _build(mode="both")
+    with pytest.raises(ValueError, match="resolution must be one of"):
+        _build(resolution="rea3")
+
+
+@pytest.mark.parametrize("n", [0, -1])
+def test_number_of_samples_must_be_positive(n):
+    with pytest.raises(
+        ValueError, match="number_of_samples must be a positive integer"
+    ):
+        _build(number_of_samples=n)
+
+
+def test_validate_input_grid_rejects_invalid_axes():
+    good = torch.arange(5.0, 17.0, 1.0)
+    with pytest.raises(ValueError, match="must be 1D"):
+        CorrDiffCosmoEra5._validate_input_grid(good.view(3, 4), good)
+    with pytest.raises(ValueError, match="at least 2 points"):
+        CorrDiffCosmoEra5._validate_input_grid(good[:1], good)
+    with pytest.raises(ValueError, match="strictly increasing"):
+        CorrDiffCosmoEra5._validate_input_grid(torch.flip(good, dims=[0]), good)
+    irregular = torch.tensor([0.0, 1.0, 3.0, 6.0])
+    with pytest.raises(ValueError, match="regularly spaced"):
+        CorrDiffCosmoEra5._validate_input_grid(irregular, good)
+
+
+def test_interp_levels_invalid_method_raises():
+    values = torch.zeros(1, 2, 2, 2)
+    heights = torch.ones(2, 2, 2)
+    with pytest.raises(ValueError, match="method must be 'linear' or 'log'"):
+        _interp_levels_to_height(values, heights, 10.0, method="bogus")
+
+
+def test_constraint_parsing_ignores_unknown_and_scalar_gate():
+    cons = {
+        "bounds": {
+            "NOT_A_CHANNEL": {"min": 0.0},  # not in outputs -> skipped
+            "T_2M": "not-a-dict",  # non-dict -> skipped
+        },
+        "sza_gate": {
+            "channels": {
+                "NOT_SHORTWAVE": {"threshold": 0.02},  # not in outputs -> skipped
+                "ASWDIR_S": 0.04,  # bare scalar -> (threshold, default half_width)
+            }
+        },
+    }
+    dx = _build(constraints=cons)
+    # the scalar gate parsed with the default half_width (0.05)
+    idx = OUTPUT_VARIABLES.index("ASWDIR_S")
+    assert (idx, 0.04, 0.05) in dx._sza_gate
+    # the unknown/non-dict bounds produced no bound entries
+    assert dx._bound_lo == [] and dx._bound_up == []
+
+
+def test_forward_methods_require_loaded_model():
+    diff = _build(
+        mode="diffusion",
+        regression_model=None,
+        diffusion_model=PhooDiffusionDiT(len(OUTPUT_VARIABLES)),
+    )
+    with pytest.raises(RuntimeError, match="regression_model is not loaded"):
+        diff._regression_forward(torch.zeros(1, len(ERA5_VARIABLES), 8, 8))
+    mean = _build()  # regression-only (diffusion_model=None)
+    with pytest.raises(RuntimeError, match="diffusion_model is not loaded"):
+        mean._denoise(torch.zeros(1, len(ERA5_VARIABLES), 8, 8), None)
+
+
+def test_inference_context_amp_autocast():
+    ctx_amp = _build(amp=True)._inference_context()
+    assert isinstance(ctx_amp, torch.autocast)
+    ctx_full = _build(amp=False)._inference_context()
+    assert isinstance(ctx_full, contextlib.nullcontext)
+
+
+def _attach_extended_grid(
+    dx: CorrDiffCosmoEra5, static: np.ndarray | None = None
+) -> CorrDiffCosmoEra5:
+    # synthetic 12x12 extended grid; the native grid (~lat 47-53 / lon 7-14) sits inside it
+    lat_e, lon_e = np.meshgrid(
+        np.linspace(45.5, 54.5, 12, dtype=np.float32),
+        np.linspace(5.5, 15.5, 12, dtype=np.float32),
+        indexing="ij",
+    )
+    dx._ext_lat_numpy = lat_e
+    dx._ext_lon_numpy = lon_e
+    dx._ext_static_numpy = (
+        static
+        if static is not None
+        else np.zeros((len(dx._static_names), 12, 12), dtype=np.float32)
+    )
+    return dx
+
+
+def test_set_domain_extended_footprint():
+    inside = _attach_extended_grid(_build())
+    sub = inside.set_domain(49.0, 51.0, 9.0, 11.0)  # interior -> no OOD warning
+    assert isinstance(sub, CorrDiffCosmoEra5)
+    # interior crop: fewer rows than parent, staying within native max lat (~53)
+    assert sub.lat_output_grid.shape[0] < inside.lat_output_grid.shape[0]
+    assert sub.lat_output_numpy.max() <= 53.0 + 1e-4
+    # a bbox past the native max lat (53) but inside the extended grid (<54.5)
+    margin = _attach_extended_grid(_build())
+    sub2 = margin.set_domain(53.3, 54.0, 9.0, 11.0)  # OOD margin -> warns, proceeds
+    assert isinstance(sub2, CorrDiffCosmoEra5)
+    # the slice reaches past the native max lat (53.0) -> came from the extended grid
+    assert sub2.lat_output_numpy.max() > 53.0
+
+
+def test_set_domain_extended_state_guards():
+    dx = _attach_extended_grid(_build())
+    dx._ext_lon_numpy = None  # lat set, lon missing -> guard
+    with pytest.raises(RuntimeError, match="extended grid arrays are not set"):
+        dx.set_domain(49.0, 51.0, 9.0, 11.0)
+    dx2 = _attach_extended_grid(_build())
+    dx2._ext_static_numpy = None  # grid present but static stack missing -> guard
+    with pytest.raises(RuntimeError, match="extended static array is not set"):
+        dx2.set_domain(49.0, 51.0, 9.0, 11.0)
+
+
+def test_set_domain_outside_footprint_rejected():
+    dx = _build()
+    with pytest.raises(ValueError, match="not .*fully inside the native footprint"):
+        dx.set_domain(40.0, 60.0, 0.0, 25.0)  # far larger than the native grid
+    # a tiny off-grid bbox that lands between cell centers -> selects nothing
+    with pytest.raises(ValueError, match="selects no .*grid cells"):
+        dx.set_domain(49.01, 49.02, 10.01, 10.02)
+
+
+def test_forward_core_halo_trims_border():
+    dx = _build(regression_model=PhooRegDiT(len(OUTPUT_VARIABLES)))
+    plain = dx.set_domain(48.0, 52.0, 8.0, 13.0, halo=0)
+    haloed = dx.set_domain(48.0, 52.0, 8.0, 13.0, halo=1)
+    assert haloed._halo != (0, 0, 0, 0)
+    Hh, Wh = haloed.lat_output_numpy.shape  # expanded run grid
+    Hp, Wp = plain.lat_output_numpy.shape  # requested bbox
+    assert (Hh, Wh) != (Hp, Wp)  # the halo really expanded the run grid
+
+    ic = haloed.input_coords()
+    coords = OrderedDict(
+        batch=np.array([0]),
+        time=np.array([np.datetime64("2021-07-14T12:00")]),
+        variable=np.array(ERA5_VARIABLES),
+        lat=ic["lat"],
+        lon=ic["lon"],
+    )
+    x = torch.randn(1, 1, len(ERA5_VARIABLES), len(ic["lat"]), len(ic["lon"]))
+    out, _ = haloed(x, coords)
+    # [batch, sample, time, variable, lat, lon] trimmed back to the bbox interior
+    assert out.shape[-2:] == (Hp, Wp)
+    assert torch.isfinite(out).all()
