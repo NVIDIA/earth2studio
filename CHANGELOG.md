@@ -15,11 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added EarthMover ERA5 0.25 degree reanalysis data source
 - Added EarthMover IFS 0.1 degree data source and forecast source hosted by BrightBand
 - Added `async_workers` and `retries` parameters to GFS / GFS_FX, HRRR / HRRR_FX,
-  GEFS_FX / GEFS_FX_721x1440, CFS_FX / CFS_FX_Flux and NCAR_ERA5 data sources;
-  `async_workers` defaults to None which autoscales download concurrency to the
-  number of pending tasks (capped at 64)
+  GEFS_FX / GEFS_FX_721x1440, CFS_FX / CFS_FX_Flux and NCAR_ERA5 data sources
 - Added shared obstore byte-range helpers (`obstore_store_from_url`,
   `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
+- Added dynamical.org analysis and forecast data sources, reading anonymous Icechunk
+  repositories: `DynamicalGFS`, `DynamicalGEFS`,
+  `DynamicalGFS_FX`, `DynamicalGEFS_FX`, `DynamicalIFSENS_FX`,
+  `DynamicalAIFS_FX` and `DynamicalAIFSENS_FX`.
+- Added Aurora v1.5 deterministic and ensemble model wrapper (`Aurora1p5`, `Aurora1p5Ensemble`)
+- Added StormCast CONUS prognostic model (`StormCastCONUS`)
 - Added `DataReplay` for replaying `DataSource` and `ForecastSource` data through the
   prognostic iterator interface.
 
@@ -43,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
   the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
   fsspec
+- Updated the OPERA data source to represent undetect values as `-99.0`, while
+  retaining `NaN` for no-data values.
+- NNJA Obs data source now accepts any time / tolerance rather than 6-hour strides
 
 ### Deprecated
 
@@ -50,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `DerivedRH` mixed-phase saturation blend clipping the liquid-water fraction
+  ratio to 1.2 instead of 1.0 before squaring, which let the effective weight reach
+  1.44 and inflated relative humidity above freezing.
 - Changed ISD schema `source` type to string since the field is alphanumeric. Enforced
   `float32` dtypes for `lat`, `lon`, `elev`, and `observation`.
 - Fixed NNJA observation sources blocking the shared fsspec IO loop with
@@ -67,6 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed `multi-storage-client` from the `data` optional dependency group,
   succeeded by `obstore`
+- Added `icechunk>=2.0.0` to the `data` optional dependency group (Python ≥3.12 only)
 
 ## [0.16.0] - 2026-06-29
 
@@ -91,6 +102,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
 - Added DLESyM-v0-ISCCP-ERA5 climate model
+- Added COSMO-REA downscaling diagnostic model (`CorrDiffCosmoEra5`) and
+  `CosmoLexicon` for regression (mean) and diffusion downscaling of ERA5 to
+  COSMO-REA6 (6 km) and COSMO-REA2 (2.2 km), with sub-domain support via
+  `set_domain`
 
 ### Changed
 

@@ -224,7 +224,28 @@ uv add earth2studio --extra atlas
 ::::
 :::::
 :::::{tab-item} Aurora
-Notes: The Aurora model relies on the [microsoft aurora](https://github.com/microsoft/aurora)
+Notes: The Aurora model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
+package for inference.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[aurora]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra aurora
+```
+
+:::
+::::
+:::::
+:::::{tab-item} Aurora v1.5
+Notes: The Aurora v1.5 model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
 package for inference.
 
 ::::{tab-set}
@@ -454,6 +475,26 @@ uv add earth2studio --extra stormcast
 :::
 ::::
 :::::
+:::::{tab-item} StormCast-CONUS
+::::{tab-set}
+:::{tab-item} pip
+Notes: The StormCast-CONUS model depends on [natten](https://github.com/SHI-Labs/NATTEN),
+which can take a long time to compile.
+
+```bash
+pip install earth2studio[stormcast-conus]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra stormcast-conus
+```
+
+:::
+::::
+:::::
 :::::{tab-item} StormScope
 Notes: The StormScope model depends on [natten](https://github.com/SHI-Labs/NATTEN),
 which can take a long time to compile. [Earth2Grid](https://github.com/NVlabs/earth2grid)
@@ -584,6 +625,30 @@ pip install earth2studio[corrdiff]
 
 ```bash
 uv add earth2studio --extra corrdiff
+```
+
+:::
+::::
+:::::
+:::::{tab-item} CorrDiff COSMO-ERA5
+Notes: Additional dependencies for the `CorrDiffCosmoEra5` model. This model needs
+the RoPE / NATTEN attention backend from `nvidia-physicsnemo`, which is not on PyPI
+yet, so physicsnemo must be installed from a pinned git commit. The `uv` path picks
+this up automatically from `[tool.uv.sources]`; the `pip` path installs it explicitly.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@ced75d93d014f70bb691372788eee2d201171c12"
+pip install earth2studio[cosmo]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra cosmo
 ```
 
 :::
