@@ -393,6 +393,41 @@ class _DynamicalBase:
 
         return dynamical_name, modifier
 
+    def available_variables(self, native: bool = False) -> list[str]:
+        """Return variables available from this dynamical.org collection.
+
+        Parameters
+        ----------
+        native : bool, optional
+            Return native dynamical.org variable names when True. Return
+            Earth2Studio variable ids supported by this collection when False,
+            by default False
+
+        Returns
+        -------
+        list[str]
+            Available variable names.
+
+        Note
+        ----
+        Variables are resolved from the collection's dynamical.org STAC
+        metadata. The root STAC catalog is available at:
+
+        - https://stac.dynamical.org/catalog.json
+        """
+        self._open()
+        if native:
+            return sorted(self._cube_variables)
+
+        variables = []
+        for variable in DynamicalLexicon.VOCAB:
+            try:
+                self._resolve_variable(variable)
+            except KeyError:
+                continue
+            variables.append(variable)
+        return variables
+
     @property
     def cache(self) -> str:
         """Cache location (Icechunk fetches chunks lazily; kept for API parity)."""
@@ -659,7 +694,7 @@ class DynamicalAIFS(_DynamicalAnalysis):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/ecmwf-aifs-single-forecast/
     - https://stac.dynamical.org/ecmwf-aifs-single-forecast/collection.json
@@ -700,7 +735,7 @@ class DynamicalAIFS_ENS(_DynamicalAnalysis):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/ecmwf-aifs-ens-forecast/
     - https://stac.dynamical.org/ecmwf-aifs-ens-forecast/collection.json
@@ -742,7 +777,7 @@ class DynamicalGFS(_DynamicalBase):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/noaa-gfs-analysis/
     - https://stac.dynamical.org/noaa-gfs-analysis/collection.json
@@ -824,7 +859,7 @@ class DynamicalGEFS(_DynamicalBase):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/noaa-gefs-analysis/
     - https://stac.dynamical.org/noaa-gefs-analysis/collection.json
@@ -906,7 +941,7 @@ class DynamicalHRRR(_DynamicalAnalysis):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/noaa-hrrr-analysis/
     - https://stac.dynamical.org/noaa-hrrr-analysis/collection.json
@@ -941,7 +976,7 @@ class DynamicalMRMS(_DynamicalAnalysis):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/noaa-mrms-conus-analysis-hourly/
     - https://stac.dynamical.org/noaa-mrms-conus-analysis-hourly/collection.json
@@ -979,7 +1014,7 @@ class DynamicalGFS_FX(_DynamicalBase):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/noaa-gfs-forecast/
     - https://stac.dynamical.org/noaa-gfs-forecast/collection.json
@@ -1017,7 +1052,7 @@ class DynamicalHRRR_FX(_DynamicalBase):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/noaa-hrrr-forecast-48-hour-virtual/
     - https://stac.dynamical.org/noaa-hrrr-forecast-48-hour-virtual/collection.json
@@ -1056,7 +1091,7 @@ class DynamicalICON_EU_FX(_DynamicalBase):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/dwd-icon-eu-forecast-5-day/
     - https://stac.dynamical.org/dwd-icon-eu-forecast-5-day/collection.json
@@ -1097,7 +1132,7 @@ class DynamicalGEFS_FX(_DynamicalBase):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/noaa-gefs-forecast-35-day/
     - https://stac.dynamical.org/noaa-gefs-forecast-35-day/collection.json
@@ -1141,7 +1176,7 @@ class DynamicalIFS_ENS(_DynamicalAnalysis):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/ecmwf-ifs-ens-forecast-15-day-0-25-degree/
     - https://stac.dynamical.org/ecmwf-ifs-ens-forecast-15-day-0-25-degree/collection.json
@@ -1189,7 +1224,7 @@ class DynamicalIFS_ENS_FX(_DynamicalBase):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/ecmwf-ifs-ens-forecast-15-day-0-25-degree/
     - https://stac.dynamical.org/ecmwf-ifs-ens-forecast-15-day-0-25-degree/collection.json
@@ -1234,7 +1269,7 @@ class DynamicalAIFS_FX(_DynamicalBase):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/ecmwf-aifs-single-forecast/
     - https://stac.dynamical.org/ecmwf-aifs-single-forecast/collection.json
@@ -1275,7 +1310,7 @@ class DynamicalAIFSENS_FX(_DynamicalBase):
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    The dynamical.org dataset documentation and STAC metadata are available at:
 
     - https://dynamical.org/catalog/ecmwf-aifs-ens-forecast/
     - https://stac.dynamical.org/ecmwf-aifs-ens-forecast/collection.json
