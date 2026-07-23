@@ -81,7 +81,7 @@ class DynamicalLexicon(metaclass=LexiconType):
 
         Conversions to the Earth2Studio convention:
 
-        - ``temperature_2m``, ``dew_point_temperature_2m``: Celsius -> Kelvin
+        - all temperature fields: Celsius -> Kelvin
         - ``geopotential_height_*``: metres -> geopotential (m2 s-2)
         - ``total_cloud_cover_atmosphere``: percent -> fraction
 
