@@ -474,6 +474,7 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.CBottleSR.html">CBottleSR</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.CBottleTCGuidance.html">CBottleTCGuidance</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html">CorrDiffCMIP6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.CorrDiffCosmoEra5.html">CorrDiffCosmoEra5</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html">CorrDiffTaiwan</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.ClimateNet.html">ClimateNet</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedRH.html">DerivedRH</a></li>
@@ -668,6 +669,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../examples/03_downscaling/01_corrdiff_inference.html">Generative Downscaling</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../examples/03_downscaling/02_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../examples/03_downscaling/03_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../examples/03_downscaling/04_cosmo_rea_downscaling.html">Regional Downscaling to COSMO-REA (6 km and 2.2 km)</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../examples/04_nowcasting/index.html">Nowcasting</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -783,58 +785,61 @@ prior to use.</p>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html#earth2studio.models.dx.CorrDiffCMIP6" title="earth2studio.models.dx.CorrDiffCMIP6"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CorrDiffCMIP6</span></code></a></p></td>
 <td><p>CMIP6 to ERA5 downscaling model based on the CorrDiff architecture.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html#earth2studio.models.dx.CorrDiffTaiwan" title="earth2studio.models.dx.CorrDiffTaiwan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CorrDiffTaiwan</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.CorrDiffCosmoEra5.html#earth2studio.models.dx.CorrDiffCosmoEra5" title="earth2studio.models.dx.CorrDiffCosmoEra5"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CorrDiffCosmoEra5</span></code></a></p></td>
+<td><p>COSMO-REA downscaling model: ERA5 -&gt; high-resolution COSMO-REA.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html#earth2studio.models.dx.CorrDiffTaiwan" title="earth2studio.models.dx.CorrDiffTaiwan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CorrDiffTaiwan</span></code></a></p></td>
 <td><p>CorrDiff is a Corrector Diffusion model that learns mappings between low- and high-resolution weather data with high fidelity.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.ClimateNet.html#earth2studio.models.dx.ClimateNet" title="earth2studio.models.dx.ClimateNet"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ClimateNet</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.ClimateNet.html#earth2studio.models.dx.ClimateNet" title="earth2studio.models.dx.ClimateNet"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ClimateNet</span></code></a></p></td>
 <td><p>Climate Net diagnostic model, built into Earth2Studio.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedRH.html#earth2studio.models.dx.DerivedRH" title="earth2studio.models.dx.DerivedRH"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedRH</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedRH.html#earth2studio.models.dx.DerivedRH" title="earth2studio.models.dx.DerivedRH"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedRH</span></code></a></p></td>
 <td><p>Calculates the relative humidity (RH) from specific humidity and temperature for specified pressure levels.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint.html#earth2studio.models.dx.DerivedRHDewpoint" title="earth2studio.models.dx.DerivedRHDewpoint"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedRHDewpoint</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint.html#earth2studio.models.dx.DerivedRHDewpoint" title="earth2studio.models.dx.DerivedRHDewpoint"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedRHDewpoint</span></code></a></p></td>
 <td><p>Calculates the surface relative humidity (RH) from dewpoint temperature and air temperature.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedSurfacePressure.html#earth2studio.models.dx.DerivedSurfacePressure" title="earth2studio.models.dx.DerivedSurfacePressure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedSurfacePressure</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedSurfacePressure.html#earth2studio.models.dx.DerivedSurfacePressure" title="earth2studio.models.dx.DerivedSurfacePressure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedSurfacePressure</span></code></a></p></td>
 <td><p>Interpolates the surface pressure in hPa from pressure level geopotential, surface geopotential and optionally temperature.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedTCWV.html#earth2studio.models.dx.DerivedTCWV" title="earth2studio.models.dx.DerivedTCWV"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedTCWV</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedTCWV.html#earth2studio.models.dx.DerivedTCWV" title="earth2studio.models.dx.DerivedTCWV"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedTCWV</span></code></a></p></td>
 <td><p>Calculates the Total Column Water Vapor (TCWV) from specific humidity at pressure levels and surface pressure.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedVPD.html#earth2studio.models.dx.DerivedVPD" title="earth2studio.models.dx.DerivedVPD"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedVPD</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedVPD.html#earth2studio.models.dx.DerivedVPD" title="earth2studio.models.dx.DerivedVPD"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedVPD</span></code></a></p></td>
 <td><p>Calculates the Vapor Pressure Deficit (VPD) in hPa from relative humidity and temperature fields.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedWS.html#earth2studio.models.dx.DerivedWS" title="earth2studio.models.dx.DerivedWS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedWS</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedWS.html#earth2studio.models.dx.DerivedWS" title="earth2studio.models.dx.DerivedWS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedWS</span></code></a></p></td>
 <td><p>Calculates the Wind Speed (WS) magnitude from eastward and northward wind components for specified levels.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.html#earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip" title="earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DLESyMv0_ISCCP_ERA5Precip</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.html#earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip" title="earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DLESyMv0_ISCCP_ERA5Precip</span></code></a></p></td>
 <td><p>Precipitation diagnostic for the DLESyMv0_ISCCP_ERA5 climate model.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.OrbitGlobalPrecip.html#earth2studio.models.dx.OrbitGlobalPrecip" title="earth2studio.models.dx.OrbitGlobalPrecip"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OrbitGlobalPrecip</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.OrbitGlobalPrecip.html#earth2studio.models.dx.OrbitGlobalPrecip" title="earth2studio.models.dx.OrbitGlobalPrecip"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OrbitGlobalPrecip</span></code></a></p></td>
 <td><p>ORBIT-2 precipitation downscaling model supporting both 9.5m and 126m parameter variants.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html#earth2studio.models.dx.PrecipitationAFNO" title="earth2studio.models.dx.PrecipitationAFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PrecipitationAFNO</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html#earth2studio.models.dx.PrecipitationAFNO" title="earth2studio.models.dx.PrecipitationAFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PrecipitationAFNO</span></code></a></p></td>
 <td><p>Precipitation AFNO diagnsotic model.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html#earth2studio.models.dx.PrecipitationAFNOv2" title="earth2studio.models.dx.PrecipitationAFNOv2"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PrecipitationAFNOv2</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html#earth2studio.models.dx.PrecipitationAFNOv2" title="earth2studio.models.dx.PrecipitationAFNOv2"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PrecipitationAFNOv2</span></code></a></p></td>
 <td><p>Improved Precipitation AFNO diagnostic model.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO1H.html#earth2studio.models.dx.SolarRadiationAFNO1H" title="earth2studio.models.dx.SolarRadiationAFNO1H"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SolarRadiationAFNO1H</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO1H.html#earth2studio.models.dx.SolarRadiationAFNO1H" title="earth2studio.models.dx.SolarRadiationAFNO1H"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SolarRadiationAFNO1H</span></code></a></p></td>
 <td><p>Solar Radiation AFNO diagnostic model for 1-hour frequency predictions.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO6H.html#earth2studio.models.dx.SolarRadiationAFNO6H" title="earth2studio.models.dx.SolarRadiationAFNO6H"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SolarRadiationAFNO6H</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO6H.html#earth2studio.models.dx.SolarRadiationAFNO6H" title="earth2studio.models.dx.SolarRadiationAFNO6H"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SolarRadiationAFNO6H</span></code></a></p></td>
 <td><p>Solar Radiation AFNO diagnostic model for 6-hour frequency predictions.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.TCTrackerWuDuan.html#earth2studio.models.dx.TCTrackerWuDuan" title="earth2studio.models.dx.TCTrackerWuDuan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TCTrackerWuDuan</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.TCTrackerWuDuan.html#earth2studio.models.dx.TCTrackerWuDuan" title="earth2studio.models.dx.TCTrackerWuDuan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TCTrackerWuDuan</span></code></a></p></td>
 <td><p>Finds a list of tropical cyclone (TC) centers using an adaption of the method described in the conditions in Wu and Duan 2023.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.TCTrackerVitart.html#earth2studio.models.dx.TCTrackerVitart" title="earth2studio.models.dx.TCTrackerVitart"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TCTrackerVitart</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.TCTrackerVitart.html#earth2studio.models.dx.TCTrackerVitart" title="earth2studio.models.dx.TCTrackerVitart"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TCTrackerVitart</span></code></a></p></td>
 <td><p>Finds a list of tropical cyclone centers using the conditions in Vitart 1997</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.WindgustAFNO.html#earth2studio.models.dx.WindgustAFNO" title="earth2studio.models.dx.WindgustAFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WindgustAFNO</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.WindgustAFNO.html#earth2studio.models.dx.WindgustAFNO" title="earth2studio.models.dx.WindgustAFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WindgustAFNO</span></code></a></p></td>
 <td><p>Wind gust AFNO diagnsotic model.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.Identity.html#earth2studio.models.dx.Identity" title="earth2studio.models.dx.Identity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Identity</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.Identity.html#earth2studio.models.dx.Identity" title="earth2studio.models.dx.Identity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Identity</span></code></a></p></td>
 <td><p>Identity diagnostic that is coordinate insensitive.</p></td>
 </tr>
 </tbody>

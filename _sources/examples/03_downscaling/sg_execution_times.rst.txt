@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:00.000** total execution time for 3 files **from examples/03_downscaling**:
+**00:00.000** total execution time for 4 files **from examples/03_downscaling**:
 
 .. container::
 
@@ -39,5 +39,8 @@ Computation times
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_03_downscaling_03_ensemble_downscaling.py` (``03_ensemble_downscaling.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_03_downscaling_04_cosmo_rea_downscaling.py` (``04_cosmo_rea_downscaling.py``)
      - 00:00.000
      - 0.0
