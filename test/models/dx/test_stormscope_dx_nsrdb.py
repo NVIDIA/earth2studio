@@ -264,9 +264,7 @@ def test_stormscope_dx_nsrdb_local_package(tmp_path, monkeypatch):
     package = LocalPackage(tmp_path)
     monkeypatch.setattr(stormscope_module, "Module", PhooModule)
 
-    model = StormScopeDxNSRDB.load_model(
-        package, number_of_samples=2, seed=7, amp=False
-    )
+    model = StormScopeDxNSRDB.load_model(package, number_of_samples=2, seed=7)
     identity_means, identity_stds = model._build_normalization(
         package, registry, np.array(["identity"])
     )
@@ -344,7 +342,6 @@ def test_stormscope_dx_nsrdb_package():
     model = StormScopeDxNSRDB.load_model(
         StormScopeDxNSRDB.load_default_package(),
         seed=42,
-        amp=True,
     ).to("cuda:0")
     model.num_steps = 2
     input_tensor, input_coords = make_input(model, device="cuda:0")
