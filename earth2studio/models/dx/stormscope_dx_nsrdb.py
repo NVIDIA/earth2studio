@@ -302,7 +302,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     def load_model(
         cls,
         package: Package,
-        model_name: str = "stormscope_solar_goes_nsrdb",
         number_of_samples: int = 1,
         seed: int | None = None,
     ) -> DiagnosticModel:
