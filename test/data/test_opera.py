@@ -119,6 +119,29 @@ def test_opera_cache(cache, tmp_path, monkeypatch):
 
 
 # ==========================================================================
+# 2b. Linear scaling / undetect fill
+# ==========================================================================
+
+
+@pytest.mark.timeout(5)
+def test_opera_apply_linear_scaling_undetect_fill():
+    raw = np.array([0, 1, 2, 3], dtype=np.uint8)
+    what = {
+        "gain": 0.5,
+        "offset": -32.0,
+        "nodata": 0,
+        "undetect": 2,
+    }
+    scaled = OPERA._apply_linear_scaling(raw, what)
+    assert scaled.dtype == np.float32
+    np.testing.assert_allclose(scaled[0], np.nan)
+    np.testing.assert_allclose(scaled[1], -31.5)
+    np.testing.assert_allclose(scaled[2], OPERA._NO_DETECTION_FILL)
+    np.testing.assert_allclose(scaled[3], -30.5)
+    assert OPERA._NO_DETECTION_FILL == -99.0
+
+
+# ==========================================================================
 # 3. Mock tests — no network, ODYSSEY era grid
 # ==========================================================================
 

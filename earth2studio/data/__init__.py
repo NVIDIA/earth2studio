@@ -24,6 +24,15 @@ from .cfs import CFS_FX, CFS_FX_Flux
 from .cfs_reforecast import CFS_Reforecast_FX, CFS_Reforecast_FX_Flux
 from .cmip6 import CMIP6, CMIP6MultiRealm
 from .const import Constant, Constant_FX
+from .dynamical import (
+    DynamicalAIFS_FX,
+    DynamicalAIFSENS_FX,
+    DynamicalGEFS,
+    DynamicalGEFS_FX,
+    DynamicalGFS,
+    DynamicalGFS_FX,
+    DynamicalIFSENS_FX,
+)
 from .earthmover import (
     EarthMoverBrightBandIFS,
     EarthMoverBrightBandIFS_FX,
@@ -51,7 +60,7 @@ from .metop_mhs import MetOpMHS
 from .mrms import MRMS
 from .ncar import NCAR_ERA5
 from .nclimgrid import NClimGridDaily
-from .nnja import NNJAObsConv
+from .nnja import NNJAObsConv, NNJAObsSat
 from .opera import OPERA
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFS,

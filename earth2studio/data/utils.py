@@ -20,6 +20,7 @@ import asyncio
 import os
 import random
 import tempfile
+import uuid
 from collections import OrderedDict
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -508,6 +509,39 @@ def datasource_cache_root() -> str:
     return default_cache
 
 
+def datasource_cache_dir(subdir: str, persistent: bool, tmp_hash: str | None) -> str:
+    """Return (and create) a data-source-specific cache directory.
+
+    Provides the standard cache-location logic used by all observation data
+    sources: ``<root>/<subdir>`` for persistent caches, or
+    ``<root>/<subdir>/tmp_<subdir>_<hash>`` for ephemeral per-instance caches.
+
+    Parameters
+    ----------
+    subdir : str
+        Source-specific subdirectory name (e.g. ``"nnja"``, ``"gdas_prepbufr"``).
+    persistent : bool
+        When True the directory is shared across runs (warm cache).  When
+        False a unique temp subdirectory is used.
+    tmp_hash : str | None
+        Per-instance identifier for the temp subdirectory.  When *persistent*
+        is False and this is None, a random hash is generated.  Ignored when
+        *persistent* is True.
+
+    Returns
+    -------
+    str
+        Absolute path to the cache directory (already created).
+    """
+    cache_location = os.path.join(datasource_cache_root(), subdir)
+    if not persistent:
+        if tmp_hash is None:
+            tmp_hash = uuid.uuid4().hex[:8]
+        cache_location = os.path.join(cache_location, f"tmp_{subdir}_{tmp_hash}")
+    os.makedirs(cache_location, exist_ok=True)
+    return cache_location
+
+
 # =============================================================================
 # Async Utilities for Data Sources
 # =============================================================================
@@ -769,6 +803,35 @@ async def cancellable_to_thread(
             "Note: underlying thread may still be running."
         )
         raise
+
+
+def resolve_async_workers(
+    async_workers: int | None, n_tasks: int, cap: int = 64
+) -> int:
+    """Resolves the concurrent download worker count for a data source.
+
+    When ``async_workers`` is None (the default for obstore-backed sources),
+    concurrency autoscales to the number of pending download tasks, bounded by
+    ``cap`` to keep request bursts against public endpoints reasonable. An
+    explicit ``async_workers`` value is always honored as-is.
+
+    Parameters
+    ----------
+    async_workers : int | None
+        User-provided worker count, or None to autoscale
+    n_tasks : int
+        Number of pending download tasks
+    cap : int, optional
+        Upper bound applied when autoscaling, by default 64
+
+    Returns
+    -------
+    int
+        Number of concurrent workers to use (at least 1)
+    """
+    if async_workers is not None:
+        return async_workers
+    return max(1, min(n_tasks, cap))
 
 
 def obstore_store_from_url(
