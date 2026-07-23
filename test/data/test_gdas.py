@@ -192,17 +192,17 @@ def test_nomads_gdas_lexicon():
     for var in expected_vars:
         assert var in GDASObsConvLexicon.VOCAB
 
-    # get_item should return (key, modifier)
+    # get_item should return (route_prefixed_key, modifier)
     key, mod = GDASObsConvLexicon.get_item("t")
-    assert key == "TOB"
+    assert key == "prepbufr::TOB"
     assert callable(mod)
 
     # Wind vars should have decomposition modifiers
     key_u, mod_u = GDASObsConvLexicon.get_item("u")
-    assert key_u == "wind::u"
+    assert key_u == "prepbufr::wind::u"
 
     key_v, mod_v = GDASObsConvLexicon.get_item("v")
-    assert key_v == "wind::v"
+    assert key_v == "prepbufr::wind::v"
 
     key_gps, mod_gps = GDASObsConvLexicon.get_item("gps")
     assert key_gps == "gpsro::15037"
