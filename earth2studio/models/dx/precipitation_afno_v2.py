@@ -71,7 +71,7 @@ VARIABLES = [
 @check_optional_dependencies()
 class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
     """Improved Precipitation AFNO diagnostic model. Predicts the total precipitation
-    for the past 6 hours [t-6h, t] with the units m. This model uses an 20 atmospheric
+    for the next 6 hours [t, t+6h] with the units m. This model uses 20 atmospheric
     inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)
     [720 x 1440].
 

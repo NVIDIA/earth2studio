@@ -68,6 +68,8 @@ class DynamicalLexicon(metaclass=LexiconType):
         "msl": "pressure_reduced_to_mean_sea_level",
         "tcc": "total_cloud_cover_atmosphere",
         "tcwv": "precipitable_water_atmosphere",
+        "tpf": "precipitation_surface",
+        "ptype": "categorical_precipitation_type_surface",
     }
     # Pressure-level fields (level baked into the dynamical.org variable name).
     VOCAB.update({f"z{level}": f"geopotential_height_{level}hpa" for level in LEVELS})
@@ -79,7 +81,7 @@ class DynamicalLexicon(metaclass=LexiconType):
 
         Conversions to the Earth2Studio convention:
 
-        - ``temperature_2m``, ``dew_point_temperature_2m``: Celsius -> Kelvin
+        - all temperature fields: Celsius -> Kelvin
         - ``geopotential_height_*``: metres -> geopotential (m2 s-2)
         - ``total_cloud_cover_atmosphere``: percent -> fraction
 
@@ -95,7 +97,7 @@ class DynamicalLexicon(metaclass=LexiconType):
         """
         dynamical_name = cls.VOCAB[val]
 
-        if val in ("t2m", "d2m"):
+        if val in ("t2m", "d2m") or (val.startswith("t") and val[1:].isdigit()):
             # Celsius -> Kelvin
             def mod(x: np.ndarray) -> np.ndarray:
                 """Convert Celsius to Kelvin."""
