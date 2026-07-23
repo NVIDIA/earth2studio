@@ -151,6 +151,17 @@ class DeterministicBatchRuntime:
         self._loaded_model_name = normalized_model
         return self._model, self._data
 
+    def close(self) -> None:
+        """Release the model and data resources cached by this runtime.
+
+        The runtime remains reusable after closing. Its model and data resources are
+        loaded again when the next request runs.
+        """
+
+        self._model = None
+        self._data = None
+        self._loaded_model_name = None
+
     def run(self, request: DeterministicBatchRequest) -> DeterministicBatchResponse:
         """Run one deterministic forecast using the cached resources.
 

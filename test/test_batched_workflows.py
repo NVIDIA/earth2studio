@@ -93,6 +93,46 @@ def test_run_deterministic_batch_reuses_runtime_resources(tmp_path: Path) -> Non
     assert not list(tmp_path.glob(".*.tmp-*"))
 
 
+def test_runtime_close_releases_resources_and_allows_reuse() -> None:
+    calls: list[tuple[Any, ...]] = []
+
+    def model_loader(model_name: str) -> FakeModel:
+        calls.append(("load_model", model_name))
+        return FakeModel(calls)
+
+    def data_factory() -> object:
+        data = object()
+        calls.append(("load_data", data))
+        return data
+
+    runtime = DeterministicBatchRuntime(
+        device="cpu",
+        model_loader=model_loader,
+        data_factory=data_factory,
+    )
+    first_model, first_data = runtime._ensure_loaded("custom")
+
+    runtime.close()
+
+    assert runtime._model is None
+    assert runtime._data is None
+    assert runtime._loaded_model_name is None
+
+    runtime.close()
+    second_model, second_data = runtime._ensure_loaded("custom")
+
+    assert second_model is not first_model
+    assert second_data is not first_data
+    assert calls == [
+        ("load_model", "custom"),
+        ("model.to", "cpu"),
+        ("load_data", first_data),
+        ("load_model", "custom"),
+        ("model.to", "cpu"),
+        ("load_data", second_data),
+    ]
+
+
 def test_run_deterministic_batch_uses_default_components(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
