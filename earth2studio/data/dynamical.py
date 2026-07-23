@@ -408,6 +408,11 @@ class _DynamicalBase:
         list[str]
             Available variable names.
 
+        Examples
+        --------
+        >>> source = DynamicalGFS()
+        >>> source.available_variables()  # variables are determined dynamically
+
         Note
         ----
         Variables are resolved from the collection's dynamical.org STAC
@@ -687,6 +692,11 @@ class DynamicalAIFS(_DynamicalAnalysis):
     verbose : bool, optional
         Print download progress, by default True
 
+    Examples
+    --------
+    >>> source = DynamicalAIFS()
+    >>> source.available_variables()  # variables are determined dynamically
+
     Warning
     -------
     This is a remote data source and can potentially download a large amount of
@@ -727,6 +737,11 @@ class DynamicalAIFS_ENS(_DynamicalAnalysis):
         than caching whole files locally, by default True
     verbose : bool, optional
         Print download progress, by default True
+
+    Examples
+    --------
+    >>> source = DynamicalAIFS_ENS()
+    >>> source.available_variables()  # variables are determined dynamically
 
     Warning
     -------
@@ -769,6 +784,11 @@ class DynamicalGFS(_DynamicalBase):
         than caching whole files locally, by default True
     verbose : bool, optional
         Print download progress, by default True
+
+    Examples
+    --------
+    >>> source = DynamicalGFS()
+    >>> source.available_variables()  # variables are determined dynamically
 
     Warning
     -------
@@ -852,6 +872,11 @@ class DynamicalGEFS(_DynamicalBase):
     verbose : bool, optional
         Print download progress, by default True
 
+    Examples
+    --------
+    >>> source = DynamicalGEFS()
+    >>> source.available_variables()  # variables are determined dynamically
+
     Warning
     -------
     This is a remote data source and can potentially download a large amount of
@@ -934,6 +959,11 @@ class DynamicalHRRR(_DynamicalAnalysis):
     verbose : bool, optional
         Print download progress, by default True
 
+    Examples
+    --------
+    >>> source = DynamicalHRRR()
+    >>> source.available_variables()  # variables are determined dynamically
+
     Warning
     -------
     This is a remote data source and can potentially download a large amount of
@@ -968,6 +998,11 @@ class DynamicalMRMS(_DynamicalAnalysis):
         than caching whole files locally, by default True
     verbose : bool, optional
         Print download progress, by default True
+
+    Examples
+    --------
+    >>> source = DynamicalMRMS()
+    >>> source.available_variables()  # variables are determined dynamically
 
     Warning
     -------
@@ -1007,6 +1042,11 @@ class DynamicalGFS_FX(_DynamicalBase):
     verbose : bool, optional
         Print download progress, by default True
 
+    Examples
+    --------
+    >>> source = DynamicalGFS_FX()
+    >>> source.available_variables()  # variables are determined dynamically
+
     Warning
     -------
     This is a remote data source and can potentially download a large amount of
@@ -1044,6 +1084,11 @@ class DynamicalHRRR_FX(_DynamicalBase):
         than caching whole files locally, by default True
     verbose : bool, optional
         Print download progress, by default True
+
+    Examples
+    --------
+    >>> source = DynamicalHRRR_FX()
+    >>> source.available_variables()  # variables are determined dynamically
 
     Warning
     -------
@@ -1083,6 +1128,11 @@ class DynamicalICON_EU_FX(_DynamicalBase):
         than caching whole files locally, by default True
     verbose : bool, optional
         Print download progress, by default True
+
+    Examples
+    --------
+    >>> source = DynamicalICON_EU_FX()
+    >>> source.available_variables()  # variables are determined dynamically
 
     Warning
     -------
@@ -1124,6 +1174,11 @@ class DynamicalGEFS_FX(_DynamicalBase):
         than caching whole files locally, by default True
     verbose : bool, optional
         Print download progress, by default True
+
+    Examples
+    --------
+    >>> source = DynamicalGEFS_FX()
+    >>> source.available_variables()  # variables are determined dynamically
 
     Warning
     -------
@@ -1168,6 +1223,11 @@ class DynamicalIFS_ENS(_DynamicalAnalysis):
         than caching whole files locally, by default True
     verbose : bool, optional
         Print download progress, by default True
+
+    Examples
+    --------
+    >>> source = DynamicalIFS_ENS()
+    >>> source.available_variables()  # variables are determined dynamically
 
     Warning
     -------
@@ -1217,6 +1277,11 @@ class DynamicalIFS_ENS_FX(_DynamicalBase):
     verbose : bool, optional
         Print download progress, by default True
 
+    Examples
+    --------
+    >>> source = DynamicalIFS_ENS_FX()
+    >>> source.available_variables()  # variables are determined dynamically
+
     Warning
     -------
     This is a remote data source and can potentially download a large amount of
@@ -1262,6 +1327,11 @@ class DynamicalAIFS_FX(_DynamicalBase):
     verbose : bool, optional
         Print download progress, by default True
 
+    Examples
+    --------
+    >>> source = DynamicalAIFS_FX()
+    >>> source.available_variables()  # variables are determined dynamically
+
     Warning
     -------
     This is a remote data source and can potentially download a large amount of
@@ -1302,6 +1372,11 @@ class DynamicalAIFSENS_FX(_DynamicalBase):
         than caching whole files locally, by default True
     verbose : bool, optional
         Print download progress, by default True
+
+    Examples
+    --------
+    >>> source = DynamicalAIFSENS_FX()
+    >>> source.available_variables()  # variables are determined dynamically
 
     Warning
     -------
