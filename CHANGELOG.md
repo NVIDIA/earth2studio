@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `DynamicalAIFS_FX` and `DynamicalAIFSENS_FX`.
 - Added Aurora v1.5 deterministic and ensemble model wrapper (`Aurora1p5`, `Aurora1p5Ensemble`)
 - Added StormCast CONUS prognostic model (`StormCastCONUS`)
+- Added `DataReplay` for replaying `DataSource` and `ForecastSource` data through the
+  prognostic iterator interface.
 
 ### Changed
 
