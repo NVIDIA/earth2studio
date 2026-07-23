@@ -30,7 +30,7 @@ see
 """
 # /// script
 # dependencies = [
-#   "earth2studio[data,stormcast] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[data,stormcast-conus] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
 # ]
 # ///
@@ -51,15 +51,14 @@ see
 # %%
 # Thus, we need the following:
 #
-# - Prognostic Model: Use the built in StormCast Model :py:class:`earth2studio.models.px.StormCast`.
+# - Prognostic Model: Use the built in StormCast-CONUS Model :py:class:`earth2studio.models.px.StormCastCONUS`.
 # - perturbation_method: Use the Zero Method :py:class:`earth2studio.perturbation.Zero`. We will not
 #    perturb the initial data because StormCast has stochastic generation of  ensemble members.
 # - Datasource: Pull data from the HRRR data api :py:class:`earth2studio.data.HRRR`.
 # - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
-# StormCast also requires a conditioning data source. We use a forecast data source here,
-# ARCO :py:class:`earth2studio.data.ARCO`, but a forecast data source such as GFS_FX
-# could also be used with appropriate time stamps.
+# StormCast-CONUS also requires a global conditioning data source. We use
+# GFS_FX :py:class:`earth2studio.data.GFS_FX` (the default).
 
 # %%
 import numpy as np
@@ -76,17 +75,15 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from earth2studio.data import ARCO, HRRR
+from earth2studio.data import GFS_FX, HRRR
 from earth2studio.io import ZarrBackend
-from earth2studio.models.px import StormCast
+from earth2studio.models.px import StormCastCONUS
 from earth2studio.perturbation import Zero
 
-# Create and set the conditioning data source
-conditioning_data_source = ARCO()
-
-# Load the default model package which downloads the check point from NGC
-package = StormCast.load_default_package()
-model = StormCast.load_model(package, conditioning_data_source=conditioning_data_source)
+# Load the default model package which downloads the checkpoint from HuggingFace
+# GFS_FX is used as the global conditioning data source (the default)
+package = StormCastCONUS.load_default_package()
+model = StormCastCONUS.load_model(package, conditioning_data_source=GFS_FX())
 
 # Instantiate the (Zero) perturbation method
 z = Zero()
@@ -111,10 +108,10 @@ io = ZarrBackend()
 import earth2studio.run as run
 
 nsteps = 4
-nensemble = 4
+nensemble = 2
 batch_size = 2
 
-date = "2022-11-04T21:00:00"
+date = "2022-11-04T18:00:00"
 io = run.ensemble(
     [date],
     nsteps,
