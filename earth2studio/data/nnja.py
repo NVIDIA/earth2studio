@@ -585,7 +585,6 @@ class NNJAObsSat:
             await self.fetch_files(uris)
         except Exception as exc:
             self._handle_fetch_failure(uris, exc)
-            raise
 
         return compile_dataframe(
             tasks,
