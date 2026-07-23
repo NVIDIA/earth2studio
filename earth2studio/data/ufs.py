@@ -186,10 +186,14 @@ class _UFSObsBase:
             self._handle_missing_file(key)
 
     def _handle_missing_file(self, key: str) -> None:
-        """Handle missing file during fetch. Can be overridden by subclasses."""
+        """Warn and skip a missing diag file. Archive gaps are expected
+        (e.g. various satellite/GPS outages), so shouldn't fully derail
+        a call to fetch data.
+
+        Can be overridden by subclasses that require stricter handling.
+        """
         uri = f"s3://{self.UFS_BUCKET}/{key}"
-        logger.error(f"File {uri} not found")
-        raise FileNotFoundError(f"File {uri} not found")
+        logger.warning(f"File {uri} not found")
 
     def _compile_dataframe(
         self,
@@ -276,6 +280,13 @@ class _UFSObsBase:
             mask = (df["time"] >= task.datetime_min) & (df["time"] <= task.datetime_max)
             df = df.loc[mask]
             frames.append(task.gsi_modifier(df))
+
+        if not frames:
+            logger.warning(
+                "No observation files were available for this request; "
+                "returning an empty DataFrame."
+            )
+            return schema.empty_table().to_pandas()
 
         result = pd.concat(frames, ignore_index=True)
         return result[[name for name in schema.names if name in result.columns]]
@@ -756,11 +767,6 @@ class UFSObsSat(_UFSObsBase):
                         )
                         day = day + timedelta(hours=6)
         return tasks
-
-    def _handle_missing_file(self, key: str) -> None:
-        """Satellite data may have missing platforms, just warn instead of error."""
-        uri = f"s3://{self.UFS_BUCKET}/{key}"
-        logger.warning(f"File {uri} not found")
 
     def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
         """Build column map, always including Channel_Index for channel-indexed fields."""
