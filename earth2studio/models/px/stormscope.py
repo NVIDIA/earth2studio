@@ -2433,9 +2433,9 @@ class StormScopeNSRDB(StormScopeBase):
 
     1. A deterministic regression network produces a first-guess GHI from the
        GOES conditioning.
-    2. That guess is refined by a diffusion model: noise is injected at the
-       checkpoint's registry ``sigma_max`` and the EDM sampler denoises down to
-       the model's minimum sigma (a warm-started reverse diffusion).
+    2. That guess is refined with SDEdit: noise is injected into the regression
+       output at the checkpoint's registry ``sigma_max``, then the EDM sampler
+       denoises down to the model's minimum sigma.
 
     Parameters
     ----------
@@ -2483,9 +2483,6 @@ class StormScopeNSRDB(StormScopeBase):
     input_interp_max_dist_km : float, optional
         Maximum distance in kilometers for nearest neighbor interpolation of input data.
         Points beyond this distance are masked as invalid. Default is 12.0.
-    amp : bool, optional
-        Enable automatic mixed precision during inference. Default is True.
-
     Badges
     ------
     region:na class:nwc product:solar year:2026 gpu:60gb
@@ -2517,7 +2514,6 @@ class StormScopeNSRDB(StormScopeBase):
         y_coords: np.ndarray | None = None,
         x_coords: np.ndarray | None = None,
         input_interp_max_dist_km: float = 12.0,
-        amp: bool = True,
     ):
         super().__init__(
             model_spec=model_spec,
@@ -2541,7 +2537,7 @@ class StormScopeNSRDB(StormScopeBase):
             x_coords=x_coords,
             input_interp_max_dist_km=input_interp_max_dist_km,
             conditioning_interp_max_dist_km=input_interp_max_dist_km,
-            amp=amp,
+            amp=True,
         )
         self.regression_model = regression_model
         # SDEdit warm-start noise level = the checkpoint's registry sigma_max.
@@ -2792,7 +2788,7 @@ class StormScopeNSRDB(StormScopeBase):
             conditioning_coords=conditioning_coords,
         )
 
-        # Regression first guess (masked), then warm-started diffusion refinement.
+        # Regression first guess (masked), then SDEdit diffusion refinement.
         reg = self._sanitize(self.regression_model(condition))
         reg = reg * self.valid_mask.reshape(1, 1, h, w).to(dtype=reg.dtype)
         noise = torch.randn(
@@ -2802,9 +2798,9 @@ class StormScopeNSRDB(StormScopeBase):
         )
         x_init = reg / self.sigma_max + noise
 
-        # Autocast accelerates the denoiser forward passes when amp is enabled
-        # (no-op otherwise); the sampler's own math stays in _SAMPLER_DTYPE.
-        with torch.autocast(device_type=device.type, enabled=self.amp):
+        # NSRDB inference always uses autocast for the denoiser forward passes;
+        # the sampler's own math stays in _SAMPLER_DTYPE.
+        with torch.autocast(device_type=device.type, enabled=True):
             out = self._edm_sampler(
                 latents=x_init,
                 condition=condition,
@@ -2826,8 +2822,10 @@ class StormScopeNSRDB(StormScopeBase):
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Estimate GHI from GOES conditioning.
 
-        This is the primary entry point when chaining StormScopeGOES -> NSRDB:
-        pass the GOES prediction tensor directly and receive a GHI estimate.
+        This is the primary entry point when chaining ``StormScopeGOES`` to
+        ``StormScopeNSRDB``. A regression estimate is refined with SDEdit by
+        adding noise at the package's ``sigma_max`` and running the EDM reverse
+        process.
 
         Parameters
         ----------
@@ -2873,7 +2871,6 @@ class StormScopeNSRDB(StormScopeBase):
         package: Package,
         model_name: str = "stormscope_solar_goes_nsrdb",
         conditioning_data_source: DataSource | ForecastSource | None = None,
-        amp: bool = True,
     ) -> "StormScopeNSRDB":
         """Load model from package.
 
@@ -2885,13 +2882,16 @@ class StormScopeNSRDB(StormScopeBase):
             Registry entry to load, by default ``"stormscope_solar_goes_nsrdb"``.
         conditioning_data_source : DataSource | ForecastSource | None, optional
             Optional GOES data source; when omitted use ``estimate_from_goes(...)``.
-        amp : bool, optional
-            Enable autocast for the sampler network forward passes, by default True.
-
         Returns
         -------
         StormScopeNSRDB
             Instantiated StormScopeNSRDB model.
+
+        Note
+        ----
+        Automatic mixed precision is always enabled for the denoiser forward
+        passes. The wrapper uses a fixed regression-plus-SDEdit inference
+        pipeline matching the packaged checkpoint.
         """
         try:
             package.resolve("config.json")  # HF tracking download statistics
@@ -2954,5 +2954,4 @@ class StormScopeNSRDB(StormScopeBase):
             y_coords=y,
             x_coords=x,
             input_interp_max_dist_km=6.0 * spatial_downsample,
-            amp=amp,
         )

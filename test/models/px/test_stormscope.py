@@ -994,6 +994,7 @@ def test_stormscope_nsrdb_output_coords(device):
     """Test StormScopeNSRDB coordinate handshakes and output coordinates."""
     h, w = 32, 64
     model = create_spoof_nsrdb_model(h=h, w=w, device=device)
+    assert model.amp
 
     in_coords = model.input_coords()
     assert (in_coords["variable"] == np.array(["ghi"])).all()
