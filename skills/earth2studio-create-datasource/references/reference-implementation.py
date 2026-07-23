@@ -42,19 +42,21 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import numpy as np
-import s3fs
 import xarray as xr
 from loguru import logger
+from obstore.store import ObjectStore
 
 from earth2studio.data.utils import (
     _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
-    managed_session,
+    obstore_fetch_to_cache,
+    obstore_store_from_url,
     prep_data_inputs,
     # FILL: Use prep_forecast_inputs instead if ForecastSource
     # prep_forecast_inputs,
+    resolve_async_workers,
 )
 
 # FILL: Import your lexicon class
@@ -105,8 +107,8 @@ class SourceNameAsyncTask:
 
     # FILL: Index into the output array/dataframe where this result goes
     data_array_indices: tuple[int, ...]
-    # FILL: Full URI to the remote file/object
-    remote_uri: str
+    # FILL: Store-relative key to the remote file/object
+    remote_key: str
     # FILL: Transform to apply after reading (from lexicon get_item)
     modifier: Callable
 
@@ -131,8 +133,9 @@ class SourceName:
         Print download progress, by default True.
     async_timeout : int, optional
         Total timeout in seconds for the entire fetch operation, by default 600.
-    async_workers : int, optional
-        Max concurrent async fetch tasks, by default 16.
+    async_workers : int | None, optional
+        Max concurrent async fetch tasks. None autoscales to the number of
+        tasks, capped at 64, by default None.
     retries : int, optional
         Number of retry attempts per failed fetch with exponential backoff,
         by default 3.
@@ -162,7 +165,7 @@ class SourceName:
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
-        async_workers: int = 16,
+        async_workers: int | None = None,
         retries: int = 3,
     ) -> None:
         self._cache = cache
@@ -171,27 +174,21 @@ class SourceName:
         self._retries = retries
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
-        self.fs: s3fs.S3FileSystem | None = None
+        self.store: ObjectStore | None = None
+        # FILL: Object store root URL. For S3, this is usually the bucket URL.
+        self._store_url = f"s3://{SOURCE_BUCKET}"
 
     # ------------------------------------------------------------------
     # Async initialization
     # ------------------------------------------------------------------
     async def _async_init(self) -> None:
-        """Initialize the async filesystem connection."""
-        # FILL: Choose the right filesystem for your backend:
-        # S3 (anonymous):
-        self.fs = s3fs.S3FileSystem(
-            anon=True,
-            client_kwargs={},
-            asynchronous=True,
-            skip_instance_cache=True,
+        """Initialize the object store connection."""
+        self.store = obstore_store_from_url(
+            self._store_url,
+            max_pool_connections=self._async_workers or 64,
         )
-        # FILL: Or HTTP:
-        # from fsspec.implementations.http import HTTPFileSystem
-        # self.fs = HTTPFileSystem(asynchronous=True)
-        # FILL: Or GCS:
-        # import gcsfs
-        # self.fs = gcsfs.GCSFileSystem(token="anon", asynchronous=True)
+        # FILL: For cloud Zarr sources, use obstore_zarr_store instead of this
+        # byte-range/object cache pattern. See earth2studio/data/arco.py.
 
     # ------------------------------------------------------------------
     # Synchronous entry point
@@ -249,7 +246,7 @@ class SourceName:
         xr.DataArray
             Data array with dims (time, variable, lat, lon).
         """
-        if self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         time_list, variable_list = prep_data_inputs(time, variable)
@@ -280,16 +277,14 @@ class SourceName:
 
         tasks = self._create_tasks(time_list, variable_list)
 
-        # Use managed_session for guaranteed cleanup of the async connection
-        async with managed_session(self.fs):
-            coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in tasks]
-            await gather_with_concurrency(
-                coros,
-                max_workers=self._async_workers,
-                task_timeout=60.0,
-                desc="Fetching SourceName data",  # FILL: source name
-                verbose=(not self._verbose),
-            )
+        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in tasks]
+        await gather_with_concurrency(
+            coros,
+            max_workers=resolve_async_workers(self._async_workers, len(coros)),
+            task_timeout=60.0,
+            desc="Fetching SourceName data",  # FILL: source name
+            verbose=(not self._verbose),
+        )
 
         return xr_array
 
@@ -314,13 +309,13 @@ class SourceName:
                 remote_key = v  # FILL: replace with lexicon lookup
                 modifier: Callable = lambda x: x  # FILL: from lexicon
 
-                # FILL: Build the remote URI from time + remote_key
-                uri = f"s3://{SOURCE_BUCKET}/{SOURCE_PREFIX}/{t:%Y%m%d}/{remote_key}.nc"
+                # FILL: Build the store-relative key from time + remote_key
+                key = f"{SOURCE_PREFIX}/{t:%Y%m%d}/{remote_key}.nc"
 
                 tasks.append(
                     SourceNameAsyncTask(
                         data_array_indices=(i, j),
-                        remote_uri=uri,
+                        remote_key=key,
                         modifier=modifier,
                     )
                 )
@@ -345,30 +340,33 @@ class SourceName:
         xr_array[i, j] = task.modifier(out)
 
     # ------------------------------------------------------------------
-    # Fetch single array (pure async I/O)
+    # Fetch single array
     # ------------------------------------------------------------------
     async def fetch_array(self, task: SourceNameAsyncTask) -> np.ndarray:
         """Download and decode a single data chunk.
 
-        FILL: This is where the actual I/O happens. Use pure async calls:
-        - await self.fs._cat_file(uri) for full file
-        - await self.fs._cat_file(uri, start=offset, end=offset+length)
+        FILL: This is where the actual I/O happens. Use obstore helpers:
+        - await self._fetch_remote_file(key) for whole-file cache
+        - await obstore_fetch_to_cache(..., byte_offset=..., byte_length=...)
           for byte-range reads
-        Then decode the bytes into a numpy array.
+        Then decode the cached file into a numpy array.
         """
-        if self.fs is None:
-            raise ValueError("Filesystem not initialized")
+        cache_path = await self._fetch_remote_file(task.remote_key)
 
-        # FILL: Pure async read — never use blocking I/O here
-        data_bytes = await self.fs._cat_file(task.remote_uri)
-
-        # FILL: Decode bytes into numpy array
-        # Example for NetCDF: write to cache, open with netCDF4/h5py
+        # FILL: Decode cached file into numpy array
+        # Example for NetCDF: open with netCDF4/h5py
         # Example for GRIB: write to cache, open with pygrib
         # Example for zarr: use async zarr store
-        array = np.frombuffer(data_bytes, dtype=np.float32).reshape(181, 360)
+        with xr.open_dataset(cache_path) as ds:
+            array = np.asarray(ds[list(ds.data_vars)[0]].values, dtype=np.float32)
 
         return array
+
+    async def _fetch_remote_file(self, key: str) -> str:
+        """Fetch a remote object into the local cache."""
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
+        return await obstore_fetch_to_cache(self.store, key, self.cache)
 
     # ------------------------------------------------------------------
     # Time validation
@@ -426,54 +424,6 @@ class SourceName:
         except ValueError:
             return False
         return True
-
-
-# ===========================================================================
-# LEXICON TEMPLATE (put in earth2studio/lexicon/<source_name>.py)
-# ===========================================================================
-#
-# from collections.abc import Callable
-# import numpy as np
-# from earth2studio.lexicon.base import LexiconType
-#
-#
-# class SourceNameLexicon(metaclass=LexiconType):
-#     """Lexicon for SourceName data source.
-#
-#     Note
-#     ----
-#     Variable documentation: FILL: URL
-#     """
-#
-#     VOCAB = {
-#         # FILL: Map Earth2Studio variable names -> remote keys
-#         # Surface variables: descriptive abbreviation
-#         "t2m": "2m_temperature",
-#         "u10m": "10m_u_component_of_wind",
-#         # Pressure-level: {short_name}{level_hPa}
-#         "t500": "temperature::500",
-#         "z500": "geopotential::500",
-#     }
-#
-#     @classmethod
-#     def get_item(cls, val: str) -> tuple[str, Callable]:
-#         """Return remote key and modifier function for a variable.
-#
-#         Parameters
-#         ----------
-#         val : str
-#             Earth2Studio variable name.
-#
-#         Returns
-#         -------
-#         tuple[str, Callable]
-#             Remote key string and post-processing function.
-#         """
-#         remote_key = cls.VOCAB[val]
-#         # FILL: Add unit conversions or transforms as needed, e.g.:
-#         # if val.startswith("z"):
-#         #     return remote_key, lambda x: x * 9.81  # geopotential -> height
-#         return remote_key, lambda x: x
 
 
 # ===========================================================================

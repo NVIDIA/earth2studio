@@ -19,7 +19,8 @@ Risk: Review before execution as proposals could introduce incorrect or misleadi
 Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
-- [Implementation Guide](references/implementation-guide.py) <br>
+- [Reference Implementation](references/reference-implementation.py) <br>
+- [Reference Lexicon](references/reference-lexicon.py) <br>
 - [Testing Guide](references/testing-guide.py) <br>
 - [Validation Guide](references/validation-guide.md) <br>
 

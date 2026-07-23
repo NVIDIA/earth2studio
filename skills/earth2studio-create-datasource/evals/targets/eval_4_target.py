@@ -24,17 +24,19 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import numpy as np
-import s3fs
 import xarray as xr
 from loguru import logger
+from obstore.store import ObjectStore
 
 from earth2studio.data.utils import (
     _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
-    managed_session,
+    obstore_fetch_to_cache,
+    obstore_store_from_url,
     prep_data_inputs,
+    resolve_async_workers,
 )
 from earth2studio.lexicon import PhooLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
@@ -46,7 +48,7 @@ class PhooAsyncTask:
 
     time_index: int
     variable_index: int
-    s3_uri: str
+    s3_key: str
     modifier: Callable
 
 
@@ -65,8 +67,9 @@ class PhooAnalysis:
         Print download progress, by default True
     async_timeout : int, optional
         Time in seconds after which download will be cancelled, by default 600
-    async_workers : int, optional
-        Maximum number of concurrent download tasks, by default 16
+    async_workers : int | None, optional
+        Maximum number of concurrent download tasks. None autoscales to task
+        count capped at 64, by default None
     retries : int, optional
         Number of retry attempts for failed downloads, by default 3
 
@@ -96,7 +99,7 @@ class PhooAnalysis:
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
-        async_workers: int = 16,
+        async_workers: int | None = None,
         retries: int = 3,
     ) -> None:
         self._cache = cache
@@ -105,17 +108,20 @@ class PhooAnalysis:
         self._retries = retries
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
-        self.fs: s3fs.S3FileSystem | None = None
+        self.store: ObjectStore | None = None
+        self._store_url = f"s3://{self.PHOO_BUCKET}"
 
     async def _async_init(self) -> None:
-        """Async initialization of S3 filesystem.
+        """Async initialization of the object store.
 
         Note
         ----
-        Async fsspec expects initialization inside of the execution loop.
+        Obstore stores are event-loop independent; this lazy async seam keeps
+        initialization consistent with other data sources.
         """
-        self.fs = s3fs.S3FileSystem(
-            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
+        self.store = obstore_store_from_url(
+            self._store_url,
+            max_pool_connections=self._async_workers or 64,
         )
 
     def __call__(
@@ -168,7 +174,7 @@ class PhooAnalysis:
         xr.DataArray
             Phoo weather data array with dims [time, variable, lat, lon]
         """
-        if self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
@@ -191,15 +197,14 @@ class PhooAnalysis:
 
         async_tasks = self._create_tasks(time, variable)
 
-        async with managed_session(self.fs):
-            coros = [self.fetch_wrapper(task, xr_array) for task in async_tasks]
-            await gather_with_concurrency(
-                coros,
-                max_workers=self._async_workers,
-                task_timeout=60.0,
-                desc="Fetching Phoo data",
-                verbose=(not self._verbose),
-            )
+        coros = [self.fetch_wrapper(task, xr_array) for task in async_tasks]
+        await gather_with_concurrency(
+            coros,
+            max_workers=resolve_async_workers(self._async_workers, len(coros)),
+            task_timeout=60.0,
+            desc="Fetching Phoo data",
+            verbose=(not self._verbose),
+        )
 
         return xr_array
 
@@ -228,12 +233,12 @@ class PhooAnalysis:
                 except KeyError as e:
                     raise KeyError(f"Variable '{v}' not found in PhooLexicon") from e
 
-                s3_uri = self._netcdf_uri(t, phoo_name)
+                s3_key = self._netcdf_key(t, phoo_name)
                 tasks.append(
                     PhooAsyncTask(
                         time_index=i,
                         variable_index=k,
-                        s3_uri=s3_uri,
+                        s3_key=s3_key,
                         modifier=modifier,
                     )
                 )
@@ -257,15 +262,15 @@ class PhooAnalysis:
         Parameters
         ----------
         task : PhooAsyncTask
-            Async task containing S3 URI and modifier.
+            Async task containing S3 object key and modifier.
 
         Returns
         -------
         np.ndarray
             2D array of shape (181, 360).
         """
-        logger.debug(f"Fetching Phoo file: {task.s3_uri}")
-        cache_path = await self._fetch_remote_file(task.s3_uri)
+        logger.debug(f"Fetching Phoo file: {task.s3_key}")
+        cache_path = await self._fetch_remote_file(task.s3_key)
         with xr.open_dataset(cache_path) as ds:
             # Assume single variable in file, extract first data variable
             var_name = list(ds.data_vars)[0]
@@ -293,35 +298,31 @@ class PhooAnalysis:
                     f"PhooAnalysis.MIN_DATE ({cls.MIN_DATE.isoformat()})."
                 )
 
-    async def _fetch_remote_file(self, path: str) -> str:
-        """Download a remote file to local cache using async S3.
+    async def _fetch_remote_file(self, key: str) -> str:
+        """Download a remote file to local cache using obstore.
 
         Parameters
         ----------
-        path : str
-            S3 URI to download.
+        key : str
+            Store-relative S3 object key to download.
 
         Returns
         -------
         str
             Local cache path of the downloaded file.
         """
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
 
-        sha = hashlib.sha256(path.encode())
-        filename = sha.hexdigest()
-        cache_path = os.path.join(self.cache, filename)
+        return await obstore_fetch_to_cache(
+            self.store,
+            key,
+            self.cache,
+            cache_key=hashlib.sha256(key.encode()).hexdigest(),
+        )
 
-        if not pathlib.Path(cache_path).is_file():
-            data = await self.fs._cat_file(path)
-            with open(cache_path, "wb") as fh:
-                fh.write(data)
-
-        return cache_path
-
-    def _netcdf_uri(self, time: datetime, variable: str) -> str:
-        """Generate the S3 URI for a given time and variable.
+    def _netcdf_key(self, time: datetime, variable: str) -> str:
+        """Generate the S3 object key for a given time and variable.
 
         Parameters
         ----------
@@ -333,11 +334,10 @@ class PhooAnalysis:
         Returns
         -------
         str
-            S3 URI path.
+            Store-relative S3 object key.
         """
         return (
-            f"s3://{self.PHOO_BUCKET}/analysis/"
-            f"{time.year:04d}/{time.month:02d}/{time.day:02d}/"
+            f"analysis/{time.year:04d}/{time.month:02d}/{time.day:02d}/"
             f"{time.hour:02d}z/{variable}.nc"
         )
 

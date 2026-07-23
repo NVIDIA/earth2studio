@@ -1,6 +1,6 @@
 ---
 name: earth2studio-create-datasource
-version: 0.16.0
+version: 0.17.0
 license: Apache-2.0
 metadata:
   author: NVIDIA Earth-2 Team <agent-skills@nvidia.com>
@@ -78,7 +78,8 @@ Load these on demand during the relevant steps:
 
 | File | Content | Load at |
 |---|---|---|
-| `references/implementation-guide.py` | Skeleton source with FILL comments | Steps 3–10 |
+| `references/reference-implementation.py` | Obstore-backed source skeleton with FILL comments | Steps 6–10 |
+| `references/reference-lexicon.py` | Lexicon skeleton with FILL comments | Step 4 |
 | `references/testing-guide.py` | Test skeleton with FILL comments | Step 11 |
 | `references/validation-guide.md` | Plot templates, PR body template, Greptile handling | Steps 12–14 (optional, for templates) |
 
@@ -131,31 +132,31 @@ Present recommended type with justification. Ask for confirmation.
 **Analyze:** storage backend, file format, authentication, access pattern,
 temporal/spatial resolution, variable inventory.
 
-**Prefer fsspec:**
+**Prefer Earth2Studio obstore helpers:**
 
-| Backend | Preferred | Avoid |
+| Backend / format | Preferred | Avoid |
 |---|---|---|
-| AWS S3 | `s3fs` (core dep) | `boto3` directly |
-| GCS | `gcsfs` (core dep) | `google-cloud-storage` |
-| Azure | `adlfs` | `azure-storage-blob` |
-| HTTP | `fsspec` (core dep) | `requests` |
+| S3/GCS/HTTP object files | `obstore_store_from_url` + `obstore_fetch_to_cache` | raw SDK clients |
+| Cloud Zarr | `obstore_zarr_store` | hand-rolled fsspec/zarr stores |
+| Azure/object auth | `obstore.store.from_url` via shared helpers | provider SDKs directly |
 | HuggingFace | `huggingface_hub` (core dep) | custom scripts |
 
-Only fall back to dedicated libraries when fsspec cannot access the store.
+Only fall back to dedicated libraries when obstore/shared helpers cannot access the store.
 
 Check `pyproject.toml` — only propose packages not already present.
-Core deps include: `s3fs`, `gcsfs`, `fsspec`, `zarr`, `netCDF4`, `h5py`,
-`pygrib`, `huggingface-hub`, `pandas`, `pyarrow`.
+Core deps include: `obstore`, `zarr`, `netCDF4`, `h5py`, `pygrib`,
+`huggingface-hub`, `pandas`, `pyarrow`.
 
 #### [CONFIRM — Dependencies & Access Pattern]
 
-Present: backend, fsspec filesystem, new packages (with license), auth method.
+Present: backend, obstore helper/store URL, new packages (with license), auth method.
 
 ---
 
 ### Step 3 — Add Dependencies
 
-> **Load `references/implementation-guide.py` from here through Step 10.**
+> **Load `references/reference-implementation.py` from Step 6 through Step 10.**
+> Load `references/reference-lexicon.py` during Step 4.
 
 If new packages needed:
 
@@ -173,6 +174,7 @@ Create `earth2studio/lexicon/<source_name>.py` with:
 - `VOCAB: dict[str, str]` mapping E2S names → remote keys
 - `get_item(cls, val)` returning `tuple[str, Callable]`
 - Use `::` separator for structured keys
+- Use `references/reference-lexicon.py` as the starting template
 
 Map remote variables against `E2STUDIO_VOCAB` (282 entries in
 `earth2studio/lexicon/base.py`).
@@ -195,6 +197,8 @@ Skip if no updates needed.
 ---
 
 ### Step 6 — Create Skeleton Data Source File
+
+Use `references/reference-implementation.py` as the starting template.
 
 Follow canonical method ordering:
 
@@ -227,11 +231,11 @@ Present: class name, file path, skeleton code, task dataclass.
 
 **Sync sources:** Use `prep_data_inputs`/`prep_forecast_inputs`, direct `__call__`.
 
-**Async sources:** See `references/implementation-guide.py` for required patterns:
-`_sync_async`, `managed_session`, `gather_with_concurrency`, `async_retry`,
-pure async I/O, `try/finally` cleanup. Constructor params: `cache=True`,
-`verbose=True`, `async_timeout=600`, `async_workers=16`, `retries=3`.
-DataFrame sources add `time_tolerance`.
+**Async sources:** See `references/reference-implementation.py` for required patterns:
+`_sync_async`, `gather_with_concurrency`, `async_retry`, `obstore_fetch_to_cache`,
+`obstore_zarr_store` for Zarr, `try/finally` cleanup. Constructor params:
+`cache=True`, `verbose=True`, `async_timeout=600`, `async_workers=None`,
+`retries=3`. DataFrame sources add `time_tolerance`.
 
 ---
 
@@ -254,7 +258,7 @@ DataFrame sources add `time_tolerance`.
 ### Step 10 — Update CHANGELOG.md
 
 Add entry under the current unreleased version. See
-`references/implementation-guide.py` REGISTRATION CHECKLIST for the format.
+`references/reference-implementation.py` REGISTRATION CHECKLIST for the format.
 
 One line per source. Do NOT add separate lexicon entries.
 
@@ -339,9 +343,10 @@ Agent: [loads skill, proceeds through Steps 0–14]
 ## Reminders
 
 **DO:** `uv run python`, `loguru.logger`, alphabetical order in `__init__.py`/RST/CHANGELOG,
-canonical method ordering, async utilities (`managed_session`, `gather_with_concurrency`,
-`async_retry`), pure async I/O, reference URLs in docstrings, `try/finally` cleanup.
+canonical method ordering, obstore helpers, `gather_with_concurrency`, `async_retry`,
+reference URLs in docstrings, `try/finally` cleanup.
 
-**AVOID:** `asyncio.to_thread`, bare `tqdm.gather`, xarray for loading, full file downloads.
+**AVOID:** hand-rolled fsspec stores, `asyncio.to_thread`, bare `tqdm.gather`,
+xarray for loading, full file downloads.
 
 **NEVER:** `loop.set_default_executor()`, commit secrets, commit sanity-check scripts/images.
