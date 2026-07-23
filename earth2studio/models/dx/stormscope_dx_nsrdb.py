@@ -117,6 +117,31 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     amp : bool, optional
         Enable automatic mixed precision, by default True.
 
+    Example
+    -------
+    Using the diagnostic with forecasted GOES imagery from
+    :py:class:`earth2studio.models.px.StormScopeGOES`. A
+    :py:class:`earth2studio.data.GOES` data source can also be used directly
+    in place of the prognostic model output:
+
+    >>> # Load StormScopeGOES prognostic and NSRDB diagnostic models
+    >>> package = StormScopeBase.load_default_package()
+    >>> goes_model = StormScopeGOES.load_model(package, conditioning_data_source=None)
+    >>> goes_model = goes_model.to("cuda").eval()
+    >>> nsrdb_model = StormScopeDxNSRDB.load_model(StormScopeDxNSRDB.load_default_package())
+    >>> nsrdb_model = nsrdb_model.to("cuda")
+    >>>
+    >>> # Build interpolators from GOES grid to model grid
+    >>> goes_lat, goes_lon = GOES.grid(satellite="goes16", scan_mode="C")
+    >>> goes_model.build_input_interpolator(goes_lat, goes_lon)
+    >>> nsrdb_model.build_input_interpolator(goes_lat, goes_lon)
+    >>>
+    >>> # Run one GOES forecast step then estimate GHI
+    >>> y_goes, y_coords = goes_model(x, coords)
+    >>> ghi_coords = y_coords.copy()
+    >>> del ghi_coords["lead_time"]
+    >>> ghi, ghi_coords = nsrdb_model(y_goes.squeeze(2), ghi_coords)
+
     Badges
     ------
     region:na class:nwc product:solar year:2026 gpu:60gb
