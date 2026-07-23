@@ -246,15 +246,17 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
         out = torch.zeros_like(x[..., :1, :, :])
         x = (x - self.center) / self.scale
 
-        grid_x, grid_y = torch.meshgrid(
-            torch.tensor(coords["lat"]), torch.tensor(coords["lon"])
+        lat_grid, lon_grid = torch.meshgrid(
+            torch.tensor(coords["lat"]),
+            torch.tensor(coords["lon"]),
+            indexing="ij",
         )
 
         for j, _ in enumerate(coords["batch"]):
             for k, t in enumerate(coords["time"]):
                 for lt, dt in enumerate(coords["lead_time"]):
                     sza = (
-                        self._compute_sza(grid_x, grid_y, t, dt)
+                        self._compute_sza(lon_grid, lat_grid, t, dt)
                         .unsqueeze(0)
                         .unsqueeze(0)
                         .to(x.device)

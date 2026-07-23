@@ -57,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `PrecipitationAFNOv2` and `WindgustAFNO` passing latitude and longitude in
+  swapped order to `cos_zenith_angle`, which produced an incorrect solar-zenith-angle
+  input channel.
 - Fixed `DerivedRH` mixed-phase saturation blend clipping the liquid-water fraction
   ratio to 1.2 instead of 1.0 before squaring, which let the effective weight reach
   1.44 and inflated relative humidity above freezing.
