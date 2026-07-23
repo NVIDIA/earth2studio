@@ -420,8 +420,13 @@ class JPSS:
         add_offset = dataset.attrs.get("add_offset")
         if scale_factor is None and add_offset is None:
             return data
-        scale = float(scale_factor.item()) if scale_factor is not None else 1.0
-        offset = float(add_offset.item()) if add_offset is not None else 0.0
+        dtype = data.dtype
+        scale = np.array(
+            scale_factor.item() if scale_factor is not None else 1.0, dtype=dtype
+        )
+        offset = np.array(
+            add_offset.item() if add_offset is not None else 0.0, dtype=dtype
+        )
         return data * scale + offset
 
     @staticmethod
