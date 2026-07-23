@@ -43,6 +43,7 @@ Thus are typically used to generate forecast predictions.
       Aurora1p5
       Aurora1p5Ensemble
       CBottleVideo
+      DataReplay
       DiagnosticWrapper
       DLESyM
       DLESyMLatLon

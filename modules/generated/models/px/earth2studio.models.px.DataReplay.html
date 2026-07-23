@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>StormScopeGOES &#8212; Earth2Studio</title>
+    <title>DataReplay &#8212; Earth2Studio</title>
   
   
   
@@ -62,7 +62,7 @@
     <script src="../../../../_static/togglebutton.js?v=b8b12719"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/px/earth2studio.models.px.StormScopeGOES';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/px/earth2studio.models.px.DataReplay';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.19.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -76,8 +76,8 @@
 
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="StormScopeMRMS" href="earth2studio.models.px.StormScopeMRMS.html" />
-    <link rel="prev" title="StormCastCONUS" href="earth2studio.models.px.StormCastCONUS.html" />
+    <link rel="next" title="DiagnosticWrapper" href="earth2studio.models.px.DiagnosticWrapper.html" />
+    <link rel="prev" title="CBottleVideo" href="earth2studio.models.px.CBottleVideo.html" />
 
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -447,7 +447,7 @@
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.Aurora1p5.html">Aurora1p5</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.Aurora1p5Ensemble.html">Aurora1p5Ensemble</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.CBottleVideo.html">CBottleVideo</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.DataReplay.html">DataReplay</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">DataReplay</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.DiagnosticWrapper.html">DiagnosticWrapper</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.DLESyM.html">DLESyM</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.DLESyMLatLon.html">DLESyMLatLon</a></li>
@@ -469,7 +469,7 @@
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.SFNO.html">SFNO</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.StormCast.html">StormCast</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.StormCastCONUS.html">StormCastCONUS</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">StormScopeGOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.StormScopeGOES.html">StormScopeGOES</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.StormScopeMRMS.html">StormScopeMRMS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.UCast.html">UCast</a></li>
 </ul>
@@ -750,7 +750,7 @@
     
     <li class="breadcrumb-item"><a href="../../../models_px.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>: Prognostics</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">StormScopeGOES</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">DataReplay</span></li>
   </ul>
 </nav>
 </div>
@@ -767,104 +767,37 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="stormscopegoes">
-<h1>StormScopeGOES<a class="headerlink" href="#stormscopegoes" title="Link to this heading">#</a></h1>
+  <section id="datareplay">
+<h1>DataReplay<a class="headerlink" href="#datareplay" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.models.px.StormScopeGOES">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">StormScopeGOES</span></span><span class="sig-paren">(</span>
+<dt class="sig sig-object py" id="earth2studio.models.px.DataReplay">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">DataReplay</span></span><span class="sig-paren">(</span>
 
 <dl>
-<dd><em class="sig-param"><span class="n"><span class="pre">model_spec</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">means</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">stds</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">latitudes</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">longitudes</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array(['abi01c',</span> <span class="pre">'abi02c',</span> <span class="pre">'abi03c',</span> <span class="pre">'abi07c',</span> <span class="pre">'abi08c',</span> <span class="pre">'abi09c',</span> <span class="pre">'abi10c',</span> <span class="pre">'abi13c'],</span> <span class="pre">dtype='&lt;U6')</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">conditioning_variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array(['z500'],</span> <span class="pre">dtype='&lt;U4')</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">conditioning_means</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">conditioning_stds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">conditioning_data_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">glm_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">conditioning_glm_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">topo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">nexrad_proximity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">sampler_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'S_churn':</span> <span class="pre">10,</span> <span class="pre">'num_steps':</span> <span class="pre">100}</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">input_times</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array([0],</span> <span class="pre">dtype='timedelta64[h]')</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">output_times</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array([1],</span> <span class="pre">dtype='timedelta64[h]')</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">y_coords</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">x_coords</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">input_interp_max_dist_km</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">12.0</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">conditioning_interp_max_dist_km</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">26.0</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">amp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">compile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">source</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">domain_coords</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">numpy.timedelta64(6,</span> <span class="pre">'h')</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L1465-L1790"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeGOES" title="Link to this definition">#</a></dt>
-<dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:na" style="background-color:#1565c0;color:#fff;" title="North America"><span class="sphinx-badge-icon"><i class="fa-solid fa-earth-americas"></i></span><span class="sphinx-badge-label">NA</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="class:nwc" style="background-color:#198754;color:#fff;" title="Nowcasting">NWC</span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:sat" style="background-color:#1c7ed6;color:#fff;" title="Satellite"><i class="fa-solid fa-satellite"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="year:2026" style="background-color:#1A1A1A;color:#fff;">2026</span><span class="sphinx-badge sphinx-badge-square" data-badge-id="gpu:80gb" style="background-color:#5aac44;color:#fff;" title="80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)">80 GB</span></span><p>StormScope model forecasting GOES data on the HRRR grid.</p>
-<p>This model supports multiple variants at different spatiotemporal resolutions,
-selected by passing <code class="docutils literal notranslate"><span class="pre">model_name</span></code> to <code class="docutils literal notranslate"><span class="pre">load_model</span></code> (default: <code class="docutils literal notranslate"><span class="pre">&quot;3km_10min&quot;</span></code>).
-The primary focus is CONUS nowcasting at 3km resolution; coarser 6km
-nearcasting variants are retained as
-legacy checkpoints. Variant names are semantic (<code class="docutils literal notranslate"><span class="pre">&lt;resolution&gt;_&lt;cadence&gt;</span></code>):</p>
-<blockquote>
-<div><ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">3km_10min</span></code>  : 3km resolution, 10 minute timestep (CONUS nowcasting)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">6km_1hr</span></code>    : 6km resolution, 60 minute timestep (legacy nearcasting)</p></li>
-</ul>
-</div></blockquote>
-<p>Use <code class="xref py py-meth docutils literal notranslate"><span class="pre">list_available_models()</span></code> to inspect the variants in a given package
-(including any added after this release). Legacy training-style names are still
-accepted as aliases.</p>
-<p>Variants whose input cadence is finer than their output cadence use a sliding
-window of input timesteps and predict one output timestep; others use a single
-input timestep and predict one output timestep.</p>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/datareplay.py#L30-L207"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.DataReplay" title="Link to this definition">#</a></dt>
+<dd><p>Replay a data source through the prognostic model interface.</p>
+<p>Data sources are queried at successive valid times. Forecast sources are queried
+at successive lead times from the initial time.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>model_spec</strong> (<em>list</em><em>[</em><em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>]</em>) – Sequence of stage specifications; see <cite>StormScopeBase</cite>.</p></li>
-<li><p><strong>means</strong> (<em>torch.Tensor</em>) – Per-variable mean for normalization, shape [1, C, 1, 1].</p></li>
-<li><p><strong>stds</strong> (<em>torch.Tensor</em>) – Per-variable std for normalization, shape [1, C, 1, 1].</p></li>
-<li><p><strong>latitudes</strong> (<em>torch.Tensor</em>) – Latitudes of the grid, expected shape [H, W].</p></li>
-<li><p><strong>longitudes</strong> (<em>torch.Tensor</em>) – Longitudes of the grid, expected shape [H, W].</p></li>
-<li><p><strong>variables</strong> (<em>np.ndarray</em><em>, </em><em>optional</em>) – GOES input variables. Default is
-[“abi01c”, “abi02c”, “abi03c”, “abi07c”, “abi08c”, “abi09c”, “abi10c”, “abi13c”].</p></li>
-<li><p><strong>conditioning_variables</strong> (<em>np.ndarray</em><em>, </em><em>optional</em>) – Auxiliary conditioning variables. Default is [“z500”].</p></li>
-<li><p><strong>conditioning_means</strong> (<em>torch.Tensor</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Means to normalize any external conditioning data. Default is None.</p></li>
-<li><p><strong>conditioning_stds</strong> (<em>torch.Tensor</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Stds to normalize any external conditioning data. Default is None.</p></li>
-<li><p><strong>conditioning_data_source</strong> (<em>Any</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Data source for external conditioning. Default is None.</p></li>
-<li><p><strong>sampler_args</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>] </em><em>| </em><em>None</em><em>, </em><em>optional</em>) – Default sampler arguments passed to the diffusion sampler.
-Default is {“num_steps”: 100, “S_churn”: 10}.</p></li>
-<li><p><strong>input_times</strong> (<em>np.ndarray</em><em>, </em><em>optional</em>) – Input timesteps, of type timedelta64. Default is [0 m] (i.e., the current time).</p></li>
-<li><p><strong>output_times</strong> (<em>np.ndarray</em><em>, </em><em>optional</em>) – Output timesteps, of type timedelta64. Default is [60 m] (i.e., 1 hour from the current time).</p></li>
-<li><p><strong>y_coords</strong> (<em>np.ndarray</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Y coordinates of the grid, expected shape [H, W]. Default is None, in which
-case the model uses the enumerated indices inferred from the latitude and
-longitude grid shapes.</p></li>
-<li><p><strong>x_coords</strong> (<em>np.ndarray</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – X coordinates of the grid, expected shape [H, W]. Default is None, in which
-case the model uses the enumerated indices inferred from the latitude and
-longitude grid shapes.</p></li>
-<li><p><strong>input_interp_max_dist_km</strong> (<em>float</em><em>, </em><em>optional</em>) – Maximum distance in kilometers for nearest neighbor interpolation of input data.
-Points beyond this distance are masked as invalid. Default is 12.0.</p></li>
-<li><p><strong>conditioning_interp_max_dist_km</strong> (<em>float</em><em>, </em><em>optional</em>) – Maximum distance in kilometers for nearest neighbor interpolation of conditioning data.
-Points beyond this distance are masked as invalid. Default is 26.0.</p></li>
-<li><p><strong>glm_mask</strong> (<em>Tensor</em><em> | </em><em>None</em>)</p></li>
-<li><p><strong>conditioning_glm_mask</strong> (<em>Tensor</em><em> | </em><em>None</em>)</p></li>
-<li><p><strong>topo</strong> (<em>Tensor</em><em> | </em><em>None</em>)</p></li>
-<li><p><strong>nexrad_proximity</strong> (<em>Tensor</em><em> | </em><em>None</em>)</p></li>
-<li><p><strong>amp</strong> (<em>bool</em>)</p></li>
-<li><p><strong>compile</strong> (<em>bool</em>)</p></li>
+<li><p><strong>source</strong> (<em>DataSource</em><em> | </em><em>ForecastSource</em>) – Source to replay.</p></li>
+<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>]</em>) – Variables to fetch.</p></li>
+<li><p><strong>domain_coords</strong> (<em>CoordSystem</em>) – Spatial coordinates expected from the source.</p></li>
+<li><p><strong>step</strong> (<em>np.timedelta64</em><em>, </em><em>optional</em>) – Time between frames, by default np.timedelta64(6, “h”)</p></li>
 </ul>
 </dd>
 </dl>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>To have a unified coordinate system over CONUS for convenience, the model uses the HRRR grid.
-As a result, there are portions of the domain which go beyond the extent of the GOES-East data,
-so these portions are masked as invalid (set to NaN).</p>
-</div>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.StormScopeGOES.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L1307-L1365"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeGOES.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Runs the prognostic model one step. Assumes the last two dimensions of the input tensor are the spatial dimensions.</p>
+<dt class="sig sig-object py" id="earth2studio.models.px.DataReplay.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/datareplay.py#L152-L170"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.DataReplay.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Advance the source by one step.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -873,7 +806,7 @@ so these portions are masked as invalid (set to NaN).</p>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Output tensor and coordinate system.</p>
+<dd class="field-even"><p>Source data and coordinates one step ahead.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>tuple[torch.Tensor, CoordSystem]</p>
@@ -882,19 +815,18 @@ so these portions are masked as invalid (set to NaN).</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.StormScopeGOES.create_iterator">
-<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L1444-L1462"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeGOES.create_iterator" title="Link to this definition">#</a></dt>
-<dd><p>Creates an iterator to perform time-integration of the prognostic model.</p>
+<dt class="sig sig-object py" id="earth2studio.models.px.DataReplay.create_iterator">
+<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/datareplay.py#L190-L207"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.DataReplay.create_iterator" title="Link to this definition">#</a></dt>
+<dd><p>Create an iterator over source frames.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor.</p></li>
-<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Input coordinate system.</p></li>
+<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Initial condition tensor.</p></li>
+<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Initial condition coordinates.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Yields<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>Iterator[tuple[torch.Tensor, CoordSystem]]</em> – Iterator that generates time-steps of the prognostic model containing the
-output data tensor and coordinate system dictionary.</p>
+<dd class="field-even"><p><em>tuple[torch.Tensor, CoordSystem]</em> – Initial condition followed by source frames.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><em>Iterator</em>[tuple[<em>Tensor</em>, <em>OrderedDict</em>[str, <em>ndarray</em>]]]</p>
@@ -902,69 +834,9 @@ output data tensor and coordinate system dictionary.</p>
 </dl>
 </dd></dl>
 
-<dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.StormScopeGOES.load_default_package">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L288-L294"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeGOES.load_default_package" title="Link to this definition">#</a></dt>
-<dd><p>Load the default StormScope package from Hugging Face.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.package.Package"><em>Package</em></a></p>
-</dd>
-</dl>
 </dd></dl>
 
-<dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.StormScopeGOES.load_model">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span>
-
-<dl>
-<dd><em class="sig-param"><span class="n"><span class="pre">package</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">model_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'3km_10min'</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">conditioning_data_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">amp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">compile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>,</dd>
-</dl>
-
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L1687-L1790"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeGOES.load_model" title="Link to this definition">#</a></dt>
-<dd><p>Load model from package.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package"><em>Package</em></a>) – Package to load model from</p></li>
-<li><p><strong>model_name</strong> (<em>Literal</em><em>[</em><em>&quot;3km_10min&quot;</em><em>, </em><em>&quot;6km_1hr&quot;</em><em>]</em><em>, </em><em>optional</em>) – <p>Variant to load, by default <code class="docutils literal notranslate"><span class="pre">&quot;3km_10min&quot;</span></code> (the recommended CONUS
-nowcasting variant). Available variants (see
-<code class="xref py py-meth docutils literal notranslate"><span class="pre">list_available_models()</span></code>):</p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">&quot;3km_10min&quot;</span></code>: 3km resolution, 10 minute timestep (CONUS nowcasting)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">&quot;6km_1hr&quot;</span></code>: 6km resolution, 60 minute timestep (legacy nearcasting)</p></li>
-</ul>
-<p>Legacy training-style names are accepted as aliases.</p>
-</p></li>
-<li><p><strong>conditioning_data_source</strong> (<em>DataSource</em><em> | </em><em>ForecastSource</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Data source to use for conditioning, by default None.</p></li>
-<li><p><strong>amp</strong> (<em>bool</em><em>, </em><em>optional</em>) – Enable automatic mixed precision (autocast) for the sampler’s network
-forward passes. Default is True.</p></li>
-<li><p><strong>compile</strong> (<em>bool</em><em>, </em><em>optional</em>) – Compile each staged expert with <code class="docutils literal notranslate"><span class="pre">torch.compile</span></code> (“reduce-overhead”).
-Default is False.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Instantiated StormScopeGOES model</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>PrognosticModel</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<section id="examples-using-earth2studio-models-px-stormscopegoes">
-<span id="sphx-glr-backref-earth2studio-models-px-stormscopegoes"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.models.px.StormScopeGOES</span></code><a class="headerlink" href="#examples-using-earth2studio-models-px-stormscopegoes" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="StormScope inference workflow with GOES satellite imagery and MRMS radar data."><img alt="" src="../../../../_images/sphx_glr_03_stormscope_goes_example_thumb.png" />
-<p><a class="reference internal" href="../../../../examples/04_nowcasting/03_stormscope_goes_example.html"><span class="doc">StormScope Satellite and Radar Nowcasting</span></a></p>
-  <div class="sphx-glr-thumbnail-title">StormScope Satellite and Radar Nowcasting</div>
-</div></div><div class="clearer"></div></section>
-</section>
+<div class="clearer"></div></section>
 
 
                 </article>
@@ -977,20 +849,20 @@ Default is False.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.models.px.StormCastCONUS.html"
+       href="earth2studio.models.px.CBottleVideo.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">StormCastCONUS</p>
+        <p class="prev-next-title">CBottleVideo</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.models.px.StormScopeMRMS.html"
+       href="earth2studio.models.px.DiagnosticWrapper.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">StormScopeMRMS</p>
+        <p class="prev-next-title">DiagnosticWrapper</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -1015,14 +887,11 @@ Default is False.</p></li>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormScopeGOES"><code class="docutils literal notranslate"><span class="pre">StormScopeGOES</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormScopeGOES.__call__"><code class="docutils literal notranslate"><span class="pre">__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormScopeGOES.create_iterator"><code class="docutils literal notranslate"><span class="pre">create_iterator()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormScopeGOES.load_default_package"><code class="docutils literal notranslate"><span class="pre">load_default_package()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormScopeGOES.load_model"><code class="docutils literal notranslate"><span class="pre">load_model()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.DataReplay"><code class="docutils literal notranslate"><span class="pre">DataReplay</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.DataReplay.__call__"><code class="docutils literal notranslate"><span class="pre">__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.DataReplay.create_iterator"><code class="docutils literal notranslate"><span class="pre">create_iterator()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-models-px-stormscopegoes">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.models.px.StormScopeGOES</span></code></a></li>
 </ul>
   </nav></div>
 
