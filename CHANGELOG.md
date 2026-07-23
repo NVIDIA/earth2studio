@@ -65,6 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed incorrect interpolation values at the lower grid edge when an output
+  coordinate matched the first input coordinate.
 - Corrected the `PrecipitationAFNOv2` docstring: the model predicts precipitation
   accumulated over the following six hours `[t, t+6h]`, not the prior six hours.
 - Fixed `DerivedRH` mixed-phase saturation blend clipping the liquid-water fraction
