@@ -1064,7 +1064,7 @@ async def test_nnja_obs_sat_fetch_uses_foundation_store(tmp_path, monkeypatch):
         return None
 
     monkeypatch.setattr(source, "fetch_files", fetch_files)
-    monkeypatch.setattr(source._microwave_adapter, "decode_file", lambda *args: decoded)
+    monkeypatch.setattr(source, "_decode_file", lambda _path, _task: decoded)
 
     result = await source.fetch(
         datetime(2024, 1, 1),
@@ -1117,11 +1117,11 @@ async def test_nnja_obs_sat_fetch_and_task_failures_are_structured(
 
     monkeypatch.setattr(source, "fetch_files", successful_fetch)
     monkeypatch.setattr(source, "local_path", lambda _uri: str(local_path))
-    monkeypatch.setattr(
-        source._microwave_adapter,
-        "decode_file",
-        lambda *_args: (_ for _ in ()).throw(RuntimeError("decode failed")),
-    )
+
+    def _failing_decode(_path, _task):
+        raise RuntimeError("decode failed")
+
+    monkeypatch.setattr(source, "_decode_file", _failing_decode)
     with pytest.raises(nnja._NNJAObsSatIncompleteError) as task_error:
         await source.fetch(datetime(2024, 1, 1), "atms")
     assert task_error.value.context == {
