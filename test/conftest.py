@@ -72,6 +72,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/dx/test_corrdiff.py": ["corrdiff"],
     "test/models/dx/test_corrdiff_cmip6.py": ["corrdiff"],
     "test/models/dx/test_corrdiff_taiwan.py": ["corrdiff"],
+    "test/models/dx/test_corrdiff_cosmo_era5.py": ["cosmo"],
     "test/models/dx/test_dlesym_v0_isccp_era5_precip.py": ["dlesym"],
     "test/models/dx/test_orbit2_precip.py": ["orbit"],
     "test/models/dx/test_precip_afno.py": ["precip-afno"],

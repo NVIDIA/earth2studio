@@ -19,11 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added shared obstore byte-range helpers (`obstore_store_from_url`,
   `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
 - Added dynamical.org analysis and forecast data sources, reading anonymous Icechunk
-  repositories: `DynamicalGFS`, `DynamicalGEFS`,
-  `DynamicalGFS_FX`, `DynamicalGEFS_FX`, `DynamicalIFSENS_FX`,
+  repositories: `DynamicalAIFS`, `DynamicalAIFS_ENS`, `DynamicalGFS`, `DynamicalGEFS`,
+  `DynamicalHRRR`, `DynamicalMRMS`, `DynamicalGFS_FX`, `DynamicalGEFS_FX`,
+  `DynamicalHRRR_FX`, `DynamicalICON_EU_FX`, `DynamicalIFS_ENS`,
+  `DynamicalIFS_ENS_FX`,
   `DynamicalAIFS_FX` and `DynamicalAIFSENS_FX`.
 - Added Aurora v1.5 deterministic and ensemble model wrapper (`Aurora1p5`, `Aurora1p5Ensemble`)
 - Added StormCast CONUS prognostic model (`StormCastCONUS`)
+- Added `DataReplay` for replaying `DataSource` and `ForecastSource` data through the
+  prognostic iterator interface.
+- Added NNJA satellite observation data frame source (`NNJAObsSat`)
 - Added StormScope NSRDB solar irradiance (GHI) estimation model (`StormScopeDxNSRDB`)
 
 ### Changed
@@ -46,9 +51,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
   the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
   fsspec
+- UFS observation sources (`UFSObsConv`, `UFSObsSat`) now tolerate missing diag files
+  by warning and skipping instead of erroring
 - Updated the OPERA data source to represent undetect values as `-99.0`, while
   retaining `NaN` for no-data values.
 - NNJA Obs data source now accepts any time / tolerance rather than 6-hour strides
+- Renamed `NomadsGDASObsConv` `max_workers` parameter to `async_workers` for
+  consistency with other observation data sources
 
 ### Deprecated
 
@@ -56,6 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Corrected the `PrecipitationAFNOv2` docstring: the model predicts precipitation
+  accumulated over the following six hours `[t, t+6h]`, not the prior six hours.
 - Fixed `DerivedRH` mixed-phase saturation blend clipping the liquid-water fraction
   ratio to 1.2 instead of 1.0 before squaring, which let the effective weight reach
   1.44 and inflated relative humidity above freezing.
@@ -101,6 +112,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
 - Added DLESyM-v0-ISCCP-ERA5 climate model
+- Added COSMO-REA downscaling diagnostic model (`CorrDiffCosmoEra5`) and
+  `CosmoLexicon` for regression (mean) and diffusion downscaling of ERA5 to
+  COSMO-REA6 (6 km) and COSMO-REA2 (2.2 km), with sub-domain support via
+  `set_domain`
 
 ### Changed
 

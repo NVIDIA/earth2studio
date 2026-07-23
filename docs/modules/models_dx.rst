@@ -40,6 +40,7 @@ etc.
       CBottleSR
       CBottleTCGuidance
       CorrDiffCMIP6
+      CorrDiffCosmoEra5
       CorrDiffTaiwan
       ClimateNet
       DerivedRH
