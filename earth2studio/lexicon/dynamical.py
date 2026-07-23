@@ -79,7 +79,8 @@ class DynamicalLexicon(metaclass=LexiconType):
 
         Conversions to the Earth2Studio convention:
 
-        - ``temperature_2m``, ``dew_point_temperature_2m``: Celsius -> Kelvin
+        - ``temperature_2m``, ``dew_point_temperature_2m``, ``temperature_*hpa``:
+          Celsius -> Kelvin
         - ``geopotential_height_*``: metres -> geopotential (m2 s-2)
         - ``total_cloud_cover_atmosphere``: percent -> fraction
 
@@ -95,8 +96,8 @@ class DynamicalLexicon(metaclass=LexiconType):
         """
         dynamical_name = cls.VOCAB[val]
 
-        if val in ("t2m", "d2m"):
-            # Celsius -> Kelvin
+        if val in ("t2m", "d2m") or (val.startswith("t") and val[1:].isdigit()):
+            # Celsius -> Kelvin (2 m, dew point, and pressure-level temperatures)
             def mod(x: np.ndarray) -> np.ndarray:
                 """Convert Celsius to Kelvin."""
                 return np.asarray(x) + 273.15

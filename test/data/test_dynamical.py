@@ -30,6 +30,7 @@ from earth2studio.data import (
     DynamicalIFSENS_FX,
 )
 from earth2studio.data.dynamical import _DynamicalBase
+from earth2studio.lexicon.dynamical import DynamicalLexicon
 
 # Un-normalized synthetic grid: ascending latitude and -180..180 longitude,
 # mirroring how dynamical.org serves coordinates.
@@ -37,7 +38,7 @@ _LAT = np.linspace(-90.0, 90.0, 7)
 _LON = np.linspace(-180.0, 135.0, 8)
 
 # Variable -> (unit, raw value) used to build the synthetic store and to verify
-# STAC-unit-driven conversion to the Earth2Studio convention.
+# lexicon-defined conversion to the Earth2Studio convention.
 _VARS = {
     "temperature_2m": ("degree_Celsius", 20.0),
     "wind_u_10m": ("m s-1", 3.0),
@@ -113,6 +114,16 @@ def _patch(monkeypatch, klass, collection_id, dims, dataset):
     )
 
 
+# dynamical.org serves pressure-level temperatures in Celsius; the lexicon must
+# convert them to Kelvin. t500 is mapped but not currently served by any
+# collection; t850/t925 are the active cases.
+@pytest.mark.parametrize("variable", ["t500", "t850", "t925"])
+def test_dynamical_pressure_temperature_celsius_to_kelvin(variable):
+    _, modifier = DynamicalLexicon.get_item(variable)
+    # Probe two points so the check pins both the offset and the (unit) slope.
+    np.testing.assert_allclose(modifier(np.array([0.0, 20.0])), [273.15, 293.15])
+
+
 @pytest.mark.timeout(30)
 def test_dynamical_call_mock(monkeypatch):
     times = np.array(["2024-01-01T00:00", "2024-01-01T06:00"], dtype="datetime64[ns]")
@@ -134,7 +145,7 @@ def test_dynamical_call_mock(monkeypatch):
     assert data.coords["lat"].values[-1] == pytest.approx(-90.0)
     assert (data.coords["lon"].values >= 0).all()
     assert (np.diff(data.coords["lon"].values) > 0).all()
-    # STAC-unit-driven conversions
+    # Lexicon-defined conversions to the Earth2Studio convention
     np.testing.assert_allclose(data.sel(variable="t2m").values, 20.0 + 273.15)
     np.testing.assert_allclose(data.sel(variable="u10m").values, 3.0)
     np.testing.assert_allclose(data.sel(variable="tcc").values, 0.5)

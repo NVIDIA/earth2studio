@@ -57,6 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed dynamical.org pressure-level temperatures (`t850`, `t925`) not being converted
+  from Celsius to Kelvin, so they were returned ~273 K too low.
 - Fixed `DerivedRH` mixed-phase saturation blend clipping the liquid-water fraction
   ratio to 1.2 instead of 1.0 before squaring, which let the effective weight reach
   1.44 and inflated relative humidity above freezing.
