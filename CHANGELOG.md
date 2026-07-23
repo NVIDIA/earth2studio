@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added StormCast CONUS prognostic model (`StormCastCONUS`)
 - Added `DataReplay` for replaying `DataSource` and `ForecastSource` data through the
   prognostic iterator interface.
+- Added NNJA satellite observation data frame source (`NNJAObsSat`)
 
 ### Changed
 
@@ -47,9 +48,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
   the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
   fsspec
+- UFS observation sources (`UFSObsConv`, `UFSObsSat`) now tolerate missing diag files
+  by warning and skipping instead of erroring
 - Updated the OPERA data source to represent undetect values as `-99.0`, while
   retaining `NaN` for no-data values.
 - NNJA Obs data source now accepts any time / tolerance rather than 6-hour strides
+- Renamed `NomadsGDASObsConv` `max_workers` parameter to `async_workers` for
+  consistency with other observation data sources
 
 ### Deprecated
 
@@ -59,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed incorrect interpolation values at the lower grid edge when an output
   coordinate matched the first input coordinate.
+- Corrected the `PrecipitationAFNOv2` docstring: the model predicts precipitation
+  accumulated over the following six hours `[t, t+6h]`, not the prior six hours.
 - Fixed `DerivedRH` mixed-phase saturation blend clipping the liquid-water fraction
   ratio to 1.2 instead of 1.0 before squaring, which let the effective weight reach
   1.44 and inflated relative humidity above freezing.
