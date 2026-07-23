@@ -220,7 +220,7 @@ class AssimilationForecastPipeline(ForecastPipeline):
     ``cfg.model.fill_missing_variables`` is set to ``false`` — in which
     case any gap is an error.
 
-    Model config layout (see ``cfg/model/healda_fcn3.yaml``)::
+    Model config layout (see ``cfg/model/healda_ucast.yaml``)::
 
         model:
             da:       {architecture: ..., load_args: ..., obs_sources: ...}
@@ -323,11 +323,9 @@ class AssimilationForecastPipeline(ForecastPipeline):
         x, coords = map_coords(x, coords, self._prognostic_ic)
         return x, coords
 
+    # Memoized across predownload_stores + predownload_frame_stores — both need
+    # input_coords() and loading a large model twice per predownload run is wasteful.
     _predownload_prognostic = None
-    """Prognostic model memoized across the predownload hooks —
-    :meth:`predownload_stores` and :meth:`predownload_frame_stores` both
-    need its ``input_coords()``, and loading a large model twice in one
-    ``predownload.py`` run is wasteful."""
 
     def _load_prognostic_for_predownload(self, cfg: DictConfig) -> PrognosticModel:
         if self._predownload_prognostic is None:

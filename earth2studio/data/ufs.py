@@ -186,19 +186,9 @@ class _UFSObsBase:
             self._handle_missing_file(key)
 
     def _handle_missing_file(self, key: str) -> None:
-        """Handle a missing diag file during fetch.
-
-        GSI diag archives have gaps: a given observation platform or
-        conventional obs type may simply be absent for some assimilation
-        cycles — e.g. GNSS radio-occultation (``gps``) obs when no RO
-        satellites fed that cycle, or a decommissioned satellite platform.
-        Rather than aborting the whole fetch (which, over the many cycles
-        an observation window spans, would make missing-data gaps fatal),
-        log a warning and skip the file.  :meth:`_compile_dataframe` omits
-        any task whose file was not fetched, so downstream consumers
-        receive whatever observation subset is available — the intended
-        behavior for assimilation models, which are built to run on the
-        obs actually present at a given time.
+        """Warn and skip a missing diag file. Archive gaps are expected
+        (e.g. various satellite/GPS outages), so shouldn't fully derail
+        a call to fetch data.
 
         Can be overridden by subclasses that require stricter handling.
         """
@@ -292,11 +282,6 @@ class _UFSObsBase:
             frames.append(task.gsi_modifier(df))
 
         if not frames:
-            # Every diag file for this request was missing or skipped (see
-            # _handle_missing_file).  Return a schema-shaped empty frame
-            # rather than letting pd.concat raise "No objects to
-            # concatenate" — consumers (e.g. assimilation models) can then
-            # apply their own empty-observation handling.
             logger.warning(
                 "No observation files were available for this request; "
                 "returning an empty DataFrame."

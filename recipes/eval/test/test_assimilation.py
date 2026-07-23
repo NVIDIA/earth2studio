@@ -310,7 +310,7 @@ class TestStatelessRunner:
         )
         time = np.datetime64("2024-01-01T00:00:00")
 
-        analysis = runner.analysis(time)
+        (analysis,) = runner.analysis(time)
         assert analysis.dims == ("time", "variable", "lat", "lon")
         np.testing.assert_array_equal(
             analysis.coords["time"].values,
@@ -772,7 +772,7 @@ class TestObsFrameStoreDeclaration:
         pipeline = _setup_pipeline(AssimilationPipeline(), cfg)
         assert isinstance(pipeline.obs_set._sources[0], PredownloadedFrameSource)
 
-        analysis = pipeline.runner.analysis(t)
+        (analysis,) = pipeline.runner.analysis(t)
         np.testing.assert_array_equal(
             analysis.coords["time"].values,
             np.array([t], dtype="datetime64[ns]"),

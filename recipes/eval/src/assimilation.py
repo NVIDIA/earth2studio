@@ -32,8 +32,8 @@ stay thin:
   models (StormCastSDA: sequential cycling with a background state) behind
   the same pipeline-facing API.
 * :func:`analysis_to_tensor` / :func:`insert_zero_lead_time` /
-  :func:`analysis_spatial_ref` — convert DA model output (an
-  ``xr.DataArray``, possibly cupy-backed on CUDA) into the ``(tensor,
+  :func:`analysis_spatial_ref` — convert DA model output (a tuple of
+  DataFrames/DataArrays, possibly cupy-backed on CUDA) into the ``(tensor,
   coords)`` shape the shared :meth:`Pipeline.run` loop expects.
 """
 
@@ -45,6 +45,7 @@ from typing import Any
 
 import hydra
 import numpy as np
+import pandas as pd
 import torch
 import xarray as xr
 from loguru import logger
@@ -328,12 +329,11 @@ class AssimilationRunner(ABC):
     """
 
     @abstractmethod
-    def analysis(self, time: np.datetime64) -> xr.DataArray:
-        """Return the analysis valid at *time* as an ``xr.DataArray``.
+    def analysis(self, time: np.datetime64) -> tuple[pd.DataFrame | xr.DataArray, ...]:
+        """Return the raw model output tuple for the analysis valid at *time*.
 
-        The returned array carries the model's output dims (e.g.
-        ``(time, variable, lat, lon)``) and may be cupy-backed when the
-        model runs on CUDA — use :func:`analysis_to_tensor` to convert.
+        Pass the result to :func:`analysis_to_tensor` to extract the gridded
+        ``xr.DataArray`` and convert it to a ``(tensor, coords)`` pair.
         """
         ...
 
@@ -373,14 +373,17 @@ class StatelessAssimilationRunner(AssimilationRunner):
         self._obs_set = obs_set
         self._obs_device = obs_device
 
-    def analysis(self, time: np.datetime64) -> xr.DataArray:
+    def analysis(self, time: np.datetime64) -> tuple[pd.DataFrame | xr.DataArray, ...]:
         obs = self._obs_set.fetch(time, device=self._obs_device)
         if all(o is None for o in obs):
             raise ValueError(
                 "All observation sources are disabled — at least one must "
                 "be enabled to produce an analysis."
             )
-        return self._model(*obs)
+        result = self._model(*obs)
+        if isinstance(result, (xr.DataArray, pd.DataFrame)):
+            result = (result,)
+        return result
 
 
 def build_runner(
@@ -427,16 +430,26 @@ def analysis_spatial_ref(model: AssimilationModel) -> CoordSystem:
 
 
 def analysis_to_tensor(
-    da: xr.DataArray,
+    output: tuple[pd.DataFrame | xr.DataArray, ...],
     device: torch.device,
 ) -> tuple[torch.Tensor, CoordSystem]:
-    """Convert a DA model's output ``xr.DataArray`` to ``(tensor, coords)``.
+    """Convert a DA model output tuple to ``(tensor, coords)``.
 
-    Handles both numpy-backed (CPU) and cupy-backed (CUDA) arrays — cupy
-    is converted zero-copy via the CUDA array interface.  Data is cast to
-    float32 (HealDA's lat/lon regrid path upcasts to float64) and moved
-    to *device*.
+    Extracts the first ``xr.DataArray`` from *output* (models that also
+    return DataFrames as secondary outputs are handled by ignoring those
+    slots here — future runners can process them separately).  Handles
+    numpy-backed (CPU) and cupy-backed (CUDA) arrays; data is cast to
+    float32 and moved to *device*.
     """
+    da = next(
+        (v for v in output if isinstance(v, xr.DataArray)),
+        None,
+    )
+    if da is None:
+        raise ValueError(
+            f"DA model output contains no xr.DataArray — got types "
+            f"{[type(v).__name__ for v in output]}."
+        )
     data = da.data
     if hasattr(data, "__cuda_array_interface__"):
         x = torch.as_tensor(data)
