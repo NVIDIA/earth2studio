@@ -827,9 +827,7 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Compute time-dependent forcings (loop over times)
         for t in range(n_time):
             time_t = coords["time"][t]
-            # Indices for this time in the flattened batch*time dimension
-            bt_start = t * n_batch
-            bt_end = (t + 1) * n_batch
+            # The flattened axis is batch-major; select time t across all batches.
 
             cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(
                 time_t - np.timedelta64(6, "h"), self.longitudes
@@ -867,11 +865,11 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 [cos_zenith_angle_0, cos_zenith_angle_1], dim=1
             ).repeat(n_batch, 1, 1, 1)
 
-            x_full[bt_start:bt_end, ..., self.forcing_ids[4]] = cos_julian_day[..., 0]
-            x_full[bt_start:bt_end, ..., self.forcing_ids[5]] = cos_local_time[..., 0]
-            x_full[bt_start:bt_end, ..., self.forcing_ids[6]] = sin_julian_day[..., 0]
-            x_full[bt_start:bt_end, ..., self.forcing_ids[7]] = sin_local_time[..., 0]
-            x_full[bt_start:bt_end, ..., self.forcing_ids[8]] = cos_zenith_angle[..., 0]
+            x_full[t::n_time, ..., self.forcing_ids[4]] = cos_julian_day[..., 0]
+            x_full[t::n_time, ..., self.forcing_ids[5]] = cos_local_time[..., 0]
+            x_full[t::n_time, ..., self.forcing_ids[6]] = sin_julian_day[..., 0]
+            x_full[t::n_time, ..., self.forcing_ids[7]] = sin_local_time[..., 0]
+            x_full[t::n_time, ..., self.forcing_ids[8]] = cos_zenith_angle[..., 0]
 
         x_full = x_full[
             ..., self.input_full_ids
@@ -892,8 +890,7 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         for t in range(n_time):
             time_t = coords["time"][t]
-            bt_start = t * n_batch
-            bt_end = (t + 1) * n_batch
+            # The flattened axis is batch-major; select time t across all batches.
 
             time0 = time_t + coords["lead_time"][0]
             time1 = time_t + coords["lead_time"][1]
@@ -937,11 +934,11 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 [cos_zenith_angle_0, cos_zenith_angle_1], dim=1
             ).repeat(n_batch, 1, 1, 1)
 
-            x[bt_start:bt_end, ..., self.forcing_ids[4]] = cos_julian_day[..., 0]
-            x[bt_start:bt_end, ..., self.forcing_ids[5]] = cos_local_time[..., 0]
-            x[bt_start:bt_end, ..., self.forcing_ids[6]] = sin_julian_day[..., 0]
-            x[bt_start:bt_end, ..., self.forcing_ids[7]] = sin_local_time[..., 0]
-            x[bt_start:bt_end, ..., self.forcing_ids[8]] = cos_zenith_angle[..., 0]
+            x[t::n_time, ..., self.forcing_ids[4]] = cos_julian_day[..., 0]
+            x[t::n_time, ..., self.forcing_ids[5]] = cos_local_time[..., 0]
+            x[t::n_time, ..., self.forcing_ids[6]] = sin_julian_day[..., 0]
+            x[t::n_time, ..., self.forcing_ids[7]] = sin_local_time[..., 0]
+            x[t::n_time, ..., self.forcing_ids[8]] = cos_zenith_angle[..., 0]
 
         # Select out actual input variables from the full fields set
         x = x[..., self.input_full_ids]
