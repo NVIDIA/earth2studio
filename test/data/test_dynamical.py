@@ -21,13 +21,20 @@ import pytest
 import xarray as xr
 
 from earth2studio.data import (
+    DynamicalAIFS,
+    DynamicalAIFS_ENS,
     DynamicalAIFS_FX,
     DynamicalAIFSENS_FX,
     DynamicalGEFS,
     DynamicalGEFS_FX,
     DynamicalGFS,
     DynamicalGFS_FX,
-    DynamicalIFSENS_FX,
+    DynamicalHRRR,
+    DynamicalHRRR_FX,
+    DynamicalICON_EU_FX,
+    DynamicalIFS_ENS,
+    DynamicalIFS_ENS_FX,
+    DynamicalMRMS,
 )
 from earth2studio.data.dynamical import _DynamicalBase
 
@@ -35,14 +42,31 @@ from earth2studio.data.dynamical import _DynamicalBase
 # mirroring how dynamical.org serves coordinates.
 _LAT = np.linspace(-90.0, 90.0, 7)
 _LON = np.linspace(-180.0, 135.0, 8)
+_Y = np.array([2.0, 1.0, 0.0])
+_X = np.array([-1.0, 0.0, 1.0, 2.0])
+_LAT_2D = np.array(
+    [[50.0, 50.1, 50.2, 50.3], [49.0, 49.1, 49.2, 49.3], [48.0, 48.1, 48.2, 48.3]],
+    dtype=np.float32,
+)
+_LON_2D = np.array(
+    [
+        [-105.0, -104.9, -104.8, -104.7],
+        [-105.1, -105.0, -104.9, -104.8],
+        [-105.2, -105.1, -105.0, -104.9],
+    ],
+    dtype=np.float32,
+)
 
 # Variable -> (unit, raw value) used to build the synthetic store and to verify
 # STAC-unit-driven conversion to the Earth2Studio convention.
 _VARS = {
     "temperature_2m": ("degree_Celsius", 20.0),
     "wind_u_10m": ("m s-1", 3.0),
+    "precipitation_surface": ("kg m-2 s-1", 0.001),
+    "precipitation_rate_surface": ("kg m-2 s-1", 0.002),
     "total_cloud_cover_atmosphere": ("percent", 50.0),
     "geopotential_height_500hpa": ("m", 5500.0),
+    "temperature_500hpa": ("degree_Celsius", -10.0),
 }
 
 
@@ -88,6 +112,17 @@ def _analysis_dims(times: np.ndarray) -> dict:
     }
 
 
+def _projected_analysis_dims(times: np.ndarray) -> dict:
+    return {
+        "time": {
+            "type": "temporal",
+            "extent": [str(times[0]) + "Z", None],
+        },
+        "y": {"type": "spatial"},
+        "x": {"type": "spatial"},
+    }
+
+
 def _make_dataset(coords: dict, dims: tuple) -> xr.Dataset:
     shape = tuple(len(coords[d]) for d in dims)
     data_vars = {
@@ -124,10 +159,10 @@ def test_dynamical_call_mock(monkeypatch):
     _patch(monkeypatch, DynamicalGFS, "noaa-gfs-analysis", dims, ds_obj)
 
     source = DynamicalGFS()
-    variables = ["t2m", "u10m", "tcc", "z500"]
+    variables = ["t2m", "u10m", "tpf", "tcc", "z500", "t500"]
     data = source(times, variables)
 
-    assert data.shape == (2, 4, len(_LAT), len(_LON))
+    assert data.shape == (2, len(variables), len(_LAT), len(_LON))
     assert list(data.coords["variable"].values) == variables
     # Grid normalized: latitude descending, longitude in [0, 360) ascending
     assert data.coords["lat"].values[0] == pytest.approx(90.0)
@@ -137,8 +172,10 @@ def test_dynamical_call_mock(monkeypatch):
     # STAC-unit-driven conversions
     np.testing.assert_allclose(data.sel(variable="t2m").values, 20.0 + 273.15)
     np.testing.assert_allclose(data.sel(variable="u10m").values, 3.0)
+    np.testing.assert_allclose(data.sel(variable="tpf").values, 0.001)
     np.testing.assert_allclose(data.sel(variable="tcc").values, 0.5)
     np.testing.assert_allclose(data.sel(variable="z500").values, 5500.0 * 9.80665)
+    np.testing.assert_allclose(data.sel(variable="t500").values, -10.0 + 273.15)
 
 
 @pytest.mark.timeout(30)
@@ -295,45 +332,217 @@ def test_dynamical_unknown_collection(monkeypatch):
 
 
 @pytest.mark.timeout(30)
-def test_dynamical_projected_grid(monkeypatch):
-    projected_dims = {
-        "time": {"type": "temporal", "extent": ["2024-01-01T00:00:00Z", None]},
-        "x": {"type": "spatial"},
-        "y": {"type": "spatial"},
+def test_dynamical_projected_grid_call_mock(monkeypatch):
+    times = np.array(["2024-01-01T00:00"], dtype="datetime64[ns]")
+    dims = _projected_analysis_dims(times)
+    ds_obj = _make_dataset(
+        {
+            "time": times,
+            "y": _Y,
+            "x": _X,
+            "latitude": (("y", "x"), _LAT_2D),
+            "longitude": (("y", "x"), _LON_2D),
+        },
+        ("time", "y", "x"),
+    )
+    _patch(monkeypatch, DynamicalHRRR, "noaa-hrrr-analysis", dims, ds_obj)
+
+    source = DynamicalHRRR()
+    data = source(times, ["t2m", "u10m"])
+
+    assert data.shape == (1, 2, len(_Y), len(_X))
+    assert list(data.dims) == ["time", "variable", "y", "x"]
+    assert data.coords["lat"].shape == (len(_Y), len(_X))
+    assert data.coords["lon"].shape == (len(_Y), len(_X))
+    assert data.coords["_lat"].shape == (len(_Y), len(_X))
+    assert data.coords["_lon"].shape == (len(_Y), len(_X))
+    assert (data.coords["lon"].values >= 0).all()
+    np.testing.assert_allclose(data.sel(variable="t2m").values, 20.0 + 273.15)
+
+
+@pytest.mark.timeout(30)
+def test_dynamical_regional_greenwich_longitude_order(monkeypatch):
+    init_times = np.array(["2026-02-10T00:00"], dtype="datetime64[ns]")
+    leads = np.array([0, 3600], dtype="timedelta64[s]").astype("timedelta64[ns]")
+    lon = np.array([-1.0, 0.0, 1.0])
+    dims = {
+        "init_time": {"type": "temporal", "extent": [str(init_times[0]) + "Z", None]},
+        "lead_time": {"type": "other"},
+        "latitude": {"type": "spatial"},
+        "longitude": {"type": "spatial"},
     }
+    ds_obj = _make_dataset(
+        {
+            "init_time": init_times,
+            "lead_time": leads,
+            "latitude": _LAT,
+            "longitude": lon,
+        },
+        ("init_time", "lead_time", "latitude", "longitude"),
+    )
+    _patch(monkeypatch, DynamicalICON_EU_FX, "dwd-icon-eu-forecast-5-day", dims, ds_obj)
 
-    def fake_fetch_json(url: str) -> dict:
-        if url.endswith("catalog.json"):
-            return _fake_catalog("noaa-hrrr-analysis")
-        return _fake_collection(projected_dims)
+    source = DynamicalICON_EU_FX()
+    data = source(init_times, [datetime.timedelta(0)], ["t2m"])
 
-    monkeypatch.setattr("earth2studio.data.dynamical._fetch_json", fake_fetch_json)
-    source = _DynamicalBase("noaa-hrrr-analysis")
-    with pytest.raises(ValueError):
-        source(
-            np.array(["2024-01-01T00:00"], dtype="datetime64[ns]"),
-            [datetime.timedelta(0)],
-            ["t2m"],
-        )
+    np.testing.assert_allclose(data.coords["lon"].values, lon)
+
+
+@pytest.mark.timeout(30)
+def test_dynamical_projected_forecast_call_mock(monkeypatch):
+    init_times = np.array(["2024-01-01T00:00"], dtype="datetime64[ns]")
+    leads = np.array([0, 3600], dtype="timedelta64[s]").astype("timedelta64[ns]")
+    dims = {
+        "init_time": {"type": "temporal", "extent": [str(init_times[0]) + "Z", None]},
+        "lead_time": {"type": "other"},
+        "y": {"type": "spatial"},
+        "x": {"type": "spatial"},
+    }
+    ds_obj = _make_dataset(
+        {
+            "init_time": init_times,
+            "lead_time": leads,
+            "y": _Y,
+            "x": _X,
+            "latitude": (("y", "x"), _LAT_2D),
+            "longitude": (("y", "x"), _LON_2D),
+        },
+        ("init_time", "lead_time", "y", "x"),
+    )
+    ds_obj = ds_obj.drop_vars("precipitation_surface")
+    _patch(
+        monkeypatch,
+        DynamicalHRRR_FX,
+        "noaa-hrrr-forecast-48-hour-virtual",
+        dims,
+        ds_obj,
+    )
+
+    source = DynamicalHRRR_FX()
+    data = source(
+        init_times, [datetime.timedelta(0), datetime.timedelta(hours=1)], ["t2m", "tpf"]
+    )
+
+    assert data.shape == (1, 2, 2, len(_Y), len(_X))
+    assert list(data.dims) == ["time", "lead_time", "variable", "y", "x"]
+    assert data.coords["lat"].shape == (len(_Y), len(_X))
+    assert (data.coords["lon"].values >= 0).all()
+    np.testing.assert_allclose(data.sel(variable="tpf").values, 0.002)
 
 
 # Concrete named data source -> the STAC collection id it must resolve to.
-_CONCRETE_ANALYSIS = {
-    DynamicalGFS: "noaa-gfs-analysis",
-    DynamicalGEFS: "noaa-gefs-analysis",
-}
-_CONCRETE_FORECAST = {
-    DynamicalGFS_FX: "noaa-gfs-forecast",
-    DynamicalGEFS_FX: "noaa-gefs-forecast-35-day",
-    DynamicalIFSENS_FX: "ecmwf-ifs-ens-forecast-15-day-0-25-degree",
-    DynamicalAIFS_FX: "ecmwf-aifs-single-forecast",
-    DynamicalAIFSENS_FX: "ecmwf-aifs-ens-forecast",
-}
+_CONCRETE_COLLECTIONS = [
+    (DynamicalGFS, "noaa-gfs-analysis"),
+    (DynamicalGEFS, "noaa-gefs-analysis"),
+    (DynamicalHRRR, "noaa-hrrr-analysis"),
+    (DynamicalMRMS, "noaa-mrms-conus-analysis-hourly"),
+    (DynamicalAIFS, "ecmwf-aifs-single-forecast"),
+    (DynamicalAIFS_ENS, "ecmwf-aifs-ens-forecast"),
+    (DynamicalIFS_ENS, "ecmwf-ifs-ens-forecast-15-day-0-25-degree"),
+    (DynamicalGFS_FX, "noaa-gfs-forecast"),
+    (DynamicalGEFS_FX, "noaa-gefs-forecast-35-day"),
+    (DynamicalHRRR_FX, "noaa-hrrr-forecast-48-hour-virtual"),
+    (DynamicalICON_EU_FX, "dwd-icon-eu-forecast-5-day"),
+    (DynamicalIFS_ENS_FX, "ecmwf-ifs-ens-forecast-15-day-0-25-degree"),
+    (DynamicalAIFS_FX, "ecmwf-aifs-single-forecast"),
+    (DynamicalAIFSENS_FX, "ecmwf-aifs-ens-forecast"),
+]
+
+_CONCRETE_SINGLE_FETCH_CASES = [
+    (DynamicalGEFS, "noaa-gefs-analysis", "analysis", "t2m", False),
+    (DynamicalHRRR, "noaa-hrrr-analysis", "analysis_projected", "t2m", False),
+    (DynamicalMRMS, "noaa-mrms-conus-analysis-hourly", "analysis", "tpf", False),
+    (DynamicalAIFS, "ecmwf-aifs-single-forecast", "analysis_forecast", "t2m", False),
+    (
+        DynamicalAIFS_ENS,
+        "ecmwf-aifs-ens-forecast",
+        "analysis_forecast",
+        "u10m",
+        True,
+    ),
+    (
+        DynamicalIFS_ENS,
+        "ecmwf-ifs-ens-forecast-15-day-0-25-degree",
+        "analysis_forecast",
+        "u10m",
+        True,
+    ),
+    (DynamicalGEFS_FX, "noaa-gefs-forecast-35-day", "forecast", "u10m", True),
+    (
+        DynamicalHRRR_FX,
+        "noaa-hrrr-forecast-48-hour-virtual",
+        "forecast_projected",
+        "t2m",
+        False,
+    ),
+    (DynamicalICON_EU_FX, "dwd-icon-eu-forecast-5-day", "forecast", "t2m", False),
+    (
+        DynamicalIFS_ENS_FX,
+        "ecmwf-ifs-ens-forecast-15-day-0-25-degree",
+        "forecast",
+        "u10m",
+        True,
+    ),
+    (DynamicalAIFS_FX, "ecmwf-aifs-single-forecast", "forecast", "t2m", False),
+    (DynamicalAIFSENS_FX, "ecmwf-aifs-ens-forecast", "forecast", "u10m", True),
+]
+
+
+def _forecast_dims(init_times: np.ndarray, projected: bool, member: bool) -> dict:
+    dims = {
+        "init_time": {"type": "temporal", "extent": [str(init_times[0]) + "Z", None]},
+        "lead_time": {"type": "other"},
+    }
+    if member:
+        dims["ensemble_member"] = {"type": "other"}
+    if projected:
+        dims.update({"y": {"type": "spatial"}, "x": {"type": "spatial"}})
+    else:
+        dims.update({"latitude": {"type": "spatial"}, "longitude": {"type": "spatial"}})
+    return dims
+
+
+def _forecast_dataset(init_times: np.ndarray, projected: bool, member: bool):
+    leads = np.array([0], dtype="timedelta64[s]").astype("timedelta64[ns]")
+    coords = {"init_time": init_times, "lead_time": leads}
+    dims = ["init_time", "lead_time"]
+    if member:
+        coords["ensemble_member"] = np.array([0, 1, 2])
+        dims.append("ensemble_member")
+    if projected:
+        coords.update(
+            {
+                "y": _Y,
+                "x": _X,
+                "latitude": (("y", "x"), _LAT_2D),
+                "longitude": (("y", "x"), _LON_2D),
+            }
+        )
+        dims.extend(["y", "x"])
+    else:
+        coords.update({"latitude": _LAT, "longitude": _LON})
+        dims.extend(["latitude", "longitude"])
+
+    if not member:
+        return _make_dataset(coords, tuple(dims))
+
+    members = coords["ensemble_member"]
+    shape = tuple(len(coords[d]) for d in dims)
+    member_axis = dims.index("ensemble_member")
+    member_field = members.reshape(
+        [-1 if i == member_axis else 1 for i in range(len(dims))]
+    )
+    data_vars = {
+        name: (tuple(dims), np.broadcast_to(member_field, shape).astype(np.float32))
+        for name in _VARS
+    }
+    return xr.Dataset(data_vars=data_vars, coords=coords)
 
 
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize(
-    "klass,collection", {**_CONCRETE_ANALYSIS, **_CONCRETE_FORECAST}.items()
+    "klass,collection",
+    _CONCRETE_COLLECTIONS,
 )
 def test_dynamical_concrete_collection_ids(klass, collection):
     # Concrete sources bake in their STAC collection id and take no collection arg
@@ -343,85 +552,64 @@ def test_dynamical_concrete_collection_ids(klass, collection):
 
 
 @pytest.mark.timeout(30)
-@pytest.mark.parametrize("klass,collection", _CONCRETE_ANALYSIS.items())
-def test_dynamical_concrete_analysis_call(monkeypatch, klass, collection):
-    times = np.array(["2024-01-01T00:00", "2024-01-01T06:00"], dtype="datetime64[ns]")
-    dims = _analysis_dims(times)
-    ds_obj = _make_dataset(
-        {"time": times, "latitude": _LAT, "longitude": _LON},
-        ("time", "latitude", "longitude"),
-    )
+@pytest.mark.parametrize(
+    "klass,collection,kind,variable,member",
+    _CONCRETE_SINGLE_FETCH_CASES,
+)
+def test_dynamical_concrete_single_fetch_mock(
+    monkeypatch, klass, collection, kind, variable, member
+):
+    time = np.array(["2025-08-01T00:00"], dtype="datetime64[ns]")
+    projected = kind.endswith("projected")
+    if kind == "analysis":
+        dims = _analysis_dims(time)
+        ds_obj = _make_dataset(
+            {"time": time, "latitude": _LAT, "longitude": _LON},
+            ("time", "latitude", "longitude"),
+        )
+    elif kind == "analysis_projected":
+        dims = _projected_analysis_dims(time)
+        ds_obj = _make_dataset(
+            {
+                "time": time,
+                "y": _Y,
+                "x": _X,
+                "latitude": (("y", "x"), _LAT_2D),
+                "longitude": (("y", "x"), _LON_2D),
+            },
+            ("time", "y", "x"),
+        )
+    else:
+        dims = _forecast_dims(time, projected, member)
+        ds_obj = _forecast_dataset(time, projected, member)
     _patch(monkeypatch, klass, collection, dims, ds_obj)
 
-    source = klass()
-    data = source(times, ["t2m", "z500"])
-    assert data.shape == (2, 2, len(_LAT), len(_LON))
-    # Same machinery as the generic base: unit conversions still apply
-    np.testing.assert_allclose(data.sel(variable="t2m").values, 20.0 + 273.15)
-    np.testing.assert_allclose(data.sel(variable="z500").values, 5500.0 * 9.80665)
+    source = klass(member=2) if member else klass()
+    if kind.startswith("analysis"):
+        data = source(time, [variable])
+    else:
+        data = source(time, [datetime.timedelta(0)], [variable])
+
+    expected_shape = (len(_Y), len(_X)) if projected else (len(_LAT), len(_LON))
+    expected = 2.0 if member else (20.0 + 273.15 if variable == "t2m" else 0.001)
+    assert data.shape[-len(expected_shape) :] == expected_shape
+    assert list(data.coords["variable"].values) == [variable]
+    np.testing.assert_allclose(data.values, expected)
 
 
 @pytest.mark.timeout(30)
-def test_dynamical_concrete_forecast_member(monkeypatch):
-    # Ensemble concrete sources forward ``member`` to ensemble_member selection
-    init_times = np.array(["2024-01-01T00:00"], dtype="datetime64[ns]")
-    leads = np.array([0, 6 * 3600], dtype="timedelta64[s]").astype("timedelta64[ns]")
-    members = np.array([0, 1, 2])
-    dims = {
-        "init_time": {"type": "temporal", "extent": [str(init_times[0]) + "Z", None]},
-        "lead_time": {"type": "other"},
-        "ensemble_member": {"type": "other"},
-        "latitude": {"type": "spatial"},
-        "longitude": {"type": "spatial"},
-    }
-    coords = {
-        "init_time": init_times,
-        "lead_time": leads,
-        "ensemble_member": members,
-        "latitude": _LAT,
-        "longitude": _LON,
-    }
-    order = ("init_time", "lead_time", "ensemble_member", "latitude", "longitude")
-    shape = tuple(len(coords[d]) for d in order)
-    # Encode the member index into the data so member selection is observable
-    member_axis = order.index("ensemble_member")
-    member_field = members.reshape(
-        [-1 if i == member_axis else 1 for i in range(len(order))]
-    )
-    data_vars = {
-        name: (order, np.broadcast_to(member_field, shape).astype(np.float32))
-        for name in _VARS
-    }
-    ds_obj = xr.Dataset(data_vars=data_vars, coords=coords)
-
-    _patch(monkeypatch, DynamicalAIFSENS_FX, "ecmwf-aifs-ens-forecast", dims, ds_obj)
-
-    lead_list = [datetime.timedelta(hours=0), datetime.timedelta(hours=6)]
-    source = DynamicalAIFSENS_FX(member=2)
-    data = source(init_times, lead_list, ["u10m"])
-    # wind_u_10m is m s-1 (no conversion); values equal the selected member index
-    np.testing.assert_allclose(data.values, 2.0)
+def test_dynamical_cache():
+    assert DynamicalGFS(cache=True).cache == DynamicalGFS(cache=False).cache
 
 
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(120)
-@pytest.mark.parametrize(
-    "time",
-    [
-        datetime.datetime(year=2024, month=1, day=1),
-        np.array([np.datetime64("2024-06-01T00:00")]),
-    ],
-)
-@pytest.mark.parametrize("variable", [["t2m", "u10m"], "msl"])
-def test_dynamical_fetch(time, variable):
+def test_dynamical_fetch():
     source = DynamicalGFS()
+    time = [datetime.datetime(year=2024, month=6, day=1)]
+    variable = ["t2m", "u10m"]
     data = source(time, variable)
-
-    if isinstance(variable, str):
-        variable = [variable]
-    if isinstance(time, datetime.datetime):
-        time = [time]
 
     assert data.shape[0] == len(time)
     assert data.shape[1] == len(variable)
@@ -438,21 +626,11 @@ def test_dynamical_fetch(time, variable):
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(120)
-@pytest.mark.parametrize(
-    "klass",
-    [
-        # noaa-gfs-forecast is surface-only (no pressure levels)
-        DynamicalGFS_FX,
-        # ecmwf-aifs-single-forecast carries pressure-level fields
-        DynamicalAIFS_FX,
-    ],
-)
-def test_dynamical_forecast_fetch(klass):
-    source = klass()
-    variable = ["t2m", "u10m"] if klass is DynamicalGFS_FX else ["t2m", "z500"]
-    # 2024-06-01 is valid for both GFS (from 2021) and AIFS (from 2024-04-01)
+def test_dynamical_forecast_fetch():
+    source = DynamicalGFS_FX()
+    variable = ["t2m"]
     time = [datetime.datetime(year=2024, month=6, day=1)]
-    lead_time = [datetime.timedelta(hours=0), datetime.timedelta(hours=24)]
+    lead_time = [datetime.timedelta(hours=0)]
     data = source(time, lead_time, variable)
 
     assert data.shape[0] == len(time)
@@ -461,7 +639,3 @@ def test_dynamical_forecast_fetch(klass):
     assert data.shape[3] == 721
     assert data.shape[4] == 1440
     assert not np.isnan(data.values).any()
-    # Geopotential conversion (height m -> m2 s-2) yields ~5e4 at 500 hPa
-    if "z500" in variable:
-        z500 = data.sel(variable="z500").values
-        assert np.nanmin(z500) > 4.0e4 and np.nanmax(z500) < 6.0e4

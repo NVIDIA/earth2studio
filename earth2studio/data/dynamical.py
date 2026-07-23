@@ -48,9 +48,9 @@ except ImportError:
     OptionalDependencyFailure("data")
     icechunk = None  # type: ignore[assignment]
 
-# Earth2Studio uses 0-360 ascending longitude and 90 -> -90 descending latitude.
-# dynamical.org serves -180..180 ascending longitude, so coordinates are
-# normalized on open.
+# Earth2Studio usually uses 0-360 ascending longitude and 90 -> -90 descending
+# latitude. Regional domains that cross Greenwich stay in their native
+# contiguous order to avoid splitting the grid across the array edge.
 
 
 def _fetch_json(url: str) -> dict[str, Any]:
@@ -110,6 +110,10 @@ class _DynamicalBase:
         # Normalized grid coordinates (computed once on open).
         self._lat: np.ndarray = np.array([])
         self._lon: np.ndarray = np.array([])
+        self._x: np.ndarray = np.array([])
+        self._y: np.ndarray = np.array([])
+        self._source_spatial_dims: tuple[str, str] = ("latitude", "longitude")
+        self._output_spatial_dims: tuple[str, str] = ("lat", "lon")
 
     def _resolve_collection_url(self) -> str:
         """Resolve the STAC collection.json URL from the root catalog.
@@ -153,15 +157,18 @@ class _DynamicalBase:
             return self._ds
 
         collection = _fetch_json(self._resolve_collection_url())
-        self._cube_variables = collection.get("cube:variables", {})
+        cube_variables = collection.get("cube:variables", {})
+        self._cube_variables = cube_variables
         self._cube_dimensions = collection.get("cube:dimensions", {})
 
         dims = self._cube_dimensions
-        if "latitude" not in dims or "longitude" not in dims:
+        is_regular_latlon = "latitude" in dims and "longitude" in dims
+        is_projected_xy = "x" in dims and "y" in dims
+        if not is_regular_latlon and not is_projected_xy:
             raise ValueError(
-                f"dynamical.org collection {self.collection!r} is not on a regular "
-                f"latitude/longitude grid (dimensions: {sorted(dims)}). Projected "
-                "datasets (e.g. HRRR, MRMS) are not supported; regrid externally."
+                f"dynamical.org collection {self.collection!r} is not on a supported "
+                f"regular latitude/longitude or projected x/y grid (dimensions: "
+                f"{sorted(dims)})."
             )
 
         assets = collection.get("assets", {})
@@ -184,6 +191,11 @@ class _DynamicalBase:
             href, region=region, virtual_containers=virtual_containers
         )
         ds = self._setup_grid(ds)
+        self._cube_variables = {
+            name: cube_variables.get(name, {})
+            for name in ds.data_vars
+            if name in cube_variables
+        }
         self._ds = ds
         return self._ds
 
@@ -252,9 +264,10 @@ class _DynamicalBase:
     def _setup_grid(self, ds: xr.Dataset) -> xr.Dataset:
         """Normalize the dataset grid to Earth2Studio's convention.
 
-        Earth2Studio uses latitude descending (90 -> -90) and longitude in
-        [0, 360) ascending. With ``chunks=None`` (no dask), ``sortby`` on the
-        lazy store only reorders metadata/coordinates without loading data.
+        Regular latitude/longitude grids are sorted north-to-south and, when
+        possible without splitting a regional domain, to [0, 360) ascending
+        longitude. Projected x/y grids preserve their native projection axes and
+        expose 2D latitude/longitude coordinates.
 
         Parameters
         ----------
@@ -266,17 +279,71 @@ class _DynamicalBase:
         xr.Dataset
             Dataset with normalized grid coordinates.
         """
-        # TODO(regional): the unconditional 0-360 wrap tears a meridian-crossing
-        # regional domain (e.g. DWD ICON-EU, lon -23.5..62.5) into two spatially
-        # discontiguous halves. Only global collections are supported today; when
-        # adding regional ones, make this wrap conditional on global coverage and
-        # keep the native contiguous order otherwise.
-        ds = ds.assign_coords(longitude=(ds["longitude"].values % 360))
-        ds = ds.sortby("latitude", ascending=False)
-        ds = ds.sortby("longitude", ascending=True)
-        self._lat = np.asarray(ds["latitude"].values)
-        self._lon = np.asarray(ds["longitude"].values)
-        return ds
+        if "latitude" in ds.dims and "longitude" in ds.dims:
+            ds = ds.sortby("latitude", ascending=False)
+            lon = np.asarray(ds["longitude"].values)
+            if self._should_wrap_longitude(lon):
+                ds = ds.assign_coords(longitude=(lon % 360))
+                ds = ds.sortby("longitude", ascending=True)
+            self._lat = np.asarray(ds["latitude"].values)
+            self._lon = np.asarray(ds["longitude"].values)
+            self._source_spatial_dims = ("latitude", "longitude")
+            self._output_spatial_dims = ("lat", "lon")
+            return ds
+
+        if {"x", "y"}.issubset(ds.dims) and {"latitude", "longitude"}.issubset(
+            ds.coords
+        ):
+            lon = np.asarray(ds["longitude"].values)
+            if self._should_wrap_longitude(lon):
+                ds = ds.assign_coords(longitude=(ds["longitude"].dims, lon % 360))
+            self._lat = np.asarray(ds["latitude"].values)
+            self._lon = np.asarray(ds["longitude"].values)
+            self._x = np.asarray(ds["x"].values)
+            self._y = np.asarray(ds["y"].values)
+            self._source_spatial_dims = ("y", "x")
+            self._output_spatial_dims = ("y", "x")
+            return ds
+
+        raise ValueError(
+            f"dynamical.org collection {self.collection!r} opened with unsupported "
+            f"coordinates {sorted(ds.coords)} and dimensions {sorted(ds.dims)}."
+        )
+
+    @staticmethod
+    def _should_wrap_longitude(lon: np.ndarray) -> bool:
+        """Return whether longitude can be safely normalized to [0, 360)."""
+        lon_min = float(np.nanmin(lon))
+        lon_max = float(np.nanmax(lon))
+        crosses_greenwich = lon_min < 0.0 < lon_max
+        global_like = (lon_max - lon_min) >= 300.0
+        return global_like or not crosses_greenwich
+
+    def _spatial_shape(self) -> tuple[int, ...]:
+        """Return the output spatial shape."""
+        return (
+            self._lat.shape if self._lat.ndim == 2 else (len(self._lat), len(self._lon))
+        )
+
+    def _spatial_coords(self) -> dict[str, Any]:
+        """Return output spatial coordinates for the current grid."""
+        if self._lat.ndim == 2:
+            return {
+                "y": self._y,
+                "x": self._x,
+                "lat": (self._output_spatial_dims, self._lat),
+                "lon": (self._output_spatial_dims, self._lon),
+                "_lat": (self._output_spatial_dims, self._lat),
+                "_lon": (self._output_spatial_dims, self._lon),
+            }
+        return {"lat": self._lat, "lon": self._lon}
+
+    def _unsupported_extra_dims(self, da: xr.DataArray) -> list[str]:
+        """Return dimensions that cannot be collapsed into the standard output."""
+        supported = {self._TIME_DIMENSION, "lead_time", *self._source_spatial_dims}
+        return [
+            dim for dim in da.dims if dim not in supported and dim != "ensemble_member"
+        ]
 
     def _resolve_variable(self, variable: str) -> tuple[str, Callable]:
         """Resolve an Earth2Studio variable id to a collection variable and modifier.
@@ -312,6 +379,10 @@ class _DynamicalBase:
                 f"Variable {variable!r} not found in dynamical.org lexicon or in "
                 f"collection {self.collection!r}. Available variables: {available}"
             )
+
+        if dynamical_name not in self._cube_variables and variable == "tpf":
+            if "precipitation_rate_surface" in self._cube_variables:
+                dynamical_name = "precipitation_rate_surface"
 
         if dynamical_name not in self._cube_variables:
             available = ", ".join(sorted(self._cube_variables))
@@ -374,10 +445,6 @@ class _DynamicalBase:
                     f"{self.collection!r} ({end})"
                 )
 
-    def _coords(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return the normalized (latitude, longitude) coordinate arrays."""
-        return self._lat, self._lon
-
     def available(self, time: datetime | np.datetime64) -> bool:
         """Check if a given time is available in this dynamical.org collection.
 
@@ -429,7 +496,7 @@ class _DynamicalBase:
         Returns
         -------
         xr.DataArray
-            Data array with dimensions ``[time, lead_time, variable, lat, lon]``.
+            Data array with dimensions ``[time, lead_time, variable, ...]``.
         """
         xr_array = _sync_async(self.fetch, time, lead_time, variable)
         return xr_array
@@ -455,29 +522,29 @@ class _DynamicalBase:
         Returns
         -------
         xr.DataArray
-            Data array with dimensions ``[time, lead_time, variable, lat, lon]``.
+            Data array with dimensions ``[time, lead_time, variable, ...]``.
         """
         ds = self._open()
         times, lead_times, variables = prep_forecast_inputs(time, lead_time, variable)
         self._validate_time(times, self._TIME_DIMENSION)
 
-        lat, lon = self._coords()
         times_np = np.array(times, dtype="datetime64[ns]")
         leads_np = np.array(lead_times, dtype="timedelta64[ns]")
         has_lead_time = "lead_time" in ds.dims
+        spatial_shape = self._spatial_shape()
+        coords: dict[str, Any] = {
+            "time": times_np,
+            "lead_time": leads_np,
+            "variable": variables,
+            **self._spatial_coords(),
+        }
         xr_array = xr.DataArray(
             data=np.empty(
-                (len(times), len(lead_times), len(variables), len(lat), len(lon)),
+                (len(times), len(lead_times), len(variables), *spatial_shape),
                 dtype=np.float32,
             ),
-            dims=["time", "lead_time", "variable", "lat", "lon"],
-            coords={
-                "time": times_np,
-                "lead_time": leads_np,
-                "variable": variables,
-                "lat": lat,
-                "lon": lon,
-            },
+            dims=["time", "lead_time", "variable", *self._output_spatial_dims],
+            coords=coords,
         )
 
         for j, var in enumerate(
@@ -495,17 +562,162 @@ class _DynamicalBase:
                 )
                 if "ensemble_member" in da.dims:
                     da = da.isel(ensemble_member=self._member)
+                extra_dims = self._unsupported_extra_dims(da)
+                if extra_dims:
+                    raise ValueError(
+                        f"Variable {var!r} in collection {self.collection!r} has "
+                        f"unsupported extra dimensions: {extra_dims}"
+                    )
                 da = da.transpose(
-                    self._TIME_DIMENSION, "lead_time", "latitude", "longitude"
+                    self._TIME_DIMENSION, "lead_time", *self._source_spatial_dims
                 )
             else:
                 da = ds[dynamical_name].sel({self._TIME_DIMENSION: times_np})
-                da = da.transpose(self._TIME_DIMENSION, "latitude", "longitude")
+                extra_dims = self._unsupported_extra_dims(da)
+                if extra_dims:
+                    raise ValueError(
+                        f"Variable {var!r} in collection {self.collection!r} has "
+                        f"unsupported extra dimensions: {extra_dims}"
+                    )
+                da = da.transpose(self._TIME_DIMENSION, *self._source_spatial_dims)
                 # Add lead_time axis for uniform output shape
                 da = da.expand_dims("lead_time", axis=1)
             xr_array[:, :, j] = modifier(np.asarray(da.values, dtype=np.float32))
 
         return xr_array
+
+
+class _DynamicalAnalysis(_DynamicalBase):
+    """Shared synchronous and async entry points for analysis collections."""
+
+    def __call__(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve analysis data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            Variable(s) to return, in the dynamical.org lexicon or native to the
+            collection.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, ...]``.
+        """
+        xr_array = _sync_async(self.fetch, time, variable)
+        return xr_array
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to retrieve analysis data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            Variable(s) to return, in the dynamical.org lexicon or native to the
+            collection.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, ...]``.
+        """
+        result = await super().fetch(time, timedelta(0), variable)
+        return result.isel(lead_time=0, drop=True)
+
+
+class DynamicalAIFS(_DynamicalAnalysis):
+    """ECMWF AIFS Single analysis view from the dynamical.org catalog.
+
+    Lead-time-zero view of the deterministic ECMWF Artificial Intelligence
+    Forecasting System (AIFS) forecast archive, on a global 0.25 degree regular
+    latitude/longitude grid.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/ecmwf-aifs-single-forecast/
+    - https://stac.dynamical.org/ecmwf-aifs-single-forecast/collection.json
+
+    Badges
+    ------
+    region:global dataclass:analysis product:wind product:temp product:atmos
+    """
+
+    _TIME_DIMENSION = "init_time"
+
+    def __init__(self, cache: bool = True, verbose: bool = True) -> None:
+        super().__init__("ecmwf-aifs-single-forecast", cache=cache, verbose=verbose)
+
+
+class DynamicalAIFS_ENS(_DynamicalAnalysis):
+    """ECMWF AIFS ENS analysis view from the dynamical.org catalog.
+
+    Lead-time-zero view of the ECMWF Artificial Intelligence Forecasting System
+    ensemble forecast archive, on a global 0.25 degree regular
+    latitude/longitude grid. A single ensemble member is selected via
+    ``member``.
+
+    Parameters
+    ----------
+    member : int, optional
+        Ensemble member index to select, by default 0 (control member).
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/ecmwf-aifs-ens-forecast/
+    - https://stac.dynamical.org/ecmwf-aifs-ens-forecast/collection.json
+
+    Badges
+    ------
+    region:global dataclass:analysis product:wind product:temp product:atmos
+    """
+
+    _TIME_DIMENSION = "init_time"
+
+    def __init__(
+        self, member: int = 0, cache: bool = True, verbose: bool = True
+    ) -> None:
+        super().__init__(
+            "ecmwf-aifs-ens-forecast", member=member, cache=cache, verbose=verbose
+        )
 
 
 class DynamicalGFS(_DynamicalBase):
@@ -672,6 +884,79 @@ class DynamicalGEFS(_DynamicalBase):
         return result.isel(lead_time=0, drop=True)
 
 
+class DynamicalHRRR(_DynamicalAnalysis):
+    """NOAA HRRR analysis from the dynamical.org catalog.
+
+    Best-estimate analysis from the NOAA High-Resolution Rapid Refresh model,
+    on the native 3 km Lambert conformal CONUS grid. Data are returned on
+    projection dimensions ``[y, x]`` with 2D ``lat``/``lon`` coordinates.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/noaa-hrrr-analysis/
+    - https://stac.dynamical.org/noaa-hrrr-analysis/collection.json
+
+    Badges
+    ------
+    region:na dataclass:analysis product:wind product:precip product:temp product:atmos
+    """
+
+    def __init__(self, cache: bool = True, verbose: bool = True) -> None:
+        super().__init__("noaa-hrrr-analysis", cache=cache, verbose=verbose)
+
+
+class DynamicalMRMS(_DynamicalAnalysis):
+    """NOAA MRMS CONUS analysis from the dynamical.org catalog.
+
+    Hourly NOAA Multi-Radar/Multi-Sensor precipitation analyses on a CONUS 0.01
+    degree regular latitude/longitude grid.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/noaa-mrms-conus-analysis-hourly/
+    - https://stac.dynamical.org/noaa-mrms-conus-analysis-hourly/collection.json
+
+    Badges
+    ------
+    region:na dataclass:analysis product:precip product:radar
+    """
+
+    def __init__(self, cache: bool = True, verbose: bool = True) -> None:
+        super().__init__(
+            "noaa-mrms-conus-analysis-hourly", cache=cache, verbose=verbose
+        )
+
+
 class DynamicalGFS_FX(_DynamicalBase):
     """NOAA GFS forecast from the dynamical.org catalog.
 
@@ -708,6 +993,83 @@ class DynamicalGFS_FX(_DynamicalBase):
 
     def __init__(self, cache: bool = True, verbose: bool = True) -> None:
         super().__init__("noaa-gfs-forecast", cache=cache, verbose=verbose)
+
+
+class DynamicalHRRR_FX(_DynamicalBase):
+    """NOAA HRRR 48-hour virtual forecast from the dynamical.org catalog.
+
+    NOAA High-Resolution Rapid Refresh forecasts on the native 3 km Lambert
+    conformal CONUS grid. Data are returned on projection dimensions
+    ``[y, x]`` with 2D ``lat``/``lon`` coordinates.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/noaa-hrrr-forecast-48-hour-virtual/
+    - https://stac.dynamical.org/noaa-hrrr-forecast-48-hour-virtual/collection.json
+
+    Badges
+    ------
+    region:na dataclass:simulation product:wind product:precip product:temp product:atmos
+    """
+
+    _TIME_DIMENSION = "init_time"
+
+    def __init__(self, cache: bool = True, verbose: bool = True) -> None:
+        super().__init__(
+            "noaa-hrrr-forecast-48-hour-virtual", cache=cache, verbose=verbose
+        )
+
+
+class DynamicalICON_EU_FX(_DynamicalBase):
+    """DWD ICON-EU 5-day forecast from the dynamical.org catalog.
+
+    Deutscher Wetterdienst ICON-EU forecasts on a regional Europe 0.0625 degree
+    regular latitude/longitude grid, out to 5 days.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/dwd-icon-eu-forecast-5-day/
+    - https://stac.dynamical.org/dwd-icon-eu-forecast-5-day/collection.json
+
+    Badges
+    ------
+    region:eu dataclass:simulation product:wind product:precip product:temp product:atmos
+    """
+
+    _TIME_DIMENSION = "init_time"
+
+    def __init__(self, cache: bool = True, verbose: bool = True) -> None:
+        super().__init__("dwd-icon-eu-forecast-5-day", cache=cache, verbose=verbose)
 
 
 class DynamicalGEFS_FX(_DynamicalBase):
@@ -755,7 +1117,54 @@ class DynamicalGEFS_FX(_DynamicalBase):
         )
 
 
-class DynamicalIFSENS_FX(_DynamicalBase):
+class DynamicalIFS_ENS(_DynamicalAnalysis):
+    """ECMWF IFS ENS analysis view from the dynamical.org catalog.
+
+    Lead-time-zero view of the ECMWF Integrated Forecasting System ensemble
+    forecast archive, on a global 0.25 degree regular latitude/longitude grid.
+    A single ensemble member is selected via ``member``.
+
+    Parameters
+    ----------
+    member : int, optional
+        Ensemble member index to select, by default 0 (control member).
+    cache : bool, optional
+        Retained for API parity; Icechunk reads chunks lazily on demand rather
+        than caching whole files locally, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of
+    data to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://dynamical.org/catalog/ecmwf-ifs-ens-forecast-15-day-0-25-degree/
+    - https://stac.dynamical.org/ecmwf-ifs-ens-forecast-15-day-0-25-degree/collection.json
+
+    Badges
+    ------
+    region:global dataclass:analysis product:wind product:temp product:atmos
+    """
+
+    _TIME_DIMENSION = "init_time"
+
+    def __init__(
+        self, member: int = 0, cache: bool = True, verbose: bool = True
+    ) -> None:
+        super().__init__(
+            "ecmwf-ifs-ens-forecast-15-day-0-25-degree",
+            member=member,
+            cache=cache,
+            verbose=verbose,
+        )
+
+
+class DynamicalIFS_ENS_FX(_DynamicalBase):
     """ECMWF IFS ENS (15 day, 0.25 degree) ensemble forecast from dynamical.org.
 
     ECMWF Integrated Forecasting System ensemble forecasts (dimensions
