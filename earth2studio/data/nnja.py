@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-import pathlib
 import shutil
 import uuid
 from collections.abc import Sequence
@@ -32,7 +31,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 import numpy as np
-import obstore as obs
 import pandas as pd
 import pyarrow as pa
 from loguru import logger
@@ -41,21 +39,22 @@ from obstore.store import S3Store
 from earth2studio.data.utils import (
     _sync_async,
     async_retry,
-    datasource_cache_root,
+    datasource_cache_dir,
     gather_with_concurrency,
+    obstore_fetch_to_cache,
     prep_data_inputs,
 )
 from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
 from earth2studio.data.utils_ncep import (
-    _NCEP_MICROWAVE_OUTPUT_SCHEMA,
-    _NCEP_MICROWAVE_SATELLITES,
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
-    _NCEPGpsroAdapter,
-    _NCEPMicrowaveAdapter,
-    _NCEPObsTask,
-    _NCEPPrepbufrAdapter,
+    NCEP_MICROWAVE_OUTPUT_SCHEMA,
+    NCEP_MICROWAVE_SATELLITES,
+    NCEPObsTask,
     compile_dataframe,
     cycle_windows,
+    decode_gpsro,
+    decode_microwave,
+    decode_prepbufr,
     map_aircraft_profile_types,
     plan_conv_tasks,
     resolve_output_schema,
@@ -218,7 +217,7 @@ class NNJAObsConv:
         self._decode_workers = max(1, decode_workers)
         self._retries = retries
         self.async_timeout = async_timeout
-        self._tmp_cache_hash: str | None = None
+        self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
         # Anonymous obstore S3 store for the public NNJA bucket.
         self._store = S3Store(
             NNJA_BUCKET,
@@ -230,9 +229,6 @@ class NNJAObsConv:
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
         self._tolerance_upper = pd.to_timedelta(upper).to_pytimedelta()
-
-        self._prepbufr_adapter = _NCEPPrepbufrAdapter(self._decode_workers)
-        self._gpsro_adapter = _NCEPGpsroAdapter(self._decode_workers)
 
     def __call__(
         self,
@@ -274,7 +270,6 @@ class NNJAObsConv:
 
     async def fetch_files(self, uris: Sequence[str]) -> None:
         """Download remote files into the NNJA cache."""
-        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
         coros = [
             async_retry(
                 self._fetch_remote_file,
@@ -295,17 +290,15 @@ class NNJAObsConv:
 
     async def _fetch_remote_file(self, path: str) -> None:
         """Download a single remote file into the cache directory."""
-        cache_path = self.local_path(path)
-        if pathlib.Path(cache_path).is_file():
-            return
-        # Strip the s3://bucket/ prefix to get the object key for obstore.
         key = path.removeprefix(f"s3://{NNJA_BUCKET}/")
         try:
-            response = await obs.get_async(self._store, key)
-            data = await response.bytes_async()
-            with open(cache_path, "wb") as fh:
-                fh.write(bytes(data))
-        except (FileNotFoundError, obs.exceptions.NotFoundError):
+            await obstore_fetch_to_cache(
+                self._store,
+                key,
+                self.cache,
+                cache_key=hashlib.sha256(path.encode()).hexdigest(),
+            )
+        except FileNotFoundError:
             self._handle_missing_file(path)
 
     def _handle_missing_file(self, path: str) -> None:
@@ -326,14 +319,7 @@ class NNJAObsConv:
     @property
     def cache(self) -> str:
         """Local cache directory for NNJA observation files."""
-        cache_location = os.path.join(datasource_cache_root(), "nnja")
-        if not self._cache:
-            if self._tmp_cache_hash is None:
-                self._tmp_cache_hash = uuid.uuid4().hex[:8]
-            cache_location = os.path.join(
-                cache_location, f"tmp_nnja_{self._tmp_cache_hash}"
-            )
-        return cache_location
+        return datasource_cache_dir("nnja", self._cache, self._tmp_cache_hash)
 
     def cleanup(self) -> None:
         """Remove temporary files when persistent caching is disabled."""
@@ -342,7 +328,7 @@ class NNJAObsConv:
 
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]
-    ) -> list[_NCEPObsTask]:
+    ) -> list[NCEPObsTask]:
         return plan_conv_tasks(
             cycle_windows(time_list, self._tolerance_lower, self._tolerance_upper),
             variable,
@@ -376,15 +362,23 @@ class NNJAObsConv:
     # ------------------------------------------------------------------
     # File decode (dispatch by task route)
     # ------------------------------------------------------------------
-    def _decode_file(self, local_path: str, task: _NCEPObsTask) -> pd.DataFrame:
+    def _decode_file(self, local_path: str, task: NCEPObsTask) -> pd.DataFrame:
         if task.route == "gpsro":
-            frame = self._gpsro_adapter.decode_file(
-                local_path, task.var_plan, task.datetime_min, task.datetime_max
+            frame = decode_gpsro(
+                local_path,
+                task.var_plan,
+                task.datetime_min,
+                task.datetime_max,
+                decode_workers=self._decode_workers,
             )
             return frame[self.SCHEMA.names]
         if task.route == "prepbufr":
-            frame = self._prepbufr_adapter.decode_file(
-                local_path, task.var_plan, task.datetime_min, task.datetime_max
+            frame = decode_prepbufr(
+                local_path,
+                task.var_plan,
+                task.datetime_min,
+                task.datetime_max,
+                decode_workers=self._decode_workers,
             )
             if (
                 self._source == "prepbufr.acft_profiles"
@@ -512,10 +506,10 @@ class NNJAObsSat:
     """
 
     SOURCE_ID = "earth2studio.data.NNJAObsSat"
-    SCHEMA = _NCEP_MICROWAVE_OUTPUT_SCHEMA
+    SCHEMA = NCEP_MICROWAVE_OUTPUT_SCHEMA
     LEXICON = NNJAObsSatLexicon
     MIN_DATE = datetime(1998, 1, 1)
-    VALID_SATELLITES = _NCEP_MICROWAVE_SATELLITES
+    VALID_SATELLITES = NCEP_MICROWAVE_SATELLITES
 
     def __init__(
         self,
@@ -545,7 +539,7 @@ class NNJAObsSat:
         self._decode_workers = max(1, decode_workers)
         self._retries = retries
         self.async_timeout = async_timeout
-        self._tmp_cache_hash: str | None = None
+        self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
         # Anonymous obstore S3 store for the public NNJA bucket.
         self._store = S3Store(
             NNJA_BUCKET,
@@ -557,8 +551,6 @@ class NNJAObsSat:
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
         self._tolerance_upper = pd.to_timedelta(upper).to_pytimedelta()
-
-        self._microwave_adapter = _NCEPMicrowaveAdapter(self._decode_workers)
 
     def __call__(
         self,
@@ -606,7 +598,6 @@ class NNJAObsSat:
 
     async def fetch_files(self, uris: Sequence[str]) -> None:
         """Download remote files into the NNJA cache."""
-        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
         coros = [
             async_retry(
                 self._fetch_remote_file,
@@ -627,17 +618,15 @@ class NNJAObsSat:
 
     async def _fetch_remote_file(self, path: str) -> None:
         """Download a single remote file into the cache directory."""
-        cache_path = self.local_path(path)
-        if pathlib.Path(cache_path).is_file():
-            return
-        # Strip the s3://bucket/ prefix to get the object key for obstore.
         key = path.removeprefix(f"s3://{NNJA_BUCKET}/")
         try:
-            response = await obs.get_async(self._store, key)
-            data = await response.bytes_async()
-            with open(cache_path, "wb") as fh:
-                fh.write(bytes(data))
-        except (FileNotFoundError, obs.exceptions.NotFoundError):
+            await obstore_fetch_to_cache(
+                self._store,
+                key,
+                self.cache,
+                cache_key=hashlib.sha256(path.encode()).hexdigest(),
+            )
+        except FileNotFoundError:
             self._handle_missing_file(path)
 
     def _handle_fetch_failure(self, uris: Sequence[str], cause: Exception) -> None:
@@ -682,14 +671,7 @@ class NNJAObsSat:
     @property
     def cache(self) -> str:
         """Local cache directory for NNJA observation files."""
-        cache_location = os.path.join(datasource_cache_root(), "nnja")
-        if not self._cache:
-            if self._tmp_cache_hash is None:
-                self._tmp_cache_hash = uuid.uuid4().hex[:8]
-            cache_location = os.path.join(
-                cache_location, f"tmp_nnja_{self._tmp_cache_hash}"
-            )
-        return cache_location
+        return datasource_cache_dir("nnja", self._cache, self._tmp_cache_hash)
 
     def cleanup(self) -> None:
         """Remove temporary files when persistent caching is disabled."""
@@ -744,13 +726,14 @@ class NNJAObsSat:
         )
 
     def _decode_file(self, local_path: str, task: _NNJASatTask) -> pd.DataFrame:
-        frame = self._microwave_adapter.decode_file(
+        frame = decode_microwave(
             local_path,
             task.sensor,
             task.var_plan,
             task.datetime_min,
             task.datetime_max,
             self._satellites,
+            decode_workers=self._decode_workers,
         )
         return frame[self.SCHEMA.names]
 

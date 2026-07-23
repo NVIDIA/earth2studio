@@ -887,12 +887,13 @@ def test_ncep_microwave_adapter_serial_and_parallel_batch_paths(
             return map(function, arguments)
 
     monkeypatch.setattr(ncep_microwave, "ProcessPoolExecutor", _Executor)
-    frame = ncep_microwave._NCEPMicrowaveAdapter(decode_workers).decode_file(
+    frame = ncep_microwave.decode_microwave(
         str(source_path),
         "atms",
         {"atms": "TMBR"},
         datetime(2023, 12, 31, 21),
         datetime(2024, 1, 1, 3),
+        decode_workers=decode_workers,
     )
 
     assert len(frame) == 2 * message_count
@@ -947,7 +948,6 @@ def test_ncep_microwave_adapter_rejects_missing_tables_and_failed_messages(
 ):
     source_path = tmp_path / "atms.bufr"
     source_path.write_bytes(b"synthetic")
-    adapter = ncep_microwave._NCEPMicrowaveAdapter(1)
 
     monkeypatch.setattr(
         ncep_microwave,
@@ -955,12 +955,13 @@ def test_ncep_microwave_adapter_rejects_missing_tables_and_failed_messages(
         lambda _data, silence_noise=True: ({}, {}, []),
     )
     with pytest.raises(ValueError, match="tables are missing"):
-        adapter.decode_file(
+        ncep_microwave.decode_microwave(
             str(source_path),
             "atms",
             {"atms": "TMBR"},
             datetime(2024, 1, 1),
             datetime(2024, 1, 1),
+            decode_workers=1,
         )
 
     monkeypatch.setattr(
@@ -985,12 +986,13 @@ def test_ncep_microwave_adapter_rejects_missing_tables_and_failed_messages(
         ),
     )
     with pytest.raises(ncep_microwave._NCEPMicrowaveDecodeError) as error:
-        adapter.decode_file(
+        ncep_microwave.decode_microwave(
             str(source_path),
             "atms",
             {"atms": "TMBR"},
             datetime(2023, 12, 31, 21),
             datetime(2024, 1, 1, 3),
+            decode_workers=1,
         )
     assert error.value.context == {
         "path": str(source_path),
@@ -1228,10 +1230,11 @@ def test_nnja_obs_sat_fields_time_platform_and_adapter_validation():
         source._create_tasks([datetime(2000, 1, 1)], ["atms", "amsua"])
     assert unavailable.value.context["reason"] == "archive_unavailable"
     with pytest.raises(KeyError):
-        ncep_microwave._NCEPMicrowaveAdapter(1).decode_file(
+        ncep_microwave.decode_microwave(
             "not-read.bufr",
             "atms",
             {"atms": "UNKNOWN"},
             datetime(2024, 1, 1),
             datetime(2024, 1, 1),
+            decode_workers=1,
         )

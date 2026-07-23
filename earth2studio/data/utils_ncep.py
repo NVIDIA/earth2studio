@@ -664,7 +664,7 @@ def _extract_gpsro_subset(
     return rows
 
 
-def _empty_dataframe(
+def empty_dataframe(
     schema: pa.Schema = NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
 ) -> pd.DataFrame:
     # Build typed empty columns (not object-dtype ``None``) so ``pd.concat`` does
@@ -695,12 +695,12 @@ def _finalize_rows(
 ) -> pd.DataFrame:
     if isinstance(rows, pd.DataFrame):
         if rows.empty:
-            return _empty_dataframe(schema)
+            return empty_dataframe(schema)
         frame = rows.copy()
     elif rows:
         frame = pd.DataFrame(rows)
     else:
-        return _empty_dataframe(schema)
+        return empty_dataframe(schema)
 
     result_frames: list[pd.DataFrame] = []
     for variable, modifier in variables.items():
@@ -708,7 +708,7 @@ def _finalize_rows(
         if not variable_frame.empty:
             result_frames.append(modifier(variable_frame))
     if not result_frames:
-        return _empty_dataframe(schema)
+        return empty_dataframe(schema)
     frame = pd.concat(result_frames, ignore_index=True)
 
     # PrepBUFR levels carry POB in mb; convert the schema pressure column to Pa
@@ -811,154 +811,159 @@ def _gpsro_worker(
         )
 
 
-class _NCEPPrepbufrAdapter:
-    """Decode merged NCEP PrepBUFR bytes independently of their transport."""
+def decode_prepbufr(
+    path: str,
+    plan: Mapping[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]],
+    dt_min: datetime,
+    dt_max: datetime,
+    decode_workers: int = 8,
+) -> pd.DataFrame:
+    """Decode a merged NCEP PrepBUFR file into a DataFrame.
 
-    def __init__(self, decode_workers: int = 8) -> None:
-        self.decode_workers = max(1, decode_workers)
+    Parameters
+    ----------
+    path : str
+        Local path to the PrepBUFR file.
+    plan : Mapping
+        Variable decode plan: ``{variable: (mnemonic_key, modifier)}``.
+    dt_min, dt_max : datetime
+        Time window for observation filtering.
+    decode_workers : int
+        Number of parallel decode processes (1 disables multiprocessing).
+    """
+    decode_workers = max(1, decode_workers)
+    var_keys = [(variable, key) for variable, (key, _) in plan.items()]
+    modifiers = {variable: modifier for variable, (_, modifier) in plan.items()}
+    with open(path, "rb") as file:
+        file_data = file.read()
+    table_b, table_d, messages = _parse_prepbufr_messages(file_data, silence_noise=True)
+    dhr_scale = _descriptor_scale(table_b, HDR_DHR, 5)
+    hrdr_scale = _descriptor_scale(table_b, OBS_HRDR, 5)
+    work_items = [
+        (message_bytes, PREPBUFR_OBS_TYPES[data_category])
+        for message_bytes, data_category in messages
+        if data_category in PREPBUFR_OBS_TYPES
+    ]
+    if not work_items:
+        return empty_dataframe()
 
-    def decode_file(
-        self,
-        path: str,
-        plan: Mapping[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]],
-        dt_min: datetime,
-        dt_max: datetime,
-    ) -> pd.DataFrame:
-        # Keys drive decode (pickled to workers); modifiers stay here for
-        # finalize (closures cannot cross the process-pool boundary).
-        var_keys = [(variable, key) for variable, (key, _) in plan.items()]
-        modifiers = {variable: modifier for variable, (_, modifier) in plan.items()}
-        with open(path, "rb") as file:
-            file_data = file.read()
-        table_b, table_d, messages = _parse_prepbufr_messages(
-            file_data, silence_noise=True
-        )
-        dhr_scale = _descriptor_scale(table_b, HDR_DHR, 5)
-        hrdr_scale = _descriptor_scale(table_b, OBS_HRDR, 5)
-        work_items = [
-            (message_bytes, PREPBUFR_OBS_TYPES[data_category])
-            for message_bytes, data_category in messages
-            if data_category in PREPBUFR_OBS_TYPES
-        ]
-        if not work_items:
-            return _empty_dataframe()
-
-        rows: list[dict[str, Any]] = []
-        use_parallel = self.decode_workers > 1 and len(work_items) >= 32
-        started = time.perf_counter()
-        if use_parallel:
-            with ProcessPoolExecutor(
-                max_workers=self.decode_workers,
-                initializer=_init_decode_worker,
-                initargs=(table_b, table_d),
-            ) as pool:
-                futures = [
-                    pool.submit(
-                        _prepbufr_worker,
-                        message_bytes,
-                        obs_class,
-                        var_keys,
-                        dt_min,
-                        dt_max,
-                        dhr_scale,
-                        hrdr_scale,
-                    )
-                    for message_bytes, obs_class in work_items
-                ]
-                for future in futures:
-                    try:
-                        rows.extend(future.result())
-                    except Exception as error:
-                        logger.debug(f"PrepBUFR worker failed: {error}")
-        else:
-            decoder = _create_decoder(table_b, table_d)
-            for message_bytes, obs_class in work_items:
-                rows.extend(
-                    _decode_prepbufr_message(
-                        decoder,
-                        message_bytes,
-                        obs_class,
-                        var_keys,
-                        dt_min,
-                        dt_max,
-                        dhr_scale,
-                        hrdr_scale,
-                    )
+    rows: list[dict[str, Any]] = []
+    use_parallel = decode_workers > 1 and len(work_items) >= 32
+    started = time.perf_counter()
+    if use_parallel:
+        with ProcessPoolExecutor(
+            max_workers=decode_workers,
+            initializer=_init_decode_worker,
+            initargs=(table_b, table_d),
+        ) as pool:
+            futures = [
+                pool.submit(
+                    _prepbufr_worker,
+                    message_bytes,
+                    obs_class,
+                    var_keys,
+                    dt_min,
+                    dt_max,
+                    dhr_scale,
+                    hrdr_scale,
                 )
-        logger.debug(
-            f"Decoded {len(rows):,} PrepBUFR rows in "
-            f"{time.perf_counter() - started:.1f}s"
-        )
-        return _finalize_rows(
-            rows,
-            modifiers,
-            convert_pres_mb_to_pa=True,
-        )
-
-
-class _NCEPGpsroAdapter:
-    """Decode the existing NCEP combined bending-angle product."""
-
-    def __init__(self, decode_workers: int = 8) -> None:
-        self.decode_workers = max(1, decode_workers)
-
-    def decode_file(
-        self,
-        path: str,
-        plan: Mapping[str, tuple[str | int, Callable[[pd.DataFrame], pd.DataFrame]]],
-        dt_min: datetime,
-        dt_max: datetime,
-    ) -> pd.DataFrame:
-        # Descriptors drive decode (pickled to workers); modifiers stay here for
-        # finalize (closures cannot cross the process-pool boundary). Callers
-        # pass the descriptor id as a string (shared planner) or int (GDAS until
-        # it migrates). TODO(gdas migration): once GDAS uses the shared planner
-        # (str keys), narrow the union to str and drop the int coercion.
-        wanted_descrs = {int(key): variable for variable, (key, _) in plan.items()}
-        modifiers = {variable: modifier for variable, (_, modifier) in plan.items()}
-        with open(path, "rb") as file:
-            file_data = file.read()
-        table_b, table_d, messages = _parse_prepbufr_messages(
-            file_data, silence_noise=True
-        )
-        if not messages:
-            return _empty_dataframe()
-        rows: list[dict[str, Any]] = []
-        use_parallel = self.decode_workers > 1 and len(messages) >= 32
-        if use_parallel:
-            with ProcessPoolExecutor(
-                max_workers=self.decode_workers,
-                initializer=_init_decode_worker,
-                initargs=(table_b, table_d),
-            ) as pool:
-                futures = [
-                    pool.submit(
-                        _gpsro_worker,
-                        message_bytes,
-                        wanted_descrs,
-                        dt_min,
-                        dt_max,
-                    )
-                    for message_bytes, _data_category in messages
-                ]
-                for future in futures:
-                    try:
-                        rows.extend(future.result())
-                    except Exception as error:
-                        logger.debug(f"GPSRO worker failed: {error}")
-        else:
-            decoder = _create_decoder(table_b, table_d)
-            for message_bytes, _data_category in messages:
-                rows.extend(
-                    _decode_gpsro_message(
-                        decoder, message_bytes, wanted_descrs, dt_min, dt_max
-                    )
+                for message_bytes, obs_class in work_items
+            ]
+            for future in futures:
+                try:
+                    rows.extend(future.result())
+                except Exception as error:
+                    logger.debug(f"PrepBUFR worker failed: {error}")
+    else:
+        decoder = _create_decoder(table_b, table_d)
+        for message_bytes, obs_class in work_items:
+            rows.extend(
+                _decode_prepbufr_message(
+                    decoder,
+                    message_bytes,
+                    obs_class,
+                    var_keys,
+                    dt_min,
+                    dt_max,
+                    dhr_scale,
+                    hrdr_scale,
                 )
-        return _finalize_rows(
-            rows,
-            modifiers,
-            convert_pres_mb_to_pa=False,
-        )
+            )
+    logger.debug(
+        f"Decoded {len(rows):,} PrepBUFR rows in "
+        f"{time.perf_counter() - started:.1f}s"
+    )
+    return _finalize_rows(
+        rows,
+        modifiers,
+        convert_pres_mb_to_pa=True,
+    )
+
+
+def decode_gpsro(
+    path: str,
+    plan: Mapping[str, tuple[str | int, Callable[[pd.DataFrame], pd.DataFrame]]],
+    dt_min: datetime,
+    dt_max: datetime,
+    decode_workers: int = 8,
+) -> pd.DataFrame:
+    """Decode an NCEP GPSRO bending-angle BUFR file into a DataFrame.
+
+    Parameters
+    ----------
+    path : str
+        Local path to the GPSRO BUFR file.
+    plan : Mapping
+        Variable decode plan: ``{variable: (descriptor_id, modifier)}``.
+    dt_min, dt_max : datetime
+        Time window for observation filtering.
+    decode_workers : int
+        Number of parallel decode processes (1 disables multiprocessing).
+    """
+    decode_workers = max(1, decode_workers)
+    wanted_descrs = {int(key): variable for variable, (key, _) in plan.items()}
+    modifiers = {variable: modifier for variable, (_, modifier) in plan.items()}
+    with open(path, "rb") as file:
+        file_data = file.read()
+    table_b, table_d, messages = _parse_prepbufr_messages(file_data, silence_noise=True)
+    if not messages:
+        return empty_dataframe()
+    rows: list[dict[str, Any]] = []
+    use_parallel = decode_workers > 1 and len(messages) >= 32
+    if use_parallel:
+        with ProcessPoolExecutor(
+            max_workers=decode_workers,
+            initializer=_init_decode_worker,
+            initargs=(table_b, table_d),
+        ) as pool:
+            futures = [
+                pool.submit(
+                    _gpsro_worker,
+                    message_bytes,
+                    wanted_descrs,
+                    dt_min,
+                    dt_max,
+                )
+                for message_bytes, _data_category in messages
+            ]
+            for future in futures:
+                try:
+                    rows.extend(future.result())
+                except Exception as error:
+                    logger.debug(f"GPSRO worker failed: {error}")
+    else:
+        decoder = _create_decoder(table_b, table_d)
+        for message_bytes, _data_category in messages:
+            rows.extend(
+                _decode_gpsro_message(
+                    decoder, message_bytes, wanted_descrs, dt_min, dt_max
+                )
+            )
+    return _finalize_rows(
+        rows,
+        modifiers,
+        convert_pres_mb_to_pa=False,
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -975,7 +980,7 @@ _NCEPPlan = Mapping[str, tuple[str, _NCEPObsModifier]]
 
 
 @dataclass(frozen=True)
-class _NCEPObsTask:
+class NCEPObsTask:
     """One conventional NCEP observation cycle file to fetch and decode."""
 
     uri: str
@@ -991,7 +996,7 @@ def plan_conv_tasks(
     variable: list[str],
     lexicon: LexiconType,
     build_uri: Callable[[str, datetime], str],
-) -> list[_NCEPObsTask]:
+) -> list[NCEPObsTask]:
     """Partition variables by lexicon route prefix into per-cycle conv tasks.
 
     Parameters
@@ -1007,7 +1012,7 @@ def plan_conv_tasks(
 
     Returns
     -------
-    list[_NCEPObsTask]
+    list[NCEPObsTask]
         One task per ``(route, cycle)``.
     """
     plans: dict[str, dict[str, tuple[str, _NCEPObsModifier]]] = {}
@@ -1020,11 +1025,11 @@ def plan_conv_tasks(
         route, _, rest = source_key.partition("::")
         plans.setdefault(route, {})[v] = (rest, modifier)
 
-    tasks: list[_NCEPObsTask] = []
+    tasks: list[NCEPObsTask] = []
     for cycle, (tmin, tmax) in windows.items():
         for route, plan in plans.items():
             tasks.append(
-                _NCEPObsTask(
+                NCEPObsTask(
                     uri=build_uri(route, cycle),
                     route=route,
                     datetime_file=cycle,
@@ -1231,7 +1236,7 @@ def compile_dataframe(
     )
 
     if not frames:
-        result = _empty_dataframe(schema)
+        result = empty_dataframe(schema)
     else:
         result = pd.concat(frames, ignore_index=True)
         result = result[[name for name in schema.names if name in result.columns]]
@@ -1256,7 +1261,7 @@ _NCEP_SATELLITE_NAME_BY_SAID: dict[int, str] = {
     225: "n20",
     226: "n21",
 }
-_NCEP_MICROWAVE_SATELLITES = frozenset(_NCEP_SATELLITE_NAME_BY_SAID.values())
+NCEP_MICROWAVE_SATELLITES = frozenset(_NCEP_SATELLITE_NAME_BY_SAID.values())
 
 # BUFR descriptors used by the NCEP aggregate microwave templates.
 _SAID = 1007
@@ -1338,7 +1343,7 @@ class _NCEPMicrowaveDecodeError(RuntimeError):
         super().__init__(f"Incomplete microwave BUFR decode: {self.context}")
 
 
-_NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
+NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
     [
         E2STUDIO_SCHEMA.field("time"),
         E2STUDIO_SCHEMA.field("class"),
@@ -1577,7 +1582,7 @@ def _decode_message_batch(
 
 
 def _rows_to_dataframe(rows: list[dict[str, Any]]) -> pd.DataFrame:
-    table = pa.Table.from_pylist(rows, schema=_NCEP_MICROWAVE_OUTPUT_SCHEMA)
+    table = pa.Table.from_pylist(rows, schema=NCEP_MICROWAVE_OUTPUT_SCHEMA)
 
     def types_mapper(data_type: pa.DataType) -> pd.ArrowDtype | None:
         if pa.types.is_unsigned_integer(data_type):
@@ -1587,76 +1592,85 @@ def _rows_to_dataframe(rows: list[dict[str, Any]]) -> pd.DataFrame:
     return table.to_pandas(types_mapper=types_mapper)
 
 
-class _NCEPMicrowaveAdapter:
-    """Decode NCEP aggregate microwave BUFR independently of its transport."""
+def decode_microwave(
+    path: str,
+    sensor: str,
+    plan: Mapping[str, str],
+    datetime_min: datetime,
+    datetime_max: datetime,
+    satellites: tuple[str, ...] | None = None,
+    decode_workers: int = 8,
+) -> pd.DataFrame:
+    """Decode one NCEP aggregate microwave BUFR file into a DataFrame.
 
-    def __init__(self, decode_workers: int = 8) -> None:
-        self.decode_workers = max(1, decode_workers)
-
-    def decode_file(
-        self,
-        path: str,
-        sensor: str,
-        plan: Mapping[str, str],
-        datetime_min: datetime,
-        datetime_max: datetime,
-        satellites: tuple[str, ...] | None = None,
-    ) -> pd.DataFrame:
-        """Decode one local NCEP aggregate microwave BUFR file."""
-        variable_fields = tuple(
-            (variable, _SOURCE_FIELD_DESCRIPTORS[source_field])
-            for variable, source_field in plan.items()
+    Parameters
+    ----------
+    path : str
+        Local path to the aggregate microwave BUFR file.
+    sensor : str
+        Sensor name (``"atms"``, ``"mhs"``, ``"amsua"``, ``"amsub"``).
+    plan : Mapping[str, str]
+        Variable decode plan: ``{variable: source_field_mnemonic}``.
+    datetime_min, datetime_max : datetime
+        Time window for observation filtering.
+    satellites : tuple[str, ...] | None
+        Platform filter; ``None`` includes all.
+    decode_workers : int
+        Number of parallel decode processes (1 disables multiprocessing).
+    """
+    decode_workers = max(1, decode_workers)
+    variable_fields = tuple(
+        (variable, _SOURCE_FIELD_DESCRIPTORS[source_field])
+        for variable, source_field in plan.items()
+    )
+    file_data = pathlib.Path(path).read_bytes()
+    table_b, table_d, messages = _parse_prepbufr_messages(file_data, silence_noise=True)
+    if not table_b or not table_d:
+        raise ValueError(f"Embedded NCEP BUFR tables are missing from {path}")
+    indexed_messages = list(enumerate(message for message, _ in messages))
+    batches = [
+        indexed_messages[index : index + _DECODE_BATCH_SIZE]
+        for index in range(0, len(indexed_messages), _DECODE_BATCH_SIZE)
+    ]
+    arguments = [
+        (
+            sensor,
+            batch,
+            variable_fields,
+            datetime_min,
+            datetime_max,
+            satellites,
         )
-        file_data = pathlib.Path(path).read_bytes()
-        table_b, table_d, messages = _parse_prepbufr_messages(
-            file_data, silence_noise=True
-        )
-        if not table_b or not table_d:
-            raise ValueError(f"Embedded NCEP BUFR tables are missing from {path}")
-        indexed_messages = list(enumerate(message for message, _ in messages))
-        batches = [
-            indexed_messages[index : index + _DECODE_BATCH_SIZE]
-            for index in range(0, len(indexed_messages), _DECODE_BATCH_SIZE)
-        ]
-        arguments = [
-            (
-                sensor,
-                batch,
-                variable_fields,
-                datetime_min,
-                datetime_max,
-                satellites,
-            )
-            for batch in batches
-        ]
+        for batch in batches
+    ]
 
-        started = time.perf_counter()
-        rows: list[dict[str, Any]] = []
-        failures = 0
-        if self.decode_workers > 1 and len(batches) > 1:
-            with ProcessPoolExecutor(
-                max_workers=min(self.decode_workers, len(batches)),
-                initializer=_init_decode_worker,
-                initargs=(table_b, table_d),
-            ) as pool:
-                # Executor.map preserves input order, so batch assembly remains
-                # in exact source-message order even when workers finish out of order.
-                for batch_rows, batch_failures in pool.map(
-                    _decode_message_batch, arguments
-                ):
-                    rows.extend(batch_rows)
-                    failures += batch_failures
-        else:
-            _init_decode_worker(table_b, table_d)
-            for argument in arguments:
-                batch_rows, batch_failures = _decode_message_batch(argument)
+    started = time.perf_counter()
+    rows: list[dict[str, Any]] = []
+    failures = 0
+    if decode_workers > 1 and len(batches) > 1:
+        with ProcessPoolExecutor(
+            max_workers=min(decode_workers, len(batches)),
+            initializer=_init_decode_worker,
+            initargs=(table_b, table_d),
+        ) as pool:
+            # Executor.map preserves input order, so batch assembly remains
+            # in exact source-message order even when workers finish out of order.
+            for batch_rows, batch_failures in pool.map(
+                _decode_message_batch, arguments
+            ):
                 rows.extend(batch_rows)
                 failures += batch_failures
+    else:
+        _init_decode_worker(table_b, table_d)
+        for argument in arguments:
+            batch_rows, batch_failures = _decode_message_batch(argument)
+            rows.extend(batch_rows)
+            failures += batch_failures
 
-        if failures:
-            raise _NCEPMicrowaveDecodeError(path, failures, len(messages))
-        logger.debug(
-            f"Decoded {len(rows):,} {sensor} channel rows in "
-            f"{time.perf_counter() - started:.1f}s"
-        )
-        return _rows_to_dataframe(rows)
+    if failures:
+        raise _NCEPMicrowaveDecodeError(path, failures, len(messages))
+    logger.debug(
+        f"Decoded {len(rows):,} {sensor} channel rows in "
+        f"{time.perf_counter() - started:.1f}s"
+    )
+    return _rows_to_dataframe(rows)

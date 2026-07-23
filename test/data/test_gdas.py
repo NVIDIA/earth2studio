@@ -174,17 +174,14 @@ def test_nomads_gdas_available():
 
 @pytest.mark.timeout(15)
 def test_nomads_gdas_url_builder():
-    url = NomadsGDASObsConv._build_url(datetime(2026, 4, 5, 12))
-    expected = (
-        "https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/"
-        "gdas.20260405/gdas.t12z.prepbufr.nr"
-    )
-    assert url == expected
+    ds = NomadsGDASObsConv(cache=False, verbose=False)
+    uri = ds._build_uri("prepbufr", datetime(2026, 4, 5, 12))
+    expected = "pub/data/nccf/com/obsproc/prod/" "gdas.20260405/gdas.t12z.prepbufr.nr"
+    assert uri == expected
 
-    gpsro_url = NomadsGDASObsConv._build_gpsro_url(datetime(2026, 4, 5, 12))
-    assert gpsro_url == (
-        "https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/"
-        "gdas.20260405/gdas.t12z.gpsro.tm00.bufr_d.nr"
+    gpsro_uri = ds._build_uri("gpsro", datetime(2026, 4, 5, 12))
+    assert gpsro_uri == (
+        "pub/data/nccf/com/obsproc/prod/" "gdas.20260405/gdas.t12z.gpsro.tm00.bufr_d.nr"
     )
 
 
@@ -221,18 +218,17 @@ def test_nomads_gdas_cache_path():
     url1 = "https://example.com/gdas.20260405/gdas.t00z.prepbufr.nr"
     url2 = "https://example.com/gdas.20260405/gdas.t06z.prepbufr.nr"
 
-    path1 = ds._cache_path(url1)
-    path2 = ds._cache_path(url2)
+    path1 = ds.local_path(url1)
+    path2 = ds.local_path(url2)
 
     # Different URLs should produce different cache paths
     assert path1 != path2
 
     # Same URL should produce same cache path
-    assert ds._cache_path(url1) == path1
+    assert ds.local_path(url1) == path1
 
     # Should be in the cache directory
     assert path1.startswith(ds.cache)
-    assert path1.endswith(".bin")
 
 
 @pytest.mark.timeout(15)
@@ -278,7 +274,7 @@ def test_nomads_gdas_call_mock(tmp_path):
         }
     )
 
-    async def mock_fetch(url):
+    async def mock_fetch(uri):
         return str(tmp_path / "mock.bin")
 
     with (
@@ -289,12 +285,12 @@ def test_nomads_gdas_call_mock(tmp_path):
         ) as mf,
         patch.object(
             NomadsGDASObsConv,
-            "_decode_prepbufr",
+            "_decode_file",
             return_value=mock_df,
         ) as md,
         patch.object(
             NomadsGDASObsConv,
-            "_cache_path",
+            "local_path",
             return_value=str(tmp_path / "mock.bin"),
         ),
     ):
@@ -329,22 +325,22 @@ def test_nomads_gdas_create_tasks():
         ["t"],
     )
     assert len(tasks) >= 1
-    assert all(t.url.endswith(".prepbufr.nr") for t in tasks)
-    assert all("t" in t.variables for t in tasks)
+    assert all(t.uri.endswith(".prepbufr.nr") for t in tasks)
+    assert all("t" in t.var_plan for t in tasks)
 
-    # Task URLs should be for cycle times around midnight
+    # Task URIs should be for cycle times around midnight
     for task in tasks:
-        assert "gdas." in task.url
+        assert "gdas." in task.uri
 
     mixed_ds = NomadsGDASObsConv(time_tolerance=timedelta(0))
     mixed_tasks = mixed_ds._create_tasks([datetime(2026, 4, 4, 0)], ["t", "gps"])
     assert len(mixed_tasks) == 2
     prepbufr_task = next(task for task in mixed_tasks if task.route == "prepbufr")
     gpsro_task = next(task for task in mixed_tasks if task.route == "gpsro")
-    assert prepbufr_task.url.endswith(".prepbufr.nr")
-    assert gpsro_task.url.endswith(".gpsro.tm00.bufr_d.nr")
-    assert prepbufr_task.variables == ["t"]
-    assert gpsro_task.variables == ["gps"]
+    assert prepbufr_task.uri.endswith(".prepbufr.nr")
+    assert gpsro_task.uri.endswith(".gpsro.tm00.bufr_d.nr")
+    assert "t" in prepbufr_task.var_plan
+    assert "gps" in gpsro_task.var_plan
 
     windowed_ds = NomadsGDASObsConv(time_tolerance=timedelta(minutes=20))
     windowed_tasks = windowed_ds._create_tasks(
@@ -361,8 +357,10 @@ def test_nomads_gdas_create_tasks():
 
 @pytest.mark.timeout(15)
 def test_nomads_gdas_empty_result():
+    from earth2studio.data.utils_ncep import empty_dataframe
+
     ds = NomadsGDASObsConv()
-    empty_df = ds._compile_dataframe([], ["t"])
+    empty_df = empty_dataframe(ds.SCHEMA)
 
     assert isinstance(empty_df, pd.DataFrame)
     assert empty_df.empty
