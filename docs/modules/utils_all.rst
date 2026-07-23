@@ -32,6 +32,19 @@ A collection of utilities to manipulate and check coordinate systems dictionarie
 
    utils.interp.LatLonInterpolation
 
+.. _earth2studio.utils.obs:
+
+:mod:`earth2studio.utils`: Observations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Helper classes for mapping point observations onto model grids.
+
+.. autosummary::
+   :toctree: generated/utils/
+   :template: class.rst
+
+   utils.obs.ObsGridMapping
+
 .. _earth2studio.utils.time:
 
 :mod:`earth2studio.utils`: Time

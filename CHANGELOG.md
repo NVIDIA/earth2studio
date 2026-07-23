@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `DynamicalHRRR_FX`, `DynamicalICON_EU_FX`, `DynamicalIFS_ENS`,
   `DynamicalIFS_ENS_FX`,
   `DynamicalAIFS_FX` and `DynamicalAIFSENS_FX`.
+- Added Aurora v1.5 deterministic and ensemble model wrapper (`Aurora1p5`, `Aurora1p5Ensemble`)
+- Added StormCast CONUS prognostic model (`StormCastCONUS`)
 
 ### Changed
 
@@ -55,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `DerivedRH` mixed-phase saturation blend clipping the liquid-water fraction
+  ratio to 1.2 instead of 1.0 before squaring, which let the effective weight reach
+  1.44 and inflated relative humidity above freezing.
 - Changed ISD schema `source` type to string since the field is alphanumeric. Enforced
   `float32` dtypes for `lat`, `lon`, `elev`, and `observation`.
 - Fixed NNJA observation sources blocking the shared fsspec IO loop with
@@ -97,6 +102,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
 - Added DLESyM-v0-ISCCP-ERA5 climate model
+- Added COSMO-REA downscaling diagnostic model (`CorrDiffCosmoEra5`) and
+  `CosmoLexicon` for regression (mean) and diffusion downscaling of ERA5 to
+  COSMO-REA6 (6 km) and COSMO-REA2 (2.2 km), with sub-domain support via
+  `set_domain`
 
 ### Changed
 
