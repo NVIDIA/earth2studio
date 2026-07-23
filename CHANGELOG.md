@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `DynamicalAIFS_FX` and `DynamicalAIFSENS_FX`.
 - Added Aurora v1.5 deterministic and ensemble model wrapper (`Aurora1p5`, `Aurora1p5Ensemble`)
 - Added StormCast CONUS prognostic model (`StormCastCONUS`)
+- Added StormScope NSRDB solar irradiance (GHI) estimation model (`StormScopeDxNSRDB`)
 
 ### Changed
 
@@ -100,9 +101,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
 - Added DLESyM-v0-ISCCP-ERA5 climate model
-- Added StormScope NSRDB solar irradiance (GHI) estimation model
-  (`StormScopeDxNSRDB`) that estimates surface GHI from StormScope GOES imagery
-  (demonstrated in the StormScope GOES/MRMS nowcasting example)
 
 ### Changed
 
