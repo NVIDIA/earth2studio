@@ -19,8 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added shared obstore byte-range helpers (`obstore_store_from_url`,
   `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
 - Added dynamical.org analysis and forecast data sources, reading anonymous Icechunk
-  repositories: `DynamicalGFS`, `DynamicalGEFS`,
-  `DynamicalGFS_FX`, `DynamicalGEFS_FX`, `DynamicalIFSENS_FX`,
+  repositories: `DynamicalAIFS`, `DynamicalAIFS_ENS`, `DynamicalGFS`, `DynamicalGEFS`,
+  `DynamicalHRRR`, `DynamicalMRMS`, `DynamicalGFS_FX`, `DynamicalGEFS_FX`,
+  `DynamicalHRRR_FX`, `DynamicalICON_EU_FX`, `DynamicalIFS_ENS`,
+  `DynamicalIFS_ENS_FX`,
   `DynamicalAIFS_FX` and `DynamicalAIFSENS_FX`.
 - Added Aurora v1.5 deterministic and ensemble model wrapper (`Aurora1p5`, `Aurora1p5Ensemble`)
 - Added StormCast CONUS prognostic model (`StormCastCONUS`)
