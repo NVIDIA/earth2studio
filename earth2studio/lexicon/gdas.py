@@ -78,4 +78,4 @@ class GDASObsConvLexicon(metaclass=LexiconType):
               modifier converts the ``observation`` column from raw PrepBUFR
               units to Earth2Studio standard units.
         """
-        return get_ncep_conventional_item(val, route_prefix=False)
+        return get_ncep_conventional_item(val, route_prefix=True)
