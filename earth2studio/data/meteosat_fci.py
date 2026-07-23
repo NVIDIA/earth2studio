@@ -411,6 +411,25 @@ class MeteosatFCI:
                     "Data fetching will fail."
                 )
 
+    def available_variables(self) -> set[str]:
+        """Return variables available at the current resolution.
+
+        Returns
+        -------
+        set
+            Set of strings indicating the variables available at the resolution
+            passed to the constructor.
+        """
+        return {
+            k
+            for (k, v) in MeteosatFCILexicon.VOCAB.items()
+            if self._resolution
+            in (
+                _VARIABLE_RESOLUTION[collection].get(v[0])
+                for collection in _VARIABLE_RESOLUTION
+            )
+        }
+
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
@@ -943,6 +962,7 @@ class MeteosatFCI:
     @staticmethod
     def projection_extent(
         resolution: Literal["2km", "1km", "500m"] = "2km",
+        pixel_bbox: tuple[tuple[int, int], tuple[int, int]] | None = None,
     ) -> tuple[float, float, float, float]:
         """Return the geostationary projection extent in metres for plotting.
 
@@ -956,6 +976,12 @@ class MeteosatFCI:
         resolution : Literal["2km", "1km", "500m"], optional
             Grid resolution — ``'2km'``, ``'1km'``, or ``'500m'``, by default
             ``'2km'``
+        pixel_bbox : tuple[tuple[int, int], tuple[int, int]] | None, optional
+            Bounding box ``((row_start, row_end), (col_start, col_end))`` in
+            pixel coordinates, matching the ``pixel_bbox`` argument accepted
+            by the :class:`MeteosatFCI` constructor. When provided, the
+            extent is computed for this cropped sub-region of the full disk
+            rather than the full disk itself. By default None (full disk).
 
         Returns
         -------
@@ -964,6 +990,10 @@ class MeteosatFCI:
         """
         fci_x = MeteosatFCI.FCI_X[resolution]
         fci_y = MeteosatFCI.FCI_Y[resolution]
+        if pixel_bbox is not None:
+            ((i0, i1), (j0, j1)) = pixel_bbox
+            fci_y = fci_y[i0:i1]
+            fci_x = fci_x[j0:j1]
 
         h = PERSPECTIVE_POINT_HEIGHT
         # Pixel edges span 0.5 to N+0.5; extent uses outermost edges
@@ -973,8 +1003,8 @@ class MeteosatFCI:
         y_max = (fci_y[-1] + 0.5 * (fci_y[-1] - fci_y[-2])) * h
 
         return (
-            min(x_min, x_max),
-            max(x_min, x_max),
+            -max(x_min, x_max),  # min-max swap accounts for FCI east-west convention
+            -min(x_min, x_max),
             min(y_min, y_max),
             max(y_min, y_max),
         )
