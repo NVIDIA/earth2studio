@@ -393,25 +393,20 @@ class _DynamicalBase:
 
         return dynamical_name, modifier
 
-    def available_variables(self, native: bool = False) -> list[str]:
-        """Return variables available from this dynamical.org collection.
-
-        Parameters
-        ----------
-        native : bool, optional
-            Return native dynamical.org variable names when True. Return
-            Earth2Studio variable ids supported by this collection when False,
-            by default False
+    @property
+    def variables(self) -> list[str]:
+        """Return variables requestable from this dynamical.org collection.
 
         Returns
         -------
         list[str]
-            Available variable names.
+            Available Earth2Studio variable ids and native dynamical.org
+            variable names without Earth2Studio aliases.
 
         Examples
         --------
         >>> source = DynamicalGFS()
-        >>> source.available_variables()  # variables are determined dynamically
+        >>> source.variables  # variables are determined dynamically
 
         Note
         ----
@@ -420,17 +415,24 @@ class _DynamicalBase:
 
         - https://stac.dynamical.org/catalog.json
         """
-        self._open()
-        if native:
-            return sorted(self._cube_variables)
+        ds = self._open()
 
-        variables = []
+        variables: list[str] = []
+        aliased: set[str] = set()
         for variable in DynamicalLexicon.VOCAB:
             try:
-                self._resolve_variable(variable)
+                dynamical_name, _ = self._resolve_variable(variable)
             except KeyError:
                 continue
+            if self._unsupported_extra_dims(ds[dynamical_name]):
+                continue
             variables.append(variable)
+            aliased.add(dynamical_name)
+        variables.extend(
+            native
+            for native in sorted(self._cube_variables)
+            if native not in aliased and not self._unsupported_extra_dims(ds[native])
+        )
         return variables
 
     @property
@@ -695,7 +697,7 @@ class DynamicalAIFS(_DynamicalAnalysis):
     Examples
     --------
     >>> source = DynamicalAIFS()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------
@@ -741,7 +743,7 @@ class DynamicalAIFS_ENS(_DynamicalAnalysis):
     Examples
     --------
     >>> source = DynamicalAIFS_ENS()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------
@@ -788,7 +790,7 @@ class DynamicalGFS(_DynamicalBase):
     Examples
     --------
     >>> source = DynamicalGFS()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------
@@ -875,7 +877,7 @@ class DynamicalGEFS(_DynamicalBase):
     Examples
     --------
     >>> source = DynamicalGEFS()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------
@@ -962,7 +964,7 @@ class DynamicalHRRR(_DynamicalAnalysis):
     Examples
     --------
     >>> source = DynamicalHRRR()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------
@@ -1002,7 +1004,7 @@ class DynamicalMRMS(_DynamicalAnalysis):
     Examples
     --------
     >>> source = DynamicalMRMS()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------
@@ -1045,7 +1047,7 @@ class DynamicalGFS_FX(_DynamicalBase):
     Examples
     --------
     >>> source = DynamicalGFS_FX()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------
@@ -1088,7 +1090,7 @@ class DynamicalHRRR_FX(_DynamicalBase):
     Examples
     --------
     >>> source = DynamicalHRRR_FX()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------
@@ -1132,7 +1134,7 @@ class DynamicalICON_EU_FX(_DynamicalBase):
     Examples
     --------
     >>> source = DynamicalICON_EU_FX()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------
@@ -1178,7 +1180,7 @@ class DynamicalGEFS_FX(_DynamicalBase):
     Examples
     --------
     >>> source = DynamicalGEFS_FX()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------
@@ -1227,7 +1229,7 @@ class DynamicalIFS_ENS(_DynamicalAnalysis):
     Examples
     --------
     >>> source = DynamicalIFS_ENS()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------
@@ -1280,7 +1282,7 @@ class DynamicalIFS_ENS_FX(_DynamicalBase):
     Examples
     --------
     >>> source = DynamicalIFS_ENS_FX()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------
@@ -1330,7 +1332,7 @@ class DynamicalAIFS_FX(_DynamicalBase):
     Examples
     --------
     >>> source = DynamicalAIFS_FX()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------
@@ -1376,7 +1378,7 @@ class DynamicalAIFSENS_FX(_DynamicalBase):
     Examples
     --------
     >>> source = DynamicalAIFSENS_FX()
-    >>> source.available_variables()  # variables are determined dynamically
+    >>> source.variables  # variables are determined dynamically
 
     Warning
     -------

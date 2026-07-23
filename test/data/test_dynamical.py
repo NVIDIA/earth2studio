@@ -195,19 +195,26 @@ def test_dynamical_native_passthrough(monkeypatch):
 
 
 @pytest.mark.timeout(30)
-def test_dynamical_available_variables(monkeypatch):
+def test_dynamical_variables(monkeypatch):
     times = np.array(["2024-01-01T00:00"], dtype="datetime64[ns]")
     dims = _analysis_dims(times)
     ds_obj = _make_dataset(
         {"time": times, "latitude": _LAT, "longitude": _LON},
         ("time", "latitude", "longitude"),
-    ).drop_vars("precipitation_surface")
+    )
     _patch(monkeypatch, DynamicalGFS, "noaa-gfs-analysis", dims, ds_obj)
 
     source = DynamicalGFS()
 
-    assert source.available_variables() == ["u10m", "t2m", "tcc", "tpf", "z500", "t500"]
-    assert source.available_variables(native=True) == sorted(ds_obj.data_vars)
+    assert source.variables == [
+        "u10m",
+        "t2m",
+        "tcc",
+        "tpf",
+        "z500",
+        "t500",
+        "precipitation_rate_surface",
+    ]
 
 
 @pytest.mark.timeout(30)
