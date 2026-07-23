@@ -1,0 +1,22 @@
+﻿DynamicalICON_EU_FX
+===================================================
+
+.. currentmodule:: earth2studio.data
+
+.. autoclass:: DynamicalICON_EU_FX
+
+   
+    .. automethod:: __call__
+    .. automethod:: fetch
+    .. automethod:: available
+   
+
+.. _sphx_glr_backref_earth2studio.data.DynamicalICON_EU_FX:
+
+.. minigallery:: earth2studio.data.DynamicalICON_EU_FX
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>
