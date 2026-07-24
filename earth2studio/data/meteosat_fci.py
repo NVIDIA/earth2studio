@@ -382,6 +382,7 @@ class MeteosatFCI:
         self.async_timeout = async_timeout
         self._retries = retries
         self._tmp_cache_hash: str | None = None
+        self._open_datasets: dict[str, netCDF4.Dataset] = {}
 
         # Grid (lazily computed on first access)
         self._grid: tuple[np.ndarray, np.ndarray] | None = None
@@ -557,15 +558,20 @@ class MeteosatFCI:
         # Phase 2: Read NetCDF segments sequentially (HDF5/netCDF4 is
         # not thread-safe — concurrent reads cause segfaults)
         for i, t in enumerate(time):
-            for j, v in enumerate(variable):
-                product_dir = product_dir_map[t, collections[v]]
-                channel_name, modifier = MeteosatFCILexicon[v]  # type: ignore[misc]
-                if collections[v] == "HRFI":
-                    channel_name += "_hr"
-                data = self._read_channel(product_dir, channel_name, self._pixel_roi)
-                if self.flip_north_south:
-                    data = np.flipud(data)
-                xr_array[i, j] = modifier(data)
+            try:
+                for j, v in enumerate(variable):
+                    product_dir = product_dir_map[t, collections[v]]
+                    channel_name, modifier = MeteosatFCILexicon[v]  # type: ignore[misc]
+                    if collections[v] == "HRFI":
+                        channel_name += "_hr"
+                    data = self._read_channel(
+                        product_dir, channel_name, self._pixel_roi
+                    )
+                    if self.flip_north_south:
+                        data = np.flipud(data)
+                    xr_array[i, j] = modifier(data)
+            finally:
+                self._cleanup_datasets()
 
         # Attach grid coordinates
         if self.flip_north_south:
@@ -693,6 +699,18 @@ class MeteosatFCI:
         # Remove zip to save space
         os.remove(zip_path)
 
+    def _ensure_dataset(self, bf: str) -> netCDF4.Dataset:
+        """Open FCI NetCDF file if not already open."""
+        if bf not in self._open_datasets:
+            self._open_datasets[bf] = netCDF4.Dataset(bf, "r")
+        return self._open_datasets[bf]
+
+    def _cleanup_datasets(self) -> None:
+        """Close all opened datasets."""
+        for ds in self._open_datasets.values():
+            ds.close()
+        self._open_datasets.clear()
+
     def _read_channel(
         self,
         product_dir: str,
@@ -752,64 +770,62 @@ class MeteosatFCI:
         segment_i_offset = 0
 
         for bf in body_files:
-            ds = netCDF4.Dataset(bf, "r")
+            ds = self._ensure_dataset(bf)
+
+            # Navigate to the channel group
             try:
-                # Navigate to the channel group
-                try:
-                    grp = ds[group_path]
-                except (IndexError, KeyError):
-                    logger.debug(
-                        "Group '{}' not found in {}; skipping",
-                        group_path,
-                        os.path.basename(bf),
-                    )
-                    continue
+                grp = ds[group_path]
+            except (IndexError, KeyError):
+                logger.debug(
+                    "Group '{}' not found in {}; skipping",
+                    group_path,
+                    os.path.basename(bf),
+                )
+                continue
 
-                if "effective_radiance" not in grp.variables:
-                    logger.debug(
-                        "effective_radiance not in group '{}' of {}; skipping",
-                        group_path,
-                        os.path.basename(bf),
-                    )
-                    continue
+            if "effective_radiance" not in grp.variables:
+                logger.debug(
+                    "effective_radiance not in group '{}' of {}; skipping",
+                    group_path,
+                    os.path.basename(bf),
+                )
+                continue
 
-                var = grp.variables["effective_radiance"]
-                shape = var.shape
-                local_nrows = shape[-2]
+            var = grp.variables["effective_radiance"]
+            shape = var.shape
+            local_nrows = shape[-2]
 
-                if (i0 >= segment_i_offset + local_nrows) or (i1 <= segment_i_offset):
-                    segment_i_offset += local_nrows
-                    continue
-
-                local_i0 = max(0, i0 - segment_i_offset)
-                local_i1 = min(local_nrows, i1 - segment_i_offset)
-
-                # Disable auto scale/offset so we can handle fill values
-                # and apply the transform ourselves exactly once.
-                ds.set_auto_maskandscale(False)
-                raw = var[..., local_i0:local_i1, j0:j1]
-                if raw.ndim == 3:
-                    raw = raw[0]
-
-                fill = getattr(var, "_FillValue", None)
-                scale = getattr(var, "scale_factor", 1.0)
-                offset = getattr(var, "add_offset", 0.0)
-
-                data = raw.astype(np.float64) * scale + offset
-                if channel_name in ("ir_38", "ir_38_hr"):
-                    warm_scale = getattr(var, "warm_scale_factor", 1.0)
-                    warm_offset = getattr(var, "warm_add_offset", 0.0)
-                    hdr_mask = raw > 4095
-                    data[hdr_mask] = (
-                        raw[hdr_mask].astype(np.float64) * warm_scale + warm_offset
-                    )
-
-                if fill is not None:
-                    data[raw == fill] = np.nan
-                segments.append(data)
+            if (i0 >= segment_i_offset + local_nrows) or (i1 <= segment_i_offset):
                 segment_i_offset += local_nrows
-            finally:
-                ds.close()
+                continue
+
+            local_i0 = max(0, i0 - segment_i_offset)
+            local_i1 = min(local_nrows, i1 - segment_i_offset)
+
+            # Disable auto scale/offset so we can handle fill values
+            # and apply the transform ourselves exactly once.
+            ds.set_auto_maskandscale(False)
+            raw = var[..., local_i0:local_i1, j0:j1]
+            if raw.ndim == 3:
+                raw = raw[0]
+
+            fill = getattr(var, "_FillValue", None)
+            scale = getattr(var, "scale_factor", 1.0)
+            offset = getattr(var, "add_offset", 0.0)
+
+            data = raw.astype(np.float64) * scale + offset
+            if channel_name in ("ir_38", "ir_38_hr"):
+                warm_scale = getattr(var, "warm_scale_factor", 1.0)
+                warm_offset = getattr(var, "warm_add_offset", 0.0)
+                hdr_mask = raw > 4095
+                data[hdr_mask] = (
+                    raw[hdr_mask].astype(np.float64) * warm_scale + warm_offset
+                )
+
+            if fill is not None:
+                data[raw == fill] = np.nan
+            segments.append(data)
+            segment_i_offset += local_nrows
 
         if not segments:
             raise ValueError(

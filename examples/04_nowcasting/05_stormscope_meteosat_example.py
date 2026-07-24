@@ -218,6 +218,7 @@ rgb_channels = ["fci06vis", "fci05vis", "fci04vis"]
 ch_idx = [list(model.variables).index(ch) for ch in rgb_channels]
 
 # x_pred has shape (batch, time, 1, variable, y, x)
+# here we approximately replicate EUMETSAT's recipe for "true-colour" RGB
 rgb = (x_pred[0, 0, 0, ch_idx] / 24.0).clamp(min=0, max=1) * 255
 rgb = rgb.permute(1, 2, 0).cpu().numpy()
 rgb = np.interp(rgb, [0, 30, 60, 120, 190, 255], [0, 110, 160, 210, 240, 255]) / 255.0
