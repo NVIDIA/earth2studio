@@ -23,22 +23,23 @@ import shutil
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import h5netcdf
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 from loguru import logger
-from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     _sync_async,
     datasource_cache_root,
+    gather_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_data_inputs,
 )
+from earth2studio.data.utils_ncep import cycle_windows
 from earth2studio.lexicon import GSIConventionalLexicon, GSISatelliteLexicon
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
@@ -72,21 +73,23 @@ class _UFSObsBase:
     def __init__(
         self,
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
-        max_workers: int = 24,
+        cycle_aware: bool = True,
         cache: bool = True,
-        async_timeout: int = 600,
         verbose: bool = True,
+        async_timeout: int = 600,
+        async_workers: int = 24,
     ) -> None:
         self.obs_type = "ges"
         self._verbose = verbose
         self._cache = cache
-        self._max_workers = max_workers
+        self._cycle_aware = cycle_aware
+        self._async_workers = async_workers
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
         # Anonymous obstore S3 store for the public NOAA UFS replay bucket.
         self._store = obstore_store_from_url(
             f"s3://{self.UFS_BUCKET}",
-            max_pool_connections=self._max_workers,
+            max_pool_connections=self._async_workers,
             region=self._region,
         )
 
@@ -139,8 +142,11 @@ class _UFSObsBase:
         async_tasks = self._create_tasks(time_list, variable_list)
         file_key_set = {task.gsi_obs_key for task in async_tasks}
         fetch_jobs = [self._fetch_remote_file(key) for key in file_key_set]
-        await tqdm.gather(
-            *fetch_jobs, desc="Fetching GSI files", disable=(not self._verbose)
+        await gather_with_concurrency(
+            fetch_jobs,
+            max_workers=self._async_workers,
+            desc="Fetching GSI files",
+            verbose=(not self._verbose),
         )
 
         df = self._compile_dataframe(async_tasks, variable_list, schema)
@@ -440,15 +446,17 @@ class UFSObsConv(_UFSObsBase):
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
         by default, np.timedelta64(10, 'm').
-    max_workers : int, optional
-        Max workers in async IO thread pool for concurrent downloads, by default 24.
+    cycle_aware : bool, optional
+        Exclude future cycle files relative to the upper tolerance bound, by default True.
     cache : bool, optional
         Cache data source in local filesystem cache, by default True.
+    verbose : bool, optional
+        Log basic progress information, by default True.
     async_timeout : int, optional
         Time in seconds after which the async fetch will be cancelled if not finished,
         by default 600.
-    verbose : bool, optional
-        Log basic progress information, by default True.
+    async_workers : int, optional
+        Number of concurrent async download workers, by default 24.
 
     Warning
     -------
@@ -515,6 +523,12 @@ class UFSObsConv(_UFSObsBase):
         self, time_list: list[datetime], variable: list[str]
     ) -> list[_GSIAsyncTask]:
         tasks: list[_GSIAsyncTask] = []
+        windows = cycle_windows(
+            time_list,
+            self._tolerance_lower,
+            self._tolerance_upper,
+            cycle_aware=self._cycle_aware,
+        )
         for v in variable:
             try:
                 gsi_name, modifier = GSIConventionalLexicon[v]  # type: ignore
@@ -528,28 +542,22 @@ class UFSObsConv(_UFSObsBase):
                 logger.error(f"Variable id {v} not found in GSI lexicon")
                 raise
 
-            for t in time_list:
-                tmin = t + self._tolerance_lower
-                tmax = t + self._tolerance_upper
-                day = tmin.replace(minute=0, second=0, microsecond=0)
-                day = day.replace(hour=(day.hour // 6) * 6)
-                while day <= tmax:
-                    year_key = day.strftime("%Y")
-                    month_key = day.strftime("%m")
-                    datetime_key = day.strftime("%Y%m%d%H")
-                    obs_key = f"{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_platform}_{gsi_sensor}_{gsi_product}.{datetime_key}_control.nc4"
-                    tasks.append(
-                        _GSIAsyncTask(
-                            datetime_file=day,
-                            datetime_min=tmin,
-                            datetime_max=tmax,
-                            gsi_obs_key=obs_key,
-                            gsi_modifier=modifier,
-                            gsi_obs_name=gsi_name,
-                            e2s_obs_name=v,
-                        )
+            for day, (tmin, tmax) in windows.items():
+                year_key = day.strftime("%Y")
+                month_key = day.strftime("%m")
+                datetime_key = day.strftime("%Y%m%d%H")
+                obs_key = f"{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_platform}_{gsi_sensor}_{gsi_product}.{datetime_key}_control.nc4"
+                tasks.append(
+                    _GSIAsyncTask(
+                        datetime_file=day,
+                        datetime_min=tmin,
+                        datetime_max=tmax,
+                        gsi_obs_key=obs_key,
+                        gsi_modifier=modifier,
+                        gsi_obs_name=gsi_name,
+                        e2s_obs_name=v,
                     )
-                    day = day + timedelta(hours=6)
+                )
         return tasks
 
     def _transform_column(
@@ -588,15 +596,17 @@ class UFSObsSat(_UFSObsBase):
         by default, np.timedelta64(10, 'm').
     satellites : list[str], optional
         List of satellite platforms to include, by default includes all platforms.
-    max_workers : int, optional
-        Max workers in async IO thread pool for concurrent downloads, by default 24.
+    cycle_aware : bool, optional
+        Exclude future cycle files relative to the upper tolerance bound, by default True.
     cache : bool, optional
         Cache data source in local filesystem cache, by default True.
+    verbose : bool, optional
+        Log basic progress information, by default True.
     async_timeout : int, optional
         Time in seconds after which the async fetch will be cancelled if not finished,
         by default 600.
-    verbose : bool, optional
-        Log basic progress information, by default True.
+    async_workers : int, optional
+        Number of concurrent async download workers, by default 24.
 
     Warning
     -------
@@ -699,10 +709,11 @@ class UFSObsSat(_UFSObsBase):
         self,
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         satellites: list[str] | None = None,
-        max_workers: int = 24,
+        cycle_aware: bool = True,
         cache: bool = True,
-        async_timeout: int = 600,
         verbose: bool = True,
+        async_timeout: int = 600,
+        async_workers: int = 24,
     ) -> None:
         if satellites is None:
             satellites = list(self.VALID_SATELLITES)
@@ -716,16 +727,23 @@ class UFSObsSat(_UFSObsBase):
         self.satellites = satellites
         super().__init__(
             time_tolerance=time_tolerance,
-            max_workers=max_workers,
+            cycle_aware=cycle_aware,
             cache=cache,
-            async_timeout=async_timeout,
             verbose=verbose,
+            async_timeout=async_timeout,
+            async_workers=async_workers,
         )
 
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]
     ) -> list[_GSIAsyncTask]:
         tasks: list[_GSIAsyncTask] = []
+        windows = cycle_windows(
+            time_list,
+            self._tolerance_lower,
+            self._tolerance_upper,
+            cycle_aware=self._cycle_aware,
+        )
         for v in variable:
             try:
                 gsi_name, modifier = GSISatelliteLexicon[v]  # type: ignore
@@ -743,29 +761,23 @@ class UFSObsSat(_UFSObsBase):
                 raise
 
             for gsi_platform in gsi_platforms:
-                for t in time_list:
-                    tmin = t + self._tolerance_lower
-                    tmax = t + self._tolerance_upper
-                    day = tmin.replace(minute=0, second=0, microsecond=0)
-                    day = day.replace(hour=(day.hour // 6) * 6)
-                    while day <= tmax:
-                        year_key = day.strftime("%Y")
-                        month_key = day.strftime("%m")
-                        datetime_key = day.strftime("%Y%m%d%H")
-                        obs_key = f"{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_sensor}_{gsi_platform}_{gsi_product}.{datetime_key}_control.nc4"
-                        tasks.append(
-                            _GSIAsyncTask(
-                                datetime_file=day,
-                                datetime_min=tmin,
-                                datetime_max=tmax,
-                                gsi_obs_key=obs_key,
-                                gsi_modifier=modifier,
-                                gsi_obs_name=gsi_name,
-                                e2s_obs_name=v,
-                                satellite=gsi_platform,
-                            )
+                for day, (tmin, tmax) in windows.items():
+                    year_key = day.strftime("%Y")
+                    month_key = day.strftime("%m")
+                    datetime_key = day.strftime("%Y%m%d%H")
+                    obs_key = f"{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_sensor}_{gsi_platform}_{gsi_product}.{datetime_key}_control.nc4"
+                    tasks.append(
+                        _GSIAsyncTask(
+                            datetime_file=day,
+                            datetime_min=tmin,
+                            datetime_max=tmax,
+                            gsi_obs_key=obs_key,
+                            gsi_modifier=modifier,
+                            gsi_obs_name=gsi_name,
+                            e2s_obs_name=v,
+                            satellite=gsi_platform,
                         )
-                        day = day + timedelta(hours=6)
+                    )
         return tasks
 
     def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:

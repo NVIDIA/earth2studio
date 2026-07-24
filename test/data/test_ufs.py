@@ -176,6 +176,47 @@ def test_ufsobsconv_tolerance_conversion():
     assert ds_asym._tolerance_upper == timedelta(hours=1)
 
 
+@pytest.mark.parametrize(
+    "cycle_aware, expected_cycles",
+    [
+        (True, [datetime(2024, 1, 1, 0)]),
+        (False, [datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 6)]),
+    ],
+)
+def test_ufsobs_create_tasks_use_cycle_windows(cycle_aware, expected_cycles):
+    time = datetime(2024, 1, 1, 0)
+    tolerance = (np.timedelta64(0, "h"), np.timedelta64(4, "h"))
+    expected_max = datetime(2024, 1, 1, 4)
+
+    sources = [
+        (
+            UFSObsConv(
+                time_tolerance=tolerance,
+                cycle_aware=cycle_aware,
+                cache=False,
+                verbose=False,
+            ),
+            "t",
+        ),
+        (
+            UFSObsSat(
+                time_tolerance=tolerance,
+                satellites=["npp"],
+                cycle_aware=cycle_aware,
+                cache=False,
+                verbose=False,
+            ),
+            "atms",
+        ),
+    ]
+
+    for ds, variable in sources:
+        tasks = ds._create_tasks([time], [variable])
+        assert [task.datetime_file for task in tasks] == expected_cycles
+        assert {task.datetime_min for task in tasks} == {time}
+        assert {task.datetime_max for task in tasks} == {expected_max}
+
+
 @pytest.mark.parametrize("cls", [UFSObsConv, UFSObsSat])
 def test_ufsobs_missing_file_warns_not_raises(cls, caplog):
     """A missing diag file warns and returns rather than aborting the fetch.

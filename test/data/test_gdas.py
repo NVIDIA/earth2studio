@@ -176,12 +176,12 @@ def test_nomads_gdas_available():
 def test_nomads_gdas_url_builder():
     ds = NomadsGDASObsConv(cache=False, verbose=False)
     uri = ds._build_uri("prepbufr", datetime(2026, 4, 5, 12))
-    expected = "pub/data/nccf/com/obsproc/prod/" "gdas.20260405/gdas.t12z.prepbufr.nr"
+    expected = "pub/data/nccf/com/obsproc/prod/gdas.20260405/gdas.t12z.prepbufr.nr"
     assert uri == expected
 
     gpsro_uri = ds._build_uri("gpsro", datetime(2026, 4, 5, 12))
     assert gpsro_uri == (
-        "pub/data/nccf/com/obsproc/prod/" "gdas.20260405/gdas.t12z.gpsro.tm00.bufr_d.nr"
+        "pub/data/nccf/com/obsproc/prod/gdas.20260405/gdas.t12z.gpsro.tm00.bufr_d.nr"
     )
 
 
@@ -341,6 +341,27 @@ def test_nomads_gdas_create_tasks():
     assert gpsro_task.uri.endswith(".gpsro.tm00.bufr_d.nr")
     assert "t" in prepbufr_task.var_plan
     assert "gps" in gpsro_task.var_plan
+
+    cycle = datetime(2026, 4, 4, 0)
+    aware_ds = NomadsGDASObsConv(
+        time_tolerance=(timedelta(hours=-3), timedelta(hours=3)),
+        cycle_aware=True,
+    )
+    unaware_ds = NomadsGDASObsConv(
+        time_tolerance=(timedelta(hours=-3), timedelta(hours=3)),
+        cycle_aware=False,
+    )
+    assert [task.datetime_file for task in aware_ds._create_tasks([cycle], ["t"])] == [
+        datetime(2026, 4, 3, 18),
+        cycle,
+    ]
+    assert [
+        task.datetime_file for task in unaware_ds._create_tasks([cycle], ["t"])
+    ] == [
+        datetime(2026, 4, 3, 18),
+        cycle,
+        datetime(2026, 4, 4, 6),
+    ]
 
     windowed_ds = NomadsGDASObsConv(time_tolerance=timedelta(minutes=20))
     windowed_tasks = windowed_ds._create_tasks(

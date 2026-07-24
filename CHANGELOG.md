@@ -7,7 +7,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.17.0a0] - 2026-07-xx
+## [0.18.0a0] - xxxx-xx-xx
+
+### Added
+
+- Added `cycle_aware` option to UFS, GDAS, and NNJA observation sources to control
+  whether future cycle files are included for tolerance-window reads.
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.17.0] - 2026-07-xx
 
 ### Added
 
@@ -59,10 +78,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `NomadsGDASObsConv` `max_workers` parameter to `async_workers` for
   consistency with other observation data sources
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Fixed `PrecipitationAFNOv2` and `WindgustAFNO` passing latitude and longitude in
@@ -86,8 +101,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed ACE2ERA5 forcing data retrieval for static variables requested across
   multiple times.
 - Added CF-convention scale/offset when retrieving JPSS data.
-
-### Security
 
 ### Dependencies
 

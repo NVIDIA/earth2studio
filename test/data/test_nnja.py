@@ -174,6 +174,30 @@ def test_nnja_obs_conv_tolerance_conversion():
     assert ds_asym._tolerance_upper == timedelta(hours=1)
 
 
+def test_nnja_obs_conv_cycle_aware_task_selection():
+    requested = datetime(2024, 1, 1)
+    tolerance = (timedelta(hours=-3), timedelta(hours=3))
+
+    aware = NNJAObsConv(
+        time_tolerance=tolerance, cycle_aware=True, cache=False, verbose=False
+    )
+    unaware = NNJAObsConv(
+        time_tolerance=tolerance, cycle_aware=False, cache=False, verbose=False
+    )
+
+    assert [task.datetime_file for task in aware._create_tasks([requested], ["t"])] == [
+        datetime(2023, 12, 31, 18),
+        requested,
+    ]
+    assert [
+        task.datetime_file for task in unaware._create_tasks([requested], ["t"])
+    ] == [
+        datetime(2023, 12, 31, 18),
+        requested,
+        datetime(2024, 1, 1, 6),
+    ]
+
+
 def test_nnja_obs_conv_resolve_fields():
     schema_full = NNJAObsConv.resolve_fields(None)
     assert schema_full.names == NNJAObsConv.SCHEMA.names
@@ -1186,8 +1210,8 @@ def test_nnja_obs_sat_cycle_windows_follow_nnja_cycle_selection():
     requested = datetime(2024, 1, 1)
     tasks = source._create_tasks([requested, requested], ["atms"])
     assert [task.datetime_file for task in tasks] == [
+        datetime(2023, 12, 31, 18),
         requested,
-        requested + timedelta(hours=6),
     ]
 
     source = NNJAObsSat(
@@ -1198,6 +1222,23 @@ def test_nnja_obs_sat_cycle_windows_follow_nnja_cycle_selection():
     )
     tasks = source._create_tasks([requested], ["atms"])
     assert [task.datetime_file for task in tasks] == [
+        datetime(2023, 12, 31, 0),
+        datetime(2023, 12, 31, 6),
+        datetime(2023, 12, 31, 12),
+        datetime(2023, 12, 31, 18),
+        requested,
+    ]
+
+    source = NNJAObsSat(
+        time_tolerance=(timedelta(hours=-21), timedelta(hours=3)),
+        cycle_aware=False,
+        cache=False,
+        verbose=False,
+        decode_workers=1,
+    )
+    tasks = source._create_tasks([requested], ["atms"])
+    assert [task.datetime_file for task in tasks] == [
+        datetime(2023, 12, 31, 0),
         datetime(2023, 12, 31, 6),
         datetime(2023, 12, 31, 12),
         datetime(2023, 12, 31, 18),
