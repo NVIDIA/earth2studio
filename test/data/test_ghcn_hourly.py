@@ -604,3 +604,94 @@ def test_ghcnh_station_bbox():
     assert len(stations) > 0
     for sid in stations:
         assert len(sid) == 11
+
+
+# GHCNh station list header + rows: two inside a small box, one well outside.
+_GHCNH_STATION_LIST_CSV = (
+    "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,"
+    "(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+    "GMM00010384,52.5000,13.4000,50.0,,BERLIN,,,10384,EDDB,DE\n"
+    "GMM00010870,48.1000,11.5000,450.0,,MUNICH,,,10870,EDDM,DE\n"
+    "USW00013874,33.6300,-84.4400,308.0,GA,ATLANTA,,,72219,KATL,US\n"
+)
+
+
+def _seed_cached_station_list(tmp_path, monkeypatch):
+    """Point the cache at tmp_path, seed the GHCNh station list, forbid network."""
+    monkeypatch.setattr(
+        "earth2studio.data.ghcn.datasource_cache_root", lambda: str(tmp_path)
+    )
+    cache_dir = tmp_path / GHCNHourly._CACHE_DIR
+    cache_dir.mkdir()
+    (cache_dir / "ghcnh-station-list.csv").write_text(
+        _GHCNH_STATION_LIST_CSV, encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        "earth2studio.data.ghcn.fsspec.filesystem",
+        lambda *a, **k: pytest.fail("GHCNHourly discovery hit the network"),
+    )
+
+
+def test_ghcnh_get_station_metadata_uses_hourly_station_list(tmp_path, monkeypatch):
+    """get_station_metadata reads the GHCNh station list and normalizes columns,
+    without falling back to the GHCN-Daily list."""
+    _seed_cached_station_list(tmp_path, monkeypatch)
+
+    df = GHCNHourly.get_station_metadata()
+
+    # Columns normalized to what get_stations_bbox expects.
+    for col in ("ID", "LAT", "LON"):
+        assert col in df.columns
+    assert set(df["ID"]) == {"GMM00010384", "GMM00010870", "USW00013874"}
+
+
+def test_ghcnh_get_station_metadata_downloads_when_uncached(tmp_path, monkeypatch):
+    """When the cache is empty, get_station_metadata downloads the GHCNh list
+    via fsspec and caches it to disk."""
+    monkeypatch.setattr(
+        "earth2studio.data.ghcn.datasource_cache_root", lambda: str(tmp_path)
+    )
+    calls = {"get": []}
+
+    def _fake_get(url, dest):
+        calls["get"].append((url, dest))
+        (tmp_path / GHCNHourly._CACHE_DIR / "ghcnh-station-list.csv").write_text(
+            _GHCNH_STATION_LIST_CSV, encoding="utf-8"
+        )
+
+    fake_fs = MagicMock()
+    fake_fs.get.side_effect = _fake_get
+    monkeypatch.setattr(
+        "earth2studio.data.ghcn.fsspec.filesystem", lambda *a, **k: fake_fs
+    )
+
+    df = GHCNHourly.get_station_metadata()
+
+    # The download branch ran exactly once, hitting the GHCNh station-list URL.
+    assert len(calls["get"]) == 1
+    assert calls["get"][0][0] == GHCNHourly.STATION_LIST_URL
+    assert set(df["ID"]) == {"GMM00010384", "GMM00010870", "USW00013874"}
+    # File is now cached, so a second call does not download again.
+    GHCNHourly.get_station_metadata()
+    assert len(calls["get"]) == 1
+
+
+@pytest.mark.parametrize(
+    "bbox, expected",
+    [
+        # [-180, 180): Germany box (lat_min, lon_min, lat_max, lon_max) selects
+        # the two German stations and excludes Atlanta.
+        ((47.0, 5.8, 55.1, 15.1), {"GMM00010384", "GMM00010870"}),
+        # [0, 360): lon_max >= 180 triggers longitude normalization, so Atlanta
+        # (-84.44 -> 275.56) is selected and the German stations are excluded.
+        ((30.0, 270.0, 40.0, 285.0), {"USW00013874"}),
+    ],
+)
+def test_ghcnh_station_bbox_filters_to_hourly_ids(
+    tmp_path, monkeypatch, bbox, expected
+):
+    """get_stations_bbox returns only in-bbox stations from the hourly station
+    list, honoring both [-180, 180) and [0, 360) longitude conventions."""
+    _seed_cached_station_list(tmp_path, monkeypatch)
+
+    assert set(GHCNHourly.get_stations_bbox(bbox)) == expected

@@ -372,3 +372,50 @@ class TestGHCNMock:
         # Verify longitude normalization ([-84.44 + 360] % 360 = 275.56)
         assert all(result["lon"] >= 0)
         assert all(result["lon"] < 360)
+
+
+def _fixed_width_station_line(
+    id_: str,
+    lat: str,
+    lon: str,
+    elev: str,
+    state: str,
+    name: str,
+    wmo: str,
+) -> str:
+    """Format one ghcnd-stations.txt fixed-width record (widths sum to 85)."""
+    return (
+        f"{id_:<11}{lat:>9}{lon:>10}{elev:>7}{state:>3}"
+        f"{name:<31}{'':>4}{'':>4}{wmo:>6}"
+    )
+
+
+def test_ghcn_daily_get_station_metadata_uses_fixed_width_list(tmp_path, monkeypatch):
+    """GHCNDaily still parses the fixed-width ghcnd-stations.txt station list."""
+    monkeypatch.setattr(
+        "earth2studio.data.ghcn.datasource_cache_root", lambda: str(tmp_path)
+    )
+    cache_dir = tmp_path / GHCNDaily._CACHE_DIR
+    cache_dir.mkdir()
+    lines = [
+        _fixed_width_station_line(
+            "USW00013874", "33.6300", "-84.4400", "308.0", "GA", "ATLANTA", "72219"
+        ),
+        _fixed_width_station_line(
+            "GMM00010384", "52.5000", "13.4000", "50.0", "", "BERLIN", "10384"
+        ),
+    ]
+    (cache_dir / "ghcnd-stations.txt").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8"
+    )
+    # Guard: no network access for the daily fixed-width path.
+    monkeypatch.setattr(
+        "earth2studio.data.ghcn.s3fs.S3FileSystem",
+        lambda *a, **k: pytest.fail("get_station_metadata hit the network"),
+    )
+
+    df = GHCNDaily.get_station_metadata()
+
+    assert list(df.columns)[:3] == ["ID", "LAT", "LON"]
+    assert set(df["ID"]) == {"USW00013874", "GMM00010384"}
+    assert np.isclose(float(df.loc[df["ID"] == "USW00013874", "LAT"].iloc[0]), 33.63)
