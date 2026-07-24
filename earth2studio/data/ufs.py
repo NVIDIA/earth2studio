@@ -23,7 +23,7 @@ import shutil
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import h5netcdf
 import numpy as np
@@ -39,6 +39,7 @@ from earth2studio.data.utils import (
     obstore_store_from_url,
     prep_data_inputs,
 )
+from earth2studio.data.utils_ncep import cycle_windows
 from earth2studio.lexicon import GSIConventionalLexicon, GSISatelliteLexicon
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
@@ -515,6 +516,7 @@ class UFSObsConv(_UFSObsBase):
         self, time_list: list[datetime], variable: list[str]
     ) -> list[_GSIAsyncTask]:
         tasks: list[_GSIAsyncTask] = []
+        windows = cycle_windows(time_list, self._tolerance_lower, self._tolerance_upper)
         for v in variable:
             try:
                 gsi_name, modifier = GSIConventionalLexicon[v]  # type: ignore
@@ -528,28 +530,22 @@ class UFSObsConv(_UFSObsBase):
                 logger.error(f"Variable id {v} not found in GSI lexicon")
                 raise
 
-            for t in time_list:
-                tmin = t + self._tolerance_lower
-                tmax = t + self._tolerance_upper
-                day = tmin.replace(minute=0, second=0, microsecond=0)
-                day = day.replace(hour=(day.hour // 6) * 6)
-                while day <= tmax:
-                    year_key = day.strftime("%Y")
-                    month_key = day.strftime("%m")
-                    datetime_key = day.strftime("%Y%m%d%H")
-                    obs_key = f"{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_platform}_{gsi_sensor}_{gsi_product}.{datetime_key}_control.nc4"
-                    tasks.append(
-                        _GSIAsyncTask(
-                            datetime_file=day,
-                            datetime_min=tmin,
-                            datetime_max=tmax,
-                            gsi_obs_key=obs_key,
-                            gsi_modifier=modifier,
-                            gsi_obs_name=gsi_name,
-                            e2s_obs_name=v,
-                        )
+            for day, (tmin, tmax) in windows.items():
+                year_key = day.strftime("%Y")
+                month_key = day.strftime("%m")
+                datetime_key = day.strftime("%Y%m%d%H")
+                obs_key = f"{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_platform}_{gsi_sensor}_{gsi_product}.{datetime_key}_control.nc4"
+                tasks.append(
+                    _GSIAsyncTask(
+                        datetime_file=day,
+                        datetime_min=tmin,
+                        datetime_max=tmax,
+                        gsi_obs_key=obs_key,
+                        gsi_modifier=modifier,
+                        gsi_obs_name=gsi_name,
+                        e2s_obs_name=v,
                     )
-                    day = day + timedelta(hours=6)
+                )
         return tasks
 
     def _transform_column(
@@ -726,6 +722,7 @@ class UFSObsSat(_UFSObsBase):
         self, time_list: list[datetime], variable: list[str]
     ) -> list[_GSIAsyncTask]:
         tasks: list[_GSIAsyncTask] = []
+        windows = cycle_windows(time_list, self._tolerance_lower, self._tolerance_upper)
         for v in variable:
             try:
                 gsi_name, modifier = GSISatelliteLexicon[v]  # type: ignore
@@ -743,29 +740,23 @@ class UFSObsSat(_UFSObsBase):
                 raise
 
             for gsi_platform in gsi_platforms:
-                for t in time_list:
-                    tmin = t + self._tolerance_lower
-                    tmax = t + self._tolerance_upper
-                    day = tmin.replace(minute=0, second=0, microsecond=0)
-                    day = day.replace(hour=(day.hour // 6) * 6)
-                    while day <= tmax:
-                        year_key = day.strftime("%Y")
-                        month_key = day.strftime("%m")
-                        datetime_key = day.strftime("%Y%m%d%H")
-                        obs_key = f"{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_sensor}_{gsi_platform}_{gsi_product}.{datetime_key}_control.nc4"
-                        tasks.append(
-                            _GSIAsyncTask(
-                                datetime_file=day,
-                                datetime_min=tmin,
-                                datetime_max=tmax,
-                                gsi_obs_key=obs_key,
-                                gsi_modifier=modifier,
-                                gsi_obs_name=gsi_name,
-                                e2s_obs_name=v,
-                                satellite=gsi_platform,
-                            )
+                for day, (tmin, tmax) in windows.items():
+                    year_key = day.strftime("%Y")
+                    month_key = day.strftime("%m")
+                    datetime_key = day.strftime("%Y%m%d%H")
+                    obs_key = f"{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_sensor}_{gsi_platform}_{gsi_product}.{datetime_key}_control.nc4"
+                    tasks.append(
+                        _GSIAsyncTask(
+                            datetime_file=day,
+                            datetime_min=tmin,
+                            datetime_max=tmax,
+                            gsi_obs_key=obs_key,
+                            gsi_modifier=modifier,
+                            gsi_obs_name=gsi_name,
+                            e2s_obs_name=v,
+                            satellite=gsi_platform,
                         )
-                        day = day + timedelta(hours=6)
+                    )
         return tasks
 
     def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
