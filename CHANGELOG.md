@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `DataReplay` for replaying `DataSource` and `ForecastSource` data through the
   prognostic iterator interface.
 - Added NNJA satellite observation data frame source (`NNJAObsSat`)
+- Added StormScope NSRDB solar irradiance (GHI) estimation model (`StormScopeDxNSRDB`)
 
 ### Changed
 
@@ -67,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `PrecipitationAFNOv2` and `WindgustAFNO` passing latitude and longitude in
   swapped order to `cos_zenith_angle`, which produced an incorrect solar-zenith-angle
   input channel.
+- Fixed incorrect interpolation values at the lower grid edge when an output
+  coordinate matched the first input coordinate.
 - Corrected the `PrecipitationAFNOv2` docstring: the model predicts precipitation
   accumulated over the following six hours `[t, t+6h]`, not the prior six hours.
 - Fixed `DerivedRH` mixed-phase saturation blend clipping the liquid-water fraction
