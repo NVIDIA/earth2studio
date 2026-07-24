@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `DataReplay` for replaying `DataSource` and `ForecastSource` data through the
   prognostic iterator interface.
 - Added NNJA satellite observation data frame source (`NNJAObsSat`)
+- Added StormScope NSRDB solar irradiance (GHI) estimation model (`StormScopeDxNSRDB`)
 
 ### Changed
 
