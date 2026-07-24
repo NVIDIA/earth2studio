@@ -114,6 +114,8 @@ def _build_model(
     device: str = "cpu",
     use_amp: bool = False,
     clamp_values: bool = False,
+    hrrr_lat_lim: tuple[int, int] = (LAT_START, LAT_END),
+    hrrr_lon_lim: tuple[int, int] = (LON_START, LON_END),
 ) -> StormCastCONUS:
     """Construct a minimal StormCastCONUS for unit testing."""
     diffusion = PhooStormCastCONUSDiffusionModel(NVAR)
@@ -143,8 +145,8 @@ def _build_model(
         invariants,
         conditioning_means,
         conditioning_stds,
-        hrrr_lat_lim=(LAT_START, LAT_END),
-        hrrr_lon_lim=(LON_START, LON_END),
+        hrrr_lat_lim=hrrr_lat_lim,
+        hrrr_lon_lim=hrrr_lon_lim,
         variables=variables,
         conditioning_variables=conditioning_variables,
         conditioning_data_source=r_condition,
@@ -171,6 +173,24 @@ def test_stormcastconus_crop_uses_model_region_coordinates():
         assert dit.detokenizer.input_size == (16, 16)
         assert dit.detokenizer.h_patches == 2
         assert dit.detokenizer.w_patches == 2
+
+
+@pytest.mark.parametrize(
+    "hrrr_lat_lim, hrrr_lon_lim, match",
+    [
+        ((18, 34), (3, 19), r"hrrr_lat_lim\[0\].*must be divisible"),
+        ((17, 34), (3, 19), r"hrrr_lat_lim\[1\].*must be divisible"),
+        ((17, 33), (4, 20), r"hrrr_lon_lim\[0\].*must be divisible"),
+        ((17, 33), (3, 20), r"hrrr_lon_lim\[1\].*must be divisible"),
+    ],
+)
+def test_stormcastconus_crop_requires_patch_aligned_limits(
+    hrrr_lat_lim: tuple[int, int],
+    hrrr_lon_lim: tuple[int, int],
+    match: str,
+):
+    with pytest.raises(ValueError, match=match):
+        _build_model(hrrr_lat_lim=hrrr_lat_lim, hrrr_lon_lim=hrrr_lon_lim)
 
 
 @pytest.mark.parametrize(
