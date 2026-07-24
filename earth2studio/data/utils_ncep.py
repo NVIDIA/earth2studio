@@ -667,6 +667,7 @@ def _extract_gpsro_subset(
 def empty_dataframe(
     schema: pa.Schema = NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
 ) -> pd.DataFrame:
+    """Return a typed empty DataFrame for a PyArrow schema."""
     # Build typed empty columns (not object-dtype ``None``) so ``pd.concat`` does
     # not emit "all-NA columns" FutureWarnings when frames from different
     # sub-archives are concatenated.
@@ -1049,11 +1050,11 @@ def observation_cycle_times(
 ) -> list[datetime]:
     """Return cadence file times needed for a requested observation window.
 
-    When ``cycle_aware`` is ``True``, only files with cycle timestamps at or
-    before the request's upper tolerance bound are returned. When
-    ``cycle_aware`` is ``False``, the first cycle after the upper tolerance bound
-    is also returned so retrospective reads can include observations stored in a
-    later cycle file.
+    File selection starts at the cadence floor of the request's lower tolerance
+    bound. When ``cycle_aware`` is ``True``, only files with cycle timestamps at
+    or before the upper tolerance bound are returned. When ``cycle_aware`` is
+    ``False``, the first cycle after the upper tolerance bound is also returned
+    so retrospective reads can include observations stored in a later cycle file.
 
     Parameters
     ----------
@@ -1086,18 +1087,12 @@ def observation_cycle_times(
     tmax = time + tolerance_upper
     day_start = tmin.replace(hour=0, minute=0, second=0, microsecond=0)
     cycle = day_start + ((tmin - day_start) // cadence) * cadence
-    if not cycle_aware and tolerance_lower >= timedelta(0) and cycle < tmin:
-        cycle += cadence
 
+    cycle_end = tmax if cycle_aware else tmax + cadence
     cycles: list[datetime] = []
-    if cycle_aware:
-        while cycle <= tmax:
-            cycles.append(cycle)
-            cycle += cadence
-    else:
-        while cycle < tmax + cadence:
-            cycles.append(cycle)
-            cycle += cadence
+    while cycle <= cycle_end:
+        cycles.append(cycle)
+        cycle += cadence
     return cycles
 
 

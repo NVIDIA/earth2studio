@@ -73,11 +73,11 @@ class _UFSObsBase:
     def __init__(
         self,
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
-        max_workers: int = 24,
         cycle_aware: bool = True,
         cache: bool = True,
-        async_timeout: int = 600,
         verbose: bool = True,
+        async_timeout: int = 600,
+        max_workers: int = 24,
     ) -> None:
         self.obs_type = "ges"
         self._verbose = verbose
@@ -443,17 +443,17 @@ class UFSObsConv(_UFSObsBase):
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
         by default, np.timedelta64(10, 'm').
-    max_workers : int, optional
-        Max workers in async IO thread pool for concurrent downloads, by default 24.
     cycle_aware : bool, optional
         Exclude future cycle files relative to the upper tolerance bound, by default True.
     cache : bool, optional
         Cache data source in local filesystem cache, by default True.
+    verbose : bool, optional
+        Log basic progress information, by default True.
     async_timeout : int, optional
         Time in seconds after which the async fetch will be cancelled if not finished,
         by default 600.
-    verbose : bool, optional
-        Log basic progress information, by default True.
+    max_workers : int, optional
+        Max workers in async IO thread pool for concurrent downloads, by default 24.
 
     Warning
     -------
@@ -593,17 +593,17 @@ class UFSObsSat(_UFSObsBase):
         by default, np.timedelta64(10, 'm').
     satellites : list[str], optional
         List of satellite platforms to include, by default includes all platforms.
-    max_workers : int, optional
-        Max workers in async IO thread pool for concurrent downloads, by default 24.
     cycle_aware : bool, optional
         Exclude future cycle files relative to the upper tolerance bound, by default True.
     cache : bool, optional
         Cache data source in local filesystem cache, by default True.
+    verbose : bool, optional
+        Log basic progress information, by default True.
     async_timeout : int, optional
         Time in seconds after which the async fetch will be cancelled if not finished,
         by default 600.
-    verbose : bool, optional
-        Log basic progress information, by default True.
+    max_workers : int, optional
+        Max workers in async IO thread pool for concurrent downloads, by default 24.
 
     Warning
     -------
@@ -706,11 +706,11 @@ class UFSObsSat(_UFSObsBase):
         self,
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         satellites: list[str] | None = None,
-        max_workers: int = 24,
         cycle_aware: bool = True,
         cache: bool = True,
-        async_timeout: int = 600,
         verbose: bool = True,
+        async_timeout: int = 600,
+        max_workers: int = 24,
     ) -> None:
         if satellites is None:
             satellites = list(self.VALID_SATELLITES)
@@ -724,11 +724,11 @@ class UFSObsSat(_UFSObsBase):
         self.satellites = satellites
         super().__init__(
             time_tolerance=time_tolerance,
-            max_workers=max_workers,
             cycle_aware=cycle_aware,
             cache=cache,
-            async_timeout=async_timeout,
             verbose=verbose,
+            async_timeout=async_timeout,
+            max_workers=max_workers,
         )
 
     def _create_tasks(

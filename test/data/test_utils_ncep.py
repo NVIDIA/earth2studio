@@ -111,7 +111,7 @@ def test_observation_cycle_times_respect_cycle_awareness():
             timedelta(0),
             timedelta(hours=6),
             False,
-            [datetime(2024, 1, 1, 0)],
+            [datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 6)],
         ),
         (
             datetime(2024, 1, 1, 3),
@@ -127,7 +127,7 @@ def test_observation_cycle_times_respect_cycle_awareness():
             timedelta(0),
             timedelta(hours=6),
             False,
-            [datetime(2024, 1, 1, 6)],
+            [datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 6)],
         ),
         (
             datetime(2024, 1, 1, 5),
@@ -135,7 +135,11 @@ def test_observation_cycle_times_respect_cycle_awareness():
             timedelta(hours=3),
             timedelta(hours=6),
             False,
-            [datetime(2024, 1, 1, 6), datetime(2024, 1, 1, 12)],
+            [
+                datetime(2024, 1, 1, 0),
+                datetime(2024, 1, 1, 6),
+                datetime(2024, 1, 1, 12),
+            ],
         ),
         (
             datetime(2024, 1, 1, 1),
@@ -143,7 +147,7 @@ def test_observation_cycle_times_respect_cycle_awareness():
             timedelta(0),
             timedelta(hours=3),
             False,
-            [datetime(2024, 1, 1, 3)],
+            [datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 3)],
         ),
     ]
 
