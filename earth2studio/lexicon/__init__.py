@@ -21,6 +21,7 @@ from .cbottle import CBottleLexicon
 from .cds import CDSLexicon
 from .cfs import CFSFluxLexicon, CFSLexicon
 from .cmip6 import CMIP6Lexicon
+from .cosmo import CosmoLexicon
 from .dynamical import DynamicalLexicon
 from .earthmover import (
     EarthMoverERA5Lexicon,
@@ -50,7 +51,7 @@ from .metop import (
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
 from .nclimgrid import NClimGridLexicon
-from .nnja import NNJAObsConvLexicon
+from .nnja import NNJAObsConvLexicon, NNJAObsSatLexicon
 from .opera import OPERALexicon
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFSLexicon,

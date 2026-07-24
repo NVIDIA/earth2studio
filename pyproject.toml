@@ -61,6 +61,7 @@ data = [
     "eccodes>=2.39.2",
     "eccodeslib>=2.39.2",
     "ecmwf-opendata>=0.3.29",
+    "gribberish>=1.5.0; python_version>='3.12'",
     "icechunk>=2.0.0; python_version>='3.12'",
     "intake-esgf>=2026.1.26; python_version>='3.12'",
     "planetary-computer>=0.5.0",
@@ -249,6 +250,12 @@ corrdiff = [
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
 ]
+cosmo = [
+    "einops>=0.8.1",
+    "natten ; python_version < '3.14'",
+    "nvidia-physicsnemo>=2.2.0a0",
+    "nvtx>=0.2.11",
+]
 cyclone = [
     "cucim-cu13>=25.4.0",
     "cupy-cuda13x",
@@ -287,6 +294,10 @@ da-stormcast = [
     "cudf-cu13>=26.2.0",
 ]
 # All, must not have conflicts
+# NOTE: `cosmo` is intentionally excluded here. Its nvidia-physicsnemo is git-pinned
+# for RoPE (see [tool.uv.sources]) and declared conflicting with `da-healda` and
+# `all` (which pull physicsnemo <=2.1.1). TODO(cosmo): drop the git pin for
+# `nvidia-physicsnemo>=2.2.0` and re-add `cosmo` once 2.2.0 ships on PyPI.
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
     "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",
@@ -319,7 +330,11 @@ conflicts = [
     { extra = "aifs2ens" },
     { extra = "aifsens" },
   ],
-  [ # TODO: healda conflicts can be removed when the healda wrapper updates
+  [
+    { extra = "cosmo" },
+    { extra = "da-healda" },
+  ],
+  [
     { extra = "da-healda" },
     { extra = "stormscope" },
   ],
@@ -343,6 +358,9 @@ flash-attn = ["torch", "packaging", "ninja"]
 natten = ["setuptools", "cmake", "torch"]
 
 [tool.uv.sources]
+# physicsnemo main has natten2d_rope (RoPE), not on PyPI yet; pin it for cosmo
+# until nvidia-physicsnemo>=2.2.0 ships. Declared conflicting with da-healda and
+# all (which caps/pulls physicsnemo <=2.1.1) in [tool.uv] conflicts.
 onnxruntime-gpu = { index = "ort-cuda-13-nightly" }
 cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
 cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "e48c7eb518d49d4a92b2a1397d683e765c02c354" }
@@ -358,7 +376,10 @@ torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
 ]
-nvidia-physicsnemo = { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ced75d93d014f70bb691372788eee2d201171c12", extra = "stormcast-conus" }
+nvidia-physicsnemo = [
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ced75d93d014f70bb691372788eee2d201171c12", extra = "cosmo"},
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ced75d93d014f70bb691372788eee2d201171c12", extra = "stormcast-conus"},
+]
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
 

@@ -78,6 +78,44 @@ def test_afno_windgust(x, device):
     handshake_dim(out_coords, "batch", 0)
 
 
+def test_afno_windgust_sza_latlon_order():
+    # Regression: the solar zenith angle must receive longitude as `lon` and
+    # latitude as `lat` (cos_zenith_angle(time, lon, lat)). Guards the lat/lon swap.
+    device = "cpu"
+    model = PhooAFNOWindgust()
+    center = torch.zeros(17, 1, 1)
+    scale = torch.ones(17, 1, 1)
+    lsm = torch.ones(1, 1, 720, 1440)
+    orog = torch.ones(1, 1, 720, 1440)
+
+    dx = WindgustAFNO(model, lsm, orog, center, scale).to(device)
+    x = torch.randn(1, 1, 1, 17, 720, 1440).to(device)
+    coords = OrderedDict(
+        {
+            "batch": np.ones(x.shape[0]),
+            "time": np.array([np.datetime64("2024-01-01")]),
+            "lead_time": np.array([np.timedelta64(0, "h")]),
+            "variable": dx.input_coords()["variable"],
+            "lat": dx.input_coords()["lat"],
+            "lon": dx.input_coords()["lon"],
+        }
+    )
+
+    captured = {}
+
+    def spy_sza(lon, lat, time, lead_time):
+        captured["lon"] = np.asarray(lon)
+        captured["lat"] = np.asarray(lat)
+        return torch.zeros(720, 1440)
+
+    dx._compute_sza = spy_sza
+    dx(x, coords)
+
+    # lon_grid varies over columns, lat_grid over rows (indexing="ij")
+    np.testing.assert_array_equal(captured["lon"][0], coords["lon"])
+    np.testing.assert_array_equal(captured["lat"][:, 0], coords["lat"])
+
+
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_afno_windgust_package(device):

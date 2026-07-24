@@ -33,13 +33,88 @@ from typing import TYPE_CHECKING
 import hydra
 import numpy as np
 import torch
+import xarray as xr
+from loguru import logger
 
+from earth2studio.data import fetch_data
 from earth2studio.utils.coords import CoordSystem
 
 if TYPE_CHECKING:
     from omegaconf import DictConfig
 
     from .pipelines.base import PredownloadStore
+
+
+class _RegriddedDataSource:
+    """Wraps a DataSource, applying xarray.interp to regrid output to target lat/lon.
+
+    Used when the data source's native grid doesn't match the zarr store schema
+    (e.g. ARCO at 721×1440 downloaded into a store sized for a 240×121 model).
+    Only lat/lon dimensions are interpolated; all other dims pass through unchanged.
+    """
+
+    def __init__(
+        self,
+        source: object,
+        target_lat: np.ndarray,
+        target_lon: np.ndarray,
+    ) -> None:
+        self._source = source
+        self._lat = xr.DataArray(np.asarray(target_lat), dims="lat")
+        self._lon = xr.DataArray(np.asarray(target_lon), dims="lon")
+
+    def __call__(self, time: object, variable: object) -> xr.DataArray:
+        da = self._source(time, variable)  # type: ignore[operator]
+        if "lat" in da.dims and "lon" in da.dims:
+            da = da.interp(lat=self._lat, lon=self._lon, method="linear")
+        return da
+
+    async def fetch(self, time: object, variable: object) -> xr.DataArray:
+        return self(time, variable)
+
+
+def _align_source_to_spatial_ref(
+    source: object,
+    spatial_ref: CoordSystem,
+    probe_time: np.datetime64,
+    probe_variable: str,
+) -> object:
+    """Return *source* (possibly wrapped) so its output matches *spatial_ref*'s lat/lon.
+
+    Probes *source* for one field to discover its native spatial grid.  When
+    the native lat array differs from *spatial_ref*'s lat, wraps with
+    :class:`_RegriddedDataSource` so every subsequent fetch is bilinearly
+    interpolated to the target grid before being written to zarr.  When the
+    grids already match, returns *source* unchanged (no overhead at fetch time).
+    """
+    tgt_lat = spatial_ref.get("lat")
+    tgt_lon = spatial_ref.get("lon")
+    if tgt_lat is None or tgt_lon is None:
+        return source
+
+    _, probe = fetch_data(
+        source=source,  # type: ignore[arg-type]
+        time=[probe_time],
+        variable=[probe_variable],
+        lead_time=np.array([np.timedelta64(0, "ns")]),
+        device=torch.device("cpu"),
+    )
+
+    src_lat = probe.get("lat")
+    if src_lat is None:
+        return source
+
+    tgt_lat = np.asarray(tgt_lat)
+    if src_lat.shape == tgt_lat.shape and np.allclose(src_lat, tgt_lat, atol=1e-5):
+        return source  # grids already match
+
+    src_shape = (src_lat.shape[0], probe.get("lon", np.array([])).shape[0])
+    tgt_shape = (tgt_lat.shape[0], np.asarray(tgt_lon).shape[0])
+    logger.info(
+        f"Predownload: source grid {src_shape} ≠ target {tgt_shape}; "
+        "wrapping with lat/lon interpolation."
+    )
+    return _RegriddedDataSource(source, tgt_lat, np.asarray(tgt_lon))
 
 
 def infer_step_hours(model: object) -> int:
@@ -178,6 +253,10 @@ def declare_single_source_stores(
         else:
             times = list(ic_times)
             variables = list(ic_variables)
+        if times and variables:
+            data_source = _align_source_to_spatial_ref(
+                data_source, spatial_ref, times[0], variables[0]
+            )
         stores.append(
             PredownloadStore(
                 name="data",
@@ -193,12 +272,19 @@ def declare_single_source_stores(
         verif_source_cfg = verif_cfg.get("source")
         if verif_source_cfg is not None:
             verif_source = hydra.utils.instantiate(verif_source_cfg)
+            if verif_times and verif_variables:
+                verif_source = _align_source_to_spatial_ref(
+                    verif_source, spatial_ref, verif_times[0], verif_variables[0]
+                )
         elif data_source is not None:
-            # Reuse the already-instantiated IC source when no explicit
-            # verification source is configured (always-separate path).
+            # Reuse the already-aligned IC source (already wrapped if needed).
             verif_source = data_source
         else:
             verif_source = hydra.utils.instantiate(cfg.data_source)
+            if verif_times and verif_variables:
+                verif_source = _align_source_to_spatial_ref(
+                    verif_source, spatial_ref, verif_times[0], verif_variables[0]
+                )
         stores.append(
             PredownloadStore(
                 name="verification",
@@ -211,6 +297,74 @@ def declare_single_source_stores(
         )
 
     return stores
+
+
+def declare_verification_only_store(
+    cfg: DictConfig,
+    *,
+    verif_variables: list[str],
+    verif_times: list[np.datetime64],
+    spatial_ref: CoordSystem,
+) -> list[PredownloadStore]:
+    """Declare a standalone ``verification.zarr`` store (no IC store).
+
+    Used by pipelines whose inputs don't come from a gridded ``DataSource``
+    at all (e.g. data-assimilation pipelines whose inputs are observation
+    DataFrames) but that still need gridded verification data for scoring.
+    Honors the same gates as :func:`declare_single_source_stores`:
+    ``predownload.verification.enabled``, the ``verification_source`` BYO
+    override, and the optional ``predownload.verification.source`` (falling
+    back to ``cfg.data_source``).
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Full Hydra config.
+    verif_variables : list[str]
+        Variable names required for verification.
+    verif_times : list[np.datetime64]
+        Valid times to fetch.
+    spatial_ref : CoordSystem
+        Spatial coordinate system of the stored data.  Must match the
+        grid the verification source returns — the store schema is
+        validated against fetched data at download time.
+
+    Returns
+    -------
+    list[PredownloadStore]
+        Zero or one entries.
+    """
+    from .pipelines.base import PredownloadStore
+
+    verif_byo = cfg.get("verification_source") is not None
+    pd_cfg = cfg.get("predownload", {})
+    verif_cfg = pd_cfg.get("verification", {}) if pd_cfg else {}
+    verif_enabled = verif_cfg.get("enabled", False)
+
+    if not verif_enabled or verif_byo:
+        return []
+
+    verif_source_cfg = verif_cfg.get("source")
+    if verif_source_cfg is not None:
+        verif_source = hydra.utils.instantiate(verif_source_cfg)
+    else:
+        verif_source = hydra.utils.instantiate(cfg.data_source)
+
+    if verif_times and verif_variables:
+        verif_source = _align_source_to_spatial_ref(
+            verif_source, spatial_ref, verif_times[0], verif_variables[0]
+        )
+
+    return [
+        PredownloadStore(
+            name="verification",
+            source=verif_source,
+            times=list(verif_times),
+            variables=list(verif_variables),
+            spatial_ref=spatial_ref,
+            role="verification",
+        )
+    ]
 
 
 def squeeze_lead_time(
