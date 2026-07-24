@@ -988,8 +988,8 @@ class _SplitModelWrapper(torch.nn.Module):
         Parameters
         ----------
         bbox : tuple[tuple[int, int], tuple[int, int]]
-            ``((lat_start, lat_end), (lon_start, lon_end))`` indices on the full
-            HRRR grid. Bounds must align with the patch size of ``model_high``.
+            ``((lat_start, lat_end), (lon_start, lon_end))`` indices on the model
+            grid (not the full HRRR grid). Bounds must align with the DiT patch size.
         """
         self.grid_shape = (bbox[0][1] - bbox[0][0], bbox[1][1] - bbox[1][0])
         p = self.model_high.model.model.patch_size
