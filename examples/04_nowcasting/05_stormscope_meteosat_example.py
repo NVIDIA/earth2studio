@@ -148,35 +148,38 @@ start_time = np.datetime64(datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc))
 in_coords = model.input_coords()
 variables = in_coords["variable"]
 
-x_res = {}
-for res in ["2km", "1km"]:
-    available_vars = fci[res].available_variables()
-    if res == "1km":
-        # use 2km version if variable available in both 1km and 2km
-        available_vars -= fci["2km"].available_variables()
-    variables_res = [var for var in variables if var in available_vars]
-    x_res[res] = fetch_data(
-        fci[res],
-        time=np.array([start_time]),
-        variable=variables_res,
-        lead_time=in_coords["lead_time"],
-        device=device,
+with torch.no_grad():
+    x_res = {}
+    for res in ["2km", "1km"]:
+        available_vars = fci[res].available_variables()
+        if res == "1km":
+            # use 2km version if variable available in both 1km and 2km
+            available_vars -= fci["2km"].available_variables()
+        variables_res = [var for var in variables if var in available_vars]
+        x_res[res] = fetch_data(
+            fci[res],
+            time=np.array([start_time]),
+            variable=variables_res,
+            lead_time=in_coords["lead_time"],
+            device=device,
+        )
+
+    # 2x downsample 1km data to common 2km grid
+    x = x_res["1km"][0]
+    batch_dims = x.shape[:-3]
+    x = torch.nn.functional.avg_pool2d(x.reshape(prod(batch_dims), *x.shape[-3:]), 2)
+    x = x.reshape(*batch_dims, *x.shape[-3:])
+
+    # merge downsampled and native 2km data
+    x = torch.concat([x, x_res["2km"][0]], dim=-3)
+    coords = x_res["2km"][1]
+    coords["variable"] = np.concatenate(
+        [x_res["1km"][1]["variable"], coords["variable"]]
     )
+    del x_res
 
-# 2x downsample 1km data to common 2km grid
-x = x_res["1km"][0]
-batch_dims = x.shape[:-3]
-x = torch.nn.functional.avg_pool2d(x.reshape(prod(batch_dims), *x.shape[-3:]), 2)
-x = x.reshape(*batch_dims, *x.shape[-3:])
-
-# merge downsampled and native 2km data
-x = torch.concat([x, x_res["2km"][0]], dim=-3)
-coords = x_res["2km"][1]
-coords["variable"] = np.concatenate([x_res["1km"][1]["variable"], coords["variable"]])
-del x_res
-
-# ensure data is on model grid
-(x, coords) = map_coords(x, coords, in_coords)
+    # ensure data is on model grid
+    (x, coords) = map_coords(x, coords, in_coords)
 
 # %%
 # Add Ensemble Dimension
