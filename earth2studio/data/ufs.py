@@ -30,11 +30,11 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 from loguru import logger
-from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     _sync_async,
     datasource_cache_root,
+    gather_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_data_inputs,
@@ -77,19 +77,19 @@ class _UFSObsBase:
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
-        max_workers: int = 24,
+        async_workers: int = 24,
     ) -> None:
         self.obs_type = "ges"
         self._verbose = verbose
         self._cache = cache
         self._cycle_aware = cycle_aware
-        self._max_workers = max_workers
+        self._async_workers = async_workers
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
         # Anonymous obstore S3 store for the public NOAA UFS replay bucket.
         self._store = obstore_store_from_url(
             f"s3://{self.UFS_BUCKET}",
-            max_pool_connections=self._max_workers,
+            max_pool_connections=self._async_workers,
             region=self._region,
         )
 
@@ -142,8 +142,11 @@ class _UFSObsBase:
         async_tasks = self._create_tasks(time_list, variable_list)
         file_key_set = {task.gsi_obs_key for task in async_tasks}
         fetch_jobs = [self._fetch_remote_file(key) for key in file_key_set]
-        await tqdm.gather(
-            *fetch_jobs, desc="Fetching GSI files", disable=(not self._verbose)
+        await gather_with_concurrency(
+            fetch_jobs,
+            max_workers=self._async_workers,
+            desc="Fetching GSI files",
+            verbose=(not self._verbose),
         )
 
         df = self._compile_dataframe(async_tasks, variable_list, schema)
@@ -452,8 +455,8 @@ class UFSObsConv(_UFSObsBase):
     async_timeout : int, optional
         Time in seconds after which the async fetch will be cancelled if not finished,
         by default 600.
-    max_workers : int, optional
-        Max workers in async IO thread pool for concurrent downloads, by default 24.
+    async_workers : int, optional
+        Number of concurrent async download workers, by default 24.
 
     Warning
     -------
@@ -602,8 +605,8 @@ class UFSObsSat(_UFSObsBase):
     async_timeout : int, optional
         Time in seconds after which the async fetch will be cancelled if not finished,
         by default 600.
-    max_workers : int, optional
-        Max workers in async IO thread pool for concurrent downloads, by default 24.
+    async_workers : int, optional
+        Number of concurrent async download workers, by default 24.
 
     Warning
     -------
@@ -710,7 +713,7 @@ class UFSObsSat(_UFSObsBase):
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
-        max_workers: int = 24,
+        async_workers: int = 24,
     ) -> None:
         if satellites is None:
             satellites = list(self.VALID_SATELLITES)
@@ -728,7 +731,7 @@ class UFSObsSat(_UFSObsBase):
             cache=cache,
             verbose=verbose,
             async_timeout=async_timeout,
-            max_workers=max_workers,
+            async_workers=async_workers,
         )
 
     def _create_tasks(
