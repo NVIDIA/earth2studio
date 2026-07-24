@@ -57,7 +57,7 @@ deterministic *regression* (mean) model, selected via ``mode`` on ``load_model``
 """
 # /// script
 # dependencies = [
-#   "earth2studio[sfno,cosmo] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[sfno,cosmo] @ git+https://github.com/NVIDIA/earth2studio.git@0.17.0",
 #   "cartopy",
 #   "scipy",
 # ]
