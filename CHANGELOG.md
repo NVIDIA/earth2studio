@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `cycle_aware` option to UFS, GDAS, and NNJA observation sources to control
+  whether future cycle files are included for tolerance-window reads.
+
 ### Changed
 
 ### Deprecated
