@@ -394,13 +394,16 @@ uv add earth2studio --extra fuxi
 ::::
 :::::
 :::::{tab-item} GraphCast
-Notes: The GraphCast models (operational and small) require additional dependencies for JAX and Haiku.
+Notes: The GraphCast models (operational and small) require additional dependencies
+for JAX and Haiku. The GraphCast package must be installed from the Google DeepMind
+repository.
 
 ::::{tab-set}
 :::{tab-item} pip
 
 ```bash
-pip install earth2studio[graphcast]
+pip install "earth2studio[graphcast]" \
+  "graphcast @ git+https://github.com/google-deepmind/graphcast.git@7077d40a36db6541e3ed72ccaed1c0d202fa6014"
 ```
 
 :::
