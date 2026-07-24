@@ -1230,7 +1230,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             or (coords["y"] != self.y).any()
             or (coords["x"] != self.x).any()
         ):
-
             if interpolator is None:
                 raise ValueError(
                     f"Using {type_label} data on a non-native grid requires interpolation, call build_{type_label}_interpolator first"
@@ -1726,6 +1725,21 @@ class StormScopeGOES(StormScopeBase):
             package.resolve("config.json")  # HF tracking download statistics
         except FileNotFoundError:
             pass
+
+        try:
+            import natten
+        except (ImportError, OSError) as exc:
+            raise ImportError(
+                "StormScope requires NATTEN for neighborhood attention. Install "
+                "with `pip install earth2studio[stormscope]` or "
+                "`uv add earth2studio --extra stormscope`."
+            ) from exc
+        if getattr(natten, "HAS_LIBNATTEN", True) is False:
+            raise ImportError(
+                "StormScope requires NATTEN with libnatten enabled. Reinstall "
+                "NATTEN with a wheel or source build matching the active PyTorch "
+                "and CUDA environment."
+            )
 
         registry = cls._load_registry(package)
         _, pkg = cls._resolve_model_entry(package, model_name)
@@ -2322,6 +2336,21 @@ class StormScopeMRMS(StormScopeBase):
             package.resolve("config.json")  # HF tracking download statistics
         except FileNotFoundError:
             pass
+
+        try:
+            import natten
+        except (ImportError, OSError) as exc:
+            raise ImportError(
+                "StormScope requires NATTEN for neighborhood attention. Install "
+                "with `pip install earth2studio[stormscope]` or "
+                "`uv add earth2studio --extra stormscope`."
+            ) from exc
+        if getattr(natten, "HAS_LIBNATTEN", True) is False:
+            raise ImportError(
+                "StormScope requires NATTEN with libnatten enabled. Reinstall "
+                "NATTEN with a wheel or source build matching the active PyTorch "
+                "and CUDA environment."
+            )
 
         registry = cls._load_registry(package)
         _, pkg = cls._resolve_model_entry(package, model_name)
