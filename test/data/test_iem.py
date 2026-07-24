@@ -190,41 +190,81 @@ async def test_iem_asos_request_rate_limit_allows_concurrency(tmp_path, monkeypa
     """Request starts are throttled without serializing response downloads."""
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
     request_starts: list[float] = []
-    active_requests = 0
-    max_active_requests = 0
+    counters = {"active": 0, "max_active": 0}
 
-    class FakeHTTPFileSystem:
-        async def _cat_file(self, remote_url):
-            nonlocal active_requests, max_active_requests
-            request_starts.append(asyncio.get_running_loop().time())
-            active_requests += 1
-            max_active_requests = max(max_active_requests, active_requests)
-            await asyncio.sleep(0.03)
-            active_requests -= 1
+    class FakeResponse:
+        status = 200
+
+        def raise_for_status(self) -> None:
+            pass
+
+        async def read(self) -> bytes:
             return _PARSED_CSV
+
+    class FakeGetCM:
+        async def __aenter__(self):
+            request_starts.append(asyncio.get_running_loop().time())
+            counters["active"] += 1
+            counters["max_active"] = max(counters["max_active"], counters["active"])
+            await asyncio.sleep(0.03)
+            counters["active"] -= 1
+            return FakeResponse()
+
+        async def __aexit__(self, *args) -> None:
+            pass
+
+    class FakeSession:
+        def get(self, url):
+            return FakeGetCM()
 
     source = IEM_ASOS(cache=True, verbose=False)
     source.REQUEST_INTERVAL_SECONDS = 0.01
-    monkeypatch.setattr(source, "fs", FakeHTTPFileSystem())
-    source._request_lock = asyncio.Lock()
+    source._session = FakeSession()
     tasks = source._create_tasks([_TEST_TIME, _TEST_TIME + timedelta(days=1)], ["t2m"])
 
     await asyncio.gather(*(source.fetch_array(task) for task in tasks))
 
     assert len(request_starts) == 2
     assert request_starts[1] - request_starts[0] >= source.REQUEST_INTERVAL_SECONDS
-    assert max_active_requests == 2
+    assert counters["max_active"] == 2
 
 
 def test_iem_asos_station_bbox(tmp_path, monkeypatch):
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
     downloads = []
 
-    def fake_cat_file(self, remote_path):
-        downloads.append(remote_path)
-        return json.dumps(_STATION_GEOJSON).encode()
+    class FakeResponse:
+        status = 200
 
-    monkeypatch.setattr("earth2studio.data.iem.HTTPFileSystem.cat_file", fake_cat_file)
+        def raise_for_status(self) -> None:
+            pass
+
+        async def read(self) -> bytes:
+            return json.dumps(_STATION_GEOJSON).encode()
+
+    class FakeGetCM:
+        def __init__(self, url: str) -> None:
+            downloads.append(url)
+
+        async def __aenter__(self):
+            return FakeResponse()
+
+        async def __aexit__(self, *args) -> None:
+            pass
+
+    class FakeClientSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args) -> None:
+            pass
+
+        def get(self, url: str):
+            return FakeGetCM(url)
+
+    monkeypatch.setattr(
+        "earth2studio.data.iem.aiohttp.ClientSession", FakeClientSession
+    )
 
     metadata = IEM_ASOS.get_station_metadata()
     assert list(metadata.columns) == [

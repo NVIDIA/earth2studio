@@ -27,18 +27,16 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
+import aiohttp
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-from aiohttp import ClientResponseError
-from fsspec.implementations.http import HTTPFileSystem
 
 from earth2studio.data.utils import (
     _sync_async,
     async_retry,
-    datasource_cache_root,
+    datasource_cache_dir,
     gather_with_concurrency,
-    managed_session,
     prep_data_inputs,
 )
 from earth2studio.lexicon import IEM_ASOSLexicon
@@ -46,10 +44,9 @@ from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
-IEM_ASOS_ENDPOINT = "https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py"
-IEM_ASOS_STATIONS_ENDPOINT = (
-    "https://mesonet.agron.iastate.edu/geojson/network.py?network=AZOS"
-)
+IEM_ASOS_BASE_URL = "https://mesonet.agron.iastate.edu"
+IEM_ASOS_ENDPOINT = f"{IEM_ASOS_BASE_URL}/cgi-bin/request/asos.py"
+IEM_ASOS_STATIONS_ENDPOINT = f"{IEM_ASOS_BASE_URL}/geojson/network.py?network=AZOS"
 
 
 @dataclass
@@ -114,7 +111,7 @@ class IEM_ASOS:
     SOURCE_ID = "earth2studio.data.IEM_ASOS"
     MIN_DATE = datetime(1900, 1, 1)
     MAX_REQUEST_SPAN = timedelta(hours=24)
-    REQUEST_INTERVAL_SECONDS = 1.0
+    REQUEST_INTERVAL_SECONDS = 1.1  # 1 request / second plus safety margin
     SCHEMA = pa.schema(
         [
             E2STUDIO_SCHEMA.field("time"),
@@ -159,14 +156,10 @@ class IEM_ASOS:
         self._async_workers = async_workers
         self._retries = retries
         self.async_timeout = async_timeout
-        self._tmp_cache_hash: str | None = None
-        self.fs: HTTPFileSystem | None = None
-        self._request_lock: asyncio.Lock | None = None
-        self._last_request_time: float | None = None
-
-    async def _async_init(self) -> None:
-        self.fs = HTTPFileSystem(asynchronous=True)
+        self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
+        self._session: aiohttp.ClientSession | None = None
         self._request_lock = asyncio.Lock()
+        self._last_request_time: float | None = None
 
     def __call__(
         self,
@@ -221,18 +214,14 @@ class IEM_ASOS:
         pd.DataFrame
             Parsed observations in Earth2Studio long-form schema.
         """
-        if self.fs is None:
-            await self._async_init()
-
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
         schema = self.resolve_fields(fields)
-        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
         tasks = self._create_tasks(time_list, variable_list)
 
-        if self.fs is None:
-            raise ValueError("HTTP filesystem is not initialized")
-        async with managed_session(self.fs):
+        connector = aiohttp.TCPConnector(limit=self._async_workers)
+        self._session = aiohttp.ClientSession(connector=connector)
+        try:
             coros = [self.fetch_wrapper(task) for task in tasks]
             await gather_with_concurrency(
                 coros,
@@ -241,6 +230,9 @@ class IEM_ASOS:
                 desc="Fetching IEM ASOS data",
                 verbose=(not self._verbose),
             )
+        finally:
+            await self._session.close()
+            self._session = None
 
         frame = self._compile_dataframe(tasks, time_list, variable_list, schema)
         frame.attrs["source"] = self.SOURCE_ID
@@ -323,8 +315,8 @@ class IEM_ASOS:
         bytes
             CSV payload containing parsed fields only.
         """
-        if self.fs is None or self._request_lock is None:
-            raise ValueError("HTTP filesystem is not initialized")
+        if self._session is None:
+            raise ValueError("HTTP session is not initialized")
 
         async with self._request_lock:
             loop = asyncio.get_running_loop()
@@ -337,13 +329,15 @@ class IEM_ASOS:
             self._last_request_time = loop.time()
 
         try:
-            payload = await self.fs._cat_file(task.remote_url)
-        except ClientResponseError as exc:
-            if exc.status not in {429, 503}:
-                raise
-            raise ConnectionError(
-                f"IEM ASOS service returned transient HTTP {exc.status}"
-            ) from exc
+            async with self._session.get(task.remote_url) as response:
+                if response.status in {429, 503}:
+                    raise ConnectionError(
+                        f"IEM ASOS service returned transient HTTP {response.status}"
+                    )
+                response.raise_for_status()
+                payload = await response.read()
+        except aiohttp.ClientError as exc:
+            raise ConnectionError(f"IEM ASOS request failed: {exc}") from exc
 
         if payload.lstrip().startswith((b"ERROR", b"<!DOCTYPE", b"<html")):
             raise OSError("IEM ASOS service returned an error response")
@@ -506,18 +500,23 @@ class IEM_ASOS:
             Station metadata with columns ID, LAT, LON, ELEV, NAME, NETWORK,
             COUNTRY, and ONLINE.
         """
-        cache_dir = os.path.join(datasource_cache_root(), "iem_asos")
-        os.makedirs(cache_dir, exist_ok=True)
+        cache_dir = datasource_cache_dir("iem_asos", True, None)
         stations_file = os.path.join(cache_dir, "azos.geojson")
 
         if not os.path.isfile(stations_file):
-            fs = HTTPFileSystem()
-            payload = fs.cat_file(IEM_ASOS_STATIONS_ENDPOINT)
-            with open(stations_file, "wb") as geojson_file:
-                geojson_file.write(payload)
 
-        with open(stations_file, encoding="utf-8") as geojson_file:
-            payload = json.load(geojson_file)
+            async def _fetch() -> bytes:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(IEM_ASOS_STATIONS_ENDPOINT) as response:
+                        response.raise_for_status()
+                        return await response.read()
+
+            payload_bytes = _sync_async(_fetch)
+            with open(stations_file, "wb") as geojson_file:
+                geojson_file.write(payload_bytes)
+
+        with open(stations_file, encoding="utf-8") as geojson_fh:
+            payload = json.load(geojson_fh)
 
         records: list[dict[str, object]] = []
         for feature in payload.get("features", []):
@@ -589,14 +588,7 @@ class IEM_ASOS:
     @property
     def cache(self) -> str:
         """Return the local cache directory for parsed IEM CSV responses."""
-        cache_location = os.path.join(datasource_cache_root(), "iem_asos")
-        if not self._cache:
-            if self._tmp_cache_hash is None:
-                self._tmp_cache_hash = uuid.uuid4().hex[:8]
-            cache_location = os.path.join(
-                cache_location, f"tmp_iem_asos_{self._tmp_cache_hash}"
-            )
-        return cache_location
+        return datasource_cache_dir("iem_asos", self._cache, self._tmp_cache_hash)
 
     @classmethod
     def available(cls, time: datetime | np.datetime64) -> bool:
