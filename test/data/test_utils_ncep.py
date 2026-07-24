@@ -67,20 +67,50 @@ def _modifiers(lexicon: type, *variables: str) -> dict:
     return {variable: lexicon.get_item(variable)[1] for variable in variables}
 
 
-def test_observation_cycle_times_select_covering_files():
+def test_observation_cycle_times_respect_cycle_awareness():
     cases = [
         (
             datetime(2024, 1, 1, 0),
             timedelta(0),
             timedelta(hours=4),
             timedelta(hours=6),
+            True,
+            [datetime(2024, 1, 1, 0)],
+        ),
+        (
+            datetime(2024, 1, 1, 0),
+            timedelta(0),
+            timedelta(hours=4),
+            timedelta(hours=6),
+            False,
             [datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 6)],
+        ),
+        (
+            datetime(2024, 1, 1, 0),
+            timedelta(hours=-3),
+            timedelta(hours=3),
+            timedelta(hours=6),
+            True,
+            [datetime(2023, 12, 31, 18), datetime(2024, 1, 1, 0)],
+        ),
+        (
+            datetime(2024, 1, 1, 0),
+            timedelta(hours=-3),
+            timedelta(hours=3),
+            timedelta(hours=6),
+            False,
+            [
+                datetime(2023, 12, 31, 18),
+                datetime(2024, 1, 1, 0),
+                datetime(2024, 1, 1, 6),
+            ],
         ),
         (
             datetime(2024, 1, 1, 0),
             timedelta(0),
             timedelta(0),
             timedelta(hours=6),
+            False,
             [datetime(2024, 1, 1, 0)],
         ),
         (
@@ -88,6 +118,15 @@ def test_observation_cycle_times_select_covering_files():
             timedelta(0),
             timedelta(0),
             timedelta(hours=6),
+            True,
+            [datetime(2024, 1, 1, 0)],
+        ),
+        (
+            datetime(2024, 1, 1, 3),
+            timedelta(0),
+            timedelta(0),
+            timedelta(hours=6),
+            False,
             [datetime(2024, 1, 1, 6)],
         ),
         (
@@ -95,6 +134,7 @@ def test_observation_cycle_times_select_covering_files():
             timedelta(0),
             timedelta(hours=3),
             timedelta(hours=6),
+            False,
             [datetime(2024, 1, 1, 6), datetime(2024, 1, 1, 12)],
         ),
         (
@@ -102,13 +142,17 @@ def test_observation_cycle_times_select_covering_files():
             timedelta(0),
             timedelta(0),
             timedelta(hours=3),
+            False,
             [datetime(2024, 1, 1, 3)],
         ),
     ]
 
-    for time, lower, upper, cadence, expected in cases:
+    for time, lower, upper, cadence, cycle_aware, expected in cases:
         assert (
-            utils_ncep.observation_cycle_times(time, lower, upper, cadence) == expected
+            utils_ncep.observation_cycle_times(
+                time, lower, upper, cadence, cycle_aware=cycle_aware
+            )
+            == expected
         )
 
 

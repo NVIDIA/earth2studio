@@ -890,8 +890,7 @@ def decode_prepbufr(
                 )
             )
     logger.debug(
-        f"Decoded {len(rows):,} PrepBUFR rows in "
-        f"{time.perf_counter() - started:.1f}s"
+        f"Decoded {len(rows):,} PrepBUFR rows in {time.perf_counter() - started:.1f}s"
     )
     return _finalize_rows(
         rows,
@@ -1046,13 +1045,15 @@ def observation_cycle_times(
     tolerance_lower: timedelta,
     tolerance_upper: timedelta,
     cadence: timedelta = timedelta(hours=6),
+    cycle_aware: bool = True,
 ) -> list[datetime]:
-    """Return cadence file times whose observation windows overlap a request.
+    """Return cadence file times needed for a requested observation window.
 
-    Each file timestamp is treated as the end of its observation window, so a
-    file at ``T`` may contain observations from ``(T - cadence, T]``. This means
-    requests often need the next cycle file as well as the cycle at or before
-    the requested time.
+    When ``cycle_aware`` is ``True``, only files with cycle timestamps at or
+    before the request's upper tolerance bound are returned. When
+    ``cycle_aware`` is ``False``, the first cycle after the upper tolerance bound
+    is also returned so retrospective reads can include observations stored in a
+    later cycle file.
 
     Parameters
     ----------
@@ -1064,12 +1065,14 @@ def observation_cycle_times(
         Upper tolerance bound relative to ``time``.
     cadence : timedelta, optional
         Cadence between published files, by default ``timedelta(hours=6)``.
+    cycle_aware : bool, optional
+        Whether to exclude future cycle files relative to the request's upper
+        tolerance bound, by default ``True``.
 
     Returns
     -------
     list[datetime]
-        Cadence-aligned file timestamps whose backward-looking observation
-        windows overlap ``[time + tolerance_lower, time + tolerance_upper]``.
+        Cadence-aligned file timestamps for the requested observation window.
 
     Raises
     ------
@@ -1083,13 +1086,18 @@ def observation_cycle_times(
     tmax = time + tolerance_upper
     day_start = tmin.replace(hour=0, minute=0, second=0, microsecond=0)
     cycle = day_start + ((tmin - day_start) // cadence) * cadence
-    if cycle < tmin:
+    if not cycle_aware and tolerance_lower >= timedelta(0) and cycle < tmin:
         cycle += cadence
 
     cycles: list[datetime] = []
-    while cycle < tmax + cadence:
-        cycles.append(cycle)
-        cycle += cadence
+    if cycle_aware:
+        while cycle <= tmax:
+            cycles.append(cycle)
+            cycle += cadence
+    else:
+        while cycle < tmax + cadence:
+            cycles.append(cycle)
+            cycle += cadence
     return cycles
 
 
@@ -1098,6 +1106,7 @@ def cycle_windows(
     tolerance_lower: timedelta,
     tolerance_upper: timedelta,
     cadence: timedelta = timedelta(hours=6),
+    cycle_aware: bool = True,
 ) -> dict[datetime, tuple[datetime, datetime]]:
     """Map cadence file times to merged requested observation windows.
 
@@ -1111,6 +1120,9 @@ def cycle_windows(
         Upper tolerance bound relative to each requested timestamp.
     cadence : timedelta, optional
         Cadence between published files, by default ``timedelta(hours=6)``.
+    cycle_aware : bool, optional
+        Whether to exclude future cycle files relative to each request's upper
+        tolerance bound, by default ``True``.
 
     Returns
     -------
@@ -1123,7 +1135,7 @@ def cycle_windows(
         tmin = t + tolerance_lower
         tmax = t + tolerance_upper
         for cycle in observation_cycle_times(
-            t, tolerance_lower, tolerance_upper, cadence
+            t, tolerance_lower, tolerance_upper, cadence, cycle_aware=cycle_aware
         ):
             existing = windows.get(cycle)
             windows[cycle] = (
@@ -1163,8 +1175,7 @@ def resolve_output_schema(
     for name in fields:
         if name not in schema.names:
             raise KeyError(
-                f"Field '{name}' not in {class_name} SCHEMA. "
-                f"Available: {schema.names}"
+                f"Field '{name}' not in {class_name} SCHEMA. Available: {schema.names}"
             )
         selected.append(schema.field(name))
     return pa.schema(selected)

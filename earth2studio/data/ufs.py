@@ -74,6 +74,7 @@ class _UFSObsBase:
         self,
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         max_workers: int = 24,
+        cycle_aware: bool = True,
         cache: bool = True,
         async_timeout: int = 600,
         verbose: bool = True,
@@ -81,6 +82,7 @@ class _UFSObsBase:
         self.obs_type = "ges"
         self._verbose = verbose
         self._cache = cache
+        self._cycle_aware = cycle_aware
         self._max_workers = max_workers
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
@@ -443,6 +445,8 @@ class UFSObsConv(_UFSObsBase):
         by default, np.timedelta64(10, 'm').
     max_workers : int, optional
         Max workers in async IO thread pool for concurrent downloads, by default 24.
+    cycle_aware : bool, optional
+        Exclude future cycle files relative to the upper tolerance bound, by default True.
     cache : bool, optional
         Cache data source in local filesystem cache, by default True.
     async_timeout : int, optional
@@ -516,7 +520,12 @@ class UFSObsConv(_UFSObsBase):
         self, time_list: list[datetime], variable: list[str]
     ) -> list[_GSIAsyncTask]:
         tasks: list[_GSIAsyncTask] = []
-        windows = cycle_windows(time_list, self._tolerance_lower, self._tolerance_upper)
+        windows = cycle_windows(
+            time_list,
+            self._tolerance_lower,
+            self._tolerance_upper,
+            cycle_aware=self._cycle_aware,
+        )
         for v in variable:
             try:
                 gsi_name, modifier = GSIConventionalLexicon[v]  # type: ignore
@@ -586,6 +595,8 @@ class UFSObsSat(_UFSObsBase):
         List of satellite platforms to include, by default includes all platforms.
     max_workers : int, optional
         Max workers in async IO thread pool for concurrent downloads, by default 24.
+    cycle_aware : bool, optional
+        Exclude future cycle files relative to the upper tolerance bound, by default True.
     cache : bool, optional
         Cache data source in local filesystem cache, by default True.
     async_timeout : int, optional
@@ -696,6 +707,7 @@ class UFSObsSat(_UFSObsBase):
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         satellites: list[str] | None = None,
         max_workers: int = 24,
+        cycle_aware: bool = True,
         cache: bool = True,
         async_timeout: int = 600,
         verbose: bool = True,
@@ -713,6 +725,7 @@ class UFSObsSat(_UFSObsBase):
         super().__init__(
             time_tolerance=time_tolerance,
             max_workers=max_workers,
+            cycle_aware=cycle_aware,
             cache=cache,
             async_timeout=async_timeout,
             verbose=verbose,
@@ -722,7 +735,12 @@ class UFSObsSat(_UFSObsBase):
         self, time_list: list[datetime], variable: list[str]
     ) -> list[_GSIAsyncTask]:
         tasks: list[_GSIAsyncTask] = []
-        windows = cycle_windows(time_list, self._tolerance_lower, self._tolerance_upper)
+        windows = cycle_windows(
+            time_list,
+            self._tolerance_lower,
+            self._tolerance_upper,
+            cycle_aware=self._cycle_aware,
+        )
         for v in variable:
             try:
                 gsi_name, modifier = GSISatelliteLexicon[v]  # type: ignore

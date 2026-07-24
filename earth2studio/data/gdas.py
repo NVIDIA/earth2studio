@@ -87,6 +87,8 @@ class NomadsGDASObsConv:
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
         by default np.timedelta64(10, "m").
+    cycle_aware : bool, optional
+        Exclude future cycle files relative to the upper tolerance bound, by default True.
     cache : bool, optional
         Cache downloaded observation files locally, by default True.
     verbose : bool, optional
@@ -132,6 +134,7 @@ class NomadsGDASObsConv:
     def __init__(
         self,
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
+        cycle_aware: bool = True,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
@@ -146,6 +149,7 @@ class NomadsGDASObsConv:
         self._tolerance_lower = pd.to_timedelta(self._tolerance_lower).to_pytimedelta()
         self._tolerance_upper = pd.to_timedelta(self._tolerance_upper).to_pytimedelta()
         self._cache = cache
+        self._cycle_aware = cycle_aware
         self._verbose = verbose
         self.async_timeout = async_timeout
         self._async_workers = async_workers
@@ -267,7 +271,12 @@ class NomadsGDASObsConv:
     ) -> list[NCEPObsTask]:
         """Build download tasks for required 6h PrepBUFR cycles."""
         return plan_conv_tasks(
-            cycle_windows(times, self._tolerance_lower, self._tolerance_upper),
+            cycle_windows(
+                times,
+                self._tolerance_lower,
+                self._tolerance_upper,
+                cycle_aware=self._cycle_aware,
+            ),
             variables,
             GDASObsConvLexicon,
             self._build_uri,

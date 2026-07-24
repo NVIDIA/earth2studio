@@ -176,18 +176,33 @@ def test_ufsobsconv_tolerance_conversion():
     assert ds_asym._tolerance_upper == timedelta(hours=1)
 
 
-def test_ufsobs_create_tasks_use_cycle_windows():
+@pytest.mark.parametrize(
+    "cycle_aware, expected_cycles",
+    [
+        (True, [datetime(2024, 1, 1, 0)]),
+        (False, [datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 6)]),
+    ],
+)
+def test_ufsobs_create_tasks_use_cycle_windows(cycle_aware, expected_cycles):
     time = datetime(2024, 1, 1, 0)
     tolerance = (np.timedelta64(0, "h"), np.timedelta64(4, "h"))
-    expected_cycles = [datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 6)]
     expected_max = datetime(2024, 1, 1, 4)
 
     sources = [
-        (UFSObsConv(time_tolerance=tolerance, cache=False, verbose=False), "t"),
+        (
+            UFSObsConv(
+                time_tolerance=tolerance,
+                cycle_aware=cycle_aware,
+                cache=False,
+                verbose=False,
+            ),
+            "t",
+        ),
         (
             UFSObsSat(
                 time_tolerance=tolerance,
                 satellites=["npp"],
+                cycle_aware=cycle_aware,
                 cache=False,
                 verbose=False,
             ),

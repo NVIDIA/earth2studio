@@ -140,6 +140,8 @@ class NNJAObsConv:
         Time tolerance window for filtering observations. Accepts a single
         value (symmetric ± window) or a tuple ``(lower, upper)`` for
         asymmetric windows, by default ``np.timedelta64(0, 'm')``.
+    cycle_aware : bool, optional
+        Exclude future cycle files relative to the upper tolerance bound, by default True.
     cache : bool, optional
         Cache downloaded files in the local filesystem cache, by default True.
     verbose : bool, optional
@@ -187,6 +189,7 @@ class NNJAObsConv:
         self,
         source: str = "prepbufr",
         time_tolerance: TimeTolerance = np.timedelta64(0, "m"),
+        cycle_aware: bool = True,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
@@ -213,6 +216,7 @@ class NNJAObsConv:
         self._map_acft_profile_report_types = True
         self._verbose = verbose
         self._cache = cache
+        self._cycle_aware = cycle_aware
         self._async_workers = async_workers
         self._decode_workers = max(1, decode_workers)
         self._retries = retries
@@ -330,7 +334,12 @@ class NNJAObsConv:
         self, time_list: list[datetime], variable: list[str]
     ) -> list[NCEPObsTask]:
         return plan_conv_tasks(
-            cycle_windows(time_list, self._tolerance_lower, self._tolerance_upper),
+            cycle_windows(
+                time_list,
+                self._tolerance_lower,
+                self._tolerance_upper,
+                cycle_aware=self._cycle_aware,
+            ),
             variable,
             self.LEXICON,
             self._build_uri,
@@ -463,6 +472,8 @@ class NNJAObsSat:
     satellites : list[str] | None, optional
         Satellite platforms to include. ``None`` includes every platform in
         the requested aggregate files.
+    cycle_aware : bool, optional
+        Exclude future cycle files relative to the upper tolerance bound, by default True.
     cache : bool, optional
         Cache downloaded files in the local filesystem cache, by default True.
     verbose : bool, optional
@@ -515,6 +526,7 @@ class NNJAObsSat:
         self,
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         satellites: list[str] | None = None,
+        cycle_aware: bool = True,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
@@ -535,6 +547,7 @@ class NNJAObsSat:
 
         self._verbose = verbose
         self._cache = cache
+        self._cycle_aware = cycle_aware
         self._async_workers = async_workers
         self._decode_workers = max(1, decode_workers)
         self._retries = retries
@@ -688,7 +701,12 @@ class NNJAObsSat:
                 raise ValueError(f"Invalid NNJA satellite lexicon key: {source_key}")
             variables_by_sensor.setdefault(sensor, {})[variable_name] = source_field
 
-        windows = cycle_windows(time_list, self._tolerance_lower, self._tolerance_upper)
+        windows = cycle_windows(
+            time_list,
+            self._tolerance_lower,
+            self._tolerance_upper,
+            cycle_aware=self._cycle_aware,
+        )
         tasks: list[_NNJASatTask] = []
         for sensor, var_plan in variables_by_sensor.items():
             product = _NNJA_SAT_PRODUCTS[sensor]
