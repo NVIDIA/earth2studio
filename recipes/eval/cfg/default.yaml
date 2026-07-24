@@ -6,7 +6,7 @@
 # ============================================================================
 
 defaults:
-    - model: dlwp
+    - model: ucast
     - _self_
     - optional campaign: null   # e.g. campaign=fcn3_2024_full
 
@@ -36,6 +36,10 @@ start_times:
 #   src.pipelines.forecast.DiagnosticPipeline   — diagnostic-only (e.g. CorrDiff)
 #   src.pipelines.dlesym.DLESyMPipeline         — coupled Earth-system forecast
 #   src.pipelines.stormscope.StormScopePipeline — coupled GOES/MRMS nowcasting
+#   src.pipelines.assimilation.AssimilationPipeline
+#       — DA analysis scored against reanalysis (e.g. HealDA)
+#   src.pipelines.assimilation.AssimilationForecastPipeline
+#       — DA-initialized forecast (e.g. HealDA + FCN3)
 # Custom pipelines: point at your own subclass of src.pipelines.Pipeline.
 pipeline: src.pipelines.forecast.ForecastPipeline
 
@@ -147,6 +151,12 @@ predownload:
         enabled: false
         source: null             # null = merge into data.zarr using data_source
                                  # set explicitly for a separate verification.zarr
+    # DA pipelines only: cache observation DataFrames to
+    # <output.path>/obs_<name>.parquet (one file per analysis time).
+    # main.py automatically prefers these stores over the live obs
+    # sources when present.  Set enabled=false to always fetch live.
+    observations:
+        enabled: true
 
 # ---------------------------------------------------------------------------
 # Scoring — compare predictions against verification data

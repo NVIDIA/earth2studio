@@ -53,15 +53,18 @@ same source)::
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import hydra
 import numpy as np
 import torch
 from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
+from src.data import frame_filename, frame_store_path
 from src.distributed import configure_logging
 from src.output import OutputManager, build_predownload_coords, sentinel_path
-from src.pipelines import PredownloadStore, build_pipeline
+from src.pipelines import PredownloadFrameStore, PredownloadStore, build_pipeline
 from src.predownload_utils import (
     compute_verification_times,
     infer_step_hours,
@@ -75,7 +78,7 @@ from src.work import (
     write_predownload_marker,
 )
 
-from earth2studio.data import fetch_data
+from earth2studio.data import fetch_data, fetch_dataframe
 
 # ---------------------------------------------------------------------------
 # Backward-compatibility re-exports
@@ -160,6 +163,98 @@ def _download_to_store(
 
 
 # ---------------------------------------------------------------------------
+# DataFrame (observation) store download
+# ---------------------------------------------------------------------------
+
+
+def _download_frame_store(
+    cfg: DictConfig,
+    dist: DistributedManager,
+    store: PredownloadFrameStore,
+    overwrite: bool,
+) -> None:
+    """Fetch each analysis time's observation DataFrame and write parquet.
+
+    The tabular counterpart of :func:`_download_store` — same per-rank
+    partitioning, resume filtering, and per-timestamp progress markers,
+    but each timestamp produces one parquet file under
+    ``<output.path>/<name>.parquet/`` instead of a zarr slice.  At
+    inference time :class:`src.data.PredownloadedFrameSource` serves the
+    directory in place of the live observation source.
+    """
+    store_dir = Path(frame_store_path(cfg.output.path, store.name))
+
+    if dist.rank == 0:
+        if overwrite and store_dir.exists():
+            import shutil
+
+            shutil.rmtree(store_dir)
+            logger.info(f"Overwrite: removed existing frame store {store_dir}")
+        store_dir.mkdir(parents=True, exist_ok=True)
+    if dist.distributed:
+        torch.distributed.barrier()
+
+    remaining = filter_predownload_completed(list(store.times), cfg, store.name)
+    my_times = distribute_work(remaining, dist.rank, dist.world_size)
+
+    logger.info(
+        f"Rank {dist.rank}: {store.name} ({store.role}) — "
+        f"{len(my_times)}/{len(remaining)} remaining times "
+        f"({len(store.times)} total), {len(store.variables)} variables"
+    )
+
+    empty_count = 0
+    for t in my_times:
+        logger.info(f"Rank {dist.rank}: fetching {store.name} {t}")
+        df = fetch_dataframe(
+            source=store.source,
+            time=np.array([t], dtype="datetime64[ns]"),
+            variable=np.array(store.variables),
+            fields=np.array(store.fields),
+            device=torch.device("cpu"),
+        )
+        if len(df) == 0:
+            empty_count += 1
+            logger.warning(
+                f"Rank {dist.rank}: {store.name} {t} returned an empty "
+                "frame — storing it anyway (the DA model decides how to "
+                "handle missing observations)."
+            )
+        # fetch_dataframe attaches numpy-array attrs (request_time /
+        # request_lead_time) which parquet can't JSON-serialize; drop
+        # them before writing.  fetch_dataframe re-attaches request_time
+        # when the store is read back at inference time.
+        df.attrs = {}
+        df.to_parquet(store_dir / frame_filename(t))
+        write_predownload_marker(t, cfg, store.name)
+
+    # A few empty frames are normal (archive gaps are tolerated with a
+    # warn-and-skip in the obs sources).  Every frame coming back empty is
+    # not: it almost always means the requested dates fall outside the
+    # observation archive's coverage.  The obs sources no longer raise on
+    # missing files, so surface it loudly here instead — otherwise the run
+    # would proceed to write all-NaN analyses that only reveal themselves
+    # at scoring time.
+    if my_times and empty_count == len(my_times):
+        logger.error(
+            f"Rank {dist.rank}: EVERY fetched frame for {store.name} "
+            f"({empty_count}/{len(my_times)}) was empty. This usually means "
+            "the requested initial-condition dates are outside the "
+            "observation archive's coverage window, or the obs source is "
+            "misconfigured. Downstream analyses will be all-NaN. Verify the "
+            "campaign's start_times against the source's available range."
+        )
+    elif empty_count:
+        logger.warning(
+            f"Rank {dist.rank}: {store.name} — {empty_count}/{len(my_times)} "
+            "fetched frames were empty (tolerated archive gaps); the "
+            "corresponding analyses will use a reduced observation set."
+        )
+
+    logger.success(f"Rank {dist.rank}: {store.name} download complete.")
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -180,17 +275,20 @@ def main(cfg: DictConfig) -> None:
 
     pipeline = build_pipeline(cfg)
     stores = pipeline.predownload_stores(cfg)
+    frame_stores = pipeline.predownload_frame_stores(cfg)
 
-    if not stores:
+    if not stores and not frame_stores:
         logger.info("Pipeline declared no predownload stores — nothing to fetch.")
     else:
+        declared = [f"{s.name} ({s.role})" for s in [*stores, *frame_stores]]
         logger.info(
             f"Pipeline '{type(pipeline).__name__}' declared "
-            f"{len(stores)} predownload store(s): "
-            f"{', '.join(f'{s.name} ({s.role})' for s in stores)}"
+            f"{len(declared)} predownload store(s): {', '.join(declared)}"
         )
         for store in stores:
             _download_store(cfg, dist, store, pd_overwrite)
+        for frame_store in frame_stores:
+            _download_frame_store(cfg, dist, frame_store, pd_overwrite)
 
     # --- Sentinel file ------------------------------------------------------
     if dist.distributed:

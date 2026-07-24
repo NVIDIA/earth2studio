@@ -20,6 +20,7 @@ import asyncio
 import os
 import random
 import tempfile
+import uuid
 from collections import OrderedDict
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -506,6 +507,39 @@ def datasource_cache_root() -> str:
         raise e
 
     return default_cache
+
+
+def datasource_cache_dir(subdir: str, persistent: bool, tmp_hash: str | None) -> str:
+    """Return (and create) a data-source-specific cache directory.
+
+    Provides the standard cache-location logic used by all observation data
+    sources: ``<root>/<subdir>`` for persistent caches, or
+    ``<root>/<subdir>/tmp_<subdir>_<hash>`` for ephemeral per-instance caches.
+
+    Parameters
+    ----------
+    subdir : str
+        Source-specific subdirectory name (e.g. ``"nnja"``, ``"gdas_prepbufr"``).
+    persistent : bool
+        When True the directory is shared across runs (warm cache).  When
+        False a unique temp subdirectory is used.
+    tmp_hash : str | None
+        Per-instance identifier for the temp subdirectory.  When *persistent*
+        is False and this is None, a random hash is generated.  Ignored when
+        *persistent* is True.
+
+    Returns
+    -------
+    str
+        Absolute path to the cache directory (already created).
+    """
+    cache_location = os.path.join(datasource_cache_root(), subdir)
+    if not persistent:
+        if tmp_hash is None:
+            tmp_hash = uuid.uuid4().hex[:8]
+        cache_location = os.path.join(cache_location, f"tmp_{subdir}_{tmp_hash}")
+    os.makedirs(cache_location, exist_ok=True)
+    return cache_location
 
 
 # =============================================================================

@@ -1,0 +1,43 @@
+# HealDA — global data assimilation from sparse conventional + satellite
+# observations (HEALPix level-6 native grid, ERA5-compatible variables).
+#
+# Used with src.pipelines.assimilation.AssimilationPipeline: each work-item
+# time produces one analysis, scored directly against reanalysis.
+#
+# `lat_lon: true` regrids the analysis from HEALPix to a regular lat/lon
+# grid inside the model; `output_resolution: [721, 1440]` matches the
+# ARCO/ERA5 0.25° convention (lat 90..-90, lon 0..359.75) so the analysis
+# can be differenced against the verification store with no regridding.
+#
+# `obs_sources` entries are matched positionally, in declaration order,
+# against the model's input_coords() tuple — (conventional, satellite) for
+# HealDA.  Set `enabled: false` on a slot to pass None (e.g. a sat-only or
+# conv-only ablation).  `time_tolerance_hours: [lo, hi]` is the observation
+# window around each analysis time; [-21, 3] is HealDA's trained default.
+#
+# predownload.py caches each analysis time's observation window to
+# <output.path>/obs_conv.parquet / obs_sat.parquet, which main.py
+# automatically prefers over these live sources.  The per-source cache is
+# therefore OFF (matching the recipe-wide cache policy) — the parquet
+# stores already persist everything a rerun needs.  Flip `cache: true` if
+# you disable obs predownload (predownload.observations.enabled=false)
+# and want live fetches to reuse the raw GSI diag files across reruns.
+da:
+    architecture: earth2studio.models.da.HealDA
+    # Omit package_path to use the default HuggingFace checkpoint.
+    # package_path: /path/to/custom/checkpoint
+    load_args:
+        lat_lon: true
+        output_resolution: [721, 1440]
+    obs_sources:
+        conv:
+            _target_: earth2studio.data.UFSObsConv
+            time_tolerance_hours: [-21, 3]
+            cache: false
+        sat:
+            _target_: earth2studio.data.UFSObsSat
+            time_tolerance_hours: [-21, 3]
+            cache: false
+    # obs_device: cpu       # cpu → pandas obs frames; cuda → cudf (optional dep)
+    # runner:               # optional AssimilationRunner override (stateful
+    #     _target_: ...     # cycling models); default is the stateless runner

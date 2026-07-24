@@ -81,9 +81,12 @@ def latlon_interpolation_regular(
     lat1 = lat1.flatten()
     lon1 = lon1.flatten()
 
-    # Get indices of nearest points
-    latinds = torch.searchsorted(lat0, lat1) - 1
-    loninds = torch.searchsorted(lon0, lon1) - 1
+    # Get indices of nearest points. Clamp into [0, N-2] so the bracketing cell
+    # [ind, ind+1] stays in bounds: an output coord equal to (or below) the first
+    # input coord would otherwise give searchsorted == 0 -> index -1, silently
+    # wrapping to the far edge of the grid.
+    latinds = torch.clamp(torch.searchsorted(lat0, lat1) - 1, 0, lat0.numel() - 2)
+    loninds = torch.clamp(torch.searchsorted(lon0, lon1) - 1, 0, lon0.numel() - 2)
 
     # Get original grid spacing
     dlat = lat0[1] - lat0[0]
