@@ -223,7 +223,19 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 )
 
             p = self.diffusion_model.model_high.model.model.patch_size
-            if (hrrr_lat_lim[0] - FULL_MODEL_HRRR_BBOX[0][0]) % p[0]:
+
+            crop_bbox = (
+                (
+                    hrrr_lat_lim[0] - FULL_MODEL_HRRR_BBOX[0][0],
+                    hrrr_lat_lim[1] - FULL_MODEL_HRRR_BBOX[0][0],
+                ),
+                (
+                    hrrr_lon_lim[0] - FULL_MODEL_HRRR_BBOX[1][0],
+                    hrrr_lon_lim[1] - FULL_MODEL_HRRR_BBOX[1][0],
+                ),
+            )
+
+            if crop_bbox[0][0] % p[0]:
                 raise ValueError(
                     f"hrrr_lat_lim[0] - {FULL_MODEL_HRRR_BBOX[0]} must be divisible by {p[0]}"
                 )
@@ -231,7 +243,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 raise ValueError(
                     f"hrrr_lat_lim[1] - hrrr_lat_lim[0] must be divisible by {p[0]}"
                 )
-            if (hrrr_lon_lim[0] - FULL_MODEL_HRRR_BBOX[1][0]) % p[1]:
+            if crop_bbox[1][0] % p[1]:
                 raise ValueError(
                     f"hrrr_lon_lim[0] - {FULL_MODEL_HRRR_BBOX[1]} must be divisible by {p[1]}"
                 )
@@ -240,7 +252,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     f"hrrr_lon_lim[1] - hrrr_lon_lim[0] must be divisible by {p[1]}"
                 )
 
-            self.diffusion_model.crop_model((hrrr_lat_lim, hrrr_lon_lim))
+            self.diffusion_model.crop_model(crop_bbox)
 
         hrrr_lat, hrrr_lon = HRRR.grid()
         self.lat = hrrr_lat[
@@ -976,8 +988,8 @@ class _SplitModelWrapper(torch.nn.Module):
         Parameters
         ----------
         bbox : tuple[tuple[int, int], tuple[int, int]]
-            ``((lat_start, lat_end), (lon_start, lon_end))`` indices on the full
-            HRRR grid. Bounds must align with the patch size of ``model_high``.
+            ``((lat_start, lat_end), (lon_start, lon_end))`` indices on the model
+            grid (not the full HRRR grid). Bounds must align with the DiT patch size.
         """
         self.grid_shape = (bbox[0][1] - bbox[0][0], bbox[1][1] - bbox[1][0])
         p = self.model_high.model.model.patch_size
