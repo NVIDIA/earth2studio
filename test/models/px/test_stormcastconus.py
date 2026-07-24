@@ -37,17 +37,48 @@ NVAR = 4  # must include "refc" – it is always indexed in __init__
 NVAR_COND = 5
 
 
+class _Tokenizer(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.pos_embed = torch.nn.Parameter(
+            torch.arange(16, dtype=torch.float32).reshape(16, 1)
+        )
+        self.input_size = (32, 32)
+        self.h_patches = 4
+        self.w_patches = 4
+
+
+class _Detokenizer:
+    def __init__(self):
+        self.input_size = (32, 32)
+        self.h_patches = 4
+        self.w_patches = 4
+
+
 class _PatchConfig:
-    patch_size = (8, 8)
+    def __init__(self):
+        self.patch_size = (8, 8)
+        self.input_size = (32, 32)
+        self.tokenizer = _Tokenizer()
+        self.detokenizer = _Detokenizer()
+
+
+class _InnerModel:
+    def __init__(self):
+        self.model = _PatchConfig()
+
+
+class _DiffusionSubmodel:
+    def __init__(self):
+        self.model = _InnerModel()
 
 
 class PhooStormCastCONUSDiffusionModel(_SplitModelWrapper):
     """Minimal diffusion model stub for StormCastCONUS unit tests.
 
     Subclasses :class:`_SplitModelWrapper` so that it passes the ``isinstance``
-    check in ``StormCastCONUS.__init__``.  Skips the real ``__init__`` and
-    exposes ``model_high.model.model.patch_size`` as required by the crop_model
-    path.  ``crop_model`` is a no-op.
+    check in ``StormCastCONUS.__init__``. Skips the real ``__init__`` but
+    provides the model structure used by ``_SplitModelWrapper.crop_model``.
     The forward pass returns the (unchanged) noisy input so the diffusion
     sampler converges trivially.
     """
@@ -56,12 +87,22 @@ class PhooStormCastCONUSDiffusionModel(_SplitModelWrapper):
         # Skip _SplitModelWrapper.__init__; only call torch.nn.Module.__init__
         torch.nn.Module.__init__(self)
         self._nvar = nvar
-        dit = _PatchConfig()
-        inner = type("_Inner", (), {"model": dit})()
-        self.model_high = type("_High", (), {"model": inner})()
-
-    def crop_model(self, bbox: tuple) -> None:
-        pass
+        self.model_high = _DiffusionSubmodel()
+        self.model_pz_low = _DiffusionSubmodel()
+        self.model_tq_low = _DiffusionSubmodel()
+        self.model_uv_low = _DiffusionSubmodel()
+        self.models = {
+            "high": self.model_high,
+            "pz_low": self.model_pz_low,
+            "tq_low": self.model_tq_low,
+            "uv_low": self.model_uv_low,
+        }
+        self.full_grid_shape = (32, 32)
+        self.grid_shape = self.full_grid_shape
+        self.pos_embed_full = {
+            key: model.model.model.tokenizer.pos_embed
+            for key, model in self.models.items()
+        }
 
     def forward(
         self, x: torch.Tensor, t: torch.Tensor, condition=None, **kwargs
@@ -111,6 +152,25 @@ def _build_model(
         use_amp=use_amp,
         clamp_values=clamp_values,
     ).to(device)
+
+
+def test_stormcastconus_crop_uses_model_region_coordinates():
+    model = _build_model()
+    diffusion_model = model.diffusion_model
+
+    assert isinstance(diffusion_model, PhooStormCastCONUSDiffusionModel)
+    expected_pos_embed = torch.tensor([[0.0], [1.0], [4.0], [5.0]])
+    assert diffusion_model.grid_shape == (16, 16)
+    for submodel in diffusion_model.models.values():
+        dit = submodel.model.model
+        assert dit.input_size == (16, 16)
+        assert dit.tokenizer.input_size == (16, 16)
+        assert dit.tokenizer.h_patches == 2
+        assert dit.tokenizer.w_patches == 2
+        assert torch.equal(dit.tokenizer.pos_embed, expected_pos_embed)
+        assert dit.detokenizer.input_size == (16, 16)
+        assert dit.detokenizer.h_patches == 2
+        assert dit.detokenizer.w_patches == 2
 
 
 @pytest.mark.parametrize(
