@@ -17,6 +17,7 @@
 import pathlib
 import shutil
 from datetime import datetime
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -266,3 +267,40 @@ def test_jpss_available_invalid_parameters(
         JPSS.available(
             time, variable=variable, satellite=satellite, product_type=product_type
         )
+
+
+@pytest.mark.timeout(15)
+@pytest.mark.parametrize(
+    "scale_factor,add_offset,raw,expected",
+    [
+        (0.005, 200.0, 19292.0, 296.46),  # typical LST pixel
+        (0.005, 200.0, np.nan, np.nan),  # fill value already NaN-masked
+        (1.0, 0.0, 42.0, 42.0),  # identity scaling
+        (None, None, 42.0, 42.0),  # no attrs — passthrough
+        (2.0, None, 3.0, 6.0),  # scale only
+        (None, 10.0, 3.0, 13.0),  # offset only
+    ],
+)
+def test_jpss_cf_scaling(scale_factor, add_offset, raw, expected):
+    """Verify _apply_cf_scaling preserves float32 dtype and applies the linear transform."""
+
+    data = np.array([[raw]], dtype=np.float32)
+
+    dataset = MagicMock()
+    dataset.attrs.get = lambda key, default=None: (
+        np.array([scale_factor])
+        if key == "scale_factor" and scale_factor is not None
+        else (
+            np.array([add_offset])
+            if key == "add_offset" and add_offset is not None
+            else default
+        )
+    )
+
+    result = JPSS._apply_cf_scaling(data, dataset)
+
+    assert result.dtype == np.float32, f"Expected float32, got {result.dtype}"
+    if np.isnan(expected):
+        assert np.isnan(result[0, 0])
+    else:
+        assert result[0, 0] == pytest.approx(expected, rel=1e-5)

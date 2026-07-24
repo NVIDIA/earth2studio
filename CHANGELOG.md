@@ -85,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved ACE2ERA5 inference performance by caching yearly forcing values
 - Fixed ACE2ERA5 forcing data retrieval for static variables requested across
   multiple times.
+- Added CF-convention scale/offset when retrieving JPSS data.
 
 ### Security
 
