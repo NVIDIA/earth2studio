@@ -112,6 +112,7 @@ else:
 model = StormScopeMeteosatEU.load_model(package=package)
 model = model.to(device)
 model.eval()
+model.compile_model()
 
 # %%
 # Set Up Data Source
