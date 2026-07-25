@@ -35,7 +35,7 @@ To create a local development environment with a git repo and uv:
 2. To install the base, developer, documentation dependencies, use:
 
     ```bash
-    uv sync --group={docs}
+    uv sync --group docs
     ```
 
 :::{note}
