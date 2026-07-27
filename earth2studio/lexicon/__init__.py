@@ -22,6 +22,7 @@ from .cds import CDSLexicon
 from .cfs import CFSFluxLexicon, CFSLexicon
 from .cmip6 import CMIP6Lexicon
 from .cosmo import CosmoLexicon
+from .dwd_synop_reports import DWDSynopReportsLexicon
 from .dynamical import DynamicalLexicon
 from .earthmover import (
     EarthMoverERA5Lexicon,

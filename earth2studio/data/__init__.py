@@ -24,6 +24,7 @@ from .cfs import CFS_FX, CFS_FX_Flux
 from .cfs_reforecast import CFS_Reforecast_FX, CFS_Reforecast_FX_Flux
 from .cmip6 import CMIP6, CMIP6MultiRealm
 from .const import Constant, Constant_FX
+from .dwd_synop_reports import DWDSynopReports
 from .dynamical import (
     DynamicalAIFS,
     DynamicalAIFS_ENS,

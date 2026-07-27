@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added DWD live SYNOP observation data source (`DWDSynopReports`) reading WMO
+  BUFR from the DWD Open Data `weather_reports/synoptic` `germany` and worldwide
+  `international` feeds
+
 ### Changed
 
 ### Deprecated
