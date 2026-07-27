@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+ci:
+    skip: [uv-lock]
+
 repos:
 -   repo: https://github.com/psf/black
     rev: 24.1.0

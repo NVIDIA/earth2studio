@@ -53,6 +53,9 @@ jobs:
           restore-keys: |
             e2s-uv-ghcr-0.1-${{ runner.os }}-
 
+      - name: Check uv lockfile
+        run: uv lock --check
+
       - name: Set up environment
         run: uv sync
 
