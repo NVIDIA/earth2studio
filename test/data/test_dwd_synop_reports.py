@@ -762,6 +762,61 @@ def test_dwd_synop_reports_available():
     assert DWDSynopReports.available(np.datetime64("12000-01-01")) is False
 
 
+@pytest.mark.timeout(15)
+def test_dwd_synop_reports_timezone_aware_request(tmp_path, monkeypatch):
+    # A tz-aware request time must fetch like the equivalent naive UTC time
+    # (prep_data_inputs normalizes it to naive UTC), and must not raise on the
+    # aware-vs-naive comparison against bulletin/observation times.
+    monkeypatch.setattr(
+        "earth2studio.data.dwd_synop_reports.datasource_cache_root",
+        lambda: str(tmp_path),
+    )
+    t_utc = datetime.now(timezone.utc).replace(
+        minute=0, second=0, microsecond=0
+    ) - timedelta(hours=2)
+    t_naive = t_utc.replace(tzinfo=None)  # naive UTC used for bulletin/obs times
+    # Same instant expressed in a non-UTC zone: exercises the UTC conversion, not
+    # just tzinfo stripping.
+    t_aware = t_utc.astimezone(timezone(timedelta(hours=-5)))
+    bulletin = t_naive - timedelta(minutes=10)
+    fname = f"{mod.GERMANY_URL}Z__C_EDZW_{bulletin:%Y%m%d%H%M%S}_synop.bin"
+
+    class _FS:
+        async def _ls(self, path, detail=False):
+            return [fname]
+
+        async def _cat_file(self, url):
+            return b"BUFR\x00\x00payload"
+
+    raw = pd.DataFrame(
+        {
+            "latitude": [52.0],
+            "longitude": [13.0],
+            "heightOfStationGroundAboveMeanSeaLevel": [50.0],
+            "blockNumber": [10.0],
+            "stationNumber": [385.0],
+            "stationOrSiteName": ["BERLIN"],
+            "year": [t_naive.year],
+            "month": [t_naive.month],
+            "day": [t_naive.day],
+            "hour": [t_naive.hour],
+            "minute": [0.0],
+            "airTemperature": [290.0],
+            "dewpointTemperature": [285.0],
+            "windSpeed": [3.0],
+            "windDirection": [180.0],
+            "pressureReducedToMeanSeaLevel": [101500.0],
+        }
+    )
+    monkeypatch.setattr(mod.pdbufr, "read_bufr", lambda *a, **k: raw)
+
+    ds = DWDSynopReports(time_tolerance=timedelta(minutes=45), verbose=False)
+    ds.fs = _FS()
+    df = ds(t_aware, "t2m")  # non-UTC tz-aware input must normalize to naive UTC
+    assert set(df["station"]) == {"10385"}
+    assert np.isclose(df.set_index("variable")["observation"]["t2m"], 290.0)
+
+
 # ======================================================================
 # 6. resolve_fields and service-failure handling
 # ======================================================================
