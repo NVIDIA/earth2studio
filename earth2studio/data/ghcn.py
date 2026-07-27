@@ -274,31 +274,21 @@ class _GHCNBase:
     def _validate_time(cls, times: list[datetime]) -> None: ...
 
     @classmethod
+    @abstractmethod
     def get_station_metadata(cls) -> pd.DataFrame:
-        """Fetch and cache the GHCN station metadata file from the GHCN-Daily S3 bucket.
+        """Fetch and cache the station metadata for this source.
 
-        Both GHCNDaily and GHCNHourly use the same 11-character GHCN station ID
-        format (e.g. ``USW00013874``), sourced from ``ghcnd-stations.txt``.
+        GHCNDaily and GHCNHourly publish separate station lists in different
+        formats, so each subclass implements this method independently. The
+        returned frame must include at least ``ID``, ``LAT`` and ``LON`` columns,
+        which :py:meth:`get_stations_bbox` relies on.
 
         Returns
         -------
         pd.DataFrame
-            Station metadata with columns: ID, LAT, LON, ELEV, STATE, NAME, GSN,
-            HCN, WMO
+            Station metadata including ``ID``, ``LAT`` and ``LON`` columns.
         """
-        cache_dir = os.path.join(datasource_cache_root(), cls._CACHE_DIR)
-        os.makedirs(cache_dir, exist_ok=True)
-        stations_file = os.path.join(cache_dir, "ghcnd-stations.txt")
-
-        if not os.path.isfile(stations_file):
-            fs = s3fs.S3FileSystem(anon=True)
-            fs.get("s3://noaa-ghcn-pds/ghcnd-stations.txt", stations_file)
-
-        return pd.read_fwf(
-            stations_file,
-            widths=[11, 9, 10, 7, 3, 31, 4, 4, 6],
-            names=["ID", "LAT", "LON", "ELEV", "STATE", "NAME", "GSN", "HCN", "WMO"],
-        )
+        ...
 
     @classmethod
     def get_stations_bbox(
@@ -412,6 +402,32 @@ class GHCNDaily(_GHCNBase):
         ]
     )
     _S3_BUCKET = "noaa-ghcn-pds"
+
+    @classmethod
+    def get_station_metadata(cls) -> pd.DataFrame:
+        """Fetch and cache the GHCN-Daily station list from the GHCN-Daily S3 bucket.
+
+        Reads the fixed-width ``ghcnd-stations.txt`` list.
+
+        Returns
+        -------
+        pd.DataFrame
+            Station metadata with columns: ID, LAT, LON, ELEV, STATE, NAME, GSN,
+            HCN, WMO
+        """
+        cache_dir = os.path.join(datasource_cache_root(), cls._CACHE_DIR)
+        os.makedirs(cache_dir, exist_ok=True)
+        stations_file = os.path.join(cache_dir, "ghcnd-stations.txt")
+
+        if not os.path.isfile(stations_file):
+            fs = s3fs.S3FileSystem(anon=True)
+            fs.get("s3://noaa-ghcn-pds/ghcnd-stations.txt", stations_file)
+
+        return pd.read_fwf(
+            stations_file,
+            widths=[11, 9, 10, 7, 3, 31, 4, 4, 6],
+            names=["ID", "LAT", "LON", "ELEV", "STATE", "NAME", "GSN", "HCN", "WMO"],
+        )
 
     def __init__(
         self,
@@ -795,7 +811,7 @@ class GHCNHourly(_GHCNBase):
     To help get a list of possible station IDs, this class includes
     :py:meth:`GHCNHourly.get_stations_bbox` which accepts a lat-lon bounding box and
     will return known station IDs. For more information on the stations, users
-    should consult the ``ghcnd-stations.txt`` file accessible via
+    should consult the ``ghcnh-station-list.csv`` file accessible via
     :py:meth:`GHCNHourly.get_station_metadata`.
 
     Note
@@ -880,6 +896,48 @@ class GHCNHourly(_GHCNBase):
             pa.field("variable", pa.string()),
         ]
     )
+
+    @classmethod
+    def get_station_metadata(cls) -> pd.DataFrame:
+        """Fetch and cache the GHCNh station list.
+
+        Reads the CSV ``ghcnh-station-list.csv`` list. This is distinct from the
+        GHCN-Daily ``ghcnd-stations.txt`` list, which does not describe which
+        stations are available in GHCNh and can return IDs without hourly files.
+        The CSV carries the same descriptive columns as the daily list plus
+        ``ICAO`` and ``ISO_CODE``; column names are normalized to match
+        :py:meth:`GHCNDaily.get_station_metadata`.
+
+        Returns
+        -------
+        pd.DataFrame
+            Station metadata with columns: ID, LAT, LON, ELEV, STATE, NAME, GSN,
+            HCN, WMO, ICAO, ISO_CODE
+        """
+        cache_dir = os.path.join(datasource_cache_root(), cls._CACHE_DIR)
+        os.makedirs(cache_dir, exist_ok=True)
+        stations_file = os.path.join(cache_dir, "ghcnh-station-list.csv")
+
+        if not os.path.isfile(stations_file):
+            fs = fsspec.filesystem("https")
+            fs.get(
+                "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/"
+                "hourly/doc/ghcnh-station-list.csv",
+                stations_file,
+            )
+
+        # Normalize to the daily list's column names (ID/LAT/LON/... used by
+        # get_stations_bbox); ICAO and ISO_CODE are kept as-is.
+        return pd.read_csv(stations_file, dtype=str).rename(
+            columns={
+                "GHCN_ID": "ID",
+                "LATITUDE": "LAT",
+                "LONGITUDE": "LON",
+                "ELEVATION": "ELEV",
+                "(US)HCN_(US)CRN": "HCN",
+                "WMO_ID": "WMO",
+            }
+        )
 
     def __init__(
         self,
