@@ -351,6 +351,7 @@ override-dependencies = []
 [[tool.uv.index]]
 name = "ort-cuda-13-nightly"
 url = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/"
+explicit = true
 
 [tool.uv.extra-build-dependencies]
 earth2grid = ["setuptools", "torch"]
