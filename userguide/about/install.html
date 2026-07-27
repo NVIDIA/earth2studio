@@ -1167,12 +1167,15 @@ uv</label><div class="sd-tab-content docutils">
 <input id="sd-tab-item-13" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-13">
 GraphCast</label><div class="sd-tab-content docutils">
-<p>Notes: The GraphCast models (operational and small) require additional dependencies for JAX and Haiku.</p>
+<p>Notes: The GraphCast models (operational and small) require additional dependencies
+for JAX and Haiku. The GraphCast package must be installed from the Google DeepMind
+repository.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-47" name="sd-tab-set-14" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-47">
 pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>graphcast<span class="o">]</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;graphcast @ git+https://github.com/google-deepmind/graphcast.git@7077d40a36db6541e3ed72ccaed1c0d202fa6014&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;earth2studio[graphcast]&quot;</span>
 </pre></div>
 </div>
 </div>
