@@ -20,6 +20,7 @@ Data sources that provide tabular data as DataFrames.
       :toctree: generated/data/
       :template: datasource.rst
 
+      data.DWDSynopReports
       data.GHCNDaily
       data.GHCNHourly
       data.GOESGLM
