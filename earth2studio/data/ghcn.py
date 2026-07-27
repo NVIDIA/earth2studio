@@ -839,10 +839,6 @@ class GHCNHourly(_GHCNBase):
 
     SOURCE_ID = "earth2studio.data.ghcn_hourly"
     BASE_URL = "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access"
-    STATION_LIST_URL = (
-        "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/"
-        "hourly/doc/ghcnh-station-list.csv"
-    )
     _CACHE_DIR = "ghcnh"
     _SCHEMA_META_KEY = b"ghcnh_name"
 
@@ -908,12 +904,15 @@ class GHCNHourly(_GHCNBase):
         Reads the CSV ``ghcnh-station-list.csv`` list. This is distinct from the
         GHCN-Daily ``ghcnd-stations.txt`` list, which does not describe which
         stations are available in GHCNh and can return IDs without hourly files.
+        The CSV carries the same descriptive columns as the daily list plus
+        ``ICAO`` and ``ISO_CODE``; column names are normalized to match
+        :py:meth:`GHCNDaily.get_station_metadata`.
 
         Returns
         -------
         pd.DataFrame
-            Station metadata with columns: ID, LAT, LON, ELEV, STATE, NAME,
-            WMO, ICAO, ISO_CODE (and any other GHCNh station-list columns).
+            Station metadata with columns: ID, LAT, LON, ELEV, STATE, NAME, GSN,
+            HCN, WMO, ICAO, ISO_CODE
         """
         cache_dir = os.path.join(datasource_cache_root(), cls._CACHE_DIR)
         os.makedirs(cache_dir, exist_ok=True)
@@ -921,15 +920,21 @@ class GHCNHourly(_GHCNBase):
 
         if not os.path.isfile(stations_file):
             fs = fsspec.filesystem("https")
-            fs.get(cls.STATION_LIST_URL, stations_file)
+            fs.get(
+                "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/"
+                "hourly/doc/ghcnh-station-list.csv",
+                stations_file,
+            )
 
-        # Normalize to the column names get_stations_bbox() expects (ID/LAT/LON).
+        # Normalize to the daily list's column names (ID/LAT/LON/... used by
+        # get_stations_bbox); ICAO and ISO_CODE are kept as-is.
         return pd.read_csv(stations_file, dtype=str).rename(
             columns={
                 "GHCN_ID": "ID",
                 "LATITUDE": "LAT",
                 "LONGITUDE": "LON",
                 "ELEVATION": "ELEV",
+                "(US)HCN_(US)CRN": "HCN",
                 "WMO_ID": "WMO",
             }
         )
