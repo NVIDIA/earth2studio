@@ -402,8 +402,8 @@ repository.
 :::{tab-item} pip
 
 ```bash
-pip install "earth2studio[graphcast]" \
-  "graphcast @ git+https://github.com/google-deepmind/graphcast.git@7077d40a36db6541e3ed72ccaed1c0d202fa6014"
+pip install "graphcast @ git+https://github.com/google-deepmind/graphcast.git@7077d40a36db6541e3ed72ccaed1c0d202fa6014"
+pip install "earth2studio[graphcast]"
 ```
 
 :::
