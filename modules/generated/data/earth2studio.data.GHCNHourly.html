@@ -792,7 +792,7 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">retries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ghcn.py#L759-L1146"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GHCNHourly" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ghcn.py#L775-L1204"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GHCNHourly" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:observation" style="background-color:#15803d;color:#fff;" title="Direct Observations"><i class="fa-solid fa-binoculars"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:wind" style="background-color:#4dabf7;color:#fff;" title="Surface Winds"><i class="fa-solid fa-wind"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:precip" style="background-color:#339af0;color:#fff;" title="Surface Precipitation"><i class="fa-solid fa-cloud-rain"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:temp" style="background-color:#fd7e14;color:#fff;" title="Surface Temperature"><i class="fa-solid fa-temperature-half"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:insitu" style="background-color:#2f9e44;color:#fff;" title="In-Situ Observations"><i class="fa-solid fa-tower-observation"></i></span></span><p>NOAA’s Global Historical Climatology Network Hourly (GHCNh) is a global
 database of hourly surface observations that supersedes the Integrated Surface
 Database (ISD). It compiles observations from thousands of stations worldwide
@@ -826,7 +826,7 @@ data to your local machine for large requests.</p>
 <p>To help get a list of possible station IDs, this class includes
 <code class="xref py py-meth docutils literal notranslate"><span class="pre">GHCNHourly.get_stations_bbox()</span></code> which accepts a lat-lon bounding box and
 will return known station IDs. For more information on the stations, users
-should consult the <code class="docutils literal notranslate"><span class="pre">ghcnd-stations.txt</span></code> file accessible via
+should consult the <code class="docutils literal notranslate"><span class="pre">ghcnh-station-list.csv</span></code> file accessible via
 <code class="xref py py-meth docutils literal notranslate"><span class="pre">GHCNHourly.get_station_metadata()</span></code>.</p>
 </div>
 <div class="admonition note">
@@ -868,7 +868,7 @@ to return.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.GHCNHourly.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ghcn.py#L917-L1026"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GHCNHourly.fetch" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ghcn.py#L975-L1084"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GHCNHourly.fetch" title="Link to this definition">#</a></dt>
 <dd><p>Async function to get data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
