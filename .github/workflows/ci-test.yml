@@ -253,16 +253,6 @@ jobs:
           path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
           key: e2s-model-ghcr-0.1-${{ runner.os }}-main
 
-      - name: Save testmon cache
-        if: >
-          always() &&
-          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-        uses: actions/cache/save@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.TESTMON_CACHE }}
-          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-test-main-${{ github.run_id }}-${{ github.run_attempt }}
-
   test-px-models:
     name: Test prognostic models
     if: needs.changes.outputs.px_models == 'true'
@@ -334,13 +324,3 @@ jobs:
         with:
           path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
           key: e2s-model-ghcr-0.1-${{ runner.os }}-main
-
-      - name: Save testmon cache
-        if: >
-          always() &&
-          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-        uses: actions/cache/save@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.TESTMON_CACHE }}
-          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-test-px-models-main-${{ github.run_id }}-${{ github.run_attempt }}
