@@ -37,6 +37,43 @@ env:
   UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      px_models: ${{ steps.filter.outputs.px_models }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check prognostic model changes
+        id: filter
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "px_models=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+            base="${{ github.event.before }}"
+            if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
+              base="HEAD^"
+            fi
+            git diff --name-only "$base" "$GITHUB_SHA" > changed-files.txt
+          else
+            git fetch origin main
+            git diff --name-only origin/main...HEAD > changed-files.txt
+          fi
+
+          cat changed-files.txt
+          if grep -qE "^(earth2studio/models/px/|test/models/px/)" changed-files.txt; then
+            echo "px_models=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "px_models=false" >> "$GITHUB_OUTPUT"
+          fi
+
   setup-env:
     name: Set up environment
     runs-on: linux-amd64-cpu8
@@ -158,6 +195,68 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     env:
       TOX_ENV: test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Restore uv cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: e2s-uv-ghcr-0.1-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            e2s-uv-ghcr-0.1-${{ runner.os }}-
+
+      - name: Restore model cache
+        id: model-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-ghcr-0.1-${{ runner.os }}-main
+          restore-keys: |
+            e2s-model-ghcr-0.1-${{ runner.os }}-
+
+      - name: Show GPU information
+        run: nvidia-smi
+
+      - name: Set up environment
+        run: uv sync
+
+      - name: Run tests
+        run: make pytest-ci
+
+      - name: Save model cache
+        if: >
+          always() &&
+          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+          steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-ghcr-0.1-${{ runner.os }}-main
+
+  test-px-models:
+    name: Test prognostic models
+    if: needs.changes.outputs.px_models == 'true'
+    needs:
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      options: --shm-size=2g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      TOX_ENV: test-px-models
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
