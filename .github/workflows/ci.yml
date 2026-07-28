@@ -27,7 +27,12 @@ permissions:
   contents: read
   packages: read
 
+defaults:
+  run:
+    shell: bash
+
 env:
+  TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
   UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
 
 jobs:
@@ -41,7 +46,10 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Restore uv cache
         id: uv-cache
@@ -80,7 +88,10 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Restore uv cache
         uses: actions/cache/restore@v5
@@ -108,7 +119,10 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Restore uv cache
         uses: actions/cache/restore@v5
@@ -130,3 +144,37 @@ jobs:
 
       - name: Check license headers
         run: make license
+
+  test:
+    name: Test
+    needs: lint
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      options: --shm-size=2g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      TOX_ENV: test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Restore uv cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: e2s-uv-ghcr-0.1-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            e2s-uv-ghcr-0.1-${{ runner.os }}-
+
+      - name: Set up environment
+        run: uv sync
+
+      - name: Run tests
+        run: make pytest-ci
