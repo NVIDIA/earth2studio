@@ -44,8 +44,13 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
+      data: ${{ steps.filter.outputs.data }}
+      perturb: ${{ steps.filter.outputs.perturb }}
+      stats: ${{ steps.filter.outputs.stats }}
       px_models: ${{ steps.filter.outputs.px_models }}
       dx_models: ${{ steps.filter.outputs.dx_models }}
+      da_models: ${{ steps.filter.outputs.da_models }}
+      serve: ${{ steps.filter.outputs.serve }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -56,8 +61,13 @@ jobs:
         id: filter
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "data=true" >> "$GITHUB_OUTPUT"
+            echo "perturb=true" >> "$GITHUB_OUTPUT"
+            echo "stats=true" >> "$GITHUB_OUTPUT"
             echo "px_models=true" >> "$GITHUB_OUTPUT"
             echo "dx_models=true" >> "$GITHUB_OUTPUT"
+            echo "da_models=true" >> "$GITHUB_OUTPUT"
+            echo "serve=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -73,6 +83,24 @@ jobs:
           fi
 
           cat changed-files.txt
+          if grep -qE "^(earth2studio/data/|earth2studio/lexicon/|test/data/|test/lexicon/)" changed-files.txt; then
+            echo "data=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "data=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if grep -qE "^(earth2studio/perturbation/|test/perturbation/)" changed-files.txt; then
+            echo "perturb=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "perturb=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if grep -qE "^(earth2studio/statistics/|test/statistics/|earth2studio/utils/interp.py|test/utils/test_interp.py)" changed-files.txt; then
+            echo "stats=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "stats=false" >> "$GITHUB_OUTPUT"
+          fi
+
           if grep -qE "^(earth2studio/models/px/|test/models/px/)" changed-files.txt; then
             echo "px_models=true" >> "$GITHUB_OUTPUT"
           else
@@ -83,6 +111,18 @@ jobs:
             echo "dx_models=true" >> "$GITHUB_OUTPUT"
           else
             echo "dx_models=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if grep -qE "^(earth2studio/models/da/|test/models/da/)" changed-files.txt; then
+            echo "da_models=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "da_models=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if grep -qE "^(earth2studio/serve/|test/serve/|serve/)" changed-files.txt; then
+            echo "serve=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "serve=false" >> "$GITHUB_OUTPUT"
           fi
 
   setup-env:
@@ -442,3 +482,507 @@ jobs:
         with:
           path: ${{ env.TESTMON_CACHE }}
           key: e2s-testmon-test-dx-models-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}
+
+  test-data:
+    name: Test data sources
+    if: needs.changes.outputs.data == 'true'
+    needs:
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      options: --shm-size=2g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      TOX_ENV: test-data
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Restore uv cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            e2s-uv-${{ runner.os }}-
+
+      - name: Restore model cache
+        id: model-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-${{ runner.os }}-main
+          restore-keys: |
+            e2s-model-${{ runner.os }}-
+
+      - name: Restore testmon cache
+        id: testmon-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-test-data-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            e2s-testmon-test-data-${{ runner.os }}-main-
+
+      - name: Prepare CI directories
+        run: python3 test/_ci/prepare_ci_paths.py
+
+      - name: Show GPU information
+        run: nvidia-smi
+
+      - name: Set up environment
+        run: uv sync
+
+      - name: Run tests
+        run: make pytest-ci
+
+      - name: Save model cache
+        if: >
+          always() &&
+          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+          steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-${{ runner.os }}-main
+
+      - name: Save testmon cache
+        if: >
+          always() &&
+          github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-test-data-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}
+
+  test-perturb:
+    name: Test perturbation methods
+    if: needs.changes.outputs.perturb == 'true'
+    needs:
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      options: --shm-size=2g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      TOX_ENV: test-perturb
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Restore uv cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            e2s-uv-${{ runner.os }}-
+
+      - name: Restore model cache
+        id: model-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-${{ runner.os }}-main
+          restore-keys: |
+            e2s-model-${{ runner.os }}-
+
+      - name: Restore testmon cache
+        id: testmon-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-test-perturb-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            e2s-testmon-test-perturb-${{ runner.os }}-main-
+
+      - name: Prepare CI directories
+        run: python3 test/_ci/prepare_ci_paths.py
+
+      - name: Show GPU information
+        run: nvidia-smi
+
+      - name: Set up environment
+        run: uv sync
+
+      - name: Run tests
+        run: make pytest-ci
+
+      - name: Save model cache
+        if: >
+          always() &&
+          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+          steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-${{ runner.os }}-main
+
+      - name: Save testmon cache
+        if: >
+          always() &&
+          github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-test-perturb-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}
+
+  test-stats:
+    name: Test statistics and metrics
+    if: needs.changes.outputs.stats == 'true'
+    needs:
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      options: --shm-size=2g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      TOX_ENV: test-stats
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Restore uv cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            e2s-uv-${{ runner.os }}-
+
+      - name: Restore model cache
+        id: model-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-${{ runner.os }}-main
+          restore-keys: |
+            e2s-model-${{ runner.os }}-
+
+      - name: Restore testmon cache
+        id: testmon-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-test-stats-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            e2s-testmon-test-stats-${{ runner.os }}-main-
+
+      - name: Prepare CI directories
+        run: python3 test/_ci/prepare_ci_paths.py
+
+      - name: Show GPU information
+        run: nvidia-smi
+
+      - name: Set up environment
+        run: uv sync
+
+      - name: Run tests
+        run: make pytest-ci
+
+      - name: Save model cache
+        if: >
+          always() &&
+          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+          steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-${{ runner.os }}-main
+
+      - name: Save testmon cache
+        if: >
+          always() &&
+          github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-test-stats-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}
+
+  test-da-models:
+    name: Test data assimilation models
+    if: needs.changes.outputs.da_models == 'true'
+    needs:
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      options: --shm-size=2g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      TOX_ENV: test-da-models
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Restore uv cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            e2s-uv-${{ runner.os }}-
+
+      - name: Restore model cache
+        id: model-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-${{ runner.os }}-main
+          restore-keys: |
+            e2s-model-${{ runner.os }}-
+
+      - name: Restore testmon cache
+        id: testmon-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-test-da-models-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            e2s-testmon-test-da-models-${{ runner.os }}-main-
+
+      - name: Prepare CI directories
+        run: python3 test/_ci/prepare_ci_paths.py
+
+      - name: Show GPU information
+        run: nvidia-smi
+
+      - name: Set up environment
+        run: uv sync
+
+      - name: Run tests
+        run: make pytest-ci
+
+      - name: Save model cache
+        if: >
+          always() &&
+          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+          steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-${{ runner.os }}-main
+
+      - name: Save testmon cache
+        if: >
+          always() &&
+          github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-test-da-models-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}
+
+  test-px-models-conflicts:
+    name: Test model conflict environments
+    if: needs.changes.outputs.px_models == 'true'
+    needs:
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      options: --shm-size=2g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      TOX_ENV: test-px-models-conflicts
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Restore uv cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            e2s-uv-${{ runner.os }}-
+
+      - name: Restore model cache
+        id: model-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-${{ runner.os }}-main
+          restore-keys: |
+            e2s-model-${{ runner.os }}-
+
+      - name: Restore testmon cache
+        id: testmon-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-test-px-models-conflicts-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            e2s-testmon-test-px-models-conflicts-${{ runner.os }}-main-
+
+      - name: Prepare CI directories
+        run: python3 test/_ci/prepare_ci_paths.py
+
+      - name: Show GPU information
+        run: nvidia-smi
+
+      - name: Set up environment
+        run: uv sync
+
+      - name: Run tests
+        run: make pytest-ci
+
+      - name: Save model cache
+        if: >
+          always() &&
+          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+          steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-${{ runner.os }}-main
+
+      - name: Save testmon cache
+        if: >
+          always() &&
+          github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-test-px-models-conflicts-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}
+
+  test-serve:
+    name: Test serve
+    if: needs.changes.outputs.serve == 'true'
+    needs:
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      options: --shm-size=2g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      TOX_ENV: test-serve
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Restore uv cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            e2s-uv-${{ runner.os }}-
+
+      - name: Restore model cache
+        id: model-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-${{ runner.os }}-main
+          restore-keys: |
+            e2s-model-${{ runner.os }}-
+
+      - name: Restore testmon cache
+        id: testmon-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-test-serve-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            e2s-testmon-test-serve-${{ runner.os }}-main-
+
+      - name: Prepare CI directories
+        run: python3 test/_ci/prepare_ci_paths.py
+
+      - name: Show GPU information
+        run: nvidia-smi
+
+      - name: Set up environment
+        run: uv sync
+
+      - name: Run tests
+        run: make pytest-ci
+
+      - name: Save model cache
+        if: >
+          always() &&
+          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+          steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-${{ runner.os }}-main
+
+      - name: Save testmon cache
+        if: >
+          always() &&
+          github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-test-serve-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}
