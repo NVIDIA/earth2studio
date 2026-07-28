@@ -16,9 +16,11 @@
 
 import asyncio
 import concurrent
+import concurrent.futures
 import datetime
 import threading
 from collections.abc import Callable
+from dataclasses import dataclass
 
 # import threading
 from typing import Any
@@ -51,6 +53,142 @@ torch_to_numpy_dtype_dict = {
 }
 
 
+@dataclass
+class _ShardSpec:
+    """Geometry of a sharded Zarr array, read back from the store metadata"""
+
+    shape: tuple[int, ...]
+    chunks: tuple[int, ...]
+    shards: tuple[int, ...]
+    dtype: np.dtype
+    fill_value: Any
+
+
+class _ShardBuffer:
+    """Host memory accumulation buffer for a single Zarr shard
+
+    A shard is a single storage object holding many chunks, so a write that only
+    covers part of a shard forces Zarr into a read-modify-write of the whole file.
+    Concurrent partial writes to one shard therefore lose data. This buffer collects
+    the chunks of a shard in host memory so that the shard can be emitted with a
+    single write.
+
+    The buffer is initialized to the array fill value, which makes a flush of an
+    incomplete shard byte-for-byte identical to what an unwritten chunk would read
+    back as. Partial shards are therefore safe to flush.
+
+    Parameters
+    ----------
+    region : tuple[slice, ...]
+        Region of the array covered by this shard, clipped to the array shape
+    chunks : tuple[int, ...]
+        Inner chunk shape of the array
+    dtype : np.dtype
+        Numpy data type of the array
+    fill_value : Any
+        Fill value of the array, used to initialize the buffer
+    preexisting : bool
+        If the shard object was already present in the store before this buffer was
+        created. If so the buffer must be merged into the shard rather than
+        overwriting it
+    """
+
+    __slots__ = (
+        "data",
+        "region",
+        "chunks",
+        "mask",
+        "remaining",
+        "claimed",
+        "preexisting",
+    )
+
+    def __init__(
+        self,
+        region: tuple[slice, ...],
+        chunks: tuple[int, ...],
+        dtype: np.dtype,
+        fill_value: Any,
+        preexisting: bool,
+    ) -> None:
+        self.region = region
+        self.chunks = chunks
+        self.preexisting = preexisting
+        self.claimed = False
+
+        extent = tuple(s.stop - s.start for s in region)
+        if fill_value is None:
+            self.data = np.zeros(extent, dtype=dtype)
+        else:
+            self.data = np.full(extent, fill_value, dtype=dtype)
+
+        # Boolean mask over the inner chunk grid of this shard, makes repeated writes
+        # of the same chunk idempotent
+        grid = tuple(-(-e // c) for e, c in zip(extent, chunks))
+        self.mask = np.zeros(grid, dtype=bool)
+        self.remaining = int(np.prod(grid))
+
+    def _grid_index(self, slices: tuple[slice, ...]) -> tuple[slice, ...]:
+        """Converts a global slice tuple into inner chunk grid coordinates"""
+        return tuple(
+            slice((s.start - r.start) // c, -(-(s.stop - r.start) // c))
+            for s, r, c in zip(slices, self.region, self.chunks)
+        )
+
+    def mark(self, slices: tuple[slice, ...]) -> None:
+        """Marks the inner chunks covered by a global slice tuple as filled
+
+        Parameters
+        ----------
+        slices : tuple[slice, ...]
+            Global (array level) slices of the region that was just copied in
+        """
+        index = self._grid_index(slices)
+        self.remaining -= int(np.count_nonzero(~self.mask[index]))
+        self.mask[index] = True
+
+    def filled_regions(self) -> list[tuple[tuple[slice, ...], np.ndarray]]:
+        """Global slices and data views covering only the chunks that were filled
+
+        Used on the merge path, where writing the untouched parts of the buffer would
+        clobber data already present in the shard. Emits a single region when the
+        filled chunks form a dense box (the common case), otherwise falls back to one
+        region per chunk.
+
+        Returns
+        -------
+        list[tuple[tuple[slice, ...], np.ndarray]]
+            Global slices and the buffer views to write there
+        """
+        if self.remaining == 0:
+            return [(self.region, self.data)]
+
+        filled = np.argwhere(self.mask)
+        if filled.size == 0:
+            return []
+
+        low = filled.min(axis=0)
+        high = filled.max(axis=0) + 1
+        box = tuple(slice(int(a), int(b)) for a, b in zip(low, high))
+        if self.mask[box].all():
+            cells = [tuple((int(a), int(b)) for a, b in zip(low, high))]
+        else:
+            cells = [tuple((int(i), int(i) + 1) for i in cell) for cell in filled]
+
+        regions = []
+        for cell in cells:
+            local = tuple(
+                slice(a * c, min(b * c, e))
+                for (a, b), c, e in zip(cell, self.chunks, self.data.shape)
+            )
+            glob = tuple(
+                slice(r.start + s.start, r.start + s.stop)
+                for r, s in zip(self.region, local)
+            )
+            regions.append((glob, self.data[local]))
+        return regions
+
+
 class AsyncZarrBackend:
     """Async Zarr v3 IO Backend
 
@@ -64,6 +202,23 @@ class AsyncZarrBackend:
     -------
     This IO backend presently does not support overwritting existing Zarr stores. Only
     creation of new arrays or writing to existing.
+
+    Warning
+    -------
+    Enabling sharding via `shard_coords` buffers chunks in host memory until a shard is
+    complete. Peak host memory grows by the size of every in flight shard, which is
+    `prod(shard_shape) * itemsize` bytes each. Size shards accordingly, a shard of 8
+    lead times of a 73 variable 721x1440 fp32 field is roughly 2.4 GB.
+
+    Warning
+    -------
+    When sharding, a shard must not contain data owned by more than one process. This
+    backend keeps every shard object to a single write by buffering its chunks, but that
+    only holds within a process, seperate ranks have seperate buffers. If two ranks each
+    hold part of the same shard they will both write it in full and the later write
+    wins, silently discarding the other's data. Shard along a coordinate that each rank
+    owns entirely (typically `lead_time`, since a rank runs a whole forecast), not along
+    the coordinate the work is distributed over. See the notes on `shard_coords` below.
 
     Parameters
     ----------
@@ -93,9 +248,37 @@ class AsyncZarrBackend:
         Additional keyword arguments to provide to the ` zarr.api.asynchronous.open`
         function, by default {"mode": "a"}
     zarr_codecs: CompressorsLike, optional
-        Compression codec to use when creating any new arrays. Sharding is not supported
-        for thread safety at the moment. If None, will use no compressor, by default
-        None
+        Compression codec to use when creating any new arrays. If None, will use no
+        compressor, by default None
+    chunked_coords : dict[str, int], optional
+        Chunk sizes for coordinates that are not in `parallel_coords`. By default any
+        such coordinate is stored as a single chunk spanning its full length. Keys not
+        present in a given array are ignored, by default {}
+    shard_coords : dict[str, int], optional
+        Number of elements per shard along the given coordinates, enabling Zarr v3
+        sharding. Sharding packs many chunks into one storage object, which is the way
+        to keep a large inference campaign from producing a file (and inode) per chunk.
+        The chunk layout is unchanged, so readers still fetch one chunk at a time.
+
+        Any coordinate not listed uses a shard size equal to its chunk size. Each value
+        must be a multiple of that coordinate's chunk size, which is 1 for coordinates
+        in `parallel_coords` and the full length otherwise unless set via
+        `chunked_coords`. Chunks are accumulated in host memory and the shard is written
+        once complete, see the memory warning above. If empty, arrays are created
+        unsharded and writes take the same path as before, by default {}
+
+        Shards need not divide evenly into a coordinate. `close()` writes out any shard
+        that never filled, using the array fill value where nothing was supplied, which
+        reads back exactly as an unwritten chunk would. Writing into a shard that is
+        already in the store still works but falls back to a read-modify-write of the
+        whole shard and logs a warning, which happens when `close()` or `flush()` is
+        called mid run or when restarting into a store left with incomplete shards.
+
+        With multiple processes writing one store, every shard must be owned entirely by
+        one of them, see the warning above. Sharding along a coordinate the work is
+        distributed over is only safe when each rank's slice is a whole number of
+        shards, and nothing detects a violation, so prefer sharding along a coordinate
+        each rank owns completely, by default {}
 
     Raises
     ------
@@ -103,6 +286,8 @@ class AsyncZarrBackend:
         If Zarr 2.0 is installed. This io backend only supports Zarr 3.0
     TypeError
         If fs_factory is not a callable, this should be a callable method not an object
+    ValueError
+        If a `shard_coords` value is not positive
     """
 
     def __init__(
@@ -115,6 +300,8 @@ class AsyncZarrBackend:
         async_timeout: int = 600,
         zarr_kwargs: dict[str, Any] = {"mode": "a"},
         zarr_codecs: CompressorsLike = None,
+        chunked_coords: dict[str, int] = {},
+        shard_coords: dict[str, int] = {},
     ) -> None:
         # May need to trigger warning about this, needed to handle multi-threading!
         # But silent for now since people wont know what this means / get confused by an error message I think
@@ -128,8 +315,28 @@ class AsyncZarrBackend:
         self.overwrite = False  # Not formally supported
         self.parallel_coords = self._scrub_coordinates(parallel_coords)
         # Parameter to also chunk some of the other dims if needed
-        self.chunked_coords: dict[str, int] = {}
+        self.chunked_coords: dict[str, int] = dict(chunked_coords)
+        self.shard_coords: dict[str, int] = dict(shard_coords)
         self.zarr_codecs = zarr_codecs
+
+        for key, value in self.shard_coords.items():
+            if value <= 0:
+                raise ValueError(
+                    f"Shard size for coordinate '{key}' must be positive but got {value}"
+                )
+
+        # Shard accumulation state, shared across every loop in the pool so all access
+        # is guarded by a threading lock (the loops live in different threads, an
+        # asyncio lock would provide no mutual exclusion between them)
+        self._shard_lock = threading.Lock()
+        self._shard_specs: dict[str, _ShardSpec | None] = {}
+        self._shard_buffers: dict[tuple[str, tuple[int, ...]], _ShardBuffer] = {}
+        self._flushed_shards: set[tuple[str, tuple[int, ...]]] = set()
+        self._shard_flush_futures: dict[
+            tuple[str, tuple[int, ...]], concurrent.futures.Future
+        ] = {}
+        self._merge_warned: set[str] = set()
+        self._live_warned = False
 
         # Async / multi-thread items
         self.blocking = blocking
@@ -316,14 +523,17 @@ class AsyncZarrBackend:
 
             shape: tuple[int] = tuple(value.shape[0] for value in array_coords.values())
             chunks = tuple(value for value in chunked.values())
+            shards = self._compute_shards(name, array_coords, chunked, dtype)
 
             logger.debug(
-                f"Initializing array {name} with shape {shape} with chunks {chunks} dtype {dtype}"
+                f"Initializing array {name} with shape {shape} with chunks {chunks} "
+                + f"shards {shards} dtype {dtype}"
             )
             await self.root.create_array(
                 name=name,
                 shape=shape,
                 chunks=chunks,
+                shards=shards,
                 dtype=dtype,
                 dimension_names=list(coords.keys()),
                 overwrite=self.overwrite,
@@ -331,6 +541,77 @@ class AsyncZarrBackend:
             )
 
         self.overwrite = False
+
+    def _compute_shards(
+        self,
+        name: str,
+        array_coords: CoordSystem,
+        chunked: dict[str, int],
+        dtype: np.dtype,
+    ) -> tuple[int, ...] | None:
+        """Resolves the shard shape of an array from the user provided `shard_coords`
+
+        Parameters
+        ----------
+        name : str
+            Array name, used for error messages
+        array_coords : CoordSystem
+            Complete coordinate system of the array
+        chunked : dict[str, int]
+            Chunk size of each coordinate of the array
+        dtype : np.dtype
+            Numpy data type of the array, used for the memory estimate
+
+        Returns
+        -------
+        tuple[int, ...] | None
+            Shard shape, or None if this array should not be sharded
+
+        Raises
+        ------
+        ValueError
+            If a shard size is not a multiple of the corresponding chunk size
+        """
+        if not self.shard_coords:
+            return None
+
+        shards: dict[str, int] = {}
+        for key in array_coords:
+            chunk_size = chunked[key]
+            if key not in self.shard_coords:
+                shards[key] = chunk_size
+                continue
+
+            shard_size = self.shard_coords[key]
+            if shard_size % chunk_size != 0:
+                raise ValueError(
+                    f"Shard size {shard_size} for coordinate '{key}' of array '{name}' "
+                    + f"must be a multiple of its chunk size {chunk_size}. "
+                    + "Coordinates in `parallel_coords` have a chunk size of 1, others "
+                    + "default to their full length unless set via `chunked_coords`."
+                )
+            dim_size = array_coords[key].shape[0]
+            if shard_size > dim_size:
+                logger.warning(
+                    f"Shard size {shard_size} for coordinate '{key}' of array '{name}' "
+                    + f"exceeds its length {dim_size}, the shard will be truncated"
+                )
+            shards[key] = shard_size
+
+        shard_shape = tuple(shards.values())
+        # No dimension is actually grouped, skip the sharding codec entirely
+        if shard_shape == tuple(chunked.values()):
+            logger.debug(
+                f"Shard shape of array {name} matches its chunk shape, not sharding"
+            )
+            return None
+
+        buffer_bytes = int(np.prod(shard_shape)) * np.dtype(dtype).itemsize
+        logger.info(
+            f"Array {name} sharded with shape {shard_shape}, each in flight shard "
+            + f"buffer holds {buffer_bytes / 1e9:.2f} GB of host memory"
+        )
+        return shard_shape
 
     def _scrub_coordinates(self, coords: CoordSystem) -> CoordSystem:
         """And cleaning / adjustment operations on coordinates, modifies in place
@@ -402,11 +683,10 @@ class AsyncZarrBackend:
         # If fsspec store has a aiohttp session, collect it so we can then close it
         # manually...
         # https://s3fs.readthedocs.io/en/latest/#async
-        session = None
         try:
             session = await self.fs.set_session(refresh=True)
         except AttributeError:
-            pass
+            session = None
 
         x = {array_name[i]: x[i] for i in range(len(x))}
         dtypes = [torch_to_numpy_dtype_dict[x0.dtype] for x0 in x.values()]
@@ -416,6 +696,7 @@ class AsyncZarrBackend:
         # Note that this is blocking, which is intentional so we avoid race conditions
         # upon array creation
         await self._initialize_arrays(coords, list(x.keys()), dtypes)
+        await self._register_shard_specs(list(x.keys()))
 
         for key, value in coords.items():
             zarray = await self.root.get(key)
@@ -440,6 +721,242 @@ class AsyncZarrBackend:
             await session.close()
 
         return x, coords
+
+    async def _register_shard_specs(self, array_names: list[str]) -> None:
+        """Records the shard geometry of each array, read back from the Zarr metadata
+
+        Reading the geometry back from the store (rather than recomputing it) keeps
+        this correct when writing into an array that already exists, which may have
+        been created with a different shard configuration.
+
+        Parameters
+        ----------
+        array_names : list[str]
+            Array names to register
+        """
+        for name in array_names:
+            if name in self._shard_specs:
+                continue
+            zarray = await self.root.get(name)
+            if zarray.shards is None:
+                self._shard_specs[name] = None
+                continue
+            self._shard_specs[name] = _ShardSpec(
+                shape=tuple(zarray.shape),
+                chunks=tuple(zarray.chunks),
+                shards=tuple(zarray.shards),
+                dtype=zarray.dtype,
+                fill_value=zarray.metadata.fill_value,
+            )
+
+    async def _shard_exists(
+        self, name: str, zarray: Any, shard_index: tuple[int, ...]
+    ) -> bool:
+        """Checks if a shard object is already present in the store
+
+        A shard that is already present cannot be overwritten wholesale, doing so would
+        discard the chunks it already holds. This is what makes restarting into an
+        existing store safe, the in memory bookkeeping alone cannot know what a previous
+        process wrote.
+
+        Parameters
+        ----------
+        name : str
+            Array name
+        zarray : zarr.AsyncArray
+            Array to probe, must belong to the calling loop's Zarr group
+        shard_index : tuple[int, ...]
+            Index of the shard in the shard grid
+
+        Returns
+        -------
+        bool
+            True if the shard is present, or if the check could not be performed
+        """
+        with self._shard_lock:
+            if (name, shard_index) in self._flushed_shards:
+                return True
+        try:
+            chunk_key = zarray.metadata.chunk_key_encoding.encode_chunk_key(shard_index)
+            store_path = zarray.store_path
+            key = f"{store_path.path}/{chunk_key}" if store_path.path else chunk_key
+            return await store_path.store.exists(key)
+        except Exception as e:
+            # Assume the shard exists, the merge path is slower but never destructive
+            logger.debug(
+                f"Could not probe shard {shard_index} of array {name} ({e}), "
+                + "assuming it exists"
+            )
+            return True
+
+    async def _stage_chunk(
+        self,
+        name: str,
+        zarray: Any,
+        spec: _ShardSpec,
+        array_slice: tuple[slice, ...],
+        data: np.ndarray,
+    ) -> None:
+        """Accumulates a single chunk into its shard buffer, flushing once complete
+
+        Parameters
+        ----------
+        name : str
+            Array name
+        zarray : zarr.AsyncArray
+            Array to write into, must belong to the calling loop's Zarr group
+        spec : _ShardSpec
+            Shard geometry of the array
+        array_slice : tuple[slice, ...]
+            Global slices of the array this chunk occupies
+        data : np.ndarray
+            Chunk data
+        """
+        # Concretize any full dimension slices so the shard math has real bounds
+        array_slice = tuple(
+            slice(0, size) if s.start is None else s
+            for s, size in zip(array_slice, spec.shape)
+        )
+        shard_index = tuple(s.start // h for s, h in zip(array_slice, spec.shards))
+        key = (name, shard_index)
+
+        with self._shard_lock:
+            buffer = self._shard_buffers.get(key)
+
+        if buffer is None:
+            # Probe outside the lock, a concurrent duplicate probe is harmless
+            preexisting = await self._shard_exists(name, zarray, shard_index)
+            region = tuple(
+                slice(i * h, min((i + 1) * h, size))
+                for i, h, size in zip(shard_index, spec.shards, spec.shape)
+            )
+            candidate = _ShardBuffer(
+                region, spec.chunks, spec.dtype, spec.fill_value, preexisting
+            )
+            with self._shard_lock:
+                buffer = self._shard_buffers.setdefault(key, candidate)
+                live = len(self._shard_buffers)
+            if live > len(self.loop_pool) and not self._live_warned:
+                self._live_warned = True
+                logger.warning(
+                    f"{live} shard buffers are live, host memory use grows with this "
+                    + "count. Consider a smaller shard size or writing coordinates in "
+                    + "an order that completes shards sooner."
+                )
+
+        # Copy outside the lock, chunk regions are disjoint and numpy releases the GIL
+        local_slice = tuple(
+            slice(s.start - r.start, s.stop - r.start)
+            for s, r in zip(array_slice, buffer.region)
+        )
+        buffer.data[local_slice] = data
+
+        # The lock is held only for bookkeeping, never across an await, so a large
+        # flush on one thread cannot stall staging on another
+        with self._shard_lock:
+            buffer.mark(array_slice)
+            if buffer.remaining > 0 or buffer.claimed:
+                return
+            buffer.claimed = True
+            self._shard_buffers.pop(key, None)
+            self._flushed_shards.add(key)
+
+        await self._flush_buffer(name, zarray, key, buffer)
+
+    async def _flush_buffer(
+        self,
+        name: str,
+        zarray: Any,
+        key: tuple[str, tuple[int, ...]],
+        buffer: _ShardBuffer,
+    ) -> None:
+        """Writes a shard buffer out to the store
+
+        Flushes of the same shard are chained so they cannot overlap, which matters on
+        the merge path where each write is a read-modify-write of the whole shard.
+
+        Parameters
+        ----------
+        name : str
+            Array name
+        zarray : zarr.AsyncArray
+            Array to write into, must belong to the calling loop's Zarr group
+        key : tuple[str, tuple[int, ...]]
+            Buffer key, the array name and shard grid index
+        buffer : _ShardBuffer
+            Buffer to write, must already be claimed by the caller
+        """
+        with self._shard_lock:
+            previous = self._shard_flush_futures.get(key)
+            current: concurrent.futures.Future = concurrent.futures.Future()
+            self._shard_flush_futures[key] = current
+
+        try:
+            if previous is not None and not previous.done():
+                try:
+                    await asyncio.wrap_future(previous)
+                except Exception as e:
+                    # Only ordering matters here, the failure itself is raised by
+                    # whichever write originally scheduled that flush
+                    logger.debug(
+                        f"Preceding flush of shard {key[1]} of array {name} failed "
+                        + f"({e}), continuing with this flush"
+                    )
+
+            if buffer.preexisting:
+                if name not in self._merge_warned:
+                    self._merge_warned.add(name)
+                    logger.warning(
+                        f"Writing into shards of array '{name}' that are already "
+                        + "present in the store, these writes fall back to a "
+                        + "read-modify-write of the entire shard. This happens when "
+                        + "`close()` / `flush()` is called mid run or when restarting "
+                        + "into an existing store with shards left incomplete."
+                    )
+                regions = buffer.filled_regions()
+            else:
+                # Fast path, the whole shard in one write with no read of prior state
+                regions = [(buffer.region, buffer.data)]
+
+            for region, values in regions:
+                await zarray.setitem(region, values)
+        finally:
+            with self._shard_lock:
+                if self._shard_flush_futures.get(key) is current:
+                    del self._shard_flush_futures[key]
+            current.set_result(None)
+
+    async def async_flush(self) -> None:
+        """Writes out every shard buffer that is still incomplete
+
+        Shards that never filled are written with the array fill value in the positions
+        that were never supplied, which reads back identically to an unwritten chunk.
+        """
+        with self._shard_lock:
+            pending = list(self._shard_buffers.items())
+            self._shard_buffers.clear()
+
+        if not pending:
+            return
+
+        logger.debug(f"Flushing {len(pending)} incomplete shard buffers")
+        for key, buffer in pending:
+            with self._shard_lock:
+                if buffer.claimed:
+                    continue
+                buffer.claimed = True
+                self._flushed_shards.add(key)
+            zarray = await self.root.get(key[0])
+            await self._flush_buffer(key[0], zarray, key, buffer)
+
+    def flush(self) -> None:
+        """Drains in flight writes and writes out every incomplete shard buffer
+
+        Draining first ensures no write is still accumulating into a buffer that is
+        about to be flushed.
+        """
+        self._limit_pool_size(0)
+        fsspec.asyn.sync(self.loop, self.async_flush)
 
     def _limit_pool_size(self, max_pool_size: int) -> None:
         """Helper function to limit the number of parallel io processes
@@ -589,27 +1106,29 @@ class AsyncZarrBackend:
         logger.debug(f"Writing {n_slices} chunks to {len(x)} Zarr arrays")
         writes = []
         for array in x.keys():
+            zarray = await zs.get(array)
+            spec = self._shard_specs.get(array)
             # Loop through each element of the index mesh (chunk to write)
             for i in range(n_slices):
-                # Finally set the selection in the array
-                async def write(
-                    name: str,
-                    input_slice: list[slice],
-                    array_slice: list[slice],
-                ) -> None:
-                    """Small helper function"""
-                    zarray = await zs.get(name)
-                    await zarray.setitem(
-                        tuple(array_slice), x[name][tuple(input_slice)]
-                    )
-
-                writes.append(
-                    asyncio.create_task(
-                        write(
-                            array, list(input_slice_arr[i]), list(output_slice_arr[i])
+                input_slice = tuple(input_slice_arr[i])
+                array_slice = tuple(output_slice_arr[i])
+                if spec is None:
+                    # Unsharded, one chunk is one object so it is written directly
+                    writes.append(
+                        asyncio.create_task(
+                            zarray.setitem(array_slice, x[array][input_slice])
                         )
                     )
-                )
+                else:
+                    # Sharded, accumulate in host memory and write once the shard is
+                    # complete so each shard object is written exactly once
+                    writes.append(
+                        asyncio.create_task(
+                            self._stage_chunk(
+                                array, zarray, spec, array_slice, x[array][input_slice]
+                            )
+                        )
+                    )
         # Every single chunk is written async...
         await asyncio.gather(*writes)
         if session:
@@ -619,15 +1138,21 @@ class AsyncZarrBackend:
         """Cleans up an remaining io processes that are currently running. Should be
         called explicitly at the end of an inference workflow to ensure all data has
         been written.
+
+        When sharding is enabled this also writes out any shard that never filled. Note
+        that calling this mid run and then writing into the same shards again forces a
+        read-modify-write of those shards.
         """
-        # Clean up process pool
-        self._limit_pool_size(0)
+        # Clean up process pool and write out any partially filled shards
+        self.flush()
 
     def __del__(self) -> None:
         if not hasattr(self, "io_futures"):
             return
-        if len(self.io_futures) > 0:
+        if len(self.io_futures) > 0 or len(self._shard_buffers) > 0:
             logger.warning(
-                f"IO object found {len(self.io_futures)} in flight processes, cleaning up. Call `close()` manually to avoid this warning"
+                f"IO object found {len(self.io_futures)} in flight processes and "
+                + f"{len(self._shard_buffers)} buffered shards, cleaning up. "
+                + "Call `close()` manually to avoid this warning"
             )
             self.close()

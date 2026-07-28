@@ -16,6 +16,7 @@
 
 import functools
 import os
+import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable
@@ -670,3 +671,324 @@ async def test_async_zarr_existing_store(tmp_path: str) -> None:
     )  # First time slice should match
 
     z_valid.close()
+
+
+def _shard_test_coords(
+    lead_time: np.ndarray, variable: list[str]
+) -> "OrderedDict[str, np.ndarray]":
+    """Small helper to build a lead time major coordinate system"""
+    return OrderedDict(
+        {
+            "lead_time": lead_time,
+            "variable": np.asarray(variable),
+            "lat": np.linspace(-90, 90, 16),
+            "lon": np.linspace(0, 360, 32, endpoint=False),
+        }
+    )
+
+
+def _count_chunk_files(array_path: str) -> int:
+    """Counts the number of stored chunk/shard objects of a local Zarr array"""
+    total = 0
+    for _, _, files in os.walk(os.path.join(array_path, "c")):
+        total += len(files)
+    return total
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("nsteps,shard_size", [(8, 4), (8, 8), (10, 4), (7, 8)])
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+async def test_async_zarr_shard_write(
+    nsteps: int, shard_size: int, device: str, tmp_path: str
+) -> None:
+    """Sharded writes must round trip exactly and collapse chunks into shard files.
+
+    Covers both shard aligned lead times and trailing partial shards, which are only
+    flushed on close().
+    """
+    lead_time = np.arange(nsteps).astype("timedelta64[h]")
+    variable = ["t2m", "tcwv"]
+    parallel_coords = {"lead_time": lead_time}
+
+    z = AsyncZarrBackend(
+        f"{tmp_path}/output.zarr",
+        parallel_coords=parallel_coords,
+        fs_factory=LocalFileSystem,
+        blocking=False,
+        pool_size=8,
+        shard_coords={"lead_time": shard_size},
+    )
+
+    total_coords = _shard_test_coords(lead_time, variable)
+    shape = [v.shape[0] for v in total_coords.values()]
+    x = torch.randn(shape, device=device, dtype=torch.float32)
+
+    for i in range(nsteps):
+        total_coords["lead_time"] = lead_time[i : i + 1]
+        z.write(x[i : i + 1], total_coords, "fields")
+    z.close()
+
+    array = await z.root.get("fields")
+    assert array.shards is not None
+    assert array.chunks[0] == 1
+    assert array.shards[0] == shard_size
+
+    data = await array.getitem(slice(None))
+    assert np.allclose(data, x.to("cpu").numpy())
+
+    # The point of the feature, one file per shard rather than one per lead time
+    expected_shards = -(-nsteps // shard_size)
+    assert _count_chunk_files(f"{tmp_path}/output.zarr/fields") == expected_shards
+
+
+@pytest.mark.asyncio
+async def test_async_zarr_shard_single_write_per_shard(
+    tmp_path: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Each shard must be flushed exactly once, on the non-merging fast path.
+
+    A shard is a single file, so a second write to one means Zarr is doing a
+    read-modify-write of it, which is what silently loses data when it happens
+    concurrently. Under a pool of 8, consecutive lead times are staged by different
+    threads into the same shard, so this also exercises the cross thread bookkeeping.
+    """
+    nsteps, shard_size = 8, 4
+    lead_time = np.arange(nsteps).astype("timedelta64[h]")
+    parallel_coords = {"lead_time": lead_time}
+
+    z = AsyncZarrBackend(
+        f"{tmp_path}/output.zarr",
+        parallel_coords=parallel_coords,
+        fs_factory=LocalFileSystem,
+        blocking=False,
+        pool_size=8,
+        shard_coords={"lead_time": shard_size},
+    )
+
+    flushes: list[tuple[tuple, bool]] = []
+    flush_lock = threading.Lock()
+    original_flush = AsyncZarrBackend._flush_buffer
+
+    async def recording_flush(
+        self: AsyncZarrBackend,
+        name: str,
+        zarray: object,
+        key: tuple,
+        buffer: object,
+    ) -> None:
+        with flush_lock:
+            flushes.append((key, buffer.preexisting))
+        await original_flush(self, name, zarray, key, buffer)
+
+    monkeypatch.setattr(AsyncZarrBackend, "_flush_buffer", recording_flush)
+
+    total_coords = _shard_test_coords(lead_time, ["t2m"])
+    shape = [v.shape[0] for v in total_coords.values()]
+    x = torch.randn(shape, dtype=torch.float32)
+
+    for i in range(nsteps):
+        total_coords["lead_time"] = lead_time[i : i + 1]
+        z.write(x[i : i + 1], total_coords, "fields")
+    z.close()
+
+    keys = [key for key, _ in flushes]
+    assert len(keys) == len(set(keys)), f"a shard was flushed twice: {keys}"
+    assert set(keys) == {("fields", (0, 0, 0, 0)), ("fields", (1, 0, 0, 0))}
+    assert not any(preexisting for _, preexisting in flushes), (
+        "shards took the read-modify-write merge path on a clean store"
+    )
+
+    data = await (await z.root.get("fields")).getitem(slice(None))
+    assert np.allclose(data, x.numpy())
+
+
+@pytest.mark.asyncio
+async def test_async_zarr_shard_restart(tmp_path: str) -> None:
+    """Restarting into a store with an incomplete shard must not destroy its data.
+
+    Run one writes part of a shard and closes, flushing it partially. Run two is a
+    fresh backend with no memory of that, so it has to detect the existing shard in
+    the store and merge into it rather than overwrite it.
+    """
+    nsteps, shard_size = 8, 8
+    lead_time = np.arange(nsteps).astype("timedelta64[h]")
+    parallel_coords = {"lead_time": lead_time}
+    store = f"{tmp_path}/restart.zarr"
+
+    total_coords = _shard_test_coords(lead_time, ["t2m"])
+    shape = [v.shape[0] for v in total_coords.values()]
+    x = torch.randn(shape, dtype=torch.float32)
+
+    z1 = AsyncZarrBackend(
+        store,
+        parallel_coords=parallel_coords,
+        fs_factory=LocalFileSystem,
+        shard_coords={"lead_time": shard_size},
+    )
+    for i in range(6):
+        total_coords["lead_time"] = lead_time[i : i + 1]
+        z1.write(x[i : i + 1], total_coords, "fields")
+    z1.close()
+
+    # Partial shard is on disk, the remaining lead times read back as fill
+    data = await (await z1.root.get("fields")).getitem(slice(None))
+    assert np.allclose(data[:6], x[:6].numpy())
+
+    z2 = AsyncZarrBackend(
+        store,
+        parallel_coords=parallel_coords,
+        fs_factory=LocalFileSystem,
+        shard_coords={"lead_time": shard_size},
+    )
+    for i in range(6, nsteps):
+        total_coords["lead_time"] = lead_time[i : i + 1]
+        z2.write(x[i : i + 1], total_coords, "fields")
+    z2.close()
+
+    data = await (await z2.root.get("fields")).getitem(slice(None))
+    assert np.allclose(data, x.numpy()), "restart clobbered the pre-existing shard"
+
+
+@pytest.mark.asyncio
+async def test_async_zarr_shard_multi_dim(tmp_path: str) -> None:
+    """Sharding across two parallel coordinates at once"""
+    time = np.asarray(
+        [np.datetime64("2021-01-01"), np.datetime64("2021-01-02")],
+    )
+    lead_time = np.arange(4).astype("timedelta64[h]")
+    parallel_coords = {"time": time, "lead_time": lead_time}
+
+    z = AsyncZarrBackend(
+        f"{tmp_path}/output.zarr",
+        parallel_coords=parallel_coords,
+        fs_factory=LocalFileSystem,
+        blocking=False,
+        pool_size=4,
+        shard_coords={"time": 2, "lead_time": 2},
+    )
+
+    total_coords = OrderedDict(
+        {
+            "time": time,
+            "lead_time": lead_time,
+            "variable": np.asarray(["t2m"]),
+            "lat": np.linspace(-90, 90, 8),
+            "lon": np.linspace(0, 360, 16, endpoint=False),
+        }
+    )
+    shape = [v.shape[0] for v in total_coords.values()]
+    x = torch.randn(shape, dtype=torch.float32)
+
+    for i in range(time.shape[0]):
+        for j in range(lead_time.shape[0]):
+            total_coords["time"] = time[i : i + 1]
+            total_coords["lead_time"] = lead_time[j : j + 1]
+            z.write(x[i : i + 1, j : j + 1], total_coords, "fields")
+    z.close()
+
+    array = await z.root.get("fields")
+    assert array.shards[:2] == (2, 2)
+    data = await array.getitem(slice(None))
+    assert np.allclose(data, x.numpy())
+    # 2 time x 4 lead_time chunks collapse into 1 x 2 shards
+    assert _count_chunk_files(f"{tmp_path}/output.zarr/fields") == 2
+
+
+@pytest.mark.asyncio
+async def test_async_zarr_shard_with_codecs_and_chunked_coords(tmp_path: str) -> None:
+    """Sharding composes with compression and with explicit chunking of other dims"""
+    nsteps = 4
+    lead_time = np.arange(nsteps).astype("timedelta64[h]")
+    parallel_coords = {"lead_time": lead_time}
+
+    z = AsyncZarrBackend(
+        f"{tmp_path}/output.zarr",
+        parallel_coords=parallel_coords,
+        fs_factory=LocalFileSystem,
+        zarr_codecs=zarr.codecs.BloscCodec(cname="zstd"),
+        chunked_coords={"lat": 8},
+        shard_coords={"lead_time": 2, "lat": 16},
+    )
+
+    total_coords = _shard_test_coords(lead_time, ["t2m"])
+    shape = [v.shape[0] for v in total_coords.values()]
+    x = torch.randn(shape, dtype=torch.float32)
+
+    for i in range(nsteps):
+        total_coords["lead_time"] = lead_time[i : i + 1]
+        z.write(x[i : i + 1], total_coords, "fields")
+    z.close()
+
+    array = await z.root.get("fields")
+    assert array.chunks == (1, 1, 8, 32)
+    assert array.shards == (2, 1, 16, 32)
+    data = await array.getitem(slice(None))
+    assert np.allclose(data, x.numpy())
+
+
+@pytest.mark.asyncio
+async def test_async_zarr_shard_async_write(tmp_path: str) -> None:
+    """The async API takes the same buffering path, flushed via async_flush"""
+    nsteps, shard_size = 6, 4
+    lead_time = np.arange(nsteps).astype("timedelta64[h]")
+    parallel_coords = {"lead_time": lead_time}
+
+    z = AsyncZarrBackend(
+        f"{tmp_path}/output.zarr",
+        parallel_coords=parallel_coords,
+        fs_factory=MemoryFileSystem,
+        shard_coords={"lead_time": shard_size},
+    )
+
+    total_coords = _shard_test_coords(lead_time, ["t2m"])
+    shape = [v.shape[0] for v in total_coords.values()]
+    x = torch.randn(shape, dtype=torch.float32)
+
+    for i in range(nsteps):
+        total_coords["lead_time"] = lead_time[i : i + 1]
+        await z.async_write(x[i : i + 1], total_coords, "fields")
+    await z.async_flush()
+
+    data = await (await z.root.get("fields")).getitem(slice(None))
+    assert np.allclose(data, x.numpy())
+
+
+@pytest.mark.asyncio
+async def test_async_zarr_shard_validation(tmp_path: str) -> None:
+    """Invalid shard configurations must fail with a clear error"""
+    lead_time = np.arange(4).astype("timedelta64[h]")
+    parallel_coords = {"lead_time": lead_time}
+    total_coords = _shard_test_coords(lead_time, ["t2m"])
+    x = torch.randn([v.shape[0] for v in total_coords.values()], dtype=torch.float32)
+
+    # Non positive shard size is rejected up front
+    with pytest.raises(ValueError):
+        AsyncZarrBackend(
+            f"{tmp_path}/bad0.zarr",
+            parallel_coords=parallel_coords,
+            fs_factory=LocalFileSystem,
+            shard_coords={"lead_time": 0},
+        )
+
+    # Shard size must be a multiple of the chunk size of that coordinate
+    z = AsyncZarrBackend(
+        f"{tmp_path}/bad1.zarr",
+        parallel_coords=parallel_coords,
+        fs_factory=LocalFileSystem,
+        chunked_coords={"lat": 8},
+        shard_coords={"lat": 12},
+    )
+    total_coords["lead_time"] = lead_time[0:1]
+    with pytest.raises(ValueError):
+        z.write(x[0:1], total_coords, "fields")
+
+    # A shard size equal to the chunk size is a no-op, array stays unsharded
+    z = AsyncZarrBackend(
+        f"{tmp_path}/noop.zarr",
+        parallel_coords=parallel_coords,
+        fs_factory=LocalFileSystem,
+        shard_coords={"lat": 16},
+    )
+    z.write(x[0:1], total_coords, "fields")
+    z.close()
+    assert (await z.root.get("fields")).shards is None
