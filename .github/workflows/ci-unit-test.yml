@@ -242,6 +242,9 @@ jobs:
           restore-keys: |
             e2s-testmon-test-${{ runner.os }}-main-
 
+      - name: Prepare testmon cache directory
+        run: mkdir -p "$(dirname "$TESTMON_DATAFILE")"
+
       - name: Show GPU information
         run: nvidia-smi
 
@@ -323,6 +326,9 @@ jobs:
           restore-keys: |
             e2s-testmon-test-px-models-${{ runner.os }}-main-
 
+      - name: Prepare testmon cache directory
+        run: mkdir -p "$(dirname "$TESTMON_DATAFILE")"
+
       - name: Show GPU information
         run: nvidia-smi
 
@@ -403,6 +409,9 @@ jobs:
           key: e2s-testmon-test-dx-models-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             e2s-testmon-test-dx-models-${{ runner.os }}-main-
+
+      - name: Prepare testmon cache directory
+        run: mkdir -p "$(dirname "$TESTMON_DATAFILE")"
 
       - name: Show GPU information
         run: nvidia-smi
