@@ -242,8 +242,8 @@ jobs:
           restore-keys: |
             e2s-testmon-test-${{ runner.os }}-main-
 
-      - name: Prepare testmon cache directory
-        run: mkdir -p "$(dirname "$TESTMON_DATAFILE")"
+      - name: Prepare CI directories
+        run: python3 test/_ci/prepare_ci_paths.py
 
       - name: Show GPU information
         run: nvidia-smi
@@ -326,8 +326,8 @@ jobs:
           restore-keys: |
             e2s-testmon-test-px-models-${{ runner.os }}-main-
 
-      - name: Prepare testmon cache directory
-        run: mkdir -p "$(dirname "$TESTMON_DATAFILE")"
+      - name: Prepare CI directories
+        run: python3 test/_ci/prepare_ci_paths.py
 
       - name: Show GPU information
         run: nvidia-smi
@@ -410,8 +410,8 @@ jobs:
           restore-keys: |
             e2s-testmon-test-dx-models-${{ runner.os }}-main-
 
-      - name: Prepare testmon cache directory
-        run: mkdir -p "$(dirname "$TESTMON_DATAFILE")"
+      - name: Prepare CI directories
+        run: python3 test/_ci/prepare_ci_paths.py
 
       - name: Show GPU information
         run: nvidia-smi
