@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import concurrent.futures
 import functools
 import os
 import threading
@@ -948,6 +950,130 @@ async def test_async_zarr_shard_async_write(tmp_path: str) -> None:
         total_coords["lead_time"] = lead_time[i : i + 1]
         await z.async_write(x[i : i + 1], total_coords, "fields")
     await z.async_flush()
+
+    data = await (await z.root.get("fields")).getitem(slice(None))
+    assert np.allclose(data, x.numpy())
+
+
+def test_async_zarr_pool_throttle_counts_pending(tmp_path: str) -> None:
+    """The throttle must count running writes, not submitted ones.
+
+    Under sharding most writes only copy into a shard buffer and finish immediately,
+    while one in every shard's worth of writes does the actual IO. Counting
+    submissions instead lets a shard larger than the pool serialize every flush
+    against the one before it.
+    """
+    z = AsyncZarrBackend(
+        f"{tmp_path}/throttle.zarr",
+        parallel_coords={"lead_time": np.arange(2).astype("timedelta64[h]")},
+        fs_factory=LocalFileSystem,
+        blocking=False,
+        pool_size=4,
+    )
+
+    done: list[concurrent.futures.Future] = []
+    for _ in range(10):
+        f: concurrent.futures.Future = concurrent.futures.Future()
+        f.set_result(None)
+        done.append(f)
+    running: concurrent.futures.Future = concurrent.futures.Future()
+
+    z.io_futures = done[:5] + [running] + done[5:]
+    # Cap of 3 pending, but only one future is actually pending so nothing blocks
+    z._limit_pool_size(3)
+    assert z.io_futures == [running], "completed futures were not pruned"
+
+    running.set_result(None)
+    z.close()
+
+
+def test_async_zarr_pool_throttle_surfaces_errors(tmp_path: str) -> None:
+    """A write that failed must not have its exception silently discarded"""
+    z = AsyncZarrBackend(
+        f"{tmp_path}/throttle_err.zarr",
+        parallel_coords={"lead_time": np.arange(2).astype("timedelta64[h]")},
+        fs_factory=LocalFileSystem,
+        blocking=False,
+        pool_size=4,
+    )
+
+    failed: concurrent.futures.Future = concurrent.futures.Future()
+    failed.set_exception(RuntimeError("write blew up"))
+    z.io_futures = [failed]
+
+    with pytest.raises(RuntimeError, match="write blew up"):
+        z._limit_pool_size(8)
+
+    z.io_futures = []
+    z.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("max_inflight", [1, 3])
+async def test_async_zarr_shard_inflight_limit(
+    max_inflight: int, tmp_path: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Concurrent shard flushes must stay within max_inflight_shards.
+
+    Each concurrent flush holds its buffer plus the codec's copies of it, so this is
+    the bound that keeps sharding's host memory predictable.
+    """
+    nsteps, shard_size = 12, 2
+    lead_time = np.arange(nsteps).astype("timedelta64[h]")
+
+    z = AsyncZarrBackend(
+        f"{tmp_path}/inflight.zarr",
+        parallel_coords={"lead_time": lead_time},
+        fs_factory=LocalFileSystem,
+        blocking=False,
+        pool_size=8,
+        shard_coords={"lead_time": shard_size},
+        max_inflight_shards=max_inflight,
+    )
+
+    # A slot is held from the moment _acquire_flush_slot returns until _flush_buffer
+    # completes its future, so the counters have to straddle exactly that window
+    live = 0
+    peak = 0
+    counter_lock = threading.Lock()
+    original_acquire = AsyncZarrBackend._acquire_flush_slot
+    original_flush = AsyncZarrBackend._flush_buffer
+
+    async def counting_acquire(self: AsyncZarrBackend, current: object) -> None:
+        nonlocal live, peak
+        await original_acquire(self, current)
+        with counter_lock:
+            live += 1
+            peak = max(peak, live)
+        # Hold the slot so overlapping flushes are actually observable, the real
+        # writes here are far too small to overlap on their own
+        await asyncio.sleep(0.05)
+
+    async def counting_flush(
+        self: AsyncZarrBackend, name: str, zarray: object, key: tuple, buffer: object
+    ) -> None:
+        try:
+            await original_flush(self, name, zarray, key, buffer)
+        finally:
+            with counter_lock:
+                live -= 1
+
+    monkeypatch.setattr(AsyncZarrBackend, "_acquire_flush_slot", counting_acquire)
+    monkeypatch.setattr(AsyncZarrBackend, "_flush_buffer", counting_flush)
+
+    total_coords = _shard_test_coords(lead_time, ["t2m"])
+    shape = [v.shape[0] for v in total_coords.values()]
+    x = torch.randn(shape, dtype=torch.float32)
+
+    for i in range(nsteps):
+        total_coords["lead_time"] = lead_time[i : i + 1]
+        z.write(x[i : i + 1], total_coords, "fields")
+    z.close()
+
+    assert peak <= max_inflight, (
+        f"{peak} shard flushes ran at once with max_inflight_shards={max_inflight}"
+    )
+    assert peak >= 1
 
     data = await (await z.root.get("fields")).getitem(slice(None))
     assert np.allclose(data, x.numpy())

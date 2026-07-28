@@ -175,18 +175,47 @@ the number of files on disk changes.
 
 A shard is one file, so writing part of one forces Zarr to read, modify, and rewrite the
 whole object. To avoid that, the backend accumulates the chunks of a shard in host
-memory and writes the shard once it is complete. Peak host memory therefore grows by
-`prod(shard_shape) * itemsize` bytes for every shard that is in flight:
+memory and writes the shard once it is complete.
 
 ```text
 73 variables x 721 x 1440 x fp32   = 303 MB per lead time
-shard_coords={"lead_time": 8}      = 2.4 GB per in flight shard
+shard_coords={"lead_time": 8}      = 2.4 GB per shard buffer
 ```
 
-In the common case of a loop over lead time there is exactly one shard in flight per
-array. Interleaving several parallel coordinates (for example batching over `time`)
-increases that count, and the backend logs a warning when many buffers are live at once.
-Choose a shard size that trades file count against the memory you can spare.
+The raw buffer is only part of the cost. Each shard flush that is running also holds the
+copies Zarr's sharding codec makes while encoding it, and each in flight write holds the
+tensor it staged out of device memory. Budget roughly:
+
+```text
+max_inflight_shards * 4 * shard_bytes  +  pool_size * write_bytes
+```
+
+Measured peak RSS is 10-13x the size of a single shard buffer at default settings, so
+the 2.4 GB shard above costs roughly 30 GB resident. `max_inflight_shards` is the knob:
+lower it if memory is tight.
+
+Note that the number of *buffers* is small — with a loop over lead time there is exactly
+one accumulating per array — so the memory is dominated by concurrent flushes rather than
+by accumulation. Interleaving several parallel coordinates (for example batching over
+`time`) increases the buffer count too, and the backend warns when many are live at once.
+
+### Throughput
+
+A shard is written in one large sequential IO, which is more efficient per stream than
+many small chunk writes, but there are proportionally fewer of them. Sharded throughput
+therefore depends on how many shard flushes run concurrently, which is what
+`max_inflight_shards` controls. If sharded writes are slower than unsharded ones and
+memory allows, raising it is the first thing to try.
+
+Raising it stops helping once the filesystem saturates. On a Lustre scratch filesystem
+measuring roughly 2 GB/s, sharding 8 lead times of a 73 variable quarter degree field
+landed within about 15% of the unsharded write rate for 8x fewer files, and raising
+`max_inflight_shards` from 4 to 8 changed nothing but memory. Measure before tuning.
+
+Keep in mind that no amount of asynchrony can hide more IO than you have compute to
+hide it behind. If a workflow writes more bytes per step than the filesystem can absorb
+in the time the model takes to produce them, the wall clock is the IO time and the only
+remedies are writing less data or a faster store.
 
 ### Partial shards and restarts
 

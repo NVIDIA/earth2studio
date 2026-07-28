@@ -206,9 +206,19 @@ class AsyncZarrBackend:
     Warning
     -------
     Enabling sharding via `shard_coords` buffers chunks in host memory until a shard is
-    complete. Peak host memory grows by the size of every in flight shard, which is
-    `prod(shard_shape) * itemsize` bytes each. Size shards accordingly, a shard of 8
-    lead times of a 73 variable 721x1440 fp32 field is roughly 2.4 GB.
+    complete, so it trades host memory for a smaller file count. Budget roughly
+
+        max_inflight_shards * 4 * prod(shard_shape) * itemsize + pool_size * write_bytes
+
+    Each concurrently flushing shard costs several times its own size, since Zarr's
+    sharding codec holds the encoded shard alongside the buffer, on top of the tensors
+    staged by in flight writes. Measured peak RSS is 10-13x the size of a single shard
+    buffer at the default settings, so a shard of 8 lead times of a 73 variable
+    721x1440 fp32 field (2.4 GB raw) costs roughly 30 GB resident.
+
+    `max_inflight_shards` is the lever here. Note that memory scales with it but
+    throughput only does so until the filesystem saturates, so raising it past the
+    point where writes stop getting faster costs memory for nothing.
 
     Warning
     -------
@@ -279,6 +289,12 @@ class AsyncZarrBackend:
         distributed over is only safe when each rank's slice is a whole number of
         shards, and nothing detects a violation, so prefer sharding along a coordinate
         each rank owns completely, by default {}
+    max_inflight_shards : int, optional
+        Maximum number of shard flushes allowed to run at once. A shard is written in
+        one large IO, and several of those in parallel is what keeps sharded throughput
+        competitive with the unsharded path, but each one holds its buffer plus the
+        codec's copies of it. This is the knob that trades throughput against host
+        memory, raise it if writes are the bottleneck and memory allows, by default 4
 
     Raises
     ------
@@ -302,6 +318,7 @@ class AsyncZarrBackend:
         zarr_codecs: CompressorsLike = None,
         chunked_coords: dict[str, int] = {},
         shard_coords: dict[str, int] = {},
+        max_inflight_shards: int = 4,
     ) -> None:
         # May need to trigger warning about this, needed to handle multi-threading!
         # But silent for now since people wont know what this means / get confused by an error message I think
@@ -335,8 +352,15 @@ class AsyncZarrBackend:
         self._shard_flush_futures: dict[
             tuple[str, tuple[int, ...]], concurrent.futures.Future
         ] = {}
+        self._inflight_flushes: list[concurrent.futures.Future] = []
         self._merge_warned: set[str] = set()
         self._live_warned = False
+
+        if max_inflight_shards < 1:
+            raise ValueError(
+                f"max_inflight_shards must be at least 1 but got {max_inflight_shards}"
+            )
+        self.max_inflight_shards = max_inflight_shards
 
         # Async / multi-thread items
         self.blocking = blocking
@@ -863,6 +887,33 @@ class AsyncZarrBackend:
 
         await self._flush_buffer(name, zarray, key, buffer)
 
+    async def _acquire_flush_slot(self, current: concurrent.futures.Future) -> None:
+        """Waits until fewer than `max_inflight_shards` flushes are running
+
+        Every concurrent flush holds its shard buffer plus whatever copies Zarr's
+        sharding codec makes while encoding it, so unbounded flush concurrency is
+        unbounded host memory. Waits on the oldest running flush rather than blocking
+        the thread, since the flushes run across several event loops.
+
+        Parameters
+        ----------
+        current : concurrent.futures.Future
+            Future of the flush that is being admitted, completed by the caller
+        """
+        while True:
+            with self._shard_lock:
+                self._inflight_flushes = [
+                    f for f in self._inflight_flushes if not f.done()
+                ]
+                if len(self._inflight_flushes) < self.max_inflight_shards:
+                    self._inflight_flushes.append(current)
+                    return
+                oldest = self._inflight_flushes[0]
+            try:
+                await asyncio.wrap_future(oldest)
+            except Exception as e:
+                logger.debug(f"Flush waited on by the shard slot gate failed ({e})")
+
     async def _flush_buffer(
         self,
         name: str,
@@ -874,6 +925,7 @@ class AsyncZarrBackend:
 
         Flushes of the same shard are chained so they cannot overlap, which matters on
         the merge path where each write is a read-modify-write of the whole shard.
+        Flushes of different shards run concurrently up to `max_inflight_shards`.
 
         Parameters
         ----------
@@ -902,6 +954,10 @@ class AsyncZarrBackend:
                         f"Preceding flush of shard {key[1]} of array {name} failed "
                         + f"({e}), continuing with this flush"
                     )
+
+            # Admitted only after the same shard ordering wait above, so a flush
+            # never holds a slot while waiting on another flush that needs one
+            await self._acquire_flush_slot(current)
 
             if buffer.preexisting:
                 if name not in self._merge_warned:
@@ -961,16 +1017,30 @@ class AsyncZarrBackend:
     def _limit_pool_size(self, max_pool_size: int) -> None:
         """Helper function to limit the number of parallel io processes
 
+        Counts operations that are still running, not operations that have been
+        submitted. This matters when sharding, where most writes only copy into a
+        shard buffer and finish immediately while one in every shard's worth of
+        writes performs the actual IO. Counting submissions would let a shard larger
+        than the pool serialize every flush against the one before it.
+
         Parameters
         ----------
         max_pool_size : int
-            Max number of io futures allowed to be queued
+            Max number of in flight io futures allowed
         """
-        while len(self.io_futures) > max_pool_size:
-            io_future = self.io_futures.pop(0)
-            if not io_future.done():
-                logger.debug("In IO thread pool throttle, limiting ")
+        pending = []
+        for io_future in self.io_futures:
+            if io_future.done():
+                # Surfaces any error the write failed with, a completed future that
+                # is never resulted swallows its exception
                 io_future.result()
+            else:
+                pending.append(io_future)
+        self.io_futures = pending
+
+        while len(self.io_futures) > max_pool_size:
+            logger.debug("In IO thread pool throttle, limiting ")
+            self.io_futures.pop(0).result()
 
     def add_array(
         self, coords: CoordSystem, array_name: str | list[str], **kwargs: dict[str, Any]
