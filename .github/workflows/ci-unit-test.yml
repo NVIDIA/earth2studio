@@ -97,9 +97,9 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-ghcr-0.1-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
-            e2s-uv-ghcr-0.1-${{ runner.os }}-
+            e2s-uv-${{ runner.os }}-
 
       - name: Check uv lockfile
         run: uv lock --check
@@ -115,7 +115,7 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-ghcr-0.1-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
 
   format:
     name: Format
@@ -138,9 +138,9 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-ghcr-0.1-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
-            e2s-uv-ghcr-0.1-${{ runner.os }}-
+            e2s-uv-${{ runner.os }}-
 
       - name: Set up environment
         run: uv sync
@@ -169,9 +169,9 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-ghcr-0.1-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
-            e2s-uv-ghcr-0.1-${{ runner.os }}-
+            e2s-uv-${{ runner.os }}-
 
       - name: Set up environment
         run: uv sync
@@ -209,9 +209,9 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-ghcr-0.1-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
-            e2s-uv-ghcr-0.1-${{ runner.os }}-
+            e2s-uv-${{ runner.os }}-
 
       - name: Restore model cache
         id: model-cache
@@ -219,9 +219,9 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
-          key: e2s-model-ghcr-0.1-${{ runner.os }}-main
+          key: e2s-model-${{ runner.os }}-main
           restore-keys: |
-            e2s-model-ghcr-0.1-${{ runner.os }}-
+            e2s-model-${{ runner.os }}-
 
       - name: Restore testmon cache
         id: testmon-cache
@@ -229,9 +229,9 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.TESTMON_CACHE }}
-          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-${{ github.sha }}
+          key: e2s-testmon-test-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
-            e2s-testmon-ghcr-0.1-${{ runner.os }}-main-
+            e2s-testmon-test-${{ runner.os }}-main-
 
       - name: Show GPU information
         run: nvidia-smi
@@ -251,7 +251,7 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
-          key: e2s-model-ghcr-0.1-${{ runner.os }}-main
+          key: e2s-model-${{ runner.os }}-main
 
       - name: Save testmon cache
         if: >
@@ -261,7 +261,7 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.TESTMON_CACHE }}
-          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          key: e2s-testmon-test-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}
 
   test-px-models:
     name: Test prognostic models
@@ -291,9 +291,9 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-ghcr-0.1-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
-            e2s-uv-ghcr-0.1-${{ runner.os }}-
+            e2s-uv-${{ runner.os }}-
 
       - name: Restore model cache
         id: model-cache
@@ -301,9 +301,9 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
-          key: e2s-model-ghcr-0.1-${{ runner.os }}-main
+          key: e2s-model-${{ runner.os }}-main
           restore-keys: |
-            e2s-model-ghcr-0.1-${{ runner.os }}-
+            e2s-model-${{ runner.os }}-
 
       - name: Restore testmon cache
         id: testmon-cache
@@ -311,9 +311,9 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.TESTMON_CACHE }}
-          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-${{ github.sha }}
+          key: e2s-testmon-test-px-models-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
-            e2s-testmon-ghcr-0.1-${{ runner.os }}-main-
+            e2s-testmon-test-px-models-${{ runner.os }}-main-
 
       - name: Show GPU information
         run: nvidia-smi
@@ -333,7 +333,7 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
-          key: e2s-model-ghcr-0.1-${{ runner.os }}-main
+          key: e2s-model-${{ runner.os }}-main
 
       - name: Save testmon cache
         if: >
@@ -343,4 +343,4 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.TESTMON_CACHE }}
-          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          key: e2s-testmon-test-px-models-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}
