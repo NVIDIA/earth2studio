@@ -171,51 +171,35 @@ io = AsyncZarrBackend(
 The chunk layout is unchanged, so readers still fetch a single lead time at a time. Only
 the number of files on disk changes.
 
-### Host memory is the tradeoff
+### Choosing a shard size
 
 A shard is one file, so writing part of one forces Zarr to read, modify, and rewrite the
 whole object. To avoid that, the backend accumulates the chunks of a shard in host
-memory and writes the shard once it is complete.
+memory and writes the shard once it is complete. Three things bound the choice:
 
-```text
-73 variables x 721 x 1440 x fp32   = 303 MB per lead time
-shard_coords={"lead_time": 8}      = 2.4 GB per shard buffer
-```
+**Host memory.** Budget roughly `max_inflight_shards * 4 * shard_bytes + pool_size *
+write_bytes` per process. A flushing shard costs several times its own size once Zarr's
+encoded copy is counted, and with several ranks per node this applies to each of them.
+For a 73 variable 721x1440 fp32 field, one lead time is about 0.3 GB, so a shard of 8
+lead times is a 2.4 GB buffer and the defaults put peak usage in the tens of GB.
 
-The raw buffer is only part of the cost. Each shard flush that is running also holds the
-copies Zarr's sharding codec makes while encoding it, and each in flight write holds the
-tensor it staged out of device memory. Budget roughly:
+**Store bandwidth.** Sharded writes are slower than unsharded ones, since a shard is one
+large sequential IO rather than many independent ones. `max_inflight_shards` controls how
+many run at once and is the main lever for single-process performance, though raising it
+stops helping once the store saturates bandwidth. Lowering it for multi-rank (distributed)
+runs is usually sensible, as the ranks already supply concurrency between them.
 
-```text
-max_inflight_shards * 4 * shard_bytes  +  pool_size * write_bytes
-```
+**How fast the model produces data.** With the `AsyncZarrBackend`,  none of the write cost
+is visible as long as the model takes longer to produce a step than the store takes to absorb
+it. Sharding is close to free in that regime. If a workflow writes more bytes per step than
+the store can absorb in the time the model takes to produce them, the wall clock becomes the
+IO time, and the only remedies are writing less data or a faster store.
 
-Measured peak RSS is 10-13x the size of a single shard buffer at default settings, so
-the 2.4 GB shard above costs roughly 30 GB resident. `max_inflight_shards` is the knob:
-lower it if memory is tight.
-
-Note that the number of *buffers* is small — with a loop over lead time there is exactly
-one accumulating per array — so the memory is dominated by concurrent flushes rather than
-by accumulation. Interleaving several parallel coordinates (for example batching over
-`time`) increases the buffer count too, and the backend warns when many are live at once.
-
-### Throughput
-
-A shard is written in one large sequential IO, which is more efficient per stream than
-many small chunk writes, but there are proportionally fewer of them. Sharded throughput
-therefore depends on how many shard flushes run concurrently, which is what
-`max_inflight_shards` controls. If sharded writes are slower than unsharded ones and
-memory allows, raising it is the first thing to try.
-
-Raising it stops helping once the filesystem saturates. On a Lustre scratch filesystem
-measuring roughly 2 GB/s, sharding 8 lead times of a 73 variable quarter degree field
-landed within about 15% of the unsharded write rate for 8x fewer files, and raising
-`max_inflight_shards` from 4 to 8 changed nothing but memory. Measure before tuning.
-
-Keep in mind that no amount of asynchrony can hide more IO than you have compute to
-hide it behind. If a workflow writes more bytes per step than the filesystem can absorb
-in the time the model takes to produce them, the wall clock is the IO time and the only
-remedies are writing less data or a faster store.
+As a rough guide, sharding a quarter degree field along `lead_time` costs a few percent
+of wall clock for a proportional reduction in file count, provided the run is not already
+IO bound. The best settings are problem- and system-specific, and involve tradeoffs between
+speed, host memory consumption, and file count, so it is worth measuring and tuning for the
+desired behavior in large inference campagins.
 
 ### Partial shards and restarts
 
@@ -266,16 +250,15 @@ This is also the dimension that causes the file explosion in the first place, so
 usually the only one worth sharding.
 
 **Sharding along the distributed coordinate is the fragile case.** With 8 ICs across 3
-ranks and `shard_coords={"time": 4}`, a common contiguous block split gives rank 0 ICs
-0-2 and rank 1 ICs 3-5. The first time shard covers ICs 0-3 and therefore straddles two
-ranks. Both buffer a partial shard, both flush it whole, and one rank's output is lost.
-Note that the read-modify-write fallback does not protect you here: both ranks check for
-the shard before either has written it, so both take the full overwrite path.
+ranks and `shard_coords={"time": 4}`, a contiguous block split gives rank 0 ICs 0-2 and
+rank 1 ICs 3-5, so the first time shard covers ICs 0-3 and straddles two ranks. Both
+buffer a partial shard, both flush it whole, and one rank's output is lost. The
+read-modify-write fallback does not protect you: both ranks check for the shard before
+either has written it, so both take the full overwrite path.
 
-Such a layout is only safe when each rank's slice is shard aligned, which requires both
-that the work divides evenly across ranks and that each rank's count is a multiple of the
-shard size. Since work splitting commonly gives leftover items to the first few ranks,
-that alignment is easy to lose. Prefer the first layout.
+Such a layout is only safe when every rank's slice happens to be shard aligned, which
+depends on the item count, the rank count, and the shard size all lining up. It can pass
+at one rank count and silently lose data at another, so prefer the first layout.
 
 Separately, and independent of sharding: arrays are created lazily on the first write, so
 several ranks writing a new array at once can race on its creation. Have one rank

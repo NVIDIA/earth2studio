@@ -206,19 +206,14 @@ class AsyncZarrBackend:
     Warning
     -------
     Enabling sharding via `shard_coords` buffers chunks in host memory until a shard is
-    complete, so it trades host memory for a smaller file count. Budget roughly
+    complete, trading host memory for a smaller file count. Budget roughly
 
         max_inflight_shards * 4 * prod(shard_shape) * itemsize + pool_size * write_bytes
 
-    Each concurrently flushing shard costs several times its own size, since Zarr's
-    sharding codec holds the encoded shard alongside the buffer, on top of the tensors
-    staged by in flight writes. Measured peak RSS is 10-13x the size of a single shard
-    buffer at the default settings, so a shard of 8 lead times of a 73 variable
-    721x1440 fp32 field (2.4 GB raw) costs roughly 30 GB resident.
-
-    `max_inflight_shards` is the lever here. Note that memory scales with it but
-    throughput only does so until the filesystem saturates, so raising it past the
-    point where writes stop getting faster costs memory for nothing.
+    per process, since a flushing shard costs several times its own size once Zarr's
+    encoded copy is counted. Sharded writes are also slower than unsharded ones, which
+    is hidden as long as the model takes longer to produce a step than the store takes
+    to absorb it.
 
     Warning
     -------
@@ -228,7 +223,7 @@ class AsyncZarrBackend:
     hold part of the same shard they will both write it in full and the later write
     wins, silently discarding the other's data. Shard along a coordinate that each rank
     owns entirely (typically `lead_time`, since a rank runs a whole forecast), not along
-    the coordinate the work is distributed over. See the notes on `shard_coords` below.
+    the coordinate the work is distributed over.
 
     Parameters
     ----------
@@ -266,35 +261,14 @@ class AsyncZarrBackend:
         present in a given array are ignored, by default {}
     shard_coords : dict[str, int], optional
         Number of elements per shard along the given coordinates, enabling Zarr v3
-        sharding. Sharding packs many chunks into one storage object, which is the way
-        to keep a large inference campaign from producing a file (and inode) per chunk.
-        The chunk layout is unchanged, so readers still fetch one chunk at a time.
-
-        Any coordinate not listed uses a shard size equal to its chunk size. Each value
-        must be a multiple of that coordinate's chunk size, which is 1 for coordinates
-        in `parallel_coords` and the full length otherwise unless set via
-        `chunked_coords`. Chunks are accumulated in host memory and the shard is written
-        once complete, see the memory warning above. If empty, arrays are created
-        unsharded and writes take the same path as before, by default {}
-
-        Shards need not divide evenly into a coordinate. `close()` writes out any shard
-        that never filled, using the array fill value where nothing was supplied, which
-        reads back exactly as an unwritten chunk would. Writing into a shard that is
-        already in the store still works but falls back to a read-modify-write of the
-        whole shard and logs a warning, which happens when `close()` or `flush()` is
-        called mid run or when restarting into a store left with incomplete shards.
-
-        With multiple processes writing one store, every shard must be owned entirely by
-        one of them, see the warning above. Sharding along a coordinate the work is
-        distributed over is only safe when each rank's slice is a whole number of
-        shards, and nothing detects a violation, so prefer sharding along a coordinate
-        each rank owns completely, by default {}
+        sharding. Each value must be a multiple of that coordinate's chunk size, and any
+        coordinate not listed uses a shard size equal to its chunk size. See the
+        Sharding notes below. By default, {} (unsharded).
     max_inflight_shards : int, optional
-        Maximum number of shard flushes allowed to run at once. A shard is written in
-        one large IO, and several of those in parallel is what keeps sharded throughput
-        competitive with the unsharded path, but each one holds its buffer plus the
-        codec's copies of it. This is the knob that trades throughput against host
-        memory, raise it if writes are the bottleneck and memory allows, by default 4
+        Maximum number of shard flushes allowed to run at once. Concurrent flushes are
+        what keep sharded write throughput up, at the cost of holding that many shards
+        in memory. Lower it if memory is tight, raise it if writes are the bottleneck
+        and the store has bandwidth to spare, by default 4
 
     Raises
     ------
@@ -304,6 +278,34 @@ class AsyncZarrBackend:
         If fs_factory is not a callable, this should be a callable method not an object
     ValueError
         If a `shard_coords` value is not positive
+
+    Notes
+    -----
+    Sharding
+
+    Because every coordinate in `parallel_coords` is chunked with a size of 1, a large
+    inference campaign can produce an enormous number of small files, which is a common
+    way to exhaust an inode quota on a parallel filesystem. Sharding packs many chunks
+    into a single storage object to avoid that. The chunk layout is unchanged, so
+    readers still fetch one chunk at a time and only the file count changes.
+
+    A shard is one object, so writing part of one would force Zarr to read, modify and
+    rewrite all of it. To keep every shard to a single write, this backend accumulates
+    a shard's chunks in host memory and writes it once complete, hence the memory and
+    throughput tradeoffs in the warnings above.
+
+    Shard sizes need not divide evenly into a coordinate. `close()` writes out any shard
+    that never filled, using the array fill value where nothing was supplied, which
+    reads back exactly as an unwritten chunk would. Writing into a shard already present
+    in the store still works but falls back to a read-modify-write of the whole shard
+    and logs a warning. That happens when `close()` or `flush()` is called mid run and
+    the same shards are written again, or when restarting into a store left with
+    incomplete shards, so aligning restart boundaries with the shard size keeps writes
+    on the fast path.
+
+    Sharding composes with `zarr_codecs`, which compresses the inner chunks within a
+    shard, and with `chunked_coords`, which sets the chunk size of coordinates outside
+    `parallel_coords`.
     """
 
     def __init__(
@@ -1040,7 +1042,17 @@ class AsyncZarrBackend:
 
         while len(self.io_futures) > max_pool_size:
             logger.debug("In IO thread pool throttle, limiting ")
-            self.io_futures.pop(0).result()
+            # Waits for whichever write finishes first rather than the oldest one.
+            # When sharding, writes that only fill a buffer finish quickly while the
+            # write that flushes a shard takes far longer, so waiting on the head of
+            # the queue would stall the caller on the slowest operation and serialize
+            # every flush against the one before it
+            done, not_done = concurrent.futures.wait(
+                self.io_futures, return_when=concurrent.futures.FIRST_COMPLETED
+            )
+            for io_future in done:
+                io_future.result()
+            self.io_futures = [f for f in self.io_futures if f in not_done]
 
     def add_array(
         self, coords: CoordSystem, array_name: str | list[str], **kwargs: dict[str, Any]

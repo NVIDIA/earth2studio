@@ -987,6 +987,42 @@ def test_async_zarr_pool_throttle_counts_pending(tmp_path: str) -> None:
     z.close()
 
 
+def test_async_zarr_pool_throttle_no_head_of_line_block(tmp_path: str) -> None:
+    """The throttle must wait for any write to finish, not the oldest one.
+
+    When sharding, a write that only fills a shard buffer finishes quickly while the
+    write that flushes a shard takes far longer. Waiting on the head of the queue
+    stalls the caller on the slowest operation, which serializes every flush against
+    the one before it.
+    """
+    z = AsyncZarrBackend(
+        f"{tmp_path}/headofline.zarr",
+        parallel_coords={"lead_time": np.arange(2).astype("timedelta64[h]")},
+        fs_factory=LocalFileSystem,
+        blocking=False,
+        pool_size=4,
+    )
+
+    slow: concurrent.futures.Future = concurrent.futures.Future()
+    quick: concurrent.futures.Future = concurrent.futures.Future()
+    z.io_futures = [slow, quick]
+
+    timer = threading.Timer(0.1, lambda: quick.set_result(None))
+    timer.start()
+    try:
+        # Over the cap of one, so it must block, but only until `quick` lands
+        z._limit_pool_size(1)
+    finally:
+        timer.cancel()
+
+    assert z.io_futures == [slow]
+    assert not slow.done(), "throttle waited on the oldest future instead of any"
+
+    slow.set_result(None)
+    z.io_futures = []
+    z.close()
+
+
 def test_async_zarr_pool_throttle_surfaces_errors(tmp_path: str) -> None:
     """A write that failed must not have its exception silently discarded"""
     z = AsyncZarrBackend(
@@ -1031,35 +1067,35 @@ async def test_async_zarr_shard_inflight_limit(
         max_inflight_shards=max_inflight,
     )
 
-    # A slot is held from the moment _acquire_flush_slot returns until _flush_buffer
-    # completes its future, so the counters have to straddle exactly that window
+    # A slot is held from the moment _acquire_flush_slot admits a flush until that
+    # flush's future completes, which is what frees the slot again. Counting the
+    # release off a done callback rather than off _flush_buffer returning keeps the
+    # counter's window identical to the one the gate enforces, otherwise the next
+    # flush can be admitted before this one is decremented and the count reads high
     live = 0
     peak = 0
     counter_lock = threading.Lock()
     original_acquire = AsyncZarrBackend._acquire_flush_slot
-    original_flush = AsyncZarrBackend._flush_buffer
 
-    async def counting_acquire(self: AsyncZarrBackend, current: object) -> None:
+    def release(_: object) -> None:
+        nonlocal live
+        with counter_lock:
+            live -= 1
+
+    async def counting_acquire(
+        self: AsyncZarrBackend, current: concurrent.futures.Future
+    ) -> None:
         nonlocal live, peak
         await original_acquire(self, current)
         with counter_lock:
             live += 1
             peak = max(peak, live)
+        current.add_done_callback(release)
         # Hold the slot so overlapping flushes are actually observable, the real
         # writes here are far too small to overlap on their own
         await asyncio.sleep(0.05)
 
-    async def counting_flush(
-        self: AsyncZarrBackend, name: str, zarray: object, key: tuple, buffer: object
-    ) -> None:
-        try:
-            await original_flush(self, name, zarray, key, buffer)
-        finally:
-            with counter_lock:
-                live -= 1
-
     monkeypatch.setattr(AsyncZarrBackend, "_acquire_flush_slot", counting_acquire)
-    monkeypatch.setattr(AsyncZarrBackend, "_flush_buffer", counting_flush)
 
     total_coords = _shard_test_coords(lead_time, ["t2m"])
     shape = [v.shape[0] for v in total_coords.values()]
