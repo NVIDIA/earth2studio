@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+ci:
+    skip: [uv-lock]
+
 repos:
 -   repo: https://github.com/psf/black
     rev: 24.1.0
@@ -91,6 +94,6 @@ repos:
 
 -   repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.6.12
+    rev: 0.11.26
     hooks:
     -   id: uv-lock
