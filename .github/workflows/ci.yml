@@ -32,6 +32,7 @@ defaults:
     shell: bash
 
 env:
+  EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
   UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
 
@@ -173,6 +174,16 @@ jobs:
           restore-keys: |
             e2s-uv-ghcr-0.1-${{ runner.os }}-
 
+      - name: Restore model cache
+        id: model-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-ghcr-0.1-${{ runner.os }}-main
+          restore-keys: |
+            e2s-model-ghcr-0.1-${{ runner.os }}-
+
       - name: Show GPU information
         run: nvidia-smi
 
@@ -181,3 +192,14 @@ jobs:
 
       - name: Run tests
         run: make pytest-ci
+
+      - name: Save model cache
+        if: >
+          always() &&
+          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+          steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
+          key: e2s-model-ghcr-0.1-${{ runner.os }}-main
