@@ -33,6 +33,7 @@ defaults:
 
 env:
   EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
   TESTMON_CACHE: ${{ github.workspace }}/.cache/testmon
   TESTMON_DATAFILE: ${{ github.workspace }}/.cache/testmon/.testmondata
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
@@ -285,7 +286,6 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     env:
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
       TOX_ENV: test-px-models
     steps:
       - name: Checkout repository
