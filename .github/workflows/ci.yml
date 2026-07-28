@@ -173,6 +173,9 @@ jobs:
           restore-keys: |
             e2s-uv-ghcr-0.1-${{ runner.os }}-
 
+      - name: Show GPU information
+        run: nvidia-smi
+
       - name: Set up environment
         run: uv sync
 
