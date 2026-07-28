@@ -229,9 +229,9 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.TESTMON_CACHE }}
-          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-test-${{ github.sha }}
+          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
-            e2s-testmon-ghcr-0.1-${{ runner.os }}-test-main-
+            e2s-testmon-ghcr-0.1-${{ runner.os }}-main-
 
       - name: Show GPU information
         run: nvidia-smi
@@ -261,7 +261,7 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.TESTMON_CACHE }}
-          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-test-main-${{ github.run_id }}-${{ github.run_attempt }}
+          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
 
   test-px-models:
     name: Test prognostic models
@@ -311,9 +311,9 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.TESTMON_CACHE }}
-          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-test-px-models-${{ github.sha }}
+          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
-            e2s-testmon-ghcr-0.1-${{ runner.os }}-test-px-models-main-
+            e2s-testmon-ghcr-0.1-${{ runner.os }}-main-
 
       - name: Show GPU information
         run: nvidia-smi
@@ -343,4 +343,4 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.TESTMON_CACHE }}
-          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-test-px-models-main-${{ github.run_id }}-${{ github.run_attempt }}
+          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
