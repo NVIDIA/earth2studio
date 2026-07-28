@@ -11,13 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added Zarr v3 sharding support to `AsyncZarrBackend`
+
 ### Changed
+
+- `AsyncZarrBackend` now throttles on in flight writes rather than submitted writes, and
+  waits for whichever write completes first rather than the oldest.
 
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+
+- Fixed `AsyncZarrBackend` discarding exceptions raised by non-blocking writes. A write
+  future that had already completed was never resulted, so its error was swallowed
 
 ### Security
 
