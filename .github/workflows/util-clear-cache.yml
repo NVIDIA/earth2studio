@@ -28,6 +28,7 @@ on:
           - all
           - uv
           - model
+          - testmon
       dry_run:
         description: List matching caches without deleting them
         required: true
@@ -75,13 +76,16 @@ jobs:
 
           case "$CACHE_GROUP" in
             all)
-              key_regex="^e2s-(uv|model)-"
+              key_regex="^e2s-(uv|model|testmon)-"
               ;;
             uv)
               key_regex="^e2s-uv-"
               ;;
             model)
               key_regex="^e2s-model-"
+              ;;
+            testmon)
+              key_regex="^e2s-testmon-"
               ;;
             *)
               echo "Unknown cache group: $CACHE_GROUP"

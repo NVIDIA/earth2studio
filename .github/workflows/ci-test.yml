@@ -33,6 +33,8 @@ defaults:
 
 env:
   EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
+  TESTMON_CACHE: ${{ github.workspace }}/.cache/testmon
+  TESTMON_DATAFILE: ${{ github.workspace }}/.cache/testmon/.testmondata
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
   UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
 
@@ -221,6 +223,16 @@ jobs:
           restore-keys: |
             e2s-model-ghcr-0.1-${{ runner.os }}-
 
+      - name: Restore testmon cache
+        id: testmon-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-test-${{ github.sha }}
+          restore-keys: |
+            e2s-testmon-ghcr-0.1-${{ runner.os }}-test-main-
+
       - name: Show GPU information
         run: nvidia-smi
 
@@ -240,6 +252,16 @@ jobs:
         with:
           path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
           key: e2s-model-ghcr-0.1-${{ runner.os }}-main
+
+      - name: Save testmon cache
+        if: >
+          always() &&
+          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-test-main-${{ github.run_id }}-${{ github.run_attempt }}
 
   test-px-models:
     name: Test prognostic models
@@ -283,6 +305,16 @@ jobs:
           restore-keys: |
             e2s-model-ghcr-0.1-${{ runner.os }}-
 
+      - name: Restore testmon cache
+        id: testmon-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-test-px-models-${{ github.sha }}
+          restore-keys: |
+            e2s-testmon-ghcr-0.1-${{ runner.os }}-test-px-models-main-
+
       - name: Show GPU information
         run: nvidia-smi
 
@@ -302,3 +334,13 @@ jobs:
         with:
           path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
           key: e2s-model-ghcr-0.1-${{ runner.os }}-main
+
+      - name: Save testmon cache
+        if: >
+          always() &&
+          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.TESTMON_CACHE }}
+          key: e2s-testmon-ghcr-0.1-${{ runner.os }}-test-px-models-main-${{ github.run_id }}-${{ github.run_attempt }}
