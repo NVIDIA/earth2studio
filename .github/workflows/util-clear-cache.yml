@@ -1,0 +1,114 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: util-clear-cache
+
+on:
+  workflow_dispatch:
+    inputs:
+      cache:
+        description: Cache group to delete
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - uv
+          - model
+      dry_run:
+        description: List matching caches without deleting them
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  util-clear-cache:
+    name: util-clear-cache
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check maintainer permission
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          permission="$(
+            gh api \
+              "repos/${GITHUB_REPOSITORY}/collaborators/${GITHUB_ACTOR}/permission" \
+              --jq ".permission"
+          )"
+
+          case "$permission" in
+            admin|maintain|write)
+              echo "Actor ${GITHUB_ACTOR} has ${permission} permission."
+              ;;
+            *)
+              echo "::error::Actor ${GITHUB_ACTOR} has ${permission} permission. Write, maintain, or admin permission is required to clear caches."
+              exit 1
+              ;;
+          esac
+
+      - name: Clear selected cache
+        env:
+          CACHE_GROUP: ${{ inputs.cache }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          case "$CACHE_GROUP" in
+            all)
+              key_regex="^e2s-(uv|model)-"
+              ;;
+            uv)
+              key_regex="^e2s-uv-"
+              ;;
+            model)
+              key_regex="^e2s-model-"
+              ;;
+            *)
+              echo "Unknown cache group: $CACHE_GROUP"
+              exit 1
+              ;;
+          esac
+
+          mapfile -t cache_lines < <(
+            gh cache list \
+              --repo "$GITHUB_REPOSITORY" \
+              --limit 1000 \
+              --json id,key \
+              --jq ".[] | select(.key | test(\"${key_regex}\")) | [.id, .key] | @tsv"
+          )
+
+          if [ "${#cache_lines[@]}" -eq 0 ]; then
+            echo "No ${CACHE_GROUP} caches found."
+            exit 0
+          fi
+
+          for cache_line in "${cache_lines[@]}"; do
+            cache_id="${cache_line%%$'\t'*}"
+            cache_key="${cache_line#*$'\t'}"
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "Would delete cache ${cache_id}: ${cache_key}"
+            else
+              echo "Deleting cache ${cache_id}: ${cache_key}"
+              gh cache delete "$cache_id" --repo "$GITHUB_REPOSITORY"
+            fi
+          done
