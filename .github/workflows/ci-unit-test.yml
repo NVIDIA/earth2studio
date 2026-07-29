@@ -32,7 +32,6 @@ defaults:
     shell: bash
 
 env:
-  CDS_URL: https://cds.climate.copernicus.eu/api
   CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
   EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
