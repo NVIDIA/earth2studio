@@ -27,6 +27,7 @@ on:
         options:
           - all
           - uv
+          - pre-commit
           - model
           - testmon
       dry_run:
@@ -54,10 +55,13 @@ jobs:
 
           case "$CACHE_GROUP" in
             all)
-              key_regex="^e2s-(uv|model|testmon)-"
+              key_regex="^e2s-(uv|pre-commit|model|testmon)-"
               ;;
             uv)
               key_regex="^e2s-uv-"
+              ;;
+            pre-commit)
+              key_regex="^e2s-pre-commit-"
               ;;
             model)
               key_regex="^e2s-model-"

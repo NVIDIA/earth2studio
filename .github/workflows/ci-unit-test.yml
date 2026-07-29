@@ -40,6 +40,7 @@ env:
   EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
   EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  PRE_COMMIT_HOME: ${{ github.workspace }}/.cache/pre-commit
   TESTMON_CACHE: ${{ github.workspace }}/.cache/testmon
   TESTMON_DATAFILE: ${{ github.workspace }}/.cache/testmon/.testmondata
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
@@ -156,21 +157,40 @@ jobs:
           restore-keys: |
             e2s-uv-${{ runner.os }}-
 
+      - name: Restore pre-commit cache
+        id: pre-commit-cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.PRE_COMMIT_HOME }}
+          key: e2s-pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            e2s-pre-commit-${{ runner.os }}-
+
+      - name: Prepare CI directories
+        run: python3 test/_ci/prepare_ci_paths.py
+
       - name: Check uv lockfile
         run: uv lock --check
 
-      - name: Set up environment
-        run: uv sync
+      - name: Set up CI environment
+        run: make setup-ci
 
       - name: Save uv cache
-        if: >
-          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
-          steps.uv-cache.outputs.cache-hit != 'true'
+        if: steps.uv-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
           key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+
+      - name: Save pre-commit cache
+        if: steps.pre-commit-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.PRE_COMMIT_HOME }}
+          key: e2s-pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
   format:
     name: Format
