@@ -14,11 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Clear CI Cache
+name: util-clear-cache
 
 on:
   workflow_dispatch:
     inputs:
+      cache:
+        description: Cache group to delete
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - uv
+          - model
+          - testmon
       dry_run:
         description: List matching caches without deleting them
         required: true
@@ -30,35 +40,57 @@ permissions:
   contents: read
 
 jobs:
-  clear-uv-cache:
-    name: Clear uv cache
+  util-clear-cache:
+    name: util-clear-cache
     runs-on: ubuntu-latest
     steps:
-      - name: Clear uv caches
+      - name: Clear selected cache
         env:
+          CACHE_GROUP: ${{ inputs.cache }}
           DRY_RUN: ${{ inputs.dry_run }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
-          mapfile -t cache_ids < <(
+          case "$CACHE_GROUP" in
+            all)
+              key_regex="^e2s-(uv|model|testmon)-"
+              ;;
+            uv)
+              key_regex="^e2s-uv-"
+              ;;
+            model)
+              key_regex="^e2s-model-"
+              ;;
+            testmon)
+              key_regex="^e2s-testmon-"
+              ;;
+            *)
+              echo "Unknown cache group: $CACHE_GROUP"
+              exit 1
+              ;;
+          esac
+
+          mapfile -t cache_lines < <(
             gh cache list \
               --repo "$GITHUB_REPOSITORY" \
-              --key e2s-uv- \
               --limit 1000 \
-              --json id \
-              --jq '.[].id'
+              --json id,key \
+              --jq ".[] | select(.key | test(\"${key_regex}\")) | [.id, .key] | @tsv"
           )
 
-          if [ "${#cache_ids[@]}" -eq 0 ]; then
-            echo "No uv caches found."
+          if [ "${#cache_lines[@]}" -eq 0 ]; then
+            echo "No ${CACHE_GROUP} caches found."
             exit 0
           fi
 
-          for cache_id in "${cache_ids[@]}"; do
+          for cache_line in "${cache_lines[@]}"; do
+            cache_id="${cache_line%%$'\t'*}"
+            cache_key="${cache_line#*$'\t'}"
             if [ "$DRY_RUN" = "true" ]; then
-              echo "Would delete cache ${cache_id}"
+              echo "Would delete cache ${cache_id}: ${cache_key}"
             else
+              echo "Deleting cache ${cache_id}: ${cache_key}"
               gh cache delete "$cache_id" --repo "$GITHUB_REPOSITORY"
             fi
           done
