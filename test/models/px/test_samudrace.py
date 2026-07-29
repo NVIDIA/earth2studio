@@ -248,6 +248,13 @@ def build_input(model, time, batch=1):
     return x, coords
 
 
+def step_once(p, x, coords):
+    """Advance one atmosphere step through the model's iterator."""
+    p_iter = p.create_iterator(x, coords)
+    next(p_iter)  # initial condition
+    return next(p_iter)
+
+
 device_params = [
     "cpu",
     pytest.param(
@@ -257,14 +264,26 @@ device_params = [
 ]
 
 
+def test_samudrace_call_unsupported(model):
+    """SamudrACE is iterator-only: a direct forward call is refused."""
+    time = np.array([np.datetime64("2001-01-01T00:00")])
+    x, coords = build_input(model, time)
+
+    with pytest.raises(NotImplementedError, match="create_iterator"):
+        model(x, coords)
+
+
 @pytest.mark.parametrize("device", device_params)
-def test_samudrace_call(model, device):
+def test_samudrace_iter_device(model, device):
+    """One atmosphere step through the iterator, on each device."""
     time = np.array([np.datetime64("2001-01-01T00:00")])
     p = model.to(device)
     x, coords = build_input(p, time)
     x = x.to(device)
 
-    out, out_coords = p(x, coords)
+    p_iter = p.create_iterator(x, coords)
+    next(p_iter)  # initial condition
+    out, out_coords = next(p_iter)
 
     assert out.device == torch.device(device)
     assert out.shape == (1, len(time), 1, len(OUT_VARS), N_LAT, N_LON)
@@ -477,21 +496,23 @@ def test_samudrace_exceptions(model):
     time = np.array([np.datetime64("2001-01-01T00:00")])
     x, coords = build_input(model, time)
 
-    # Wrong number of dimensions
+    # More than one input lead time
+    bad_coords = coords.copy()
+    bad_coords["lead_time"] = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
     with pytest.raises(ValueError):
-        model(x[0], {k: v for k, v in coords.items() if k != "batch"})
+        step_once(model, torch.cat([x, x], dim=2), bad_coords)
 
     # Wrong variable coordinates
     bad_coords = coords.copy()
     bad_coords["variable"] = np.array(list(reversed(IN_VARS)), dtype=object)
     with pytest.raises((KeyError, ValueError)):
-        model(x, bad_coords)
+        step_once(model, x, bad_coords)
 
     # Wrong latitude orientation
     bad_coords = coords.copy()
     bad_coords["lat"] = coords["lat"][::-1]
     with pytest.raises((KeyError, ValueError)):
-        model(x, bad_coords)
+        step_once(model, x, bad_coords)
 
 
 def test_samudrace_forcing_window_from_file(model, tmp_path):
@@ -615,7 +636,7 @@ def test_samudrace_forcing_out_of_calendar(model, tmp_path):
         time = np.array([np.datetime64("2000-02-28T18:00:00")])
         x, coords = build_input(p, time)
         with pytest.raises(ValueError, match="no counterpart"):
-            p(x, coords)
+            step_once(p, x, coords)
 
 
 def test_samudrace_load_default_package():
@@ -660,10 +681,16 @@ def test_samudrace_package():
     coords["batch"] = np.arange(1)
     coords["time"] = time
 
-    out, out_coords = model(x, coords)
+    # One coupled cycle through the iterator, one atmosphere step at a time
+    n_inner_steps = model.stepper.n_inner_steps
+    p_iter = model.create_iterator(x, coords)
+    next(p_iter)  # initial condition
+    steps = [next(p_iter) for _ in range(n_inner_steps)]
 
-    assert out.shape == (1, 1, 1, len(out_vars), 180, 360)
-    assert out_coords["lead_time"][0] == np.timedelta64(6, "h")
-    for name in ["t2m", "sp", "mslhf"]:
-        j = out_vars.index(name)
-        assert torch.isfinite(out[:, :, :, j]).all()
+    for i, (out, out_coords) in enumerate(steps):
+        assert out.shape == (1, 1, 1, len(out_vars), 180, 360)
+        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
+        assert out_coords["lat"][0] > out_coords["lat"][-1]
+        for name in ["t2m", "sp", "mslhf"]:
+            j = out_vars.index(name)
+            assert torch.isfinite(out[:, :, :, j]).all()

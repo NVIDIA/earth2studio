@@ -144,10 +144,10 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     (non-prognostic) fields are NaN until the first cycle boundary, as are
     atmosphere diagnostic fields at the initial condition step.
 
-    Calling the model directly advances one full coupled cycle internally and
-    returns the first atmosphere step of that cycle. The returned tensor is
-    not a valid coupled restart state (the ocean fields are those of the
-    input state); use :meth:`create_iterator` for trajectories.
+    The model is iterator-only: it has no single-step forward call. Its
+    time-step is the coupled cycle, which spans ``n_inner_steps`` atmosphere
+    steps, so advancing the model is not expressible as one 6 hour forward
+    pass; calling the model raises ``NotImplementedError``.
 
     Times are CM4 model years (e.g. year 151), which are outside the range of
     nanosecond-precision timestamps; provide time coordinates as
@@ -801,18 +801,18 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Raises on coordinate handshake failure
         self.output_coords(coords)
 
-    @batch_func()
     def __call__(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Advance one coupled cycle and return the first atmosphere step.
+        """Not supported; SamudrACE is an iterator-only prognostic.
 
-        A single call advances the coupled model one full coupled (ocean)
-        cycle internally and returns the output at the first atmosphere step,
-        6 hours past the input state. Ocean output fields in the returned
-        tensor are those of the input state (they update only at cycle
-        boundaries), so the returned tensor is not a valid coupled restart
-        state; use :meth:`create_iterator` for trajectories.
+        The model's time-step is the coupled (ocean) step, which spans
+        ``n_inner_steps`` atmosphere steps, so a single-step forward call
+        cannot express advancing the model: advancing a full coupled cycle to
+        return one 6 hour step would discard the remainder of the cycle and
+        report ocean fields that have not advanced. Use
+        :meth:`create_iterator` instead, which yields one atmosphere step at a
+        time and runs the coupled stepper at each cycle boundary.
 
         Parameters
         ----------
@@ -824,15 +824,20 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Returns
         -------
         tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 6 hours in the future
+            Never returns
+
+        Raises
+        ------
+        NotImplementedError
+            Always; use :meth:`create_iterator`
         """
-        self._validate_input(x, coords)
-        b, t = x.shape[0], x.shape[1]
-        state = self._state_from_tensor(x, coords)
-        atmos_prediction, _, _ = self._run_cycle(state, coords, b, x.device, x.dtype)
-        ocean_block = self._initial_ocean_block(x, coords)
-        out = self._assemble_step(atmos_prediction, 0, ocean_block, (b, t))
-        return out, self.output_coords(coords)
+        raise NotImplementedError(
+            "SamudrACE does not support a single forward call: its time-step "
+            "is the coupled (ocean) step, which spans "
+            f"{self._n_inner_steps} atmosphere steps. Use "
+            "SamudrACE.create_iterator to integrate the model one atmosphere "
+            "step at a time."
+        )
 
     @batch_func()
     def _default_generator(
