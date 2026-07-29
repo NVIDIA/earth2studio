@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
+- Added SamudrACE coupled atmosphere-ocean prognostic model (`SamudrACE`) with its
+  initial-condition and forcing data sources (`SamudrACEData`, `SamudrACEForcingData`)
 
 ### Changed
 

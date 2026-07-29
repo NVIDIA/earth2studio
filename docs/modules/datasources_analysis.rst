@@ -64,6 +64,8 @@ Used for fetching initial conditions for inference and validation data for scori
       data.PlanetaryComputerOISST
       data.PlanetaryComputerSentinel3AOD
       data.Random
+      data.SamudrACEData
+      data.SamudrACEForcingData
       data.WB2ERA5
       data.WB2ERA5_121x240
       data.WB2ERA5_32x64
