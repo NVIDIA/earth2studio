@@ -32,7 +32,14 @@ defaults:
     shell: bash
 
 env:
+  CDS_URL: https://cds.climate.copernicus.eu/api
+  CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
+  CDSAPI_URL: https://cds.climate.copernicus.eu/api
   EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
+  EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
+  EARTHMOVER_ORGANIZATION: ${{ secrets.EARTHMOVER_ORGANIZATION }}
+  EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
+  EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
   TESTMON_CACHE: ${{ github.workspace }}/.cache/testmon
   TESTMON_DATAFILE: ${{ github.workspace }}/.cache/testmon/.testmondata
