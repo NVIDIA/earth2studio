@@ -437,6 +437,29 @@ uv add earth2studio --extra pangu
 :::
 ::::
 :::::
+:::::{tab-item} SamudrACE
+Notes: The SamudrACE model requires [fme](https://github.com/ai2cm/ace) at the
+2026.4.0 release. This extra conflicts with the `ace2` extra, which pins fme to
+a different version, and with extras that use a git-pinned torch-harmonics
+(`atlas`, `fcn3`, `perturbation`, `sfno`).
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[samudrace]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra samudrace
+```
+
+:::
+::::
+:::::
 :::::{tab-item} SFNO
 Notes: Requires [Makani](https://github.com/NVIDIA/makani) to be
 installed manually.
