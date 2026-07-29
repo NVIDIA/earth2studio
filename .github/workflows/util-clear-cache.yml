@@ -44,28 +44,6 @@ jobs:
     name: util-clear-cache
     runs-on: ubuntu-latest
     steps:
-      - name: Check maintainer permission
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          permission="$(
-            gh api \
-              "repos/${GITHUB_REPOSITORY}/collaborators/${GITHUB_ACTOR}/permission" \
-              --jq ".permission"
-          )"
-
-          case "$permission" in
-            admin|maintain|write)
-              echo "Actor ${GITHUB_ACTOR} has ${permission} permission."
-              ;;
-            *)
-              echo "::error::Actor ${GITHUB_ACTOR} has ${permission} permission. Write, maintain, or admin permission is required to clear caches."
-              exit 1
-              ;;
-          esac
-
       - name: Clear selected cache
         env:
           CACHE_GROUP: ${{ inputs.cache }}
