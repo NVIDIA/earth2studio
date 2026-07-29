@@ -134,7 +134,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     steps and the ocean advances once per coupled (5 day) cycle; all coupling
     logic (SST prescription, flux exchange and averaging, ocean-fraction
     prediction, masking) is owned by FME via
-    ``CoupledStepper.predict_paired``, which this wrapper calls exactly once
+    ``CoupledStepper.predict``, which this wrapper calls exactly once
     per coupled cycle.
 
     The primary interface is :meth:`create_iterator`, which yields the initial
@@ -607,10 +607,10 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ),
         )
         with torch.inference_mode():
-            paired, next_state = self.stepper.predict_paired(state, forcing)
+            predicted, next_state = self.stepper.predict(state, forcing)
         return (
-            dict(paired.atmosphere_data.prediction),
-            dict(paired.ocean_data.prediction),
+            dict(predicted.atmosphere_data.data),
+            dict(predicted.ocean_data.data),
             next_state,
         )
 

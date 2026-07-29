@@ -382,7 +382,7 @@ def test_samudrace_iter(model, batch):
 
 
 def test_samudrace_parity(model):
-    """The concatenated iterator trajectory equals a direct predict_paired
+    """The concatenated iterator trajectory equals a direct predict
     trajectory over the same stepper, initial condition, and forcing."""
     import cftime
     from fme.ace.data_loading.batch_data import BatchData, PrognosticState
@@ -403,7 +403,7 @@ def test_samudrace_parity(model):
     ]
     var_list = list(model.output_coords(coords.copy())["variable"])
 
-    # Direct fme trajectory: one predict_paired call over n_cycles coupled
+    # Direct fme trajectory: one predict call over n_cycles coupled
     # steps with an independently assembled forcing window
     forcing_source = DeterministicForcing()
     base = cftime.DatetimeProlepticGregorian(2001, 1, 1, 0)
@@ -463,13 +463,13 @@ def test_samudrace_parity(model):
             ATMOS_FORCING_NAMES, np.timedelta64(6, "h"), n_cycles * N_INNER_STEPS + 1
         ),
     )
-    paired, _ = model.stepper.predict_paired(ic, forcing)
+    predicted, _ = model.stepper.predict(ic, forcing)
 
     # Atmosphere fields match at every 6 hour step
     for name in ATMOS_OUT_NAMES:
         j = var_list.index(name)
         for step in range(n_cycles * N_INNER_STEPS):
-            expected = flip(paired.atmosphere_data.prediction[name][:, step])
+            expected = flip(predicted.atmosphere_data.data[name][:, step])
             torch.testing.assert_close(
                 outputs[step][0, :, 0, j], expected, rtol=1e-5, atol=1e-5
             )
@@ -477,7 +477,7 @@ def test_samudrace_parity(model):
     for name in OCEAN_OUT_NAMES:
         j = var_list.index(name)
         for cycle in range(n_cycles):
-            expected = flip(paired.ocean_data.prediction[name][:, cycle])
+            expected = flip(predicted.ocean_data.data[name][:, cycle])
             boundary = outputs[(cycle + 1) * N_INNER_STEPS - 1]
             torch.testing.assert_close(
                 boundary[0, :, 0, j], expected, rtol=1e-5, atol=1e-5
