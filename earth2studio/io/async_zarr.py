@@ -213,13 +213,14 @@ class AsyncZarrBackend:
     per process, since a flushing shard costs several times its own size once Zarr's
     encoded copy is counted. Sharded writes are also slower than unsharded ones, which
     is hidden as long as the model takes longer to produce a step than the store takes
-    to absorb it.
+    to absorb it. This latency hiding only applies in non-blocking mode; with
+    ``blocking=True`` each shard flush runs synchronously.
 
     Warning
     -------
     When sharding, a shard must not contain data owned by more than one process. This
     backend keeps every shard object to a single write by buffering its chunks, but that
-    only holds within a process, seperate ranks have seperate buffers. If two ranks each
+    only holds within a process, separate ranks have separate buffers. If two ranks each
     hold part of the same shard they will both write it in full and the later write
     wins, silently discarding the other's data. Shard along a coordinate that each rank
     owns entirely (typically `lead_time`, since a rank runs a whole forecast), not along
@@ -242,13 +243,16 @@ class AsyncZarrBackend:
         an instance of the desired filesystem to use, by default LocalFileSystem
     blocking : bool, optional
         Blocking write calls in the synchronous API. When set to false, the IO backend
-        will execute write calls in seperate threads. Users should call the `close()`
+        will execute write calls in separate threads. Users should call the `close()`
         API to ensure all threads have finished / cleaned up, by default True
     pool_size : int, optional
         The thread / async loop pool used with the synchronous write API in non-blocking
         mode, by default 8
     async_timeout : int, optional
-        Async operation timeout for a given write operation, by default 600
+        Async operation timeout for a given write operation, by default 600. When
+        sharding, the write that completes a shard carries the entire flush plus any
+        wait for a concurrency slot, so this should be scaled with shard size and
+        expected store throughput.
     zarr_kwargs : dict[str, Any], optional
         Additional keyword arguments to provide to the ` zarr.api.asynchronous.open`
         function, by default {"mode": "a"}
@@ -601,6 +605,13 @@ class AsyncZarrBackend:
         if not self.shard_coords:
             return None
 
+        unmatched = set(self.shard_coords) - set(array_coords)
+        if unmatched:
+            logger.warning(
+                f"shard_coords keys {sorted(unmatched)} do not appear in array '{name}' "
+                + "and will be ignored. The array will be unsharded along those coordinates."
+            )
+
         shards: dict[str, int] = {}
         for key in array_coords:
             chunk_size = chunked[key]
@@ -617,6 +628,14 @@ class AsyncZarrBackend:
                     + "default to their full length unless set via `chunked_coords`."
                 )
             dim_size = array_coords[key].shape[0]
+            if key not in self.parallel_coords and shard_size < dim_size:
+                raise ValueError(
+                    f"Shard size {shard_size} for coordinate '{key}' of array '{name}' "
+                    + f"is smaller than its length {dim_size}. Non-parallel coordinates "
+                    + "are always written as a single slice so their shard size must "
+                    + "cover the full dimension. Set the shard size to at least "
+                    + f"{dim_size} or add '{key}' to `parallel_coords`."
+                )
             if shard_size > dim_size:
                 logger.warning(
                     f"Shard size {shard_size} for coordinate '{key}' of array '{name}' "
@@ -962,7 +981,7 @@ class AsyncZarrBackend:
             await self._acquire_flush_slot(current)
 
             if buffer.preexisting:
-                if name not in self._merge_warned:
+                if buffer.remaining > 0 and name not in self._merge_warned:
                     self._merge_warned.add(name)
                     logger.warning(
                         f"Writing into shards of array '{name}' that are already "
@@ -993,19 +1012,26 @@ class AsyncZarrBackend:
         with self._shard_lock:
             pending = list(self._shard_buffers.items())
             self._shard_buffers.clear()
+            # Add all keys to _flushed_shards under the same lock that clears the dict.
+            # Without this, a concurrent _stage_chunk could find no buffer and no entry
+            # in _flushed_shards, open a fresh buffer with preexisting=False, and
+            # eventually overwrite whatever this flush writes.
+            for key, buffer in pending:
+                buffer.claimed = True
+                self._flushed_shards.add(key)
 
         if not pending:
             return
 
         logger.debug(f"Flushing {len(pending)} incomplete shard buffers")
-        for key, buffer in pending:
-            with self._shard_lock:
-                if buffer.claimed:
-                    continue
-                buffer.claimed = True
-                self._flushed_shards.add(key)
-            zarray = await self.root.get(key[0])
-            await self._flush_buffer(key[0], zarray, key, buffer)
+        array_names = {key[0] for key, _ in pending}
+        zarrays = {name: await self.root.get(name) for name in array_names}
+        await asyncio.gather(
+            *[
+                self._flush_buffer(key[0], zarrays[key[0]], key, buffer)
+                for key, buffer in pending
+            ]
+        )
 
     def flush(self) -> None:
         """Drains in flight writes and writes out every incomplete shard buffer

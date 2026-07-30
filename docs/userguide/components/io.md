@@ -189,7 +189,7 @@ many run at once and is the main lever for single-process performance, though ra
 stops helping once the store saturates bandwidth. Lowering it for multi-rank (distributed)
 runs is usually sensible, as the ranks already supply concurrency between them.
 
-**How fast the model produces data.** With the `AsyncZarrBackend`,  none of the write cost
+**How fast the model produces data.** With the `AsyncZarrBackend`, none of the write cost
 is visible as long as the model takes longer to produce a step than the store takes to absorb
 it. Sharding is close to free in that regime. If a workflow writes more bytes per step than
 the store can absorb in the time the model takes to produce them, the wall clock becomes the
@@ -199,7 +199,7 @@ As a rough guide, sharding a quarter degree field along `lead_time` costs a few 
 of wall clock for a proportional reduction in file count, provided the run is not already
 IO bound. The best settings are problem- and system-specific, and involve tradeoffs between
 speed, host memory consumption, and file count, so it is worth measuring and tuning for the
-desired behavior in large inference campagins.
+desired behavior in large inference campaigns.
 
 ### Partial shards and restarts
 

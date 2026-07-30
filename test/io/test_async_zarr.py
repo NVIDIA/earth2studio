@@ -796,9 +796,9 @@ async def test_async_zarr_shard_single_write_per_shard(
     keys = [key for key, _ in flushes]
     assert len(keys) == len(set(keys)), f"a shard was flushed twice: {keys}"
     assert set(keys) == {("fields", (0, 0, 0, 0)), ("fields", (1, 0, 0, 0))}
-    assert not any(preexisting for _, preexisting in flushes), (
-        "shards took the read-modify-write merge path on a clean store"
-    )
+    assert not any(
+        preexisting for _, preexisting in flushes
+    ), "shards took the read-modify-write merge path on a clean store"
 
     data = await (await z.root.get("fields")).getitem(slice(None))
     assert np.allclose(data, x.numpy())
@@ -1106,9 +1106,9 @@ async def test_async_zarr_shard_inflight_limit(
         z.write(x[i : i + 1], total_coords, "fields")
     z.close()
 
-    assert peak <= max_inflight, (
-        f"{peak} shard flushes ran at once with max_inflight_shards={max_inflight}"
-    )
+    assert (
+        peak <= max_inflight
+    ), f"{peak} shard flushes ran at once with max_inflight_shards={max_inflight}"
     assert peak >= 1
 
     data = await (await z.root.get("fields")).getitem(slice(None))
