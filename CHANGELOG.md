@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed `GHCNHourly` station discovery to use the published GHCNh station
   list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
+- Fixed `AIFS2` and `AIFS2ENS` assigning time-dependent forcing values to the wrong
+  samples when processing multiple batches and initialization times.
 
 ### Security
 
