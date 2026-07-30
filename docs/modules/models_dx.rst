@@ -55,6 +55,7 @@ etc.
       PrecipitationAFNOv2
       SolarRadiationAFNO1H
       SolarRadiationAFNO6H
+      StormScopeDxNSRDB
       TCTrackerWuDuan
       TCTrackerVitart
       WindgustAFNO

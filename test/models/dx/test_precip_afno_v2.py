@@ -71,6 +71,44 @@ def test_afno_precip_v2(x, device):
     handshake_dim(out_coords, "batch", 0)
 
 
+def test_afno_precip_v2_sza_latlon_order():
+    # Regression: the solar zenith angle must receive longitude as `lon` and
+    # latitude as `lat` (cos_zenith_angle(time, lon, lat)). Guards the lat/lon swap.
+    device = "cpu"
+    model = PhooAFNOPrecipV2()
+    center = torch.zeros(20, 1, 1)
+    scale = torch.ones(20, 1, 1)
+    landsea_mask = torch.zeros(1, 1, 720, 1440)
+    orography = torch.zeros(1, 1, 720, 1440)
+
+    dx = PrecipitationAFNOv2(model, landsea_mask, orography, center, scale).to(device)
+    x = torch.randn(1, 1, 1, 20, 720, 1440).to(device)
+    coords = OrderedDict(
+        {
+            "batch": np.ones(x.shape[0]),
+            "time": np.array([np.datetime64("2023-01-01T00:00")]),
+            "lead_time": np.array([np.timedelta64(6, "h")]),
+            "variable": dx.input_coords()["variable"],
+            "lat": dx.input_coords()["lat"],
+            "lon": dx.input_coords()["lon"],
+        }
+    )
+
+    captured = {}
+
+    def spy_sza(lon, lat, time, lead_time):
+        captured["lon"] = np.asarray(lon)
+        captured["lat"] = np.asarray(lat)
+        return torch.zeros(720, 1440)
+
+    dx._compute_sza = spy_sza
+    dx(x, coords)
+
+    # lon_grid varies over columns, lat_grid over rows (indexing="ij")
+    np.testing.assert_array_equal(captured["lon"][0], coords["lon"])
+    np.testing.assert_array_equal(captured["lat"][:, 0], coords["lat"])
+
+
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_afno_precip_v2_package(device):

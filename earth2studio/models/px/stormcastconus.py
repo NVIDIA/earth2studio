@@ -734,7 +734,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "hf://nvidia/stormcast-conus@a3346e4407434128efb387ba1b79c82765254d73",
+            "hf://nvidia/stormcast-conus@bc8dd783f96fe0fa75fcff5bb67f66b549a5299f",
             cache_options={
                 "cache_storage": Package.default_cache("stormcast-conus"),
                 "same_names": True,
@@ -769,6 +769,14 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         StormCastCONUS
             StormCast-CONUS model
         """
+
+        # Resolve the package-root config.json so HuggingFace records the download
+        # (its content is not used here); tolerate its absence.
+        try:
+            package.resolve("config.json")
+        except (FileNotFoundError, ValueError):
+            pass
+
         # load model registry:
         config = OmegaConf.load(package.resolve("model.yaml"))
 

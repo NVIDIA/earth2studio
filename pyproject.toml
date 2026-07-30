@@ -61,6 +61,7 @@ data = [
     "eccodes>=2.39.2",
     "eccodeslib>=2.39.2",
     "ecmwf-opendata>=0.3.29",
+    "gribberish>=1.5.0; python_version>='3.12'",
     "icechunk>=2.0.0; python_version>='3.12'",
     "intake-esgf>=2026.1.26; python_version>='3.12'",
     "planetary-computer>=0.5.0",
@@ -350,6 +351,7 @@ override-dependencies = []
 [[tool.uv.index]]
 name = "ort-cuda-13-nightly"
 url = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/"
+explicit = true
 
 [tool.uv.extra-build-dependencies]
 earth2grid = ["setuptools", "torch"]

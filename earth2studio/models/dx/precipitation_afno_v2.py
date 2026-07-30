@@ -71,7 +71,7 @@ VARIABLES = [
 @check_optional_dependencies()
 class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
     """Improved Precipitation AFNO diagnostic model. Predicts the total precipitation
-    for the past 6 hours [t-6h, t] with the units m. This model uses an 20 atmospheric
+    for the next 6 hours [t, t+6h] with the units m. This model uses 20 atmospheric
     inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)
     [720 x 1440].
 
@@ -246,15 +246,17 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
         out = torch.zeros_like(x[..., :1, :, :])
         x = (x - self.center) / self.scale
 
-        grid_x, grid_y = torch.meshgrid(
-            torch.tensor(coords["lat"]), torch.tensor(coords["lon"])
+        lat_grid, lon_grid = torch.meshgrid(
+            torch.tensor(coords["lat"]),
+            torch.tensor(coords["lon"]),
+            indexing="ij",
         )
 
         for j, _ in enumerate(coords["batch"]):
             for k, t in enumerate(coords["time"]):
                 for lt, dt in enumerate(coords["lead_time"]):
                     sza = (
-                        self._compute_sza(grid_x, grid_y, t, dt)
+                        self._compute_sza(lon_grid, lat_grid, t, dt)
                         .unsqueeze(0)
                         .unsqueeze(0)
                         .to(x.device)

@@ -38,6 +38,7 @@ from .goes_glm import GOESGLMLexicon
 from .himawari_ahi import HimawariAHILexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .ibtracs import IBTrACSLexicon
+from .iem import IEM_ASOSLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSATMSLexicon, JPSSCrISLexicon, JPSSLexicon
 from .meteosat import MeteosatFCILexicon
@@ -50,7 +51,7 @@ from .metop import (
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
 from .nclimgrid import NClimGridLexicon
-from .nnja import NNJAObsConvLexicon
+from .nnja import NNJAObsConvLexicon, NNJAObsSatLexicon
 from .opera import OPERALexicon
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFSLexicon,

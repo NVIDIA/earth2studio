@@ -589,16 +589,17 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     def _check_bounds(self, lat_out: np.ndarray, lon_out: np.ndarray) -> None:
         """Target grid must lie within the ERA5 input grid (no extrapolation).
 
-        ``interp.latlon_interpolation_regular`` has no border clamp, so an
-        out-of-bounds target would index past the array. Also note the input
-        grid must not cross the antimeridian (no lon wrap is applied).
+        ``interp.latlon_interpolation_regular`` clamps its bracketing indices but
+        not the interpolation weights, so a target outside the input grid is
+        linearly extrapolated; we reject it here instead. Also note the input grid
+        must not cross the antimeridian (no lon wrap is applied).
         """
         lat0, lat1 = float(self.lat_input_numpy[0]), float(self.lat_input_numpy[-1])
         lon0, lon1 = float(self.lon_input_numpy[0]), float(self.lon_input_numpy[-1])
-        # Strict containment: a target exactly on the first input point would
-        # index the interpolator at -1 (wrap to the far edge -> garbage), so the
-        # input grid must STRICTLY bracket the target (the shipped grids carry a
-        # >=1 deg margin, so this only rejects a degenerate tight crop).
+        # Require the output grid to stay strictly inside the input grid,
+        # preserving the expected margin. Coordinates outside the input grid would
+        # otherwise be extrapolated. The packaged grids provide at least a
+        # 1-degree margin.
         if lat_out.min() <= lat0 or lat_out.max() >= lat1:
             raise ValueError(
                 f"Target latitude [{lat_out.min():.2f}, {lat_out.max():.2f}] is not "

@@ -31,7 +31,9 @@ Typically used in intercomparison workflows.
       data.CFS_Reforecast_FX_Flux
       data.DynamicalGFS_FX
       data.DynamicalGEFS_FX
-      data.DynamicalIFSENS_FX
+      data.DynamicalHRRR_FX
+      data.DynamicalICON_EU_FX
+      data.DynamicalIFS_ENS_FX
       data.DynamicalAIFS_FX
       data.DynamicalAIFSENS_FX
       data.EarthMoverBrightBandIFS_FX
