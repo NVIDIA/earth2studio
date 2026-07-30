@@ -50,8 +50,9 @@ runs:
       continue-on-error: true
       with:
         path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
-        key: e2s-model-${{ runner.os }}-main
+        key: e2s-model-${{ runner.os }}-${{ inputs.tox-env }}-main-${{ github.run_id }}-${{ github.run_attempt }}
         restore-keys: |
+          e2s-model-${{ runner.os }}-${{ inputs.tox-env }}-main-
           e2s-model-${{ runner.os }}-
 
     - name: Restore testmon cache
@@ -94,13 +95,12 @@ runs:
     - name: Save model cache
       if: >
         always() &&
-        inputs.save-model-cache == 'true' &&
-        steps.model-cache.outputs.cache-hit != 'true'
+        inputs.save-model-cache == 'true'
       uses: actions/cache/save@v5
       continue-on-error: true
       with:
         path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
-        key: e2s-model-${{ runner.os }}-main
+        key: e2s-model-${{ runner.os }}-${{ inputs.tox-env }}-main-${{ github.run_id }}-${{ github.run_attempt }}
 
     - name: Save testmon cache
       if: >

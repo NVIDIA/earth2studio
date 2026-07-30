@@ -46,31 +46,6 @@ env:
   UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
 
 jobs:
-  changes:
-    name: Detect changes
-    runs-on: ubuntu-latest
-    outputs:
-      data: ${{ steps.filter.outputs.data }}
-      perturb: ${{ steps.filter.outputs.perturb }}
-      stats: ${{ steps.filter.outputs.stats }}
-      px_models: ${{ steps.filter.outputs.px_models }}
-      dx_models: ${{ steps.filter.outputs.dx_models }}
-      da_models: ${{ steps.filter.outputs.da_models }}
-      serve: ${{ steps.filter.outputs.serve }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Detect changed test suites
-        id: filter
-        uses: ./.github/actions/detect-ci-changes
-        with:
-          mode: main
-          run-all: ${{ github.event_name == 'workflow_dispatch' }}
-          before-sha: ${{ github.event.before }}
-
   setup-env:
     name: Set up environment
     runs-on: linux-amd64-gpu-h100-latest-1
@@ -158,10 +133,7 @@ jobs:
 
   test-px-models:
     name: Test prognostic models
-    if: needs.changes.outputs.px_models == 'true'
-    needs:
-      - setup-env
-      - changes
+    needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: ghcr.io/nvidia/earth2studio-ci:0.1
@@ -182,10 +154,7 @@ jobs:
 
   test-dx-models:
     name: Test diagnostic models
-    if: needs.changes.outputs.dx_models == 'true'
-    needs:
-      - setup-env
-      - changes
+    needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: ghcr.io/nvidia/earth2studio-ci:0.1
@@ -206,10 +175,7 @@ jobs:
 
   test-data:
     name: Test data sources
-    if: needs.changes.outputs.data == 'true'
-    needs:
-      - setup-env
-      - changes
+    needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: ghcr.io/nvidia/earth2studio-ci:0.1
@@ -230,10 +196,7 @@ jobs:
 
   test-perturb:
     name: Test perturbation methods
-    if: needs.changes.outputs.perturb == 'true'
-    needs:
-      - setup-env
-      - changes
+    needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: ghcr.io/nvidia/earth2studio-ci:0.1
@@ -254,10 +217,7 @@ jobs:
 
   test-stats:
     name: Test statistics and metrics
-    if: needs.changes.outputs.stats == 'true'
-    needs:
-      - setup-env
-      - changes
+    needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: ghcr.io/nvidia/earth2studio-ci:0.1
@@ -278,10 +238,7 @@ jobs:
 
   test-da-models:
     name: Test data assimilation models
-    if: needs.changes.outputs.da_models == 'true'
-    needs:
-      - setup-env
-      - changes
+    needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: ghcr.io/nvidia/earth2studio-ci:0.1
@@ -302,10 +259,7 @@ jobs:
 
   test-px-models-conflicts:
     name: Test model conflict environments
-    if: needs.changes.outputs.px_models == 'true'
-    needs:
-      - setup-env
-      - changes
+    needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: ghcr.io/nvidia/earth2studio-ci:0.1
@@ -326,10 +280,7 @@ jobs:
 
   test-serve:
     name: Test serve
-    if: needs.changes.outputs.serve == 'true'
-    needs:
-      - setup-env
-      - changes
+    needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: ghcr.io/nvidia/earth2studio-ci:0.1
