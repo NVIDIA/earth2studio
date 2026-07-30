@@ -384,6 +384,28 @@ def test_auto_model_mixin():
         AutoModelMixin.from_pretrained(package)
 
 
+def test_from_pretrained_forwards_kwargs():
+    # from_pretrained must forward extra kwargs to load_model so models whose
+    # load_model takes required/extra options stay loadable via from_pretrained.
+    captured = {}
+
+    class _KwargModel(AutoModelMixin):
+        @classmethod
+        def load_default_package(cls):
+            return "DEFAULT_PKG"
+
+        @classmethod
+        def load_model(cls, package, **kwargs):
+            captured["package"] = package
+            captured["kwargs"] = kwargs
+            return "MODEL"
+
+    result = _KwargModel.from_pretrained(assimilate_variables=("u10m", "v10m"), foo=1)
+    assert result == "MODEL"
+    assert captured["package"] == "DEFAULT_PKG"  # no path -> default package used
+    assert captured["kwargs"] == {"assimilate_variables": ("u10m", "v10m"), "foo": 1}
+
+
 @pytest.mark.parametrize("same_names", [True, False])
 def test_whole_file_cache(tmp_path, same_names):
 

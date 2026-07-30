@@ -36,6 +36,7 @@ to process observations independently or maintain internal state across time ste
       :toctree: generated/models/da/
       :template: dataassim.rst
 
+      CorrDiffCosmoEra5SDA
       HealDA
       InterpEquirectangular
       StormCastSDA
