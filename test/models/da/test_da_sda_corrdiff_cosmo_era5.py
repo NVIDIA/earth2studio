@@ -778,13 +778,23 @@ def test_load_model_domain_crops():
 
 
 def test_to_moves_wrapped_model():
-    # A real device transition without CUDA: moving to the meta device must move both
-    # the SDA's own device buffer and the wrapped downscaler's registered buffers.
+    # A real device transition without CUDA: moving the wrapper to the meta device must
+    # move the wrapped downscaler's registered buffers.
     sda = _build_sda()
     returned = sda.to("meta")
     assert returned is sda
     assert sda.device.type == "meta"
     assert sda.model.lat_output_grid.device.type == "meta"
+
+
+def test_device_follows_wrapped_model():
+    # device is derived from the wrapped model's grid buffer (single source of truth),
+    # so it tracks the model even when the model is moved directly -- e.g. wrapping a
+    # placed model, or sda.model.to(...) after construction. Uses meta (no GPU needed).
+    sda = _build_sda()
+    assert sda.device.type == "cpu"
+    sda.model.to("meta")
+    assert sda.device.type == "meta"
 
 
 # ── Package integration test (real weights) ──────────────────────────────────

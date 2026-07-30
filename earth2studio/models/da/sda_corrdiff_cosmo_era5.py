@@ -166,7 +166,6 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         if not assimilate_variables:
             raise ValueError("assimilate_variables must be non-empty.")
         self.model = model
-        self.register_buffer("device_buffer", torch.empty(0))
         self._tolerance = normalize_time_tolerance(time_tolerance)
         self.number_of_samples = (
             model.number_of_samples if number_of_samples is None else number_of_samples
@@ -251,14 +250,18 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
 
     @property
     def device(self) -> torch.device:
-        """Device the model's buffers and parameters live on.
+        """Device the assimilation model lives on.
+
+        Derived from the wrapped downscaler's registered grid buffer -- the single
+        authoritative device -- so it tracks the model even if the model is moved
+        directly (no duplicated wrapper state to diverge).
 
         Returns
         -------
         torch.device
             The device of the assimilation model.
         """
-        return self.device_buffer.device
+        return self.model.lat_output_grid.device
 
     @staticmethod
     def _latlon_to_xyz(lat: np.ndarray, lon: np.ndarray) -> np.ndarray:
