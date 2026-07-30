@@ -122,22 +122,6 @@ jobs:
       - name: Set up CI environment
         run: make setup-ci
 
-      - name: Save uv cache
-        if: steps.uv-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
-
-      - name: Save pre-commit cache
-        if: steps.pre-commit-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.PRE_COMMIT_HOME }}
-          key: e2s-pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
-
   format:
     name: Format
     if: github.repository == 'NVIDIA/earth2studio'
