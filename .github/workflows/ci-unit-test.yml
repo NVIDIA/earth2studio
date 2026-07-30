@@ -218,6 +218,15 @@ jobs:
           restore-keys: |
             e2s-uv-${{ runner.os }}-
 
+      - name: Restore pre-commit cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.PRE_COMMIT_HOME }}
+          key: e2s-pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            e2s-pre-commit-${{ runner.os }}-
+
       - name: Set up environment
         run: uv sync
 
@@ -248,6 +257,15 @@ jobs:
           key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
             e2s-uv-${{ runner.os }}-
+
+      - name: Restore pre-commit cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ${{ env.PRE_COMMIT_HOME }}
+          key: e2s-pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            e2s-pre-commit-${{ runner.os }}-
 
       - name: Set up environment
         run: uv sync
