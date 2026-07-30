@@ -24,6 +24,7 @@ from earth2studio.models.dx.corrdiff import (
     CorrDiffTaiwan,
 )
 from earth2studio.models.dx.corrdiff_cmip6 import CorrDiffCMIP6
+from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
 from earth2studio.models.dx.derived import (
     DerivedRH,
     DerivedRHDewpoint,
@@ -43,6 +44,7 @@ from earth2studio.models.dx.solarradiation_afno import (
     SolarRadiationAFNO1H,
     SolarRadiationAFNO6H,
 )
+from earth2studio.models.dx.stormscope_dx_nsrdb import StormScopeDxNSRDB
 from earth2studio.models.dx.tc_tracking import (
     TCTrackerVitart,
     TCTrackerWuDuan,
@@ -53,12 +55,14 @@ __all__ = [
     "ClimateNet",
     "CorrDiff",
     "CorrDiffCMIP6",
+    "CorrDiffCosmoEra5",
     "CorrDiffTaiwan",
     "DLESyMv0_ISCCP_ERA5Precip",
     "PrecipitationAFNO",
     "PrecipitationAFNOv2",
     "SolarRadiationAFNO1H",
     "SolarRadiationAFNO6H",
+    "StormScopeDxNSRDB",
     "WindgustAFNO",
     "OrbitGlobalPrecip",
 ]

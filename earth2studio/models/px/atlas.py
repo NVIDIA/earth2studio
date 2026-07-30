@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import json
+import os
 from collections.abc import Generator, Iterator
 from datetime import datetime, timedelta
 
@@ -537,6 +538,12 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @check_optional_dependencies()
     def load_model(cls, package: Package) -> PrognosticModel:
         """Instantiate and load Atlas from a package."""
+        if os.environ.get("TORCH_ALLOW_TF32_CUBLAS_OVERRIDE") != "1":
+            logger.warning(
+                "Atlas inference expects TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1 for "
+                "best performance. Set this environment variable before starting "
+                "Python, as documented in the Atlas API docs."
+            )
 
         with open(package.resolve("config.json")) as f:
             config = json.load(f)

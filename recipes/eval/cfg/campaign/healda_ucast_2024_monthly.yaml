@@ -1,0 +1,93 @@
+# @package _global_
+# HealDA-initialized UCast — monthly 2024 ICs, 14-day deterministic forecasts.
+# The DA+forecast example using UCast: 1.5-degree grid, 12-hour step, slim
+# dependencies, HuggingFace checkpoint.  Exercises AssimilationForecastPipeline
+# (obs predownload, DA ICs, fill store, verification, scoring, report).
+#
+# HealDA covers all ERA5 pressure-level and most surface variables; UCast's
+# sst and vertical velocity (w) are filled from a predownloaded data.zarr fill
+# store.  The default ARCO data_source (interpolated to UCast's 1.5-degree grid)
+# supplies both the fill variables and verification data.
+#
+# UCast is a history model (inputs at t-12h and t), so each IC assembles TWO
+# HealDA analyses.  `output_resolution: [121, 240]` in the model config produces
+# UCast's native 1.5-degree equiangular grid.
+defaults:
+    - override /model: healda_ucast
+
+run_id: healda_ucast_2024_monthly
+
+pipeline: src.pipelines.assimilation.AssimilationForecastPipeline
+
+# Every month in 2024 (12 ICs)
+start_times:
+    - "2024-01-01 00:00:00"
+    - "2024-02-01 00:00:00"
+    - "2024-03-01 00:00:00"
+    - "2024-04-01 00:00:00"
+    - "2024-05-01 00:00:00"
+    - "2024-06-01 00:00:00"
+    - "2024-07-01 00:00:00"
+    - "2024-08-01 00:00:00"
+    - "2024-09-01 00:00:00"
+    - "2024-10-01 00:00:00"
+    - "2024-11-01 00:00:00"
+    - "2024-12-01 00:00:00"
+
+# 14 days at UCast's 12-hour step
+nsteps: 28
+ensemble_size: 1
+resume: true
+
+predownload:
+    verification:
+        enabled: true
+
+output:
+    overwrite: false
+    variables:
+        - t2m
+        - t850
+        - z500
+        - z300
+        - z700
+        - z1000
+        - u850
+
+scoring:
+    metrics:
+        mse:
+            _target_: src.metrics.mse
+            reduction_dimensions: [lat, lon]
+
+report:
+    title: "HealDA + UCast 2024 — 14-day Evaluation (DA-initialized)"
+
+    sections:
+        - type: header_visualization
+          variable: z500
+          lead_time: "3 days"
+
+        - type: summary_table
+          lead_times: ["1 days", "3 days", "5 days", "7 days", "10 days", "14 days"]
+          variables: [t2m, z500, t850, u850]
+          collapsed: false
+
+        - type: lead_time_curves
+          collapsed: true
+
+        - type: ic_heatmap
+          metrics: [mse]
+          variables: [z500, t2m, t850]
+          collapsed: true
+
+        - type: visualization
+          variables: [z500, t2m, t850]
+          lead_times: ["1 days", "5 days", "10 days"]
+          collapsed: true
+
+    projection: robinson
+
+    variable_groups:
+        geopotential: [z500, z700, z1000, z300]
+        temperature: [t2m, t850]

@@ -171,6 +171,46 @@ def test_derived_rh(levels, shape, device):
     assert torch.all(out_warm < out_cold)
 
 
+@pytest.mark.parametrize("t_celsius", [5.0, 20.0, 30.0])
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_derived_rh_above_freezing(t_celsius, device):
+    """Regression test: above freezing the mixed-phase liquid-water fraction must
+    saturate at 1.0, so saturation vapor pressure equals the pure-water value
+    ``es_w``. A larger clip bound (e.g. 1.2) over-weights ``es_w`` and inflates RH.
+    """
+    levels = [850]
+    model = DerivedRH(levels).to(device)
+
+    input_coords = model.input_coords()
+    coords = OrderedDict(
+        {
+            "batch": np.arange(1),
+            "variable": input_coords["variable"],
+            "lat": np.linspace(-90, 90, 16),
+            "lon": np.linspace(0, 360, 32),
+        }
+    )
+
+    t = 273.16 + t_celsius
+    # Low enough q that RH stays below 100% at all test temperatures, so the
+    # output is not masked by the [0, 100] clamp and genuinely exercises the blend.
+    q = 0.004
+    x = torch.ones((1, 2, 16, 32)).to(device)
+    x[:, ::2] *= t
+    x[:, 1::2] *= q
+
+    out, _ = model(x, coords)
+
+    # Reference RH using pure-water saturation vapor pressure (alpha == 1.0)
+    epsilon = 0.621981
+    p = float(levels[0]) * 100.0  # hPa -> Pa
+    e = (p * q * (1.0 / epsilon)) / (1 + q * (1.0 / epsilon - 1))
+    es_w = 611.21 * np.exp(17.502 * (t - 273.16) / (t - 32.19))
+    expected = np.clip(100 * e / es_w, 0, 100)
+
+    assert torch.allclose(out, torch.full_like(out, float(expected)), atol=1e-3)
+
+
 @pytest.mark.parametrize(
     "invalid_coords",
     [

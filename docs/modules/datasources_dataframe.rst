@@ -24,6 +24,7 @@ Data sources that provide tabular data as DataFrames.
       data.GHCNHourly
       data.GOESGLM
       data.IBTrACS
+      data.IEM_ASOS
       data.ISD
       data.JPSS_ATMS
       data.JPSS_CRIS
@@ -32,6 +33,7 @@ Data sources that provide tabular data as DataFrames.
       data.MetOpIASI
       data.MetOpMHS
       data.NNJAObsConv
+      data.NNJAObsSat
       data.NomadsGDASObsConv
       data.RandomDataFrame
       data.UFSObsConv

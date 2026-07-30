@@ -215,6 +215,49 @@ def build_diagnostic_coords(
     return total
 
 
+def build_analysis_coords(
+    times: np.ndarray,
+    ensemble_size: int = 1,
+    spatial_ref: CoordSystem | None = None,
+) -> CoordSystem:
+    """Build the full coordinate system for an analysis-product pipeline.
+
+    Analyses (e.g. data-assimilation output) are single-time products, so
+    the layout matches :func:`build_diagnostic_coords` — one
+    ``lead_time=0`` slice per initial condition — but is keyed on an
+    explicit *spatial_ref* rather than a diagnostic model.
+
+    Parameters
+    ----------
+    times : np.ndarray
+        All analysis times that will appear in the output.
+    ensemble_size : int
+        Total number of ensemble members.  When 1 the ensemble dimension
+        is omitted.
+    spatial_ref : CoordSystem | None
+        Coordinate system whose spatial dims define the output grid.
+
+    Returns
+    -------
+    CoordSystem
+        Full coordinate system suitable for passing to
+        :meth:`OutputManager.validate_output_store`.
+    """
+    if spatial_ref is None:
+        raise ValueError("spatial_ref is required for analysis coords.")
+
+    total: CoordSystem = OrderedDict()
+    if ensemble_size > 1:
+        total["ensemble"] = np.arange(ensemble_size)
+    total["time"] = times
+    total["lead_time"] = np.array([np.timedelta64(0, "ns")])
+
+    for dim in _spatial_dims(spatial_ref):
+        total[dim] = spatial_ref[dim]
+
+    return total
+
+
 def build_predownload_coords(
     spatial_ref: CoordSystem,
     times: np.ndarray,

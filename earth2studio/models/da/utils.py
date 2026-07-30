@@ -15,20 +15,18 @@
 # limitations under the License.
 from __future__ import annotations
 
-from datetime import datetime
-from functools import reduce
-
-import numpy as np
 import pandas as pd
 import torch
 from loguru import logger
 
-from earth2studio.utils.type import TimeArray
+from earth2studio.utils.obs import filter_time_range  # noqa: F401
 
 try:
     import cudf
+    from cudf import DataFrame as cudf_DataFrame
 except ImportError:
     cudf = None
+    cudf_DataFrame = None
 
 
 def validate_observation_fields(
@@ -56,73 +54,6 @@ def validate_observation_fields(
             f"DataFrame missing required fields: {missing_fields}. "
             f"Available columns: {list(observation.columns)}"
         )
-
-
-def filter_time_range(
-    df: pd.DataFrame | cudf.DataFrame,
-    request_time: np.datetime64 | datetime | str | TimeArray,
-    tolerance: tuple[np.timedelta64, np.timedelta64],
-    time_column: str = "time",
-) -> pd.DataFrame | cudf.DataFrame:
-    """Filter DataFrame rows where time column is within the specified tolerance range.
-
-    Filters the DataFrame to include only rows where the time column value is within
-    [request_time + lower_bound, request_time + upper_bound]. When *request_time* is a
-    :class:`~numpy.ndarray` of datetime64 values, a row is kept if it falls within the
-    tolerance window of **any** of the provided times.
-
-    Parameters
-    ----------
-    df : pd.DataFrame | cudf.DataFrame
-        DataFrame to filter. Can be pandas or cudf DataFrame.
-    request_time : np.datetime64 | datetime | str | TimeArray
-        Reference time(s) for filtering. Observations within the tolerance window
-        around this time will be included. If a numpy array of datetime64 is provided,
-        the union of all individual tolerance windows is used.
-    tolerance : tuple[np.timedelta64, np.timedelta64]
-        Tuple of (lower_bound, upper_bound) time deltas defining the tolerance window.
-    time_column : str, optional
-        Name of the time column in the DataFrame, by default "time"
-
-    Returns
-    -------
-    pd.DataFrame | cudf.DataFrame
-        Filtered DataFrame containing only rows within the time tolerance range.
-        Returns the same DataFrame type as the input (pandas or cudf).
-
-    Raises
-    ------
-    KeyError
-        If the time_column is not present in the DataFrame
-    """
-    if time_column not in df.columns:
-        raise KeyError(
-            f"Time column '{time_column}' not found in DataFrame. "
-            f"Available columns: {list(df.columns)}"
-        )
-
-    # Ensure time column is datetime64[ns]
-    time_series = df[time_column]
-    if time_series.dtype != "datetime64[ns]":
-        df = df.copy()
-        # Use cudf methods if it's a cudf DataFrame, otherwise use pandas
-        if cudf is not None and isinstance(df, cudf.DataFrame):
-            df[time_column] = cudf.to_datetime(time_series).astype("datetime64[ns]")
-        else:
-            df[time_column] = pd.to_datetime(time_series).astype("datetime64[ns]")
-    # Ensure request_time is datetime64[ns] array
-    if isinstance(request_time, np.ndarray) and request_time.ndim >= 1:
-        times_ns = request_time.astype("datetime64[ns]")
-    else:
-        times_ns = np.array([np.datetime64(request_time, "ns")])
-
-    lower_bound, upper_bound = tolerance
-    masks = [
-        (df[time_column] >= t + lower_bound) & (df[time_column] <= t + upper_bound)
-        for t in times_ns
-    ]
-    time_mask = reduce(lambda a, b: a | b, masks)
-    return df[time_mask]
 
 
 def dfseries_to_torch(

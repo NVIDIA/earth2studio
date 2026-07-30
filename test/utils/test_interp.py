@@ -18,7 +18,11 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.interp import LatLonInterpolation, NearestNeighborInterpolator
+from earth2studio.utils.interp import (
+    LatLonInterpolation,
+    NearestNeighborInterpolator,
+    latlon_interpolation_regular,
+)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -80,6 +84,33 @@ def test_interpolation_analytical(device):
 
     epsilon = 1e-6  # allow for some FP roundoff
     assert (abs(y - y_correct) < epsilon).all()
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_latlon_interpolation_regular_boundaries(device):
+    # values[i, j] = 10*i + j on a 4x4 regular grid
+    lat0 = torch.arange(4.0, device=device)
+    lon0 = torch.arange(4.0, device=device)
+    values = (10 * lat0[:, None] + lon0[None, :]).to(device)
+
+    # Output includes both grid corners (min and max) and an interior point.
+    lat_out = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.5, 1.5, 1.5], [3.0, 3.0, 3.0]], device=device
+    )
+    lon_out = torch.tensor(
+        [[0.0, 1.5, 3.0], [0.0, 1.5, 3.0], [0.0, 1.5, 3.0]], device=device
+    )
+
+    out = latlon_interpolation_regular(values, lat0, lon0, lat_out, lon_out)
+
+    # Exact bilinear expectation for a bilinear field: f(lat, lon) = 10*lat + lon
+    expected = 10 * lat_out + lon_out
+    assert torch.allclose(out, expected, atol=1e-5)
+    # Min corner must be the true edge value (regression: -1 index used to wrap
+    # this to the far edge of the grid, e.g. 132.0 instead of 0.0).
+    assert torch.allclose(out[0, 0], torch.tensor(0.0, device=device), atol=1e-5)
+    # Max corner must be the true edge value.
+    assert torch.allclose(out[-1, -1], torch.tensor(33.0, device=device), atol=1e-5)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

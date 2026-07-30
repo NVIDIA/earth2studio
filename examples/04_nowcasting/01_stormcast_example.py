@@ -16,75 +16,69 @@
 
 # %%
 """
-Running StormCast Inference
-===========================
+Running StormCast-CONUS Inference
+==================================
 
-Basic StormCast inference workflow.
+Basic StormCast-CONUS inference workflow for the full Continental United States.
 
-This example will demonstrate how to run a simple inference workflow to generate a
-basic determinstic forecast using StormCast. For details about the stormcast model,
-see
+This example demonstrates how to run a single-member forecast using
+StormCast-CONUS, a generative convection-allowing model at 3 km resolution over
+the full CONUS HRRR domain. For details about the model see
 
  - https://arxiv.org/abs/2408.10958
 
+In this example you will learn:
+
+- How to instantiate StormCast-CONUS from a model package
+- Creating an HRRR initial-condition data source and a GFS forecast conditioning source
+- Running a deterministic forecast with :py:meth:`earth2studio.run.deterministic`
+- Post-processing and plotting composite reflectivity and 2-m temperature
 """
 # /// script
 # dependencies = [
-#   "earth2studio[data,stormcast] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[data,stormcast-conus] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
+#   "matplotlib",
+#   "numpy",
 # ]
 # ///
 
 # %%
 # Set Up
 # ------
-# All workflows inside Earth2Studio require constructed components to be
-# handed to them. In this example, let's take a look at the most basic:
-# :py:meth:`earth2studio.run.deterministic`.
-
-# %%
-# .. literalinclude:: ../../earth2studio/run.py
-#    :language: python
-#    :start-after: # sphinx - deterministic start
-#    :end-before: # sphinx - deterministic end
-
-# %%
-# Thus, we need the following:
+# StormCast-CONUS requires a low-resolution global conditioning source. We use
+# :py:class:`earth2studio.data.GFS_FX` (the default), which provides GFS forecast
+# fields interpolated to the HRRR grid. An analysis source such as
+# :py:class:`earth2studio.data.ARCO` can also be used.
 #
-# - Prognostic Model: Use the built in StormCast Model :py:class:`earth2studio.models.px.StormCast`.
-# - Datasource: Pull data from the HRRR data api :py:class:`earth2studio.data.HRRR`.
-# - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
-#
-# StormCast also requires a conditioning data source. We use a forecast data source here,
-# GFS_FX :py:class:`earth2studio.data.GFS_FX` which is the default, but a non-forecast
-# data source such as ARCO could also be used with appropriate time stamps.
-
 # %%
+import os
 from datetime import datetime, timedelta
 
+import numpy as np
 from loguru import logger
 from tqdm import tqdm
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
-import os
-
 os.makedirs("outputs", exist_ok=True)
 from dotenv import load_dotenv
 
-load_dotenv()  # TODO: make common example prep function
+load_dotenv()
 
 from earth2studio.data import HRRR
 from earth2studio.io import ZarrBackend
-from earth2studio.models.px import StormCast
+from earth2studio.models.px import StormCastCONUS
 
-# Load the default model package which downloads the check point from NGC
-# Use the default conditioning data source GFS_FX
-package = StormCast.load_default_package()
-model = StormCast.load_model(package)
+# Load the model from the default package
+package = StormCastCONUS.load_default_package()
 
-# Create the data source
+# By default, the model uses GFS_FX as the conditioning data source
+# Thus we do not need to exlicitly specify the conditioning data source
+model = StormCastCONUS.load_model(package)
+
+# Create the HRRR initial-condition data source
 data = HRRR()
 
 # Create the IO handler, store in memory
@@ -94,11 +88,10 @@ io = ZarrBackend()
 # Execute the Workflow
 # --------------------
 # With all components initialized, running the workflow is a single line of Python code.
-# Workflow will return the provided IO object back to the user, which can be used to
-# then post process. Some have additional APIs that can be handy for post-processing or
-# saving to file. Check the API docs for more information.
+# We save only ``t2m`` and ``refc`` to keep memory usage manageable; the full model
+# state has 99 channels on the 1024 × 1792 CONUS grid.
 #
-# For the forecast we will predict for 4 hours
+# For the forecast we will predict 4 hours ahead.
 
 # %%
 import earth2studio.run as run
@@ -106,16 +99,24 @@ import earth2studio.run as run
 nsteps = 4
 today = datetime.today() - timedelta(days=1)
 date = today.isoformat().split("T")[0]
-io = run.deterministic([date], nsteps, model, data, io)
+
+io = run.deterministic(
+    [date],
+    nsteps,
+    model,
+    data,
+    io,
+    output_coords={"variable": np.array(["t2m", "refc"])},
+)
 
 print(io.root.tree())
 
 # %%
 # Post Processing
 # ---------------
-# The last step is to post process our results. Cartopy is a great library for plotting
-# fields on projections of a sphere. Here we will just plot the temperature at 2 meters
-# (t2m) 4 hours into the forecast.
+# The last step is to post-process and visualise the results. We use Cartopy with the
+# HRRR Lambert Conformal projection to plot the CONUS domain. Both composite
+# reflectivity and 2-m temperature are shown at the final lead time.
 #
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
@@ -125,12 +126,9 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
 forecast = f"{date}"
-variable = "t2m"
-step = 4  # lead time = 1 hr
+step = nsteps  # lead time in hours (1 h time step)
 
-plt.close("all")
-
-# Create a correct Lambert Conformal projection
+# HRRR Lambert Conformal projection
 projection = ccrs.LambertConformal(
     central_longitude=262.5,
     central_latitude=38.5,
@@ -138,27 +136,53 @@ projection = ccrs.LambertConformal(
     globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
 )
 
-# Create a figure and axes with the specified projection
-fig, ax = plt.subplots(subplot_kw={"projection": projection}, figsize=(10, 6))
 
-# Plot the field using pcolormesh
-im = ax.pcolormesh(
-    model.lon,
-    model.lat,
-    io[variable][0, step],
-    transform=ccrs.PlateCarree(),
+def plot_field(ax, data, title, cmap, vmin=None, vmax=None):
+    """Plot a 2-D field on the HRRR Lambert Conformal grid."""
+    im = ax.pcolormesh(
+        model.lon,
+        model.lat,
+        data,
+        transform=ccrs.PlateCarree(),
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+    )
+    plt.colorbar(im, ax=ax, shrink=0.6, pad=0.04)
+    ax.set_title(title)
+    ax.coastlines()
+    ax.gridlines()
+    ax.add_feature(
+        cartopy.feature.STATES.with_scale("50m"),
+        linewidth=0.5,
+        edgecolor="black",
+        zorder=2,
+    )
+
+
+plt.close("all")
+fig, (ax1, ax2) = plt.subplots(
+    nrows=1, ncols=2, subplot_kw={"projection": projection}, figsize=(20, 6)
+)
+
+# Composite reflectivity — mask sub-zero values which are not physically meaningful
+refc = io["refc"][0, step]
+plot_field(
+    ax1,
+    np.where(refc > 0, refc, np.nan),
+    f"{forecast} - Reflectivity (dBZ) - Lead time: {step}h",
+    cmap="gist_ncar",
+    vmin=0,
+    vmax=60,
+)
+
+# 2-m temperature
+plot_field(
+    ax2,
+    io["t2m"][0, step],
+    f"{forecast} - 2m Temperature (K) - Lead time: {step}h",
     cmap="Spectral_r",
 )
 
-# Set state lines
-ax.add_feature(
-    cartopy.feature.STATES.with_scale("50m"), linewidth=0.5, edgecolor="black", zorder=2
-)
-
-# Set title
-ax.set_title(f"{forecast} - Lead time: {step}hrs")
-
-# Add coastlines and gridlines
-ax.coastlines()
-ax.gridlines()
-plt.savefig(f"outputs/09_{date}_t2m_prediction.jpg")
+plt.tight_layout()
+plt.savefig(f"outputs/04_{date}_refc_t2m.jpg", dpi=150, bbox_inches="tight")

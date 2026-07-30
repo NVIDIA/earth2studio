@@ -176,6 +176,41 @@ def test_ufsobsconv_tolerance_conversion():
     assert ds_asym._tolerance_upper == timedelta(hours=1)
 
 
+@pytest.mark.parametrize("cls", [UFSObsConv, UFSObsSat])
+def test_ufsobs_missing_file_warns_not_raises(cls, caplog):
+    """A missing diag file warns and returns rather than aborting the fetch.
+
+    GSI archives have gaps (e.g. an absent GNSS-RO ``gps`` cycle or a
+    decommissioned satellite platform); both obs sources must tolerate
+    them so a bulk request spanning many cycles is not derailed by one
+    missing object.
+    """
+    ds = cls(cache=False, verbose=False)
+    key = "2024/03/2024033018/gsi/diag_conv_gps_ges.2024033018_control.nc4"
+
+    # Must not raise (previously the conventional source raised here).
+    ds._handle_missing_file(key)
+    assert "not found" in caplog.text
+
+
+@pytest.mark.parametrize("cls", [UFSObsConv, UFSObsSat])
+def test_ufsobs_all_files_missing_returns_empty(cls):
+    """When every file is skipped, an empty schema-shaped frame is returned.
+
+    Guards against ``pd.concat([])`` raising "No objects to concatenate"
+    when a whole request's worth of diag files is absent — consumers get
+    a well-formed empty DataFrame to apply their own handling to.
+    """
+    ds = cls(cache=False, verbose=False)
+    schema = ds.resolve_fields(None)
+
+    # No async tasks => no frames compiled => empty result.
+    df = ds._compile_dataframe([], ["t"], schema)
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 0
+    assert list(df.columns) == schema.names
+
+
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(60)
