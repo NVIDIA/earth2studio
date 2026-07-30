@@ -134,9 +134,10 @@ jobs:
 
   setup-env:
     name: Set up environment
-    runs-on: linux-amd64-cpu8
+    runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: ghcr.io/nvidia/earth2studio-ci:0.1
+      options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
