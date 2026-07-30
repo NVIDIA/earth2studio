@@ -48,6 +48,7 @@ env:
 jobs:
   setup-env:
     name: Set up environment
+    if: github.repository == 'NVIDIA/earth2studio'
     runs-on: linux-amd64-gpu-h100-latest-1
     timeout-minutes: 120
     container:
@@ -112,6 +113,7 @@ jobs:
 
   test:
     name: Test
+    if: github.repository == 'NVIDIA/earth2studio'
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
@@ -133,6 +135,7 @@ jobs:
 
   test-px-models:
     name: Test prognostic models
+    if: github.repository == 'NVIDIA/earth2studio'
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
@@ -154,6 +157,7 @@ jobs:
 
   test-dx-models:
     name: Test diagnostic models
+    if: github.repository == 'NVIDIA/earth2studio'
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
@@ -175,6 +179,7 @@ jobs:
 
   test-data:
     name: Test data sources
+    if: github.repository == 'NVIDIA/earth2studio'
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
@@ -196,6 +201,7 @@ jobs:
 
   test-perturb:
     name: Test perturbation methods
+    if: github.repository == 'NVIDIA/earth2studio'
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
@@ -217,6 +223,7 @@ jobs:
 
   test-stats:
     name: Test statistics and metrics
+    if: github.repository == 'NVIDIA/earth2studio'
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
@@ -238,6 +245,7 @@ jobs:
 
   test-da-models:
     name: Test data assimilation models
+    if: github.repository == 'NVIDIA/earth2studio'
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
@@ -259,6 +267,7 @@ jobs:
 
   test-px-models-conflicts:
     name: Test model conflict environments
+    if: github.repository == 'NVIDIA/earth2studio'
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
@@ -280,6 +289,7 @@ jobs:
 
   test-serve:
     name: Test serve
+    if: github.repository == 'NVIDIA/earth2studio'
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
@@ -301,7 +311,7 @@ jobs:
 
   coverage:
     name: Coverage
-    if: always()
+    if: github.repository == 'NVIDIA/earth2studio' && always()
     needs:
       - test
       - test-px-models

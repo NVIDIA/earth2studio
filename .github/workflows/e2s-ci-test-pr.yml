@@ -47,6 +47,7 @@ env:
 jobs:
   changes:
     name: Detect changes
+    if: github.repository == 'NVIDIA/earth2studio'
     runs-on: ubuntu-latest
     outputs:
       data: ${{ steps.filter.outputs.data }}
@@ -70,6 +71,7 @@ jobs:
 
   setup-env:
     name: Set up environment
+    if: github.repository == 'NVIDIA/earth2studio'
     runs-on: linux-amd64-gpu-h100-latest-1
     timeout-minutes: 120
     container:
@@ -134,6 +136,7 @@ jobs:
 
   format:
     name: Format
+    if: github.repository == 'NVIDIA/earth2studio'
     needs: setup-env
     runs-on: linux-amd64-cpu8
     container:
@@ -174,6 +177,7 @@ jobs:
 
   lint:
     name: Lint
+    if: github.repository == 'NVIDIA/earth2studio'
     needs: format
     runs-on: linux-amd64-cpu8
     container:
@@ -220,6 +224,7 @@ jobs:
 
   test:
     name: Test
+    if: github.repository == 'NVIDIA/earth2studio'
     needs: lint
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
@@ -241,7 +246,7 @@ jobs:
 
   test-px-models:
     name: Test prognostic models
-    if: needs.changes.outputs.px_models == 'true'
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.px_models == 'true'
     needs:
       - lint
       - changes
@@ -265,7 +270,7 @@ jobs:
 
   test-dx-models:
     name: Test diagnostic models
-    if: needs.changes.outputs.dx_models == 'true'
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.dx_models == 'true'
     needs:
       - lint
       - changes
@@ -289,7 +294,7 @@ jobs:
 
   test-data:
     name: Test data sources
-    if: needs.changes.outputs.data == 'true'
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.data == 'true'
     needs:
       - lint
       - changes
@@ -313,7 +318,7 @@ jobs:
 
   test-perturb:
     name: Test perturbation methods
-    if: needs.changes.outputs.perturb == 'true'
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.perturb == 'true'
     needs:
       - lint
       - changes
@@ -337,7 +342,7 @@ jobs:
 
   test-stats:
     name: Test statistics and metrics
-    if: needs.changes.outputs.stats == 'true'
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.stats == 'true'
     needs:
       - lint
       - changes
@@ -361,7 +366,7 @@ jobs:
 
   test-da-models:
     name: Test data assimilation models
-    if: needs.changes.outputs.da_models == 'true'
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.da_models == 'true'
     needs:
       - lint
       - changes
@@ -385,7 +390,7 @@ jobs:
 
   test-px-models-conflicts:
     name: Test model conflict environments
-    if: needs.changes.outputs.px_models == 'true'
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.px_models == 'true'
     needs:
       - lint
       - changes
@@ -409,7 +414,7 @@ jobs:
 
   test-serve:
     name: Test serve
-    if: needs.changes.outputs.serve == 'true'
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.serve == 'true'
     needs:
       - lint
       - changes
@@ -433,7 +438,7 @@ jobs:
 
   coverage:
     name: Coverage
-    if: always()
+    if: github.repository == 'NVIDIA/earth2studio' && always()
     needs:
       - test
       - test-px-models
