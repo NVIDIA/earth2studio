@@ -14,13 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: ci-unit-test
+name: e2s-ci-test-main
 
 on:
   push:
     branches:
       - main
-      - "pull-request/**"
   workflow_dispatch:
 
 permissions:
