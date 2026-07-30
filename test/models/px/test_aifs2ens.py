@@ -614,6 +614,56 @@ class PhooAIFS2ENSModel(torch.nn.Module):
         return torch.ones(x.shape[0], 1, x.shape[2], n_output_vars, device=x.device)
 
 
+def test_aifs2ens_forcing_batch_time_order():
+    # Regression: time-dependent forcings (solar insolation, Julian day, local
+    # time) must be placed by the batch-major (batch*time) layout (slot =
+    # b*n_time + t), in both _prepare_input and the _update_input rollout step.
+    # A time-major write scatters each time's forcings to the wrong samples when
+    # both batch and time exceed one.
+    device = "cpu"
+    n_nodes = 4
+    latitudes = torch.tensor([60.0, 30.0, -30.0, -60.0]).reshape(1, 1, n_nodes, 1)
+    longitudes = torch.tensor([0.0, 90.0, 180.0, 270.0]).reshape(1, 1, n_nodes, 1)
+    eye = torch.eye(n_nodes)
+    p = AIFS2ENS(
+        model=PhooAIFS2ENSModel(),
+        latitudes=latitudes,
+        longitudes=longitudes,
+        interpolation_matrix=eye,
+        inverse_interpolation_matrix=eye,
+        invariants=torch.zeros(5, 2, 2),
+    ).to(device)
+
+    n_batch, n_time, n_lead = 2, 2, 2
+    # Two very different times (season + hour) so their forcings clearly differ.
+    times = np.array(["2024-01-01T00:00", "2024-07-01T12:00"], dtype="datetime64[ns]")
+
+    # _prepare_input takes [batch, time, lead, prognostic-var, lat, lon].
+    n_prog = len(p.input_ids)
+    x = torch.zeros(n_batch, n_time, n_lead, n_prog, 2, 2)
+    prep = p._prepare_input(x, OrderedDict({"time": times}))
+
+    # _update_input (rollout step) takes the flattened
+    # [batch*time, lead, nodes, full-var] state.
+    x_bt = torch.zeros(n_batch * n_time, n_lead, n_nodes, len(p.VARIABLES))
+    upd = p._update_input(
+        x_bt,
+        OrderedDict(
+            {
+                "time": times,
+                "lead_time": np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")]),
+            }
+        ),
+    )
+
+    # Prognostic input is zero, so rows differ only in time-dependent forcings.
+    # Batch-major slots: (b0,t0)=0, (b0,t1)=1, (b1,t0)=2, (b1,t1)=3.
+    for out in (prep, upd):
+        assert torch.equal(out[0], out[2])  # same time (t0) -> identical
+        assert torch.equal(out[1], out[3])  # same time (t1) -> identical
+        assert not torch.allclose(out[0], out[1])  # different time -> differ
+
+
 @pytest.mark.parametrize(
     "time",
     [
