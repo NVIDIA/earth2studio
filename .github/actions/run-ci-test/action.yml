@@ -9,6 +9,12 @@ inputs:
   tox-env:
     description: Tox environment to run.
     required: true
+  save-model-cache:
+    description: Whether to save the model cache after the test run.
+    default: "false"
+  save-testmon-cache:
+    description: Whether to save the testmon cache after the test run.
+    default: "false"
 
 runs:
   using: composite
@@ -76,7 +82,7 @@ runs:
     - name: Save model cache
       if: >
         always() &&
-        (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+        inputs.save-model-cache == 'true' &&
         steps.model-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v5
       continue-on-error: true
@@ -87,7 +93,7 @@ runs:
     - name: Save testmon cache
       if: >
         always() &&
-        github.ref == 'refs/heads/main'
+        inputs.save-testmon-cache == 'true'
       uses: actions/cache/save@v5
       continue-on-error: true
       with:

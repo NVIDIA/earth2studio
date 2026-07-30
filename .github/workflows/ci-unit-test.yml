@@ -297,6 +297,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test
+          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-px-models:
     name: Test prognostic models
@@ -319,6 +321,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-px-models
+          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-dx-models:
     name: Test diagnostic models
@@ -341,6 +345,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-dx-models
+          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-data:
     name: Test data sources
@@ -363,6 +369,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-data
+          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-perturb:
     name: Test perturbation methods
@@ -385,6 +393,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-perturb
+          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-stats:
     name: Test statistics and metrics
@@ -407,6 +417,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-stats
+          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-da-models:
     name: Test data assimilation models
@@ -429,6 +441,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-da-models
+          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-px-models-conflicts:
     name: Test model conflict environments
@@ -451,6 +465,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-px-models-conflicts
+          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-serve:
     name: Test serve
@@ -473,6 +489,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-serve
+          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   coverage:
     name: Coverage
