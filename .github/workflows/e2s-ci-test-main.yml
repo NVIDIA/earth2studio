@@ -58,7 +58,11 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     env:
+      FLASH_ATTN_CUDA_ARCHS: "90"
       MAX_JOBS: "8"
+      NATTEN_CUDA_ARCH: "9.0"
+      NATTEN_N_WORKERS: "8"
+      NVCC_THREADS: "2"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
