@@ -636,8 +636,10 @@ uv add earth2studio --extra corrdiff
 :::::{tab-item} CorrDiff COSMO-ERA5
 Notes: Additional dependencies for the `CorrDiffCosmoEra5` model. This model needs
 the RoPE / NATTEN attention backend from `nvidia-physicsnemo`, which is not on PyPI
-yet, so physicsnemo must be installed from a pinned git commit. The `uv` path picks
-this up automatically from `[tool.uv.sources]`; the `pip` path installs it explicitly.
+yet, so physicsnemo must be installed from a pinned git commit. Earth2Studio's own
+`[tool.uv.sources]` pin only applies inside an Earth2Studio checkout — it is not
+propagated through published package metadata, so an external install must add the
+pinned physicsnemo source explicitly for both `pip` and `uv` (shown below).
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -651,6 +653,7 @@ pip install earth2studio[cosmo]
 :::{tab-item} uv
 
 ```bash
+uv add "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@ced75d93d014f70bb691372788eee2d201171c12"
 uv add earth2studio --extra cosmo
 ```
 
@@ -827,10 +830,11 @@ releases. Expect possible breaking changes as these APIs mature.
 :::{admonition} Warning
 :class: warning
 
-All data assimilation models require [CuPy](https://docs.cupy.dev/en/stable/) and [cuDF](https://docs.rapids.ai/api/cudf/stable/),
-which are CUDA-dependent libraries.
-The default installation uses CUDA 12 (i.e., `cupy-cuda12x`, `cudf-cu12`).
-If your system uses a different CUDA version, you may need to adjust the dependencies.
+Most data assimilation models require [CuPy](https://docs.cupy.dev/en/stable/) and [cuDF](https://docs.rapids.ai/api/cudf/stable/),
+which are CUDA-dependent libraries; those defaults use CUDA 13 (i.e., `cupy-cuda13x`, `cudf-cu13`).
+The exception is CorrDiff COSMO SDA (`da-cosmo`), which requires only CuPy
+(`cupy-cuda13x`) and not cuDF. If your system uses a different CUDA version, you may
+need to adjust the dependencies for the relevant extra.
 :::
 
 ::::::{tab-set}
@@ -885,6 +889,30 @@ pip install earth2studio[da-stormcast]
 
 ```bash
 uv add earth2studio --extra da-stormcast
+```
+
+:::
+::::
+:::::
+:::::{tab-item} CorrDiff COSMO SDA
+Notes: `CorrDiffCosmoEra5SDA` requires CuPy and a pinned PhysicsNeMo Git version for
+its RoPE / NATTEN backend. External installs must add the Git dependency explicitly,
+as shown below.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@ced75d93d014f70bb691372788eee2d201171c12"
+pip install earth2studio[da-cosmo]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@ced75d93d014f70bb691372788eee2d201171c12"
+uv add earth2studio --extra da-cosmo
 ```
 
 :::

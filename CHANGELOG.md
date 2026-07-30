@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
+- Added `CorrDiffCosmoEra5SDA`, score-based data assimilation (DPS) for the
+  CorrDiff-COSMO downscaler
 
 ### Changed
 
@@ -27,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
+- Added the `da-cosmo` optional-dependency extra for `CorrDiffCosmoEra5SDA`
+  (`earth2studio[cosmo]` plus `nvidia-physicsnemo` and `cupy-cuda13x`).
+- Added `scipy` to the `cosmo` extra (KD-tree observation snapping).
 
 ## [0.17.0] - 2026-07-xx
 
