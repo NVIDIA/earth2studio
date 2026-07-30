@@ -121,7 +121,7 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 ## Latest News
 
 > [!NOTE]
-> As of version `0.17.0`, Earth2Studio TOML default installs now target CUDA 13.
+> As of version `0.14.0`, Earth2Studio TOML default installs now target CUDA 13.
 
 - [**Aurora v1.5**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.Aurora1p5.html),
     Microsoft Aurora v1.5 deterministic and ensemble model wrapper for global
