@@ -7,10 +7,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.18.0a0] - xxxx-xx-xx
+## [0.18.0a0] - 2026-08-xx
 
 ### Added
 
+- Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added Zarr v3 sharding support to `AsyncZarrBackend`
 
 ### Changed
@@ -24,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `GHCNHourly` station discovery to use the published GHCNh station
+  list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
+- Fixed `AIFS2` and `AIFS2ENS` assigning time-dependent forcing values to the wrong
+  samples when processing multiple batches and initialization times.
 - Fixed `AsyncZarrBackend` discarding exceptions raised by non-blocking writes. A write
   future that had already completed was never resulted, so its error was swallowed
 
@@ -31,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
-## [0.17.0] - 2026-07-xx
+## [0.17.0] - 2026-07-30
 
 ### Added
 
