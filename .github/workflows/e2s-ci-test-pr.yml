@@ -42,7 +42,6 @@ env:
   TESTMON_CACHE: ${{ github.workspace }}/.cache/testmon
   TESTMON_DATAFILE: ${{ github.workspace }}/.cache/testmon/.testmondata
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
-  UV_CACHE_DIR: /opt/uv-cache
 
 jobs:
   changes:
