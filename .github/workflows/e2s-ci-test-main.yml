@@ -100,7 +100,6 @@ jobs:
         run: make setup-ci
 
       - name: Save uv cache
-        if: steps.uv-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         continue-on-error: true
         with:
@@ -108,7 +107,6 @@ jobs:
           key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
 
       - name: Save pre-commit cache
-        if: steps.pre-commit-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         continue-on-error: true
         with:
