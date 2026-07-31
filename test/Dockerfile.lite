@@ -9,6 +9,7 @@ ENV UV_LINK_MODE=copy
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     git \
+    libatomic1 \
     make \
     && rm -rf /var/lib/apt/lists/*
 
