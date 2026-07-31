@@ -20,9 +20,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Image tag to publish, for example 0.1. Once built you then need to update the workflows to use the new tag.
+        description: Image tag to publish, for example 0.3. Once built you then need to update the workflows to use the new tag.
         required: true
-        default: "0.1"
+        default: "0.3"
         type: string
 
 permissions:
