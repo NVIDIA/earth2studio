@@ -1009,6 +1009,110 @@ then you can make use of <a class="reference internal" href="../../modules/gener
 <p>For a complete workflow that uses IO backends, refer to <a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.deterministic.html#earth2studio.run.deterministic" title="earth2studio.run.deterministic"><code class="xref py py-func docutils literal notranslate"><span class="pre">earth2studio.run.deterministic()</span></code></a>
 or the deterministic workflow example in the gallery.</p>
 </section>
+<section id="sharding-with-the-async-zarr-backend">
+<h2>Sharding with the Async Zarr Backend<a class="headerlink" href="#sharding-with-the-async-zarr-backend" title="Link to this heading">#</a></h2>
+<p><a class="reference internal" href="../../modules/generated/io/earth2studio.io.AsyncZarrBackend.html#earth2studio.io.AsyncZarrBackend" title="earth2studio.io.AsyncZarrBackend"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.io.AsyncZarrBackend</span></code></a> writes each forecast step as soon as it is
+available, which keeps the GPU from blocking on disk IO. The cost is one file per chunk,
+and because the coordinates listed in <code class="docutils literal notranslate"><span class="pre">parallel_coords</span></code> are chunked with a size of 1,
+a large inference campaign can produce an enormous number of small files. This is a
+common way to exhaust an inode quota on a parallel filesystem such as Lustre, and it
+makes the resulting store slow to list and copy.</p>
+<p>Zarr v3 sharding addresses this by packing many chunks into a single storage object.
+Pass <code class="docutils literal notranslate"><span class="pre">shard_coords</span></code> to group chunks along one or more coordinates:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">io</span> <span class="o">=</span> <span class="n">AsyncZarrBackend</span><span class="p">(</span>
+    <span class="s2">&quot;output.zarr&quot;</span><span class="p">,</span>
+    <span class="n">parallel_coords</span><span class="o">=</span><span class="n">OrderedDict</span><span class="p">({</span>
+        <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">time</span><span class="p">,</span>
+        <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">lead_time</span><span class="p">,</span>
+    <span class="p">}),</span>
+    <span class="c1"># 8 lead times per shard, so 8x fewer files</span>
+    <span class="n">shard_coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The chunk layout is unchanged, so readers still fetch a single lead time at a time. Only
+the number of files on disk changes.</p>
+<section id="choosing-a-shard-size">
+<h3>Choosing a shard size<a class="headerlink" href="#choosing-a-shard-size" title="Link to this heading">#</a></h3>
+<p>A shard is one file, so writing part of one forces Zarr to read, modify, and rewrite the
+whole object. To avoid that, the backend accumulates the chunks of a shard in host
+memory and writes the shard once it is complete. Three things bound the choice:</p>
+<p><strong>Host memory.</strong> Budget roughly <code class="docutils literal notranslate"><span class="pre">max_inflight_shards</span> <span class="pre">*</span> <span class="pre">4</span> <span class="pre">*</span> <span class="pre">shard_bytes</span> <span class="pre">+</span> <span class="pre">pool_size</span> <span class="pre">*</span> <span class="pre">write_bytes</span></code> per process. A flushing shard costs several times its own size once Zarr’s
+encoded copy is counted, and with several ranks per node this applies to each of them.
+For a 73 variable 721x1440 fp32 field, one lead time is about 0.3 GB, so a shard of 8
+lead times is a 2.4 GB buffer and the defaults put peak usage in the tens of GB.</p>
+<p><strong>Store bandwidth.</strong> Sharded writes are slower than unsharded ones, since a shard is one
+large sequential IO rather than many independent ones. <code class="docutils literal notranslate"><span class="pre">max_inflight_shards</span></code> controls how
+many run at once and is the main lever for single-process performance, though raising it
+stops helping once the store saturates bandwidth. Lowering it for multi-rank (distributed)
+runs is usually sensible, as the ranks already supply concurrency between them.</p>
+<p><strong>How fast the model produces data.</strong> With the <code class="docutils literal notranslate"><span class="pre">AsyncZarrBackend</span></code>, none of the write cost
+is visible as long as the model takes longer to produce a step than the store takes to absorb
+it. Sharding is close to free in that regime. If a workflow writes more bytes per step than
+the store can absorb in the time the model takes to produce them, the wall clock becomes the
+IO time, and the only remedies are writing less data or a faster store.</p>
+<p>As a rough guide, sharding a quarter degree field along <code class="docutils literal notranslate"><span class="pre">lead_time</span></code> costs a few percent
+of wall clock for a proportional reduction in file count, provided the run is not already
+IO bound. The best settings are problem- and system-specific, and involve tradeoffs between
+speed, host memory consumption, and file count, so it is worth measuring and tuning for the
+desired behavior in large inference campaigns.</p>
+</section>
+<section id="partial-shards-and-restarts">
+<h3>Partial shards and restarts<a class="headerlink" href="#partial-shards-and-restarts" title="Link to this heading">#</a></h3>
+<p>Shards do not need to divide evenly into your forecast length. <code class="docutils literal notranslate"><span class="pre">close()</span></code> writes out any
+shard that never filled, using the array fill value for the positions that were never
+supplied, which reads back exactly as an unwritten chunk would.</p>
+<p>Writing into a shard that is already present in the store still works, but falls back to
+a read-modify-write of the whole shard and logs a warning. This happens when <code class="docutils literal notranslate"><span class="pre">close()</span></code>
+or <code class="docutils literal notranslate"><span class="pre">flush()</span></code> is called partway through a run and the same shards are written again
+afterwards, or when restarting into an existing store that was left with incomplete
+shards. To keep restarts on the fast path, align your restart boundaries with the shard
+size.</p>
+<p>Sharding composes with <code class="docutils literal notranslate"><span class="pre">zarr_codecs</span></code>, which compresses the inner chunks within each
+shard, and with <code class="docutils literal notranslate"><span class="pre">chunked_coords</span></code>, which sets the chunk size of coordinates that are not
+in <code class="docutils literal notranslate"><span class="pre">parallel_coords</span></code>. A shard size must always be a multiple of that coordinate’s chunk
+size.</p>
+</section>
+<section id="multiple-processes-writing-one-store">
+<h3>Multiple processes writing one store<a class="headerlink" href="#multiple-processes-writing-one-store" title="Link to this heading">#</a></h3>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>A shard must never contain data owned by more than one process. The backend keeps each
+shard object to a single write by buffering its chunks in host memory, but that
+guarantee holds <em>within</em> a process only. Separate ranks have separate buffers, so if two
+ranks each hold part of the same shard they will both write that shard in full and the
+later write silently discards the other’s data. This is not detected and does not raise.</p>
+</div>
+<p>The rule is that the set of parallel coordinate indices a rank writes must be a union of
+whole shards. In practice that makes one layout obviously correct and another
+obviously fragile.</p>
+<p><strong>Shard along a coordinate each rank owns entirely.</strong> A rank running a forecast owns
+every lead time of that forecast, so sharding <code class="docutils literal notranslate"><span class="pre">lead_time</span></code> is safe no matter how the
+initial conditions are distributed:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Rank owns a subset of ICs, and all lead times of each</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">AsyncZarrBackend</span><span class="p">(</span>
+    <span class="s2">&quot;forecast.zarr&quot;</span><span class="p">,</span>
+    <span class="n">parallel_coords</span><span class="o">=</span><span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">all_times</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">all_lead_times</span><span class="p">}),</span>
+    <span class="n">shard_coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">},</span>   <span class="c1"># safe for any IC distribution</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>This is also the dimension that causes the file explosion in the first place, so it is
+usually the only one worth sharding.</p>
+<p><strong>Sharding along the distributed coordinate is the fragile case.</strong> With 8 ICs across 3
+ranks and <code class="docutils literal notranslate"><span class="pre">shard_coords={&quot;time&quot;:</span> <span class="pre">4}</span></code>, a contiguous block split gives rank 0 ICs 0-2 and
+rank 1 ICs 3-5, so the first time shard covers ICs 0-3 and straddles two ranks. Both
+buffer a partial shard, both flush it whole, and one rank’s output is lost. The
+read-modify-write fallback does not protect you: both ranks check for the shard before
+either has written it, so both take the full overwrite path.</p>
+<p>Such a layout is only safe when every rank’s slice happens to be shard aligned, which
+depends on the item count, the rank count, and the shard size all lining up. It can pass
+at one rank count and silently lose data at another, so prefer the first layout.</p>
+<p>Separately, and independent of sharding: arrays are created lazily on the first write, so
+several ranks writing a new array at once can race on its creation. Have one rank
+establish the arrays before the others begin writing.</p>
+</section>
+</section>
 </section>
 
 
@@ -1063,6 +1167,12 @@ or the deterministic workflow example in the gallery.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#io-backend-interface">IO Backend Interface</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#initializing-a-store">Initializing a Store</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#writing-to-the-store">Writing to the Store</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sharding-with-the-async-zarr-backend">Sharding with the Async Zarr Backend</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-shard-size">Choosing a shard size</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#partial-shards-and-restarts">Partial shards and restarts</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#multiple-processes-writing-one-store">Multiple processes writing one store</a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 

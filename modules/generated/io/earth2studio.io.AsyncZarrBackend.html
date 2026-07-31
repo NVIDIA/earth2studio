@@ -792,9 +792,12 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">zarr_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'mode':</span> <span class="pre">'a'}</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">zarr_codecs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">chunked_coords</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">shard_coords</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">max_inflight_shards</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L54-L633"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L201-L1300"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend" title="Link to this definition">#</a></dt>
 <dd><p>Async Zarr v3 IO Backend</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
@@ -806,6 +809,29 @@ during the writes.</p>
 <p class="admonition-title">Warning</p>
 <p>This IO backend presently does not support overwritting existing Zarr stores. Only
 creation of new arrays or writing to existing.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Enabling sharding via <cite>shard_coords</cite> buffers chunks in host memory until a shard is
+complete, trading host memory for a smaller file count. Budget roughly</p>
+<blockquote>
+<div><p>max_inflight_shards * 4 * prod(shard_shape) * itemsize + pool_size * write_bytes</p>
+</div></blockquote>
+<p>per process, since a flushing shard costs several times its own size once Zarr’s
+encoded copy is counted. Sharded writes are also slower than unsharded ones, which
+is hidden as long as the model takes longer to produce a step than the store takes
+to absorb it. This latency hiding only applies in non-blocking mode; with
+<code class="docutils literal notranslate"><span class="pre">blocking=True</span></code> each shard flush runs synchronously.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>When sharding, a shard must not contain data owned by more than one process. This
+backend keeps every shard object to a single write by buffering its chunks, but that
+only holds within a process, separate ranks have separate buffers. If two ranks each
+hold part of the same shard they will both write it in full and the later write
+wins, silently discarding the other’s data. Shard along a coordinate that each rank
+owns entirely (typically <cite>lead_time</cite>, since a rank runs a whole forecast), not along
+the coordinate the work is distributed over.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -821,28 +847,64 @@ populated upon the first write to the respective array.</p></li>
 <li><p><strong>fs_factory</strong> (<em>Callable</em><em>[</em><em>...</em><em>, </em><em>fsspec.spec.AbstractFileSystem</em><em>]</em><em>, </em><em>optional</em>) – FSSpec file system factory method. This is a callable object that should return
 an instance of the desired filesystem to use, by default LocalFileSystem</p></li>
 <li><p><strong>blocking</strong> (<em>bool</em><em>, </em><em>optional</em>) – Blocking write calls in the synchronous API. When set to false, the IO backend
-will execute write calls in seperate threads. Users should call the <cite>close()</cite>
+will execute write calls in separate threads. Users should call the <cite>close()</cite>
 API to ensure all threads have finished / cleaned up, by default True</p></li>
 <li><p><strong>pool_size</strong> (<em>int</em><em>, </em><em>optional</em>) – The thread / async loop pool used with the synchronous write API in non-blocking
 mode, by default 8</p></li>
-<li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Async operation timeout for a given write operation, by default 600</p></li>
+<li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Async operation timeout for a given write operation, by default 600. When
+sharding, the write that completes a shard carries the entire flush plus any
+wait for a concurrency slot, so this should be scaled with shard size and
+expected store throughput.</p></li>
 <li><p><strong>zarr_kwargs</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – Additional keyword arguments to provide to the ` zarr.api.asynchronous.open`
 function, by default {“mode”: “a”}</p></li>
-<li><p><strong>zarr_codecs</strong> (<em>CompressorsLike</em><em>, </em><em>optional</em>) – Compression codec to use when creating any new arrays. Sharding is not supported
-for thread safety at the moment. If None, will use no compressor, by default
-None</p></li>
+<li><p><strong>zarr_codecs</strong> (<em>CompressorsLike</em><em>, </em><em>optional</em>) – Compression codec to use when creating any new arrays. If None, will use no
+compressor, by default None</p></li>
+<li><p><strong>chunked_coords</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>int</em><em>]</em><em>, </em><em>optional</em>) – Chunk sizes for coordinates that are not in <cite>parallel_coords</cite>. By default any
+such coordinate is stored as a single chunk spanning its full length. Keys not
+present in a given array are ignored, by default {}</p></li>
+<li><p><strong>shard_coords</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>int</em><em>]</em><em>, </em><em>optional</em>) – Number of elements per shard along the given coordinates, enabling Zarr v3
+sharding. Each value must be a multiple of that coordinate’s chunk size, and any
+coordinate not listed uses a shard size equal to its chunk size. See the
+Sharding notes below. By default, {} (unsharded).</p></li>
+<li><p><strong>max_inflight_shards</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum number of shard flushes allowed to run at once. Concurrent flushes are
+what keep sharded write throughput up, at the cost of holding that many shards
+in memory. Lower it if memory is tight, raise it if writes are the bottleneck
+and the store has bandwidth to spare, by default 4</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
 <li><p><strong>ImportError</strong> – If Zarr 2.0 is installed. This io backend only supports Zarr 3.0</p></li>
 <li><p><strong>TypeError</strong> – If fs_factory is not a callable, this should be a callable method not an object</p></li>
+<li><p><strong>ValueError</strong> – If a <cite>shard_coords</cite> value is not positive</p></li>
 </ul>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<p>Sharding</p>
+<p>Because every coordinate in <cite>parallel_coords</cite> is chunked with a size of 1, a large
+inference campaign can produce an enormous number of small files, which is a common
+way to exhaust an inode quota on a parallel filesystem. Sharding packs many chunks
+into a single storage object to avoid that. The chunk layout is unchanged, so
+readers still fetch one chunk at a time and only the file count changes.</p>
+<p>A shard is one object, so writing part of one would force Zarr to read, modify and
+rewrite all of it. To keep every shard to a single write, this backend accumulates
+a shard’s chunks in host memory and writes it once complete, hence the memory and
+throughput tradeoffs in the warnings above.</p>
+<p>Shard sizes need not divide evenly into a coordinate. <cite>close()</cite> writes out any shard
+that never filled, using the array fill value where nothing was supplied, which
+reads back exactly as an unwritten chunk would. Writing into a shard already present
+in the store still works but falls back to a read-modify-write of the whole shard
+and logs a warning. That happens when <cite>close()</cite> or <cite>flush()</cite> is called mid run and
+the same shards are written again, or when restarting into a store left with
+incomplete shards, so aligning restart boundaries with the shard size keeps writes
+on the fast path.</p>
+<p>Sharding composes with <cite>zarr_codecs</cite>, which compresses the inner chunks within a
+shard, and with <cite>chunked_coords</cite>, which sets the chunk size of coordinates outside
+<cite>parallel_coords</cite>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.io.AsyncZarrBackend.add_array">
-<span class="sig-name descname"><span class="pre">add_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L458-L463"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.add_array" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">add_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L1117-L1122"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.add_array" title="Link to this definition">#</a></dt>
 <dd><p>Pass through, arrays are initialized lazily in this io object</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -860,7 +922,7 @@ None</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.io.AsyncZarrBackend.write">
-<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L465-L506"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.write" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L1124-L1165"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.write" title="Link to this definition">#</a></dt>
 <dd><p>Write data</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
