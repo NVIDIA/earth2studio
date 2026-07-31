@@ -323,7 +323,7 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Set up environment
-        run: uv sync --locked --only-dev --no-install-project
+        run: uv sync --python 3.13.13 --locked --only-dev --no-install-project
 
       - name: Download coverage data
         uses: actions/download-artifact@v4

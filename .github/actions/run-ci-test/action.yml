@@ -66,7 +66,7 @@ runs:
 
     - name: Set up environment
       shell: bash
-      run: uv sync
+      run: uv sync --python 3.13.13
 
     - name: Run tests
       shell: bash
