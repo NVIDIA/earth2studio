@@ -1,0 +1,133 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Detect CI changes
+description: Detect which Earth2Studio CI test suites should run for a workflow.
+
+inputs:
+  mode:
+    description: Change detection mode. Use "pr" for copied PR branches and "main" for main branch pushes.
+    required: true
+  run-all:
+    description: Whether all optional test suites should run.
+    default: "false"
+  before-sha:
+    description: Commit before the current main push.
+    default: ""
+
+outputs:
+  data:
+    description: Whether data source tests should run.
+    value: ${{ steps.filter.outputs.data }}
+  perturb:
+    description: Whether perturbation tests should run.
+    value: ${{ steps.filter.outputs.perturb }}
+  stats:
+    description: Whether statistics and metrics tests should run.
+    value: ${{ steps.filter.outputs.stats }}
+  px_models:
+    description: Whether prognostic model tests should run.
+    value: ${{ steps.filter.outputs.px_models }}
+  dx_models:
+    description: Whether diagnostic model tests should run.
+    value: ${{ steps.filter.outputs.dx_models }}
+  da_models:
+    description: Whether data assimilation model tests should run.
+    value: ${{ steps.filter.outputs.da_models }}
+  serve:
+    description: Whether serve tests should run.
+    value: ${{ steps.filter.outputs.serve }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check changed files
+      id: filter
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if [[ "${{ inputs.run-all }}" == "true" ]]; then
+          echo "data=true" >> "$GITHUB_OUTPUT"
+          echo "perturb=true" >> "$GITHUB_OUTPUT"
+          echo "stats=true" >> "$GITHUB_OUTPUT"
+          echo "px_models=true" >> "$GITHUB_OUTPUT"
+          echo "dx_models=true" >> "$GITHUB_OUTPUT"
+          echo "da_models=true" >> "$GITHUB_OUTPUT"
+          echo "serve=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        case "${{ inputs.mode }}" in
+          main)
+            base="${{ inputs.before-sha }}"
+            if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
+              base="HEAD^"
+            fi
+            git diff --name-only "$base" "$GITHUB_SHA" > changed-files.txt
+            ;;
+          pr)
+            git fetch origin main
+            git diff --name-only origin/main...HEAD > changed-files.txt
+            ;;
+          *)
+            echo "Unknown change detection mode: ${{ inputs.mode }}"
+            exit 1
+            ;;
+        esac
+
+        cat changed-files.txt
+        if grep -qE "^(earth2studio/data/|earth2studio/lexicon/|test/data/|test/lexicon/)" changed-files.txt; then
+          echo "data=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "data=false" >> "$GITHUB_OUTPUT"
+        fi
+
+        if grep -qE "^(earth2studio/perturbation/|test/perturbation/)" changed-files.txt; then
+          echo "perturb=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "perturb=false" >> "$GITHUB_OUTPUT"
+        fi
+
+        if grep -qE "^(earth2studio/statistics/|test/statistics/|earth2studio/utils/interp.py|test/utils/test_interp.py)" changed-files.txt; then
+          echo "stats=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "stats=false" >> "$GITHUB_OUTPUT"
+        fi
+
+        if grep -qE "^(earth2studio/models/px/|test/models/px/)" changed-files.txt; then
+          echo "px_models=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "px_models=false" >> "$GITHUB_OUTPUT"
+        fi
+
+        if grep -qE "^(earth2studio/models/dx/|test/models/dx/)" changed-files.txt; then
+          echo "dx_models=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "dx_models=false" >> "$GITHUB_OUTPUT"
+        fi
+
+        if grep -qE "^(earth2studio/models/da/|test/models/da/)" changed-files.txt; then
+          echo "da_models=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "da_models=false" >> "$GITHUB_OUTPUT"
+        fi
+
+        if grep -qE "^(earth2studio/serve/|test/serve/|serve/)" changed-files.txt; then
+          echo "serve=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "serve=false" >> "$GITHUB_OUTPUT"
+        fi
