@@ -1,0 +1,10 @@
+.git
+.venv
+.cache
+__pycache__
+.mypy_cache
+.pytest_cache
+.ruff_cache
+docs/_build
+examples/outputs
+skills/*/evals/results
