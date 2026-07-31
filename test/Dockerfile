@@ -56,7 +56,9 @@ RUN /usr/bin/uv python install "${PYTHON_VERSION}"
 
 # Build this image from the repository root so these lock files are in context:
 #   docker build -f test/Dockerfile .
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
+RUN mkdir -p earth2studio
+COPY earth2studio/__init__.py earth2studio/__init__.py
 
 # Warm uv's package/build cache into the image. CI runs use this same cache
 # directory, avoiding a large GitHub Actions uv cache archive.
