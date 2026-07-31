@@ -684,7 +684,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../../examples/03_downscaling/01_corrdiff_inference.html">Generative Downscaling</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../examples/03_downscaling/02_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../examples/03_downscaling/03_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../examples/03_downscaling/04_cosmo_rea_downscaling.html">Regional Downscaling to COSMO-REA (6 km and 2.2 km)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/03_downscaling/04_cosmo_rea_downscaling.html">Regional Downscaling over Europe</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../../../examples/04_nowcasting/index.html">Nowcasting</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -807,7 +807,7 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">clamp_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormcastconus.py#L92-L872"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCastCONUS" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormcastconus.py#L92-L884"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCastCONUS" title="Link to this definition">#</a></dt>
 <dd><p>StormCast-CONUS generative convection-allowing model for the full CONUS domain.</p>
 <ul class="simple">
 <li><p>High-resolution (3km) HRRR state over the Continental United States (99 vars)</p></li>
@@ -872,7 +872,7 @@ by default True.</p></li>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.StormCastCONUS.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormcastconus.py#L550-L611"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCastCONUS.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormcastconus.py#L562-L623"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCastCONUS.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Runs prognostic model 1 step</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -899,7 +899,7 @@ diffusion.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.StormCastCONUS.create_iterator">
-<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormcastconus.py#L661-L667"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCastCONUS.create_iterator" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormcastconus.py#L673-L679"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCastCONUS.create_iterator" title="Link to this definition">#</a></dt>
 <dd><p>Iterator wrapper around <code class="xref py py-meth docutils literal notranslate"><span class="pre">create_generator()</span></code> without observation input.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -916,7 +916,7 @@ diffusion.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.StormCastCONUS.load_default_package">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormcastconus.py#L733-L743"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCastCONUS.load_default_package" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormcastconus.py#L745-L755"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCastCONUS.load_default_package" title="Link to this definition">#</a></dt>
 <dd><p>Load prognostic package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -935,7 +935,7 @@ diffusion.</p></li>
 <dd><em class="sig-param"><span class="n"><span class="pre">**model_kwargs</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormcastconus.py#L745-L872"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCastCONUS.load_model" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormcastconus.py#L757-L884"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCastCONUS.load_model" title="Link to this definition">#</a></dt>
 <dd><p>Load a <a class="reference internal" href="#earth2studio.models.px.StormCastCONUS" title="earth2studio.models.px.StormCastCONUS"><code class="xref py py-class docutils literal notranslate"><span class="pre">StormCastCONUS</span></code></a> model from a package.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>

@@ -346,7 +346,7 @@ producing high-resolution outputs from global model forecasts.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="Downscale a global forecast to high-resolution regional reanalysis over Europe with CorrDiffCosmoEra5: run SFNO forward to a lead time, then reconstruct the COSMO-REA fields (COSMO-REA6 at 6 km, COSMO-REA2 at 2.2 km) from the forecast state. SFNO is just the input provider here; the downscaler is a standard DiagnosticModel, so this is the usual prognostic-feeds-diagnostic composition.">
+    <div class="sphx-glr-thumbcontainer" tooltip="Diffusion downscaling from a global forecast to km-scale European reanalysis grids.">
 
 .. only:: html
 
@@ -357,7 +357,7 @@ producing high-resolution outputs from global model forecasts.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Regional Downscaling to COSMO-REA (6 km and 2.2 km)</div>
+      <div class="sphx-glr-thumbnail-title">Regional Downscaling over Europe</div>
     </div>
 
 
