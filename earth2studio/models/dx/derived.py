@@ -209,7 +209,7 @@ class DerivedRH(torch.nn.Module):
         es_w = 611.21 * torch.exp(17.502 * (t - 273.16) / (t - 32.19))
         es_i = 611.21 * torch.exp(22.587 * (t - 273.16) / (t + 0.7))
 
-        alpha = torch.clip((t - 250.16) / (273.16 - 250.16), 0, 1.2) ** 2
+        alpha = torch.clip((t - 250.16) / (273.16 - 250.16), 0, 1.0) ** 2
         es = alpha * es_w + (1 - alpha) * es_i
         out_tensor = 100 * e / es
         out_tensor = torch.clamp(out_tensor, 0, 100)

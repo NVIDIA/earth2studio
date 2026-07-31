@@ -184,7 +184,7 @@ class fss:
 
         # squeeze batch dimensions
         x_shape = x.shape
-        x = x.view(np.prod(x_shape[:-2]), 1, *x_shape[-2:])
+        x = x.view(int(np.prod(x_shape[:-2])), 1, *x_shape[-2:])
 
         # mask input points that exceed each threshold
         binary_prob = (x >= thresholds[None, :, None, None]).to(dtype=x.dtype)

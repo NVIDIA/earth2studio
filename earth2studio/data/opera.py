@@ -158,6 +158,9 @@ class OPERA:
     pixel resolutions, a :exc:`ValueError` is raised — request each resolution
     group separately.
 
+    OPERA undetect values (active radar echo but no detectable precipitation) are
+    set to -99.0 dbZ, and nodata values are set to NaN (no active radar echo).
+    All other values are scaled by the gain and offset parameters in the ODIM HDF5 file.
 
     Parameters
     ----------
@@ -190,6 +193,9 @@ class OPERA:
     ------
     region:eu dataclass:observation product:precip product:radar
     """
+
+    # MRMS refc stores no-echo as -99 dBZ; fill OPERA no-detection as -99.0 to match.
+    _NO_DETECTION_FILL: float = -99.0
 
     # Class-level lat/lon grid cache keyed by (ysize, xsize).
     _grid_cache: dict[tuple[int, int], tuple[np.ndarray, np.ndarray]] = {}
@@ -231,9 +237,9 @@ class OPERA:
             key=_key,
         )
 
-    @staticmethod
-    def _apply_linear_scaling(raw: np.ndarray, what: dict[str, Any]) -> np.ndarray:
-        """Apply ODIM gain/offset scaling and replace nodata/undetect with NaN."""
+    @classmethod
+    def _apply_linear_scaling(cls, raw: np.ndarray, what: dict[str, Any]) -> np.ndarray:
+        """Apply ODIM gain/offset scaling; replace nodata with NaN and undetect with NO_DETECTION_FILL."""
         gain = float(what.get("gain", 1.0))
         offset = float(what.get("offset", 0.0))
         nodata = what.get("nodata")
@@ -242,7 +248,7 @@ class OPERA:
         if nodata is not None:
             result[raw == nodata] = np.nan
         if undetect is not None:
-            result[raw == undetect] = np.nan
+            result[raw == undetect] = cls._NO_DETECTION_FILL
         return result
 
     @staticmethod

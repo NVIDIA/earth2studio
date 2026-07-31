@@ -309,6 +309,9 @@ class JPSS:
             # Filter VIIRS fill values BEFORE converting to float32 to preserve original dtype
             filtered_data = self._filter_fill_values(data, ds)
 
+            # Apply CF-convention scaling (scale_factor / add_offset) when present
+            filtered_data = self._apply_cf_scaling(filtered_data, ds)
+
             # Apply modifier
             processed_data = modifier(filtered_data)
 
@@ -396,6 +399,35 @@ class JPSS:
             filtered_data[filtered_data == fill_value] = np.nan
 
         return filtered_data
+
+    @staticmethod
+    def _apply_cf_scaling(data: np.ndarray, dataset: h5py.Dataset) -> np.ndarray:
+        """Apply CF-convention scale_factor and add_offset when the HDF5 dataset carries them.
+
+        Parameters
+        ----------
+        data : np.ndarray
+            Float32 array (fill values already replaced with NaN).
+        dataset : h5py.Dataset
+            Source HDF5 dataset whose attrs are checked for scale_factor / add_offset.
+
+        Returns
+        -------
+        np.ndarray
+            Data array in physical units (unchanged if no scaling attrs are present).
+        """
+        scale_factor = dataset.attrs.get("scale_factor")
+        add_offset = dataset.attrs.get("add_offset")
+        if scale_factor is None and add_offset is None:
+            return data
+        dtype = data.dtype
+        scale = np.array(
+            scale_factor.item() if scale_factor is not None else 1.0, dtype=dtype
+        )
+        offset = np.array(
+            add_offset.item() if add_offset is not None else 0.0, dtype=dtype
+        )
+        return data * scale + offset
 
     @staticmethod
     def _validate_satellite_and_product_type(satellite: str, product_type: str) -> None:

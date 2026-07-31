@@ -7,16 +7,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.17.0a0] - 2026-07-xx
+## [0.18.0a0] - 2026-08-xx
+
+### Added
+
+- Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
+- Added Zarr v3 sharding support to `AsyncZarrBackend`
+
+### Changed
+
+- `AsyncZarrBackend` now throttles on in flight writes rather than submitted writes, and
+  waits for whichever write completes first rather than the oldest.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed `GHCNHourly` station discovery to use the published GHCNh station
+  list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
+- Fixed `AIFS2` and `AIFS2ENS` assigning time-dependent forcing values to the wrong
+  samples when processing multiple batches and initialization times.
+- Fixed `AsyncZarrBackend` discarding exceptions raised by non-blocking writes. A write
+  future that had already completed was never resulted, so its error was swallowed
+
+### Security
+
+### Dependencies
+
+## [0.17.0] - 2026-07-30
 
 ### Added
 
 - Added GHCN hourly data source (`GHCNHourly`), superseding the deprecated ISD source
 - Added EarthMover ERA5 0.25 degree reanalysis data source
 - Added EarthMover IFS 0.1 degree data source and forecast source hosted by BrightBand
-- Added `async_workers` and `retries` parameters to GFS / GFS_FX data sources
+- Added `async_workers` and `retries` parameters to GFS / GFS_FX, HRRR / HRRR_FX,
+  GEFS_FX / GEFS_FX_721x1440, CFS_FX / CFS_FX_Flux and NCAR_ERA5 data sources
 - Added shared obstore byte-range helpers (`obstore_store_from_url`,
   `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
+- Added dynamical.org analysis and forecast data sources, reading anonymous Icechunk
+  repositories: `DynamicalAIFS`, `DynamicalAIFS_ENS`, `DynamicalGFS`, `DynamicalGEFS`,
+  `DynamicalHRRR`, `DynamicalMRMS`, `DynamicalGFS_FX`, `DynamicalGEFS_FX`,
+  `DynamicalHRRR_FX`, `DynamicalICON_EU_FX`, `DynamicalIFS_ENS`,
+  `DynamicalIFS_ENS_FX`,
+  `DynamicalAIFS_FX` and `DynamicalAIFSENS_FX`.
+- Added Aurora v1.5 deterministic and ensemble model wrapper (`Aurora1p5`, `Aurora1p5Ensemble`)
+- Added StormCast CONUS prognostic model (`StormCastCONUS`)
+- Added `DataReplay` for replaying `DataSource` and `ForecastSource` data through the
+  prognostic iterator interface.
+- Added NNJA satellite observation data frame source (`NNJAObsSat`)
+- Added StormScope NSRDB solar irradiance (GHI) estimation model (`StormScopeDxNSRDB`)
 
 ### Changed
 
@@ -27,18 +69,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   predictions for GOES GLM Lightning density.
 - Migrated GFS / GFS_FX data sources from s3fs to obstore for index and byte-range
   GRIB fetches; downloads now use bounded concurrency with retry on transient errors
+- Migrated the remaining GRIB byte-range data sources (HRRR / HRRR_FX, GEFS_FX /
+  GEFS_FX_721x1440, CFS_FX / CFS_FX_Flux, NCAR_ERA5) from s3fs/gcsfs to obstore with
+  bounded concurrency and retry on transient errors
+- Migrated HTTP-backed GRIB sources (GFS `ncep`, HRRR `nomads`, CFS `nomads`) to
+  obstore `HTTPStore` against the NOMADS HTTPS endpoint (GFS `ncep` previously used
+  FTP); no fsspec fallbacks remain in the GRIB byte-range sources
 - Refactored UFS observation sources (`UFSObsConv`, `UFSObsSat`) onto the shared
   obstore byte-range helpers
 - Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
   the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
   fsspec
-
-### Deprecated
-
-### Removed
+- UFS observation sources (`UFSObsConv`, `UFSObsSat`) now tolerate missing diag files
+  by warning and skipping instead of erroring
+- Updated the OPERA data source to represent undetect values as `-99.0`, while
+  retaining `NaN` for no-data values.
+- NNJA Obs data source now accepts any time / tolerance rather than 6-hour strides
+- Renamed `NomadsGDASObsConv` `max_workers` parameter to `async_workers` for
+  consistency with other observation data sources
 
 ### Fixed
 
+- Fixed `PrecipitationAFNOv2` and `WindgustAFNO` passing latitude and longitude in
+  swapped order to `cos_zenith_angle`, which produced an incorrect solar-zenith-angle
+  input channel.
+- Fixed incorrect interpolation values at the lower grid edge when an output
+  coordinate matched the first input coordinate.
+- Corrected the `PrecipitationAFNOv2` docstring: the model predicts precipitation
+  accumulated over the following six hours `[t, t+6h]`, not the prior six hours.
+- Fixed `DerivedRH` mixed-phase saturation blend clipping the liquid-water fraction
+  ratio to 1.2 instead of 1.0 before squaring, which let the effective weight reach
+  1.44 and inflated relative humidity above freezing.
+- Changed ISD schema `source` type to string since the field is alphanumeric. Enforced
+  `float32` dtypes for `lat`, `lon`, `elev`, and `observation`.
 - Fixed NNJA observation sources blocking the shared fsspec IO loop with
   CPU-bound PrepBUFR decode work, which stalled concurrent fetches from other
   data sources.
@@ -47,13 +110,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved ACE2ERA5 inference performance by caching yearly forcing values
 - Fixed ACE2ERA5 forcing data retrieval for static variables requested across
   multiple times.
-
-### Security
+- Added CF-convention scale/offset when retrieving JPSS data.
 
 ### Dependencies
 
 - Removed `multi-storage-client` from the `data` optional dependency group,
   succeeded by `obstore`
+- Added `icechunk>=2.0.0` to the `data` optional dependency group (Python ≥3.12 only)
 
 ## [0.16.0] - 2026-06-29
 
@@ -78,6 +141,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
 - Added DLESyM-v0-ISCCP-ERA5 climate model
+- Added COSMO-REA downscaling diagnostic model (`CorrDiffCosmoEra5`) and
+  `CosmoLexicon` for regression (mean) and diffusion downscaling of ERA5 to
+  COSMO-REA6 (6 km) and COSMO-REA2 (2.2 km), with sub-domain support via
+  `set_domain`
 
 ### Changed
 

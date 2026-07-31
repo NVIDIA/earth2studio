@@ -19,6 +19,7 @@ setup-ci:
 	uv sync --extra aifs2
 	uv sync --extra aifs2ens
 	uv sync --extra aifsens
+	uv sync --extra stormcast-conus
 
 .PHONY: format
 format:
