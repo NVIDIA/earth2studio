@@ -30,6 +30,8 @@ defaults:
     shell: bash
 
 env:
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.2
+  E2S_CI_LITE_IMAGE: &e2s_ci_lite_image ghcr.io/nvidia/earth2studio-ci-lite:0.3
   CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
   EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
@@ -42,7 +44,6 @@ env:
   TESTMON_CACHE: ${{ github.workspace }}/.cache/testmon
   TESTMON_DATAFILE: ${{ github.workspace }}/.cache/testmon/.testmondata
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
-  UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
 
 jobs:
   changes:
@@ -69,68 +70,12 @@ jobs:
         with:
           mode: pr
 
-  setup-env:
-    name: Set up environment
-    if: github.repository == 'NVIDIA/earth2studio'
-    runs-on: linux-amd64-gpu-h100-latest-1
-    timeout-minutes: 120
-    container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
-      options: --shm-size=2g
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    env:
-      FLASH_ATTN_CUDA_ARCHS: "90"
-      MAX_JOBS: "8"
-      NATTEN_CUDA_ARCH: "9.0"
-      NATTEN_N_WORKERS: "8"
-      NVCC_THREADS: "2"
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Configure git safe directory
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - name: Restore uv cache
-        id: uv-cache
-        uses: actions/cache/restore@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-
-            e2s-uv-${{ runner.os }}-main-
-
-      - name: Restore pre-commit cache
-        id: pre-commit-cache
-        uses: actions/cache/restore@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.PRE_COMMIT_HOME }}
-          key: e2s-pre-commit-${{ runner.os }}-main-${{ hashFiles('.pre-commit-config.yaml') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            e2s-pre-commit-${{ runner.os }}-main-${{ hashFiles('.pre-commit-config.yaml') }}-
-            e2s-pre-commit-${{ runner.os }}-main-
-
-      - name: Prepare CI directories
-        run: python3 test/_ci/prepare_ci_paths.py
-
-      - name: Check uv lockfile
-        run: uv lock --check
-
-      - name: Set up CI environment
-        run: make setup-ci
-
   format:
     name: Format
     if: github.repository == 'NVIDIA/earth2studio'
-    needs: setup-env
     runs-on: linux-amd64-cpu8
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_lite_image
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -140,16 +85,6 @@ jobs:
 
       - name: Configure git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - name: Restore uv cache
-        uses: actions/cache/restore@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-
-            e2s-uv-${{ runner.os }}-main-
 
       - name: Restore pre-commit cache
         uses: actions/cache/restore@v5
@@ -162,18 +97,19 @@ jobs:
             e2s-pre-commit-${{ runner.os }}-main-
 
       - name: Set up environment
-        run: uv sync
+        run: uv sync --python 3.13.13 --locked --only-dev --no-install-project
 
       - name: Check formatting
+        env:
+          UV_NO_SYNC: "1"
         run: make format
 
   lint:
     name: Lint
     if: github.repository == 'NVIDIA/earth2studio'
-    needs: format
     runs-on: linux-amd64-cpu8
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_lite_image
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -183,16 +119,6 @@ jobs:
 
       - name: Configure git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - name: Restore uv cache
-        uses: actions/cache/restore@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-
-            e2s-uv-${{ runner.os }}-main-
 
       - name: Restore pre-commit cache
         uses: actions/cache/restore@v5
@@ -205,24 +131,32 @@ jobs:
             e2s-pre-commit-${{ runner.os }}-main-
 
       - name: Set up environment
-        run: uv sync
+        run: uv sync --python 3.13.13 --locked --only-dev --no-install-project
 
       - name: Check docstring coverage
+        env:
+          UV_NO_SYNC: "1"
         run: make interrogate
 
       - name: Run lint checks
+        env:
+          UV_NO_SYNC: "1"
         run: make lint
 
       - name: Check license headers
+        env:
+          UV_NO_SYNC: "1"
         run: make license
 
   test:
     name: Test
     if: github.repository == 'NVIDIA/earth2studio'
-    needs: lint
+    needs:
+      - format
+      - lint
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -242,11 +176,12 @@ jobs:
     name: Test prognostic models
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.px_models == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -266,11 +201,12 @@ jobs:
     name: Test diagnostic models
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.dx_models == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -290,11 +226,12 @@ jobs:
     name: Test data sources
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.data == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -314,11 +251,12 @@ jobs:
     name: Test perturbation methods
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.perturb == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -338,11 +276,12 @@ jobs:
     name: Test statistics and metrics
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.stats == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -362,11 +301,12 @@ jobs:
     name: Test data assimilation models
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.da_models == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -386,11 +326,12 @@ jobs:
     name: Test model conflict environments
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.px_models == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -410,11 +351,12 @@ jobs:
     name: Test serve
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.serve == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -445,7 +387,7 @@ jobs:
       - test-serve
     runs-on: linux-amd64-cpu8
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_lite_image
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -456,18 +398,8 @@ jobs:
       - name: Configure git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Restore uv cache
-        uses: actions/cache/restore@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-
-            e2s-uv-${{ runner.os }}-main-
-
       - name: Set up environment
-        run: uv sync
+        run: uv sync --python 3.13.13 --locked --only-dev --no-install-project
 
       - name: Download coverage data
         uses: actions/download-artifact@v4
@@ -477,6 +409,8 @@ jobs:
           merge-multiple: true
 
       - name: Generate coverage report
+        env:
+          UV_NO_SYNC: "1"
         run: |
           if ! compgen -G ".coverage.*" > /dev/null; then
             echo "No coverage data artifacts found." | tee coverage-report.txt
