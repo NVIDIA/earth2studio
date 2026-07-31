@@ -99,7 +99,7 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: e2s-uv-${{ runner.os }}
           restore-keys: |
             e2s-uv-${{ runner.os }}-
 
@@ -144,7 +144,7 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: e2s-uv-${{ runner.os }}
           restore-keys: |
             e2s-uv-${{ runner.os }}-
 
@@ -185,7 +185,7 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: e2s-uv-${{ runner.os }}
           restore-keys: |
             e2s-uv-${{ runner.os }}-
 
@@ -455,7 +455,7 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: e2s-uv-${{ runner.os }}
           restore-keys: |
             e2s-uv-${{ runner.os }}-
 
