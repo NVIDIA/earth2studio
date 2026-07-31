@@ -22,7 +22,7 @@ on:
       tag:
         description: Image tag to publish, for example 0.2
         required: true
-        default: "0.1"
+        default: "0.2"
         type: string
 
 permissions:
