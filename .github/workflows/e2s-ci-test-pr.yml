@@ -387,7 +387,7 @@ jobs:
       - test-serve
     runs-on: linux-amd64-cpu8
     container:
-      image: *e2s_ci_image
+      image: *e2s_ci_lite_image
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -399,7 +399,7 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Set up environment
-        run: uv sync
+        run: uv sync --locked --only-dev --no-install-project
 
       - name: Download coverage data
         uses: actions/download-artifact@v4
@@ -409,6 +409,8 @@ jobs:
           merge-multiple: true
 
       - name: Generate coverage report
+        env:
+          UV_NO_SYNC: "1"
         run: |
           if ! compgen -G ".coverage.*" > /dev/null; then
             echo "No coverage data artifacts found." | tee coverage-report.txt
