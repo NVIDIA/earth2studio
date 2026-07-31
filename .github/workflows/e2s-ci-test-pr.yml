@@ -118,7 +118,7 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-cpu8
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2
+      image: ghcr.io/nvidia/earth2studio-ci:0.2-lint
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -140,9 +140,11 @@ jobs:
             e2s-pre-commit-${{ runner.os }}-main-
 
       - name: Set up environment
-        run: uv sync
+        run: uv sync --only-dev --no-install-project
 
       - name: Check formatting
+        env:
+          UV_NO_SYNC: "1"
         run: make format
 
   lint:
@@ -151,7 +153,7 @@ jobs:
     needs: format
     runs-on: linux-amd64-cpu8
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2
+      image: ghcr.io/nvidia/earth2studio-ci:0.2-lint
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -173,15 +175,21 @@ jobs:
             e2s-pre-commit-${{ runner.os }}-main-
 
       - name: Set up environment
-        run: uv sync
+        run: uv sync --only-dev --no-install-project
 
       - name: Check docstring coverage
+        env:
+          UV_NO_SYNC: "1"
         run: make interrogate
 
       - name: Run lint checks
+        env:
+          UV_NO_SYNC: "1"
         run: make lint
 
       - name: Check license headers
+        env:
+          UV_NO_SYNC: "1"
         run: make license
 
   test:
