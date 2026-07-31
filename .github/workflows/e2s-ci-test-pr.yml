@@ -150,7 +150,7 @@ jobs:
   lint:
     name: Lint
     if: github.repository == 'NVIDIA/earth2studio'
-    needs: format
+    needs: setup-env
     runs-on: linux-amd64-cpu8
     container:
       image: ghcr.io/nvidia/earth2studio-ci:0.2-lint
@@ -195,7 +195,9 @@ jobs:
   test:
     name: Test
     if: github.repository == 'NVIDIA/earth2studio'
-    needs: lint
+    needs:
+      - format
+      - lint
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: ghcr.io/nvidia/earth2studio-ci:0.2
@@ -218,6 +220,7 @@ jobs:
     name: Test prognostic models
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.px_models == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
@@ -242,6 +245,7 @@ jobs:
     name: Test diagnostic models
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.dx_models == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
@@ -266,6 +270,7 @@ jobs:
     name: Test data sources
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.data == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
@@ -290,6 +295,7 @@ jobs:
     name: Test perturbation methods
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.perturb == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
@@ -314,6 +320,7 @@ jobs:
     name: Test statistics and metrics
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.stats == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
@@ -338,6 +345,7 @@ jobs:
     name: Test data assimilation models
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.da_models == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
@@ -362,6 +370,7 @@ jobs:
     name: Test model conflict environments
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.px_models == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
@@ -386,6 +395,7 @@ jobs:
     name: Test serve
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.serve == 'true'
     needs:
+      - format
       - lint
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
