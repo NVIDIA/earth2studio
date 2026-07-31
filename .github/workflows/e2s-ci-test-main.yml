@@ -76,9 +76,10 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            e2s-uv-${{ runner.os }}-
+            e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-
+            e2s-uv-${{ runner.os }}-main-
 
       - name: Restore pre-commit cache
         id: pre-commit-cache
@@ -86,9 +87,10 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.PRE_COMMIT_HOME }}
-          key: e2s-pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          key: e2s-pre-commit-${{ runner.os }}-main-${{ hashFiles('.pre-commit-config.yaml') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            e2s-pre-commit-${{ runner.os }}-
+            e2s-pre-commit-${{ runner.os }}-main-${{ hashFiles('.pre-commit-config.yaml') }}-
+            e2s-pre-commit-${{ runner.os }}-main-
 
       - name: Prepare CI directories
         run: python3 test/_ci/prepare_ci_paths.py
@@ -104,14 +106,14 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Save pre-commit cache
         uses: actions/cache/save@v5
         continue-on-error: true
         with:
           path: ${{ env.PRE_COMMIT_HOME }}
-          key: e2s-pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          key: e2s-pre-commit-${{ runner.os }}-main-${{ hashFiles('.pre-commit-config.yaml') }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   test:
     name: Test
@@ -342,9 +344,10 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            e2s-uv-${{ runner.os }}-
+            e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-
+            e2s-uv-${{ runner.os }}-main-
 
       - name: Set up environment
         run: uv sync
