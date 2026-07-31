@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `OPERA` data source returning negative precipitation values (`-99.0 mm/h`
+  for `tprate`, `-0.099 m` for `tp01`) for pixels where the radar detected no rain.
+  Undetect pixels for RATE and ACRR quantities are now filled with `0.0` instead
+  of the reflectivity sentinel `-99.0 dBZ` (#1031).
 - Fixed `GHCNHourly` station discovery to use the published GHCNh station
   list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
 - Fixed `AIFS2` and `AIFS2ENS` assigning time-dependent forcing values to the wrong
