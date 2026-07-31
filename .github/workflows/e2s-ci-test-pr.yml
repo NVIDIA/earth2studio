@@ -68,54 +68,9 @@ jobs:
         with:
           mode: pr
 
-  setup-env:
-    name: Set up environment
-    if: github.repository == 'NVIDIA/earth2studio'
-    runs-on: linux-amd64-gpu-h100-latest-1
-    timeout-minutes: 120
-    container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2
-      options: --shm-size=2g
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    env:
-      FLASH_ATTN_CUDA_ARCHS: "90"
-      MAX_JOBS: "8"
-      NATTEN_CUDA_ARCH: "9.0"
-      NATTEN_N_WORKERS: "8"
-      NVCC_THREADS: "2"
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Configure git safe directory
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - name: Restore pre-commit cache
-        id: pre-commit-cache
-        uses: actions/cache/restore@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.PRE_COMMIT_HOME }}
-          key: e2s-pre-commit-${{ runner.os }}-main-${{ hashFiles('.pre-commit-config.yaml') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            e2s-pre-commit-${{ runner.os }}-main-${{ hashFiles('.pre-commit-config.yaml') }}-
-            e2s-pre-commit-${{ runner.os }}-main-
-
-      - name: Prepare CI directories
-        run: python3 test/_ci/prepare_ci_paths.py
-
-      - name: Check uv lockfile
-        run: uv lock --check
-
-      - name: Set up CI environment
-        run: make setup-ci
-
   format:
     name: Format
     if: github.repository == 'NVIDIA/earth2studio'
-    needs: setup-env
     runs-on: linux-amd64-cpu8
     container:
       image: ghcr.io/nvidia/earth2studio-ci:0.2-lint
@@ -140,7 +95,7 @@ jobs:
             e2s-pre-commit-${{ runner.os }}-main-
 
       - name: Set up environment
-        run: uv sync --only-dev --no-install-project
+        run: uv sync --locked --only-dev --no-install-project
 
       - name: Check formatting
         env:
@@ -150,7 +105,6 @@ jobs:
   lint:
     name: Lint
     if: github.repository == 'NVIDIA/earth2studio'
-    needs: setup-env
     runs-on: linux-amd64-cpu8
     container:
       image: ghcr.io/nvidia/earth2studio-ci:0.2-lint
@@ -175,7 +129,7 @@ jobs:
             e2s-pre-commit-${{ runner.os }}-main-
 
       - name: Set up environment
-        run: uv sync --only-dev --no-install-project
+        run: uv sync --locked --only-dev --no-install-project
 
       - name: Check docstring coverage
         env:
