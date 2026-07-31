@@ -1,0 +1,26 @@
+FROM nvcr.io/nvidia/cuda-dl-base:26.03-cuda13.2-devel-ubuntu24.04
+
+ARG PYTHON_VERSION=3.13.13
+
+COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
+
+ENV PIP_CONSTRAINT= \
+    UV_LINK_MODE=copy
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    git \
+    make \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# PyTorch containers constrain packages by default, but lint jobs should follow uv.lock.
+RUN for PIP_CONF in "/etc/xdg/pip/pip.conf" "/root/.pip/pip.conf" "/usr/pip.conf" "/root/.config/pip/pip.conf" "/etc/pip.conf"; do \
+        if [ -f "$PIP_CONF" ]; then \
+          sed -i 's/^no-cache-dir = true/#no-cache-dir = true/' "$PIP_CONF"; \
+        fi; \
+    done
+
+# Install the CI Python version without warming the full Earth2Studio dependency cache.
+RUN uv python install "${PYTHON_VERSION}"

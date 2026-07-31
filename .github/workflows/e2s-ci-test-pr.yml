@@ -73,7 +73,7 @@ jobs:
     if: github.repository == 'NVIDIA/earth2studio'
     runs-on: linux-amd64-cpu8
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2-lint
+      image: ghcr.io/nvidia/earth2studio-ci-lite:0.1
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -107,7 +107,7 @@ jobs:
     if: github.repository == 'NVIDIA/earth2studio'
     runs-on: linux-amd64-cpu8
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2-lint
+      image: ghcr.io/nvidia/earth2studio-ci-lite:0.1
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
