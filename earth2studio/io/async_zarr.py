@@ -101,6 +101,8 @@ class _ShardBuffer:
         "remaining",
         "claimed",
         "preexisting",
+        "pending_copies",
+        "pending_flush",
     )
 
     def __init__(
@@ -115,6 +117,13 @@ class _ShardBuffer:
         self.chunks = chunks
         self.preexisting = preexisting
         self.claimed = False
+        # Number of numpy copies into this buffer that are currently in flight
+        # (started but mark() not yet called). async_flush must not begin setitem
+        # while this is > 0, since the copy and the read race on buffer.data.
+        self.pending_copies = 0
+        # Set by async_flush when it claims the buffer while pending_copies > 0.
+        # The last completing copy sees this and triggers the write.
+        self.pending_flush = False
 
         extent = tuple(s.stop - s.start for s in region)
         if fill_value is None:
@@ -867,6 +876,8 @@ class AsyncZarrBackend:
 
         with self._shard_lock:
             buffer = self._shard_buffers.get(key)
+            if buffer is not None:
+                buffer.pending_copies += 1
 
         if buffer is None:
             # Probe outside the lock, a concurrent duplicate probe is harmless
@@ -880,6 +891,7 @@ class AsyncZarrBackend:
             )
             with self._shard_lock:
                 buffer = self._shard_buffers.setdefault(key, candidate)
+                buffer.pending_copies += 1
                 live = len(self._shard_buffers)
             if live > len(self.loop_pool) and not self._live_warned:
                 self._live_warned = True
@@ -889,7 +901,9 @@ class AsyncZarrBackend:
                     + "an order that completes shards sooner."
                 )
 
-        # Copy outside the lock, chunk regions are disjoint and numpy releases the GIL
+        # Copy outside the lock — chunk regions are disjoint so concurrent _stage_chunk
+        # calls on the same buffer do not conflict. pending_copies > 0 prevents
+        # async_flush from starting setitem while this copy is in flight.
         local_slice = tuple(
             slice(s.start - r.start, s.stop - r.start)
             for s, r in zip(array_slice, buffer.region)
@@ -898,15 +912,26 @@ class AsyncZarrBackend:
 
         # The lock is held only for bookkeeping, never across an await, so a large
         # flush on one thread cannot stall staging on another
+        should_flush = False
         with self._shard_lock:
+            buffer.pending_copies -= 1
             buffer.mark(array_slice)
-            if buffer.remaining > 0 or buffer.claimed:
-                return
-            buffer.claimed = True
-            self._shard_buffers.pop(key, None)
-            self._flushed_shards.add(key)
+            if buffer.claimed:
+                # Claimed by async_flush while our copy was running; if we are the
+                # last copy it left for us to flush
+                if buffer.pending_copies == 0 and buffer.pending_flush:
+                    should_flush = True
+            elif buffer.remaining > 0:
+                pass  # shard not yet full
+            else:
+                # Shard complete and unclaimed — we flush it
+                buffer.claimed = True
+                self._shard_buffers.pop(key, None)
+                self._flushed_shards.add(key)
+                should_flush = True
 
-        await self._flush_buffer(name, zarray, key, buffer)
+        if should_flush:
+            await self._flush_buffer(name, zarray, key, buffer)
 
     async def _acquire_flush_slot(self, current: concurrent.futures.Future) -> None:
         """Waits until fewer than `max_inflight_shards` flushes are running
@@ -1012,24 +1037,33 @@ class AsyncZarrBackend:
         with self._shard_lock:
             pending = list(self._shard_buffers.items())
             self._shard_buffers.clear()
-            # Add all keys to _flushed_shards under the same lock that clears the dict.
-            # Without this, a concurrent _stage_chunk could find no buffer and no entry
-            # in _flushed_shards, open a fresh buffer with preexisting=False, and
-            # eventually overwrite whatever this flush writes.
+            # Claim all buffers and add keys to _flushed_shards atomically so any
+            # _stage_chunk that probes after this lock sees the key as flushed and
+            # does not open a fresh preexisting=False buffer that would clobber the
+            # write this flush is about to make.
+            #
+            # For buffers with copies still in flight (pending_copies > 0) we cannot
+            # call setitem yet — the numpy copy is still writing into buffer.data.
+            # Set pending_flush instead: the last completing copy will flush those.
+            to_flush = []
             for key, buffer in pending:
                 buffer.claimed = True
                 self._flushed_shards.add(key)
+                if buffer.pending_copies == 0:
+                    to_flush.append((key, buffer))
+                else:
+                    buffer.pending_flush = True
 
-        if not pending:
+        if not to_flush:
             return
 
-        logger.debug(f"Flushing {len(pending)} incomplete shard buffers")
-        array_names = {key[0] for key, _ in pending}
+        logger.debug(f"Flushing {len(to_flush)} incomplete shard buffers")
+        array_names = {key[0] for key, _ in to_flush}
         zarrays = {name: await self.root.get(name) for name in array_names}
         await asyncio.gather(
             *[
                 self._flush_buffer(key[0], zarrays[key[0]], key, buffer)
-                for key, buffer in pending
+                for key, buffer in to_flush
             ]
         )
 
