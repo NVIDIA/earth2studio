@@ -51,7 +51,7 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     timeout-minutes: 120
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: ghcr.io/nvidia/earth2studio-ci:0.2
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -102,7 +102,7 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: ghcr.io/nvidia/earth2studio-ci:0.2
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -124,7 +124,7 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: ghcr.io/nvidia/earth2studio-ci:0.2
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -146,7 +146,7 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: ghcr.io/nvidia/earth2studio-ci:0.2
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -168,7 +168,7 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: ghcr.io/nvidia/earth2studio-ci:0.2
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -190,7 +190,7 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: ghcr.io/nvidia/earth2studio-ci:0.2
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -212,7 +212,7 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: ghcr.io/nvidia/earth2studio-ci:0.2
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -234,7 +234,7 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: ghcr.io/nvidia/earth2studio-ci:0.2
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -256,7 +256,7 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: ghcr.io/nvidia/earth2studio-ci:0.2
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -278,7 +278,7 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: ghcr.io/nvidia/earth2studio-ci:0.2
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -309,7 +309,7 @@ jobs:
       - test-serve
     runs-on: linux-amd64-cpu8
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: ghcr.io/nvidia/earth2studio-ci:0.2
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
