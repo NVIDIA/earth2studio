@@ -30,6 +30,8 @@ defaults:
     shell: bash
 
 env:
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.2
+  E2S_CI_LITE_IMAGE: &e2s_ci_lite_image ghcr.io/nvidia/earth2studio-ci-lite:0.1
   CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
   EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
@@ -73,7 +75,7 @@ jobs:
     if: github.repository == 'NVIDIA/earth2studio'
     runs-on: linux-amd64-cpu8
     container:
-      image: ghcr.io/nvidia/earth2studio-ci-lite:0.1
+      image: *e2s_ci_lite_image
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -107,7 +109,7 @@ jobs:
     if: github.repository == 'NVIDIA/earth2studio'
     runs-on: linux-amd64-cpu8
     container:
-      image: ghcr.io/nvidia/earth2studio-ci-lite:0.1
+      image: *e2s_ci_lite_image
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -154,7 +156,7 @@ jobs:
       - lint
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -179,7 +181,7 @@ jobs:
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -204,7 +206,7 @@ jobs:
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -229,7 +231,7 @@ jobs:
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -254,7 +256,7 @@ jobs:
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -279,7 +281,7 @@ jobs:
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -304,7 +306,7 @@ jobs:
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -329,7 +331,7 @@ jobs:
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -354,7 +356,7 @@ jobs:
       - changes
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -385,7 +387,7 @@ jobs:
       - test-serve
     runs-on: linux-amd64-cpu8
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.2
+      image: *e2s_ci_image
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
