@@ -43,6 +43,7 @@ In this example you will learn:
 - How to run a coupled forecast with the lat/lon convenience wrapper
 - How to chain the precipitation diagnostic off the prognostic output
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[dlesym] @ git+https://github.com/NVIDIA/earth2studio.git",

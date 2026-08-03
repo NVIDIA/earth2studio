@@ -460,7 +460,7 @@ class DerivedSurfacePressure(torch.nn.Module):
         self.corr_adjustment = corr_adjustment
 
         p_levels = torch.as_tensor(p_levels, dtype=torch.float32)
-        (p_levels, _) = torch.sort(p_levels, descending=True)
+        p_levels, _ = torch.sort(p_levels, descending=True)
         self.in_variables = [f"z{int(level)}" for level in p_levels]
         if self.temperature_correction:
             self.in_variables.extend(f"t{int(level)}" for level in p_levels)

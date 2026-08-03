@@ -36,6 +36,7 @@ In this example you will learn:
 - Re-opening the IO backend and checkpoint
 - Resuming the deterministic workflow from the latest completed lead time
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[fcn] @ git+https://github.com/NVIDIA/earth2studio.git",
