@@ -80,6 +80,7 @@ E2STUDIO_VOCAB = {
     "i10fg": "instantaneous 10 m wind gust (m s-1)",
     "slhf": "time-integrated surface latent heat net flux (J m-2)",
     "ssr": "surface net short-wave radiation (J m-2)",
+    "ttr": "top net thermal radiation accumulated over given time frame (J m-2)",
     "rlut": "outgoing longwave radiation (W m-2)",
     "rsut": "outgoing shortwave radiation (W m-2)",
     "rsds": "surface downwelling shortwave radiation (W m-2)",

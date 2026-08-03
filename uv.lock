@@ -2184,6 +2184,11 @@ fuxi = [
     { name = "onnxruntime-gpu" },
     { name = "onnxscript" },
 ]
+fuxi-s2s = [
+    { name = "onnx" },
+    { name = "onnxruntime-gpu" },
+    { name = "onnxscript" },
+]
 gencast = [
     { name = "dm-haiku" },
     { name = "dm-tree" },
@@ -2508,14 +2513,17 @@ requires-dist = [
     { name = "onnx", marker = "extra == 'all'" },
     { name = "onnx", marker = "extra == 'fengwu'" },
     { name = "onnx", marker = "extra == 'fuxi'" },
+    { name = "onnx", marker = "extra == 'fuxi-s2s'" },
     { name = "onnx", marker = "extra == 'pangu'" },
     { name = "onnxruntime-gpu", marker = "extra == 'all'", specifier = ">=1.21.0", index = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/" },
     { name = "onnxruntime-gpu", marker = "extra == 'fengwu'", specifier = ">=1.21.0", index = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/" },
     { name = "onnxruntime-gpu", marker = "extra == 'fuxi'", specifier = ">=1.21.0", index = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/" },
+    { name = "onnxruntime-gpu", marker = "extra == 'fuxi-s2s'", specifier = ">=1.21.0", index = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/" },
     { name = "onnxruntime-gpu", marker = "extra == 'pangu'", specifier = ">=1.21.0", index = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/" },
     { name = "onnxscript", marker = "extra == 'all'" },
     { name = "onnxscript", marker = "extra == 'fengwu'" },
     { name = "onnxscript", marker = "extra == 'fuxi'" },
+    { name = "onnxscript", marker = "extra == 'fuxi-s2s'" },
     { name = "onnxscript", marker = "extra == 'pangu'" },
     { name = "pandas" },
     { name = "pandas", marker = "extra == 'ace2'", specifier = ">=2.3.2" },
@@ -2600,7 +2608,7 @@ requires-dist = [
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=3.1.3" },
 ]
-provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cosmo", "cyclone", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormcast-conus", "stormscope", "ucast", "utils", "windgust-afno"]
+provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cosmo", "cyclone", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "fuxi-s2s", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormcast-conus", "stormscope", "ucast", "utils", "windgust-afno"]
 
 [package.metadata.requires-dev]
 build = [

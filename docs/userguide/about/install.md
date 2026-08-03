@@ -393,6 +393,39 @@ uv add earth2studio --extra fuxi
 :::
 ::::
 :::::
+:::::{tab-item} FuXi-S2S
+Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/#python-installs).
+The official checkpoint is licensed under CC BY-NC-ND 4.0 and its
+[Zenodo record](https://zenodo.org/records/15718402) restricts it to research use.
+Commercial or competition use requires prior permission from the authors.
+The checkpoint samples flow-dependent perturbations internally, so each forecast
+trajectory is one stochastic ensemble member. Member `00` is not a deterministic
+control. When using Earth2Studio's {func}`earth2studio.run.ensemble` workflow, use
+the {class}`earth2studio.perturbation.Zero` perturbation to avoid adding a second
+initial-condition perturbation.
+The wrapper expects two consecutive UTC daily means on its native 1.5-degree grid
+and does not perform hourly aggregation or regridding. Prepared daily fields can be
+served through an Earth2Studio data source such as
+{class}`earth2studio.data.DataArrayFile`. Preserve `NaN` values over land in the
+sea-surface-temperature field.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[fuxi-s2s]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra fuxi-s2s
+```
+
+:::
+::::
+:::::
 :::::{tab-item} GraphCast
 Notes: The GraphCast models (operational and small) require additional dependencies
 for JAX and Haiku. The GraphCast package must be installed from the Google DeepMind
