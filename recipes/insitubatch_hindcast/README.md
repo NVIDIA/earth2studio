@@ -58,6 +58,20 @@ small — insitubatch dominates. ARCO is the **honest** case (see caveats). ARCO
 is wide on this box (±15% on both legs); its row is the median of 10 repeats, and the BEFORE leg
 converges downward with sample size as HTTP connections warm.
 
+**Separating read elimination from read throughput.** The speedups above conflate two things:
+reading *less*, and reading *fast*. To isolate the second, run the same store with no redundancy at
+all — one init at unit lead spacing, so every requested read is unique:
+
+```bash
+python bench_hindcast.py --store arco --vars t2m --lead-step-h 1 \
+  --max-lead-h 162 --n-init 1 --repeats 8
+```
+
+162 requested = 162 unique = 0.67 GB moved on both sides. E2S: **1.38 s** (486 MB/s); the feed:
+**1.61 s** (416 MB/s) — the feed is **~17% slower per byte**, roughly at parity (medians over three
+independent 8-repeat runs). insitubatch's modest ARCO result is therefore *not* a throughput
+deficit; see the honest boundary below for where the gap actually comes from.
+
 ## 2. `stream_score.py` — streaming vs dense materialization
 
 The model's `create_iterator` already streams the forecast lead-by-lead, and scoring is pointwise
@@ -135,13 +149,18 @@ sharpen its positioning into three evidence-backed claims:
    many samples onto shared chunks — overlapping windows, verification grids, fat chunks holding
    several steps — its read planning de-duplicates and a per-sample parallel fetch re-reads.
    Evidence: §1 WB2 (174× fewer decodes, 12.8× wall).
-3. **Honest boundary — you can use it sub-optimally.** It is not a universal speed win. On a
-   chunk-1 store with large fields, against an *unbounded* concurrent gather, its bounded-inflight
-   scheduling trails per byte: on ARCO, E2S moves 2.39 GB in 3.91 s (~610 MB/s) while the feed moves
-   0.67 GB in 2.57 s (~260 MB/s) — 2.3× slower per byte, ahead overall only because it reads 3.6×
-   fewer bytes, netting 1.5×. And a degenerate `batch_size=N` throws away the memory advantage:
-   §2 `dense` peaks at 7.63 GB, *worse* than the predownload it replaces. The tool is **generally
-   optimal for streaming with bounded memory** — that is the sweet spot.
+3. **Honest boundary — you can use it sub-optimally.** It is not a universal speed win, and on a
+   chunk-1 store with large fields the reason is *not* raw throughput: with redundancy removed from
+   both sides the feed is only ~17% slower per byte than E2S's unbounded gather (§1). The gap opens
+   because **de-duplication removes the fetch and decode of a redundant sample, but not its
+   assembly** — the tensor the model consumes still has one slot per requested `(init, lead)`.
+   Subtracting the two §1 ARCO configurations, each of the 414 redundant samples costs E2S 6.1 ms
+   (it refetches) and the feed 2.3 ms (it re-assembles from an already-resident chunk): 2.6× cheaper,
+   not 3.6×, which is why 3.6× fewer decodes nets only 1.5× wall. Where fields are small (§1 WB2)
+   assembly is negligible and nearly the whole de-dup ratio converts. And a degenerate
+   `batch_size=N` throws away the memory advantage: §2 `dense` peaks at 7.63 GB, *worse* than the
+   predownload it replaces. The tool is **generally optimal for streaming with bounded memory** —
+   that is the sweet spot.
 
 One line: *stream training/inference batches from cloud tensors in place, with bounded memory —
 competitive with hand-tuned parallel loaders on optimized layouts, and far ahead when the chunking
