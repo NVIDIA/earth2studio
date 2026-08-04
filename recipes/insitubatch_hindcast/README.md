@@ -29,14 +29,16 @@ onto far fewer stored chunks. BEFORE = E2S's per-init `fetch_data`; AFTER = the 
 (each lead a sample-axis `shift` view; each shared chunk decoded once).
 
 ```bash
-python bench_hindcast.py --store wb2  --vars t2m u10m v10m --n-init 48 --max-lead-h 240 --repeats 5
-python bench_hindcast.py --store arco --vars t2m --n-init 24 --lead-step-h 6 --max-lead-h 144 --repeats 3
+python bench_hindcast.py --store wb2 --vars t2m u10m v10m \
+  --n-init 48 --max-lead-h 240 --repeats 5
+python bench_hindcast.py --store arco --vars t2m --lead-step-h 6 \
+  --n-init 24 --max-lead-h 144 --repeats 3
 ```
 
 | store | layout | requested reads | unique decodes | **wall speedup** |
 |-------|--------|-----------------|----------------|------------------|
-| **WB2** 240×121 6-h | `chunks=(8,240,121)` (fat) | 5760 | **33** (174×) | **15.4×** (14.0 s → 0.91 s) |
-| **ARCO** 721×1440 1-h | `chunks=(1,721,1440)` (chunk-1) | 576 | 162 (3.6×) | ~1.9× |
+| **WB2** 240×121 6-h | `chunks=(8,240,121)` fat | 5760 | **33** (174×) | **15.4×** (14.0→0.91 s) |
+| **ARCO** 721×1440 1-h | `chunks=(1,721,1440)` chunk-1 | 576 | 162 (3.6×) | ~1.9× |
 
 WB2's fat time-chunk amortizes 8 steps per read, so the de-dup ratio is large and the fields are
 small — insitubatch dominates. ARCO is the **honest** case (see caveats).
@@ -49,7 +51,9 @@ roll out a window of inits, score each lead against a just-read verification sli
 modes, all producing **identical RMSE** (a correctness check):
 
 ```bash
-for m in e2s dense stream; do python stream_score.py --mode $m --n-init 120 --n-leads 40; done
+for m in e2s dense stream; do
+  python stream_score.py --mode $m --n-init 120 --n-leads 40
+done
 ```
 
 | mode | wall | **peak RSS** | field reads |
@@ -75,8 +79,10 @@ actually touched — and because a reanalysis store is static, the cache never g
 common eval shape: many models (or checkpoints) scored against one fixed verification set.
 
 ```bash
-python bench_cache.py --store wb2  --vars t2m u10m v10m --n-init 48 --max-lead-h 240 --cache-dir /mnt/nvme/insitu_cache
-python bench_cache.py --store arco --vars t2m --n-init 12 --max-lead-h 48 --cache-dir /mnt/nvme/insitu_cache
+python bench_cache.py --store wb2 --vars t2m u10m v10m \
+  --n-init 48 --max-lead-h 240 --cache-dir /mnt/nvme/insitu_cache
+python bench_cache.py --store arco --vars t2m \
+  --n-init 12 --max-lead-h 48 --cache-dir /mnt/nvme/insitu_cache
 ```
 
 | store | field size | cold → warm wall | **cloud fetches (cold → warm)** |

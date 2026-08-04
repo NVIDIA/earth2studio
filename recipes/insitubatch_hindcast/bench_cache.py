@@ -1,3 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Cross-run persistent-cache benchmark for the insitubatch verification feed.
 
 Scoring a hindcast campaign is rarely a one-shot: the *same* ERA5 verification set is read
@@ -18,13 +34,14 @@ This measures the second-run win: same verification window, run COLD (empty cach
 import argparse
 import shutil
 import time
+from typing import Any
 
 import numpy as np
 from insitubatch import fsspec_store
 
 from earth2studio.data.insitu import InSituForecastFeed
 
-STORES = {
+STORES: dict[str, dict[str, Any]] = {
     "wb2": {
         "url": "gs://weatherbench2/datasets/era5/1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr",
         "transpose_inner": True,
@@ -41,11 +58,20 @@ VAR_MAP = {
 }
 
 
-def anon_store(url):
+def anon_store(url: str) -> Any:
     return fsspec_store(url, token="anon", access="read_only")  # noqa: S106
 
 
-def run(cfg, variables, start, n_init, leads_h, batch_size, max_inflight, cache_dir):
+def run(
+    cfg: dict[str, Any],
+    variables: list[str],
+    start: int,
+    n_init: int,
+    leads_h: list[int],
+    batch_size: int,
+    max_inflight: int,
+    cache_dir: str,
+) -> dict[str, Any]:
     leads = np.array([np.timedelta64(h, "h") for h in leads_h])
     feed = InSituForecastFeed(
         anon_store(cfg["url"]),
@@ -67,7 +93,7 @@ def run(cfg, variables, start, n_init, leads_h, batch_size, max_inflight, cache_
     return {"wall_s": wall, "hits": hits, "misses": misses}
 
 
-def main():
+def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--store", choices=list(STORES), default="wb2")
     p.add_argument("--vars", nargs="+", default=["t2m", "u10m", "v10m"])

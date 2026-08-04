@@ -1,3 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Streaming vs dense hindcast scoring: interleave verification with the model rollout.
 
 The Earth2Studio pattern (`fetch_data -> map_coords -> create_iterator`) materializes the whole
@@ -21,6 +37,7 @@ import argparse
 import resource
 import time
 from collections import OrderedDict
+from typing import Any
 
 import numpy as np
 import torch
@@ -39,11 +56,11 @@ VAR_MAP = {
 DT = np.timedelta64(6, "h")
 
 
-def anon_store():
+def anon_store() -> Any:
     return fsspec_store(URL, token="anon", access="read_only")  # noqa: S106
 
 
-def peak_rss_gb():
+def peak_rss_gb() -> float:
     return (
         resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1e6
     )  # ru_maxrss is KB on Linux
@@ -52,20 +69,26 @@ def peak_rss_gb():
 class RmseAccumulator:
     """Per-lead running MSE over (init, var, lat, lon); sqrt at the end."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.sse: dict[int, float] = {}
         self.n: dict[int, int] = {}
 
-    def update(self, lead_h: int, pred: torch.Tensor, truth: torch.Tensor):
+    def update(self, lead_h: int, pred: torch.Tensor, truth: torch.Tensor) -> None:
         e = (pred - truth).float()
         self.sse[lead_h] = self.sse.get(lead_h, 0.0) + float((e * e).sum())
         self.n[lead_h] = self.n.get(lead_h, 0) + e.numel()
 
-    def table(self):
+    def table(self) -> dict[int, float]:
         return {h: (self.sse[h] / self.n[h]) ** 0.5 for h in sorted(self.sse)}
 
 
-def build_feed(variables, start, n_init, leads_h, batch_size):
+def build_feed(
+    variables: list[str],
+    start: int,
+    n_init: int,
+    leads_h: list[int],
+    batch_size: int,
+) -> InSituForecastFeed:
     leads = np.array([np.timedelta64(h, "h") for h in leads_h])  # includes 0 (the IC)
     return InSituForecastFeed(
         anon_store(),
@@ -78,12 +101,19 @@ def build_feed(variables, start, n_init, leads_h, batch_size):
     )
 
 
-def make_model(variables, feed):
+def make_model(variables: list[str], feed: InSituForecastFeed) -> Persistence:
     domain = OrderedDict([("lat", feed.lat), ("lon", feed.lon)])
     return Persistence(variable=variables, domain_coords=domain, history=1, dt=DT)
 
 
-def score_window(model, x_all, coords_all, leads_h, nsteps, acc):
+def score_window(
+    model: Persistence,
+    x_all: torch.Tensor,
+    coords_all: OrderedDict[str, Any],
+    leads_h: list[int],
+    nsteps: int,
+    acc: "RmseAccumulator",
+) -> None:
     """Roll Persistence out over one window and score each lead vs the pre-read verification slice.
 
     ``x_all`` is (W, L+1, V, lat, lon) with lead index 0 = IC and index k = verification at leads_h[k].
@@ -107,7 +137,14 @@ def score_window(model, x_all, coords_all, leads_h, nsteps, acc):
             break
 
 
-def run_insitu(variables, start, n_init, leads_h, nsteps, batch_size):
+def run_insitu(
+    variables: list[str],
+    start: int,
+    n_init: int,
+    leads_h: list[int],
+    nsteps: int,
+    batch_size: int,
+) -> tuple["RmseAccumulator", int]:
     feed = build_feed(variables, start, n_init, leads_h, batch_size)
     model = make_model(variables, feed)
     acc = RmseAccumulator()
@@ -121,7 +158,9 @@ def run_insitu(variables, start, n_init, leads_h, nsteps, batch_size):
     return acc, decodes
 
 
-def run_e2s(variables, start, n_init, leads_h, nsteps):
+def run_e2s(
+    variables: list[str], start: int, n_init: int, leads_h: list[int], nsteps: int
+) -> tuple["RmseAccumulator", int]:
     from earth2studio.data.wb2 import WB2ERA5_121x240
 
     src = WB2ERA5_121x240(cache=False, verbose=False)
@@ -176,7 +215,7 @@ def run_e2s(variables, start, n_init, leads_h, nsteps):
     return acc, n_init * len(leads_h) * len(variables)
 
 
-def main():
+def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--mode", choices=["stream", "dense", "e2s"], required=True)
     p.add_argument("--vars", nargs="+", default=["t2m", "u10m", "v10m"])

@@ -1,3 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Before/after hindcast verification-read benchmark on WB2 / ARCO ERA5.
 
 Scenario: score an ``N_init x len(leads)`` forecast grid against ERA5. Every ``(init, lead)``
@@ -21,6 +37,7 @@ Two regimes:
 
 import argparse
 import time
+from typing import Any
 
 import numpy as np
 from insitubatch import fsspec_store
@@ -28,7 +45,7 @@ from insitubatch import fsspec_store
 from earth2studio.data.insitu import InSituForecastFeed, decode_cf_time
 
 # store id -> (url, before source class, inner (H,W), transpose store(lon,lat)->(lat,lon))
-STORES = {
+STORES: dict[str, dict[str, Any]] = {
     "wb2": {
         "url": "gs://weatherbench2/datasets/era5/1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr",
         "before": "earth2studio.data.wb2:WB2ERA5_121x240",
@@ -51,18 +68,26 @@ VAR_MAP = {
 }
 
 
-def anon_store(url):
+def anon_store(url: str) -> Any:
     return fsspec_store(url, token="anon", access="read_only")  # noqa: S106
 
 
-def load_before_cls(spec):
+def load_before_cls(spec: str) -> Any:
     mod, _, name = spec.partition(":")
     import importlib
 
     return getattr(importlib.import_module(mod), name)
 
 
-def run_after(cfg, variables, start, n_init, leads_h, batch_size, max_inflight):
+def run_after(
+    cfg: dict[str, Any],
+    variables: list[str],
+    start: int,
+    n_init: int,
+    leads_h: list[int],
+    batch_size: int,
+    max_inflight: int,
+) -> dict[str, Any]:
     leads = np.array([np.timedelta64(h, "h") for h in leads_h])
     feed = InSituForecastFeed(
         anon_store(cfg["url"]),
@@ -90,7 +115,9 @@ def run_after(cfg, variables, start, n_init, leads_h, batch_size, max_inflight):
     }
 
 
-def run_before(before_cls, variables, init_times64, leads_h):
+def run_before(
+    before_cls: Any, variables: list[str], init_times64: Any, leads_h: list[int]
+) -> dict[str, Any]:
     src = before_cls(cache=False, verbose=False)
     init_dt = init_times64.astype("datetime64[s]").astype("O")
     leads_td = [np.timedelta64(h, "h") for h in leads_h]
@@ -104,7 +131,7 @@ def run_before(before_cls, variables, init_times64, leads_h):
     return {"wall_s": time.perf_counter() - t0}
 
 
-def main():
+def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--store", choices=list(STORES), default="wb2")
     p.add_argument("--vars", nargs="+", default=["t2m"])
@@ -139,13 +166,15 @@ def main():
         f"leads: {args.lead_step_h}h..{args.max_lead_h}h ; vars: {args.vars} ; repeats: {args.repeats}"
     )
 
-    def med3(w):
+    def med3(w: list[float]) -> tuple[float, float, float]:
         w = sorted(w)
         return w[len(w) // 2], w[0], w[-1]
 
     before_cls = load_before_cls(cfg["before"])
-    after_walls, before_walls = [], []
-    decodes = resident = None
+    after_walls: list[float] = []
+    before_walls: list[float] = []
+    decodes: Any = None
+    resident: Any = None
     for r in range(args.repeats):
         a = run_after(
             cfg,
