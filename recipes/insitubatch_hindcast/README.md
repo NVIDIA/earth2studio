@@ -22,9 +22,9 @@ Both stores are anonymous public GCS buckets (WeatherBench2 ERA5, ARCO ERA5); no
 needed. Every measurement below reads over **obstore anon on both the before and after side**, so
 the delta isolates insitubatch's read-planning + streaming rather than the storage backend.
 
-Run the benchmarks with Earth2Studio's per-fetch debug logging suppressed, so the timed region is
-the same on both sides — it emits one line per `(time, variable)`, which is 5760 lines in §1 and
-14 760 in §2, all on the baseline leg:
+Run the benchmarks with Earth2Studio's per-fetch debug logging suppressed. It emits one line per
+`(time, variable)` — 5760 lines in §1, 14 760 in §2, essentially all on the baseline leg — from
+inside the timed region, and it is not free. **Every number below is measured with it off:**
 
 ```bash
 export LOGURU_LEVEL=INFO
@@ -158,14 +158,12 @@ causes duplicate reads.*
   wall clock but not the chunk counts.
 - **These numbers supersede an earlier gcsfs measurement.** This recipe was first measured on
   2026-07-04, over gcsfs on both sides and before #955 landed, and reported 15.4× (§1 WB2), ~1.9×
-  (§1 ARCO), 39.6 s (§2 `e2s`) and ~2.2× (§3 ARCO). Every headline is lower now. Three things
-  differ between those runs and these — the storage backend on both sides (gcsfs → obstore),
-  Earth2Studio's per-fetch `logger.debug` output inside the timed region (on → suppressed), and a
-  month of drift on a shared box. We have **not** isolated their individual contributions, so the
-  earlier figures are superseded rather than a controlled comparison, and should not be quoted.
-  One difference *is* established: the §3 ARCO row was reading an unwritten region of the store
-  (below) — all-NaN fills that never touched the network — so it measured nothing, and its
-  "~2.2×, scales with field size" result was an artifact.
+  (§1 ARCO), 39.6 s (§2 `e2s`) and ~2.2× (§3 ARCO). Every headline is lower now. That run predates
+  #955, read over gcsfs on both sides, and was measured with the debug logging above still enabled
+  — so it is superseded rather than a controlled comparison, and should not be quoted. One
+  difference is established independently of all that: the §3 ARCO row was reading an unwritten
+  region of the store (below) — all-NaN fills that never touched the network — so it measured
+  nothing, and its "~2.2×, scales with field size" result was an artifact.
 - **ARCO's time axis begins in 1900, its data in 1940.** The store declares
   `hours since 1900-01-01` over 1 323 648 steps to 2050, but chunks outside ~1940–2023 were never
   written and read back as NaN fill in ~20 ms without a network request. `--start` therefore
