@@ -332,59 +332,87 @@ def test_goes_glm_discover_files():
         verbose=False,
     )
 
-    bucket_prefix = "noaa-goes16/GLM-L2-LCFA/2024/153/18/"
-    keys = [
-        bucket_prefix
+    # obstore listing entries are bucket-relative paths
+    prefix = "GLM-L2-LCFA/2024/153/18/"
+    paths = [
+        prefix
         + "OR_GLM-L2-LCFA_G16_s20241531800000_e20241531800200_c20241531800220.nc",
-        bucket_prefix
+        prefix
         + "OR_GLM-L2-LCFA_G16_s20241531800200_e20241531800400_c20241531800420.nc",
-        bucket_prefix
+        prefix
         + "OR_GLM-L2-LCFA_G16_s20241531805000_e20241531805200_c20241531805220.nc",
-        bucket_prefix + "junk.txt",
-        bucket_prefix
+        prefix + "junk.txt",
+        prefix
         + "OR_GLM-L2-LCFA_G16_s20241531800000_e20241531800200_c20241531800220.nc",
     ]
-    fake_fs = AsyncMock()
-    fake_fs._ls = AsyncMock(return_value=keys)
-    ds.fs = fake_fs
 
-    files = _run(ds._discover_files([datetime(2024, 6, 1, 18, 0, 0)]))
-    assert len(files) == 2
-    assert {f.satellite for f in files} == {"G16"}
+    list_calls = {"count": 0}
 
-    # Missing prefix → empty result, no exception.
-    fake_fs._ls = AsyncMock(side_effect=FileNotFoundError())
-    assert _run(ds._discover_files([datetime(2024, 6, 1, 18, 0, 0)])) == []
+    def _fake_list(store, prefix=None, **kwargs):
+        list_calls["count"] += 1
+
+        async def _gen():
+            yield [{"path": p} for p in paths]
+
+        return _gen()
+
+    with patch("earth2studio.data.goes_glm.obs.list", side_effect=_fake_list):
+        files = _run(ds._discover_files([datetime(2024, 6, 1, 18, 0, 0)]))
+        assert len(files) == 2
+        assert {f.satellite for f in files} == {"G16"}
+        # The ±1 min tolerance window spans two hour directories (17 and 18)
+        assert list_calls["count"] == 2
+
+        # The requested hours are complete (in the past), so their listings
+        # are memoized: a second discovery issues no further LIST requests.
+        files2 = _run(ds._discover_files([datetime(2024, 6, 1, 18, 0, 0)]))
+        assert len(files2) == 2
+        assert list_calls["count"] == 2
+
+    # Missing prefix → empty listing → empty result, no exception.
+    ds2 = GOESGLM(
+        satellite="east",
+        time_tolerance=np.timedelta64(1, "m"),
+        cache=False,
+        verbose=False,
+    )
+
+    def _fake_list_empty(store, prefix=None, **kwargs):
+        async def _gen():
+            yield []
+
+        return _gen()
+
+    with patch("earth2studio.data.goes_glm.obs.list", side_effect=_fake_list_empty):
+        assert _run(ds2._discover_files([datetime(2024, 6, 1, 18, 0, 0)])) == []
 
 
 def test_goes_glm_fetch_remote_file(tmp_path):
     ds = GOESGLM(satellite="east", cache=False, verbose=False)
-    fake_fs = AsyncMock()
-    fake_fs._cat_file = AsyncMock(return_value=b"fake-netcdf-bytes")
-    ds.fs = fake_fs
     pathlib.Path(ds.cache).mkdir(parents=True, exist_ok=True)
+
+    fake_read = AsyncMock(return_value=b"fake-netcdf-bytes")
 
     try:
         uri = "s3://noaa-goes16/GLM-L2-LCFA/2024/153/18/file.nc"
-        _run(ds._fetch_remote_file(uri))
+        with patch("earth2studio.data.goes_glm.obstore_read_range", fake_read):
+            _run(ds._fetch_remote_file(uri))
         assert pathlib.Path(ds._cache_path(uri)).read_bytes() == b"fake-netcdf-bytes"
-        fake_fs._cat_file.assert_awaited_once_with(uri)
+        # The obstore read receives the store-relative key (bucket stripped)
+        fake_read.assert_awaited_once()
+        assert fake_read.await_args.args[1] == "GLM-L2-LCFA/2024/153/18/file.nc"
 
         # Second call is a no-op (cache hit).
-        fake_fs._cat_file.reset_mock()
-        _run(ds._fetch_remote_file(uri))
-        fake_fs._cat_file.assert_not_called()
+        fake_read.reset_mock()
+        with patch("earth2studio.data.goes_glm.obstore_read_range", fake_read):
+            _run(ds._fetch_remote_file(uri))
+        fake_read.assert_not_called()
 
         # Missing file in S3 is swallowed (warn-only).
         missing = "s3://noaa-goes16/GLM-L2-LCFA/2024/153/18/missing.nc"
-        fake_fs._cat_file = AsyncMock(side_effect=FileNotFoundError())
-        _run(ds._fetch_remote_file(missing))
+        fake_missing = AsyncMock(side_effect=FileNotFoundError("missing"))
+        with patch("earth2studio.data.goes_glm.obstore_read_range", fake_missing):
+            _run(ds._fetch_remote_file(missing))
         assert not pathlib.Path(ds._cache_path(missing)).exists()
     finally:
         shutil.rmtree(ds.cache, ignore_errors=True)
-
-    # Requires an initialised filesystem.
-    ds2 = GOESGLM(satellite="east", cache=False, verbose=False)
-    assert ds2.fs is None
-    with pytest.raises(ValueError):
-        _run(ds2._fetch_remote_file("s3://noaa-goes16/anything.nc"))

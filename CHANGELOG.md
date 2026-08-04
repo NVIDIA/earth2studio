@@ -77,11 +77,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   FTP); no fsspec fallbacks remain in the GRIB byte-range sources
 - Refactored UFS observation sources (`UFSObsConv`, `UFSObsSat`) onto the shared
   obstore byte-range helpers
-- Migrated GOES satellite data source from s3fs to obstore for whole-file NetCDF
-  fetches and object listing; hour-directory listings are now consumed
-  asynchronously and memoized per hour, so fetching many timestamps within the
-  same hour issues a single LIST request (~30% faster for 12 same-hour
-  timestamps)
+- Migrated GOES data source from s3fs to obstore; hour-directory listings are
+  now async and memoized, so same-hour timestamps share one LIST request
+  (~30% faster)
+- Migrated GOES GLM data source from s3fs to obstore; listings of complete
+  hours are memoized per instance while the current hour is always re-listed
 - Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
   the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
   fsspec
