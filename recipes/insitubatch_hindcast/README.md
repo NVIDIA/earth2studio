@@ -12,14 +12,27 @@ de-duplication — exactly what insitubatch removes.
 
 ## Setup
 
+insitubatch is declared in earth2studio's `data` extra (needs Python >= 3.12):
+
 ```bash
-# insitubatch is declared in earth2studio's `data` extra (needs Python >= 3.12):
 uv sync --extra data
 ```
 
 Both stores are anonymous public GCS buckets (WeatherBench2 ERA5, ARCO ERA5); no credentials
-needed. Every measurement below reads over **gcsfs anon on both the before and after side**, so the
-delta isolates insitubatch's read-planning + streaming — it is *not* an obstore-vs-gcsfs artifact.
+needed. Every measurement below reads over **obstore anon on both the before and after side**, so
+the delta isolates insitubatch's read-planning + streaming rather than the storage backend.
+
+Run the benchmarks with Earth2Studio's per-fetch debug logging suppressed, so the timed region is
+the same on both sides — it emits one line per `(time, variable)`, which is 5760 lines in §1 and
+14 760 in §2, all on the baseline leg:
+
+```bash
+export LOGURU_LEVEL=INFO
+```
+
+(`LOGURU_LEVEL` configures loguru's default handler. It gates these benchmarks, but several other
+Earth2Studio data modules call `logger.remove()` at import and re-add a handler with no level, for
+which the variable has no effect.)
 
 ## 1. `bench_hindcast.py` — verification-read de-duplication
 
@@ -32,16 +45,18 @@ onto far fewer stored chunks. BEFORE = E2S's per-init `fetch_data`; AFTER = the 
 python bench_hindcast.py --store wb2 --vars t2m u10m v10m \
   --n-init 48 --max-lead-h 240 --repeats 5
 python bench_hindcast.py --store arco --vars t2m --lead-step-h 6 \
-  --n-init 24 --max-lead-h 144 --repeats 3
+  --n-init 24 --max-lead-h 144 --repeats 10
 ```
 
 | store | layout | requested reads | unique decodes | **wall speedup** |
 |-------|--------|-----------------|----------------|------------------|
-| **WB2** 240×121 6-h | `chunks=(8,240,121)` fat | 5760 | **33** (174×) | **15.4×** (14.0→0.91 s) |
-| **ARCO** 721×1440 1-h | `chunks=(1,721,1440)` chunk-1 | 576 | 162 (3.6×) | ~1.9× |
+| **WB2** 240×121 6-h | `chunks=(8,240,121)` fat | 5760 | **33** (174×) | **12.8×** (10.84→0.84 s) |
+| **ARCO** 721×1440 1-h | `chunks=(1,721,1440)` chunk-1 | 576 | 162 (3.6×) | 1.5× (3.91→2.57 s) |
 
 WB2's fat time-chunk amortizes 8 steps per read, so the de-dup ratio is large and the fields are
-small — insitubatch dominates. ARCO is the **honest** case (see caveats).
+small — insitubatch dominates. ARCO is the **honest** case (see caveats). ARCO's per-repeat spread
+is wide on this box (±15% on both legs); its row is the median of 10 repeats, and the BEFORE leg
+converges downward with sample size as HTTP connections warm.
 
 ## 2. `stream_score.py` — streaming vs dense materialization
 
@@ -58,12 +73,17 @@ done
 
 | mode | wall | **peak RSS** | field reads |
 |------|------|--------------|-------------|
-| `e2s` — dense predownload (redundant reads) | 39.6 s | 3.04 GB | 14 760 |
-| `dense` — insitubatch, `batch_size=N` | 4.8 s | 7.53 GB | 60 |
-| `stream` — insitubatch, `batch_size=W` | 3.3 s | **1.81 GB** | 60 |
+| `e2s` — dense predownload (redundant reads) | 29.0 s | 3.10 GB | 14 760 |
+| `dense` — insitubatch, `batch_size=N` | 4.3 s | 7.63 GB | 60 |
+| `stream` — insitubatch, `batch_size=W` | 2.9 s | **1.85 GB** | 60 |
+
+All three agree to three decimals on RMSE at every lead (3.637 / 5.061 / 5.071 at 24 h / 120 h /
+240 h), and the `e2s` mode computes it through an entirely independent path — dense predownload via
+`WB2ERA5_121x240`, no insitubatch in the loop. That agreement is the correctness check; throughput
+alone would not catch a loader that silently aliased or double-lent a buffer.
 
 Streaming's peak memory is **flat at ~1.9 GB across N = 120 / 240 / 480**, while the dense grid is
-7.53 GB at N = 120 and **OOMs a 15 GB box by ~N = 240**. Dense scales with campaign size; streaming
+7.63 GB at N = 120 and **OOMs a 15 GB box by ~N = 240**. Dense scales with campaign size; streaming
 does not. That bounded-memory property — not just throughput — is the point for a long campaign.
 
 (Persistence is a checkpoint-free model that exercises the real `create_iterator` seam on CPU; a
@@ -87,14 +107,19 @@ python bench_cache.py --store arco --vars t2m \
 
 | store | field size | cold → warm wall | **cloud fetches (cold → warm)** |
 |-------|------------|------------------|----------------------------------|
-| **WB2** 240×121 | 116 KB | 1.41 s → 1.05 s (~1.4×) | **33 → 0** |
-| **ARCO** 721×1440 | 4 MB | 1.22 s → 0.55 s (~2.2×) | **54 → 0** |
+| **WB2** 240×121 | 116 KB | 1.16 s → 0.81 s (1.4×) | **33 → 0** |
+| **ARCO** 721×1440 | 4 MB | 0.81 s → 0.59 s (1.4×) | **54 → 0** |
 
 The deterministic result is **zero cloud fetches on re-score** — the warm run serves every chunk
-from local disk. The wall speedup is secondary and scales with how IO-bound the cold fetch is (tiny
-WB2 fields ~1.4×; 4 MB ARCO fields ~2.2×); it is *understated* on this box's cheap same-region reads
-and grows under metered egress, requester-pays, or cross-region access. The cold wall includes the
-one-time persist write, so it runs slightly above the persist-off de-dup figure in §1.
+from local disk. The wall speedup is secondary and modest: 1.4× on both stores, despite a 35×
+difference in field size, so it is *not* tracking how IO-bound the cold fetch is. On this box's
+cheap same-region reads the cloud fetch simply isn't the bottleneck, so removing it entirely buys
+little; the wall win grows under metered egress, requester-pays, or cross-region access, while the
+fetch-elimination holds everywhere. The cold wall includes the one-time persist write, so it runs
+slightly above the persist-off de-dup figure in §1.
+
+The benchmark wipes and rebuilds `<cache-dir>/bench_cold_warm/<store>/` so the cold leg starts
+empty; it never touches the rest of `--cache-dir`.
 
 ## How to read these numbers — framing insitubatch
 
@@ -109,13 +134,14 @@ sharpen its positioning into three evidence-backed claims:
 2. **Far ahead when the chunking strategy isn't sample-optimized.** When the access pattern maps
    many samples onto shared chunks — overlapping windows, verification grids, fat chunks holding
    several steps — its read planning de-duplicates and a per-sample parallel fetch re-reads.
-   Evidence: §1 WB2 (174× fewer decodes, 15× wall).
+   Evidence: §1 WB2 (174× fewer decodes, 12.8× wall).
 3. **Honest boundary — you can use it sub-optimally.** It is not a universal speed win. On a
    chunk-1 store with large fields, against an *unbounded* concurrent gather, its bounded-inflight
-   scheduling trails per byte (ARCO ~2×; the reads are already minimal — verified — but the dense
-   output the model consumes must still be assembled, and E2S's flat gather saturates bandwidth on
-   4 MB chunks). And a degenerate `batch_size=N` throws away the memory advantage. The tool is
-   **generally optimal for streaming with bounded memory** — that is the sweet spot.
+   scheduling trails per byte: on ARCO, E2S moves 2.39 GB in 3.91 s (~610 MB/s) while the feed moves
+   0.67 GB in 2.57 s (~260 MB/s) — 2.3× slower per byte, ahead overall only because it reads 3.6×
+   fewer bytes, netting 1.5×. And a degenerate `batch_size=N` throws away the memory advantage:
+   §2 `dense` peaks at 7.63 GB, *worse* than the predownload it replaces. The tool is **generally
+   optimal for streaming with bounded memory** — that is the sweet spot.
 
 One line: *stream training/inference batches from cloud tensors in place, with bounded memory —
 competitive with hand-tuned parallel loaders on optimized layouts, and far ahead when the chunking
@@ -123,10 +149,30 @@ causes duplicate reads.*
 
 ## Caveats / methodology
 
-- **Single environment, preliminary.** One n2-standard-8-class box (15 GB RAM), cold reads, gcsfs
-  anon. Numbers to be **cross-posted** after NVIDIA-side runs on the target infrastructure.
-- **gcsfs on both sides.** Isolates the loader's contribution from the store backend; obstore would
-  raise the AFTER throughput further but is not what these numbers measure.
+- **Single environment, preliminary.** One n2-standard-8-class box (15 GB RAM), cold reads,
+  anonymous GCS. Numbers to be **cross-posted** after NVIDIA-side runs on the target infrastructure.
+- **obstore on both sides.** Earth2Studio's zarr data sources migrated to obstore in
+  [#955](https://github.com/NVIDIA/earth2studio/pull/955); the feed uses insitubatch's
+  `obstore_store` to match, so neither side carries a backend handicap. The de-duplication ratios
+  are backend-independent — swapping both sides to `fsspec_store(url, token="anon")` changes the
+  wall clock but not the chunk counts.
+- **These numbers supersede an earlier gcsfs measurement.** This recipe was first measured on
+  2026-07-04, over gcsfs on both sides and before #955 landed, and reported 15.4× (§1 WB2), ~1.9×
+  (§1 ARCO), 39.6 s (§2 `e2s`) and ~2.2× (§3 ARCO). Every headline is lower now. Three things
+  differ between those runs and these — the storage backend on both sides (gcsfs → obstore),
+  Earth2Studio's per-fetch `logger.debug` output inside the timed region (on → suppressed), and a
+  month of drift on a shared box. We have **not** isolated their individual contributions, so the
+  earlier figures are superseded rather than a controlled comparison, and should not be quoted.
+  One difference *is* established: the §3 ARCO row was reading an unwritten region of the store
+  (below) — all-NaN fills that never touched the network — so it measured nothing, and its
+  "~2.2×, scales with field size" result was an artifact.
+- **ARCO's time axis begins in 1900, its data in 1940.** The store declares
+  `hours since 1900-01-01` over 1 323 648 steps to 2050, but chunks outside ~1940–2023 were never
+  written and read back as NaN fill in ~20 ms without a network request. `--start` therefore
+  defaults per store (ARCO: `1051896` = 2020-01-01) and both benchmarks now fail loudly if a window
+  reads back entirely NaN. Earth2Studio's `ARCO` source validates this independently and refuses
+  pre-1940 requests; insitubatch does not, so a window outside the populated range returns fill
+  data rather than raising.
 - **Surface variables only** (`t2m`, `u10m`, `v10m`); pressure-level variables need level indexing,
   not yet wired in the adapter.
 - **Persistent cache footprint.** The cache stores *decoded* chunks, so per-chunk bytes exceed the

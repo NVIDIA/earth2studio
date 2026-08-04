@@ -28,16 +28,17 @@ no reshard, and only the chunks actually touched. Because reanalysis is static t
 never goes stale.
 
 This measures the second-run win: same verification window, run COLD (empty cache) then WARM
-(cache populated), over gcsfs anon.
+(cache populated), over obstore anon.
 """
 
 import argparse
+import os
 import shutil
 import time
 from typing import Any
 
 import numpy as np
-from insitubatch import fsspec_store
+from insitubatch import obstore_store
 
 from earth2studio.data.insitu import InSituForecastFeed
 
@@ -45,10 +46,12 @@ STORES: dict[str, dict[str, Any]] = {
     "wb2": {
         "url": "gs://weatherbench2/datasets/era5/1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr",
         "transpose_inner": True,
+        "start": 1000,  # 1959-09-20; WB2 axis begins 1959
     },
     "arco": {
         "url": "gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
         "transpose_inner": False,
+        "start": 1051896,  # 2020-01-01; ARCO axis begins 1900 but data only from 1940
     },
 }
 VAR_MAP = {
@@ -59,7 +62,7 @@ VAR_MAP = {
 
 
 def anon_store(url: str) -> Any:
-    return fsspec_store(url, token="anon", access="read_only")  # noqa: S106
+    return obstore_store(url, skip_signature=True)
 
 
 def run(
@@ -85,11 +88,17 @@ def run(
         transpose_inner=cfg["transpose_inner"],
     )
     t0 = time.perf_counter()
-    for _x, _coords in feed:
-        pass
+    saw_finite = False
+    for x, _coords in feed:
+        saw_finite = saw_finite or bool(x.isfinite().any())
     wall = time.perf_counter() - t0
     hits, misses = feed.dataset.cache_hits, feed.dataset.cache_misses
     feed.dataset.close()
+    if not saw_finite:
+        raise ValueError(
+            f"every field read from {cfg['url']} was fill/NaN: the window at "
+            f"start={start} is outside the store's populated range. Pass a valid --start."
+        )
     return {"wall_s": wall, "hits": hits, "misses": misses}
 
 
@@ -97,7 +106,7 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--store", choices=list(STORES), default="wb2")
     p.add_argument("--vars", nargs="+", default=["t2m", "u10m", "v10m"])
-    p.add_argument("--start", type=int, default=1000)
+    p.add_argument("--start", type=int, default=None)  # default: per-store (see STORES)
     p.add_argument("--n-init", type=int, default=48)
     p.add_argument("--lead-step-h", type=int, default=6)
     p.add_argument("--max-lead-h", type=int, default=240)
@@ -107,26 +116,30 @@ def main() -> None:
     args = p.parse_args()
 
     cfg = STORES[args.store]
+    start = args.start if args.start is not None else cfg["start"]
     leads_h = list(range(args.lead_step_h, args.max_lead_h + 1, args.lead_step_h))
     requested = args.n_init * len(leads_h) * len(args.vars)
-    shutil.rmtree(args.cache_dir, ignore_errors=True)  # start cold
+    # Only ever wipe a subdirectory this benchmark owns -- --cache-dir may be a real
+    # cache root, and the cold leg requires starting empty.
+    cache_dir = os.path.join(args.cache_dir, "bench_cold_warm", args.store)
+    shutil.rmtree(cache_dir, ignore_errors=True)  # start cold
 
     print(
-        f"[{args.store}] {args.n_init} inits x {len(leads_h)} leads x {len(args.vars)} vars "
-        f"= {requested} requested field-reads ; cache_dir={args.cache_dir}"
+        f"[{args.store}] start={start} ; {args.n_init} inits x {len(leads_h)} leads x {len(args.vars)} vars "
+        f"= {requested} requested field-reads ; cache_dir={cache_dir}"
     )
 
     common = (
         cfg,
         args.vars,
-        args.start,
+        start,
         args.n_init,
         leads_h,
         args.batch_size,
         args.max_inflight,
     )
-    cold = run(*common, args.cache_dir)
-    warm = run(*common, args.cache_dir)
+    cold = run(*common, cache_dir)
+    warm = run(*common, cache_dir)
 
     print("\n=== COLD (empty cache: fetch + decode + persist) ===")
     print(
