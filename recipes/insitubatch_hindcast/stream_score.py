@@ -41,7 +41,7 @@ from typing import Any
 
 import numpy as np
 import torch
-from insitubatch import fsspec_store
+from insitubatch import obstore_store
 
 from earth2studio.data.insitu import InSituForecastFeed, decode_cf_time
 from earth2studio.models.px import Persistence
@@ -57,7 +57,7 @@ DT = np.timedelta64(6, "h")
 
 
 def anon_store() -> Any:
-    return fsspec_store(URL, token="anon", access="read_only")  # noqa: S106
+    return obstore_store(URL, skip_signature=True)
 
 
 def peak_rss_gb() -> float:

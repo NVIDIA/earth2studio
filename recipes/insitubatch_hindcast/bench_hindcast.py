@@ -25,8 +25,11 @@ BEFORE  = Earth2Studio's ERA5 source (``fetch`` gathers one read per (time, vari
 AFTER   = insitubatch InSituForecastFeed over the init window with the leads as shift views;
           each shared chunk is decoded exactly once (``dataset.cache_misses``).
 
-Both read the SAME store over gcsfs anon, so the delta isolates insitubatch's
-dedup + bounded prefetch (not obstore-vs-gcsfs).
+Both read the SAME store over obstore anon, so the delta isolates insitubatch's
+dedup + bounded prefetch rather than the storage backend. Earth2Studio's zarr sources
+moved to obstore in #955; the feed uses ``obstore_store`` to match. Swap both to
+``fsspec_store(url, token="anon")`` to re-run the comparison over gcsfs -- the de-dup
+ratio is backend-independent, only the wall moves.
 
 Two regimes:
   wb2  = 240x121 6-hourly, chunks=(8,240,121): fat time-chunk -> high dedup ratio, tiny
@@ -40,7 +43,7 @@ import time
 from typing import Any
 
 import numpy as np
-from insitubatch import fsspec_store
+from insitubatch import obstore_store
 
 from earth2studio.data.insitu import InSituForecastFeed, decode_cf_time
 
@@ -52,6 +55,7 @@ STORES: dict[str, dict[str, Any]] = {
         "field_bytes": 240 * 121 * 4,
         "chunk_steps": 8,
         "transpose_inner": True,
+        "start": 1000,  # 1959-09-20; WB2 axis begins 1959
     },
     "arco": {
         "url": "gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
@@ -59,6 +63,7 @@ STORES: dict[str, dict[str, Any]] = {
         "field_bytes": 721 * 1440 * 4,
         "chunk_steps": 1,
         "transpose_inner": False,
+        "start": 1051896,  # 2020-01-01; ARCO axis begins 1900 but data only from 1940
     },
 }
 VAR_MAP = {
@@ -69,7 +74,7 @@ VAR_MAP = {
 
 
 def anon_store(url: str) -> Any:
-    return fsspec_store(url, token="anon", access="read_only")  # noqa: S106
+    return obstore_store(url, skip_signature=True)
 
 
 def load_before_cls(spec: str) -> Any:
@@ -101,12 +106,17 @@ def run_after(
     )
     t0 = time.perf_counter()
     n_rows = 0
+    saw_finite = False
     for x, _coords in feed:
-        n_rows += x.shape[
-            0
-        ]  # gather returns eager numpy; no touch needed to force decode
+        n_rows += x.shape[0]  # decode is forced by the gather; no touch needed
+        saw_finite = saw_finite or bool(x.isfinite().any())
     wall = time.perf_counter() - t0
     feed.dataset.close()
+    if not saw_finite:
+        raise ValueError(
+            f"every field read from {cfg['url']} was fill/NaN: the window at "
+            f"start={start} is outside the store's populated range. Pass a valid --start."
+        )
     return {
         "wall_s": wall,
         "init_rows": n_rows,
@@ -135,7 +145,7 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--store", choices=list(STORES), default="wb2")
     p.add_argument("--vars", nargs="+", default=["t2m"])
-    p.add_argument("--start", type=int, default=1000)
+    p.add_argument("--start", type=int, default=None)  # default: per-store (see STORES)
     p.add_argument("--n-init", type=int, default=24)
     p.add_argument("--lead-step-h", type=int, default=6)
     p.add_argument("--max-lead-h", type=int, default=120)
@@ -146,6 +156,7 @@ def main() -> None:
     args = p.parse_args()
 
     cfg = STORES[args.store]
+    start = args.start if args.start is not None else cfg["start"]
     leads_h = list(range(args.lead_step_h, args.max_lead_h + 1, args.lead_step_h))
     requested = args.n_init * len(leads_h) * len(args.vars)
 
@@ -156,10 +167,10 @@ def main() -> None:
     times64 = decode_cf_time(
         np.asarray(g["time"][:]), attrs["units"], attrs.get("calendar", "standard")
     )
-    init_times64 = times64[args.start : args.start + args.n_init]
+    init_times64 = times64[start : start + args.n_init]
 
     print(
-        f"[{args.store}] grid: {args.n_init} inits x {len(leads_h)} leads x {len(args.vars)} vars "
+        f"[{args.store}] start={start} ({init_times64[0]}) ; grid: {args.n_init} inits x {len(leads_h)} leads x {len(args.vars)} vars "
         f"= {requested} requested field-reads ({requested*cfg['field_bytes']/1e9:.2f} GB naive)"
     )
     print(
@@ -179,7 +190,7 @@ def main() -> None:
         a = run_after(
             cfg,
             args.vars,
-            args.start,
+            start,
             args.n_init,
             leads_h,
             args.batch_size,
@@ -198,7 +209,7 @@ def main() -> None:
 
     dedup = requested / decodes
     a_med, a_lo, a_hi = med3(after_walls)
-    print("\n=== AFTER (insitubatch, gcsfs anon) ===")
+    print("\n=== AFTER (insitubatch, obstore anon) ===")
     print(f"  wall (med/min/max): {a_med:.2f} / {a_lo:.2f} / {a_hi:.2f} s")
     print(
         f"  chunk decodes  : {decodes}  ({decodes*cfg['field_bytes']*cfg['chunk_steps']/1e9:.2f} GB)"
@@ -209,7 +220,7 @@ def main() -> None:
     print(f"  resident peak  : {resident} chunks")
     if before_walls:
         b_med, b_lo, b_hi = med3(before_walls)
-        print("\n=== BEFORE (E2S fetch, gcsfs anon, cache off) ===")
+        print("\n=== BEFORE (E2S fetch, obstore anon, cache off) ===")
         print(f"  wall (med/min/max): {b_med:.2f} / {b_lo:.2f} / {b_hi:.2f} s")
         print("\n=== HEADLINE (medians) ===")
         print(
