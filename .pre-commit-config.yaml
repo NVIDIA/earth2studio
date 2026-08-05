@@ -73,7 +73,7 @@ repos:
     rev: v0.49.1
     hooks:
     - id: markdownlint
-      exclude: ^(\.claude/|skills/.*\.md)$
+      exclude: ^(\.claude/.*|skills/.*\.md)$
 
 -   repo: https://github.com/pre-commit/mirrors-mypy
     rev: v2.3.0  # Use the sha / tag you want to point at
