@@ -462,8 +462,8 @@ def test_derived_surface_pressure(
         lon=z_surf_coords["lon"],
     )
 
-    (x_mapped, coords_mapped) = map_coords(x_in, coords_in, sp_model.input_coords())
-    (x_out, coords_out) = sp_model(x_mapped, coords_mapped)
+    x_mapped, coords_mapped = map_coords(x_in, coords_in, sp_model.input_coords())
+    x_out, coords_out = sp_model(x_mapped, coords_mapped)
 
     # check shapes
     assert x_in.ndim == x_out.ndim

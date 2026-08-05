@@ -33,6 +33,7 @@ In this example you will learn:
 - Running a simple built in workflow for ensembling
 - Post-processing results
 """
+
 # /// script
 # dependencies = [
 #   "torch==2.11.0", # Match lock file to avoid torch-harmonics issue

@@ -178,20 +178,20 @@ class NGCModelFileSystem(HTTPFileSystem):
             )
         root = root.replace(suffix, "")
         if len(root.split("@")[0].split("/")) == 3:
-            (org, team, model_info) = root.split("/", 2)
-            (name, model_info) = model_info.split("@", 1)
+            org, team, model_info = root.split("/", 2)
+            name, model_info = model_info.split("@", 1)
         elif len(root.split("@")[0].split("/")) == 2:
-            (org, model_info) = root.split("/", 1)
-            (name, model_info) = model_info.split("@", 1)
+            org, model_info = root.split("/", 1)
+            name, model_info = model_info.split("@", 1)
             team = None
         else:
-            (name, model_info) = root.split("@", 1)
+            name, model_info = root.split("@", 1)
             org = None
             team = None
 
         # Extract filename / path if present
         if len(model_info.rstrip("/").split("/")) > 1:
-            (version, filepath) = model_info.split("/", 1)
+            version, filepath = model_info.split("/", 1)
         else:
             version = model_info.rstrip("/")
             filepath = None

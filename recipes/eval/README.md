@@ -113,7 +113,7 @@ python predownload.py predownload.verification.enabled=true
 Predownload creates the following stores in `<output.path>/`:
 
 | Store | Dimensions | Contents |
-|---|---|---|
+| --- | --- | --- |
 | `data.zarr` | `(time, variable, <spatial...>)` | IC data (plus verification if same source) |
 | `verification.zarr` | `(time, variable, <spatial...>)` | Only when verification source differs |
 | `obs_<name>.parquet/` | one parquet file per analysis time | DA pipelines only — observation DataFrames (see [Observation predownload](#observation-predownload)) |
@@ -169,7 +169,7 @@ usage by re-caching data that already exists locally.
 The two escape hatches are top-level config keys:
 
 | Key | What it overrides | Consumer |
-|---|---|---|
+| --- | --- | --- |
 | `ic_source` | The initial-condition source used during inference | `main.py` |
 | `verification_source` | The verification source used during scoring | `score.py` |
 
@@ -183,7 +183,7 @@ scaffolds one from a reference script.
 
 <!-- markdownlint-disable MD013 -->
 | ICs | Verification | Config |
-|---|---|---|
+| --- | --- | --- |
 | package | package | defaults — run `predownload.py`, then `main.py`, then `score.py` |
 | **user** | package | set `ic_source`; run `predownload.py predownload.verification.enabled=true` to cache verif |
 | package | **user** | set `verification_source`; run `predownload.py` (caches IC only) |
@@ -326,7 +326,7 @@ inference / scoring / report entry points:
 
 <!-- markdownlint-disable MD013 -->
 | Mode | Pipeline | Campaign example |
-|---|---|---|
+| --- | --- | --- |
 | Analysis vs. reanalysis | `src.pipelines.assimilation.AssimilationPipeline` | `healda_2024_analysis` |
 | DA-initialized forecast | `src.pipelines.assimilation.AssimilationForecastPipeline` | `healda_dlwp_2024_monthly`, `healda_fcn3_2024_monthly` |
 <!-- markdownlint-enable MD013 -->
@@ -522,7 +522,7 @@ All configuration lives under `cfg/` and uses [Hydra](https://hydra.cc/docs/intr
 The config is organized into three layers:
 
 | Layer | Location | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | Base | `cfg/default.yaml` | Shared defaults (pipeline, data source, output, predownload) |
 | Model | `cfg/model/*.yaml` | Model architecture and checkpoint |
 | Campaign | `cfg/campaign/*.yaml` | ICs, ensemble, variables, forecast length |
@@ -758,7 +758,7 @@ is not installed, the projection setting is ignored with a warning.
 #### Section types
 
 | Type | Description | Key options |
-|---|---|---|
+| --- | --- | --- |
 | `header_visualization` | Hero prediction vs truth map | `variable`, `lead_time`, `time` |
 | `summary_table` | Scores at key lead times | `lead_times`, `variables` (subset) |
 | `lead_time_curves` | Metric vs lead time plots | `metrics`, `time_groups`, `title_suffix` |
@@ -813,7 +813,7 @@ Each source module has a specific scoped responsibilities:
 
 <!-- markdownlint-disable MD013 -->
 | Module | Responsibility |
-|---|---|
+| --- | --- |
 | `pipelines/` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic, Assimilation, DLESyM, StormScope) |
 | `assimilation.py` | DA plumbing — `load_assimilation`, `ObsSourceSet`, `AssimilationRunner`, analysis→tensor conversion |
 | `report/` | Score aggregation, matplotlib plotting, section rendering, markdown report assembly |
@@ -834,7 +834,7 @@ shared scaffolding (work iteration, output filtering, ensemble injection,
 zarr writes).  Subclasses implement three methods:
 
 | Method | Purpose |
-|---|---|
+| --- | --- |
 | `setup(cfg, device)` | Load models, move to device, cache coordinate metadata |
 | `build_total_coords(times, ensemble_size)` | Define the full zarr output coordinate system |
 | `run_item(item, data_source, device)` | Yield `(tensor, coords)` pairs for one work item |

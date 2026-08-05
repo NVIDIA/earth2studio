@@ -146,7 +146,7 @@ these only when your pipeline needs to:
 
 <!-- markdownlint-disable MD013 -->
 | Hook | Default | When to override |
-|---|---|---|
+| --- | --- | --- |
 | `predownload_stores(cfg)` | returns `[]` | declare IC / verification / conditioning zarrs for `predownload.py` — single-source pipelines can reuse [`src.predownload_utils.declare_single_source_stores`](../src/predownload_utils.py) |
 | `verification_source(cfg)` | BYO → `verification.zarr` → `data.zarr` → `data_*.zarr` glob | you store verification in a non-standard layout |
 | `verification_zarr_paths(cfg)` | the glob list used by the default `verification_source` | your verification stores live under different names (the report package also consults this) |

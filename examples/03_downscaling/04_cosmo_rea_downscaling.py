@@ -36,6 +36,7 @@ In this example you will learn:
 - How to derive hub-height wind (100 m) for wind-energy use
 - How to switch to the 2.2 km COSMO-REA2 resolution
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[sfno,cosmo] @ git+https://github.com/NVIDIA/earth2studio.git",

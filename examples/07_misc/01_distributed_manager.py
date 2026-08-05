@@ -36,6 +36,7 @@ In this example you will learn:
 - Limitations of parallel inference in Earth2Studio
 - Post-processing strategies of parallel job outputs
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",

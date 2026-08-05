@@ -27,6 +27,7 @@ This example demonstrates how to:
 - Load the local store as a data source for an inference pipeline with the Microsoft Aurora model
 - Run the deterministic workflow and plot results
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[aurora] @ git+https://github.com/NVIDIA/earth2studio.git",
