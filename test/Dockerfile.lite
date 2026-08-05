@@ -1,0 +1,19 @@
+FROM ubuntu:24.04
+
+ARG PYTHON_VERSION=3.13.13
+
+COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
+
+ENV UV_LINK_MODE=copy
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    git \
+    libatomic1 \
+    make \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install the CI Python version without warming the full Earth2Studio dependency cache.
+RUN uv python install "${PYTHON_VERSION}"
