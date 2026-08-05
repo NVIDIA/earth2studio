@@ -1,0 +1,11 @@
+﻿batch_func
+==================================================
+
+.. currentmodule:: earth2studio.models.batch
+
+.. autoclass:: batch_func
+    :members:
+
+.. raw:: html
+
+    <div class="clearer"></div>

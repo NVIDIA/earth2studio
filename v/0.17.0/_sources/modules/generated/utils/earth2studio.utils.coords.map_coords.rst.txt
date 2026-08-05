@@ -1,0 +1,16 @@
+﻿map_coords
+========================================================
+
+.. currentmodule:: earth2studio.utils.coords
+
+.. autofunction:: map_coords
+
+.. _sphx_glr_backref_earth2studio.utils.coords.map_coords:
+
+.. minigallery:: earth2studio.utils.coords.map_coords
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

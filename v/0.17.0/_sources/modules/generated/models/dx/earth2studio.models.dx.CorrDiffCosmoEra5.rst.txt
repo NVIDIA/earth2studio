@@ -1,0 +1,22 @@
+﻿CorrDiffCosmoEra5
+======================================================
+
+.. currentmodule:: earth2studio.models.dx
+
+.. autoclass:: CorrDiffCosmoEra5
+
+   
+    .. automethod:: __call__
+    .. automethod:: load_default_package
+    .. automethod:: load_model
+   
+
+.. _sphx_glr_backref_earth2studio.models.dx.CorrDiffCosmoEra5:
+
+.. minigallery:: earth2studio.models.dx.CorrDiffCosmoEra5
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

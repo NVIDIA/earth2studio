@@ -1,0 +1,22 @@
+﻿GHCNHourly
+==========================================
+
+.. currentmodule:: earth2studio.data
+
+.. autoclass:: GHCNHourly
+
+   
+    .. automethod:: __call__
+    .. automethod:: fetch
+    .. automethod:: available
+   
+
+.. _sphx_glr_backref_earth2studio.data.GHCNHourly:
+
+.. minigallery:: earth2studio.data.GHCNHourly
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

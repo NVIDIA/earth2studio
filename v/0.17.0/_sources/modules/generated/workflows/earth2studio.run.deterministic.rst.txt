@@ -1,0 +1,16 @@
+﻿deterministic
+==================================================
+
+.. currentmodule:: earth2studio.run
+
+.. autofunction:: deterministic
+
+.. _sphx_glr_backref_earth2studio.run.deterministic:
+
+.. minigallery:: earth2studio.run.deterministic
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

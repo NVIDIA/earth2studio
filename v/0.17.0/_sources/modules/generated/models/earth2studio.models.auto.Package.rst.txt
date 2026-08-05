@@ -1,0 +1,11 @@
+﻿Package
+==============================================
+
+.. currentmodule:: earth2studio.models.auto
+
+.. autoclass:: Package
+    :members:
+
+.. raw:: html
+
+    <div class="clearer"></div>

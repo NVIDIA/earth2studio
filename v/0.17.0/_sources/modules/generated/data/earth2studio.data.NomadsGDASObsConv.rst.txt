@@ -1,0 +1,22 @@
+﻿NomadsGDASObsConv
+=================================================
+
+.. currentmodule:: earth2studio.data
+
+.. autoclass:: NomadsGDASObsConv
+
+   
+    .. automethod:: __call__
+    .. automethod:: fetch
+    .. automethod:: available
+   
+
+.. _sphx_glr_backref_earth2studio.data.NomadsGDASObsConv:
+
+.. minigallery:: earth2studio.data.NomadsGDASObsConv
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

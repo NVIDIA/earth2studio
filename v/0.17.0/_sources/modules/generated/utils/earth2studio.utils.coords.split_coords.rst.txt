@@ -1,0 +1,16 @@
+﻿split_coords
+==========================================================
+
+.. currentmodule:: earth2studio.utils.coords
+
+.. autofunction:: split_coords
+
+.. _sphx_glr_backref_earth2studio.utils.coords.split_coords:
+
+.. minigallery:: earth2studio.utils.coords.split_coords
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

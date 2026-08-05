@@ -1,0 +1,11 @@
+﻿CheckpointSession
+=============================================================
+
+.. currentmodule:: earth2studio.utils.checkpoint
+
+.. autoclass:: CheckpointSession
+    :members:
+
+.. raw:: html
+
+    <div class="clearer"></div>

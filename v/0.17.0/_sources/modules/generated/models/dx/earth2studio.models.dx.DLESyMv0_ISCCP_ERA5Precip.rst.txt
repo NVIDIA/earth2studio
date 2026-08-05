@@ -1,0 +1,22 @@
+﻿DLESyMv0_ISCCP_ERA5Precip
+==============================================================
+
+.. currentmodule:: earth2studio.models.dx
+
+.. autoclass:: DLESyMv0_ISCCP_ERA5Precip
+
+   
+    .. automethod:: __call__
+    .. automethod:: load_default_package
+    .. automethod:: load_model
+   
+
+.. _sphx_glr_backref_earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip:
+
+.. minigallery:: earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>
