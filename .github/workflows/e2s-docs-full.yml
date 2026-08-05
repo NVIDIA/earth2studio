@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   packages: read
 
 defaults:
@@ -33,24 +33,18 @@ concurrency:
 
 env:
   E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.2
-  CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
   DOC_PUBLIC_BUILD: "false"
   EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
   EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/.cache/earth2studio-data
   EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
-  EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
-  EARTHMOVER_ORGANIZATION: ${{ secrets.EARTHMOVER_ORGANIZATION }}
-  EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
-  EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
-  HF_TOKEN: ${{ secrets.HF_TOKEN }}
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
   UV_PYTHON: "3.13.13"
 
 jobs:
   build-docs:
     name: Build full docs
-    if: github.repository == 'NVIDIA/earth2studio'
+    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && (github.ref_name == github.event.repository.default_branch || endsWith(github.ref_name, '-rc') || endsWith(github.ref_name, '-RC'))
     outputs:
       doc-version: ${{ steps.docs-meta.outputs.doc-version }}
       is-rc: ${{ steps.docs-meta.outputs.is-rc }}
@@ -70,28 +64,26 @@ jobs:
       NATTEN_N_WORKERS: "8"
       NVCC_THREADS: "2"
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Configure git safe directory
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
       - name: Resolve docs version
         id: docs-meta
         run: |
           set -euo pipefail
 
+          default_branch="${{ github.event.repository.default_branch }}"
           ref_name="${GITHUB_REF_NAME##*/}"
           doc_version="main"
           is_rc="false"
           publish_path="."
 
-          if [[ "$ref_name" =~ ^([0-9][0-9A-Za-z._]*)-[Rr][Cc].*$ ]]; then
+          if [[ "$GITHUB_REF_NAME" == "$default_branch" ]]; then
+            :
+          elif [[ "$ref_name" =~ ^([0-9]+[.][0-9]+[.][0-9]+[0-9A-Za-z._]*)-[Rr][Cc]$ ]]; then
             doc_version="${BASH_REMATCH[1]}"
             is_rc="true"
             publish_path="v/${doc_version}"
+          else
+            echo "Ref '${GITHUB_REF_NAME}' is not a trusted docs publication ref." >&2
+            exit 1
           fi
 
           echo "DOC_VERSION=${doc_version}" >> "$GITHUB_ENV"
@@ -103,6 +95,14 @@ jobs:
           echo "- Branch: \`${GITHUB_REF_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- DOC_VERSION: \`${doc_version}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Publish path: \`${publish_path}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Restore model cache
         uses: actions/cache/restore@v5
@@ -124,6 +124,13 @@ jobs:
         run: uv lock --check
 
       - name: Build docs examples by section
+        env:
+          CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
+          EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
+          EARTHMOVER_ORGANIZATION: ${{ secrets.EARTHMOVER_ORGANIZATION }}
+          EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
+          EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: test/_ci/build_docs_examples.sh
 
       - name: Upload docs artifact
@@ -144,7 +151,10 @@ jobs:
 
   publish-docs:
     name: Publish full docs
-    if: github.repository == 'NVIDIA/earth2studio'
+    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && (github.ref_name == github.event.repository.default_branch || endsWith(github.ref_name, '-rc') || endsWith(github.ref_name, '-RC'))
+    permissions:
+      contents: write
+      packages: read
     needs: build-docs
     runs-on: linux-amd64-cpu8
     environment:
@@ -157,7 +167,6 @@ jobs:
     env:
       GH_PAGES_FOLDER: ${{ runner.temp }}/gh-pages
       DOC_VERSION: ${{ needs.build-docs.outputs.doc-version }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PUBLISH_PATH: ${{ needs.build-docs.outputs.publish-path }}
     steps:
       - name: Checkout repository
@@ -172,6 +181,8 @@ jobs:
           path: docs/_build/html
 
       - name: Publish to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
