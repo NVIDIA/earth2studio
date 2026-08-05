@@ -20,7 +20,7 @@ import os
 import pathlib
 import shutil
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import xarray as xr
@@ -33,6 +33,7 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     gather_with_concurrency,
     obstore_fetch_to_cache,
+    obstore_list_prefix,
     obstore_store_from_url,
     prep_data_inputs,
 )
@@ -317,11 +318,11 @@ class GOES:
         # Prefetch the hour-directory listings once per unique hour so the
         # per-timestamp download tasks below hit the memoized cache instead of
         # each issuing an identical LIST request
-        unique_prefixes = {self._hour_prefix(t) for t in time}
+        unique_hours = {self._hour_prefix(t): t for t in time}
         await asyncio.gather(
             *(
-                self._list_hour_files(prefix)
-                for prefix in unique_prefixes
+                self._list_hour_files(t)
+                for prefix, t in unique_hours.items()
                 if prefix not in self._hour_listing_cache
             )
         )
@@ -421,29 +422,29 @@ class GOES:
         # obstore keys are bucket-relative; strip the "s3://{bucket}/" prefix
         return base_url.split(f"{self._bucket}/", 1)[1]
 
-    async def _list_hour_files(self, prefix: str) -> list[str]:
-        """List an S3 hour directory, memoizing the result per prefix
-
-        The list stream is consumed asynchronously so LIST round-trips don't
-        block the event loop while downloads are in flight. Bucket-prefixed
-        paths are rebuilt to match the historical cache-key scheme.
+    async def _list_hour_files(self, time: datetime) -> list[str]:
+        """List the S3 hour directory containing `time`, memoizing complete
+        (past) hours per prefix; the still-filling current hour is always
+        re-listed. Bucket-prefixed paths are rebuilt to match the historical
+        cache-key scheme.
         """
-        if prefix in self._hour_listing_cache:
-            return self._hour_listing_cache[prefix]
         if self.store is None:
             raise ValueError("Object store is not initialized")
-
-        files = [
-            f"{self._bucket}/{entry['path']}"
-            async for chunk in self.store.list_async(prefix=prefix)
-            for entry in chunk
-        ]
-        self._hour_listing_cache[prefix] = files
-        return files
+        hour_start = time.replace(minute=0, second=0, microsecond=0)
+        complete = hour_start + timedelta(hours=1) <= datetime.now(
+            timezone.utc
+        ).replace(tzinfo=None)
+        paths = await obstore_list_prefix(
+            self.store,
+            self._hour_prefix(time),
+            cache=self._hour_listing_cache,
+            cacheable=complete,
+        )
+        return [f"{self._bucket}/{p}" for p in paths]
 
     async def _get_s3_path(self, time: datetime) -> str:
         """Get the S3 path for the GOES data file"""
-        files = await self._list_hour_files(self._hour_prefix(time))
+        files = await self._list_hour_files(time)
 
         # Filter for files matching the product and scan mode (M1, and M2 will be in the same directory for example)
         pattern = f"OR_ABI-L2-MCMIP{self._scan_mode}"

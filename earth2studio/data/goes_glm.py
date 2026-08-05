@@ -37,6 +37,7 @@ from earth2studio.data.utils import (
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
+    obstore_list_prefix,
     obstore_read_range,
     obstore_store_from_url,
     prep_data_inputs,
@@ -249,10 +250,10 @@ class GOESGLM:
         # they can safely be reused across repeated fetch calls (e.g. one per
         # 5-min bin from ``GOESGLMGrid``).
         self.stores: dict[str, AsyncListableStore] = {}
-        # Memoized S3 hour-directory listings keyed by (satellite, prefix).
-        # Only complete (past) hours are cached so a long-lived instance
-        # polling near-real-time data still sees newly arriving files.
-        self._hour_listing_cache: dict[tuple[str, str], list[tuple[str, str]]] = {}
+        # Per-bucket memoized S3 hour-directory listings (bucket -> prefix ->
+        # keys). Only complete (past) hours are cached so a long-lived
+        # instance polling near-real-time data still sees newly arriving files.
+        self._hour_listing_cache: dict[str, dict[str, list[str]]] = {}
 
     def _store_for_bucket(self, bucket: str) -> AsyncListableStore:
         """Return (building if needed) the obstore store for an S3 bucket"""
@@ -388,18 +389,14 @@ class GOESGLM:
         async def _list_one(
             sat: str, prefix: str, hr: datetime
         ) -> list[tuple[str, str]]:
-            if (sat, prefix) in self._hour_listing_cache:
-                return self._hour_listing_cache[(sat, prefix)]
-            store = self._store_for_bucket(_BUCKETS[sat])
-            listing = [
-                (sat, f"{_BUCKETS[sat]}/{entry['path']}")
-                async for chunk in store.list_async(prefix=prefix)
-                for entry in chunk
-                if entry["path"].endswith(".nc")
-            ]
-            if hr + timedelta(hours=1) <= now:
-                self._hour_listing_cache[(sat, prefix)] = listing
-            return listing
+            bucket = _BUCKETS[sat]
+            paths = await obstore_list_prefix(
+                self._store_for_bucket(bucket),
+                prefix,
+                cache=self._hour_listing_cache.setdefault(bucket, {}),
+                cacheable=hr + timedelta(hours=1) <= now,
+            )
+            return [(sat, f"{bucket}/{p}") for p in paths if p.endswith(".nc")]
 
         listings = await gather_with_concurrency(
             [_list_one(sat, prefix, hr) for (sat, prefix), hr in prefix_jobs.items()],

@@ -851,6 +851,49 @@ class AsyncListableStore(AsyncReadableStore, obspec.ListAsync, Protocol):
     (e.g. GOES / GOES GLM hour-directory discovery)."""
 
 
+async def obstore_list_prefix(
+    store: AsyncListableStore,
+    prefix: str,
+    cache: dict[str, list[str]] | None = None,
+    cacheable: bool = True,
+) -> list[str]:
+    """Lists object keys under a prefix, optionally memoizing per prefix.
+
+    The list stream is consumed asynchronously so LIST round-trips don't block
+    the event loop while downloads are in flight. Callers with directory-style
+    layouts (e.g. per-hour satellite archives) pass a per-instance ``cache``
+    dict so repeated fetches over the same prefix issue a single LIST request;
+    pass ``cacheable=False`` for prefixes that are still being filled (e.g. the
+    current hour) so they are re-listed on every call.
+
+    Parameters
+    ----------
+    store : AsyncListableStore
+        obspec-conforming store to list (e.g. an obstore store)
+    prefix : str
+        Key prefix to list (bucket-relative)
+    cache : dict[str, list[str]] | None, optional
+        Memoization dict keyed by prefix; by default None (no memoization)
+    cacheable : bool, optional
+        Whether the result may be stored in ``cache``, by default True
+
+    Returns
+    -------
+    list[str]
+        Object keys (bucket-relative paths) under the prefix
+    """
+    if cache is not None and prefix in cache:
+        return cache[prefix]
+    paths = [
+        entry["path"]
+        async for chunk in store.list_async(prefix=prefix)
+        for entry in chunk
+    ]
+    if cache is not None and cacheable:
+        cache[prefix] = paths
+    return paths
+
+
 def obstore_store_from_url(
     url: str,
     anonymous: bool = True,
