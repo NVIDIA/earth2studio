@@ -33,9 +33,10 @@ In this example you will learn:
 - Running iterative prognostic forecasts
 - Plotting a single GOES channel with MRMS overlay
 
-.. GENERATED FROM PYTHON SOURCE LINES 34-41
+.. GENERATED FROM PYTHON SOURCE LINES 34-42
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -45,7 +46,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 42-57
+.. GENERATED FROM PYTHON SOURCE LINES 43-58
 
 Set Up
 ------
@@ -63,7 +64,7 @@ GOES — the GOES model provides that conditioning during the rollout via
 channel (``glm_density``) as part of its state, which we assemble for the
 initial condition and which then evolves autoregressively over the rollout.
 
-.. GENERATED FROM PYTHON SOURCE LINES 59-81
+.. GENERATED FROM PYTHON SOURCE LINES 60-82
 
 .. code-block:: Python
 
@@ -90,7 +91,7 @@ initial condition and which then evolves autoregressively over the rollout.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 82-95
+.. GENERATED FROM PYTHON SOURCE LINES 83-96
 
 We use the CONUS nowcasting variant (``3km_10min``), the recommended default.
 The GOES model is "pure obs" (no external conditioning), forecasting the eight
@@ -106,7 +107,7 @@ Other selectable variants (see ``StormScope*.list_available_models``):
 - "3km_10min": CONUS nowcasting, 3 km / 10 min (recommended, default)
 - "6km_1hr": legacy 6 km / 60 min nearcasting
 
-.. GENERATED FROM PYTHON SOURCE LINES 97-131
+.. GENERATED FROM PYTHON SOURCE LINES 98-132
 
 .. code-block:: Python
 
@@ -145,7 +146,7 @@ Other selectable variants (see ``StormScope*.list_available_models``):
     model_mrms.eval()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 132-139
+.. GENERATED FROM PYTHON SOURCE LINES 133-140
 
 Setup GOES Data Source and Interpolators
 ----------------------------------------
@@ -155,7 +156,7 @@ the HRRR grid, or a downsampled version of it, and for convenience each model
 defines grid coordinates `model.latitudes` and `model.longitudes` to help with
 the regridding functionality.
 
-.. GENERATED FROM PYTHON SOURCE LINES 141-167
+.. GENERATED FROM PYTHON SOURCE LINES 142-168
 
 .. code-block:: Python
 
@@ -186,7 +187,7 @@ the regridding functionality.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 168-181
+.. GENERATED FROM PYTHON SOURCE LINES 169-182
 
 Setup MRMS + GLM Data Sources and Assemble the State
 ----------------------------------------------------
@@ -202,7 +203,7 @@ predictions, exactly like the radar channels. (If you instead ran the MRMS
 model standalone via ``__call__`` / ``create_iterator``, ``glm_data_source``
 would inject GLM automatically and only radar would need to be assembled here.)
 
-.. GENERATED FROM PYTHON SOURCE LINES 183-224
+.. GENERATED FROM PYTHON SOURCE LINES 184-225
 
 .. code-block:: Python
 
@@ -248,14 +249,14 @@ would inject GLM automatically and only radar would need to be assembled here.)
     x_coords_mrms["x"] = model_mrms.x
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 225-229
+.. GENERATED FROM PYTHON SOURCE LINES 226-230
 
 Add Batch Dimension
 -------------------
 The models expect a batch dimension: [B, T, L, C, H, W]. Up to GPU memory limits,
 this can be increased to produce multiple ensemble members.
 
-.. GENERATED FROM PYTHON SOURCE LINES 231-244
+.. GENERATED FROM PYTHON SOURCE LINES 232-245
 
 .. code-block:: Python
 
@@ -273,7 +274,7 @@ this can be increased to produce multiple ensemble members.
     x_mrms = x_mrms.to(dtype=torch.float32)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 245-252
+.. GENERATED FROM PYTHON SOURCE LINES 246-253
 
 Execute the Workflow
 --------------------
@@ -283,7 +284,7 @@ predicts future satellite imagery, and the MRMS model predicts radar
 reflectivity (and GLM) conditioned on GOES (initially the raw data, then the
 forecasted GOES imagery) via ``call_with_conditioning``.
 
-.. GENERATED FROM PYTHON SOURCE LINES 254-275
+.. GENERATED FROM PYTHON SOURCE LINES 255-276
 
 .. code-block:: Python
 
@@ -309,14 +310,14 @@ forecasted GOES imagery) via ``call_with_conditioning``.
             y_mrms_pred, y_coords_mrms_pred, y_mrms, y_coords_mrms
         )
 
-.. GENERATED FROM PYTHON SOURCE LINES 276-280
+.. GENERATED FROM PYTHON SOURCE LINES 277-281
 
 Post Processing
 ---------------
 Let's plot the final forecast step: GOES abi13c (Clean IR 10.35um) in
 grayscale with MRMS reflectivity (refc) overlaid.
 
-.. GENERATED FROM PYTHON SOURCE LINES 282-359
+.. GENERATED FROM PYTHON SOURCE LINES 283-360
 
 .. code-block:: Python
 

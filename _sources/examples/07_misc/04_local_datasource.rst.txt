@@ -29,9 +29,10 @@ This example demonstrates how to:
 - Load the local store as a data source for an inference pipeline with the Microsoft Aurora model
 - Run the deterministic workflow and plot results
 
-.. GENERATED FROM PYTHON SOURCE LINES 30-37
+.. GENERATED FROM PYTHON SOURCE LINES 30-38
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -41,7 +42,7 @@ This example demonstrates how to:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 38-44
+.. GENERATED FROM PYTHON SOURCE LINES 39-45
 
 Set Up
 ------
@@ -50,7 +51,7 @@ For this example, the following are needed:
 - Prognostic Model: Use the built-in Aurora 6-hour model :py:class:`earth2studio.models.px.Aurora`.
 - Data source: Pull data from the WeatherBench2 data API :py:class:`earth2studio.data.WB2ERA5`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 46-63
+.. GENERATED FROM PYTHON SOURCE LINES 47-64
 
 .. code-block:: Python
 
@@ -72,7 +73,7 @@ For this example, the following are needed:
     wb2 = WB2ERA5(cache=False, verbose=False)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 64-72
+.. GENERATED FROM PYTHON SOURCE LINES 65-73
 
 Creating a Local Zarr Store from a Datasource
 ---------------------------------------------
@@ -83,7 +84,7 @@ data into a single Zarr store.
 
 For this example, let's download some data for a Microsoft aurora forecast.
 
-.. GENERATED FROM PYTHON SOURCE LINES 74-110
+.. GENERATED FROM PYTHON SOURCE LINES 75-111
 
 .. code-block:: Python
 
@@ -124,13 +125,13 @@ For this example, let's download some data for a Microsoft aurora forecast.
         zb.write(xs, reduced_coords, array_name=list(var_names))
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 111-114
+.. GENERATED FROM PYTHON SOURCE LINES 112-115
 
 Note that the Zarr store we just created can be used for more than just Earth2Studio
 inference pipelines. Open it with zarr or xarray to explore/process what
 you just downloaded.
 
-.. GENERATED FROM PYTHON SOURCE LINES 116-121
+.. GENERATED FROM PYTHON SOURCE LINES 117-122
 
 .. code-block:: Python
 
@@ -140,7 +141,7 @@ you just downloaded.
     print(zg.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 122-131
+.. GENERATED FROM PYTHON SOURCE LINES 123-132
 
 Execute the Workflow
 --------------------
@@ -152,7 +153,7 @@ However, since we used an IO backend from Earth2Studio we can use the
 :py:class:`earth2studio.data.xr.InferenceOutputSource` which is a convenience class
 that supports the output of inference pipelines.
 
-.. GENERATED FROM PYTHON SOURCE LINES 133-148
+.. GENERATED FROM PYTHON SOURCE LINES 134-149
 
 .. code-block:: Python
 
@@ -172,13 +173,13 @@ that supports the output of inference pipelines.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 149-152
+.. GENERATED FROM PYTHON SOURCE LINES 150-153
 
 Post Processing
 ---------------
 The last step is to post-process our results.
 
-.. GENERATED FROM PYTHON SOURCE LINES 152-186
+.. GENERATED FROM PYTHON SOURCE LINES 153-187
 
 .. code-block:: Python
 

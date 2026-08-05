@@ -31,9 +31,10 @@ In this example you will learn:
 - API requirements of data soruces
 - Implementing a custom data soruce
 
-.. GENERATED FROM PYTHON SOURCE LINES 32-40
+.. GENERATED FROM PYTHON SOURCE LINES 32-41
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -44,7 +45,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 41-52
+.. GENERATED FROM PYTHON SOURCE LINES 42-53
 
 Custom Data Source
 ------------------
@@ -58,7 +59,7 @@ optimized format, however it only provides specific humidity. This is a problem 
 models that may use relative humidity as an input. Based on ECMWF documentation we can
 calculate the relative humidity based on temperature and geo-potential.
 
-.. GENERATED FROM PYTHON SOURCE LINES 54-187
+.. GENERATED FROM PYTHON SOURCE LINES 55-188
 
 .. code-block:: Python
 
@@ -196,7 +197,7 @@ calculate the relative humidity based on temperature and geo-potential.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 188-195
+.. GENERATED FROM PYTHON SOURCE LINES 189-196
 
 :py:func:`__call__` API
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -206,7 +207,7 @@ variables, replace them with temperature and specific humidity requests then cal
 the relative humidity from these fields. Note that the ARCO data source is handling
 the remote complexity, we are just manipulating Numpy arrays
 
-.. GENERATED FROM PYTHON SOURCE LINES 197-205
+.. GENERATED FROM PYTHON SOURCE LINES 198-206
 
 :py:func:`calc_relative_humdity`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -217,14 +218,14 @@ for estimating the water vapor and ice present in the atmosphere.
   See reference, equation 7.98 onwards:
   https://www.ecmwf.int/en/elibrary/81370-ifs-documentation-cy48r1-part-iv-physical-processes
 
-.. GENERATED FROM PYTHON SOURCE LINES 207-211
+.. GENERATED FROM PYTHON SOURCE LINES 208-212
 
 Verification
 ------------
 Before plugging this into our workflow, let's quickly verify our data source is
 consistent with when GFS provides for relative humidity.
 
-.. GENERATED FROM PYTHON SOURCE LINES 213-221
+.. GENERATED FROM PYTHON SOURCE LINES 214-222
 
 .. code-block:: Python
 
@@ -237,7 +238,7 @@ consistent with when GFS provides for relative humidity.
     print(da_custom)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 222-251
+.. GENERATED FROM PYTHON SOURCE LINES 223-252
 
 .. code-block:: Python
 
@@ -271,7 +272,7 @@ consistent with when GFS provides for relative humidity.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 252-263
+.. GENERATED FROM PYTHON SOURCE LINES 253-264
 
 Execute Workflow
 ----------------
@@ -285,7 +286,7 @@ Let's instantiate the components needed.
 - Datasource: Custom data source above
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 265-287
+.. GENERATED FROM PYTHON SOURCE LINES 266-288
 
 .. code-block:: Python
 
@@ -312,14 +313,14 @@ Let's instantiate the components needed.
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 288-292
+.. GENERATED FROM PYTHON SOURCE LINES 289-293
 
 Post Processing
 ---------------
 To confirm that our model is working as expected, we will plot the total column water
 vapor field for a few time-steps.
 
-.. GENERATED FROM PYTHON SOURCE LINES 294-319
+.. GENERATED FROM PYTHON SOURCE LINES 295-320
 
 .. code-block:: Python
 

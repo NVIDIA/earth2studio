@@ -32,9 +32,10 @@ In this example you will learn:
 - Implementing a custom diagnostic model
 - Running this custom model in a workflow with built in prognostic
 
-.. GENERATED FROM PYTHON SOURCE LINES 33-40
+.. GENERATED FROM PYTHON SOURCE LINES 33-41
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -44,7 +45,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 41-53
+.. GENERATED FROM PYTHON SOURCE LINES 42-54
 
 Custom Diagnostic
 -----------------
@@ -59,7 +60,7 @@ temperature in Kelvin to Celsius to make it more readable for the average person
 Our diagnostic model has a base class of :py:class:`torch.nn.Module` which allows us
 to get the required :py:obj:`to(device)` method for free.
 
-.. GENERATED FROM PYTHON SOURCE LINES 55-147
+.. GENERATED FROM PYTHON SOURCE LINES 56-148
 
 .. code-block:: Python
 
@@ -156,7 +157,7 @@ to get the required :py:obj:`to(device)` method for free.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 148-160
+.. GENERATED FROM PYTHON SOURCE LINES 149-161
 
 Input/Output Coordinates
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -171,7 +172,7 @@ to be the global surface temperature specified in :file:`earth2studio.lexicon.ba
 The output is a custom variable :code:`t2m_c` that represents the temperature in
 Celsius.
 
-.. GENERATED FROM PYTHON SOURCE LINES 162-173
+.. GENERATED FROM PYTHON SOURCE LINES 163-174
 
 :py:func:`__call__` API
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -185,14 +186,14 @@ updated and returned.
   operations easier. For more details about this refer to the :ref:`batch_function_userguide`
   section of the user guide.
 
-.. GENERATED FROM PYTHON SOURCE LINES 175-179
+.. GENERATED FROM PYTHON SOURCE LINES 176-180
 
 Set Up
 ------
 With the custom diagnostic model defined, the next step is to set up and run a
 workflow. We will use the built in workflow :py:meth:`earth2studio.run.diagnostic`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 181-187
+.. GENERATED FROM PYTHON SOURCE LINES 182-188
 
 Lets instantiate the components needed.
 
@@ -201,7 +202,7 @@ Lets instantiate the components needed.
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 189-210
+.. GENERATED FROM PYTHON SOURCE LINES 190-211
 
 .. code-block:: Python
 
@@ -227,14 +228,14 @@ Lets instantiate the components needed.
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 211-215
+.. GENERATED FROM PYTHON SOURCE LINES 212-216
 
 Execute the Workflow
 --------------------
 Running our workflow with a build in prognostic model and a custom diagnostic is the
 same as running a built in diagnostic.
 
-.. GENERATED FROM PYTHON SOURCE LINES 217-224
+.. GENERATED FROM PYTHON SOURCE LINES 218-225
 
 .. code-block:: Python
 
@@ -246,13 +247,13 @@ same as running a built in diagnostic.
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 225-228
+.. GENERATED FROM PYTHON SOURCE LINES 226-229
 
 Post Processing
 ---------------
 Let's plot the Celsius temperature field from our custom diagnostic model.
 
-.. GENERATED FROM PYTHON SOURCE LINES 230-276
+.. GENERATED FROM PYTHON SOURCE LINES 231-277
 
 .. code-block:: Python
 

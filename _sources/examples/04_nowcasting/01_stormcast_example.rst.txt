@@ -36,9 +36,10 @@ In this example you will learn:
 - Running a deterministic forecast with :py:meth:`earth2studio.run.deterministic`
 - Post-processing and plotting composite reflectivity and 2-m temperature
 
-.. GENERATED FROM PYTHON SOURCE LINES 37-46
+.. GENERATED FROM PYTHON SOURCE LINES 37-47
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -50,7 +51,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 47-55
+.. GENERATED FROM PYTHON SOURCE LINES 48-56
 
 Set Up
 ------
@@ -61,7 +62,7 @@ fields interpolated to the HRRR grid. An analysis source such as
 
 %%
 
-.. GENERATED FROM PYTHON SOURCE LINES 55-87
+.. GENERATED FROM PYTHON SOURCE LINES 56-88
 
 .. code-block:: Python
 
@@ -98,7 +99,7 @@ fields interpolated to the HRRR grid. An analysis source such as
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 88-95
+.. GENERATED FROM PYTHON SOURCE LINES 89-96
 
 Execute the Workflow
 --------------------
@@ -108,7 +109,7 @@ state has 99 channels on the 1024 × 1792 CONUS grid.
 
 For the forecast we will predict 4 hours ahead.
 
-.. GENERATED FROM PYTHON SOURCE LINES 97-114
+.. GENERATED FROM PYTHON SOURCE LINES 98-115
 
 .. code-block:: Python
 
@@ -130,7 +131,7 @@ For the forecast we will predict 4 hours ahead.
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 115-122
+.. GENERATED FROM PYTHON SOURCE LINES 116-123
 
 Post Processing
 ---------------
@@ -140,7 +141,7 @@ reflectivity and 2-m temperature are shown at the final lead time.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 124-189
+.. GENERATED FROM PYTHON SOURCE LINES 125-190
 
 .. code-block:: Python
 

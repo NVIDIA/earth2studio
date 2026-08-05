@@ -39,9 +39,10 @@ In this example you will learn:
 - Initializing and running CorrDiff diagnostic model
 - Post-processing results.
 
-.. GENERATED FROM PYTHON SOURCE LINES 40-47
+.. GENERATED FROM PYTHON SOURCE LINES 40-48
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -51,7 +52,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 48-64
+.. GENERATED FROM PYTHON SOURCE LINES 49-65
 
 Creating a Simple CorrDiff Workflow
 -----------------------------------
@@ -70,7 +71,7 @@ For this workflow, we specify
 - io: IOBackend
 - number_of_samples: Number of samples to generate from the model
 
-.. GENERATED FROM PYTHON SOURCE LINES 66-151
+.. GENERATED FROM PYTHON SOURCE LINES 67-152
 
 .. code-block:: Python
 
@@ -160,7 +161,7 @@ For this workflow, we specify
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 152-163
+.. GENERATED FROM PYTHON SOURCE LINES 153-164
 
 Set Up
 ------
@@ -174,7 +175,7 @@ It's clear we need the following:
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 165-178
+.. GENERATED FROM PYTHON SOURCE LINES 166-179
 
 .. code-block:: Python
 
@@ -192,7 +193,7 @@ It's clear we need the following:
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 179-188
+.. GENERATED FROM PYTHON SOURCE LINES 180-189
 
 Execute the Workflow
 --------------------
@@ -204,14 +205,14 @@ saving to file. Check the API docs for more information.
 For the inference we will predict 1 sample for a particular timestamp representing
 Typhoon Koinu.
 
-.. GENERATED FROM PYTHON SOURCE LINES 190-192
+.. GENERATED FROM PYTHON SOURCE LINES 191-193
 
 .. code-block:: Python
 
     io = run(["2023-10-04T18:00:00"], corrdiff, data, io, number_of_samples=1)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 193-199
+.. GENERATED FROM PYTHON SOURCE LINES 194-200
 
 Post Processing
 ---------------
@@ -220,7 +221,7 @@ fields on projections of a sphere.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 201-250
+.. GENERATED FROM PYTHON SOURCE LINES 202-251
 
 .. code-block:: Python
 

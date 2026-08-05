@@ -38,9 +38,10 @@ In this example you will learn:
 - Re-opening the IO backend and checkpoint
 - Resuming the deterministic workflow from the latest completed lead time
 
-.. GENERATED FROM PYTHON SOURCE LINES 39-45
+.. GENERATED FROM PYTHON SOURCE LINES 39-46
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -49,7 +50,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 46-60
+.. GENERATED FROM PYTHON SOURCE LINES 47-61
 
 Set Up
 ------
@@ -66,7 +67,7 @@ checkpoint.
    model does not support checkpointing yet, open a feature request on the
    `Earth2Studio GitHub <https://github.com/NVIDIA/earth2studio/issues>`_.
 
-.. GENERATED FROM PYTHON SOURCE LINES 62-87
+.. GENERATED FROM PYTHON SOURCE LINES 63-88
 
 .. code-block:: Python
 
@@ -96,7 +97,7 @@ checkpoint.
             shutil.rmtree(path)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 88-97
+.. GENERATED FROM PYTHON SOURCE LINES 89-98
 
 Load the packaged FCN/AFNO forecast model package. The default package points
 at the FourCastNet model artifacts. Instantiate FCN inside checkpoint contexts
@@ -108,7 +109,7 @@ restart tensors during a run. Set it to ``torch.device("cpu")`` for CPU-only
 development. Since FCN level 2 checkpoints store the complete autoregressive
 state, keep ``history_size`` small when using ``mode="append"``.
 
-.. GENERATED FROM PYTHON SOURCE LINES 99-111
+.. GENERATED FROM PYTHON SOURCE LINES 100-112
 
 .. code-block:: Python
 
@@ -125,7 +126,7 @@ state, keep ``history_size`` small when using ``mode="append"``.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 112-117
+.. GENERATED FROM PYTHON SOURCE LINES 113-118
 
 Preallocate the full output store. A real full-length deterministic run does
 this before the first model step. We do it explicitly here because this example
@@ -133,7 +134,7 @@ simulates a mid-run stop by intentionally running only the first forecast step.
 The IO store writes only two variables, while the checkpoint keeps FCN's complete
 restart state internally when ``level=2`` is used.
 
-.. GENERATED FROM PYTHON SOURCE LINES 119-147
+.. GENERATED FROM PYTHON SOURCE LINES 120-148
 
 .. code-block:: Python
 
@@ -166,7 +167,7 @@ restart state internally when ``level=2`` is used.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 148-156
+.. GENERATED FROM PYTHON SOURCE LINES 149-157
 
 First Attempt
 -------------
@@ -177,7 +178,7 @@ the active checkpoint session. The workflow records a checkpoint row
 after each successful IO write because ``flush_interval=1`` and
 ``mode="append"`` keeps each row in the printed checkpoint table.
 
-.. GENERATED FROM PYTHON SOURCE LINES 158-191
+.. GENERATED FROM PYTHON SOURCE LINES 159-192
 
 .. code-block:: Python
 
@@ -215,7 +216,7 @@ after each successful IO write because ``flush_interval=1`` and
     print(checkpoint)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 192-203
+.. GENERATED FROM PYTHON SOURCE LINES 193-204
 
 Resume
 ------
@@ -229,7 +230,7 @@ iterator consumes the selected checkpoint boundary internally and yields the
 next forecast state, while the workflow still fetches the normal initial
 condition and feeds it to the iterator.
 
-.. GENERATED FROM PYTHON SOURCE LINES 205-234
+.. GENERATED FROM PYTHON SOURCE LINES 206-235
 
 .. code-block:: Python
 

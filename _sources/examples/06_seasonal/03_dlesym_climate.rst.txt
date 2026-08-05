@@ -45,9 +45,10 @@ In this example you will learn:
 - How to run a coupled forecast with the lat/lon convenience wrapper
 - How to chain the precipitation diagnostic off the prognostic output
 
-.. GENERATED FROM PYTHON SOURCE LINES 46-53
+.. GENERATED FROM PYTHON SOURCE LINES 46-54
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -57,7 +58,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 54-67
+.. GENERATED FROM PYTHON SOURCE LINES 55-68
 
 Set Up
 ------
@@ -73,7 +74,7 @@ As with the base DLESyM model, the upstream checkpoints run on a HEALPix
   yourself (see the base DLESyM example for that lower-level pattern).
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 69-100
+.. GENERATED FROM PYTHON SOURCE LINES 70-101
 
 .. code-block:: Python
 
@@ -109,7 +110,7 @@ As with the base DLESyM model, the upstream checkpoints run on a HEALPix
     precip = DLESyMv0_ISCCP_ERA5Precip.load_model(package, use_ttr=False).to(device)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 101-107
+.. GENERATED FROM PYTHON SOURCE LINES 102-108
 
 Inspecting the Variable Sets
 ----------------------------
@@ -118,7 +119,7 @@ converts it to OLR internally), while the output variables report ``rlut``
 (OLR) -- the model variable space. The precip diagnostic consumes the full
 10-variable coupled state and emits a single ``tp06`` field.
 
-.. GENERATED FROM PYTHON SOURCE LINES 109-115
+.. GENERATED FROM PYTHON SOURCE LINES 110-116
 
 .. code-block:: Python
 
@@ -129,7 +130,7 @@ converts it to OLR internally), while the output variables report ``rlut``
     print("Precip input variables:     ", precip.input_coords()["variable"])
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 116-122
+.. GENERATED FROM PYTHON SOURCE LINES 117-123
 
 Making a Coupled Prediction
 ---------------------------
@@ -138,7 +139,7 @@ directly. As with the base DLESyM model, the atmosphere is predicted every
 6 hours while the ocean only advances every 48 hours, so we use the
 ``retrieve_valid_*`` helpers to select the valid lead times for each component.
 
-.. GENERATED FROM PYTHON SOURCE LINES 124-151
+.. GENERATED FROM PYTHON SOURCE LINES 125-152
 
 .. code-block:: Python
 
@@ -170,7 +171,7 @@ directly. As with the base DLESyM model, the atmosphere is predicted every
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 152-158
+.. GENERATED FROM PYTHON SOURCE LINES 153-159
 
 Rolling Out to a 16-Day Forecast
 --------------------------------
@@ -179,7 +180,7 @@ time we roll the iterator forward four steps. The iterator yields the initial
 condition first, then one coupled step per iteration; we keep the final step
 and re-select the valid atmosphere/ocean outputs from it.
 
-.. GENERATED FROM PYTHON SOURCE LINES 160-176
+.. GENERATED FROM PYTHON SOURCE LINES 161-177
 
 .. code-block:: Python
 
@@ -200,7 +201,7 @@ and re-select the valid atmosphere/ocean outputs from it.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 177-185
+.. GENERATED FROM PYTHON SOURCE LINES 178-186
 
 Diagnosing Precipitation
 ------------------------
@@ -211,14 +212,14 @@ variables the diagnostic expects (in OLR / ``rlut`` space), so we take its
 last two atmosphere lead times as the ``[-6, 0]`` history window and regrid
 them onto the HEALPix grid using the prognostic's regridding helpers.
 
-.. GENERATED FROM PYTHON SOURCE LINES 187-191
+.. GENERATED FROM PYTHON SOURCE LINES 188-192
 
 The prognostic output carries the coupled variables in the prognostic's
 channel order, which differs from the order the precip diagnostic expects
 (e.g. ``ws10m`` and ``rlut`` are swapped). Reorder the variable axis to match
 the diagnostic's input variables before feeding it.
 
-.. GENERATED FROM PYTHON SOURCE LINES 191-216
+.. GENERATED FROM PYTHON SOURCE LINES 192-217
 
 .. code-block:: Python
 
@@ -248,14 +249,14 @@ the diagnostic's input variables before feeding it.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 217-221
+.. GENERATED FROM PYTHON SOURCE LINES 218-222
 
 Plotting the Outputs
 --------------------
 We plot a forecasted atmosphere field, the ocean SST, and the diagnosed
 precipitation.
 
-.. GENERATED FROM PYTHON SOURCE LINES 223-295
+.. GENERATED FROM PYTHON SOURCE LINES 224-296
 
 .. code-block:: Python
 

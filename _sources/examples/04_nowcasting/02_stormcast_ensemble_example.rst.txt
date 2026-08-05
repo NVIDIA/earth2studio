@@ -29,9 +29,10 @@ see
 
  - https://arxiv.org/abs/2408.10958
 
-.. GENERATED FROM PYTHON SOURCE LINES 31-38
+.. GENERATED FROM PYTHON SOURCE LINES 31-39
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -41,7 +42,7 @@ see
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 39-44
+.. GENERATED FROM PYTHON SOURCE LINES 40-45
 
 Set Up
 ------
@@ -49,14 +50,14 @@ All workflows inside Earth2Studio require constructed components to be
 handed to them. In this example, let's take a look at the most basic ensemble workflow:
 :py:meth:`earth2studio.run.ensemble`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 46-50
+.. GENERATED FROM PYTHON SOURCE LINES 47-51
 
 .. literalinclude:: ../../earth2studio/run.py
    :language: python
    :start-after: # sphinx - ensemble start
    :end-before: # sphinx - ensemble end
 
-.. GENERATED FROM PYTHON SOURCE LINES 52-62
+.. GENERATED FROM PYTHON SOURCE LINES 53-63
 
 Thus, we need the following:
 
@@ -69,7 +70,7 @@ Thus, we need the following:
 StormCast-CONUS also requires a global conditioning data source. We use
 GFS_FX :py:class:`earth2studio.data.GFS_FX` (the default).
 
-.. GENERATED FROM PYTHON SOURCE LINES 64-97
+.. GENERATED FROM PYTHON SOURCE LINES 65-98
 
 .. code-block:: Python
 
@@ -107,7 +108,7 @@ GFS_FX :py:class:`earth2studio.data.GFS_FX` (the default).
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 98-106
+.. GENERATED FROM PYTHON SOURCE LINES 99-107
 
 Execute the Workflow
 --------------------
@@ -118,7 +119,7 @@ saving to file. Check the API docs for more information.
 
 For the forecast we will predict for 4 hours
 
-.. GENERATED FROM PYTHON SOURCE LINES 108-129
+.. GENERATED FROM PYTHON SOURCE LINES 109-130
 
 .. code-block:: Python
 
@@ -144,7 +145,7 @@ For the forecast we will predict for 4 hours
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 130-136
+.. GENERATED FROM PYTHON SOURCE LINES 131-137
 
 Post Processing
 ---------------
@@ -153,7 +154,7 @@ fields on projections of a sphere. Start with plotting the reflectivity.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 138-219
+.. GENERATED FROM PYTHON SOURCE LINES 139-220
 
 .. code-block:: Python
 
@@ -239,15 +240,15 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     plt.savefig(f"outputs/10_{date}_{variable}_{step}_ensemble.jpg")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 220-221
+.. GENERATED FROM PYTHON SOURCE LINES 221-222
 
 Lets also plot the surface temperature field.
 
-.. GENERATED FROM PYTHON SOURCE LINES 223-224
+.. GENERATED FROM PYTHON SOURCE LINES 224-225
 
 Plot 2-meter temperature
 
-.. GENERATED FROM PYTHON SOURCE LINES 224-251
+.. GENERATED FROM PYTHON SOURCE LINES 225-252
 
 .. code-block:: Python
 

@@ -43,9 +43,10 @@ In this example you will learn:
 - Reloading the model with second-order derivative support for odds-ratio computation
 - Computing and interpreting the log-odds ratio of a guided sample
 
-.. GENERATED FROM PYTHON SOURCE LINES 44-51
+.. GENERATED FROM PYTHON SOURCE LINES 44-52
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -55,7 +56,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 52-62
+.. GENERATED FROM PYTHON SOURCE LINES 53-63
 
 Set Up
 ------
@@ -68,7 +69,7 @@ Thus, we need the following:
 
 - Diagnostic Model: Use the built in CBottle TC Guidance Model :py:class:`earth2studio.models.dx.CBottleTCGuidance`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 64-83
+.. GENERATED FROM PYTHON SOURCE LINES 65-84
 
 .. code-block:: Python
 
@@ -92,7 +93,7 @@ Thus, we need the following:
     package = CBottleTCGuidance.load_default_package()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 84-90
+.. GENERATED FROM PYTHON SOURCE LINES 85-91
 
 Guided TC Sampling (Fast Path)
 ------------------------------
@@ -101,7 +102,7 @@ single guidance point near Florida and request one timestamp during hurricane se
 The fast model path (``allow_second_order_derivatives=False``) is optimized for
 standard guided inference.
 
-.. GENERATED FROM PYTHON SOURCE LINES 92-103
+.. GENERATED FROM PYTHON SOURCE LINES 93-104
 
 .. code-block:: Python
 
@@ -117,14 +118,14 @@ standard guided inference.
     guided_sample, guided_coords = model(guidance, coords)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 104-108
+.. GENERATED FROM PYTHON SOURCE LINES 105-109
 
 Post Processing Guided Sample
 -----------------------------
 Plot the 10-metre zonal wind (u10m) over a Caribbean domain to visualize the
 generated tropical cyclone structure.
 
-.. GENERATED FROM PYTHON SOURCE LINES 110-155
+.. GENERATED FROM PYTHON SOURCE LINES 111-156
 
 .. code-block:: Python
 
@@ -174,7 +175,7 @@ generated tropical cyclone structure.
     plt.savefig("outputs/05_cbottle_tc_guided_sample.jpg")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 156-164
+.. GENERATED FROM PYTHON SOURCE LINES 157-165
 
 Computing the Odds Ratio
 -------------------------
@@ -185,7 +186,7 @@ for odds ratio calculations.
 Note: ``sampler_steps`` is also reduced in this section to speed up runtime. Use
 the default sampler settings for improved quality and more stable odds-ratio values.
 
-.. GENERATED FROM PYTHON SOURCE LINES 166-181
+.. GENERATED FROM PYTHON SOURCE LINES 167-182
 
 .. code-block:: Python
 
@@ -205,7 +206,7 @@ the default sampler settings for improved quality and more stable odds-ratio val
     print(f"Forward latents shape: {tuple(forward_latents.shape)}")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 182-188
+.. GENERATED FROM PYTHON SOURCE LINES 183-189
 
 Post Processing Forward Latents
 --------------------------------
@@ -214,7 +215,7 @@ The ``forward_latents`` tensor is returned on the same grid as the model output
 Caribbean domain.  This shows the latent-space representation that the odds-ratio
 computation operates on.
 
-.. GENERATED FROM PYTHON SOURCE LINES 190-215
+.. GENERATED FROM PYTHON SOURCE LINES 191-216
 
 .. code-block:: Python
 

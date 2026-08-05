@@ -35,9 +35,10 @@ In this example you will learn:
 - Extend a built-in method using custom code.
 - Post-processing results
 
-.. GENERATED FROM PYTHON SOURCE LINES 36-44
+.. GENERATED FROM PYTHON SOURCE LINES 36-45
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -48,7 +49,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 45-50
+.. GENERATED FROM PYTHON SOURCE LINES 46-51
 
 Set Up
 ------
@@ -56,14 +57,14 @@ All workflows inside Earth2Studio require constructed components to be
 handed to them. In this example, we will use the built in ensemble workflow
 :py:meth:`earth2studio.run.ensemble`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 52-56
+.. GENERATED FROM PYTHON SOURCE LINES 53-57
 
 .. literalinclude:: ../../earth2studio/run.py
    :language: python
    :start-after: # sphinx - ensemble start
    :end-before: # sphinx - ensemble end
 
-.. GENERATED FROM PYTHON SOURCE LINES 58-64
+.. GENERATED FROM PYTHON SOURCE LINES 59-65
 
 We need the following:
 
@@ -72,7 +73,7 @@ We need the following:
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 66-90
+.. GENERATED FROM PYTHON SOURCE LINES 67-91
 
 .. code-block:: Python
 
@@ -101,14 +102,14 @@ We need the following:
     data = GFS()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 91-95
+.. GENERATED FROM PYTHON SOURCE LINES 92-96
 
 The perturbation method in :ref:`sphx_glr_examples_01_getting_started_03_ensemble_workflow.py`
 is naive because it applies the same noise amplitude to every variable. We can create
 a custom wrapper that only applies the perturbation method to a particular variable
 instead.
 
-.. GENERATED FROM PYTHON SOURCE LINES 98-132
+.. GENERATED FROM PYTHON SOURCE LINES 99-133
 
 .. code-block:: Python
 
@@ -147,7 +148,7 @@ instead.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 133-142
+.. GENERATED FROM PYTHON SOURCE LINES 134-143
 
 Execute the Workflow
 --------------------
@@ -159,7 +160,7 @@ saving to file. Check the API docs for more information.
 For the forecast we will predict for 10 steps (for FCN, this is 60 hours) with 8 ensemble
 members which will be ran in 2 batches with batch size 4.
 
-.. GENERATED FROM PYTHON SOURCE LINES 144-159
+.. GENERATED FROM PYTHON SOURCE LINES 145-160
 
 .. code-block:: Python
 
@@ -179,7 +180,7 @@ members which will be ran in 2 batches with batch size 4.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 160-167
+.. GENERATED FROM PYTHON SOURCE LINES 161-168
 
 Post Processing
 ---------------
@@ -189,7 +190,7 @@ expect, the initial state is plotted.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 169-213
+.. GENERATED FROM PYTHON SOURCE LINES 170-214
 
 .. code-block:: Python
 
@@ -238,14 +239,14 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     plt.savefig(f"outputs/05_{forecast}_{step}_ensemble.jpg")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 214-218
+.. GENERATED FROM PYTHON SOURCE LINES 215-219
 
 Due to the intrinsic coupling between all fields, we should expect all variables to
 have some uncertainty for later lead times. Here the total column water vapor is
 plotted at a lead time of 24 hours, note the variance in the members despite just
 perturbing the temperature field.
 
-.. GENERATED FROM PYTHON SOURCE LINES 220-239
+.. GENERATED FROM PYTHON SOURCE LINES 221-240
 
 .. code-block:: Python
 

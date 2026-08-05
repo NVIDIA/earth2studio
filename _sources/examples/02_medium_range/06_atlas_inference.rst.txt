@@ -34,9 +34,10 @@ In this example you will learn:
 - How to run a single-member forecast with Atlas
 - How to visualize predicted 10m u-wind and total column water vapour
 
-.. GENERATED FROM PYTHON SOURCE LINES 35-44
+.. GENERATED FROM PYTHON SOURCE LINES 35-45
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -48,7 +49,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 45-61
+.. GENERATED FROM PYTHON SOURCE LINES 46-62
 
 We need the following:
 
@@ -67,7 +68,7 @@ We need the following:
   need to in-fill the NaNs using the appropriate land-sea mask.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 63-91
+.. GENERATED FROM PYTHON SOURCE LINES 64-92
 
 .. code-block:: Python
 
@@ -100,7 +101,7 @@ We need the following:
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 92-103
+.. GENERATED FROM PYTHON SOURCE LINES 93-104
 
 Manual Forward Pass
 -------------------
@@ -114,7 +115,7 @@ or want to customize the rollout logic.
   For autoregressive rollouts longer than one step, prefer
   ``create_iterator`` which correctly manages the internal latent state.
 
-.. GENERATED FROM PYTHON SOURCE LINES 105-135
+.. GENERATED FROM PYTHON SOURCE LINES 106-136
 
 .. code-block:: Python
 
@@ -149,7 +150,7 @@ or want to customize the rollout logic.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 136-142
+.. GENERATED FROM PYTHON SOURCE LINES 137-143
 
 Using the model iterator interface
 ----------------------------------
@@ -158,7 +159,7 @@ which automatically handles the internal latent state during autoregressive roll
 Simply pass the model and other instantiated components to the workflow, which will
 automatically use the iterator interface internally and return outputs to the IO handler.
 
-.. GENERATED FROM PYTHON SOURCE LINES 144-158
+.. GENERATED FROM PYTHON SOURCE LINES 145-159
 
 .. code-block:: Python
 
@@ -177,14 +178,14 @@ automatically use the iterator interface internally and return outputs to the IO
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 159-163
+.. GENERATED FROM PYTHON SOURCE LINES 160-164
 
 Post Processing
 ---------------
 The last step is to post process our results. We will plot the predicted 10m u-wind
 component (u10m) and total column water vapour (tcwv) at 12 hours into the forecast.
 
-.. GENERATED FROM PYTHON SOURCE LINES 165-208
+.. GENERATED FROM PYTHON SOURCE LINES 166-209
 
 .. code-block:: Python
 

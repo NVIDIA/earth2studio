@@ -42,9 +42,10 @@ In this example you will learn:
 - Choose a subselection of coordinates to save to an IO object.
 - Post-processing results
 
-.. GENERATED FROM PYTHON SOURCE LINES 43-50
+.. GENERATED FROM PYTHON SOURCE LINES 43-51
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -54,7 +55,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 51-70
+.. GENERATED FROM PYTHON SOURCE LINES 52-71
 
 Creating an Ensemble Workflow
 -----------------------------
@@ -76,7 +77,7 @@ method that accepts the following:
 - output_coords: CoordSystem of output coordinates that should be saved. Should be
   a proper subset of model output coordinates.
 
-.. GENERATED FROM PYTHON SOURCE LINES 72-86
+.. GENERATED FROM PYTHON SOURCE LINES 73-87
 
 Set Up
 ------
@@ -93,7 +94,7 @@ default (identity) forward and rear hooks. Then we will define new hooks for the
 inference request.
 %%
 
-.. GENERATED FROM PYTHON SOURCE LINES 86-117
+.. GENERATED FROM PYTHON SOURCE LINES 87-118
 
 .. code-block:: Python
 
@@ -129,7 +130,7 @@ inference request.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 118-126
+.. GENERATED FROM PYTHON SOURCE LINES 119-127
 
 Execute the Workflow
 --------------------
@@ -140,7 +141,7 @@ The workflow will return the provided IO object back to the user, which can be u
 then post process. Some have additional APIs that can be handy for post-processing or
 saving to file. Check the API docs for more information.
 
-.. GENERATED FROM PYTHON SOURCE LINES 128-151
+.. GENERATED FROM PYTHON SOURCE LINES 129-152
 
 .. code-block:: Python
 
@@ -168,7 +169,7 @@ saving to file. Check the API docs for more information.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 152-157
+.. GENERATED FROM PYTHON SOURCE LINES 153-158
 
 Now let's introduce slight model perturbation using the prognostic model hooks defined
 in :py:class:`earth2studio.models.px.utils.PrognosticMixin`.
@@ -176,7 +177,7 @@ Note that :py:obj:`center.unsqueeze(-1)` is DLWP specific since it operates on a
 with grid dimensions (nface, lat, lon) instead of just (lat,lon).
 To switch out the model, consider removing the :py:meth:`unsqueeze` .
 
-.. GENERATED FROM PYTHON SOURCE LINES 159-187
+.. GENERATED FROM PYTHON SOURCE LINES 160-188
 
 .. code-block:: Python
 
@@ -209,7 +210,7 @@ To switch out the model, consider removing the :py:meth:`unsqueeze` .
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 188-195
+.. GENERATED FROM PYTHON SOURCE LINES 189-196
 
 Post Processing
 ---------------
@@ -219,7 +220,7 @@ unperturbed/perturbed model.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 197-332
+.. GENERATED FROM PYTHON SOURCE LINES 198-333
 
 .. code-block:: Python
 

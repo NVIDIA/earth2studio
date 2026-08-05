@@ -36,9 +36,10 @@ In this example you will learn:
 - How to couple the TC tracker to a prognostic model
 - Post-processing results
 
-.. GENERATED FROM PYTHON SOURCE LINES 37-45
+.. GENERATED FROM PYTHON SOURCE LINES 37-46
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -49,7 +50,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 46-59
+.. GENERATED FROM PYTHON SOURCE LINES 47-60
 
 Set Up
 ------
@@ -65,7 +66,7 @@ This example needs the following:
 - Datasource: Pull data from the WB2 ERA5 data api :py:class:`earth2studio.data.WB2ERA5`.
 - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 61-90
+.. GENERATED FROM PYTHON SOURCE LINES 62-91
 
 .. code-block:: Python
 
@@ -99,7 +100,7 @@ This example needs the following:
     start_time = datetime(2009, 8, 5)  # Start date for inference
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 91-99
+.. GENERATED FROM PYTHON SOURCE LINES 92-100
 
 Tracking Analysis Data
 ----------------------
@@ -110,7 +111,7 @@ We can fetch a small time range from the data source and provide it to our model
 For the forecast we will predict for two days (these will get executed as a batch) for
 20 forecast steps which is 5 days.
 
-.. GENERATED FROM PYTHON SOURCE LINES 101-118
+.. GENERATED FROM PYTHON SOURCE LINES 102-119
 
 .. code-block:: Python
 
@@ -132,7 +133,7 @@ For the forecast we will predict for two days (these will get executed as a batc
     torch.save(era5_tracks, "outputs/13_era5_paths.pt")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 119-128
+.. GENERATED FROM PYTHON SOURCE LINES 120-129
 
 Notice that the output tensor grows as iterations are performed.
 This is because the tracker builds tracks based on previous forward passes returning
@@ -144,7 +145,7 @@ Up next lets also repeat the same process using the prognostic AI model.
 One could use one of the build in workflows but here we will manually implement the
 inference loop.
 
-.. GENERATED FROM PYTHON SOURCE LINES 130-166
+.. GENERATED FROM PYTHON SOURCE LINES 131-167
 
 .. code-block:: Python
 
@@ -185,7 +186,7 @@ inference loop.
     torch.save(sfno_tracks, "outputs/13_sfno_paths.pt")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 167-179
+.. GENERATED FROM PYTHON SOURCE LINES 168-180
 
 Note that before the inference loop of the AI model, the path buffer of the tracker
 was reset which refreshes the tracker's path state starting from scratch.
@@ -200,7 +201,7 @@ The lat/lon coords are the first two variables in the last dimension.
 Lastly we just need to be mindful of the NaN filler values which can get easily
 masked out and any "path" that isnt over 2 points long
 
-.. GENERATED FROM PYTHON SOURCE LINES 181-259
+.. GENERATED FROM PYTHON SOURCE LINES 182-260
 
 .. code-block:: Python
 
@@ -283,7 +284,7 @@ masked out and any "path" that isnt over 2 points long
     plt.savefig(f"outputs/13_{start_time}_cyclone_tracks.jpg", bbox_inches="tight", dpi=300)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 260-266
+.. GENERATED FROM PYTHON SOURCE LINES 261-267
 
 In addition to filtering out the NaN values, users may want to apply other post
 processing steps on the paths which may be enforcing path lengths are above a certain

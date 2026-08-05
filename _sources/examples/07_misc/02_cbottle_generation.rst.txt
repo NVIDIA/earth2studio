@@ -38,9 +38,10 @@ In this example you will learn:
 - Instantiating cBottle infill diagnostic model
 - Creating a simple infilling inference workflow
 
-.. GENERATED FROM PYTHON SOURCE LINES 39-46
+.. GENERATED FROM PYTHON SOURCE LINES 39-47
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -50,7 +51,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 47-52
+.. GENERATED FROM PYTHON SOURCE LINES 48-53
 
 Set Up
 ------
@@ -58,7 +59,7 @@ For this example we will use the cBottle data source and infill diagnostic. Unli
 other data sources the cBottle3D data source needs to be loaded similar to a
 prognostic or diagnostic model.
 
-.. GENERATED FROM PYTHON SOURCE LINES 54-59
+.. GENERATED FROM PYTHON SOURCE LINES 55-60
 
 Thus, we need the following:
 
@@ -66,7 +67,7 @@ Thus, we need the following:
 - Datasource: Pull data from the WeatherBench2 data api :py:class:`earth2studio.data.WB2ERA5`.
 - Diagnostic Model: Use the built in CBottle Infill Model :py:class:`earth2studio.models.dx.CBottleInfill`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 61-83
+.. GENERATED FROM PYTHON SOURCE LINES 62-84
 
 .. code-block:: Python
 
@@ -93,7 +94,7 @@ Thus, we need the following:
     era5_ds = WB2ERA5()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 84-93
+.. GENERATED FROM PYTHON SOURCE LINES 85-94
 
 Generating Synthetic Weather Data
 ---------------------------------
@@ -105,7 +106,7 @@ data source to years between 1970 and 2022.
 Note that this diffusion model is stochastic, so querying the same timestamp will
 generate different fields that are reflective of the requested time and SST state.
 
-.. GENERATED FROM PYTHON SOURCE LINES 95-109
+.. GENERATED FROM PYTHON SOURCE LINES 96-110
 
 .. code-block:: Python
 
@@ -124,7 +125,7 @@ generate different fields that are reflective of the requested time and SST stat
     print(cbottle_da)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 110-118
+.. GENERATED FROM PYTHON SOURCE LINES 111-119
 
 Post Processing CBottle Data
 ----------------------------
@@ -135,7 +136,7 @@ In other words the cBottle data source can be used to create climates that
 do not exist but could based on the conditional distribution learned from the training
 data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 120-160
+.. GENERATED FROM PYTHON SOURCE LINES 121-161
 
 .. code-block:: Python
 
@@ -180,7 +181,7 @@ data.
     plt.savefig("outputs/15_tcwv_cbottle_datasource.jpg")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 161-173
+.. GENERATED FROM PYTHON SOURCE LINES 162-174
 
 Variable Infilling with CBottleInfill Diagnostic
 ------------------------------------------------
@@ -195,7 +196,7 @@ different set of inputs and then compare the resulting infilled variables.
 Note that the outputs of both configurations are the same size with the same
 variables.
 
-.. GENERATED FROM PYTHON SOURCE LINES 175-195
+.. GENERATED FROM PYTHON SOURCE LINES 176-196
 
 .. code-block:: Python
 
@@ -220,13 +221,13 @@ variables.
     print(output_0.shape)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 196-199
+.. GENERATED FROM PYTHON SOURCE LINES 197-200
 
 Now repeat the process above but with an expanded set of variables.
 In this instance we provide a lot more data to the model to condition it with more
 information.
 
-.. GENERATED FROM PYTHON SOURCE LINES 201-229
+.. GENERATED FROM PYTHON SOURCE LINES 202-230
 
 .. code-block:: Python
 
@@ -259,7 +260,7 @@ information.
     print(output_1.shape)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 230-238
+.. GENERATED FROM PYTHON SOURCE LINES 231-239
 
 Post Processing CBottleInfill
 -----------------------------
@@ -270,7 +271,7 @@ the ground truth since the infill model is sampling a conditional distribution.
 Additionally, the model provided more variables is better aligned with the ground
 truth due the additional information provided.
 
-.. GENERATED FROM PYTHON SOURCE LINES 240-291
+.. GENERATED FROM PYTHON SOURCE LINES 241-292
 
 .. code-block:: Python
 

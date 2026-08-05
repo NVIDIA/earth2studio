@@ -37,9 +37,10 @@ In this example you will learn:
 - Running the model iteratively with and without observation assimilation
 - Comparing assimilated and non-assimilated forecasts
 
-.. GENERATED FROM PYTHON SOURCE LINES 38-45
+.. GENERATED FROM PYTHON SOURCE LINES 38-46
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -49,7 +50,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 46-59
+.. GENERATED FROM PYTHON SOURCE LINES 47-60
 
 Set Up
 ------
@@ -65,7 +66,7 @@ HRRR domain at 3 km resolution. When an observation DataFrame is passed to each
 generator step, diffusion posterior sampling (DPS) steers the denoising trajectory
 toward the observed values.
 
-.. GENERATED FROM PYTHON SOURCE LINES 61-107
+.. GENERATED FROM PYTHON SOURCE LINES 62-108
 
 .. code-block:: Python
 
@@ -116,7 +117,7 @@ toward the observed values.
     hrrr = HRRR()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 108-113
+.. GENERATED FROM PYTHON SOURCE LINES 109-114
 
 Fetch Initial Conditions
 ------------------------
@@ -124,7 +125,7 @@ Pull HRRR analysis data for April 3rd 2025, a date that saw a major tornado
 outbreak across the central United States, and align it to the model's
 coordinate system.
 
-.. GENERATED FROM PYTHON SOURCE LINES 115-126
+.. GENERATED FROM PYTHON SOURCE LINES 116-127
 
 .. code-block:: Python
 
@@ -140,7 +141,7 @@ coordinate system.
     x, coords = map_coords(x, coords, model.input_coords())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 127-133
+.. GENERATED FROM PYTHON SOURCE LINES 128-134
 
 Run Without Observations
 ------------------------
@@ -149,7 +150,7 @@ standard EDM diffusion sampler, equivalent to running StormCast-CONUS as a
 pure generative forecast model. We store only the 10-m zonal wind (``u10m``)
 used for comparison.
 
-.. GENERATED FROM PYTHON SOURCE LINES 135-157
+.. GENERATED FROM PYTHON SOURCE LINES 136-158
 
 .. code-block:: Python
 
@@ -176,7 +177,7 @@ used for comparison.
     no_obs_fields = np.stack(no_obs_fields)  # (nsteps, H, W)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 158-164
+.. GENERATED FROM PYTHON SOURCE LINES 159-165
 
 Fetch Observations and Plot Station Locations
 ---------------------------------------------
@@ -185,11 +186,11 @@ the model domain.  The bounding box is derived from the model's lat/lon grid
 so it automatically adjusts when running on a subdomain.
 We visualise the station network before running the assimilation forecast.
 
-.. GENERATED FROM PYTHON SOURCE LINES 166-167
+.. GENERATED FROM PYTHON SOURCE LINES 167-168
 
 ISD uses [-180, 180] longitude; model.lon is in [0, 360] — convert here.
 
-.. GENERATED FROM PYTHON SOURCE LINES 167-174
+.. GENERATED FROM PYTHON SOURCE LINES 168-175
 
 .. code-block:: Python
 
@@ -201,7 +202,7 @@ ISD uses [-180, 180] longitude; model.lon is in [0, 360] — convert here.
     isd = ISD(stations=stations, time_tolerance=timedelta(minutes=15), verbose=False)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 175-205
+.. GENERATED FROM PYTHON SOURCE LINES 176-206
 
 .. code-block:: Python
 
@@ -236,7 +237,7 @@ ISD uses [-180, 180] longitude; model.lon is in [0, 360] — convert here.
     plt.savefig("outputs/03_isd_stations.jpg", dpi=150, bbox_inches="tight")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 206-212
+.. GENERATED FROM PYTHON SOURCE LINES 207-213
 
 Run Inference With Streaming Observations
 ------------------------------------------
@@ -245,7 +246,7 @@ generator state, ISD observations are fetched for that time, and the
 observation DataFrame is sent to the generator. Zero-value wind reports
 (anemometer failure) are filtered out before assimilation.
 
-.. GENERATED FROM PYTHON SOURCE LINES 214-246
+.. GENERATED FROM PYTHON SOURCE LINES 215-247
 
 .. code-block:: Python
 
@@ -282,7 +283,7 @@ observation DataFrame is sent to the generator. Zero-value wind reports
     obs_fields = np.stack(obs_fields)  # (nsteps, H, W)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 247-252
+.. GENERATED FROM PYTHON SOURCE LINES 248-253
 
 Post Processing
 ---------------
@@ -290,7 +291,7 @@ Compare the two forecasts. The top row shows the baseline (no observations),
 the middle row shows the assimilation forecast with station locations overlaid,
 and the bottom row shows the signed difference (assimilated − baseline).
 
-.. GENERATED FROM PYTHON SOURCE LINES 254-364
+.. GENERATED FROM PYTHON SOURCE LINES 255-365
 
 .. code-block:: Python
 
@@ -405,7 +406,7 @@ and the bottom row shows the signed difference (assimilated − baseline).
     plt.savefig("outputs/03_stormcast_conus_sda_comparison.jpg", dpi=150)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 365-370
+.. GENERATED FROM PYTHON SOURCE LINES 366-371
 
 Ground Truth Comparison
 -----------------------
@@ -413,7 +414,7 @@ Fetch HRRR analysis at each valid forecast time and compute the absolute error
 of both the no-obs and assimilation forecasts. This shows whether assimilation
 improves accuracy relative to the actual analysis.
 
-.. GENERATED FROM PYTHON SOURCE LINES 372-390
+.. GENERATED FROM PYTHON SOURCE LINES 373-391
 
 .. code-block:: Python
 
@@ -436,13 +437,13 @@ improves accuracy relative to the actual analysis.
     obs_err = np.abs(obs_fields - truth_fields)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 391-394
+.. GENERATED FROM PYTHON SOURCE LINES 392-395
 
 Plot absolute errors between the StormCast-CONUS predictions and HRRR
 analysis ground truth. In later time-steps the assimilated forecast typically
 shows lower errors near the observation stations.
 
-.. GENERATED FROM PYTHON SOURCE LINES 396-463
+.. GENERATED FROM PYTHON SOURCE LINES 397-464
 
 .. code-block:: Python
 

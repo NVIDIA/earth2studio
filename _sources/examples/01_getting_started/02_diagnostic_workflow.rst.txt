@@ -35,9 +35,10 @@ In this example you will learn:
 - Running the built in diagnostic workflow
 - Post-processing results
 
-.. GENERATED FROM PYTHON SOURCE LINES 36-43
+.. GENERATED FROM PYTHON SOURCE LINES 36-44
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -47,21 +48,21 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 44-48
+.. GENERATED FROM PYTHON SOURCE LINES 45-49
 
 Set Up
 ------
 For this example, the built in diagnostic workflow :py:meth:`earth2studio.run.diagnostic`
 will be used.
 
-.. GENERATED FROM PYTHON SOURCE LINES 50-54
+.. GENERATED FROM PYTHON SOURCE LINES 51-55
 
 .. literalinclude:: ../../earth2studio/run.py
    :language: python
    :start-after: # sphinx - diagnostic start
    :end-before: # sphinx - diagnostic end
 
-.. GENERATED FROM PYTHON SOURCE LINES 57-63
+.. GENERATED FROM PYTHON SOURCE LINES 58-64
 
 Thus, we need the following:
 
@@ -70,7 +71,7 @@ Thus, we need the following:
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 65-90
+.. GENERATED FROM PYTHON SOURCE LINES 66-91
 
 .. code-block:: Python
 
@@ -100,7 +101,7 @@ Thus, we need the following:
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 91-97
+.. GENERATED FROM PYTHON SOURCE LINES 92-98
 
 Execute the Workflow
 --------------------
@@ -109,7 +110,7 @@ Workflow will return the provided IO object back to the user, which can be used 
 then post process. Some have additional APIs that can be handy for post-processing or
 saving to file. Check the API docs for more information.
 
-.. GENERATED FROM PYTHON SOURCE LINES 99-108
+.. GENERATED FROM PYTHON SOURCE LINES 100-109
 
 .. code-block:: Python
 
@@ -123,7 +124,7 @@ saving to file. Check the API docs for more information.
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 109-120
+.. GENERATED FROM PYTHON SOURCE LINES 110-121
 
 Post Processing
 ---------------
@@ -137,7 +138,7 @@ prognostic model.
   outputs of both the prognostic and diagnostic, we recommend writing a custom
   workflow.
 
-.. GENERATED FROM PYTHON SOURCE LINES 122-164
+.. GENERATED FROM PYTHON SOURCE LINES 123-165
 
 .. code-block:: Python
 

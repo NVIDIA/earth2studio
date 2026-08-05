@@ -36,9 +36,10 @@ In this example you will learn:
 - Saving output ensemble data to a Zarr store
 - Post-process results
 
-.. GENERATED FROM PYTHON SOURCE LINES 37-46
+.. GENERATED FROM PYTHON SOURCE LINES 37-47
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -50,7 +51,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 47-58
+.. GENERATED FROM PYTHON SOURCE LINES 48-59
 
 Creating an Ensemble Downscaling Workflow
 -----------------------------------------
@@ -64,7 +65,7 @@ into the forecast loop.
 As in previous examples, we use dependency injection to define the signature of the
 pipeline method.
 
-.. GENERATED FROM PYTHON SOURCE LINES 60-203
+.. GENERATED FROM PYTHON SOURCE LINES 61-204
 
 .. code-block:: Python
 
@@ -212,7 +213,7 @@ pipeline method.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 204-217
+.. GENERATED FROM PYTHON SOURCE LINES 205-218
 
 Set Up
 ------
@@ -228,7 +229,7 @@ For the prognostic checkpoint, we will use a HENS checkpoint conveniently stored
 on `HuggingFace <https://huggingface.co/datasets/maheshankur10/hens/tree/main/earth2mip_prod_registry>`_.
 Refer to the previous examples for more information about loading these models.
 
-.. GENERATED FROM PYTHON SOURCE LINES 219-259
+.. GENERATED FROM PYTHON SOURCE LINES 220-260
 
 .. code-block:: Python
 
@@ -273,7 +274,7 @@ Refer to the previous examples for more information about loading these models.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 260-265
+.. GENERATED FROM PYTHON SOURCE LINES 261-266
 
 Run
 ---
@@ -281,7 +282,7 @@ Execute the pipeline. For this example, we use the period of Typhoon Doksuri whi
 has a track over the Taiwan region.
 https://en.wikipedia.org/wiki/Typhoon_Doksuri
 
-.. GENERATED FROM PYTHON SOURCE LINES 267-281
+.. GENERATED FROM PYTHON SOURCE LINES 268-282
 
 .. code-block:: Python
 
@@ -300,14 +301,14 @@ https://en.wikipedia.org/wiki/Typhoon_Doksuri
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 282-286
+.. GENERATED FROM PYTHON SOURCE LINES 283-287
 
 Post-processing
 ---------------
 Plot the mean and standard deviation of 10m wind speed magnitude for a sequence of
 lead times.
 
-.. GENERATED FROM PYTHON SOURCE LINES 288-337
+.. GENERATED FROM PYTHON SOURCE LINES 289-338
 
 .. code-block:: Python
 

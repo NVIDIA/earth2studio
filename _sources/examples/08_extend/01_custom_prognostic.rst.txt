@@ -32,9 +32,10 @@ In this example you will learn:
 - Implementing a custom prognostic model
 - Running this model in existing workflows
 
-.. GENERATED FROM PYTHON SOURCE LINES 33-40
+.. GENERATED FROM PYTHON SOURCE LINES 33-41
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -44,7 +45,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 41-55
+.. GENERATED FROM PYTHON SOURCE LINES 42-56
 
 Custom Prognostic
 -----------------
@@ -61,7 +62,7 @@ Starting with the constructor, prognostic models should typically be torch modul
 Models need to have a :py:obj:`to(device)` method that can move the model between
 different devices. If your model is PyTorch, then this will be easy.
 
-.. GENERATED FROM PYTHON SOURCE LINES 57-188
+.. GENERATED FROM PYTHON SOURCE LINES 58-189
 
 .. code-block:: Python
 
@@ -197,7 +198,7 @@ different devices. If your model is PyTorch, then this will be easy.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 189-215
+.. GENERATED FROM PYTHON SOURCE LINES 190-216
 
 Input/Output Coordinates
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -226,7 +227,7 @@ hour.
   batched coordinate systems. For more details about this refer to the :ref:`batch_function_userguide`
   section of the user guide.
 
-.. GENERATED FROM PYTHON SOURCE LINES 217-228
+.. GENERATED FROM PYTHON SOURCE LINES 218-229
 
 :py:func:`__call__` API
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -240,7 +241,7 @@ and then update the output coordinate system.
   operations easier. For more details about this refer to the :ref:`batch_function_userguide`
   section of the user guide.
 
-.. GENERATED FROM PYTHON SOURCE LINES 230-244
+.. GENERATED FROM PYTHON SOURCE LINES 231-245
 
 :py:func:`create_iterator` API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -257,21 +258,21 @@ Since this model is auto regressive, it can theoretically index in time forever.
 we make the generator an infinite loop. Keep in mind that generators execute on
 demand, so this infinite loop won't cause the program to get stuck.
 
-.. GENERATED FROM PYTHON SOURCE LINES 246-250
+.. GENERATED FROM PYTHON SOURCE LINES 247-251
 
 .. warning::
     It is the responsibility of the model check if the input tensor and coordinate
     system are indeed valid. The :py:func:`earth2studio.utils.coords.handshake_coords`
     and :py:func:`earth2studio.utils.coords.handshake_dim` can help make this easier.
 
-.. GENERATED FROM PYTHON SOURCE LINES 252-256
+.. GENERATED FROM PYTHON SOURCE LINES 253-257
 
 Set Up
 ------
 With the custom prognostic defined, it's now easily usable in a standard workflow. In
 this example, we will use the build in workflow :py:meth:`earth2studio.run.deterministic`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 258-263
+.. GENERATED FROM PYTHON SOURCE LINES 259-264
 
 Let's instantiate the components needed.
 
@@ -279,7 +280,7 @@ Let's instantiate the components needed.
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 265-281
+.. GENERATED FROM PYTHON SOURCE LINES 266-282
 
 .. code-block:: Python
 
@@ -300,14 +301,14 @@ Let's instantiate the components needed.
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 282-286
+.. GENERATED FROM PYTHON SOURCE LINES 283-287
 
 Execute the Workflow
 --------------------
 Because the prognostic meets the needs of the interface, the workflow will execute
 just like any other model.
 
-.. GENERATED FROM PYTHON SOURCE LINES 288-295
+.. GENERATED FROM PYTHON SOURCE LINES 289-296
 
 .. code-block:: Python
 
@@ -319,14 +320,14 @@ just like any other model.
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 296-300
+.. GENERATED FROM PYTHON SOURCE LINES 297-301
 
 Post Processing
 ---------------
 To confirm that our prognostic model is working as expected, we should see the fields
 become progressively more noisy as time progresses.
 
-.. GENERATED FROM PYTHON SOURCE LINES 302-330
+.. GENERATED FROM PYTHON SOURCE LINES 303-331
 
 .. code-block:: Python
 

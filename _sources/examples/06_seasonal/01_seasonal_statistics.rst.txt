@@ -36,9 +36,10 @@ In this example you will learn:
 - Running a simple built in workflow
 - Post-processing results
 
-.. GENERATED FROM PYTHON SOURCE LINES 37-44
+.. GENERATED FROM PYTHON SOURCE LINES 37-45
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -48,7 +49,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 45-65
+.. GENERATED FROM PYTHON SOURCE LINES 46-66
 
 Creating a Statistical Workflow
 -------------------------------
@@ -71,7 +72,7 @@ create a run method that accepts the following:
 We do not run an ensemble inference workflow here, even though it is common for statistical
 inference. See ensemble examples for details on how to extend this example for that purpose.
 
-.. GENERATED FROM PYTHON SOURCE LINES 67-172
+.. GENERATED FROM PYTHON SOURCE LINES 68-173
 
 .. code-block:: Python
 
@@ -181,7 +182,7 @@ inference. See ensemble examples for details on how to extend this example for t
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 173-183
+.. GENERATED FROM PYTHON SOURCE LINES 174-184
 
 Set Up
 ------
@@ -194,7 +195,7 @@ We need the following:
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a NetCDF4 store :py:class:`earth2studio.io.NetCDF4Backend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 185-341
+.. GENERATED FROM PYTHON SOURCE LINES 186-342
 
 .. code-block:: Python
 
@@ -355,7 +356,7 @@ We need the following:
     soi = SOI()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 342-349
+.. GENERATED FROM PYTHON SOURCE LINES 343-350
 
 Execute the Workflow
 --------------------
@@ -365,7 +366,7 @@ then post process. Some have additional APIs that can be handy for post-processi
 saving to file. Check the API docs for more information.
 We simulate a trajectory of 60 time steps, or 2 months using Pangu24
 
-.. GENERATED FROM PYTHON SOURCE LINES 351-356
+.. GENERATED FROM PYTHON SOURCE LINES 352-357
 
 .. code-block:: Python
 
@@ -375,7 +376,7 @@ We simulate a trajectory of 60 time steps, or 2 months using Pangu24
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 357-362
+.. GENERATED FROM PYTHON SOURCE LINES 358-363
 
 Post Processing
 ---------------
@@ -383,7 +384,7 @@ The last step is to post process our results.
 
 Notice that the NetCDF IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 364-376
+.. GENERATED FROM PYTHON SOURCE LINES 365-377
 
 .. code-block:: Python
 

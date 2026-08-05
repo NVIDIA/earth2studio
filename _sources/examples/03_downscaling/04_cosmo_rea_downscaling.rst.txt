@@ -38,9 +38,10 @@ In this example you will learn:
 - How to derive hub-height wind (100 m) for wind-energy use
 - How to switch to the 2.2 km COSMO-REA2 resolution
 
-.. GENERATED FROM PYTHON SOURCE LINES 39-46
+.. GENERATED FROM PYTHON SOURCE LINES 39-47
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -50,7 +51,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 47-52
+.. GENERATED FROM PYTHON SOURCE LINES 48-53
 
 Configuration
 -------------
@@ -58,7 +59,7 @@ Set up all tuneable parameters for the example: forecast init time, lead time,
 diffusion sampler settings, ensemble size, device, and the geographic domain for
 sub-region downscaling.
 
-.. GENERATED FROM PYTHON SOURCE LINES 54-92
+.. GENERATED FROM PYTHON SOURCE LINES 55-93
 
 .. code-block:: Python
 
@@ -101,7 +102,7 @@ sub-region downscaling.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 93-98
+.. GENERATED FROM PYTHON SOURCE LINES 94-99
 
 Load the global forecaster and the regional downscaler
 ------------------------------------------------------
@@ -109,7 +110,7 @@ Instantiate SFNO (the global prognostic model) and CorrDiffCosmoEra5 (the
 regional downscaler). Both diffusion and regression checkpoints are loaded from
 the same package; ``mode`` selects which one.
 
-.. GENERATED FROM PYTHON SOURCE LINES 100-125
+.. GENERATED FROM PYTHON SOURCE LINES 101-126
 
 .. code-block:: Python
 
@@ -139,13 +140,13 @@ the same package; ``mode`` selects which one.
     dx_mean.amp = amp
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 126-129
+.. GENERATED FROM PYTHON SOURCE LINES 127-130
 
 Initial condition and global forecast
 Fetch an ERA5 analysis (ARCO) initial condition and step SFNO forward to the
 requested lead time. SFNO is 6-hourly, so 24 h is four steps.
 
-.. GENERATED FROM PYTHON SOURCE LINES 131-147
+.. GENERATED FROM PYTHON SOURCE LINES 132-148
 
 .. code-block:: Python
 
@@ -166,7 +167,7 @@ requested lead time. SFNO is 6-hourly, so 24 h is four steps.
         x_fc, coords_fc = next(model)  # global forecast state at the current step
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 148-156
+.. GENERATED FROM PYTHON SOURCE LINES 149-157
 
 Hand the forecast state to the downscaler
 -----------------------------------------
@@ -177,7 +178,7 @@ where longitude wraps at 0/360 deg). The forecast validity time is passed as the
 shared regrid helper backs both the manual calls and the ``DiagnosticWrapper``
 hook below.
 
-.. GENERATED FROM PYTHON SOURCE LINES 158-202
+.. GENERATED FROM PYTHON SOURCE LINES 159-203
 
 .. code-block:: Python
 
@@ -226,14 +227,14 @@ hook below.
     out, out_coords = dx(x_dx, coords_dx)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 203-207
+.. GENERATED FROM PYTHON SOURCE LINES 204-208
 
 Plot the downscaled fields
 --------------------------
 Visualise four representative channels from the full-domain COSMO-REA6 output:
 2 m temperature, total precipitation, 10 m zonal wind, and total cloud cover.
 
-.. GENERATED FROM PYTHON SOURCE LINES 209-239
+.. GENERATED FROM PYTHON SOURCE LINES 210-240
 
 .. code-block:: Python
 
@@ -268,7 +269,7 @@ Visualise four representative channels from the full-domain COSMO-REA6 output:
     plt.savefig("outputs/04_cosmo_rea_downscaling.jpg", dpi=150)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 240-248
+.. GENERATED FROM PYTHON SOURCE LINES 241-249
 
 Downscaling a smaller domain (Germany)
 --------------------------------------
@@ -279,7 +280,7 @@ restricts the model to a geographic bounding box: its static surface fields
 much faster -- the diffusion model processes far fewer grid patches per step. The
 same SFNO forecast is reused; we just hand it to the sub-domain model.
 
-.. GENERATED FROM PYTHON SOURCE LINES 250-274
+.. GENERATED FROM PYTHON SOURCE LINES 251-275
 
 .. code-block:: Python
 
@@ -308,7 +309,7 @@ same SFNO forecast is reused; we just hand it to the sub-domain model.
     plt.savefig("outputs/04_cosmo_rea_downscaling_germany.jpg", dpi=150)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 275-283
+.. GENERATED FROM PYTHON SOURCE LINES 276-284
 
 Framework-native chaining with ``DiagnosticWrapper``
 ----------------------------------------------------
@@ -319,7 +320,7 @@ day/night channel) and a regrid onto its regional grid, so we supply a small
 callable for the wrapper's input-prep hook. We roll out over the Germany
 sub-domain so each step stays fast.
 
-.. GENERATED FROM PYTHON SOURCE LINES 285-353
+.. GENERATED FROM PYTHON SOURCE LINES 286-354
 
 .. code-block:: Python
 
@@ -392,7 +393,7 @@ sub-domain so each step stays fast.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 354-364
+.. GENERATED FROM PYTHON SOURCE LINES 355-365
 
 Diffusion ensemble over Germany
 -------------------------------
@@ -405,7 +406,7 @@ Germany sub-domain model and the same SFNO state, and look at total cloud cover
 (CLCT), a field with strong spread. The members share one conditioning pass, so
 the cost is ~N x a single sample.
 
-.. GENERATED FROM PYTHON SOURCE LINES 366-405
+.. GENERATED FROM PYTHON SOURCE LINES 367-406
 
 .. code-block:: Python
 
@@ -449,7 +450,7 @@ the cost is ~N x a single sample.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 406-419
+.. GENERATED FROM PYTHON SOURCE LINES 407-420
 
 Regression mean vs diffusion ensemble mean (Germany)
 ----------------------------------------------------
@@ -465,7 +466,7 @@ The regression is also a DiT (diffusion transformer) and crop-size agnostic at t
 fixed resolution, so it runs directly on the sub-domain Germany region in a single
 forward (no tiling).
 
-.. GENERATED FROM PYTHON SOURCE LINES 421-459
+.. GENERATED FROM PYTHON SOURCE LINES 422-460
 
 .. code-block:: Python
 
@@ -508,7 +509,7 @@ forward (no tiling).
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 460-469
+.. GENERATED FROM PYTHON SOURCE LINES 461-470
 
 Hub-height wind (100 m) for the energy use case
 -----------------------------------------------
@@ -520,7 +521,7 @@ operation: compose the stock ``DerivedWS`` wind-speed diagnostic as
 ``DerivedWS(levels=["100m"])``, or take the magnitude directly as below -- here,
 100 m wind over Germany from the deterministic mean model.
 
-.. GENERATED FROM PYTHON SOURCE LINES 471-501
+.. GENERATED FROM PYTHON SOURCE LINES 472-502
 
 .. code-block:: Python
 
@@ -555,7 +556,7 @@ operation: compose the stock ``DerivedWS`` wind-speed diagnostic as
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 502-508
+.. GENERATED FROM PYTHON SOURCE LINES 503-509
 
 Higher resolution: COSMO-REA2 (2.2 km)
 --------------------------------------
@@ -564,7 +565,7 @@ The package also ships COSMO-REA2, downscaling to a 2.2 km Central-European grid
 REA2 covers a smaller domain; here we use the deterministic mean model over a
 sub-region and plot 2 m temperature at 2.2 km.
 
-.. GENERATED FROM PYTHON SOURCE LINES 510-538
+.. GENERATED FROM PYTHON SOURCE LINES 511-539
 
 .. code-block:: Python
 

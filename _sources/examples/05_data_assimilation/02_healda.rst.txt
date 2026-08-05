@@ -36,9 +36,10 @@ In this example you will learn:
 - Running the model with different observation combinations
 - Comparing the assimilated global fields against ERA5 data
 
-.. GENERATED FROM PYTHON SOURCE LINES 37-44
+.. GENERATED FROM PYTHON SOURCE LINES 37-45
 
 .. code-block:: Python
+
 
     # /// script
     # dependencies = [
@@ -48,7 +49,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 45-59
+.. GENERATED FROM PYTHON SOURCE LINES 46-60
 
 Set Up
 ------
@@ -65,7 +66,7 @@ conventional (radiosonde, surface station, GPS-RO, etc.) and satellite radiance
 observations and produces a single global weather analysis on a HEALPix level-6
 grid.
 
-.. GENERATED FROM PYTHON SOURCE LINES 61-87
+.. GENERATED FROM PYTHON SOURCE LINES 62-88
 
 .. code-block:: Python
 
@@ -96,7 +97,7 @@ grid.
     model = model.to("cuda:0")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 88-96
+.. GENERATED FROM PYTHON SOURCE LINES 89-97
 
 Fetch Observations
 ------------------
@@ -107,7 +108,7 @@ The UFS data sources return pandas DataFrames that match the schemas expected by
 metadata required by the model.  The time_tolerance parameter defines a time
 window around the analysis time so that observations will be retrieved for.
 
-.. GENERATED FROM PYTHON SOURCE LINES 98-119
+.. GENERATED FROM PYTHON SOURCE LINES 99-120
 
 .. code-block:: Python
 
@@ -133,7 +134,7 @@ window around the analysis time so that observations will be retrieved for.
     logger.info(f"Fetched {len(sat_df)} satellite observations")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 120-125
+.. GENERATED FROM PYTHON SOURCE LINES 121-126
 
 Observation Locations
 ---------------------
@@ -141,7 +142,7 @@ Plot the spatial distribution of conventional and satellite observations to
 visualise their coverage before running the assimilation. There are 12-14 million
 observations typically for the model's 24-hour time window.
 
-.. GENERATED FROM PYTHON SOURCE LINES 127-174
+.. GENERATED FROM PYTHON SOURCE LINES 128-175
 
 .. code-block:: Python
 
@@ -193,7 +194,7 @@ observations typically for the model's 24-hour time window.
     plt.savefig("outputs/22_healda_obs_locations.jpg", dpi=150)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 175-184
+.. GENERATED FROM PYTHON SOURCE LINES 176-185
 
 DA models can be called directly for stateless inference or via
 :py:meth:`~earth2studio.models.da.HealDA.create_generator` for stateful (iterative)
@@ -205,7 +206,7 @@ model interface is flexible enough to accept different time windows and observat
 sources. Below we test three configurations - conventional only, satellite only, and
 proper combined - to illustrate the impact each observation type has on the analysis.
 
-.. GENERATED FROM PYTHON SOURCE LINES 186-190
+.. GENERATED FROM PYTHON SOURCE LINES 187-191
 
 .. code-block:: Python
 
@@ -214,7 +215,7 @@ proper combined - to illustrate the impact each observation type has on the anal
     logger.info(f"Combined analysis shape: {result_both.shape}")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 191-195
+.. GENERATED FROM PYTHON SOURCE LINES 192-196
 
 .. code-block:: Python
 
@@ -223,7 +224,7 @@ proper combined - to illustrate the impact each observation type has on the anal
     logger.info(f"Sat-only analysis shape: {result_sat.shape}")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 196-200
+.. GENERATED FROM PYTHON SOURCE LINES 197-201
 
 .. code-block:: Python
 
@@ -232,7 +233,7 @@ proper combined - to illustrate the impact each observation type has on the anal
     logger.info(f"Conv-only analysis shape: {result_conv.shape}")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 201-207
+.. GENERATED FROM PYTHON SOURCE LINES 202-208
 
 Post Processing
 ---------------
@@ -241,7 +242,7 @@ regular equiangular lat-lon grid, so no manual regridding is needed.
 Compare the three runs for surface temperature (t2m) and geopotential 500 hPa
 (z500). Each row shows a different observation configuration.
 
-.. GENERATED FROM PYTHON SOURCE LINES 209-266
+.. GENERATED FROM PYTHON SOURCE LINES 210-267
 
 .. code-block:: Python
 
@@ -303,7 +304,7 @@ Compare the three runs for surface temperature (t2m) and geopotential 500 hPa
     plt.savefig("outputs/22_healda_analysis.jpg", dpi=150)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 267-274
+.. GENERATED FROM PYTHON SOURCE LINES 268-275
 
 HealDA vs ERA5
 --------------
@@ -313,7 +314,7 @@ names so we can query ERA5 with the same identifiers. We expect the runs that
 are missing an observation source to show larger errors, while the combined run
 yields the most accurate global prediction.
 
-.. GENERATED FROM PYTHON SOURCE LINES 276-280
+.. GENERATED FROM PYTHON SOURCE LINES 277-281
 
 .. code-block:: Python
 
@@ -322,7 +323,7 @@ yields the most accurate global prediction.
     era5_interp = era5_da.interp(lat=lat, lon=lon, method="nearest")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 281-290
+.. GENERATED FROM PYTHON SOURCE LINES 282-291
 
 .. code-block:: Python
 
@@ -336,7 +337,7 @@ yields the most accurate global prediction.
             logger.info(f"{title} | {var} MAE: {mae:.4f}")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 291-342
+.. GENERATED FROM PYTHON SOURCE LINES 292-343
 
 .. code-block:: Python
 
