@@ -170,6 +170,10 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         loaded via :meth:`load_model`, this flag is also forwarded to
         :class:`_SplitModelWrapper` to enable per-variable physical-minimum clamping,
         by default True.
+
+    Badges
+    ------
+    region:na class:nwc product:wind product:temp product:precip product:radar product:atmos year:2026 gpu:24gb
     """
 
     def __init__(
