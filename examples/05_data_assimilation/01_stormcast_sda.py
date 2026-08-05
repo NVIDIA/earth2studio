@@ -35,6 +35,7 @@ In this example you will learn:
 - Running the model iteratively with and without observation assimilation
 - Comparing assimilated and non-assimilated forecasts
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[data,stormcast-conus] @ git+https://github.com/NVIDIA/earth2studio.git",

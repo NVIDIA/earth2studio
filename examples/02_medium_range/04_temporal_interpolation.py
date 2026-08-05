@@ -35,6 +35,7 @@ In this example you will learn:
 - How to run the interpolation model
 - How to visualize the results
 """
+
 # /// script
 # dependencies = [
 #   "torch==2.11.0", # Match lock file to avoid torch-harmonics issue
