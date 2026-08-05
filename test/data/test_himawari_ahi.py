@@ -17,7 +17,7 @@
 import pathlib
 import shutil
 from datetime import datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -123,6 +123,16 @@ def test_himawari_cache(time, variable, cache):
         pass
 
 
+class _FakeListOnlyStore:
+    """Minimal obspec List store for available() probes."""
+
+    def __init__(self, entries):
+        self._entries = entries
+
+    def list(self, prefix=None, **kwargs):
+        return iter([self._entries] if self._entries else [])
+
+
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize(
     "satellite,time,expected",
@@ -143,10 +153,11 @@ def test_himawari_cache(time, variable, cache):
 )
 def test_himawari_available(satellite, time, expected):
     """Test Himawari availability checks."""
-    with patch("earth2studio.data.himawari_ahi.s3fs.S3FileSystem") as mock_fs_cls:
-        mock_fs = mock_fs_cls.return_value
+    with patch(
+        "earth2studio.data.himawari_ahi.obstore_store_from_url",
+        return_value=_FakeListOnlyStore([{"path": "some_file.nc"}]),
+    ):
         # Valid times: simulate files present; invalid times won't reach S3
-        mock_fs.ls.return_value = ["some_file.nc"]
         assert HimawariAHI.available(time, satellite=satellite) == expected
 
 
@@ -193,9 +204,10 @@ def test_himawari_grid():
 @pytest.mark.timeout(5)
 def test_himawari_numpy_datetime_available():
     """Test availability with numpy datetime64."""
-    with patch("earth2studio.data.himawari_ahi.s3fs.S3FileSystem") as mock_fs_cls:
-        mock_fs = mock_fs_cls.return_value
-        mock_fs.ls.return_value = ["some_file.nc"]
+    with patch(
+        "earth2studio.data.himawari_ahi.obstore_store_from_url",
+        return_value=_FakeListOnlyStore([{"path": "some_file.nc"}]),
+    ):
         time = np.datetime64("2024-06-15T00:00:00")
         assert HimawariAHI.available(time, satellite="himawari9")
 
@@ -206,19 +218,22 @@ def test_himawari_numpy_datetime_available():
 @pytest.mark.timeout(5)
 def test_himawari_available_s3_gap():
     """Test that available() returns False when S3 directory is empty (data gap)."""
-    with patch("earth2studio.data.himawari_ahi.s3fs.S3FileSystem") as mock_fs_cls:
-        mock_fs = mock_fs_cls.return_value
-        mock_fs.ls.return_value = []
+    with patch(
+        "earth2studio.data.himawari_ahi.obstore_store_from_url",
+        return_value=_FakeListOnlyStore([]),
+    ):
         time = datetime(2024, 6, 15, 0, 0, 0)
         assert not HimawariAHI.available(time, satellite="himawari9")
 
 
 @pytest.mark.timeout(5)
 def test_himawari_available_s3_not_found():
-    """Test that available() returns False when S3 path doesn't exist."""
-    with patch("earth2studio.data.himawari_ahi.s3fs.S3FileSystem") as mock_fs_cls:
-        mock_fs = mock_fs_cls.return_value
-        mock_fs.ls.side_effect = FileNotFoundError
+    """Test that available() returns False for a nonexistent S3 prefix
+    (obstore lists a missing prefix as empty rather than raising)."""
+    with patch(
+        "earth2studio.data.himawari_ahi.obstore_store_from_url",
+        return_value=_FakeListOnlyStore([]),
+    ):
         time = datetime(2024, 6, 15, 0, 0, 0)
         assert not HimawariAHI.available(time, satellite="himawari9")
 
@@ -301,16 +316,25 @@ def test_himawari_call_mock(tmp_path: pathlib.Path):
         )
         tile_cache[tf] = str(nc_path)
 
-    # Async mock for fs._ls that returns our tile filenames
-    async def mock_ls(path, detail=False):
-        return tile_files
+    # Fake obspec store: lists our tile filenames and serves their bytes
+    class _FakeStore:
+        def list_async(self, prefix=None, **kwargs):
+            async def _gen():
+                yield [
+                    {"path": tf.removeprefix("noaa-himawari9/")} for tf in tile_files
+                ]
 
-    # Async mock for fs._cat_file that returns bytes from our cached tiles
-    async def mock_cat(path, **kwargs):
-        sha = hashlib.sha256(path.encode()).hexdigest()
-        nc_path = tmp_path / sha
-        with open(nc_path, "rb") as f:
-            return f.read()
+            return _gen()
+
+        async def get_async(self, path, *, options=None):
+            sha = hashlib.sha256(("noaa-himawari9/" + path).encode()).hexdigest()
+            data = (tmp_path / sha).read_bytes()
+
+            class _Result:
+                async def buffer_async(self):
+                    return data
+
+            return _Result()
 
     with (
         patch.object(HimawariAHI, "_async_init", return_value=None),
@@ -333,12 +357,8 @@ def test_himawari_call_mock(tmp_path: pathlib.Path):
         patch("earth2studio.data.himawari_ahi.TILE_SIZE", tile_sz),
     ):
         ds = HimawariAHI(satellite="himawari9", cache=False)
-        # Inject mock FS with async methods
-        mock_fs = AsyncMock()
-        mock_fs._ls = mock_ls
-        mock_fs._cat_file = mock_cat
-        mock_fs.async_impl = True
-        ds.fs = mock_fs
+        # Inject the fake store — no obstore internals need patching
+        ds.store = _FakeStore()
         # Override lat/lon since we patched grid size
         ds._lat = np.zeros((small_dim, small_dim))
         ds._lon = np.zeros((small_dim, small_dim))

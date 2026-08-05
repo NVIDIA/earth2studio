@@ -14,26 +14,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import hashlib
 import os
 import pathlib
 import shutil
+import threading
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
-import s3fs
 import xarray as xr
 from loguru import logger
 
 from earth2studio.data.utils import (
+    AsyncListableStore,
     _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
-    managed_session,
+    obstore_fetch_to_cache,
+    obstore_list_prefix,
+    obstore_store_from_url,
     prep_data_inputs,
 )
 from earth2studio.lexicon import HimawariAHILexicon
@@ -221,6 +225,16 @@ def _compute_pixel_roi(
     return int(rows.min()), int(rows.max()) + 1, int(cols.min()), int(cols.max()) + 1
 
 
+# HDF5 (netCDF4) is not thread-safe; serialize NetCDF reads across the
+# decode worker threads while numpy post-processing runs concurrently
+_HDF5_LOCK = threading.Lock()
+
+
+def _utcnow() -> datetime:
+    """Naive UTC now, matching the naive datetimes used throughout."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 @dataclass
 class HimawariAsyncTask:
     """Async task for fetching a single Himawari tile."""
@@ -262,8 +276,9 @@ class HimawariAHI:
         Total timeout in seconds for the entire fetch operation,
         by default 600
     async_workers : int, optional
-        Maximum number of concurrent async fetch tasks,
-        by default 16
+        Maximum number of concurrent async fetch tasks. Fetches are many
+        small tile objects, so throughput is round-trip-latency bound;
+        by default 32
     retries : int, optional
         Number of retry attempts per failed fetch task with
         exponential backoff, by default 3
@@ -320,7 +335,7 @@ class HimawariAHI:
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
-        async_workers: int = 16,
+        async_workers: int = 32,
         retries: int = 3,
     ):
         self._satellite = satellite.lower()
@@ -344,22 +359,31 @@ class HimawariAHI:
         # Pixel ROI bounds (lazily computed on first fetch when bbox is set)
         self._pixel_roi: tuple[int, int, int, int] | None = None
 
-        # Filesystem is lazily initialized on first call
-        self.fs: s3fs.S3FileSystem | None = None
+        # Memoized S3 minute-directory listings keyed by prefix. Only
+        # scans older than an hour are cached so near-real-time polling
+        # still sees newly arriving tiles.
+        self._minute_listing_cache: dict[str, list[str]] = {}
+
+        # Object store is lazily initialized on first call
+        self.store: AsyncListableStore | None = None
 
     async def _async_init(self) -> None:
-        """Async initialization of S3 filesystem.
+        """Async initialization of the object store
 
         Note
         ----
-        Async fsspec expects initialization inside the execution loop.
+        Unlike async fsspec filesystems, obstore stores are event-loop
+        independent and could be built in ``__init__``; kept as a lazy async
+        method to preserve the initialization seam.
         """
-        self.fs = s3fs.S3FileSystem(
-            anon=True,
-            client_kwargs={},
-            asynchronous=True,
-            skip_instance_cache=True,
+        self.store = obstore_store_from_url(
+            f"s3://{self._bucket}", max_pool_connections=self._async_workers
         )
+
+    @property
+    def _bucket(self) -> str:
+        """Anonymous S3 bucket for the configured satellite."""
+        return f"noaa-{self._satellite}"
 
     def __call__(
         self,
@@ -411,7 +435,7 @@ class HimawariAHI:
         xr.DataArray
             Data array with dimensions [time, variable, y, x]
         """
-        if self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
@@ -441,35 +465,34 @@ class HimawariAHI:
             y_coords = self._Y_COORDS
             x_coords = self._X_COORDS
 
-        async with managed_session(self.fs) as session:  # noqa: F841
-            # Pre-allocate output array
-            xr_array = xr.DataArray(
-                data=np.full(
-                    (len(time), len(variable), ny, nx),
-                    np.nan,
-                    dtype=np.float32,
-                ),
-                dims=["time", "variable", "y", "x"],
-                coords={
-                    "time": time,
-                    "variable": variable,
-                    "y": y_coords,
-                    "x": x_coords,
-                },
-            )
+        # Pre-allocate output array
+        xr_array = xr.DataArray(
+            data=np.full(
+                (len(time), len(variable), ny, nx),
+                np.nan,
+                dtype=np.float32,
+            ),
+            dims=["time", "variable", "y", "x"],
+            coords={
+                "time": time,
+                "variable": variable,
+                "y": y_coords,
+                "x": x_coords,
+            },
+        )
 
-            # Build async tasks
-            tasks = await self._create_tasks(time, variable)
+        # Build async tasks
+        tasks = await self._create_tasks(time, variable)
 
-            # Execute with bounded concurrency
-            coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in tasks]
-            await gather_with_concurrency(
-                coros,
-                max_workers=self._async_workers,
-                task_timeout=120.0,
-                desc="Fetching Himawari data",
-                verbose=(not self._verbose),
-            )
+        # Execute with bounded concurrency
+        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in tasks]
+        await gather_with_concurrency(
+            coros,
+            max_workers=self._async_workers,
+            task_timeout=120.0,
+            desc="Fetching Himawari data",
+            verbose=(not self._verbose),
+        )
 
         # Add curvilinear lat/lon coordinates
         xr_array = xr_array.assign_coords(
@@ -509,10 +532,20 @@ class HimawariAHI:
                 minute=t.minute,
             )
 
-            # List files in the directory to discover tiles
-            try:
-                all_files = await self.fs._ls(base_dir, detail=False)  # type: ignore[union-attr]
-            except FileNotFoundError:
+            # List files in the directory to discover tiles. Scans older
+            # than an hour are memoized; the bucket-prefixed paths match the
+            # historical cache-key scheme.
+            if self.store is None:
+                raise ValueError("Object store is not initialized")
+            prefix = base_dir.split(f"{self._bucket}/", 1)[1]
+            paths = await obstore_list_prefix(
+                self.store,
+                prefix,
+                cache=self._minute_listing_cache,
+                cacheable=t + timedelta(hours=1) <= _utcnow(),
+            )
+            all_files = [f"{self._bucket}/{p}" for p in paths]
+            if not all_files:
                 logger.warning(f"No data found for {t} at {base_dir}, skipping")
                 continue
 
@@ -649,18 +682,29 @@ class HimawariAHI:
         # Download tile file to cache
         cache_path = await self._fetch_remote_file(task.remote_uri)
 
+        # NetCDF decode + block averaging are CPU-bound; run in a worker
+        # thread so they overlap with concurrent tile downloads instead of
+        # blocking the event loop
+        return await asyncio.to_thread(self._decode_tile, task, cache_path)
+
+    @staticmethod
+    def _decode_tile(
+        task: HimawariAsyncTask, cache_path: str
+    ) -> tuple[np.ndarray, int, int] | None:
+        """Decode a cached ISatSS tile NetCDF into (data, row/col offsets)"""
         # Open NetCDF and extract Sectorized_CMI + tile offsets
-        ds = xr.open_dataset(cache_path)
-        try:
-            cmi = ds["Sectorized_CMI"].values
-            # Read tile placement from NetCDF attributes (in native pixels)
-            native_row_offset = int(ds.attrs.get("tile_row_offset", 0))
-            native_col_offset = int(ds.attrs.get("tile_column_offset", 0))
-        except KeyError:
-            logger.warning(f"Sectorized_CMI not found in {task.remote_uri}")
-            return None
-        finally:
-            ds.close()
+        with _HDF5_LOCK:
+            ds = xr.open_dataset(cache_path)
+            try:
+                cmi = ds["Sectorized_CMI"].values
+                # Read tile placement from NetCDF attributes (in native pixels)
+                native_row_offset = int(ds.attrs.get("tile_row_offset", 0))
+                native_col_offset = int(ds.attrs.get("tile_column_offset", 0))
+            except KeyError:
+                logger.warning(f"Sectorized_CMI not found in {task.remote_uri}")
+                return None
+            finally:
+                ds.close()
 
         data = cmi.astype(np.float32)
 
@@ -731,19 +775,16 @@ class HimawariAHI:
         str
             Local cache path
         """
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
 
-        sha = hashlib.sha256(path.encode())
-        filename = sha.hexdigest()
-        cache_path = os.path.join(self.cache, filename)
-
-        if not pathlib.Path(cache_path).is_file():
-            data = await self.fs._cat_file(path)
-            with open(cache_path, "wb") as f:
-                f.write(data)
-
-        return cache_path
+        # Hash the bucket-prefixed path (unchanged scheme) so warm caches
+        # populated before the obstore migration remain valid
+        cache_key = hashlib.sha256(path.encode()).hexdigest()
+        key = path.removeprefix(self._bucket + "/")
+        return await obstore_fetch_to_cache(
+            self.store, key, self.cache, cache_key=cache_key
+        )
 
     @staticmethod
     def _parse_tile_number(filename: str) -> int | None:
@@ -830,7 +871,7 @@ class HimawariAHI:
             return False
 
         # Verify data actually exists in S3 (handles outages / data gaps)
-        fs = s3fs.S3FileSystem(anon=True)
+        store = obstore_store_from_url(f"s3://noaa-{satellite}")
         base_dir = cls.BASE_URL.format(
             satellite=satellite,
             year=time.year,
@@ -839,12 +880,10 @@ class HimawariAHI:
             hour=time.hour,
             minute=time.minute,
         )
-        try:
-            files = fs.ls(base_dir)
-        except FileNotFoundError:
-            return False
-
-        return len(files) > 0
+        prefix = base_dir.split(f"noaa-{satellite}/", 1)[1]
+        # One listed entry proves existence
+        chunk: list = next(iter(store.list(prefix=prefix, chunk_size=1)), [])
+        return len(chunk) > 0
 
     @classmethod
     def grid(cls) -> tuple[np.ndarray, np.ndarray]:
