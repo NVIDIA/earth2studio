@@ -26,14 +26,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
-import obstore as obs
 import pandas as pd
 import pyarrow as pa
 import xarray as xr
 from loguru import logger
-from obstore.store import ObjectStore
 
 from earth2studio.data.utils import (
+    AsyncListableStore,
     _sync_async,
     async_retry,
     datasource_cache_root,
@@ -249,13 +248,13 @@ class GOESGLM:
         # fsspec filesystems, obstore stores are event-loop independent, so
         # they can safely be reused across repeated fetch calls (e.g. one per
         # 5-min bin from ``GOESGLMGrid``).
-        self.stores: dict[str, ObjectStore] = {}
+        self.stores: dict[str, AsyncListableStore] = {}
         # Memoized S3 hour-directory listings keyed by (satellite, prefix).
         # Only complete (past) hours are cached so a long-lived instance
         # polling near-real-time data still sees newly arriving files.
         self._hour_listing_cache: dict[tuple[str, str], list[tuple[str, str]]] = {}
 
-    def _store_for_bucket(self, bucket: str) -> ObjectStore:
+    def _store_for_bucket(self, bucket: str) -> AsyncListableStore:
         """Return (building if needed) the obstore store for an S3 bucket"""
         if bucket not in self.stores:
             self.stores[bucket] = obstore_store_from_url(
@@ -394,7 +393,7 @@ class GOESGLM:
             store = self._store_for_bucket(_BUCKETS[sat])
             listing = [
                 (sat, f"{_BUCKETS[sat]}/{entry['path']}")
-                async for chunk in obs.list(store, prefix=prefix)
+                async for chunk in store.list_async(prefix=prefix)
                 for entry in chunk
                 if entry["path"].endswith(".nc")
             ]

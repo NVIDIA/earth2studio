@@ -28,10 +28,11 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
 from pathlib import Path
-from typing import Any, ClassVar, Literal, TypeVar
+from typing import Any, ClassVar, Literal, Protocol, TypeVar
 
 import fsspec.asyn
 import numpy as np
+import obspec
 import obstore as obs
 import obstore.store
 import pandas as pd
@@ -834,6 +835,22 @@ def resolve_async_workers(
     return max(1, min(n_tasks, cap))
 
 
+class AsyncReadableStore(
+    obspec.GetAsync, obspec.GetRangeAsync, obspec.HeadAsync, Protocol
+):
+    """obspec capabilities required by the async byte-range read helpers.
+
+    Any obspec-conforming store (obstore stores included) satisfies this
+    structurally; tests can pass a plain fake object instead of patching
+    obstore internals.
+    """
+
+
+class AsyncListableStore(AsyncReadableStore, obspec.ListAsync, Protocol):
+    """Read + list obspec capabilities required by listing data sources
+    (e.g. GOES / GOES GLM hour-directory discovery)."""
+
+
 def obstore_store_from_url(
     url: str,
     anonymous: bool = True,
@@ -878,7 +895,7 @@ def obstore_store_from_url(
 
 
 async def obstore_read_range(
-    store: obstore.store.ObjectStore,
+    store: AsyncReadableStore,
     key: str,
     byte_offset: int = 0,
     byte_length: int | None = None,
@@ -896,8 +913,8 @@ async def obstore_read_range(
 
     Parameters
     ----------
-    store : obstore.store.ObjectStore
-        Object store to read from
+    store : AsyncReadableStore
+        obspec-conforming store to read from (e.g. an obstore store)
     key : str
         Object key (bucket-relative path)
     byte_offset : int, optional
@@ -919,16 +936,16 @@ async def obstore_read_range(
     """
     try:
         if byte_length is not None:
-            data = await obs.get_range_async(
-                store, key, start=byte_offset, length=byte_length
+            data = await store.get_range_async(
+                key, start=byte_offset, length=byte_length
             )
         elif byte_offset == 0:
-            resp = await obs.get_async(store, key)
-            data = await resp.bytes_async()
+            resp = await store.get_async(key)
+            data = await resp.buffer_async()
         else:
-            meta = await obs.head_async(store, key)
-            data = await obs.get_range_async(
-                store, key, start=byte_offset, end=int(meta["size"])
+            meta = await store.head_async(key)
+            data = await store.get_range_async(
+                key, start=byte_offset, end=int(meta["size"])
             )
     except (FileNotFoundError, obs.exceptions.NotFoundError):
         raise FileNotFoundError(f"Object {key} not found in store")
@@ -936,7 +953,7 @@ async def obstore_read_range(
 
 
 async def obstore_fetch_to_cache(
-    store: obstore.store.ObjectStore,
+    store: AsyncReadableStore,
     key: str,
     cache_dir: str,
     byte_offset: int = 0,
@@ -953,8 +970,8 @@ async def obstore_fetch_to_cache(
 
     Parameters
     ----------
-    store : obstore.store.ObjectStore
-        Object store to read from
+    store : AsyncReadableStore
+        obspec-conforming store to read from (e.g. an obstore store)
     key : str
         Object key (bucket-relative path)
     cache_dir : str

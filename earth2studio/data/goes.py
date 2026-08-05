@@ -23,12 +23,11 @@ import uuid
 from datetime import datetime, timezone
 
 import numpy as np
-import obstore as obs
 import xarray as xr
 from loguru import logger
-from obstore.store import ObjectStore
 
 from earth2studio.data.utils import (
+    AsyncListableStore,
     _sync_async,
     async_retry,
     datasource_cache_root,
@@ -218,7 +217,7 @@ class GOES:
         self._validate_satellite_scan_mode(self._satellite, self._scan_mode)
 
         # Object store is lazily initialized on first call
-        self.store: ObjectStore | None = None
+        self.store: AsyncListableStore | None = None
 
     @property
     def _bucket(self) -> str:
@@ -436,7 +435,7 @@ class GOES:
 
         files = [
             f"{self._bucket}/{entry['path']}"
-            async for chunk in obs.list(self.store, prefix=prefix)
+            async for chunk in self.store.list_async(prefix=prefix)
             for entry in chunk
         ]
         self._hour_listing_cache[prefix] = files
@@ -602,7 +601,7 @@ class GOES:
 
         # List files in the directory
         files = [
-            entry["path"] for chunk in obs.list(store, prefix=prefix) for entry in chunk
+            entry["path"] for chunk in store.list(prefix=prefix) for entry in chunk
         ]
 
         # Filter for files matching the product and scan mode

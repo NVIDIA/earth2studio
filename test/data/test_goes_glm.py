@@ -346,28 +346,35 @@ def test_goes_glm_discover_files():
         + "OR_GLM-L2-LCFA_G16_s20241531800000_e20241531800200_c20241531800220.nc",
     ]
 
-    list_calls = {"count": 0}
+    # A plain fake satisfying the obspec ListAsync protocol — no obstore
+    # internals need patching, the store is simply injected.
+    class _FakeListStore:
+        def __init__(self, listing: list[str]):
+            self.listing = listing
+            self.calls = 0
 
-    def _fake_list(store, prefix=None, **kwargs):
-        list_calls["count"] += 1
+        def list_async(self, prefix=None, **kwargs):
+            self.calls += 1
 
-        async def _gen():
-            yield [{"path": p} for p in paths]
+            async def _gen():
+                yield [{"path": p} for p in self.listing]
 
-        return _gen()
+            return _gen()
 
-    with patch("earth2studio.data.goes_glm.obs.list", side_effect=_fake_list):
-        files = _run(ds._discover_files([datetime(2024, 6, 1, 18, 0, 0)]))
-        assert len(files) == 2
-        assert {f.satellite for f in files} == {"G16"}
-        # The ±1 min tolerance window spans two hour directories (17 and 18)
-        assert list_calls["count"] == 2
+    fake = _FakeListStore(paths)
+    ds.stores["noaa-goes16"] = fake
 
-        # The requested hours are complete (in the past), so their listings
-        # are memoized: a second discovery issues no further LIST requests.
-        files2 = _run(ds._discover_files([datetime(2024, 6, 1, 18, 0, 0)]))
-        assert len(files2) == 2
-        assert list_calls["count"] == 2
+    files = _run(ds._discover_files([datetime(2024, 6, 1, 18, 0, 0)]))
+    assert len(files) == 2
+    assert {f.satellite for f in files} == {"G16"}
+    # The ±1 min tolerance window spans two hour directories (17 and 18)
+    assert fake.calls == 2
+
+    # The requested hours are complete (in the past), so their listings
+    # are memoized: a second discovery issues no further LIST requests.
+    files2 = _run(ds._discover_files([datetime(2024, 6, 1, 18, 0, 0)]))
+    assert len(files2) == 2
+    assert fake.calls == 2
 
     # Missing prefix → empty listing → empty result, no exception.
     ds2 = GOESGLM(
@@ -376,15 +383,8 @@ def test_goes_glm_discover_files():
         cache=False,
         verbose=False,
     )
-
-    def _fake_list_empty(store, prefix=None, **kwargs):
-        async def _gen():
-            yield []
-
-        return _gen()
-
-    with patch("earth2studio.data.goes_glm.obs.list", side_effect=_fake_list_empty):
-        assert _run(ds2._discover_files([datetime(2024, 6, 1, 18, 0, 0)])) == []
+    ds2.stores["noaa-goes16"] = _FakeListStore([])
+    assert _run(ds2._discover_files([datetime(2024, 6, 1, 18, 0, 0)])) == []
 
 
 def test_goes_glm_fetch_remote_file(tmp_path):
