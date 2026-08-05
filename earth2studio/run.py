@@ -469,10 +469,8 @@ def ensemble(
             and ckpt.lead_time != total_coords["lead_time"][-1]
         )
 
-        logger.info(
-            f"Starting {nensemble} Member Ensemble Inference with \
-            {number_of_batches} number of batches."
-        )
+        logger.info(f"Starting {nensemble} Member Ensemble Inference with \
+            {number_of_batches} number of batches.")
         for batch_index, batch_id in enumerate(
             tqdm(
                 range(start_batch_id, nensemble, batch_size),

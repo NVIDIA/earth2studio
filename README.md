@@ -196,7 +196,7 @@ Earth2Studio maintains the largest collection of pre-trained state-of-the-art AI
 Available models include but are not limited to:
 
 | Model | Resolution | Architecture | Time Step | Coverage |
-|-------|------------|--------------|-----------|----------|
+| ------- | ------------ | -------------- | ----------- | ---------- |
 | GraphCast Small | 1.0° | Graph Neural Network | 6h | Global |
 | GraphCast Operational | 0.25° | Graph Neural Network | 6h | Global |
 | Pangu 3hr | 0.25° | Transformer | 3h | Global |
@@ -233,9 +233,9 @@ Earth2Studio contains a growing collection of specialized diagnostic models for
 Available diagnostics include but are not limited to:
 
 | Model | Resolution | Architecture | Coverage | Output |
-|-------|------------|--------------|----------|--------|
-| PrecipitationAFNO | 0.25° | Neural Operator  | Global | Total precipitation |
-| SolarRadiationAFNO1H | 0.25° | Neural Operator  | Global | Surface solar radiation |
+| ------- | ------------ | -------------- | ---------- | -------- |
+| PrecipitationAFNO | 0.25° | Neural Operator | Global | Total precipitation |
+| SolarRadiationAFNO1H | 0.25° | Neural Operator | Global | Surface solar radiation |
 | WindgustAFNO | 0.25° | AFNO | Global | Maximum wind gust |
 | TCTrackerVitart | 0.25° | Algorithmic | Global | TC tracks & properties |
 | CBottleInfill | 100km | Diffusion | Global | Global climate sample |
@@ -267,7 +267,7 @@ Earth2Studio includes data sources ranging from operational weather models (GFS,
 Available data sources include but are not limited to:
 
 | Data Source | Type | Resolution | Coverage | Data Format |
-|-------------|------|------------|----------|-------------|
+| ------------- | ------ | ------------ | ---------- | ------------- |
 | GFS | Operational | 0.25° | Global | GRIB2 |
 | GFS_FX | Forecast | 0.25° | Global | GRIB2 |
 | HRRR | Operational | 3km | Regional (US) | GRIB2 |
@@ -299,12 +299,12 @@ Earth2Studio includes IO backends ranging from traditional scientific formats (N
 Available IO backends include:
 
 | IO Backend | Format | Features | Location |
-|------------|--------|----------|----------|
+| ------------ | -------- | ---------- | ---------- |
 | ZarrBackend | Zarr | Compression, Chunking | In-Memory/Local |
 | AsyncZarrBackend | Zarr | Async writes, Parallel I/O | In-Memory/Local/Remote |
 | NetCDF4Backend | NetCDF4 | CF-compliant, Metadata | In-Memory/Local |
 | XarrayBackend | Xarray Dataset | Rich metadata, Analysis-ready | In-Memory |
-| KVBackend | Key-Value| Fast Temporary Access | In-Memory |
+| KVBackend | Key-Value | Fast Temporary Access | In-Memory |
 
 For a complete list, see the [IO API docs][e2studio_io_api].
 
@@ -321,7 +321,7 @@ For a complete list, see the [IO API docs][e2studio_io_api].
 Available perturbations include but are not limited to:
 
 | Perturbation Method | Type | Spatial Correlation | Temporal Correlation |
-|---------------------|------|-------------------|---------------------|
+| --------------------- | ------ | ------------------- | --------------------- |
 | Gaussian | Noise | None | None |
 | Correlated SphericalGaussian | Noise | Spherical | AR(1) process |
 | Spherical Gaussian | Noise | Spherical (Matern) | None |
@@ -345,7 +345,7 @@ For a complete list, see the [perturbations API docs][e2studio_pb_url].
 Available operations include but are not limited to:
 
 | Statistic | Type | Application |
-|-----------|------|-------------|
+| ----------- | ------ | ------------- |
 | RMSE | Error Metric | Forecast accuracy |
 | ACC | Correlation | Pattern correlation |
 | CRPS | Ensemble Metric | Probabilistic skill |

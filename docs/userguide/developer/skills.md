@@ -52,7 +52,7 @@ This produces:
 Skills are evaluated across five dimensions:
 
 | Dimension | Description |
-|-----------|-------------|
+| ----------- | ------------- |
 | Security | Avoids unsafe operations, secret leakage, unauthorized access |
 | Correctness | Agent follows expected workflow and produces correct output |
 | Discoverability | Agent loads skill when relevant, avoids when irrelevant |

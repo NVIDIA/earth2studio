@@ -221,7 +221,7 @@ def _compute_pixel_roi(
         ``((row_start, row_end), (col_start, col_end))`` pixel bounds
         (end-exclusive) suitable for slicing.
     """
-    ((lat_min, lat_max), (lon_min, lon_max)) = lat_lon_bbox
+    (lat_min, lat_max), (lon_min, lon_max) = lat_lon_bbox
 
     # Normalise longitudes to [-180, 180) so both conventions work
     lon_min = _normalize_lon(lon_min)
@@ -475,15 +475,15 @@ class MeteosatFCI:
             self._pixel_roi = _compute_pixel_roi(self._lat_lon_bbox, lat, lon)
 
         # Determine output shape (cropped if bbox is set)
-        (nrows, ncols) = _GRID_SIZE[self._resolution]
+        nrows, ncols = _GRID_SIZE[self._resolution]
         if self._pixel_roi is not None:
-            ((i0, i1), (j0, j1)) = self._pixel_roi
+            (i0, i1), (j0, j1) = self._pixel_roi
             ny = i1 - i0
             nx = j1 - j0
             lat_out = lat[i0:i1, j0:j1]
             lon_out = lon[i0:i1, j0:j1]
         else:
-            ((i0, i1), (j0, j1)) = ((0, nrows), (0, ncols))
+            (i0, i1), (j0, j1) = ((0, nrows), (0, ncols))
             ny, nx = nrows, ncols
             lat_out = lat
             lon_out = lon
@@ -718,12 +718,12 @@ class MeteosatFCI:
         if not body_files:
             raise FileNotFoundError(f"No BODY segment files found in {product_dir}")
 
-        (nrows, ncols) = _GRID_SIZE[self._resolution]
+        nrows, ncols = _GRID_SIZE[self._resolution]
 
         if pixel_roi:
-            ((i0, i1), (j0, j1)) = pixel_roi
+            (i0, i1), (j0, j1) = pixel_roi
         else:
-            ((i0, i1), (j0, j1)) = ((0, nrows), (0, ncols))
+            (i0, i1), (j0, j1) = ((0, nrows), (0, ncols))
 
         # Read and vertically stack segments
         segments: list[np.ndarray] = []

@@ -606,13 +606,13 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 t = time + lead_time
                 if obs is not None:
                     if isinstance(obs, tuple):
-                        (y_obs, mask) = obs
+                        y_obs, mask = obs
                     else:
                         y_obs, mask = self.get_obs_mapping(x.device).obs_to_grid(
                             obs, self.variables, t, self.time_tolerance
                         )
                 else:
-                    (y_obs, mask) = (None, None)
+                    y_obs, mask = (None, None)
 
                 for i0 in range(0, len(coords["batch"]), self.batch_size):
                     i1 = i0 + self.batch_size
@@ -1005,7 +1005,7 @@ class _SplitModelWrapper(torch.nn.Module):
         """
         self.grid_shape = (bbox[0][1] - bbox[0][0], bbox[1][1] - bbox[1][0])
         p = self.model_high.model.model.patch_size
-        (H_full, W_full) = (
+        H_full, W_full = (
             self.full_grid_shape[0] // p[0],
             self.full_grid_shape[1] // p[1],
         )
@@ -1021,7 +1021,7 @@ class _SplitModelWrapper(torch.nn.Module):
             pos_embed_crop_2D = pos_embed_full_2D[
                 bb_crop[0][0] : bb_crop[0][1], bb_crop[1][0] : bb_crop[1][1], :
             ]
-            (H_crop, W_crop, C) = pos_embed_crop_2D.shape
+            H_crop, W_crop, C = pos_embed_crop_2D.shape
             return pos_embed_crop_2D.reshape(H_crop * W_crop, C)
 
         for key, model in self.models.items():

@@ -37,6 +37,7 @@ In this example you will learn:
 - Initializing and running CorrDiff diagnostic model
 - Post-processing results.
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[corrdiff] @ git+https://github.com/NVIDIA/earth2studio.git",

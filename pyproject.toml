@@ -395,7 +395,7 @@ build = [
     "setuptools>=70.0.0",
 ]
 dev = [
-    "black==24.1.0",
+    "black==26.5.1",
     "coverage>=6.5.0",
     "interrogate>=1.5.0",
     "hatch>=1.16.5",
