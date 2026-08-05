@@ -25,6 +25,20 @@ BEFORE  = Earth2Studio's ERA5 source (``fetch`` gathers one read per (time, vari
 AFTER   = insitubatch InSituForecastFeed over the init window with the leads as shift views;
           each shared chunk is decoded exactly once (``dataset.cache_misses``).
 
+The BEFORE leg has two configurations, and they measure different things:
+
+  --before-cache OFF (default here)  Earth2Studio's per-source cache disabled, so every
+      redundant read goes back to the cloud. Symmetric with the feed, which holds no local
+      byte cache either -- but NOT how a stock Earth2Studio run behaves.
+  --before-cache ON                  the source's own default (``cache=True``), which wraps
+      the store in ``LocalCachingStore``. Redundant reads then hit local disk instead of the
+      network. That cache sits at the ``Store.get`` level and holds *compressed* buffers, so
+      zarr still decodes a fat chunk once per requested step either way -- the de-dup ratio
+      is unchanged, only the fetch component of the wall moves.
+
+Report both. The cached run is the honest status quo for wall-clock; the uncached run
+isolates read elimination from local-cache effects.
+
 Both read the SAME store over obstore anon, so the delta isolates insitubatch's
 dedup + bounded prefetch rather than the storage backend. Earth2Studio's zarr sources
 moved to obstore in #955; the feed uses ``obstore_store`` to match. Swap both to
@@ -39,6 +53,9 @@ Two regimes:
 """
 
 import argparse
+import os
+import shutil
+import tempfile
 import time
 from typing import Any
 
@@ -125,10 +142,35 @@ def run_after(
     }
 
 
+BEFORE_CACHE_DIRNAME = "insitubatch_bench_e2s_cache"
+
+
+def before_cache_root() -> str:
+    """Bench-owned Earth2Studio cache root for the ``--before-cache`` leg.
+
+    Deliberately not the user's real cache (``~/.cache/earth2studio`` or
+    ``$EARTH2STUDIO_CACHE``): this directory is wiped before every repeat so
+    each repeat measures a cold-cache campaign pass.
+    """
+    return os.path.join(tempfile.gettempdir(), BEFORE_CACHE_DIRNAME)
+
+
+def wipe_before_cache() -> None:
+    """Empty the bench-owned cache so the next repeat starts cold."""
+    root = before_cache_root()
+    if os.path.basename(root) != BEFORE_CACHE_DIRNAME:
+        raise RuntimeError(f"refusing to wipe unexpected cache path: {root}")
+    shutil.rmtree(root, ignore_errors=True)
+
+
 def run_before(
-    before_cls: Any, variables: list[str], init_times64: Any, leads_h: list[int]
+    before_cls: Any,
+    variables: list[str],
+    init_times64: Any,
+    leads_h: list[int],
+    cache: bool,
 ) -> dict[str, Any]:
-    src = before_cls(cache=False, verbose=False)
+    src = before_cls(cache=cache, verbose=False)
     init_dt = init_times64.astype("datetime64[s]").astype("O")
     leads_td = [np.timedelta64(h, "h") for h in leads_h]
     t0 = time.perf_counter()
@@ -153,7 +195,21 @@ def main() -> None:
     p.add_argument("--max-inflight", type=int, default=32)
     p.add_argument("--repeats", type=int, default=1)
     p.add_argument("--skip-before", action="store_true")
+    p.add_argument(
+        "--before-cache",
+        action="store_true",
+        help="run the BEFORE leg with Earth2Studio's per-source cache ON (its own "
+        "default), so redundant reads hit local disk instead of the cloud. Decode "
+        "still repeats per requested step either way. Uses a bench-owned cache "
+        "directory, wiped before each repeat so every repeat is a cold-cache pass.",
+    )
     args = p.parse_args()
+
+    if args.before_cache:
+        # Redirect Earth2Studio's cache to a bench-owned directory before any source
+        # is constructed. DATA_CACHE takes precedence downstream, so set both.
+        os.environ["EARTH2STUDIO_CACHE"] = before_cache_root()
+        os.environ["EARTH2STUDIO_DATA_CACHE"] = before_cache_root()
 
     cfg = STORES[args.store]
     start = args.start if args.start is not None else cfg["start"]
@@ -199,8 +255,12 @@ def main() -> None:
         after_walls.append(a["wall_s"])
         decodes, resident = a["chunk_decodes"], a["resident_peak"]
         if not args.skip_before:
+            if args.before_cache:
+                wipe_before_cache()  # every repeat is a cold-cache pass
             before_walls.append(
-                run_before(before_cls, args.vars, init_times64, leads_h)["wall_s"]
+                run_before(
+                    before_cls, args.vars, init_times64, leads_h, args.before_cache
+                )["wall_s"]
             )
         print(
             f"  repeat {r+1}/{args.repeats}: after={after_walls[-1]:.2f}s"
@@ -220,7 +280,12 @@ def main() -> None:
     print(f"  resident peak  : {resident} chunks")
     if before_walls:
         b_med, b_lo, b_hi = med3(before_walls)
-        print("\n=== BEFORE (E2S fetch, obstore anon, cache off) ===")
+        cache_note = (
+            "cache ON (E2S default; cold per repeat, redundant reads hit local disk)"
+            if args.before_cache
+            else "cache OFF (not the E2S default; every redundant read goes to the cloud)"
+        )
+        print(f"\n=== BEFORE (E2S fetch, obstore anon, {cache_note}) ===")
         print(f"  wall (med/min/max): {b_med:.2f} / {b_lo:.2f} / {b_hi:.2f} s")
         print("\n=== HEADLINE (medians) ===")
         print(
