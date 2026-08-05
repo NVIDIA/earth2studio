@@ -51,6 +51,10 @@ jobs:
   build-docs:
     name: Build full docs
     if: github.repository == 'NVIDIA/earth2studio'
+    outputs:
+      doc-version: ${{ steps.docs-meta.outputs.doc-version }}
+      is-rc: ${{ steps.docs-meta.outputs.is-rc }}
+      publish-path: ${{ steps.docs-meta.outputs.publish-path }}
     runs-on: linux-amd64-gpu-h100-latest-1
     timeout-minutes: 180
     container:
@@ -73,6 +77,32 @@ jobs:
 
       - name: Configure git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Resolve docs version
+        id: docs-meta
+        run: |
+          set -euo pipefail
+
+          ref_name="${GITHUB_REF_NAME##*/}"
+          doc_version="main"
+          is_rc="false"
+          publish_path="."
+
+          if [[ "$ref_name" =~ ^([0-9][0-9A-Za-z._]*)-RC.*$ ]]; then
+            doc_version="${BASH_REMATCH[1]}"
+            is_rc="true"
+            publish_path="v/${doc_version}"
+          fi
+
+          echo "DOC_VERSION=${doc_version}" >> "$GITHUB_ENV"
+          echo "doc-version=${doc_version}" >> "$GITHUB_OUTPUT"
+          echo "is-rc=${is_rc}" >> "$GITHUB_OUTPUT"
+          echo "publish-path=${publish_path}" >> "$GITHUB_OUTPUT"
+
+          echo "### Full docs build" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Branch: \`${GITHUB_REF_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- DOC_VERSION: \`${doc_version}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Publish path: \`${publish_path}\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Restore model cache
         uses: actions/cache/restore@v5
@@ -117,6 +147,8 @@ jobs:
     if: github.repository == 'NVIDIA/earth2studio'
     needs: build-docs
     runs-on: linux-amd64-cpu8
+    environment:
+      name: docs-publish
     container:
       image: *e2s_ci_image
       credentials:
@@ -124,7 +156,9 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     env:
       GH_PAGES_FOLDER: ${{ runner.temp }}/gh-pages
+      DOC_VERSION: ${{ needs.build-docs.outputs.doc-version }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PUBLISH_PATH: ${{ needs.build-docs.outputs.publish-path }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -152,7 +186,13 @@ jobs:
             "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
             "$GH_PAGES_FOLDER"
 
-          rsync -a --delete docs/_build/html/ "$GH_PAGES_FOLDER/"
+          target_dir="$GH_PAGES_FOLDER"
+          if [ "$PUBLISH_PATH" != "." ]; then
+            target_dir="$GH_PAGES_FOLDER/$PUBLISH_PATH"
+          fi
+
+          mkdir -p "$target_dir"
+          rsync -a --delete docs/_build/html/ "$target_dir/"
 
           git_sha_short=$(git rev-parse --short HEAD)
           cd "$GH_PAGES_FOLDER"
@@ -163,5 +203,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "[CI] Full Docs Build ${git_sha_short}"
+          git commit -m "[CI] Full Docs Build ${DOC_VERSION} ${git_sha_short}"
           git push origin gh-pages
