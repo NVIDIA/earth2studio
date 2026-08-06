@@ -115,8 +115,6 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    env:
-      GH_PAGES_FOLDER: ${{ runner.temp }}/gh-pages
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -134,6 +132,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+
+          GH_PAGES_FOLDER="${RUNNER_TEMP}/gh-pages"
 
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
