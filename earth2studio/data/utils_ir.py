@@ -27,6 +27,7 @@ from __future__ import annotations
 import functools
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -45,7 +46,7 @@ IASI_CHANNELS = 8461
 # the archive's band_calibration_quality column boundaries.
 CRIS_SPACING_CM = 0.625
 CRIS_BANDS = (
-    (650.0, 1, 713),    # long wave
+    (650.0, 1, 713),  # long wave
     (1210.0, 714, 1578),  # mid wave
     (2155.0, 1579, 2211),  # short wave
 )
@@ -104,9 +105,7 @@ def ir_channel_preset(name: str) -> dict[str, tuple[int, ...]]:
     return {sensor: channels[:length] for sensor, channels in ir_channel_sets().items()}
 
 
-def wavenumber_cm_inverse(
-    sensor: str, channels: Sequence[int] | np.ndarray
-) -> np.ndarray:
+def wavenumber_cm_inverse(sensor: str, channels: Sequence[int] | Any) -> Any:
     """Centre wavenumber in cm⁻¹ for each channel number.
 
     Parameters
@@ -139,11 +138,11 @@ def wavenumber_cm_inverse(
 
 
 def brightness_temperature(
-    radiance: np.ndarray,
-    wavenumber: np.ndarray,
+    radiance: Any,
+    wavenumber: Any,
     *,
-    dtype: np.dtype = np.float64,
-) -> np.ndarray:
+    dtype: Any = np.float64,
+) -> Any:
     """Monochromatic Planck inversion: radiance → brightness temperature.
 
     Parameters
@@ -167,7 +166,7 @@ def brightness_temperature(
     return np.where(radiance > 0, temperature, np.nan)
 
 
-def iasi_radiance_mw(scra: np.ndarray, chsf: np.ndarray) -> np.ndarray:
+def iasi_radiance_mw(scra: Any, chsf: Any) -> Any:
     """Convert IASI SCRA integer codes to mW m⁻² sr⁻¹ (cm⁻¹)⁻¹.
 
     The NNJA IASI BUFR stores per-footprint SCRA integer values and per-band
@@ -187,12 +186,12 @@ def iasi_radiance_mw(scra: np.ndarray, chsf: np.ndarray) -> np.ndarray:
     return scra * np.power(10.0, -chsf) * 1e5
 
 
-def cris_radiance_mw(srad: np.ndarray) -> np.ndarray:
+def cris_radiance_mw(srad: Any) -> Any:
     """Convert CrIS SRAD (W m⁻² sr⁻¹ (cm⁻¹)⁻¹) to mW m⁻² sr⁻¹ (cm⁻¹)⁻¹."""
     return np.asarray(srad, dtype=np.float64) * 1000.0
 
 
-def _check_range(sensor: str, channels: np.ndarray, low: int, high: int) -> None:
+def _check_range(sensor: str, channels: Any, low: int, high: int) -> None:
     if channels.size and (channels.min() < low or channels.max() > high):
         raise ValueError(
             f"{sensor} channels must be in [{low}, {high}]; "

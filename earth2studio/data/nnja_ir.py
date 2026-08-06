@@ -57,8 +57,7 @@ from earth2studio.data.utils import (
     obstore_fetch_to_cache,
     prep_data_inputs,
 )
-from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
-from earth2studio.data.utils_ir import ir_channel_preset, ir_channel_sets
+from earth2studio.data.utils_ir import ir_channel_preset
 from earth2studio.data.utils_ncep import (
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
     compile_dataframe,
@@ -67,10 +66,7 @@ from earth2studio.data.utils_ncep import (
     resolve_output_schema,
 )
 from earth2studio.lexicon.nnja_ir import NNJAObsIRSatLexicon
-from earth2studio.utils.imports import (
-    OptionalDependencyFailure,
-    check_optional_dependencies,
-)
+from earth2studio.utils.imports import check_optional_dependencies
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
@@ -80,15 +76,15 @@ NNJA_PREFIX = "observations/reanalysis"
 
 @dataclass(frozen=True)
 class _NNJAIRProduct:
-    prefix: str     # path segment after NNJA_PREFIX, e.g. "airs/airsev"
-    filename: str   # BUFR filename stem, e.g. "airsev"
+    prefix: str  # path segment after NNJA_PREFIX, e.g. "airs/airsev"
+    filename: str  # BUFR filename stem, e.g. "airsev"
     first_year: int
 
 
 _NNJA_IR_PRODUCTS: dict[str, _NNJAIRProduct] = {
     "airs": _NNJAIRProduct("airs/airsev", "airsev", 2002),
     "iasi": _NNJAIRProduct("iasi/mtiasi", "mtiasi", 2007),
-    "cris": _NNJAIRProduct("cris/cris",   "cris",   2012),
+    "cris": _NNJAIRProduct("cris/cris", "cris", 2012),
 }
 
 # Valid satellite platforms per sensor (subset of NCEP_MICROWAVE_SATELLITES).
@@ -235,6 +231,7 @@ class NNJAObsIRSat:
         self.async_timeout = async_timeout
 
         import uuid
+
         self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
 
         self._store = S3Store(
