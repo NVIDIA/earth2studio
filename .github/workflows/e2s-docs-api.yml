@@ -47,7 +47,7 @@ env:
 jobs:
   build-docs:
     name: Build API docs
-    if: github.repository == 'NVIDIA/earth2studio'
+    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch
     runs-on: linux-amd64-cpu8
     timeout-minutes: 60
     container:
@@ -56,6 +56,18 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - name: Validate docs publication ref
+        run: |
+          set -euo pipefail
+
+          default_branch="${{ github.event.repository.default_branch }}"
+          if [[ "$GITHUB_REF_NAME" != "$default_branch" ]]; then
+            echo "Ref '${GITHUB_REF_NAME}' is not a trusted API docs publication ref." >&2
+            exit 1
+          fi
+
+          echo "API docs publication ref: ${GITHUB_REF_NAME}"
+
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
@@ -90,12 +102,14 @@ jobs:
 
   publish-docs:
     name: Publish API docs
-    if: github.repository == 'NVIDIA/earth2studio'
+    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch
     permissions:
       contents: write
       packages: read
     needs: build-docs
     runs-on: linux-amd64-cpu8
+    environment:
+      name: docs-publish
     container:
       image: *e2s_ci_image
       credentials:
