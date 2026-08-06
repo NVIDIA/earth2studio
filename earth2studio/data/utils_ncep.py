@@ -1261,7 +1261,7 @@ _NCEP_SATELLITE_NAME_BY_SAID: dict[int, str] = {
     225: "n20",
     226: "n21",
     # IR sounder platforms
-    784: "aqua",   # Aqua AIRS
+    784: "aqua",  # Aqua AIRS
 }
 NCEP_MICROWAVE_SATELLITES = frozenset(_NCEP_SATELLITE_NAME_BY_SAID.values())
 
@@ -1686,13 +1686,13 @@ def decode_microwave(
 # AIRS:  observation field is TMBR (already brightness temperature)
 # IASI:  SCRA (scaled integer radiance, W m⁻² sr⁻¹ m⁻¹); per-band CHSF exponent
 # CrIS:  SRAD (float radiance, W m⁻² sr⁻¹ cm⁻¹)
-_SCRA = 14046   # IASI scaled radiance integer
-_SRAD = 14044   # CrIS channel radiance float
-_ACQF = 33032   # AIRS channel quality flags
-_STCH = 25140   # IASI start-channel for CHSF band
-_ENCH = 25141   # IASI end-channel for CHSF band
-_CHSF = 25142   # IASI channel scale factor (exponent)
-_FORN = 5045    # CrIS field-of-regard number
+_SCRA = 14046  # IASI scaled radiance integer
+_SRAD = 14044  # CrIS channel radiance float
+_ACQF = 33032  # AIRS channel quality flags
+_STCH = 25140  # IASI start-channel for CHSF band
+_ENCH = 25141  # IASI end-channel for CHSF band
+_CHSF = 25142  # IASI channel scale factor (exponent)
+_FORN = 5045  # CrIS field-of-regard number
 
 _IR_OBS_DESCRIPTOR: dict[str, int] = {
     "airs": _BRIGHTNESS_TEMPERATURE,
@@ -1702,7 +1702,7 @@ _IR_OBS_DESCRIPTOR: dict[str, int] = {
 
 _IR_QUALITY_DESCRIPTOR: dict[str, int] = {
     "airs": _ACQF,
-    "iasi": 0,   # no per-channel quality flag in NNJA IASI aggregate
+    "iasi": 0,  # no per-channel quality flag in NNJA IASI aggregate
     "cris": 0,
 }
 
@@ -1776,8 +1776,9 @@ def _decode_ir_subset(
     satellite_id = _as_optional_int(scalars.get(_SAID))
     if observation_time is None or satellite_id is None or not channels:
         return []
-    if observation_time < np.datetime64(datetime_min, "ns") or \
-       observation_time > np.datetime64(datetime_max, "ns"):
+    if observation_time < np.datetime64(
+        datetime_min, "ns"
+    ) or observation_time > np.datetime64(datetime_max, "ns"):
         return []
 
     latitude = _as_float(scalars.get(_LAT_HIGH))
@@ -1785,11 +1786,17 @@ def _decode_ir_subset(
     if not np.isfinite(latitude) or not np.isfinite(longitude):
         latitude = _as_float(scalars.get(_LAT_COARSE))
         longitude = _as_float(scalars.get(_LON_COARSE))
-    if not np.isfinite(latitude) or latitude < -90.0 or latitude > 90.0 \
-            or not np.isfinite(longitude):
+    if (
+        not np.isfinite(latitude)
+        or latitude < -90.0
+        or latitude > 90.0
+        or not np.isfinite(longitude)
+    ):
         return []
 
-    satellite = _NCEP_SATELLITE_NAME_BY_SAID.get(satellite_id, f"satellite-{satellite_id}")
+    satellite = _NCEP_SATELLITE_NAME_BY_SAID.get(
+        satellite_id, f"satellite-{satellite_id}"
+    )
     if satellites is not None and satellite not in satellites:
         return []
 
@@ -1867,14 +1874,16 @@ def _decode_ir_subset(
 
         quality_val = channel.get(quality_descriptor) if quality_descriptor else None
 
-        rows.append({
-            **scalar_values,
-            "sensor_index": channel_number,
-            "wavenumber": wn_out,
-            "quality": _as_optional_int(quality_val),
-            "observation": bt,
-            "variable": sensor,
-        })
+        rows.append(
+            {
+                **scalar_values,
+                "sensor_index": channel_number,
+                "wavenumber": wn_out,
+                "quality": _as_optional_int(quality_val),
+                "observation": bt,
+                "variable": sensor,
+            }
+        )
     return rows
 
 
@@ -1888,7 +1897,14 @@ def _decode_ir_message_batch(
         frozenset[str] | None,
     ],
 ) -> tuple[list[dict[str, Any]], int]:
-    sensor, indexed_messages, channels_filter, datetime_min, datetime_max, satellites = arguments
+    (
+        sensor,
+        indexed_messages,
+        channels_filter,
+        datetime_min,
+        datetime_max,
+        satellites,
+    ) = arguments
     rows: list[dict[str, Any]] = []
     failures = 0
     for _index, message_bytes in indexed_messages:
@@ -1907,8 +1923,13 @@ def _decode_ir_message_batch(
             ):
                 rows.extend(
                     _decode_ir_subset(
-                        descs, vals, sensor, channels_filter,
-                        datetime_min, datetime_max, satellites,
+                        descs,
+                        vals,
+                        sensor,
+                        channels_filter,
+                        datetime_min,
+                        datetime_max,
+                        satellites,
                     )
                 )
         except Exception:
@@ -1943,7 +1964,9 @@ def decode_ir_sounder(
         Number of parallel decode worker processes.
     """
     if sensor not in _IR_OBS_DESCRIPTOR:
-        raise ValueError(f"unsupported IR sensor {sensor!r}; valid: {sorted(_IR_OBS_DESCRIPTOR)}")
+        raise ValueError(
+            f"unsupported IR sensor {sensor!r}; valid: {sorted(_IR_OBS_DESCRIPTOR)}"
+        )
 
     decode_workers = max(1, decode_workers)
     file_data = pathlib.Path(path).read_bytes()
@@ -1954,7 +1977,7 @@ def decode_ir_sounder(
     sat_filter = frozenset(satellites) if satellites is not None else None
     indexed_messages = list(enumerate(msg for msg, _ in messages))
     batches = [
-        indexed_messages[i: i + _DECODE_BATCH_SIZE]
+        indexed_messages[i : i + _DECODE_BATCH_SIZE]
         for i in range(0, len(indexed_messages), _DECODE_BATCH_SIZE)
     ]
     arguments = [
@@ -1971,7 +1994,9 @@ def decode_ir_sounder(
             initializer=_init_decode_worker,
             initargs=(table_b, table_d),
         ) as pool:
-            for batch_rows, batch_failures in pool.map(_decode_ir_message_batch, arguments):
+            for batch_rows, batch_failures in pool.map(
+                _decode_ir_message_batch, arguments
+            ):
                 rows.extend(batch_rows)
                 failures += batch_failures
     else:
@@ -1982,8 +2007,14 @@ def decode_ir_sounder(
             failures += batch_failures
 
     if failures:
-        logger.warning(f"decode_ir_sounder: {failures}/{len(messages)} messages failed for {sensor}")
+        logger.warning(
+            f"decode_ir_sounder: {failures}/{len(messages)} messages failed for {sensor}"
+        )
     logger.debug(
         f"Decoded {len(rows):,} {sensor} IR rows in {time.perf_counter() - started:.1f}s"
     )
-    return pd.DataFrame(rows) if rows else pd.DataFrame(columns=list(NCEP_MICROWAVE_OUTPUT_SCHEMA.names))
+    return (
+        pd.DataFrame(rows)
+        if rows
+        else pd.DataFrame(columns=list(NCEP_MICROWAVE_OUTPUT_SCHEMA.names))
+    )
