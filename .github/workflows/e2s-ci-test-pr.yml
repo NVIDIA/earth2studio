@@ -148,6 +148,12 @@ jobs:
           UV_NO_SYNC: "1"
         run: make license
 
+      - name: Audit GitHub Actions workflows
+        env:
+          UV_NO_SYNC: "1"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: make zizmor
+
   test:
     name: Test
     if: github.repository == 'NVIDIA/earth2studio'
