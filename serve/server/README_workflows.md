@@ -249,7 +249,7 @@ class MyParameters(WorkflowParameters):
 ### **Pydantic Field Options:**
 
 | Field Option | Purpose | Example |
-|-------------|---------|---------|
+| ------------- | --------- | --------- |
 | `description` | API documentation | `Field(description="Input text to process")` |
 | `default` | Default value | `Field(default="hello", description="...")` |
 | `ge`, `le` | Numeric validation | `Field(ge=1, le=100, description="Count")` |
@@ -430,7 +430,7 @@ Once registered, your workflow becomes available via REST API:
 
 <!-- markdownlint-disable MD013 -->
 | Method | Endpoint | Purpose |
-|--------|----------|---------|
+| -------- | ---------- | --------- |
 | `GET` | `/v1/infer/workflows` | List all available workflows |
 | `POST` | `/v1/infer/{workflow_name}` | Execute a workflow |
 | `GET` | `/v1/infer/{workflow_name}/{execution_id}/status` | Check execution status |
@@ -452,7 +452,7 @@ curl -X GET "http://localhost:8000/workflows"
 {
   "workflows": {
     "deterministic_workflow": "Earth2Studio deterministic forecast with visualization",
-    "ensemble_workflow": "Earth2Studio ensemble forecast workflow with perturbation and visualization"
+    "ensemble_workflow": "Earth2Studio ensemble forecast with perturbation"
   }
 }
 ```
