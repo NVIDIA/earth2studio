@@ -44,7 +44,7 @@ env:
 jobs:
   build-docs:
     name: Build full docs
-    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && (github.ref_name == github.event.repository.default_branch || endsWith(github.ref_name, '-rc') || endsWith(github.ref_name, '-RC'))
+    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && (github.ref_name == github.event.repository.default_branch || endsWith(github.ref_name, '-rc'))
     outputs:
       doc-version: ${{ steps.docs-meta.outputs.doc-version }}
       is-rc: ${{ steps.docs-meta.outputs.is-rc }}
@@ -77,7 +77,7 @@ jobs:
 
           if [[ "$GITHUB_REF_NAME" == "$default_branch" ]]; then
             :
-          elif [[ "$ref_name" =~ ^([0-9]+[.][0-9]+[.][0-9]+[0-9A-Za-z._]*)-[Rr][Cc]$ ]]; then
+          elif [[ "$ref_name" =~ ^([0-9]+[.][0-9]+[.][0-9]+[0-9A-Za-z._]*)-rc$ ]]; then
             doc_version="${BASH_REMATCH[1]}"
             is_rc="true"
             publish_path="v/${doc_version}"
@@ -151,7 +151,7 @@ jobs:
 
   publish-docs:
     name: Publish full docs
-    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && (github.ref_name == github.event.repository.default_branch || endsWith(github.ref_name, '-rc') || endsWith(github.ref_name, '-RC'))
+    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && (github.ref_name == github.event.repository.default_branch || endsWith(github.ref_name, '-rc'))
     permissions:
       contents: write
       packages: read
