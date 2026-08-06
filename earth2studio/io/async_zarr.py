@@ -203,12 +203,6 @@ class AsyncZarrBackend:
 
     Warning
     -------
-    This IO backend has a non-blocking mode which will execute IO writes in seperate
-    threads. There is an assumption that the data being written will not be re-allocated
-    during the writes.
-
-    Warning
-    -------
     This IO backend presently does not support overwritting existing Zarr stores. Only
     creation of new arrays or writing to existing.
 
@@ -345,7 +339,7 @@ class AsyncZarrBackend:
             )
 
         self.overwrite = False  # Not formally supported
-        self.parallel_coords = self._scrub_coordinates(parallel_coords)
+        self.parallel_coords = self._scrub_coordinates(parallel_coords.copy())
         # Parameter to also chunk some of the other dims if needed
         self.chunked_coords: dict[str, int] = dict(chunked_coords)
         self.shard_coords: dict[str, int] = dict(shard_coords)
@@ -483,6 +477,10 @@ class AsyncZarrBackend:
                 )
             zstore = zarr.storage.FsspecStore(fs, path=root)
 
+        # Zarr ≥3.1 reads a zarr.json consolidated-metadata snapshot
+        # Any workflow calling zarr.consolidate_metadata on exit therefore makes arrays
+        # created on the next run invisible to the backend's own lookups
+        zarr_kwargs = {"use_consolidated": False, **zarr_kwargs}
         zs = await zarr.api.asynchronous.open(store=zstore, **zarr_kwargs)
         return zs, fs
 
@@ -625,7 +623,11 @@ class AsyncZarrBackend:
         for key in array_coords:
             chunk_size = chunked[key]
             if key not in self.shard_coords:
-                shards[key] = chunk_size
+                shards[key] = (
+                    chunk_size
+                    if key in self.parallel_coords
+                    else array_coords[key].shape[0]
+                )
                 continue
 
             shard_size = self.shard_coords[key]
@@ -684,9 +686,9 @@ class AsyncZarrBackend:
             # Handle some datetime conversions for users
             if np.issubdtype(value.dtype, object):
                 if isinstance(value[0], datetime.datetime):
-                    value = value.astype("datetime64[ns]")
+                    coords[key] = value.astype("datetime64[ns]")
                 elif isinstance(value[0], datetime.timedelta):
-                    value = value.astype("timedelta64[ns]")
+                    coords[key] = value.astype("timedelta64[ns]")
 
             if len(coords[key].shape) == 0:
                 raise ValueError(
@@ -745,7 +747,7 @@ class AsyncZarrBackend:
         x = {array_name[i]: x[i] for i in range(len(x))}
         dtypes = [torch_to_numpy_dtype_dict[x0.dtype] for x0 in x.values()]
 
-        coords = self._scrub_coordinates(coords)
+        coords = self._scrub_coordinates(coords.copy())
         # Initialize arrays (coords and data) if needed
         # Note that this is blocking, which is intentional so we avoid race conditions
         # upon array creation
@@ -1071,10 +1073,25 @@ class AsyncZarrBackend:
         """Drains in flight writes and writes out every incomplete shard buffer
 
         Draining first ensures no write is still accumulating into a buffer that is
-        about to be flushed.
+        about to be flushed. All in flight writes are waited on even when one of
+        them failed — a raise on the first error would abandon the rest mid write —
+        and the first error is raised after the drain.
         """
-        self._limit_pool_size(0)
+        first_error: BaseException | None = None
+        if self.io_futures:
+            # Detach the list first so a cancelled future cannot leave drained
+            # writes behind, and so the buffer flush below always runs
+            io_futures, self.io_futures = self.io_futures, []
+            concurrent.futures.wait(io_futures)
+            for io_future in io_futures:
+                try:
+                    io_future.result()
+                except BaseException as e:  # noqa: BLE001
+                    if first_error is None:
+                        first_error = e
         fsspec.asyn.sync(self.loop, self.async_flush)
+        if first_error is not None:
+            raise first_error
 
     def _limit_pool_size(self, max_pool_size: int) -> None:
         """Helper function to limit the number of parallel io processes
@@ -1143,6 +1160,11 @@ class AsyncZarrBackend:
             self.loop, self.prepare_inputs, x, coords, array_name
         )
 
+        if not self.blocking:
+            # prevents race conditions when the data is mutated in place before the
+            # write is completed.
+            x = {key: value.clone() for key, value in x.items()}
+
         # Threads are cycled based on rotating index, pretty crude but works
         self._limit_pool_size(len(self.loop_pool) - 1)
         future = asyncio.run_coroutine_threadsafe(
@@ -1171,6 +1193,13 @@ class AsyncZarrBackend:
         array_name: str | list[str],
     ) -> None:
         """Async write data
+
+        Warning
+        -------
+        Unlike the non-blocking ``write``, no copy of the data is made here.
+        The tensors must not be mutated or re-allocated until this coroutine
+        completes — scheduling it as a task while stepping a state tensor in
+        place will silently store the mutated values.
 
         Parameters
         ----------
