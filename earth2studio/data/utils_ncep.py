@@ -1260,6 +1260,8 @@ _NCEP_SATELLITE_NAME_BY_SAID: dict[int, str] = {
     224: "npp",
     225: "n20",
     226: "n21",
+    # IR sounder platforms
+    784: "aqua",   # Aqua AIRS
 }
 NCEP_MICROWAVE_SATELLITES = frozenset(_NCEP_SATELLITE_NAME_BY_SAID.values())
 
@@ -1674,3 +1676,314 @@ def decode_microwave(
         f"{time.perf_counter() - started:.1f}s"
     )
     return _rows_to_dataframe(rows)
+
+
+# ---------------------------------------------------------------------------
+# IR sounder decode (AIRS, IASI, CrIS)
+# ---------------------------------------------------------------------------
+
+# BUFR element descriptor IDs for IR sounder aggregate files.
+# AIRS:  observation field is TMBR (already brightness temperature)
+# IASI:  SCRA (scaled integer radiance, W m⁻² sr⁻¹ m⁻¹); per-band CHSF exponent
+# CrIS:  SRAD (float radiance, W m⁻² sr⁻¹ cm⁻¹)
+_SCRA = 14046   # IASI scaled radiance integer
+_SRAD = 14044   # CrIS channel radiance float
+_ACQF = 33032   # AIRS channel quality flags
+_STCH = 25140   # IASI start-channel for CHSF band
+_ENCH = 25141   # IASI end-channel for CHSF band
+_CHSF = 25142   # IASI channel scale factor (exponent)
+_FORN = 5045    # CrIS field-of-regard number
+
+_IR_OBS_DESCRIPTOR: dict[str, int] = {
+    "airs": _BRIGHTNESS_TEMPERATURE,
+    "iasi": _SCRA,
+    "cris": _SRAD,
+}
+
+_IR_QUALITY_DESCRIPTOR: dict[str, int] = {
+    "airs": _ACQF,
+    "iasi": 0,   # no per-channel quality flag in NNJA IASI aggregate
+    "cris": 0,
+}
+
+
+def _decode_ir_subset(
+    descriptors: Sequence[Any],
+    values: Sequence[Any],
+    sensor: str,
+    channels_filter: frozenset[int] | None,
+    datetime_min: datetime,
+    datetime_max: datetime,
+    satellites: frozenset[str] | None,
+) -> list[dict[str, Any]]:
+    """Decode one BUFR subset (one IR footprint) into long rows."""
+    obs_descriptor = _IR_OBS_DESCRIPTOR[sensor]
+    quality_descriptor = _IR_QUALITY_DESCRIPTOR[sensor]
+
+    scalars: dict[int, Any] = {}
+    # IASI per-band CHSF table: [(start_ch, end_ch, chsf), ...]
+    chsf_bands: list[tuple[int, int, int]] = []
+    _stch: int | None = None
+    _ench: int | None = None
+
+    channels: dict[int, dict[int, Any]] = {}
+    current_channel: int | None = None
+    in_channel_loop = False
+
+    for descriptor, value in zip(descriptors, values):
+        did = int(descriptor.id)
+
+        # ---- IASI band scale factor accumulation (header section) ----
+        if did == _STCH and not in_channel_loop:
+            _stch = _as_optional_int(value)
+            continue
+        if did == _ENCH and not in_channel_loop:
+            _ench = _as_optional_int(value)
+            continue
+        if did == _CHSF and not in_channel_loop:
+            chsf = _as_optional_int(value)
+            if _stch is not None and _ench is not None and chsf is not None:
+                chsf_bands.append((_stch, _ench, chsf))
+            _stch = _ench = None
+            continue
+
+        # ---- Channel loop marker ----
+        if did == 31002:  # DRF16BIT — delayed replication count
+            in_channel_loop = True
+            continue
+
+        # ---- Channel data ----
+        if did == _CHANNEL_NUMBER and in_channel_loop:
+            current_channel = _as_optional_int(value)
+            if current_channel is not None:
+                channels.setdefault(current_channel, {})
+            continue
+
+        if in_channel_loop and current_channel is not None:
+            if did == obs_descriptor:
+                channels[current_channel].setdefault(obs_descriptor, value)
+            elif quality_descriptor and did == quality_descriptor:
+                channels[current_channel].setdefault(quality_descriptor, value)
+            continue
+
+        # ---- Scalar header fields ----
+        if did in _SCALAR_DESCRIPTORS and value is not None and did not in scalars:
+            scalars[did] = value
+        elif did == _FORN and value is not None:
+            scalars[_FORN] = value  # CrIS field-of-regard
+
+    observation_time = _observation_time(scalars)
+    satellite_id = _as_optional_int(scalars.get(_SAID))
+    if observation_time is None or satellite_id is None or not channels:
+        return []
+    if observation_time < np.datetime64(datetime_min, "ns") or \
+       observation_time > np.datetime64(datetime_max, "ns"):
+        return []
+
+    latitude = _as_float(scalars.get(_LAT_HIGH))
+    longitude = _as_float(scalars.get(_LON_HIGH))
+    if not np.isfinite(latitude) or not np.isfinite(longitude):
+        latitude = _as_float(scalars.get(_LAT_COARSE))
+        longitude = _as_float(scalars.get(_LON_COARSE))
+    if not np.isfinite(latitude) or latitude < -90.0 or latitude > 90.0 \
+            or not np.isfinite(longitude):
+        return []
+
+    satellite = _NCEP_SATELLITE_NAME_BY_SAID.get(satellite_id, f"satellite-{satellite_id}")
+    if satellites is not None and satellite not in satellites:
+        return []
+
+    scan_position = _as_optional_int(scalars.get(_FOV_NUMBER))
+
+    scalar_values = {
+        "time": observation_time,
+        "class": "rad",
+        "lat": latitude,
+        "lon": longitude % 360.0,
+        "elev": _as_float(scalars.get(_SURFACE_ELEVATION)),
+        "scan_angle": np.nan,  # IR scan geometry is sensor-specific; omitted here
+        "scan_position": scan_position,
+        "scan_line": _as_optional_int(scalars.get(_SCAN_LINE)),
+        "solza": _as_float(scalars.get(_SOLAR_ZENITH)),
+        "solaza": _as_float(scalars.get(_SOLAR_AZIMUTH)),
+        "satellite_za": _as_float(scalars.get(_SATELLITE_ZENITH)),
+        "satellite_aza": _as_float(scalars.get(_BEARING_OR_AZIMUTH)),
+        "satellite": satellite,
+    }
+
+    # Build per-channel CHSF lookup for IASI
+    def _iasi_chsf(ch: int) -> int | None:
+        for s, e, c in chsf_bands:
+            if s <= ch <= e:
+                return c
+        return None
+
+    from earth2studio.data.utils_ir import (
+        brightness_temperature,
+        cris_radiance_mw,
+        iasi_radiance_mw,
+        wavenumber_cm_inverse,
+    )
+
+    rows: list[dict[str, Any]] = []
+    for channel_number, channel in channels.items():
+        if channels_filter is not None and channel_number not in channels_filter:
+            continue
+
+        raw_obs = channel.get(obs_descriptor)
+        if raw_obs is None:
+            continue
+        obs_float = _as_float(raw_obs)
+        if not np.isfinite(obs_float):
+            continue
+
+        # Convert to brightness temperature
+        if sensor == "airs":
+            bt = obs_float  # already Kelvin
+        elif sensor == "iasi":
+            chsf = _iasi_chsf(channel_number)
+            if chsf is None:
+                continue
+            radiance = iasi_radiance_mw(np.array([obs_float]), np.array([chsf]))[0]
+            wn = wavenumber_cm_inverse("iasi", [channel_number])[0]
+            bt = float(brightness_temperature(np.array([radiance]), np.array([wn]))[0])
+        elif sensor == "cris":
+            radiance = cris_radiance_mw(np.array([obs_float]))[0]
+            wn = wavenumber_cm_inverse("cris", [channel_number])[0]
+            bt = float(brightness_temperature(np.array([radiance]), np.array([wn]))[0])
+        else:
+            continue
+
+        if not np.isfinite(bt):
+            continue
+
+        wn_out = _as_float(channel.get(_CHANNEL_FREQUENCY))
+        if not np.isfinite(wn_out):
+            # Fall back to the table
+            try:
+                wn_out = float(wavenumber_cm_inverse(sensor, [channel_number])[0])
+            except Exception:
+                wn_out = np.nan
+
+        quality_val = channel.get(quality_descriptor) if quality_descriptor else None
+
+        rows.append({
+            **scalar_values,
+            "sensor_index": channel_number,
+            "wavenumber": wn_out,
+            "quality": _as_optional_int(quality_val),
+            "observation": bt,
+            "variable": sensor,
+        })
+    return rows
+
+
+def _decode_ir_message_batch(
+    arguments: tuple[
+        str,
+        list[tuple[int, bytes]],
+        frozenset[int] | None,
+        datetime,
+        datetime,
+        frozenset[str] | None,
+    ],
+) -> tuple[list[dict[str, Any]], int]:
+    sensor, indexed_messages, channels_filter, datetime_min, datetime_max, satellites = arguments
+    rows: list[dict[str, Any]] = []
+    failures = 0
+    for _index, message_bytes in indexed_messages:
+        if _worker_decoder is None:
+            failures += 1
+            continue
+        try:
+            with _silence_bufr_noise():
+                message = _worker_decoder.process(message_bytes)
+            if not message.n_subsets.value:
+                continue
+            td = message.template_data.value
+            for descs, vals in zip(
+                td.decoded_descriptors_all_subsets,
+                td.decoded_values_all_subsets,
+            ):
+                rows.extend(
+                    _decode_ir_subset(
+                        descs, vals, sensor, channels_filter,
+                        datetime_min, datetime_max, satellites,
+                    )
+                )
+        except Exception:
+            failures += 1
+    return rows, failures
+
+
+def decode_ir_sounder(
+    path: str,
+    sensor: str,
+    channels: frozenset[int] | None,
+    datetime_min: datetime,
+    datetime_max: datetime,
+    satellites: tuple[str, ...] | None = None,
+    decode_workers: int = 8,
+) -> pd.DataFrame:
+    """Decode one NNJA IR sounder aggregate BUFR file into a long-format DataFrame.
+
+    Parameters
+    ----------
+    path : str
+        Local path to the aggregate BUFR file (``airsev``, ``mtiasi``, ``cris``).
+    sensor : str
+        One of ``"airs"``, ``"iasi"``, ``"cris"``.
+    channels : frozenset[int] | None
+        Channel numbers to keep; ``None`` keeps all.
+    datetime_min, datetime_max : datetime
+        Observation time window.
+    satellites : tuple[str, ...] | None
+        Platform name filter; ``None`` includes all.
+    decode_workers : int
+        Number of parallel decode worker processes.
+    """
+    if sensor not in _IR_OBS_DESCRIPTOR:
+        raise ValueError(f"unsupported IR sensor {sensor!r}; valid: {sorted(_IR_OBS_DESCRIPTOR)}")
+
+    decode_workers = max(1, decode_workers)
+    file_data = pathlib.Path(path).read_bytes()
+    table_b, table_d, messages = _parse_prepbufr_messages(file_data, silence_noise=True)
+    if not table_b or not table_d:
+        raise ValueError(f"Embedded NCEP BUFR tables missing from {path}")
+
+    sat_filter = frozenset(satellites) if satellites is not None else None
+    indexed_messages = list(enumerate(msg for msg, _ in messages))
+    batches = [
+        indexed_messages[i: i + _DECODE_BATCH_SIZE]
+        for i in range(0, len(indexed_messages), _DECODE_BATCH_SIZE)
+    ]
+    arguments = [
+        (sensor, batch, channels, datetime_min, datetime_max, sat_filter)
+        for batch in batches
+    ]
+
+    started = time.perf_counter()
+    rows: list[dict[str, Any]] = []
+    failures = 0
+    if decode_workers > 1 and len(batches) > 1:
+        with ProcessPoolExecutor(
+            max_workers=min(decode_workers, len(batches)),
+            initializer=_init_decode_worker,
+            initargs=(table_b, table_d),
+        ) as pool:
+            for batch_rows, batch_failures in pool.map(_decode_ir_message_batch, arguments):
+                rows.extend(batch_rows)
+                failures += batch_failures
+    else:
+        _init_decode_worker(table_b, table_d)
+        for argument in arguments:
+            batch_rows, batch_failures = _decode_ir_message_batch(argument)
+            rows.extend(batch_rows)
+            failures += batch_failures
+
+    if failures:
+        logger.warning(f"decode_ir_sounder: {failures}/{len(messages)} messages failed for {sensor}")
+    logger.debug(
+        f"Decoded {len(rows):,} {sensor} IR rows in {time.perf_counter() - started:.1f}s"
+    )
+    return pd.DataFrame(rows) if rows else pd.DataFrame(columns=list(NCEP_MICROWAVE_OUTPUT_SCHEMA.names))
