@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.data import HRRR, Random, fetch_data
+from earth2studio.data import HRRR, Random, Random_FX, fetch_data
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.models.px.stormcastconus import _SplitModelWrapper
 from earth2studio.utils import handshake_dim
@@ -334,6 +334,54 @@ def test_stormcastconus_exceptions(device):
 
     with pytest.raises(RuntimeError):
         next(p.create_iterator(x, coords))
+
+
+def test_stormcastconus_conditioning_init_time():
+    p = _build_model()
+
+    class _SixHourlyFX(Random_FX):
+        def __call__(self, time, lead_time, variable):
+            ts = np.asarray(time, dtype="datetime64[h]")
+            hours = (ts - ts.astype("datetime64[D]")) / np.timedelta64(1, "h")
+            # simulate data source that fails if hour is not one of 00, 06, 12, 18
+            if np.any(hours.astype(int) % 6 != 0):
+                raise ValueError("forecast only available every 6 hours")
+            return super().__call__(time, lead_time, variable)
+
+    p.conditioning_data_source = _SixHourlyFX(
+        OrderedDict(
+            [
+                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
+                ("lon", np.linspace(0, 360, num=360)),
+            ]
+        )
+    )
+    coords = OrderedDict(
+        [
+            ("time", np.array([np.datetime64("2020-04-05T03:00")])),
+            ("lead_time", np.array([np.timedelta64(1, "h")])),
+        ]
+    )
+    device = torch.device("cpu")
+
+    # 03Z is not a 6-hourly cycle — fails without conditioning_init_time
+    with pytest.raises(ValueError, match="every 6 hours"):
+        p._get_conditioning(coords, batch_size=1, device=device)
+
+    # Pin conditioning to the 00Z cycle so the request is valid
+    p.conditioning_init_time = np.array([np.datetime64("2020-04-05T00:00")])
+    p._get_conditioning(coords, batch_size=1, device=device)
+
+    # Non-uniform offsets / bad shape
+    coords["time"] = np.array(
+        [np.datetime64("2020-04-05T03:00"), np.datetime64("2020-04-05T04:00")]
+    )
+    p.conditioning_init_time = np.array([np.datetime64("2020-04-05T00:00")] * 2)
+    with pytest.raises(ValueError, match="uniform lead-time"):
+        p._get_conditioning(coords, batch_size=1, device=device)
+    p.conditioning_init_time = np.array([np.datetime64("2020-04-05T00:00")] * 3)
+    with pytest.raises(ValueError, match="scalar or match"):
+        p._get_conditioning(coords, batch_size=1, device=device)
 
 
 @pytest.fixture(scope="function")

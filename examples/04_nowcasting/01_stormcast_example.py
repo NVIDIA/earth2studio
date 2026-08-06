@@ -76,7 +76,7 @@ from earth2studio.models.px import StormCastCONUS
 package = StormCastCONUS.load_default_package()
 
 # By default, the model uses GFS_FX as the conditioning data source
-# Thus we do not need to exlicitly specify the conditioning data source
+# Thus we do not need to explicitly specify the conditioning data source
 model = StormCastCONUS.load_model(package)
 
 # Create the HRRR initial-condition data source
