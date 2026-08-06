@@ -400,20 +400,31 @@ dev = [
     "tox-uv>=1.29.0"
 ]
 docs = [
+    "earth2studio-gallery @ git+https://github.com/NickGeneva/earth2studio-gallery.git@b1d99a168bb7966d032d379f8a1e16388a1fe2c4",
     "cartopy",
     "matplotlib",
+    "mike>=2.1.0",
+    "mkdocs>=1.6.1",
+    "mkdocs-badges @ git+https://github.com/NickGeneva/mkdocs-badges.git@0e0dca5518c688a8544410ff4ff3258a26935b25",
+    "mkdocs-material>=9.6.0",
     "scipy",
-    "sphinx-design",
-    "sphinx>=6.0.0",
-    "jupytext>=1.15.0",
-    "sphinx-autodoc-typehints>=1.24.0",
-    "sphinx-gallery>=0.12.0",
-    "sphinx-togglebutton>=0.3.0",
-    "myst-parser>=0.18.0",
-    "sphinx-favicon>=1.0.1",
-    "nvidia-sphinx-theme",
-    "sphinx-badges",
 ]
+
+[tool.earth2studio-gallery]
+examples_dir = "examples"
+docs_dir = "docs"
+output_dir = "docs/examples"
+cache_dir = ".e2sgallery"
+execute = "never"
+jobs = 1
+fail_fast = true
+optimize_images = true
+generate_notebooks = true
+collect_telemetry = false
+
+[tool.earth2studio-gallery.runner]
+timeout = 7200
+uv_args = ["--no-progress"]
 
 [tool.hatch.version]
 path = "earth2studio/__init__.py"

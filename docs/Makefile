@@ -1,20 +1,25 @@
-# Minimal makefile for Sphinx documentation
-#
+# Minimal makefile for MkDocs documentation.
 
-# You can set these variables from the command line, and also
-# from the environment for the first two.
-SPHINXOPTS    ?=
-SPHINXBUILD   ?= sphinx-build
-SOURCEDIR     = .
-BUILDDIR      = _build
+MKDOCS ?= mkdocs
+SOURCEDIR = .
+BUILDDIR = _build/html
+SITEDIR = ../site
+PORT ?= 8001
 
-# Put it first so that "make" without argument is like "make help".
+.PHONY: help html build serve clean
 help:
-	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	@echo "MkDocs targets: html, build, serve, clean"
 
-.PHONY: help Makefile
+html build:
+	cd .. && python docs/generate_api.py
+	rm -rf "$(BUILDDIR)"
+	cd .. && E2S_GALLERY_EXECUTE=never $(MKDOCS) build --clean --site-dir site
+	mkdir -p _build
+	rsync -a --delete "$(SITEDIR)/" "$(BUILDDIR)/"
 
-# Catch-all target: route all unknown targets to Sphinx using the new
-# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile
-	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+serve:
+	cd .. && python docs/generate_api.py
+	cd .. && E2S_GALLERY_EXECUTE=never $(MKDOCS) serve -a 0.0.0.0:$(PORT)
+
+clean:
+	rm -rf "$(BUILDDIR)" "$(SITEDIR)"

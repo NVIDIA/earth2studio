@@ -17,47 +17,27 @@
 
 set -euo pipefail
 
-docs_jobs="${DOCS_JOBS:-4}"
 uv_python="${UV_PYTHON:-3.13.13}"
+docs_jobs="${DOCS_JOBS:-1}"
 
 uv sync --python "${uv_python}" --locked --extra all --group docs
+uv run python docs/generate_api.py
 
-# Start from a clean docs tree once, then preserve generated outputs while each
-# example is built with its own Sphinx Gallery filename pattern.
-rm -rf docs/examples
-rm -rf docs/modules/generated
-rm -rf docs/modules/backreferences
-rm -rf examples/outputs
-
-uv run make -C docs clean
-uv run make -C docs html
+rm -rf docs/examples examples/outputs
 
 mapfile -t sections < <(
     find examples -mindepth 1 -maxdepth 1 -type d -name "[0-9]*" | sort
 )
 
 for section in "${sections[@]}"; do
-    mapfile -t examples < <(
-        find "${section}" -maxdepth 1 -type f -name "[0-9]*.py" | sort
-    )
-
-    if [ "${#examples[@]}" -eq 0 ]; then
-        continue
-    fi
-
-    echo "::group::Build docs examples: ${section}"
-    for example in "${examples[@]}"; do
-        relative_example="${example#examples/}"
-        filename_pattern="/${relative_example//./\\.}$"
-
-        echo "Building docs example: ${example}"
-        PLOT_GALLERY=True \
-            RUN_STALE_EXAMPLES=True \
-            FILENAME_PATTERN="${filename_pattern}" \
-            uv run make -j "${docs_jobs}" -C docs html
-    done
+    selector="${section#examples/}"
+    echo "::group::Build MkDocs examples: ${selector}"
+    uv run e2s-gallery build "${selector}" --execute stale --jobs "${docs_jobs}"
     echo "::endgroup::"
 done
 
-# Refresh the final HTML without cleaning or re-running examples.
-uv run make -C docs html
+uv run e2s-gallery render
+rm -rf docs/_build/html
+E2S_GALLERY_EXECUTE=never uv run mkdocs build --clean --site-dir site
+mkdir -p docs/_build
+rsync -a --delete site/ docs/_build/html/

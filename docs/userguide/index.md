@@ -1,5 +1,3 @@
-(userguide)=
-
 # User Guide
 
 Welcome to the Earth2Studio user guide.
@@ -40,48 +38,37 @@ run(["2024-01-01"], 10, model, ds, io)
 
 ## Getting Started
 
-- [Install](about/install)
-- [Introduction](about/intro)
-- [Data Movement](about/data)
+- [Install](about/install.md)
+- [Introduction](about/intro.md)
+- [Data Movement](about/data.md)
 
 ## Core Components
 
-- [Prognostic Models](components/prognostic)
-- [Diagnostic Models](components/diagnostic)
-- [Data Sources](components/datasources)
-- [Perturbations](components/perturbation)
-- [Statistics](components/statistics)
-- [IO Backends](components/io)
+- [Prognostic Models](components/prognostic.md)
+- [Diagnostic Models](components/diagnostic.md)
+- [Data Sources](components/datasources.md)
+- [Perturbations](components/perturbation.md)
+- [Statistics](components/statistics.md)
+- [IO Backends](components/io.md)
 
 ## Advanced Usage
 
-- [Checkpointing](advanced/checkpointing)
-- [Batch Dimension](advanced/batch)
-- [AutoModels](advanced/auto)
-- [Lexicon](advanced/lexicon)
+- [Checkpointing](advanced/checkpointing.md)
+- [Batch Dimension](advanced/batch.md)
+- [AutoModels](advanced/auto.md)
+- [Lexicon](advanced/lexicon.md)
 
 ## Developer Guide
 
-- [Overview](developer/overview)
-- [Dependencies](developer/dependency)
-- [Style](developer/style)
-- [Documentation](developer/documentation)
-- [Testing](developer/testing)
-- [Build](developer/build)
-- [Recipes](developer/recipes)
+- [Overview](developer/overview.md)
+- [Dependencies](developer/dependency.md)
+- [Style](developer/style.md)
+- [Documentation](developer/documentation.md)
+- [Testing](developer/testing.md)
+- [Build](developer/build.md)
+- [Recipes](developer/recipes.md)
 
 ## Support
 
-- [Troubleshooting](support/troubleshooting)
-- [Frequently Asked Questions](support/faq)
-
-```{toctree}
-:maxdepth: 2
-:hidden:
-
-about/index
-components/index
-advanced/index
-developer/index
-support/index
-```
+- [Troubleshooting](support/troubleshooting.md)
+- [Frequently Asked Questions](support/faq.md)

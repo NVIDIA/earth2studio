@@ -1,38 +1,34 @@
 # Earth2Studio
 
-Welcome to the Earth2Studio.
+Earth2Studio is an open-source framework for exploring, building, and
+deploying AI weather and climate workflows.
 
-## User Guide
+- **User Guide**: Learn the core concepts, installation flow, workflow
+  patterns, and extension points. [Start with the user guide](userguide/index.md).
+- **API Reference**: Browse generated API summaries with the same badge
+  filters used by the previous Sphinx docs. [Open the API reference](modules/index.md).
+- **Examples**: Browse MkDocs-native example pages rendered from the
+  repository examples. [View examples](examples/index.md).
+- **Recipes**: Browse larger workflows and integrations that live alongside
+  the package source in the [recipes directory][recipes].
 
-Information about getting Earth2Studio up and running, as well as key concepts.
+[recipes]: https://github.com/NVIDIA/earth2studio/tree/main/recipes
 
-```{toctree}
-:maxdepth: 2
+## Quick Start
 
-userguide/index
+```bash
+pip install earth2studio
 ```
 
-## API
+```python
+from earth2studio.models.px import DLWP
+from earth2studio.data import GFS
+from earth2studio.io import NetCDF4Backend
+from earth2studio.run import deterministic
 
-The content of the exposed `earth2studio` API.
+model = DLWP.load_model(DLWP.load_default_package())
+data = GFS()
+io = NetCDF4Backend("forecast.nc")
 
-```{toctree}
-:maxdepth: 2
-
-API <modules/index>
+deterministic(["2024-01-01"], 10, model, data, io)
 ```
-
-## Examples
-
-Examples demonstrating various common Earth2Studio usage patterns.
-
-```{toctree}
-:maxdepth: 2
-
-examples/index
-```
-
-## Recipes
-
-Recipes provide more complex workflows that can be found in the
-[recipes folder](https://github.com/NVIDIA/earth2studio/tree/main/recipes).

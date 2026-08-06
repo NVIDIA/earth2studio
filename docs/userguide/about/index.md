@@ -1,9 +1,5 @@
 # Getting Started
 
-```{toctree}
-:maxdepth: 1
-
-install
-intro
-data
-```
+- [Install](install.md)
+- [Introduction](intro.md)
+- [Data Movement](data.md)

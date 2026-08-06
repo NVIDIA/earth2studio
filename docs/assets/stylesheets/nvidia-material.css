@@ -1,0 +1,58 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES. */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+:root {
+  --nv-green: #76b900;
+  --nv-green-dark: #004831;
+  --nv-black: #000000;
+  --nv-gray-900: #1a1a1a;
+  --nv-gray-100: #f7f7f7;
+  --md-primary-fg-color: var(--nv-black);
+  --md-primary-fg-color--light: #333333;
+  --md-primary-fg-color--dark: var(--nv-black);
+  --md-accent-fg-color: var(--nv-green);
+  --md-typeset-a-color: var(--nv-green-dark);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: var(--nv-black);
+  --md-accent-fg-color: var(--nv-green);
+  --md-typeset-a-color: var(--nv-green);
+}
+
+.md-header,
+.md-tabs {
+  background-color: var(--nv-black);
+}
+
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 1.5rem;
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  font-weight: 700;
+}
+
+.md-typeset a:hover {
+  color: var(--nv-green);
+}
+
+.md-typeset code {
+  border-radius: 0.2rem;
+}
+
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 0.25rem;
+}
+
+.md-typeset .grid.cards > ul > li {
+  border-radius: 0.35rem;
+}
+
+.md-footer {
+  background-color: var(--nv-gray-900);
+}

@@ -94,7 +94,12 @@ multirun/
 !examples/.env
 cufile.log
 
-# Sphinx
+# Documentation build outputs
+site/
+!docs/modules/index.md
+docs/assets/stylesheets/earth2studio-gallery.css
+docs/modules/*.md
+.e2sgallery/
 _build
 docs/modules/generated
 docs/modules/backreferences

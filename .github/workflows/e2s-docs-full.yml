@@ -123,7 +123,7 @@ jobs:
       - name: Check uv lockfile
         run: uv lock --check
 
-      - name: Build docs examples by section
+      - name: Build full MkDocs site
         env:
           CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
           EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
@@ -131,7 +131,7 @@ jobs:
           EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
           EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: test/_ci/build_docs_examples.sh
+        run: make docs-full
 
       - name: Upload docs artifact
         uses: actions/upload-artifact@v4
@@ -204,8 +204,12 @@ jobs:
           fi
 
           mkdir -p "$target_dir"
-          # Full docs publishes the complete tree, including gallery/example assets.
-          rsync -a --delete docs/_build/html/ "$target_dir/"
+          if [ "$PUBLISH_PATH" = "." ]; then
+            # Root docs should not delete versioned docs managed under v/.
+            rsync -a --delete --exclude v/ docs/_build/html/ "$target_dir/"
+          else
+            rsync -a --delete docs/_build/html/ "$target_dir/"
+          fi
 
           git_sha_short=$(git rev-parse --short HEAD)
           cd "$GH_PAGES_FOLDER"
