@@ -60,7 +60,7 @@ runs:
       run: |
         set -euo pipefail
 
-        if [[ "${{ inputs.run-all }}" == "true" ]]; then
+        if [[ "${INPUTS_RUN_ALL}" == "true" ]]; then
           echo "data=true" >> "$GITHUB_OUTPUT"
           echo "perturb=true" >> "$GITHUB_OUTPUT"
           echo "stats=true" >> "$GITHUB_OUTPUT"
@@ -71,9 +71,9 @@ runs:
           exit 0
         fi
 
-        case "${{ inputs.mode }}" in
+        case "${INPUTS_MODE}" in
           main)
-            base="${{ inputs.before-sha }}"
+            base="${INPUTS_BEFORE_SHA}"
             if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
               base="HEAD^"
             fi
@@ -84,7 +84,7 @@ runs:
             git diff --name-only origin/main...HEAD > changed-files.txt
             ;;
           *)
-            echo "Unknown change detection mode: ${{ inputs.mode }}"
+            echo "Unknown change detection mode: ${INPUTS_MODE}"
             exit 1
             ;;
         esac
@@ -131,3 +131,7 @@ runs:
         else
           echo "serve=false" >> "$GITHUB_OUTPUT"
         fi
+      env:
+        INPUTS_RUN_ALL: ${{ inputs.run-all }}
+        INPUTS_MODE: ${{ inputs.mode }}
+        INPUTS_BEFORE_SHA: ${{ inputs.before-sha }}
