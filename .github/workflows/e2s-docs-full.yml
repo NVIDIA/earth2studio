@@ -186,8 +186,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          git config --global user.email "ngeneva@nvidia.com"
-          git config --global user.name "Nicholas Geneva"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
 
           rm -rf "$GH_PAGES_FOLDER"
           git clone \
