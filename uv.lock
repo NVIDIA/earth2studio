@@ -905,7 +905,7 @@ wheels = [
 [[package]]
 name = "cbottle"
 version = "2025.5.1"
-source = { git = "https://github.com/NickGeneva/cBottle.git?rev=f0f519987589cc0b368ab892a1adfb2fb30a5587#f0f519987589cc0b368ab892a1adfb2fb30a5587" }
+source = { git = "https://github.com/NVlabs/cBottle.git?rev=f0f519987589cc0b368ab892a1adfb2fb30a5587#f0f519987589cc0b368ab892a1adfb2fb30a5587" }
 dependencies = [
     { name = "cftime", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
     { name = "earth2grid", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
@@ -2347,8 +2347,8 @@ requires-dist = [
     { name = "azure-identity", marker = "extra == 'serve'", specifier = ">=1.15.0" },
     { name = "azure-storage-blob", marker = "extra == 'all'", specifier = ">=12.19.0" },
     { name = "azure-storage-blob", marker = "extra == 'serve'", specifier = ">=12.19.0" },
-    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/NickGeneva/cBottle.git?rev=f0f519987589cc0b368ab892a1adfb2fb30a5587" },
-    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NickGeneva/cBottle.git?rev=f0f519987589cc0b368ab892a1adfb2fb30a5587" },
+    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/NVlabs/cBottle.git?rev=f0f519987589cc0b368ab892a1adfb2fb30a5587" },
+    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NVlabs/cBottle.git?rev=f0f519987589cc0b368ab892a1adfb2fb30a5587" },
     { name = "cdsapi", marker = "extra == 'all'", specifier = ">=0.7.5" },
     { name = "cdsapi", marker = "extra == 'data'", specifier = ">=0.7.5" },
     { name = "cfgrib", marker = "extra == 'all'", git = "https://github.com/NickGeneva/cfgrib.git?rev=6a9af3173d7050b5fa5d221755f97e6ecb8c3433" },
