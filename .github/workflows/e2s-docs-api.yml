@@ -23,7 +23,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   packages: read
 
 defaults:
@@ -36,17 +36,11 @@ concurrency:
 
 env:
   E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.2
-  CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
   DOC_PUBLIC_BUILD: "false"
   EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
   EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/.cache/earth2studio-data
   EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
-  EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
-  EARTHMOVER_ORGANIZATION: ${{ secrets.EARTHMOVER_ORGANIZATION }}
-  EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
-  EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
-  HF_TOKEN: ${{ secrets.HF_TOKEN }}
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
   UV_PYTHON: "3.13.13"
 
@@ -77,6 +71,13 @@ jobs:
         run: uv lock --check
 
       - name: Build API docs
+        env:
+          CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
+          EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
+          EARTHMOVER_ORGANIZATION: ${{ secrets.EARTHMOVER_ORGANIZATION }}
+          EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
+          EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: make docs
 
       - name: Upload docs artifact
@@ -90,6 +91,9 @@ jobs:
   publish-docs:
     name: Publish API docs
     if: github.repository == 'NVIDIA/earth2studio'
+    permissions:
+      contents: write
+      packages: read
     needs: build-docs
     runs-on: linux-amd64-cpu8
     container:
@@ -99,7 +103,6 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     env:
       GH_PAGES_FOLDER: ${{ runner.temp }}/gh-pages
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -113,6 +116,8 @@ jobs:
           path: docs/_build/html
 
       - name: Publish to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
