@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `OPERA` data source returning negative precipitation values (`-99.0 mm/h`
+  for `tprate`, `-0.099 m` for `tp01`) for pixels where the radar detected no rain.
+  Undetect pixels for RATE and ACRR quantities are now filled with `0.0` instead
+  of the reflectivity sentinel `-99.0 dBZ`.
 - Fixed `GHCNHourly` station discovery to use the published GHCNh station
   list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
 - Fixed `AIFS2` and `AIFS2ENS` assigning time-dependent forcing values to the wrong
@@ -59,6 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prognostic iterator interface.
 - Added NNJA satellite observation data frame source (`NNJAObsSat`)
 - Added StormScope NSRDB solar irradiance (GHI) estimation model (`StormScopeDxNSRDB`)
+- Added COSMO-REA downscaling diagnostic model (`CorrDiffCosmoEra5`) for diffusion
+  downscaling of ERA5 to COSMO-REA6 (6 km) and COSMO-REA2 (2.2 km).
 
 ### Changed
 
@@ -141,10 +147,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
 - Added DLESyM-v0-ISCCP-ERA5 climate model
-- Added COSMO-REA downscaling diagnostic model (`CorrDiffCosmoEra5`) and
-  `CosmoLexicon` for regression (mean) and diffusion downscaling of ERA5 to
-  COSMO-REA6 (6 km) and COSMO-REA2 (2.2 km), with sub-domain support via
-  `set_domain`
 
 ### Changed
 

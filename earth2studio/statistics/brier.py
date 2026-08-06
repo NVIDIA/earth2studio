@@ -174,6 +174,6 @@ class brier_score:
         exc_prob_coords = y_coords.copy()
         exc_prob_coords["threshold"] = self.thresholds.copy()
 
-        (bs, out_coords) = self.mean((exc_prob_fc - exc_prob_obs) ** 2, exc_prob_coords)
+        bs, out_coords = self.mean((exc_prob_fc - exc_prob_obs) ** 2, exc_prob_coords)
 
         return (bs, out_coords)

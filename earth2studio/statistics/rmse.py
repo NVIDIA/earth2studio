@@ -134,7 +134,7 @@ class rmse:
             Returns root mean squared error tensor with appropriate reduced coordinates.
         """
         if self.ensemble_dimension is not None:
-            (x, x_coords) = self.ensemble_mean(x, x_coords)
+            x, x_coords = self.ensemble_mean(x, x_coords)
         mse, output_coords = self.mean((x - y) ** 2, x_coords)
         return torch.sqrt(mse), output_coords
 
@@ -203,7 +203,7 @@ class mae(rmse):
             Returns root mean squared error tensor with appropriate reduced coordinates.
         """
         if self.ensemble_dimension is not None:
-            (x, x_coords) = self.ensemble_mean(x, x_coords)
+            x, x_coords = self.ensemble_mean(x, x_coords)
         mae, output_coords = self.mean(abs(x - y), x_coords)
         return mae, output_coords
 

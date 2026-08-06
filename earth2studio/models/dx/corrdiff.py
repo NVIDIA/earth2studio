@@ -1203,7 +1203,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
                         'coords["time"] must be array-like of numpy datetime64 (e.g., dtype="datetime64[ns]") '
                         f"or a list[datetime], but got {type(time_array)!r}"
                     )
-                valid_time_list = timearray_to_datetime(time_np)
+                valid_time_list = list(timearray_to_datetime(time_np))
         else:
             valid_time_list = [None] * out.shape[0]
 
