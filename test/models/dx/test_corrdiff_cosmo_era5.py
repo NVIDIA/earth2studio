@@ -58,7 +58,7 @@ class PhooRegDiT(torch.nn.Module):
         self.attn_kwargs_forward: dict = {}
         self.detokenizer = types.SimpleNamespace(h_patches=None, w_patches=None)
 
-    def forward(self, x, t, condition=None):
+    def forward(self, x, t, condition=None, attn_kwargs=None):
         return x[:, : self.n_out]
 
 
