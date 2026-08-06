@@ -21,7 +21,26 @@ on:
     types: [created]
   push:
 
+permissions: {}
+
 jobs:
+  skip:
+    name: Skip NVSkills CI request
+    if: >
+      github.repository != 'NVIDIA/earth2studio' ||
+      !((github.event_name == 'issue_comment' &&
+          github.event.issue.pull_request &&
+          startsWith(github.event.comment.body, '/nvskills-ci') &&
+          contains(fromJSON('["OWNER","MEMBER"]'), github.event.comment.author_association)) ||
+        (github.event_name == 'push' &&
+          github.actor == (vars.NVSKILLS_SIGNATURE_PUSH_ACTOR || 'nv-skills-ci[bot]') &&
+          startsWith(github.event.head_commit.message, vars.NVSKILLS_SIGNATURE_COMMIT_TITLE || 'Attach NVSkills validation signatures')))
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Skip request
+        run: echo "NVSkills CI is only requested from trusted upstream events."
+
   request:
     if: >
       github.repository == 'NVIDIA/earth2studio' &&
