@@ -203,8 +203,7 @@ jobs:
           fi
 
           mkdir -p "$target_dir"
-          # Full docs owns shared Sphinx support directories such as _sources
-          # and _static because they can include gallery/example assets.
+          # Full docs publishes the complete tree, including gallery/example assets.
           rsync -a --delete docs/_build/html/ "$target_dir/"
 
           git_sha_short=$(git rev-parse --short HEAD)

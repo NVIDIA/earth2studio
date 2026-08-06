@@ -146,13 +146,14 @@ jobs:
             "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
             "$GH_PAGES_FOLDER"
 
-          # Shared Sphinx support directories such as _sources and _static are
-          # owned by the full docs workflow because they can include gallery assets.
+          # Refresh shared Sphinx support directories used by the API pages.
           rsync -a docs/_build/html/index.html "$GH_PAGES_FOLDER/"
           rsync -a docs/_build/html/genindex.html "$GH_PAGES_FOLDER/"
           rsync -a docs/_build/html/search.html "$GH_PAGES_FOLDER/"
           rsync -a docs/_build/html/modules "$GH_PAGES_FOLDER/"
+          rsync -a docs/_build/html/_sources "$GH_PAGES_FOLDER/"
           rsync -a docs/_build/html/userguide "$GH_PAGES_FOLDER/"
+          rsync -a docs/_build/html/_static "$GH_PAGES_FOLDER/"
 
           git_sha_short=$(git rev-parse --short HEAD)
           cd "$GH_PAGES_FOLDER"
