@@ -479,8 +479,13 @@ class AsyncZarrBackend:
 
         # Zarr ≥3.1 reads a zarr.json consolidated-metadata snapshot
         # Any workflow calling zarr.consolidate_metadata on exit therefore makes arrays
-        # created on the next run invisible to the backend's own lookups
-        zarr_kwargs = {"use_consolidated": False, **zarr_kwargs}
+        # created on the next run invisible to the backend's own lookups.
+        if zarr_kwargs.get("use_consolidated"):
+            logger.warning(
+                "Ignoring use_consolidated, this backend requires live store"
+                "membership to create and write arrays"
+            )
+        zarr_kwargs = {**zarr_kwargs, "use_consolidated": False}
         zs = await zarr.api.asynchronous.open(store=zstore, **zarr_kwargs)
         return zs, fs
 
