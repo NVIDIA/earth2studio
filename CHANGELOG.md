@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
 - Fixed `AIFS2` and `AIFS2ENS` assigning time-dependent forcing values to the wrong
   samples when processing multiple batches and initialization times.
+- Fixed `AsyncZarrBackend` discarding exceptions raised by non-blocking writes. A write
+  future that had already completed was never resulted, so its error was swallowed
 - Fixed `AsyncZarrBackend` bugs covering non-blocking write safety, tensor aliasing,
   metadata visibility, coordinate parsing, and shard buffer allocation.
 
