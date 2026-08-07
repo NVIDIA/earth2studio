@@ -15,15 +15,12 @@
 # limitations under the License.
 
 name: Run CI test job
-description: Restore shared Earth2Studio test caches and run one tox-backed test job.
+description: Restore shared testmon state and run one tox-backed test job.
 
 inputs:
   tox-env:
     description: Tox environment to run.
     required: true
-  save-model-cache:
-    description: Whether to save the model cache after the test run.
-    default: "false"
   save-testmon-cache:
     description: Whether to save the testmon cache after the test run.
     default: "false"
@@ -34,17 +31,6 @@ runs:
     - name: Configure git safe directory
       shell: bash
       run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-    - name: Restore model cache
-      id: model-cache
-      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-      continue-on-error: true
-      with:
-        path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
-        key: e2s-model-${{ runner.os }}-${{ inputs.tox-env }}-main-${{ github.run_id }}-${{ github.run_attempt }}
-        restore-keys: |
-          e2s-model-${{ runner.os }}-${{ inputs.tox-env }}-main-
-          e2s-model-${{ runner.os }}-
 
     - name: Restore testmon cache
       id: testmon-cache
@@ -82,16 +68,6 @@ runs:
         path: .coverage.*
         include-hidden-files: true
         if-no-files-found: ignore
-
-    - name: Save model cache
-      if: >
-        always() &&
-        inputs.save-model-cache == 'true'
-      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
-      continue-on-error: true
-      with:
-        path: ${{ env.EARTH2STUDIO_MODEL_CACHE }}
-        key: e2s-model-${{ runner.os }}-${{ inputs.tox-env }}-main-${{ github.run_id }}-${{ github.run_attempt }}
 
     - name: Save testmon cache
       if: >

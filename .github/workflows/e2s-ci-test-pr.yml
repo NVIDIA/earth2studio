@@ -182,7 +182,6 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-px-models:
@@ -209,7 +208,6 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-px-models
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-dx-models:
@@ -236,7 +234,6 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-dx-models
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-data:
@@ -263,7 +260,6 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-data
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-perturb:
@@ -290,7 +286,6 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-perturb
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-stats:
@@ -317,7 +312,6 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-stats
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-da-models:
@@ -344,7 +338,6 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-da-models
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-px-models-conflicts:
@@ -371,7 +364,6 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-px-models-conflicts
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-serve:
@@ -398,7 +390,6 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-serve
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   coverage:
