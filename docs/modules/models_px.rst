@@ -54,6 +54,7 @@ Thus are typically used to generate forecast predictions.
       FCN3
       FengWu
       FuXi
+      FuXiS2S
       GenCastMini
       GraphCastOperational
       GraphCastSmall
