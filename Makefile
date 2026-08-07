@@ -45,6 +45,10 @@ lint:
 	uv run pre-commit run ruff -a
 	uv run pre-commit run mypy -a
 
+.PHONY: zizmor
+zizmor:
+	uv run pre-commit run zizmor -a
+
 .PHONY: license
 license:
 	uv run python test/_license/header_check.py

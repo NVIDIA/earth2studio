@@ -92,6 +92,11 @@ repos:
                 skills)
         additional_dependencies: ['types-requests']
 
+-   repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: 451b56af716f9f0d0c2b816503a3fd0cf8b036fa  # v1.29.0
+    hooks:
+    -   id: zizmor
+
 -   repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
     rev: 0.12.1
