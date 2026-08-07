@@ -58,7 +58,7 @@ class PhooRegDiT(torch.nn.Module):
         self.attn_kwargs_forward: dict = {}
         self.detokenizer = types.SimpleNamespace(h_patches=None, w_patches=None)
 
-    def forward(self, x, t, condition=None):
+    def forward(self, x, t, condition=None, attn_kwargs=None):
         return x[:, : self.n_out]
 
 
@@ -76,7 +76,7 @@ class PhooDiffusionDiT(torch.nn.Module):
         )
         self.model = types.SimpleNamespace(model=inner)
 
-    def forward(self, x, sigma, condition=None):
+    def forward(self, x, sigma, condition=None, attn_kwargs=None):
         return self.gain * x[:, : self.n_out]
 
 
