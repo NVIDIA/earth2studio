@@ -76,7 +76,7 @@ class PhooDiffusionDiT(torch.nn.Module):
         )
         self.model = types.SimpleNamespace(model=inner)
 
-    def forward(self, x, sigma, condition=None):
+    def forward(self, x, sigma, condition=None, attn_kwargs=None):
         return self.gain * x[:, : self.n_out]
 
 
