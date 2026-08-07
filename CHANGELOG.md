@@ -39,10 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - Added `zizmor` static security auditing of GitHub Actions workflows (pre-commit
-  hook, `make zizmor` lint step, and a code scanning workflow) and fixed all
-  reported findings: action references pinned to commit SHAs, template expressions
-  routed through environment variables, `persist-credentials: false` on checkouts,
-  and explicit job-level workflow permissions.
+  hook, `make zizmor` lint step, and a code scanning workflow)
 
 ### Dependencies
 
