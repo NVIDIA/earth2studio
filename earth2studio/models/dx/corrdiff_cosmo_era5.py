@@ -1147,7 +1147,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         return lo, hi
 
     @staticmethod
-    def _rebind_latent(dit: torch.nn.Module, H: int, W: int) -> None:
+    def _rebind_latent(dit: torch.nn.Module, H: int, W: int) -> tuple[int, int]:
         """Rebind a RoPE/NATTEN DiT to an (H, W) output domain (its construction
         grid was the training patch). Two pieces of per-grid metadata change -- the
         attention's latent grid and the detokenizer's patch counts -- and nothing
@@ -1155,11 +1155,13 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         per resolution. Shared by the regression forward and the diffusion sampler.
         Mutates ``dit`` in place, so callers sharing one network (e.g. sub-domains
         from ``set_domain``) must not run concurrently -- see ``set_domain``.
+        Returns the latent grid so callers can pass it through forward-time
+        ``attn_kwargs`` for PhysicsNeMo RoPE table providers.
         """
         ph, pw = dit.tokenizer.patch_size
         latent_hw = (H // ph, W // pw)  # pixel grid -> latent (post-patchify) grid
-        # (1) attention: NATTEN neighbour windows + the RoPE tables are built per
-        # latent grid, so the attention layers need the new latent_hw.
+        # (1) attention: NATTEN neighbour windows use the latent grid. Newer
+        # PhysicsNeMo RoPE providers also need this as a forward-time override.
         dit.attn_kwargs_forward["latent_hw"] = latent_hw
         # (2) detokenizer: the token->pixel reshape uses these patch counts. They
         # live on the detokenizer, or on its ``.proj`` for the ConvDetokenizer
@@ -1167,6 +1169,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         detok = dit.detokenizer
         target = detok.proj if hasattr(detok, "proj") else detok
         target.h_patches, target.w_patches = latent_hw
+        return latent_hw
 
     def _inference_context(self) -> AbstractContextManager:
         """Context manager wrapping the network forward passes.
@@ -1194,7 +1197,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         if self.regression_model is None:
             raise RuntimeError("regression_model is not loaded")
         H, W = background.shape[-2:]
-        self._rebind_latent(self.regression_model, H, W)
+        latent_hw = self._rebind_latent(self.regression_model, H, W)
         bg = background.to(torch.float32)
         with self._inference_context():
             # Regression net is the bare DiT (not EDM-wrapped). Its forward is
@@ -1202,7 +1205,10 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             # channels), t = a dummy 0 (no diffusion noise level in a regression),
             # condition = None (no separate vector conditioning).
             return self.regression_model(
-                bg, bg.new_zeros(bg.shape[0]), condition=None
+                bg,
+                bg.new_zeros(bg.shape[0]),
+                condition=None,
+                attn_kwargs={"latent_hw": latent_hw},
             ).float()
 
     def _denoise(self, background: torch.Tensor, seed: int | None) -> torch.Tensor:
@@ -1223,9 +1229,9 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         cond = background.to(torch.float32)  # ConcatConditionWrapper cond_concat
 
         # Rebind the DiT latent grid to this domain (the construction grid was the
-        # training patch size); the RoPE cos/sin tables rebuild for the new
-        # latent_hw inside attention.
-        self._rebind_latent(net.model.model, H, W)
+        # training patch size); pass it forward so PhysicsNeMo builds matching
+        # RoPE cos/sin tables for the current latent grid.
+        latent_hw = self._rebind_latent(net.model.model, H, W)
         gen = (
             torch.Generator(device=dev).manual_seed(seed) if seed is not None else None
         )
@@ -1249,7 +1255,10 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
         def x0_predictor(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
             return net(
-                x.float(), t.to(torch.float32).reshape(-1), condition=cond
+                x.float(),
+                t.to(torch.float32).reshape(-1),
+                condition=cond,
+                attn_kwargs={"latent_hw": latent_hw},
             ).double()
 
         denoiser = scheduler.get_denoiser(x0_predictor=x0_predictor)
