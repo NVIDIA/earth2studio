@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated StormCast SDA example to use the `GHCNHourly` data source.
 - `AsyncZarrBackend` now throttles on in flight writes rather than submitted writes, and
   waits for whichever write completes first rather than the oldest.
 
