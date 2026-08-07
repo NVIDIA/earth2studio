@@ -210,7 +210,7 @@ jobs:
           # Full docs publishes the complete tree, including gallery/example assets.
           rsync -a --delete docs/_build/html/ "$target_dir/"
 
-          git_sha_short=$(git rev-parse --short HEAD)
+          git_sha_short="${GITHUB_SHA:0:7}"
           cd "$GH_PAGES_FOLDER"
           git add --all
 

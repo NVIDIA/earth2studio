@@ -158,7 +158,7 @@ jobs:
           rsync -a docs/_build/html/userguide "$GH_PAGES_FOLDER/"
           rsync -a docs/_build/html/_static "$GH_PAGES_FOLDER/"
 
-          git_sha_short=$(git rev-parse --short HEAD)
+          git_sha_short="${GITHUB_SHA:0:7}"
           cd "$GH_PAGES_FOLDER"
           git add --all
 
