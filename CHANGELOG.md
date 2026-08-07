@@ -33,19 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
 - Fixed `AIFS2` and `AIFS2ENS` assigning time-dependent forcing values to the wrong
   samples when processing multiple batches and initialization times.
-- Fixed `AsyncZarrBackend` discarding exceptions raised by non-blocking writes. A write
-  future that had already completed was never resulted, so its error was swallowed
-- Fixed `AsyncZarrBackend` non-blocking writes aliasing the caller's tensor.
-  `write` now copies before dispatching; `async_write` still aliases and documents it
-- Fixed `AsyncZarrBackend._scrub_coordinates` by applying its documented
-  `datetime`/`timedelta` conversion
-- Fixed `AsyncZarrBackend` reading group membership from consolidated metadata. Arrays
-  added to a store that had been consolidated were invisible to their own writes
-- Fixed `AsyncZarrBackend.flush` abandoning in flight writes after the first failure,
-  which left writes running during teardown and skipped the incomplete shard flush
-- Fixed `AsyncZarrBackend` sharding sizing an unsharded coordinate's shard from its
-  chunk size. A `chunked_coords` entry on a non-parallel coordinate produced a shard
-  buffer smaller than the data written into it
+- Fixed `AsyncZarrBackend` bugs covering non-blocking write safety, tensor aliasing,
+  metadata visibility, coordinate parsing, and shard buffer allocation.
 
 ### Security
 
