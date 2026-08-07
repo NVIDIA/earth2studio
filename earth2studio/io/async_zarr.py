@@ -1168,7 +1168,7 @@ class AsyncZarrBackend:
         if not self.blocking:
             # prevents race conditions when the data is mutated in place before the
             # write is completed.
-            x = {key: value.clone() for key, value in x.items()}
+            x = {key: value.detach().to("cpu", copy=True) for key, value in x.items()}
 
         # Threads are cycled based on rotating index, pretty crude but works
         self._limit_pool_size(len(self.loop_pool) - 1)
