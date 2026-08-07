@@ -25,15 +25,15 @@ Running StormCast-CONUS with guided diffusion posterior sampling to assimilate o
 
 This example demonstrates how to use the StormCast-CONUS generative model with
 score-based data assimilation (SDA) over the Continental United States. Sparse
-in-situ surface observations from NOAA ISD are assimilated at each forecast step
-using diffusion posterior sampling (DPS) guidance.
-Two forecasts are run—one without observations and one with ISD surface station
-data from the central United States—to illustrate the impact of data assimilation.
+in-situ surface observations from NOAA Global Historical Climatology Network Hourly
+(GHCNh) are assimilated at each forecast step using diffusion posterior sampling
+(DPS) guidance. Two forecasts from the central United States are run to illustrate the impact of
+data assimilation: one without observations and one with GHCNh surface station data.
 
 In this example you will learn:
 
 - How to load StormCast-CONUS and configure SDA parameters
-- Fetching HRRR initial conditions and ISD surface observations
+- Fetching HRRR initial conditions and GHCNh surface observations
 - Running the model iteratively with and without observation assimilation
 - Comparing assimilated and non-assimilated forecasts
 
@@ -50,7 +50,7 @@ In this example you will learn:
     # ///
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 47-60
+.. GENERATED FROM PYTHON SOURCE LINES 47-61
 
 Set Up
 ------
@@ -59,14 +59,15 @@ This example requires the following components:
 - Prognostic Model: StormCast-CONUS :py:class:`earth2studio.models.px.StormCastCONUS`
   configured with SDA parameters.
 - Datasource (state): HRRR analysis :py:class:`earth2studio.data.HRRR`.
-- Datasource (obs): NOAA ISD surface stations :py:class:`earth2studio.data.ISD`.
+- Datasource (obs): NOAA GHCNh surface stations
+  :py:class:`earth2studio.data.GHCNHourly`.
 
 StormCast-CONUS extends the StormCast generative architecture to the full CONUS
 HRRR domain at 3 km resolution. When an observation DataFrame is passed to each
 generator step, diffusion posterior sampling (DPS) steers the denoising trajectory
 toward the observed values.
 
-.. GENERATED FROM PYTHON SOURCE LINES 62-108
+.. GENERATED FROM PYTHON SOURCE LINES 63-109
 
 .. code-block:: Python
 
@@ -87,7 +88,7 @@ toward the observed values.
     logger.remove()
     logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
-    from earth2studio.data import HRRR, ISD, fetch_data
+    from earth2studio.data import HRRR, GHCNHourly, fetch_data
     from earth2studio.models.px import StormCastCONUS
     from earth2studio.utils.coords import map_coords
 
@@ -117,19 +118,19 @@ toward the observed values.
     hrrr = HRRR()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 109-114
+.. GENERATED FROM PYTHON SOURCE LINES 110-115
 
 Fetch Initial Conditions
 ------------------------
-Pull HRRR analysis data for April 3rd 2025, a date that saw a major tornado
+Pull HRRR analysis data for 17 April 2026, a date that saw a significant tornado
 outbreak across the central United States, and align it to the model's
 coordinate system.
 
-.. GENERATED FROM PYTHON SOURCE LINES 116-127
+.. GENERATED FROM PYTHON SOURCE LINES 117-128
 
 .. code-block:: Python
 
-    init_time = np.array([np.datetime64("2025-04-03T18:00")])
+    init_time = np.array([np.datetime64("2026-04-17T18:00")])
 
     x, coords = fetch_data(
         hrrr,
@@ -141,7 +142,7 @@ coordinate system.
     x, coords = map_coords(x, coords, model.input_coords())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 128-134
+.. GENERATED FROM PYTHON SOURCE LINES 129-135
 
 Run Without Observations
 ------------------------
@@ -150,7 +151,7 @@ standard EDM diffusion sampler, equivalent to running StormCast-CONUS as a
 pure generative forecast model. We store only the 10-m zonal wind (``u10m``)
 used for comparison.
 
-.. GENERATED FROM PYTHON SOURCE LINES 136-158
+.. GENERATED FROM PYTHON SOURCE LINES 137-159
 
 .. code-block:: Python
 
@@ -177,20 +178,21 @@ used for comparison.
     no_obs_fields = np.stack(no_obs_fields)  # (nsteps, H, W)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 159-165
+.. GENERATED FROM PYTHON SOURCE LINES 160-166
 
 Fetch Observations and Plot Station Locations
 ---------------------------------------------
-Fetch NOAA Integrated Surface Database (ISD) surface observations covering
-the model domain.  The bounding box is derived from the model's lat/lon grid
-so it automatically adjusts when running on a subdomain.
-We visualise the station network before running the assimilation forecast.
+Fetch GHCNh surface observations covering the model domain. The bounding box
+is derived from the model's lat/lon grid so it automatically adjusts when
+running on a subdomain. We visualise the station network before running the
+assimilation forecast.
 
-.. GENERATED FROM PYTHON SOURCE LINES 167-168
+.. GENERATED FROM PYTHON SOURCE LINES 168-170
 
-ISD uses [-180, 180] longitude; model.lon is in [0, 360] — convert here.
+Model lon is in [0, 360); convert to [-180, 180) for the western-hemisphere
+CONUS domain. GHCNHourly.get_stations_bbox accepts either convention.
 
-.. GENERATED FROM PYTHON SOURCE LINES 168-175
+.. GENERATED FROM PYTHON SOURCE LINES 170-179
 
 .. code-block:: Python
 
@@ -198,11 +200,13 @@ ISD uses [-180, 180] longitude; model.lon is in [0, 360] — convert here.
     lat_max = float(model.lat.max())
     lon_min = float(model.lon.min()) - 360.0
     lon_max = float(model.lon.max()) - 360.0
-    stations = ISD.get_stations_bbox((lat_min, lon_min, lat_max, lon_max))
-    isd = ISD(stations=stations, time_tolerance=timedelta(minutes=15), verbose=False)
+    stations = GHCNHourly.get_stations_bbox((lat_min, lon_min, lat_max, lon_max))
+    ghcn = GHCNHourly(
+        stations=stations, time_tolerance=timedelta(minutes=15), verbose=False
+    )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 176-206
+.. GENERATED FROM PYTHON SOURCE LINES 180-211
 
 .. code-block:: Python
 
@@ -210,10 +214,11 @@ ISD uses [-180, 180] longitude; model.lon is in [0, 360] — convert here.
     import cartopy.crs as ccrs
     import matplotlib.pyplot as plt
 
-    # Fetch a sample observation at the initial time to retrieve station positions
-    sample_df = isd(init_time, plot_vars)
+    # Fetch a sample observation at the initial time to retrieve station positions.
+    # GHCNh returns lon in [0, 360); shift to [-180, 180) for PlateCarree plots.
+    sample_df = ghcn(init_time, plot_vars)
     station_lats = sample_df["lat"].values
-    station_lons = sample_df["lon"].values
+    station_lons = sample_df["lon"].values - 360.0
 
     plt.close("all")
     fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(8, 6))
@@ -233,20 +238,20 @@ ISD uses [-180, 180] longitude; model.lon is in [0, 360] — convert here.
         transform=ccrs.PlateCarree(),
         zorder=3,
     )
-    ax.set_title("ISD Station Locations - StormCast-CONUS Domain")
-    plt.savefig("outputs/03_isd_stations.jpg", dpi=150, bbox_inches="tight")
+    ax.set_title("GHCNh Station Locations - StormCast-CONUS Domain")
+    plt.savefig("outputs/01_ghcn_stations.jpg", dpi=150, bbox_inches="tight")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 207-213
+.. GENERATED FROM PYTHON SOURCE LINES 212-218
 
 Run Inference With Streaming Observations
-------------------------------------------
+-----------------------------------------
 At each forecast step the next valid time is determined from the current
-generator state, ISD observations are fetched for that time, and the
+generator state, GHCNh observations are fetched for that time, and the
 observation DataFrame is sent to the generator. Zero-value wind reports
-(anemometer failure) are filtered out before assimilation.
+(likely anemometer failure) are filtered out before assimilation.
 
-.. GENERATED FROM PYTHON SOURCE LINES 215-247
+.. GENERATED FROM PYTHON SOURCE LINES 220-252
 
 .. code-block:: Python
 
@@ -264,7 +269,7 @@ observation DataFrame is sent to the generator. Zero-value wind reports
         valid_time = np.array(
             [c_cur["time"][0] + c_cur["lead_time"][0] + np.timedelta64(1, "h")]
         )
-        obs_df = isd(valid_time, plot_vars)
+        obs_df = ghcn(valid_time, plot_vars)
 
         # Drop zero-value wind reports (common anemometer failure mode)
         if len(obs_df) > 0:
@@ -283,7 +288,7 @@ observation DataFrame is sent to the generator. Zero-value wind reports
     obs_fields = np.stack(obs_fields)  # (nsteps, H, W)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 248-253
+.. GENERATED FROM PYTHON SOURCE LINES 253-258
 
 Post Processing
 ---------------
@@ -291,7 +296,7 @@ Compare the two forecasts. The top row shows the baseline (no observations),
 the middle row shows the assimilation forecast with station locations overlaid,
 and the bottom row shows the signed difference (assimilated − baseline).
 
-.. GENERATED FROM PYTHON SOURCE LINES 255-365
+.. GENERATED FROM PYTHON SOURCE LINES 260-370
 
 .. code-block:: Python
 
@@ -403,10 +408,10 @@ and the bottom row shows the signed difference (assimilated − baseline).
     plt.colorbar(im2, ax=axes[2, -1], shrink=0.6, label=f"{plot_var} (m/s)")
 
     plt.tight_layout()
-    plt.savefig("outputs/03_stormcast_conus_sda_comparison.jpg", dpi=150)
+    plt.savefig("outputs/01_stormcast_conus_sda_comparison.jpg", dpi=150)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 366-371
+.. GENERATED FROM PYTHON SOURCE LINES 371-376
 
 Ground Truth Comparison
 -----------------------
@@ -414,7 +419,7 @@ Fetch HRRR analysis at each valid forecast time and compute the absolute error
 of both the no-obs and assimilation forecasts. This shows whether assimilation
 improves accuracy relative to the actual analysis.
 
-.. GENERATED FROM PYTHON SOURCE LINES 373-391
+.. GENERATED FROM PYTHON SOURCE LINES 378-396
 
 .. code-block:: Python
 
@@ -437,13 +442,13 @@ improves accuracy relative to the actual analysis.
     obs_err = np.abs(obs_fields - truth_fields)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 392-395
+.. GENERATED FROM PYTHON SOURCE LINES 397-400
 
 Plot absolute errors between the StormCast-CONUS predictions and HRRR
 analysis ground truth. In later time-steps the assimilated forecast typically
 shows lower errors near the observation stations.
 
-.. GENERATED FROM PYTHON SOURCE LINES 397-464
+.. GENERATED FROM PYTHON SOURCE LINES 402-469
 
 .. code-block:: Python
 
@@ -513,7 +518,7 @@ shows lower errors near the observation stations.
     plt.colorbar(im0, ax=axes[0, -1], shrink=0.6, label=f"|Δ{plot_var}| (m/s)")
     plt.colorbar(im1, ax=axes[1, -1], shrink=0.6, label=f"|Δ{plot_var}| (m/s)")
     plt.tight_layout()
-    plt.savefig("outputs/03_stormcast_conus_sda_gt_comparison.jpg", dpi=150)
+    plt.savefig("outputs/01_stormcast_conus_sda_gt_comparison.jpg", dpi=150)
 
 
 .. _sphx_glr_download_examples_05_data_assimilation_01_stormcast_sda.py:
