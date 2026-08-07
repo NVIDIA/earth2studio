@@ -44,6 +44,7 @@ from earth2studio.data.utils import (
     gather_with_concurrency,
     managed_session,
     obstore_fetch_to_cache,
+    obstore_list_prefix,
     obstore_read_range,
     obstore_store_from_url,
     obstore_zarr_store,
@@ -735,6 +736,33 @@ def test_obstore_store_from_url():
 
     with pytest.raises(Exception):
         obstore_store_from_url("notascheme://foo")
+
+
+@pytest.mark.asyncio
+async def test_obstore_list_prefix():
+    from obstore.store import MemoryStore
+
+    store = MemoryStore()
+    await obs.put_async(store, "pre/a.nc", b"1")
+    await obs.put_async(store, "pre/b.txt", b"2")
+    await obs.put_async(store, "other/c.nc", b"3")
+
+    # Plain listing, no memoization
+    out = await obstore_list_prefix(store, "pre/")
+    assert sorted(out) == ["pre/a.nc", "pre/b.txt"]
+
+    # Memoized: a later addition under the prefix is not re-listed
+    cache: dict[str, list[str]] = {}
+    first = await obstore_list_prefix(store, "pre/", cache=cache)
+    await obs.put_async(store, "pre/new.nc", b"4")
+    assert await obstore_list_prefix(store, "pre/", cache=cache) == first
+    assert "pre/" in cache
+
+    # cacheable=False: result is fresh and never stored
+    cache2: dict[str, list[str]] = {}
+    out = await obstore_list_prefix(store, "pre/", cache=cache2, cacheable=False)
+    assert sorted(out) == ["pre/a.nc", "pre/b.txt", "pre/new.nc"]
+    assert cache2 == {}
 
 
 @pytest.mark.asyncio
