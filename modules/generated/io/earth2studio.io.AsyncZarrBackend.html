@@ -797,14 +797,8 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">max_inflight_shards</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L201-L1300"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L201-L1334"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend" title="Link to this definition">#</a></dt>
 <dd><p>Async Zarr v3 IO Backend</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>This IO backend has a non-blocking mode which will execute IO writes in seperate
-threads. There is an assumption that the data being written will not be re-allocated
-during the writes.</p>
-</div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>This IO backend presently does not support overwritting existing Zarr stores. Only
@@ -904,7 +898,7 @@ shard, and with <cite>chunked_coords</cite>, which sets the chunk size of coordi
 <cite>parallel_coords</cite>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.io.AsyncZarrBackend.add_array">
-<span class="sig-name descname"><span class="pre">add_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L1117-L1122"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.add_array" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">add_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L1139-L1144"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.add_array" title="Link to this definition">#</a></dt>
 <dd><p>Pass through, arrays are initialized lazily in this io object</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -922,7 +916,7 @@ shard, and with <cite>chunked_coords</cite>, which sets the chunk size of coordi
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.io.AsyncZarrBackend.write">
-<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L1124-L1165"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.write" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L1146-L1192"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.write" title="Link to this definition">#</a></dt>
 <dd><p>Write data</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
