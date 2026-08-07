@@ -1,10 +1,9 @@
-(batch_function_userguide)=
-
-# Batch Dimension
+# Batch Dimension { #batch_function_userguide }
 
 This section of the user guide expands on how batching is handled inside Earth2Studio.
-As discussed in [data movement](../about/data.md) section, there is a dedicated coordinate
-axis `batch` which is commonly used in many of the model implementations.
+As discussed in the [data movement](../about/overview.md#data_userguide)
+section, there is a dedicated coordinate axis `batch` which is commonly used in
+many of the model implementations.
 `batch` represents a dynamic axis that can be of any size, enabling models to better
 utilize compute resources.
 
@@ -12,11 +11,11 @@ Batch dimensions have the following rules:
 
 - Must be able to support any nonzero size
 - Must be the leading dimensions of the coordinate system
-- Must be set to {py:obj}`np.empty(0)` in objects coordinate property
+- Must be set to `np.empty(0)` in objects coordinate property
 
 ## Good Coordinate Definitions
 
-`batch` is the leading dimension with a value of {py:obj}`np.empty(0)`.
+`batch` is the leading dimension with a value of `np.empty(0)`.
 
 ```python
 coords = OrderedDict(
@@ -30,11 +29,11 @@ coords = OrderedDict(
     )
 ```
 
-Other coordinates can have a value of {py:obj}`np.empty(0)` to denote an additional
+Other coordinates can have a value of `np.empty(0)` to denote an additional
 dynamic axis but imply a required data type.
 In this case, this model supports a batch but the `time` axis must be a
-Numpy array of type {py:obj}`np.datetime64`. See [data movement](../about/data.md)
-section for expected types.
+Numpy array of type `np.datetime64`. See
+[data movement](../about/overview.md#data_userguide) section for expected types.
 
 ```python
 coords = OrderedDict(
@@ -82,7 +81,7 @@ While the use of `batch` dimension is useful for communicating a dimension that 
 accept variable input sizes, it's not very convenient to manually manipulate data into a
 form that matches the batch dimension.
 To make using batch supporting models easier, Earth2Studio offers a utility
-decorator {py:class}`earth2studio.models.batch.batch_func` which automates transforming
+decorator `earth2studio.models.batch.batch_func` which automates transforming
 extra leading dimensions into a batch one.
 This utility *must* be used in an object with coordinate properties.
 
@@ -147,7 +146,7 @@ Output: torch.Size([2, 3, 4]) OrderedDict([('batched_dim0', array([0, 1])), ('ba
 <!-- markdownlint-enable MD013 -->
 
 Note that the leading two dimensions were squeezed into a single batch dimension before
-the execution of the models {py:func}`BatchModel.__call__`.
+the execution of the models `BatchModel.__call__`.
 The leading dimensions were then restored back while preserving the updated domain
 coordinates from the model's output.
 

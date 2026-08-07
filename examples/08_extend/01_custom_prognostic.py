@@ -41,9 +41,9 @@ In this example you will learn:
 # %%
 # Custom Prognostic
 # -----------------
-# As discussed in the :ref:`prognostic_model_userguide` section of the user guide,
+# As discussed in the [Prognostic Models](../../userguide/components/prognostic.md#prognostic_model_userguide) section of the user guide,
 # Earth2Studio defines a prognostic model through a simple interface
-# :py:class:`earth2studio.models.px.base.PrognosticModel`. This can be used to help
+# `earth2studio.models.px.base.PrognosticModel`. This can be used to help
 # guide the required APIs needed to successfully create our own custom prognostic.
 #
 # In this example, let's create a simple prognostic that simply predicts adds normal
@@ -51,7 +51,7 @@ In this example you will learn:
 # demonstrate the APIs one needs to implement for any prognostic.
 #
 # Starting with the constructor, prognostic models should typically be torch modules.
-# Models need to have a :py:obj:`to(device)` method that can move the model between
+# Models need to have a `to(device)` method that can move the model between
 # different devices. If your model is PyTorch, then this will be easy.
 
 # %%
@@ -192,50 +192,50 @@ class CustomPrognostic(torch.nn.Module):
 # Defining the input/output coordinate systems is essential for any model in
 # Earth2Studio since this is how both the package and users can learn what type of data
 # the model expects. Ensuring this is correct will set an prognostic model up for
-# success. Have a look at :ref:`coordinates_userguide` for details on
+# success. Have a look at [Coordinate Systems](../../userguide/about/overview.md#coordinates_userguide) for details on
 # coordinate system.
 #
-# This requires the definition of two functions, :py:func:`input_coords` and
-# :py:func:`output_coords` :
+# This requires the definition of two functions, `input_coords` and
+# `output_coords` :
 #
-# * :py:func:`input_coords` : A function that returns the expected input coordinate
+# * `input_coords` : A function that returns the expected input coordinate
 #   system of the model. A new dictionary should be returned every time.
 #
-# * :py:func:`output_coords` : A function that returns the expected output coordinate
+# * `output_coords` : A function that returns the expected output coordinate
 #   system of the model *given* an input coordinate system. This function should also
 #   validate the input coordinate dictionary.
 #
 # Here, we define the input output coords to be the surface winds and give the model a
-# time-step size of 1 hour. Thus :py:func:`output_coords` updates the lead time by one
+# time-step size of 1 hour. Thus `output_coords` updates the lead time by one
 # hour.
 #
-# .. note::
-#   Note the :py:func:`batch_coords` decorator which automates the handling of
-#   batched coordinate systems. For more details about this refer to the :ref:`batch_function_userguide`
-#   section of the user guide.
+# !!! note
+#     Note the `batch_coords` decorator which automates the handling of
+#     batched coordinate systems. For more details about this refer to the [Batch Dimension](../../userguide/advanced/batch.md#batch_function_userguide)
+#     section of the user guide.
 
 # %%
-# :py:func:`__call__` API
+# `__call__` API
 # ~~~~~~~~~~~~~~~~~~~~~~~
 # The call function is one of the two main APIs used to interact with the prognostic
 # model. The first thing we do is check the coordinate system of the input data is indeed
 # what the model expects. Next, we execute the forward pass of our model (apply noise)
 # and then update the output coordinate system.
 #
-# .. note::
-#   Note the :py:func:`batch_func` decorator, which is used to make batched
-#   operations easier. For more details about this refer to the :ref:`batch_function_userguide`
-#   section of the user guide.
+# !!! note
+#     Note the `batch_func` decorator, which is used to make batched
+#     operations easier. For more details about this refer to the [Batch Dimension](../../userguide/advanced/batch.md#batch_function_userguide)
+#     section of the user guide.
 
 # %%
-# :py:func:`create_iterator` API
+# `create_iterator` API
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # The call function is useful for a single time-step. However, prognostics generate
 # time-series which is done using an iterator. This is achieved by creating a generator
 # under the hood of the prognostic.
 #
 # A generator in Python is essentially a function that returns an iterator using the
-# :py:obj:`yield` keyword. In the case of prognostics, it yields a single time-step
+# `yield` keyword. In the case of prognostics, it yields a single time-step
 # prediction of the model. Note that this allows the model to control its own internal
 # state inside the iterator independent of the workflow.
 #
@@ -244,23 +244,23 @@ class CustomPrognostic(torch.nn.Module):
 # demand, so this infinite loop won't cause the program to get stuck.
 
 # %%
-# .. warning::
-#     It is the responsibility of the model check if the input tensor and coordinate
-#     system are indeed valid. The :py:func:`earth2studio.utils.coords.handshake_coords`
-#     and :py:func:`earth2studio.utils.coords.handshake_dim` can help make this easier.
+# !!! warning
+#       It is the responsibility of the model check if the input tensor and coordinate
+#       system are indeed valid. The `earth2studio.utils.coords.handshake_coords`
+#       and `earth2studio.utils.coords.handshake_dim` can help make this easier.
 
 # %%
 # Set Up
 # ------
 # With the custom prognostic defined, it's now easily usable in a standard workflow. In
-# this example, we will use the build in workflow :py:meth:`earth2studio.run.deterministic`.
+# this example, we will use the build in workflow `earth2studio.run.deterministic`.
 
 # %%
 # Let's instantiate the components needed.
 #
 # - Prognostic Model: Use our custom prognostic defined above.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
+# - IO Backend: Save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
 
 # %%
 from dotenv import load_dotenv

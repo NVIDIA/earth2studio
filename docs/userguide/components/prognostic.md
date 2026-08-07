@@ -1,6 +1,4 @@
-(prognostic_model_userguide)=
-
-# Prognostic Models
+# Prognostic Models { #prognostic_model_userguide }
 
 Prognostic models forecast future atmospheric states from initial conditions.
 In Earth2Studio they provide a set of models designed to perform time
@@ -15,33 +13,31 @@ through two different APIs:
 - Time-series predictions
 
 The list of prognostic models that are already built into Earth2Studio can be found in
-the API documentation {ref}`earth2studio.models.px`.
-For a complete workflow example, refer to {func}`earth2studio.run.deterministic`.
+the API documentation [earth2studio.models.px](../../modules/models_px.md).
+For a complete workflow example, refer to `earth2studio.run.deterministic`.
 
 ## Prognostic Interface
 
 The full requirements for a standard prognostic model are defined explicitly in the
 `earth2studio/models/px/base.py`.
 
-```{literalinclude} ../../../earth2studio/models/px/base.py
-:lines: 25-
-:language: python
+```python
+--8<-- "earth2studio/models/px/base.py:26:118"
 ```
 
-:::{note}
-Prognostic models do not need to inherit this protocol, this is used to define
-the required APIs. Prognostic models can maintain their internal state when using the
-iterator if necessary.
-:::
+!!! note
+    Prognostic models do not need to inherit this protocol, this is used to define
+    the required APIs. Prognostic models can maintain their internal state when using the
+    iterator if necessary.
 
 Prognostic models also tend to extend two classes:
 
-- {class}`earth2studio.models.px.utils.PrognosticMixin`: A utility class that
+- `earth2studio.models.px.utils.PrognosticMixin`: A utility class that
 defines iterator hooks used in all the built-in models. These provide a finer level
 of control over the time-series prediction of models.
-- {class}`earth2studio.models.auto.AutoModel`: Defines APIs for models that have
-checkpoints that can be auto-downloaded and cached. Refer to {ref}`automodel_userguide` for
-additional details.
+- `earth2studio.models.auto.AutoModel`: Defines APIs for models that have
+checkpoints that can be auto-downloaded and cached. Refer to
+[AutoModels](../advanced/auto.md#automodel_userguide) for additional details.
 
 ## Prognostic Usage
 
@@ -50,7 +46,7 @@ additional details.
 The following two commands can be used to download and load a pre-trained built
 prognostic model.
 More information on automatic downloading of checkpoints can be found in the
-{ref}`automodel_userguide` section.
+[AutoModels](../advanced/auto.md#automodel_userguide) section.
 
 ```python
 from earth2studio.models.px import PrognosticModel
@@ -62,8 +58,9 @@ model = PrognosticModel.load_model(model_package)
 ### Single Step Prediction
 
 A prognostic model can be called for a single time-step using the call function.
-The function takes a data tensor and coordinate system (refer to {ref}`data_userguide`
-for the structure) and returns the predicted output.
+The function takes a data tensor and coordinate system (refer to
+[Data Movement](../about/overview.md#data_userguide) for the structure) and
+returns the predicted output.
 
 ```python
 # Assume model is an instance of a PrognosticModel
@@ -90,8 +87,8 @@ for step, (x, coords) in enumerate(model_iterator):
 ## Custom Prognostic Models
 
 To integrate your own prognostic, satisfy the interface above.
-We recommend that you review the {ref}`extension_examples` examples, which walk you
-through implementing a custom prognostic.
+We recommend that you review the [extension examples](../../examples/index.md#extend)
+examples, which walk you through implementing a custom prognostic.
 
 ## Contributing a Prognostic Model
 

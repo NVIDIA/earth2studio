@@ -1,6 +1,4 @@
-(statistics_model_userguide)=
-
-# Statistics and Metrics
+# Statistics and Metrics { #statistics_model_userguide }
 
 Use statistics to reduce data over dimensions (for example, computing means or variances).
 Use metrics to compare two inputs (for example, correlation or bias between forecast and
@@ -18,15 +16,14 @@ to the class of such operations.
 
 ### Statistics Interface
 
-Statistics API only specifies a {func}`__call__` method that matches similar methods
+Statistics API only specifies a `__call__` method that matches similar methods
 across the package.
 
-```{literalinclude} ../../../earth2studio/statistics/base.py
-:lines: 24-43
-:language: python
+```python
+--8<-- "earth2studio/statistics/base.py:24:64"
 ```
 
-The base API hints at, and inspection of the {mod}`earth2studio.statistics.moments`
+The base API hints at, and inspection of the `earth2studio.statistics.moments`
 examples reveals, the use of a few properties to make statistic handling easier:
 
 * `reduction_dimensions`, which are a list of dimensions that will be reduced over
@@ -39,7 +36,7 @@ coordinates passed in the call method.
 ### Custom Statistics
 
 To integrate your own statistic, satisfy the interface above. We recommend
-that you review the custom statistic example in {ref}`extension_examples`.
+that you review the custom statistic example in [extension examples](../../examples/index.md#extend).
 
 ## Metrics
 
@@ -49,9 +46,8 @@ inputs. Otherwise, the API and requirements are similar to the statistics requir
 
 ### Metrics Interface
 
-```{literalinclude} ../../../earth2studio/statistics/base.py
-    :lines: 52-
-    :language: python
+```python
+--8<-- "earth2studio/statistics/base.py:67:115"
 ```
 
 ## Contributing Statistics and Metrics

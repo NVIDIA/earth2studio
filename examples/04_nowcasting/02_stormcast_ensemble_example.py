@@ -41,7 +41,7 @@ see
 # ------
 # All workflows inside Earth2Studio require constructed components to be
 # handed to them. In this example, let's take a look at the most basic ensemble workflow:
-# :py:meth:`earth2studio.run.ensemble`.
+# `earth2studio.run.ensemble`.
 
 # %%
 # .. literalinclude:: ../../earth2studio/run.py
@@ -52,14 +52,14 @@ see
 # %%
 # Thus, we need the following:
 #
-# - Prognostic Model: Use the built in StormCast-CONUS Model :py:class:`earth2studio.models.px.StormCastCONUS`.
-# - perturbation_method: Use the Zero Method :py:class:`earth2studio.perturbation.Zero`. We will not
+# - Prognostic Model: Use the built in StormCast-CONUS Model `earth2studio.models.px.StormCastCONUS`.
+# - perturbation_method: Use the Zero Method `earth2studio.perturbation.Zero`. We will not
 #    perturb the initial data because StormCast has stochastic generation of  ensemble members.
-# - Datasource: Pull data from the HRRR data api :py:class:`earth2studio.data.HRRR`.
-# - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - Datasource: Pull data from the HRRR data api `earth2studio.data.HRRR`.
+# - IO Backend: Let's save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
 #
 # StormCast-CONUS also requires a global conditioning data source. We use
-# GFS_FX :py:class:`earth2studio.data.GFS_FX` (the default).
+# GFS_FX `earth2studio.data.GFS_FX` (the default).
 
 # %%
 import numpy as np

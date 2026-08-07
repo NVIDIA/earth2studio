@@ -12,11 +12,10 @@ These may be used to map between weather/climate variables to other quantities o
 interest, used to enable additional analysis, improve prediction accuracy, downscale,
 etc.
 
-.. warning ::
-
-   Pre-trained diagnostic models provided in Earth2Studio may be provided
-   under different licenses. We encourage users to familiarize themselves with each
-   prior to use.
+!!! warning
+    Pre-trained diagnostic models provided in Earth2Studio may be provided
+    under different licenses. We encourage users to familiarize themselves with each
+    prior to use.
 
 .. currentmodule:: earth2studio.models.dx
 

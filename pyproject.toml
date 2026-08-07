@@ -402,11 +402,14 @@ dev = [
 docs = [
     "earth2studio-gallery @ git+https://github.com/NickGeneva/earth2studio-gallery.git@b1d99a168bb7966d032d379f8a1e16388a1fe2c4",
     "cartopy",
+    "griffe-inherited-docstrings>=1.1.3",
     "matplotlib",
     "mike>=2.1.0",
     "mkdocs>=1.6.1",
-    "mkdocs-badges @ git+https://github.com/NickGeneva/mkdocs-badges.git@0e0dca5518c688a8544410ff4ff3258a26935b25",
+    "mkdocs-badges @ git+https://github.com/NickGeneva/mkdocs-badges.git@290590858dc5a00d7ba81e0a4784013b03aeaa5a",
     "mkdocs-material>=9.6.0",
+    "mkdocstrings>=1.0.4",
+    "mkdocstrings-python>=2.0.5",
     "scipy",
 ]
 
@@ -420,7 +423,7 @@ jobs = 1
 fail_fast = true
 optimize_images = true
 generate_notebooks = true
-collect_telemetry = false
+collect_telemetry = true
 
 [tool.earth2studio-gallery.runner]
 timeout = 7200

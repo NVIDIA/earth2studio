@@ -46,7 +46,8 @@ uv sync --extra data
 ```
 
 will fix the problem.
-For additional information, refer to the {ref}`optional_dependencies` section.
+For additional information, refer to the
+[Optional Dependencies](../about/install.md#optional_dependencies) section.
 
 ## Earth2Studio not authorized to download public models from NGC
 
@@ -90,7 +91,8 @@ There are a few options to try outside of just waiting for the build to complete
   contributor projects like [flashattn.dev](https://flashattn.dev/#finder).
 
 2. If using a Docker container is an option, the PyTorch Docker container on NGC has
-  flash attention already built inside of it. Refer to {ref}`pytorch_container_environment`
+  flash attention already built inside of it. Refer to
+  [Docker Container](../about/install.md#pytorch_container_environment)
   for details on how to install Earth2Studio inside a container.
 
 3. Speed up the compile time by increasing the number of jobs used during the build

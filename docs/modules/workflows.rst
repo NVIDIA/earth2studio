@@ -4,7 +4,7 @@
 Built in workflows designed to be a catalyst to help accelerate user defined inference
 use cases.
 
-.. warning::
+!!! warning
     The built in workflows should not be viewed as silver bullets that work for every
     model and use case. Earth2Studio is focused on enabling users to build and extend,
     these are starting points.

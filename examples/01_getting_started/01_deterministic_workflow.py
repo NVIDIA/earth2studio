@@ -45,7 +45,7 @@ In this example you will learn:
 # ------
 # All workflows inside Earth2Studio require constructed components to be
 # handed to them. In this example, let's take a look at the most basic:
-# :py:meth:`earth2studio.run.deterministic`.
+# `earth2studio.run.deterministic`.
 
 # %%
 # .. literalinclude:: ../../earth2studio/run.py
@@ -56,9 +56,9 @@ In this example you will learn:
 # %%
 # Thus, we need the following:
 #
-# - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - Prognostic Model: Use the built in FourCastNet Model `earth2studio.models.px.FCN`.
+# - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
+# - IO Backend: Let's save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
 
 # %%
 import os

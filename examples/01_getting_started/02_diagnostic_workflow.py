@@ -44,7 +44,7 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# For this example, the built in diagnostic workflow :py:meth:`earth2studio.run.diagnostic`
+# For this example, the built in diagnostic workflow `earth2studio.run.diagnostic`
 # will be used.
 
 # %%
@@ -57,10 +57,10 @@ In this example you will learn:
 # %%
 # Thus, we need the following:
 #
-# - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
-# - Diagnostic Model: Use the built in precipitation AFNO model :py:class:`earth2studio.models.dx.PrecipitationAFNO`.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - Prognostic Model: Use the built in FourCastNet Model `earth2studio.models.px.FCN`.
+# - Diagnostic Model: Use the built in precipitation AFNO model `earth2studio.models.dx.PrecipitationAFNO`.
+# - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
+# - IO Backend: Save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
 
 # %%
 import os
@@ -113,11 +113,11 @@ print(io.root.tree())
 # diagnostic models is that they allow the prediction of any variable from a pre-trained
 # prognostic model.
 #
-# .. note::
-#   The built in workflow will only save the direct outputs of the diagnostic. In this
-#   example only total precipitation is accessible for plotting. If you wish to save
-#   outputs of both the prognostic and diagnostic, we recommend writing a custom
-#   workflow.
+# !!! note
+#     The built in workflow will only save the direct outputs of the diagnostic. In this
+#     example only total precipitation is accessible for plotting. If you wish to save
+#     outputs of both the prognostic and diagnostic, we recommend writing a custom
+#     workflow.
 
 # %%
 from datetime import datetime

@@ -1,5 +1,7 @@
+<!-- markdownlint-disable MD033 -->
+
 # Getting Started
 
-- [Install](install.md)
-- [Introduction](intro.md)
-- [Data Movement](data.md)
+This page has moved to the [User Guide overview](overview.md).
+
+<meta http-equiv="refresh" content="0; url=overview/">

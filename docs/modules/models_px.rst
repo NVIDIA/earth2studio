@@ -10,11 +10,10 @@
 Prognostic models are a class of models that perform time-integration.
 Thus are typically used to generate forecast predictions.
 
-.. warning ::
-
-   Pre-trained prognostic models provided in Earth2Studio may be provided
-   under different licenses. We encourage users to familiarize themselves with each
-   prior to use.
+!!! warning
+    Pre-trained prognostic models provided in Earth2Studio may be provided
+    under different licenses. We encourage users to familiarize themselves with each
+    prior to use.
 
 .. currentmodule:: earth2studio.models.px
 

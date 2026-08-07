@@ -1,17 +1,12 @@
-<!-- markdownlint-disable MD025 -->
+<!-- markdownlint-disable MD025 MD046 -->
 
-(install_guide)=
+# Install { #install_guide }
 
-# Install
-
-:::{admonition} Base Install Limitations
-:class: warning
-
-The base pip install does not guarantee all functionality and/or examples are
-operational due to optional dependencies.
-We encourage users that face package issues to familiarize themselves with the optional
-model installs and suggested environment set up for the most complete experience.
-:::
+!!! warning "Base Install Limitations"
+    The base pip install does not guarantee all functionality and/or examples are
+    operational due to optional dependencies.
+    We encourage users that face package issues to familiarize themselves with the optional
+    model installs and suggested environment set up for the most complete experience.
 
 ## Install using Pip
 
@@ -34,17 +29,12 @@ uv init --python=3.13
 uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.17.0"
 ```
 
-:::{dropdown} uv Install
-:color: info
-:icon: archive
- :animate: fade-in
-
-The use of the latest git release tag for the package install with uv is intentional.
-This will allow uv to handle any complicated dependency conditions and automatically
-handle url based dependencies.
-This is not achievable using the [pypi registry](https://docs.astral.sh/uv/pip/compatibility/#transitive-url-dependencies)
-but makes installing optional packages much easier down the line.
-:::
+??? info "uv Install"
+    The use of the latest git release tag for the package install with uv is intentional.
+    This will allow uv to handle any complicated dependency conditions and automatically
+    handle url based dependencies.
+    This is not achievable using the [pypi registry](https://docs.astral.sh/uv/pip/compatibility/#transitive-url-dependencies)
+    but makes installing optional packages much easier down the line.
 
 ## Install Main Branch
 
@@ -72,825 +62,625 @@ uv run python
 >>> earth2studio.__version__
 ```
 
-(optional_dependencies)=
+## Optional Dependencies { #optional_dependencies }
 
-## Optional Dependencies
+??? info "uv Package Manager"
+    For developers [uv package manager](https://docs.astral.sh/uv/getting-started/installation/)
+    should be used.
+    uv is **not required** for just using Earth2Studio thus both pip and uv commands are
+    included.
+    uv commands assume Earth2Studio has already been added to the project using *git source*
+    used in the above sections.
 
-:::{dropdown} uv Package Manager
-:color: info
-:icon: info
-:animate: fade-in
-For developers [uv package manager](https://docs.astral.sh/uv/getting-started/installation/)
-should be used.
-uv is **not required** for just using Earth2Studio thus both pip and uv commands are
-included.
-uv commands assume Earth2Studio has already been added to the project using *git source*
-used in the above sections.
-:::
+!!! warning "Suggested prerequisites"
+    Installing the base package before attempting any optional dependency groups is
+    recommended if using pip.
 
-:::{admonition} Suggested prerequisites
-:class: warning
-Installing the base package before attempting any optional dependency groups is
-recommended if using pip.
+    uv commands assume Earth2Studio has already been added to the project with the *git*
+    link used in the above sections.
 
-uv commands assume Earth2Studio has already been added to the project with the *git*
-link used in the above sections.
-:::
-
-(model_dependencies)=
-
-### Model Dependencies
+### Model Dependencies { #model_dependencies }
 
 Models typically require additional dependencies which are not installed by default.
 Use the optional install commands to add these dependencies.
 
 #### Prognostics
 
-::::::{tab-set}
-:::::{tab-item} AIFS
-Notes: The AIFS model requires additional dependencies for data processing and
-visualization. This includes the use of [flash-attention](https://github.com/Dao-AILab/flash-attention)
-which can take a long time to build on some systems.
-See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
-for known suggestions/fixes related to this install process.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[aifs] --no-build-isolation
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra aifs
-```
-
-:::
-::::
-:::::
-:::::{tab-item} AIFS Ensemble
-Notes: The AIFS Ensemble model relies on updated ECMWF checkpoints with ensemble
-sampling support. Similar to the deterministic AIFS variant this extra depends on
-[flash-attention](https://github.com/Dao-AILab/flash-attention), which can take a long
-time to compile. See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
-for compilation tips.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[aifsens] --no-build-isolation
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra aifsens
-```
-
-:::
-::::
-:::::
-:::::{tab-item} AIFS2
-Notes: This model depends on
-[flash-attention](https://github.com/Dao-AILab/flash-attention), which can take a long
-time to compile. See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
-for compilation tips.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[aifs2] --no-build-isolation
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra aifs2
-```
-
-:::
-::::
-:::::
-:::::{tab-item} AIFS2 Ensemble
-Notes: This model depends on
-[flash-attention](https://github.com/Dao-AILab/flash-attention), which can take a long
-time to compile. See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
-for compilation tips.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[aifs2ens] --no-build-isolation
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra aifs2ens
-```
-
-:::
-::::
-:::::
-:::::{tab-item} Atlas
-Notes: The Atlas model depends on [natten](https://github.com/SHI-Labs/NATTEN), which
-can take a long time to compile.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
-pip install earth2studio[atlas]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra atlas
-```
-
-:::
-::::
-:::::
-:::::{tab-item} Aurora
-Notes: The Aurora model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
-package for inference.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[aurora]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra aurora
-```
-
-:::
-::::
-:::::
-:::::{tab-item} Aurora v1.5
-Notes: The Aurora v1.5 model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
-package for inference.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[aurora]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra aurora
-```
-
-:::
-::::
-:::::
-:::::{tab-item} DLWP
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[dlwp]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra dlwp
-```
-
-:::
-::::
-:::::
-:::::{tab-item} DLESyM
-Notes: For all DLESyM models, [Earth2Grid](https://github.com/NVlabs/earth2grid) needs to
-be installed manually for pip users.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
-pip install earth2studio[dlesym]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra dlesym
-```
-
-:::
-::::
-:::::
-:::::{tab-item} FourCastNet
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[fcn]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra fcn
-```
-
-:::
-::::
-:::::
-:::::{tab-item} FourCastNet 3
-Notes: Recommended to install [torch-harmonics](https://github.com/NVIDIA/torch-harmonics)
-with CUDA extensions for best performance which can take a long time to build on some
-systems.
-See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
-for known suggestions/fixes related to this install process.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-export FORCE_CUDA_EXTENSION=1
-pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
-pip install "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"
-pip install earth2studio[fcn3]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-export FORCE_CUDA_EXTENSION=1
-uv add earth2studio --extra fcn3
-```
-
-:::
-::::
-:::::
-:::::{tab-item} FengWu
-Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/#python-installs).
-This might have specific pip installation steps depending on your CUDA version.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[fengwu]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra fengwu
-```
-
-:::
-::::
-:::::
-:::::{tab-item} FuXi
-Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/#python-installs).
-This might have specific pip installation steps depending on your CUDA version.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[fuxi]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra fuxi
-```
-
-:::
-::::
-:::::
-:::::{tab-item} GraphCast
-Notes: The GraphCast models (operational and small) require additional dependencies
-for JAX and Haiku. The GraphCast package must be installed from the Google DeepMind
-repository.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install "graphcast @ git+https://github.com/google-deepmind/graphcast.git@7077d40a36db6541e3ed72ccaed1c0d202fa6014"
-pip install "earth2studio[graphcast]"
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra graphcast
-```
-
-:::
-::::
-:::::
-:::::{tab-item} Pangu
-Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/#python-installs).
-This might have specific pip installation steps depending on your CUDA version.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[pangu]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra pangu
-```
-
-:::
-::::
-:::::
-:::::{tab-item} SFNO
-Notes: Requires [Makani](https://github.com/NVIDIA/makani) to be
-installed manually.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
-pip install "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"
-pip install earth2studio[sfno]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra sfno
-```
-
-:::
-::::
-:::::
-:::::{tab-item} StormCast
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[stormcast]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra stormcast
-```
-
-:::
-::::
-:::::
-:::::{tab-item} StormCast-CONUS
-::::{tab-set}
-:::{tab-item} pip
-Notes: The StormCast-CONUS model depends on [natten](https://github.com/SHI-Labs/NATTEN),
-which can take a long time to compile.
-
-```bash
-pip install earth2studio[stormcast-conus]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra stormcast-conus
-```
-
-:::
-::::
-:::::
-:::::{tab-item} StormScope
-Notes: The StormScope model depends on [natten](https://github.com/SHI-Labs/NATTEN),
-which can take a long time to compile. [Earth2Grid](https://github.com/NVlabs/earth2grid)
-needs to be installed manually for pip users.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
-pip install earth2studio[stormscope]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra stormscope
-```
-
-:::
-::::
-:::::
-:::::{tab-item} UCast
-Notes: The UCast model does not require additional Python packages beyond the
-base Earth2Studio install. Install the model extra anyway so environments can
-select the UCast dependency group consistently.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[ucast]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra ucast
-```
-
-:::
-::::
-:::::
-:::::{tab-item} InterpModAFNO
-Notes: Requires a base prognostic model to be installed.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[interp-modafno]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra interp-modafno
-```
-
-:::
-::::
-:::::
-::::::
+=== "AIFS"
+    Notes: The AIFS model requires additional dependencies for data processing and
+    visualization. This includes the use of [flash-attention](https://github.com/Dao-AILab/flash-attention)
+    which can take a long time to build on some systems.
+    See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+    for known suggestions/fixes related to this install process.
+
+    === "pip"
+
+        ```bash
+        pip install earth2studio[aifs] --no-build-isolation
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra aifs
+        ```
+
+=== "AIFS Ensemble"
+    Notes: The AIFS Ensemble model relies on updated ECMWF checkpoints with ensemble
+    sampling support. Similar to the deterministic AIFS variant this extra depends on
+    [flash-attention](https://github.com/Dao-AILab/flash-attention), which can take a long
+    time to compile. See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+    for compilation tips.
+
+    === "pip"
+
+        ```bash
+        pip install earth2studio[aifsens] --no-build-isolation
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra aifsens
+        ```
+
+=== "AIFS2"
+    Notes: This model depends on
+    [flash-attention](https://github.com/Dao-AILab/flash-attention), which can take a long
+    time to compile. See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+    for compilation tips.
+
+    === "pip"
+
+        ```bash
+        pip install earth2studio[aifs2] --no-build-isolation
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra aifs2
+        ```
+
+=== "AIFS2 Ensemble"
+    Notes: This model depends on
+    [flash-attention](https://github.com/Dao-AILab/flash-attention), which can take a long
+    time to compile. See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+    for compilation tips.
+
+    === "pip"
+
+        ```bash
+        pip install earth2studio[aifs2ens] --no-build-isolation
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra aifs2ens
+        ```
+
+=== "Atlas"
+    Notes: The Atlas model depends on [natten](https://github.com/SHI-Labs/NATTEN), which
+    can take a long time to compile.
+
+    === "pip"
+
+        ```bash
+        pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
+        pip install earth2studio[atlas]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra atlas
+        ```
+
+=== "Aurora"
+    Notes: The Aurora model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
+    package for inference.
+
+    === "pip"
+
+        ```bash
+        pip install earth2studio[aurora]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra aurora
+        ```
+
+=== "Aurora v1.5"
+    Notes: The Aurora v1.5 model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
+    package for inference.
+
+    === "pip"
+
+        ```bash
+        pip install earth2studio[aurora]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra aurora
+        ```
+
+=== "DLWP"
+    === "pip"
+
+        ```bash
+        pip install earth2studio[dlwp]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra dlwp
+        ```
+
+=== "DLESyM"
+    Notes: For all DLESyM models, [Earth2Grid](https://github.com/NVlabs/earth2grid) needs to
+    be installed manually for pip users.
+
+    === "pip"
+
+        ```bash
+        pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
+        pip install earth2studio[dlesym]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra dlesym
+        ```
+
+=== "FourCastNet"
+    === "pip"
+
+        ```bash
+        pip install earth2studio[fcn]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra fcn
+        ```
+
+=== "FourCastNet 3"
+    Notes: Recommended to install [torch-harmonics](https://github.com/NVIDIA/torch-harmonics)
+    with CUDA extensions for best performance which can take a long time to build on some
+    systems.
+    See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+    for known suggestions/fixes related to this install process.
+
+    === "pip"
+
+        ```bash
+        export FORCE_CUDA_EXTENSION=1
+        pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
+        pip install "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"
+        pip install earth2studio[fcn3]
+        ```
+
+    === "uv"
+
+        ```bash
+        export FORCE_CUDA_EXTENSION=1
+        uv add earth2studio --extra fcn3
+        ```
+
+=== "FengWu"
+    Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/#python-installs).
+    This might have specific pip installation steps depending on your CUDA version.
+
+    === "pip"
+
+        ```bash
+        pip install earth2studio[fengwu]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra fengwu
+        ```
+
+=== "FuXi"
+    Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/#python-installs).
+    This might have specific pip installation steps depending on your CUDA version.
+
+    === "pip"
+
+        ```bash
+        pip install earth2studio[fuxi]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra fuxi
+        ```
+
+=== "GraphCast"
+    Notes: The GraphCast models (operational and small) require additional dependencies
+    for JAX and Haiku. The GraphCast package must be installed from the Google DeepMind
+    repository.
+
+    === "pip"
+
+        ```bash
+        pip install "graphcast @ git+https://github.com/google-deepmind/graphcast.git@7077d40a36db6541e3ed72ccaed1c0d202fa6014"
+        pip install "earth2studio[graphcast]"
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra graphcast
+        ```
+
+=== "Pangu"
+    Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/#python-installs).
+    This might have specific pip installation steps depending on your CUDA version.
+
+    === "pip"
+
+        ```bash
+        pip install earth2studio[pangu]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra pangu
+        ```
+
+=== "SFNO"
+    Notes: Requires [Makani](https://github.com/NVIDIA/makani) to be
+    installed manually.
+
+    === "pip"
+
+        ```bash
+        pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
+        pip install "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"
+        pip install earth2studio[sfno]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra sfno
+        ```
+
+=== "StormCast"
+    === "pip"
+
+        ```bash
+        pip install earth2studio[stormcast]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra stormcast
+        ```
+
+=== "StormCast-CONUS"
+    === "pip"
+        Notes: The StormCast-CONUS model depends on [natten](https://github.com/SHI-Labs/NATTEN),
+        which can take a long time to compile.
+
+        ```bash
+        pip install earth2studio[stormcast-conus]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra stormcast-conus
+        ```
+
+=== "StormScope"
+    Notes: The StormScope model depends on [natten](https://github.com/SHI-Labs/NATTEN),
+    which can take a long time to compile. [Earth2Grid](https://github.com/NVlabs/earth2grid)
+    needs to be installed manually for pip users.
+
+    === "pip"
+
+        ```bash
+        pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
+        pip install earth2studio[stormscope]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra stormscope
+        ```
+
+=== "UCast"
+    Notes: The UCast model does not require additional Python packages beyond the
+    base Earth2Studio install. Install the model extra anyway so environments can
+    select the UCast dependency group consistently.
+
+    === "pip"
+
+        ```bash
+        pip install earth2studio[ucast]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra ucast
+        ```
+
+=== "InterpModAFNO"
+    Notes: Requires a base prognostic model to be installed.
+
+    === "pip"
+
+        ```bash
+        pip install earth2studio[interp-modafno]
+        ```
+
+    === "uv"
+
+        ```bash
+        uv add earth2studio --extra interp-modafno
+        ```
 
 #### Diagnostics
 
-::::::{tab-set}
-:::::{tab-item} CBottle
-Notes: Additional dependencies needed for CBottle3D data source, CBottle video
-prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
+=== "CBottle"
+    Notes: Additional dependencies needed for CBottle3D data source, CBottle video
+    prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
 
-::::{tab-set}
-:::{tab-item} pip
+    === "pip"
 
-```bash
-pip install hatchling
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
-pip install --no-build-isolation "cbottle @ git+https://github.com/NickGeneva/cBottle.git@e48c7eb518d49d4a92b2a1397d683e765c02c354"
-pip install earth2studio[cbottle]
-```
+        ```bash
+        pip install hatchling
+        pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
+        pip install --no-build-isolation "cbottle @ git+https://github.com/NickGeneva/cBottle.git@e48c7eb518d49d4a92b2a1397d683e765c02c354"
+        pip install earth2studio[cbottle]
+        ```
 
-:::
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv add earth2studio --extra cbottle
-```
+        ```bash
+        uv add earth2studio --extra cbottle
+        ```
 
-:::
-::::
-:::::
-:::::{tab-item} ClimateNet
-Notes: No additional dependencies are needed for ClimateNet but included for
-completeness.
+=== "ClimateNet"
+    Notes: No additional dependencies are needed for ClimateNet but included for
+    completeness.
 
-::::{tab-set}
-:::{tab-item} pip
+    === "pip"
 
-```bash
-pip install earth2studio[climatenet]
-```
+        ```bash
+        pip install earth2studio[climatenet]
+        ```
 
-:::
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv add earth2studio --extra climatenet
-```
+        ```bash
+        uv add earth2studio --extra climatenet
+        ```
 
-:::
-::::
-:::::
-:::::{tab-item} CorrDiff
-Notes: Additional dependencies for all CorrDiff models.
+=== "CorrDiff"
+    Notes: Additional dependencies for all CorrDiff models.
 
-::::{tab-set}
-:::{tab-item} pip
+    === "pip"
 
-```bash
-pip install earth2studio[corrdiff]
-```
+        ```bash
+        pip install earth2studio[corrdiff]
+        ```
 
-:::
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv add earth2studio --extra corrdiff
-```
+        ```bash
+        uv add earth2studio --extra corrdiff
+        ```
 
-:::
-::::
-:::::
-:::::{tab-item} CorrDiff COSMO-ERA5
-Notes: Additional dependencies for the `CorrDiffCosmoEra5` model. This model needs
-the RoPE / NATTEN attention backend from `nvidia-physicsnemo`, which is not on PyPI
-yet, so physicsnemo must be installed from a pinned git commit. The `uv` path picks
-this up automatically from `[tool.uv.sources]`; the `pip` path installs it explicitly.
+=== "CorrDiff COSMO-ERA5"
+    Notes: Additional dependencies for the `CorrDiffCosmoEra5` model. This model needs
+    the RoPE / NATTEN attention backend from `nvidia-physicsnemo`, which is not on PyPI
+    yet, so physicsnemo must be installed from a pinned git commit. The `uv` path picks
+    this up automatically from `[tool.uv.sources]`; the `pip` path installs it explicitly.
 
-::::{tab-set}
-:::{tab-item} pip
+    === "pip"
 
-```bash
-pip install "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@ced75d93d014f70bb691372788eee2d201171c12"
-pip install earth2studio[cosmo]
-```
+        ```bash
+        pip install "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@ced75d93d014f70bb691372788eee2d201171c12"
+        pip install earth2studio[cosmo]
+        ```
 
-:::
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv add earth2studio --extra cosmo
-```
+        ```bash
+        uv add earth2studio --extra cosmo
+        ```
 
-:::
-::::
-:::::
-:::::{tab-item} Cyclone Trackers
-Notes: Additional dependencies for cyclone tracking models `TCTrackerVitart` and `TCTrackerWuDuan`.
+=== "Cyclone Trackers"
+    Notes: Additional dependencies for cyclone tracking models `TCTrackerVitart` and `TCTrackerWuDuan`.
 
-::::{tab-set}
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv pip install earth2studio --extra cyclone
-```
+        ```bash
+        uv pip install earth2studio --extra cyclone
+        ```
 
-:::
-:::{tab-item} pip
+    === "pip"
 
-```bash
-pip install earth2studio[cyclone]
-```
+        ```bash
+        pip install earth2studio[cyclone]
+        ```
 
-`TempestExtremes` is not provided as a Python library and must be installed
-separately by the user. Installation instructions can be found on the
-[TempestExtremes GitHub page](https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended).
+        `TempestExtremes` is not provided as a Python library and must be installed
+        separately by the user. Installation instructions can be found on the
+        [TempestExtremes GitHub page](https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended).
 
-When compiling `TempestExtremes` via CMake, executables are placed in a `bin`
-directory inside the `TempestExtremes` source tree by default (i.e.
-`/path/to/tempestextremes/bin`). Because these binaries are not
-automatically added to the system `PATH`, the `detect_cmd` and `stitch_cmd`
-entries in the pipeline configuration must reference the full path to the
-`DetectNodes` and `StitchNodes` executables, e.g.
-`/path/to/tempestextremes/bin/DetectNodes ...`. When using the provided
-Docker container, the binaries are copied to `/usr/local/bin` and are therefore
-available on the `PATH`; in that case only the executable names are needed
-(e.g. `DetectNodes ...`). Examples for both commands are provided in the
-docstring of the `TempestExtremes` class and in the TC tracking recipe.
+        When compiling `TempestExtremes` via CMake, executables are placed in a `bin`
+        directory inside the `TempestExtremes` source tree by default (i.e.
+        `/path/to/tempestextremes/bin`). Because these binaries are not
+        automatically added to the system `PATH`, the `detect_cmd` and `stitch_cmd`
+        entries in the pipeline configuration must reference the full path to the
+        `DetectNodes` and `StitchNodes` executables, e.g.
+        `/path/to/tempestextremes/bin/DetectNodes ...`. When using the provided
+        Docker container, the binaries are copied to `/usr/local/bin` and are therefore
+        available on the `PATH`; in that case only the executable names are needed
+        (e.g. `DetectNodes ...`). Examples for both commands are provided in the
+        docstring of the `TempestExtremes` class and in the TC tracking recipe.
 
-:::
-::::
-:::::
-:::::{tab-item} Derived
-Notes: Additional dependencies for all derived diagnostic models.
-No additional dependencies are needed for the derived models at the moment but included
-for completeness.
+=== "Derived"
+    Notes: Additional dependencies for all derived diagnostic models.
+    No additional dependencies are needed for the derived models at the moment but included
+    for completeness.
 
-::::{tab-set}
-:::{tab-item} pip
+    === "pip"
 
-```bash
-pip install earth2studio[derived]
-```
+        ```bash
+        pip install earth2studio[derived]
+        ```
 
-:::
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv add earth2studio --extra derived
-```
+        ```bash
+        uv add earth2studio --extra derived
+        ```
 
-:::
-::::
-:::::
-:::::{tab-item} ORBIT-2
-Notes: The ORBIT-2 diagnostic model requires the climate-learn package. This needs to be
-installed manually for pip users.
+=== "ORBIT-2"
+    Notes: The ORBIT-2 diagnostic model requires the climate-learn package. This needs to be
+    installed manually for pip users.
 
-::::{tab-set}
-:::{tab-item} pip
+    === "pip"
 
-```bash
-pip install "climate-learn @ git+https://github.com/NickGeneva/ORBIT-2@5b2d80a8ba4dc95029211ef2b8530d3663f65d39"
-pip install earth2studio[orbit]
-```
+        ```bash
+        pip install "climate-learn @ git+https://github.com/NickGeneva/ORBIT-2@5b2d80a8ba4dc95029211ef2b8530d3663f65d39"
+        pip install earth2studio[orbit]
+        ```
 
-:::
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv add earth2studio --extra orbit
-```
+        ```bash
+        uv add earth2studio --extra orbit
+        ```
 
-:::
-::::
-:::::
-:::::{tab-item} Precipitation AFNO
-::::{tab-set}
-:::{tab-item} pip
+=== "Precipitation AFNO"
+    === "pip"
 
-```bash
-pip install earth2studio[precip-afno]
-```
+        ```bash
+        pip install earth2studio[precip-afno]
+        ```
 
-:::
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv add earth2studio --extra precip-afno
-```
+        ```bash
+        uv add earth2studio --extra precip-afno
+        ```
 
-:::
-::::
-:::::
-:::::{tab-item} Precipitation AFNO V2
-Notes: Improved version of the Precipitation AFNO model with enhanced accuracy.
+=== "Precipitation AFNO V2"
+    Notes: Improved version of the Precipitation AFNO model with enhanced accuracy.
 
-::::{tab-set}
-:::{tab-item} pip
+    === "pip"
 
-```bash
-pip install earth2studio[precip-afno-v2]
-```
+        ```bash
+        pip install earth2studio[precip-afno-v2]
+        ```
 
-:::
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv add earth2studio --extra precip-afno-v2
-```
+        ```bash
+        uv add earth2studio --extra precip-afno-v2
+        ```
 
-:::
-::::
-:::::
-:::::{tab-item} Solar Radiation AFNO
-Notes: Requires physicsnemo package for zenith angle calculations.
+=== "Solar Radiation AFNO"
+    Notes: Requires physicsnemo package for zenith angle calculations.
 
-::::{tab-set}
-:::{tab-item} pip
+    === "pip"
 
-```bash
-pip install earth2studio[solarradiation-afno]
-```
+        ```bash
+        pip install earth2studio[solarradiation-afno]
+        ```
 
-:::
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv add earth2studio --extra solarradiation-afno
-```
+        ```bash
+        uv add earth2studio --extra solarradiation-afno
+        ```
 
-:::
-::::
-:::::
-:::::{tab-item} Windgust AFNO
-::::{tab-set}
-:::{tab-item} pip
+=== "Windgust AFNO"
+    === "pip"
 
-```bash
-pip install earth2studio[windgust-afno]
-```
+        ```bash
+        pip install earth2studio[windgust-afno]
+        ```
 
-:::
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv add earth2studio --extra windgust-afno
-```
-
-:::
-::::
-:::::
-::::::
+        ```bash
+        uv add earth2studio --extra windgust-afno
+        ```
 
 #### Data Assimilation
 
-:::{admonition} Warning
-:class: warning
+!!! warning "Warning"
+    Data assimilation model APIs are currently **in Beta** and may change in future
+    releases. Expect possible breaking changes as these APIs mature.
 
-Data assimilation model APIs are currently **in Beta** and may change in future
-releases. Expect possible breaking changes as these APIs mature.
-:::
+!!! warning "Warning"
+    All data assimilation models require [CuPy](https://docs.cupy.dev/en/stable/) and [cuDF](https://docs.rapids.ai/api/cudf/stable/),
+    which are CUDA-dependent libraries.
+    The default installation uses CUDA 12 (i.e., `cupy-cuda12x`, `cudf-cu12`).
+    If your system uses a different CUDA version, you may need to adjust the dependencies.
 
-:::{admonition} Warning
-:class: warning
+=== "HealDA"
+    === "pip"
 
-All data assimilation models require [CuPy](https://docs.cupy.dev/en/stable/) and [cuDF](https://docs.rapids.ai/api/cudf/stable/),
-which are CUDA-dependent libraries.
-The default installation uses CUDA 12 (i.e., `cupy-cuda12x`, `cudf-cu12`).
-If your system uses a different CUDA version, you may need to adjust the dependencies.
-:::
+        ```bash
+        pip install hatchling
+        pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
+        pip install earth2studio[da-healda]
+        ```
 
-::::::{tab-set}
-:::::{tab-item} HealDA
-::::{tab-set}
-:::{tab-item} pip
+    === "uv"
 
-```bash
-pip install hatchling
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
-pip install earth2studio[da-healda]
-```
+        ```bash
+        uv add earth2studio --extra da-healda
+        ```
 
-:::
-:::{tab-item} uv
+=== "InterpEquirectangular"
+    === "pip"
 
-```bash
-uv add earth2studio --extra da-healda
-```
+        ```bash
+        pip install earth2studio[da-interp]
+        ```
 
-:::
-::::
-:::::
-:::::{tab-item} InterpEquirectangular
-::::{tab-set}
-:::{tab-item} pip
+    === "uv"
 
-```bash
-pip install earth2studio[da-interp]
-```
+        ```bash
+        uv add earth2studio --extra da-interp
+        ```
 
-:::
-:::{tab-item} uv
+=== "StormCast SDA"
+    === "pip"
 
-```bash
-uv add earth2studio --extra da-interp
-```
+        ```bash
+        pip install earth2studio[da-stormcast]
+        ```
 
-:::
-::::
-:::::
-:::::{tab-item} StormCast SDA
-::::{tab-set}
-:::{tab-item} pip
+    === "uv"
 
-```bash
-pip install earth2studio[da-stormcast]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra da-stormcast
-```
-
-:::
-::::
-:::::
-::::::
+        ```bash
+        uv add earth2studio --extra da-stormcast
+        ```
 
 ### Submodule Dependencies
 
@@ -898,63 +688,45 @@ A few features in various submodules require some specific dependencies that hav
 deemed too specific to warrant an addition to the core dependencies.
 These can be installed with a submodule wide install group:
 
-::::::{tab-set}
-:::::{tab-item} Data
+=== "Data"
 
-::::{tab-set}
-:::{tab-item} pip
+    === "pip"
 
-```bash
-pip install earth2studio[data]
-```
+        ```bash
+        pip install earth2studio[data]
+        ```
 
-:::
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv add earth2studio --extra data
-```
+        ```bash
+        uv add earth2studio --extra data
+        ```
 
-:::
-::::
-:::::
-:::::{tab-item} Perturbation
-::::{tab-set}
-:::{tab-item} pip
+=== "Perturbation"
+    === "pip"
 
-```bash
-pip install earth2studio[perturbation]
-```
+        ```bash
+        pip install earth2studio[perturbation]
+        ```
 
-:::
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv add earth2studio --extra perturbation
-```
+        ```bash
+        uv add earth2studio --extra perturbation
+        ```
 
-:::
-::::
-:::::
-:::::{tab-item} Statistics
-::::{tab-set}
-:::{tab-item} pip
+=== "Statistics"
+    === "pip"
 
-```bash
-pip install earth2studio[statistics]
-```
+        ```bash
+        pip install earth2studio[statistics]
+        ```
 
-:::
-:::{tab-item} uv
+    === "uv"
 
-```bash
-uv add earth2studio --extra statistics
-```
-
-:::
-::::
-:::::
-::::::
+        ```bash
+        uv add earth2studio --extra statistics
+        ```
 
 ### Install All Optional Dependencies
 
@@ -966,26 +738,20 @@ conflicts.
 This is only supported using uv and when using github as the source, [not pypi registry](https://docs.astral.sh/uv/pip/compatibility/#transitive-url-dependencies).
 To install a best effort all optional dependencies group, use the following:
 
-::::{tab-set}
-:::{tab-item} uv
+=== "uv"
 
-```bash
-uv sync
-uv add earth2studio --extra all
-```
+    ```bash
+    uv sync
+    uv add earth2studio --extra all
+    ```
 
-:::
-::::
-
-(install_environments)=
-
-# Environments
+# Environments { #install_environments }
 
 For the best experience, we recommend creating a fresh environment whether that be using
 uv, a Docker container or even a Conda environment.
 Below are some recipes for creating a handful of environments for setting up
 Earth2Studio in an isolated environment.
-For developer environments, refer to the {ref}`developer_overview`.
+For developer environments, refer to the [Developer Overview](../developer/overview.md#developer_overview).
 
 ## uv Project
 
@@ -1006,9 +772,7 @@ uv venv --python=3.13
 uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.17.0"
 ```
 
-(pytorch_container_environment)=
-
-## Docker Container
+## Docker Container { #pytorch_container_environment }
 
 For a docker environment, the recommended process is to still use `uv` help install
 packages for you.
@@ -1030,30 +794,21 @@ docker run -it -t nvcr.io/nvidia/pytorch:26.04-py3
 ```
 
 <!-- markdownlint-disable MD013 -->
-:::{admonition} Extra Dependencies
-:class: note
+!!! note "Extra Dependencies"
+    To add extra dependencies adjust the `uv pip install` command like you would normally
+    do with pip, for example:
 
-To add extra dependencies adjust the `uv pip install` command like you would normally
-do with pip, for example:
+    ```bash
+    uv pip install --system \
+        --break-system-packages \
+        "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.17.0"
+    ```
 
-```bash
-uv pip install --system \
-    --break-system-packages \
-    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.17.0"
-```
-
-:::
-
-:::{dropdown} Earth2Studio in Docker
-:color: warning
-:icon: alert-fill
-:animate: fade-in
-
-Some models and dependencies have specific system requirements (for example, CUDA
-versions) that may require a different container than the one listed here. If you are
-comfortable with Docker, refer to the [testing Dockerfile](https://github.com/NVIDIA/earth2studio/blob/main/test/Dockerfile)
-as a reference for building a general-purpose Earth2Studio image.
-:::
+??? warning "Earth2Studio in Docker"
+    Some models and dependencies have specific system requirements (for example, CUDA
+    versions) that may require a different container than the one listed here. If you are
+    comfortable with Docker, refer to the [testing Dockerfile](https://github.com/NVIDIA/earth2studio/blob/main/test/Dockerfile)
+    as a reference for building a general-purpose Earth2Studio image.
 
 ## Conda Environment
 
@@ -1105,9 +860,7 @@ This includes cards such as:
 We encourage users to experiment on different hardware for their specific needs and
 use case.
 
-(configuration_userguide)=
-
-# Configuration
+# Configuration { #configuration_userguide }
 
 Earth2Studio uses a few environment variables to configure various parts of the package.
 The important ones are:

@@ -1,14 +1,12 @@
 <!-- markdownlint-disable MD025 -->
 
-(developer_overview)=
-
-# Overview
+# Overview { #developer_overview }
 
 This page describes how to set up a local development environment with
 [uv](https://docs.astral.sh/uv/), optional documentation dependencies, and pre-commit
 hooks.
 It assumes you have reviewed the repository and are familiar with the majority of the
-information found in the {ref}`userguide`.
+information found in the [User Guide](../index.md).
 
 ## Environment Setup
 
@@ -38,14 +36,14 @@ To create a local development environment with a git repo and uv:
     uv sync --group docs
     ```
 
-:::{note}
-When working with models, additional optional dependencies might be required.
-Refer to the {ref}`model_dependencies` section for details on the optional dependencies
-inside the package.
-Use the `uv sync --extra <optional dep>` command instead of `pip install`.
-Take note of the difference between the optional dependency groups used here and the
-extra dependencies when using specific models.
-:::
+!!! note
+    When working with models, additional optional dependencies might be required.
+    Refer to the [Model Dependencies](../about/install.md#model_dependencies)
+    section for details on the optional dependencies
+    inside the package.
+    Use the `uv sync --extra <optional dep>` command instead of `pip install`.
+    Take note of the difference between the optional dependency groups used here and the
+    extra dependencies when using specific models.
 
 ## Pre-commit
 

@@ -48,10 +48,10 @@ In this example you will learn:
 # ------
 # This example requires the following components:
 #
-# - Prognostic Model: StormCast-CONUS :py:class:`earth2studio.models.px.StormCastCONUS`
+# - Prognostic Model: StormCast-CONUS `earth2studio.models.px.StormCastCONUS`
 #   configured with SDA parameters.
-# - Datasource (state): HRRR analysis :py:class:`earth2studio.data.HRRR`.
-# - Datasource (obs): NOAA ISD surface stations :py:class:`earth2studio.data.ISD`.
+# - Datasource (state): HRRR analysis `earth2studio.data.HRRR`.
+# - Datasource (obs): NOAA ISD surface stations `earth2studio.data.ISD`.
 #
 # StormCast-CONUS extends the StormCast generative architecture to the full CONUS
 # HRRR domain at 3 km resolution. When an observation DataFrame is passed to each

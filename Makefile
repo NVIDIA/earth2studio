@@ -101,12 +101,18 @@ docs-dev:
 	E2S_GALLERY_EXECUTE=never uv run mkdocs serve -a 0.0.0.0:$(PORT)
 
 DOC_VERSION ?= main
-DOC_ALIAS ?= latest
-.PHONY: docs-deploy-version
-docs-deploy-version:
+.PHONY: docs-build-version
+docs-build-version:
 	uv sync --group docs
 	uv run python docs/generate_api.py
-	E2S_GALLERY_EXECUTE=never uv run mike deploy --push --update-aliases --deploy-prefix v $(DOC_VERSION) $(DOC_ALIAS)
+	rm -rf docs/_build/html
+	DOC_VERSION=$(DOC_VERSION) E2S_GALLERY_EXECUTE=never uv run mkdocs build --clean --site-dir site
+	mkdir -p docs/_build
+	rsync -a --delete site/ docs/_build/html/
+
+.PHONY: docs-deploy-version
+docs-deploy-version:
+	$(MAKE) docs-build-version
 
 .PHONY: docs-version-serve
 docs-version-serve:

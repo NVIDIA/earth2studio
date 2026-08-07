@@ -47,11 +47,11 @@ In this example you will learn:
 # ------
 # This example requires the following components:
 #
-# - Assimilation Model: HealDA :py:class:`earth2studio.models.da.HealDA`.
+# - Assimilation Model: HealDA `earth2studio.models.da.HealDA`.
 # - Datasource (conv): UFS conventional observations
-#   :py:class:`earth2studio.data.UFSObsConv`.
+#   `earth2studio.data.UFSObsConv`.
 # - Datasource (sat): UFS satellite observations
-#   :py:class:`earth2studio.data.UFSObsSat`.
+#   `earth2studio.data.UFSObsSat`.
 #
 # HealDA is a stateless neural-network-based data assimilation model that ingests
 # conventional (radiosonde, surface station, GPS-RO, etc.) and satellite radiance
@@ -90,8 +90,8 @@ model = model.to("cuda:0")
 # ------------------
 # Pull conventional and satellite observation DataFrames for the analysis time.
 # The UFS data sources return pandas DataFrames that match the schemas expected by
-# :py:meth:`HealDA.input_coords`.  We use
-# :py:func:`earth2studio.data.fetch_dataframe` which attaches ``request_time``
+# `HealDA.input_coords`.  We use
+# `earth2studio.data.fetch_dataframe` which attaches ``request_time``
 # metadata required by the model.  The time_tolerance parameter defines a time
 # window around the analysis time so that observations will be retrieved for.
 
@@ -174,7 +174,7 @@ plt.savefig("outputs/22_healda_obs_locations.jpg", dpi=150)
 
 # %%
 # DA models can be called directly for stateless inference or via
-# :py:meth:`~earth2studio.models.da.HealDA.create_generator` for stateful (iterative)
+# `create_generator` for stateful (iterative)
 # assimilation workflows.  Here we use the direct call API to invoke the model.
 #
 # HealDA is designed to work with the (-21, 3) hour observation window from the UFS

@@ -41,16 +41,16 @@ In this example you will learn:
 # %%
 # Custom Diagnostic
 # -----------------
-# As discussed in the :ref:`diagnostic_model_userguide` section of the user guide,
+# As discussed in the [Diagnostic Models](../../userguide/components/diagnostic.md#diagnostic_model_userguide) section of the user guide,
 # Earth2Studio defines a diagnostic model through a simple interface
-# :py:class:`earth2studio.models.dx.base.Diagnostic Model`. This can be used to help
+# `earth2studio.models.dx.base.Diagnostic Model`. This can be used to help
 # guide the required APIs needed to successfully create our own model.
 #
 # In this example, lets consider a simple diagnostic that converts the surface
 # temperature in Kelvin to Celsius to make it more readable for the average person.
 #
-# Our diagnostic model has a base class of :py:class:`torch.nn.Module` which allows us
-# to get the required :py:obj:`to(device)` method for free.
+# Our diagnostic model has a base class of `torch.nn.Module` which allows us
+# to get the required `to(device)` method for free.
 
 # %%
 import os
@@ -150,8 +150,8 @@ class CustomDiagnostic(torch.nn.Module):
 # ~~~~~~~~~~~~~~~~~~~~~~~~
 # Defining the input/output coordinate systems is essential for any model in
 # Earth2Studio since this is how both the package and users can learn what type of data
-# the model expects. This requires the definition of  :py:func:`input_coords` and
-# :py:func:`output_coords`. Have a look at :ref:`coordinates_userguide` for details on
+# the model expects. This requires the definition of  `input_coords` and
+# `output_coords`. Have a look at [Coordinate Systems](../../userguide/about/overview.md#coordinates_userguide) for details on
 # coordinate system.
 #
 # For this diagnostic model, we simply define the input coordinates
@@ -160,31 +160,31 @@ class CustomDiagnostic(torch.nn.Module):
 # Celsius.
 
 # %%
-# :py:func:`__call__` API
+# `__call__` API
 # ~~~~~~~~~~~~~~~~~~~~~~~
 # The call function is the main API of diagnostic models that have a tensor and
 # coordinate system as input/output. This function first validates that the coordinate
 # system is correct. Then both the input data tensor and also coordinate system are
 # updated and returned.
 #
-# .. note::
-#   You may notice the :py:func:`batch_func` decorator, which is used to make batched
-#   operations easier. For more details about this refer to the :ref:`batch_function_userguide`
-#   section of the user guide.
+# !!! note
+#     You may notice the `batch_func` decorator, which is used to make batched
+#     operations easier. For more details about this refer to the [Batch Dimension](../../userguide/advanced/batch.md#batch_function_userguide)
+#     section of the user guide.
 
 # %%
 # Set Up
 # ------
 # With the custom diagnostic model defined, the next step is to set up and run a
-# workflow. We will use the built in workflow :py:meth:`earth2studio.run.diagnostic`.
+# workflow. We will use the built in workflow `earth2studio.run.diagnostic`.
 
 # %%
 # Lets instantiate the components needed.
 #
-# - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
+# - Prognostic Model: Use the built in DLWP model `earth2studio.models.px.DLWP`.
 # - Diagnostic Model: The custom diagnostic model defined above
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
+# - IO Backend: Save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
 
 # %%
 from dotenv import load_dotenv

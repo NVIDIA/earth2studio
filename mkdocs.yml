@@ -7,17 +7,18 @@ edit_uri: edit/main/docs/
 docs_dir: docs
 exclude_docs: |
   _build/**
+  overrides/**
 site_dir: site
-remote_branch: gh-pages
-remote_name: origin
 strict: false
 copyright: Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
 theme:
   name: material
+  custom_dir: docs/overrides
   logo: _static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png
   favicon: _static/favicon.ico
   language: en
   features:
+  - announce.dismiss
   - navigation.tabs
   - navigation.tabs.sticky
   - navigation.sections
@@ -49,6 +50,8 @@ theme:
 extra_css:
 - https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css
 - assets/stylesheets/nvidia-material.css
+extra_javascript:
+- assets/javascripts/e2s-landing.js
 extra:
   version:
     provider: mike
@@ -66,6 +69,12 @@ markdown_extensions:
 - pymdownx.arithmatex:
     generic: true
 - pymdownx.details
+- pymdownx.emoji:
+    emoji_index: !!python/name:material.extensions.emoji.twemoji
+    emoji_generator: !!python/name:material.extensions.emoji.to_svg
+- pymdownx.magiclink:
+    hide_protocol: true
+    repo_url_shortener: true
 - pymdownx.highlight:
     anchor_linenums: true
 - pymdownx.inlinehilite
@@ -74,7 +83,37 @@ markdown_extensions:
 - pymdownx.tabbed:
     alternate_style: true
 plugins:
+- autorefs
 - search
+- mkdocstrings:
+    enable_inventory: true
+    handlers:
+      python:
+        paths:
+        - .
+        - earth2studio/models
+        inventories:
+        - https://docs.python.org/3/objects.inv
+        - https://numpy.org/doc/stable/objects.inv
+        - https://pandas.pydata.org/docs/objects.inv
+        - https://pytorch.org/docs/stable/objects.inv
+        - https://docs.xarray.dev/en/stable/objects.inv
+        - https://filesystem-spec.readthedocs.io/en/latest/objects.inv
+        - https://developmentseed.org/obstore/latest/objects.inv
+        options:
+          allow_inspection: true
+          docstring_section_style: list
+          docstring_style: numpy
+          inherited_members: true
+          line_length: 60
+          separate_signature: true
+          show_signature_annotations: true
+          show_source: false
+          show_symbol_type_toc: true
+          signature_crossrefs: true
+          extensions:
+          - docs/griffe_extensions.py:StripBadgesSection
+          - griffe_inherited_docstrings
 - badges:
     style: square
     group_labels:
@@ -306,7 +345,7 @@ plugins:
     fail_fast: true
     optimize_images: true
     generate_notebooks: true
-    collect_telemetry: false
+    collect_telemetry: true
 - blog:
     blog_dir: blog
     post_dir: '{blog}/posts'
@@ -316,15 +355,14 @@ plugins:
 - mike:
     deploy_prefix: v
     alias_type: redirect
+hooks:
+- docs/mkdocs_hooks.py
 nav:
 - Home: index.md
 - User Guide:
-  - userguide/index.md
-  - Getting Started:
-    - userguide/about/index.md
-    - Install: userguide/about/install.md
-    - Introduction: userguide/about/intro.md
-    - Data Movement: userguide/about/data.md
+  - Install: userguide/about/install.md
+  - Overview: userguide/about/overview.md
+  - Contents: userguide/index.md
   - Core Components:
     - userguide/components/index.md
     - Prognostic Models: userguide/components/prognostic.md
@@ -359,7 +397,7 @@ nav:
   - Prognostic Models: modules/models_px.md
   - Diagnostic Models: modules/models_dx.md
   - Data Assimilation: modules/models_da.md
-  - Analysis Data Sources: modules/datasources_analysis.md
+  - Data Sources: modules/datasources_analysis.md
   - Forecast Data Sources: modules/datasources_forecast.md
   - DataFrame Sources: modules/datasources_dataframe.md
   - IO Backends: modules/io.md
@@ -371,8 +409,9 @@ nav:
 - Blog: blog/index.md
 - Recipes: https://github.com/NVIDIA/earth2studio/tree/main/recipes
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
-not_in_nav: 'modules/generated/**
-
+not_in_nav: |
+  modules/generated/**
   examples/**
-
-  '
+  userguide/about/index.md
+  userguide/about/intro.md
+  userguide/about/data.md

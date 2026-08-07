@@ -47,7 +47,7 @@ In this example you will learn:
 # ------
 # All workflows inside Earth2Studio require constructed components to be
 # handed to them. In this example, we will use the built in ensemble workflow
-# :py:meth:`earth2studio.run.ensemble`.
+# `earth2studio.run.ensemble`.
 
 # %%
 # .. literalinclude:: ../../earth2studio/run.py
@@ -58,10 +58,10 @@ In this example you will learn:
 # %%
 # We need the following:
 #
-# - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
-# - perturbation_method: Extend the Spherical Gaussian Method :py:class:`earth2studio.perturbation.SphericalGaussian`.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - Prognostic Model: Use the built in DLWP model `earth2studio.models.px.DLWP`.
+# - perturbation_method: Extend the Spherical Gaussian Method `earth2studio.perturbation.SphericalGaussian`.
+# - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
+# - IO Backend: Save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
 
 # %%
 import os
@@ -89,7 +89,7 @@ model = DLWP.load_model(package)
 data = GFS()
 
 # %%
-# The perturbation method in :ref:`sphx_glr_examples_01_getting_started_03_ensemble_workflow.py`
+# The perturbation method in [03 ensemble workflow](../01_getting_started/03_ensemble_workflow.md)
 # is naive because it applies the same noise amplitude to every variable. We can create
 # a custom wrapper that only applies the perturbation method to a particular variable
 # instead.

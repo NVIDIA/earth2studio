@@ -14,10 +14,9 @@ downstream tasks such as driving a prognostic model or generating a guided forec
 Data assimilation models support both stateless and stateful operation, allowing them
 to process observations independently or maintain internal state across time steps.
 
-.. warning ::
-
-   Data Assimilation models are a new addition to Earth2Studio and APIs might be subject
-   to change without warning while the implementation is hardened.
+!!! warning
+    Data Assimilation models are a new addition to Earth2Studio and APIs might be subject
+    to change without warning while the implementation is hardened.
 
 .. currentmodule:: earth2studio.models.da
 
