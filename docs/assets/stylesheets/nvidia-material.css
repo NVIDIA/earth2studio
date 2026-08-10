@@ -254,6 +254,21 @@ body .md-grid {
   color: var(--md-accent-fg-color);
 }
 
+.md-typeset a.e2sg-gallery-card,
+.md-typeset a.e2sg-gallery-card:hover,
+.md-typeset a.e2sg-gallery-card:focus,
+.md-typeset a.e2sg-download,
+.md-typeset a.e2sg-download:hover,
+.md-typeset a.e2sg-download:focus {
+  text-decoration: none;
+}
+
+.md-typeset a.e2sg-gallery-card *,
+.md-typeset a.e2sg-gallery-card:hover *,
+.md-typeset a.e2sg-gallery-card:focus * {
+  text-decoration: none;
+}
+
 .md-typeset .e2s-source-link {
   display: inline-flex;
   align-items: center;
