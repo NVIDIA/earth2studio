@@ -44,6 +44,7 @@ from earth2studio.data.utils import (
     gather_with_concurrency,
     managed_session,
     obstore_fetch_to_cache,
+    obstore_list_prefix,
     obstore_read_range,
     obstore_store_from_url,
     obstore_zarr_store,
@@ -692,6 +693,46 @@ async def test_gather_with_concurrency():
 
 
 @pytest.mark.asyncio
+async def test_gather_with_concurrency_preserves_retries():
+    # A gather-level task_timeout must not be layered on top of a retry-level
+    # per-attempt timeout: the outer wait_for would cancel the retry loop on
+    # the first slow attempt (GOES fetch pattern)
+    call_count = 0
+
+    def make_coro():
+        async def slow_then_succeed():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                await asyncio.sleep(10)
+            return "ok"
+
+        return async_retry(
+            slow_then_succeed,
+            retries=3,
+            backoff=0.01,
+            task_timeout=1.0,
+            exceptions=(OSError, TimeoutError),
+        )
+
+    # Without an outer timeout the first attempt times out and the retry
+    # succeeds
+    out = await gather_with_concurrency([make_coro()], max_workers=1, verbose=True)
+    assert out == ["ok"]
+    assert call_count == 2
+
+    # With an outer timeout shorter than the per-attempt timeout, the whole
+    # retry loop is cancelled on the first attempt — the layering hazard the
+    # GOES fetch path must avoid
+    call_count = 0
+    with pytest.raises(asyncio.TimeoutError):
+        await gather_with_concurrency(
+            [make_coro()], max_workers=1, task_timeout=0.2, verbose=True
+        )
+    assert call_count == 1
+
+
+@pytest.mark.asyncio
 async def test_managed_session():
     class MockFS:
         def __init__(self):
@@ -735,6 +776,40 @@ def test_obstore_store_from_url():
 
     with pytest.raises(Exception):
         obstore_store_from_url("notascheme://foo")
+
+
+@pytest.mark.asyncio
+async def test_obstore_list_prefix():
+    from obstore.store import MemoryStore
+
+    store = MemoryStore()
+    await obs.put_async(store, "pre/a.nc", b"1")
+    await obs.put_async(store, "pre/b.txt", b"2")
+    await obs.put_async(store, "other/c.nc", b"3")
+
+    # Plain listing, no memoization
+    out = await obstore_list_prefix(store, "pre/")
+    assert sorted(out) == ["pre/a.nc", "pre/b.txt"]
+
+    # Memoized: a later addition under the prefix is not re-listed
+    cache: dict[str, list[str]] = {}
+    first = await obstore_list_prefix(store, "pre/", cache=cache)
+    await obs.put_async(store, "pre/new.nc", b"4")
+    assert await obstore_list_prefix(store, "pre/", cache=cache) == first
+    assert "pre/" in cache
+
+    # cacheable=False: result is fresh and never stored
+    cache2: dict[str, list[str]] = {}
+    out = await obstore_list_prefix(store, "pre/", cache=cache2, cacheable=False)
+    assert sorted(out) == ["pre/a.nc", "pre/b.txt", "pre/new.nc"]
+    assert cache2 == {}
+
+    # cacheable=False also bypasses a pre-populated cache entry: the prefix
+    # is re-listed and the stale entry is left untouched
+    cache3: dict[str, list[str]] = {"pre/": ["stale.nc"]}
+    out = await obstore_list_prefix(store, "pre/", cache=cache3, cacheable=False)
+    assert sorted(out) == ["pre/a.nc", "pre/b.txt", "pre/new.nc"]
+    assert cache3 == {"pre/": ["stale.nc"]}
 
 
 @pytest.mark.asyncio
