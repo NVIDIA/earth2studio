@@ -52,6 +52,10 @@
   color: var(--nv-fg);
 }
 
+.md-header__inner {
+  padding-inline: 0;
+}
+
 .md-header__button,
 .md-header__title,
 .md-tabs__link {
@@ -106,11 +110,6 @@
   font-weight: 900;
   opacity: 0.86;
   transform: translateY(-0.06em);
-}
-
-body:has(.e2s-home) .md-tabs .md-grid {
-  max-width: 88rem;
-  padding-inline: 1rem;
 }
 
 .md-header__button.md-logo img,
