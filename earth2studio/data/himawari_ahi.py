@@ -486,10 +486,12 @@ class HimawariAHI:
 
         # Execute with bounded concurrency
         coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in tasks]
+        # No gather-level task_timeout here: fetch_wrapper's async_retry
+        # already bounds each attempt at 60s, and an outer timeout would
+        # cancel the retry loop partway through its attempts
         await gather_with_concurrency(
             coros,
             max_workers=self._async_workers,
-            task_timeout=120.0,
             desc="Fetching Himawari data",
             verbose=(not self._verbose),
         )

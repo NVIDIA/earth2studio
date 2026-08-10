@@ -336,8 +336,23 @@ def test_himawari_call_mock(tmp_path: pathlib.Path):
 
             return _Result()
 
+    # Spy on the gather call: fetch() must not pass a gather-level
+    # task_timeout, which would cancel fetch_wrapper's retry loop on the
+    # first slow attempt
+    from earth2studio.data.utils import gather_with_concurrency
+
+    gather_kwargs: dict = {}
+
+    async def spy_gather(coros, **kwargs):
+        gather_kwargs.update(kwargs)
+        return await gather_with_concurrency(coros, **kwargs)
+
     with (
         patch.object(HimawariAHI, "_async_init", return_value=None),
+        patch(
+            "earth2studio.data.himawari_ahi.gather_with_concurrency",
+            spy_gather,
+        ),
         patch.object(
             HimawariAHI,
             "SCAN_DIMENSIONS",
@@ -375,6 +390,9 @@ def test_himawari_call_mock(tmp_path: pathlib.Path):
     assert list(data.coords["variable"].values) == ["ahi13"]
     # Verify data is not all NaN (tiles were assembled)
     assert not np.isnan(data.values).all()
+    # Retries stay intact: no gather-level timeout was layered on top of
+    # async_retry's per-attempt timeout
+    assert gather_kwargs.get("task_timeout") is None
 
 
 @pytest.mark.timeout(5)
