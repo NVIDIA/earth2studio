@@ -38,6 +38,10 @@
   --md-code-fg-color: #e9f2df;
 }
 
+.md-grid {
+  max-width: 88rem;
+}
+
 .md-header,
 .md-tabs {
   background: var(--nv-green-dark);
@@ -61,7 +65,7 @@
 }
 
 .md-announce__inner {
-  max-width: 84rem;
+  max-width: 88rem;
   padding: 0.45rem 1rem;
 }
 
@@ -105,8 +109,8 @@
 }
 
 body:has(.e2s-home) .md-tabs .md-grid {
-  max-width: none;
-  padding-inline: max(1rem, calc((100vw - 84rem) / 2));
+  max-width: 88rem;
+  padding-inline: 1rem;
 }
 
 .md-header__button.md-logo img,
@@ -184,12 +188,12 @@ body:has(.e2s-home) .md-tabs .md-grid {
 
 .md-typeset h1#install_guide + .admonition.warning {
   border-left-width: 0.28rem;
-  font-size: 0.9rem;
+  font-size: inherit;
   line-height: 1.55;
 }
 
 .md-typeset h1#install_guide + .admonition.warning .admonition-title {
-  font-size: 0.84rem;
+  font-size: 0.8rem;
 }
 
 .md-typeset h1#install_guide + .admonition.warning p {

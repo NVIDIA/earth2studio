@@ -112,7 +112,7 @@ jobs:
                   i += 1
               return "\n".join(out) + "\n"
 
-          for plugin in ("earth2studio-gallery", "mike"):
+          for plugin in ("mike",):
               config = remove_plugin(config, plugin)
 
           (root / "mkdocs.fork-api.yml").write_text(config, encoding="utf-8")
