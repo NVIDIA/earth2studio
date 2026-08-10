@@ -1146,6 +1146,9 @@
 }
 
 .md-typeset .e2s-install-selector {
+  --e2s-install-fg: #182016;
+  --e2s-install-muted: #33402f;
+  --e2s-install-subtle: #4b5845;
   margin: 1.5rem 0 2.4rem;
   padding: clamp(1rem, 2vw, 1.35rem);
   border: 1px solid rgba(76, 124, 14, 0.2);
@@ -1157,6 +1160,7 @@
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.82),
     0 1rem 2.6rem rgba(18, 32, 14, 0.1);
+  color: var(--e2s-install-fg);
 }
 
 .e2s-install-selector__intro {
@@ -1168,12 +1172,12 @@
 .md-typeset .e2s-install-selector__intro p {
   max-width: 50rem;
   margin: 0;
-  color: var(--md-default-fg-color--light);
+  color: var(--e2s-install-muted);
   line-height: 1.5;
 }
 
 .md-typeset .e2s-install-selector__url {
-  color: var(--md-default-fg-color--lighter);
+  color: var(--e2s-install-subtle);
   font-size: 0.82rem;
 }
 
@@ -1252,7 +1256,7 @@
 }
 
 .e2s-install-buttons small {
-  color: var(--md-default-fg-color--lighter);
+  color: var(--e2s-install-subtle);
   font-size: 0.68rem;
   line-height: 1.25;
 }
@@ -1293,7 +1297,7 @@
 
 .md-typeset .e2s-install-summary p {
   margin: 0.35rem 0 0;
-  color: var(--md-default-fg-color--light);
+  color: var(--e2s-install-muted);
 }
 
 .e2s-install-alert {
@@ -1357,7 +1361,7 @@
 
 .md-typeset .e2s-install-card p {
   margin: 0.16rem 0 0;
-  color: var(--md-default-fg-color--lighter);
+  color: var(--e2s-install-subtle);
   font-size: 0.72rem;
 }
 
