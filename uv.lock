@@ -2602,7 +2602,7 @@ docs = [
     { name = "matplotlib" },
     { name = "mike", specifier = ">=2.1.0" },
     { name = "mkdocs", specifier = ">=1.6.1" },
-    { name = "mkdocs-badges", git = "https://github.com/NickGeneva/mkdocs-badges.git?rev=8edebc272440464b3058b1c90e17a733d6113b3c" },
+    { name = "mkdocs-badges", git = "https://github.com/NickGeneva/mkdocs-badges.git?rev=06fc484c25c6aed453094792a1dc70da896e374b" },
     { name = "mkdocs-material", specifier = ">=9.6.0" },
     { name = "mkdocstrings", specifier = ">=1.0.4" },
     { name = "mkdocstrings-python", specifier = ">=2.0.5" },
@@ -4937,10 +4937,11 @@ wheels = [
 
 [[package]]
 name = "mkdocs-badges"
-version = "0.2.0"
-source = { git = "https://github.com/NickGeneva/mkdocs-badges.git?rev=8edebc272440464b3058b1c90e17a733d6113b3c#8edebc272440464b3058b1c90e17a733d6113b3c" }
+version = "0.3.0"
+source = { git = "https://github.com/NickGeneva/mkdocs-badges.git?rev=06fc484c25c6aed453094792a1dc70da896e374b#06fc484c25c6aed453094792a1dc70da896e374b" }
 dependencies = [
     { name = "mkdocs" },
+    { name = "zensical" },
 ]
 
 [[package]]
