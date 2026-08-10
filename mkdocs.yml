@@ -50,6 +50,7 @@ theme:
 extra_css:
 - https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css
 - assets/stylesheets/nvidia-material.css
+- assets/stylesheets/earth2studio-gallery.css
 extra_javascript:
 - assets/javascripts/e2s-landing.js
 - assets/javascripts/e2s-install-selector.js
