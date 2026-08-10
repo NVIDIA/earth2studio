@@ -21,6 +21,12 @@
   --md-accent-fg-color: var(--nv-green);
   --md-accent-fg-color--transparent: rgba(118, 185, 0, 0.12);
   --md-typeset-a-color: #4d8c00;
+  --e2s-header-bg: #050806;
+  --e2s-header-fg: #fff;
+  --e2s-header-muted: rgba(255, 255, 255, 0.78);
+  --e2s-header-border: rgba(155, 229, 100, 0.24);
+  --e2s-header-search-bg: rgba(255, 255, 255, 0.08);
+  --e2s-header-search-border: rgba(118, 185, 0, 0.18);
 }
 
 [data-md-color-accent="light-green"] {
@@ -44,15 +50,22 @@ body .md-grid {
 
 .md-header,
 .md-tabs {
-  background-color: #050806;
+  --md-default-fg-color: var(--e2s-header-fg);
+  --md-default-fg-color--light: var(--e2s-header-fg);
+  --md-default-fg-color--lighter: var(--e2s-header-muted);
+  --md-default-bg-color: var(--e2s-header-bg);
+  --md-primary-fg-color: var(--e2s-header-bg);
+  --md-primary-bg-color: var(--e2s-header-fg);
+  --md-typeset-a-color: var(--e2s-header-fg);
+  background-color: var(--e2s-header-bg) !important;
   background-image:
     radial-gradient(circle at 32% -4%, rgba(118, 185, 0, 0.2), transparent 33rem),
     radial-gradient(circle at 78% 86%, rgba(14, 165, 164, 0.14), transparent 27rem),
     radial-gradient(circle at 7% 58%, rgba(250, 204, 21, 0.08), transparent 22rem),
-    linear-gradient(90deg, rgba(5, 8, 6, 0.98), rgba(5, 8, 6, 0.86));
-  border-bottom: 1px solid rgba(155, 229, 100, 0.24);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset;
-  color: var(--nv-fg);
+    linear-gradient(90deg, rgba(5, 8, 6, 0.98), rgba(5, 8, 6, 0.86)) !important;
+  border-bottom: 1px solid var(--e2s-header-border) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset !important;
+  color: var(--e2s-header-fg) !important;
 }
 
 .md-header__inner {
@@ -60,9 +73,13 @@ body .md-grid {
 }
 
 .md-header__button,
+.md-header__button[for],
 .md-header__button:hover,
 .md-header__button:focus,
 .md-header__button:active,
+.md-header__button[for]:hover,
+.md-header__button[for]:focus,
+.md-header__button[for]:active,
 .md-header__title,
 .md-header__title:hover,
 .md-header__title:focus,
@@ -79,20 +96,39 @@ body .md-grid {
 .md-header .md-source__repository:hover,
 .md-header .md-source__repository:focus,
 .md-header .md-source__repository:active,
+.md-header a,
+.md-header a:hover,
+.md-header a:focus,
+.md-header a:active,
+.md-header button,
+.md-header button:hover,
+.md-header button:focus,
+.md-header button:active,
+.md-header label,
+.md-header label:hover,
+.md-header label:focus,
+.md-header label:active,
 .md-header svg,
-.md-tabs__link {
-  color: #fff !important;
+.md-tabs,
+.md-tabs__link,
+.md-tabs__link:hover,
+.md-tabs__link:focus,
+.md-tabs__link:active,
+.md-tabs__link--active {
+  color: var(--e2s-header-fg) !important;
 }
 
 .md-banner,
 .md-announce {
+  --md-default-fg-color: var(--e2s-header-fg);
+  --md-default-bg-color: var(--e2s-header-bg);
   position: relative;
   z-index: 6;
   background:
     radial-gradient(circle at 20% 0%, rgba(118, 185, 0, 0.16), transparent 22rem),
-    linear-gradient(90deg, rgba(5, 8, 6, 0.98), rgba(12, 15, 11, 0.96));
-  border-bottom: 1px solid rgba(118, 185, 0, 0.18);
-  color: var(--nv-fg);
+    linear-gradient(90deg, rgba(5, 8, 6, 0.98), rgba(12, 15, 11, 0.96)) !important;
+  border-bottom: 1px solid rgba(118, 185, 0, 0.18) !important;
+  color: var(--e2s-header-fg) !important;
 }
 
 .md-banner__inner,
@@ -118,27 +154,28 @@ body .md-grid {
 }
 
 .md-search__form {
-  background-color: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(118, 185, 0, 0.18);
-  color: #fff;
+  background-color: var(--e2s-header-search-bg) !important;
+  border: 1px solid var(--e2s-header-search-border) !important;
+  color: var(--e2s-header-fg) !important;
 }
 
 .md-header .md-search__button {
-  color: #fff !important;
+  color: var(--e2s-header-fg) !important;
 }
 
 .md-header .md-search__button:hover,
 .md-header .md-search__button:focus,
 .md-header .md-search__button:active {
-  color: #fff !important;
+  color: var(--e2s-header-fg) !important;
 }
 
 .md-header .md-search__input {
-  color: #fff !important;
+  color: var(--e2s-header-fg) !important;
+  background: transparent !important;
 }
 
 .md-header .md-search__input::placeholder {
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--e2s-header-muted) !important;
   opacity: 1;
 }
 
@@ -146,7 +183,7 @@ body .md-grid {
 .md-header .md-search__options,
 .md-header .md-search__options .md-icon,
 .md-header .md-search__suggest {
-  color: #fff !important;
+  color: var(--e2s-header-fg) !important;
 }
 
 .md-tabs__link[href="https://github.com/NVIDIA/earth2studio/tree/main/recipes"]::after,
