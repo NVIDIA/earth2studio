@@ -202,6 +202,14 @@ class _ShardBuffer:
 class AsyncZarrBackend:
     """Async Zarr v3 IO Backend
 
+    An asynchronous Zarr backend for inference pipelines that produce
+    data faster than a store can absorb it synchronously. Iteratively generated dimensions
+    (time, lead_time, ensemble) go into `parallel_coords` with their complete value sets,
+    each inference step writes one slice along them, and `close()` is called at the end
+    to drain pending writes and write out any incomplete shard. Remote stores are supported
+    through `fs_factory`, and Zarr v3 sharding via `shard_coords` keeps the file count of
+    large campaigns low.
+
     Warning
     -------
     This IO backend presently does not support overwritting existing Zarr stores. Only
@@ -289,6 +297,21 @@ class AsyncZarrBackend:
 
     Notes
     -----
+    Relation to ZarrBackend
+
+    Exposes the same surface as :class:`ZarrBackend` and can be used as a drop-in
+    replacement, with a few behavioral differences:
+
+    - `add_array` takes a `dtype` instead of a template `data` tensor and is
+      idempotent, so it is safe to call from every rank of a distributed job.
+    - In non-blocking mode a failed write raises at a later `write`, `flush` or
+      `close` rather than at the failing call, and inputs are copied so callers
+      may freely reuse their buffers.
+    - `coords` is read back from the store, and `__getitem__` flushes pending
+      writes first; intended for inspection, not reads in a write loop.
+    - Consolidated metadata is not maintained; consolidate at the end of a
+      pipeline if desired, e.g. ``zarr.consolidate_metadata(io.store)``.
+
     Sharding
 
     Because every coordinate in `parallel_coords` is chunked with a size of 1, a large
@@ -314,6 +337,34 @@ class AsyncZarrBackend:
     Sharding composes with `zarr_codecs`, which compresses the inner chunks within a
     shard, and with `chunked_coords`, which sets the chunk size of coordinates outside
     `parallel_coords`.
+
+    Examples
+    --------
+    Write a forecast one lead time at a time, hiding the IO behind the model steps:
+
+    >>> times = np.array([np.datetime64("2024-01-01")])
+    >>> lead_times = np.array([np.timedelta64(6 * i, "h") for i in range(4)])
+    >>> io = AsyncZarrBackend(
+    ...     "forecast.zarr",
+    ...     parallel_coords={"time": times, "lead_time": lead_times},
+    ...     blocking=False,
+    ...     shard_coords={"lead_time": 4},  # optional: 4 chunks per storage object
+    ... )
+    >>> total_coords = OrderedDict(
+    ...     {
+    ...         "time": times,
+    ...         "lead_time": lead_times,
+    ...         "lat": np.linspace(-90, 90, 721),
+    ...         "lon": np.linspace(0, 360, 1440, endpoint=False),
+    ...     }
+    ... )
+    >>> io.add_array(total_coords, ["t2m", "z500"])
+    >>> for i in range(len(lead_times)):
+    ...     x = torch.randn(1, 1, 721, 1440)  # model output for this step
+    ...     step_coords = total_coords.copy()
+    ...     step_coords["lead_time"] = lead_times[i : i + 1]
+    ...     io.write([x, x], step_coords, ["t2m", "z500"])
+    >>> io.close()  # drain pending writes, write out any incomplete shard
     """
 
     def __init__(
