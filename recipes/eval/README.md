@@ -516,6 +516,25 @@ When `resume=true`, the `output.overwrite` setting is ignored — existing
 data is never deleted.  When all items are complete, subsequent runs exit
 immediately with a success message.
 
+## IO backend and sharding
+
+By default the recipe writes through `AsyncZarrBackend`, which runs
+`output.thread_writers` writer threads of its own and supports Zarr v3
+sharding.  Setting `output.io_backend: zarr` falls back to `ZarrBackend`,
+which writes synchronously (`thread_writers` is ignored there).
+
+```yaml
+output:
+    io_backend: async_zarr
+    shard_coords: {lead_time: 8}
+    max_inflight_shards: 4
+```
+
+Note that larger *chunks* are not the alternative: `time`, `lead_time` and
+`ensemble` are written one slice at a time, so a chunk spanning several of them
+would let concurrent writes read-modify-write the same object and lose one of
+them.  `OutputManager` rejects a chunk size other than 1 on those axes.
+
 ## Configuration
 
 All configuration lives under `cfg/` and uses [Hydra](https://hydra.cc/docs/intro/).

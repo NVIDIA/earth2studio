@@ -162,9 +162,6 @@ class TestOutputManager:
             with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
                 with OutputManager(threaded_cfg) as mgr:
                     mgr.validate_output_store(total_coords, VARIABLES)
-                    assert mgr._executor is not None
-                    assert mgr._executor._max_workers == 2
-
                     n_var = len(VARIABLES)
                     n_lat = len(total_coords["lat"])
                     n_lon = len(total_coords["lon"])
@@ -322,3 +319,128 @@ class TestOutputManagerStoreName:
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
             mgr = OutputManager(cfg, resume=True)
             assert mgr._resume is True
+
+
+class TestIOBackendSelection:
+    """`output.io_backend` must be a drop-in switch, with guarded config."""
+
+    @pytest.fixture()
+    def total_coords(self, prognostic):
+        times = np.array([np.datetime64("2024-01-01")])
+        return build_forecast_coords(prognostic, times, nsteps=2)
+
+    def _cfg(self, tmp_path, **overrides):
+        output = {
+            "path": str(tmp_path / "out"),
+            "overwrite": True,
+            "thread_writers": 0,
+            "chunks": {"time": 1, "lead_time": 1},
+            "io_backend": "async_zarr",
+        }
+        output.update(overrides)
+        return OmegaConf.create({"output": output})
+
+    @pytest.mark.parametrize("thread_writers", [0, 4])
+    def test_both_backends_write_the_same_data(
+        self, tmp_path, total_coords, prognostic, thread_writers
+    ):
+        import zarr
+
+        n_var = len(VARIABLES)
+        n_lat = len(total_coords["lat"])
+        n_lon = len(total_coords["lon"])
+
+        def run(backend):
+            cfg = self._cfg(
+                tmp_path / backend,
+                io_backend=backend,
+                thread_writers=thread_writers,
+            )
+            cfg.output.path = str(tmp_path / backend)
+            with patch(_DIST_PATH, return_value=_make_dist_mock()):
+                with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
+                    with OutputManager(cfg) as mgr:
+                        mgr.validate_output_store(total_coords, VARIABLES)
+                        for step, lead in enumerate(total_coords["lead_time"]):
+                            coords = OrderedDict(
+                                {
+                                    "time": total_coords["time"],
+                                    "lead_time": np.array([lead]),
+                                    "variable": np.array(VARIABLES),
+                                    "lat": total_coords["lat"],
+                                    "lon": total_coords["lon"],
+                                }
+                            )
+                            mgr.write(
+                                torch.full((1, 1, n_var, n_lat, n_lon), float(step)),
+                                coords,
+                            )
+                        mgr.flush()
+                    return zarr.open(mgr._path)
+
+        a, b = run("zarr"), run("async_zarr")
+        for v in VARIABLES:
+            np.testing.assert_array_equal(np.asarray(a[v][:]), np.asarray(b[v][:]))
+
+    def test_rejects_unknown_backend(self, tmp_path):
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            with pytest.raises(ValueError, match="io_backend"):
+                OutputManager(self._cfg(tmp_path, io_backend="parquet"))
+
+    @pytest.mark.parametrize("axis", ["time", "lead_time", "ensemble"])
+    def test_rejects_non_unit_chunk_on_iteration_axis(self, tmp_path, axis):
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            with pytest.raises(ValueError, match="chunk size 1"):
+                OutputManager(self._cfg(tmp_path, chunks={"time": 1, axis: 2}))
+
+    def test_allows_chunking_a_spatial_axis(self, tmp_path):
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            OutputManager(self._cfg(tmp_path, chunks={"time": 1, "lat": 4}))
+
+    @pytest.mark.parametrize("axis", ["time", "ensemble"])
+    def test_rejects_sharding_a_distributed_axis(self, tmp_path, axis):
+        dist = _make_dist_mock(world_size=2, distributed=True)
+        with patch(_DIST_PATH, return_value=dist):
+            with pytest.raises(ValueError, match="lead_time"):
+                OutputManager(self._cfg(tmp_path, shard_coords={axis: 4}))
+
+    def test_allows_sharding_any_axis_single_process(self, tmp_path):
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            OutputManager(self._cfg(tmp_path, shard_coords={"time": 4}))
+
+    def test_rejects_sharding_with_zarr_backend(self, tmp_path):
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            with pytest.raises(ValueError, match="async_zarr"):
+                OutputManager(
+                    self._cfg(
+                        tmp_path, io_backend="zarr", shard_coords={"lead_time": 4}
+                    )
+                )
+
+    def test_sharded_write_roundtrips(self, tmp_path, total_coords):
+        import zarr
+
+        n_var = len(VARIABLES)
+        n_lat = len(total_coords["lat"])
+        n_lon = len(total_coords["lon"])
+        cfg = self._cfg(tmp_path, thread_writers=2, shard_coords={"lead_time": 2})
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
+                with OutputManager(cfg) as mgr:
+                    mgr.validate_output_store(total_coords, VARIABLES)
+                    for step, lead in enumerate(total_coords["lead_time"]):
+                        coords = OrderedDict(
+                            {
+                                "time": total_coords["time"],
+                                "lead_time": np.array([lead]),
+                                "variable": np.array(VARIABLES),
+                                "lat": total_coords["lat"],
+                                "lon": total_coords["lon"],
+                            }
+                        )
+                        mgr.write(
+                            torch.full((1, 1, n_var, n_lat, n_lon), float(step)), coords
+                        )
+                stored = zarr.open(mgr._path)["t2m"][:]
+        for step in range(len(total_coords["lead_time"])):
+            assert np.all(stored[0, step] == float(step))

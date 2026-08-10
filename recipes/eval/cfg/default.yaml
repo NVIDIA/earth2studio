@@ -124,9 +124,24 @@ output:
         - z500
     overwrite: true
     thread_writers: 4   # 0 = synchronous writes
+    # time/lead_time/ensemble must keep chunk size 1 with async_zarr: they are
+    # written one slice per step, and a larger chunk would let concurrent writes
+    # read-modify-write the same object. Use shard_coords to cut file count.
     chunks:
         time: 1
         lead_time: 1
+
+    # --- IO backend ---------------------------------------------------------
+    # async_zarr : AsyncZarrBackend (default), owns its writer threads and
+    #              supports Zarr v3 sharding.
+    # zarr       : ZarrBackend, fully synchronous. 
+    io_backend: async_zarr
+
+    # --- sharding (async_zarr only) -----------------------------------------
+    # Sharding packs many chunks into one storage object, cutting file count
+    # without changing the chunk layout readers see.
+    shard_coords: {}          # e.g. {lead_time: 8}
+    max_inflight_shards: 4
 
 # ---------------------------------------------------------------------------
 # Pre-download settings (used by predownload.py, consulted by score.py)
