@@ -134,7 +134,7 @@ output:
     # --- IO backend ---------------------------------------------------------
     # async_zarr : AsyncZarrBackend (default), owns its writer threads and
     #              supports Zarr v3 sharding.
-    # zarr       : ZarrBackend, fully synchronous. 
+    # zarr       : ZarrBackend, fully synchronous.
     io_backend: async_zarr
 
     # --- sharding (async_zarr only) -----------------------------------------

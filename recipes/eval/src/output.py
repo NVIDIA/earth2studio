@@ -512,7 +512,7 @@ class OutputManager:
 
     def write(self, x: torch.Tensor, coords: CoordSystem) -> None:
         """Write a chunk of forecast data.
-        
+
         Parameters
         ----------
         x : torch.Tensor
