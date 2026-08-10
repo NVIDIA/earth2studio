@@ -413,7 +413,14 @@ nav:
   - Utilities: modules/utils_all.md
   - Workflows: modules/workflows.md
 - Examples: examples/index.md
-- Blog: blog/index.md
+- Blog:
+  - Overview: blog/index.md
+  - Posts:
+    - MkDocs Migration: blog/posts/mkdocs-upgrade.md
+  - Archive: blog/archive.md
+  - Categories:
+    - Overview: blog/categories.md
+    - Documentation: blog/categories/documentation.md
 - Recipes: https://github.com/NVIDIA/earth2studio/tree/main/recipes
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |

@@ -4,10 +4,12 @@ Earth-2 product and engineering blog posts and updates.
 
 ## Latest Updates
 
-- **[MkDocs Migration](posts/mkdocs-upgrade/)**
+### [MkDocs Migration](posts/mkdocs-upgrade/)
 
-  `Documentation` · August 6, 2026
+`Documentation` · August 6, 2026
 
-  Earth2Studio documentation is being refreshed with a MkDocs-based site,
-  clearer install guidance, a stronger landing page, and room for targeted
-  product and engineering updates.
+Earth2Studio documentation is being refreshed with a MkDocs-based site, clearer
+install guidance, a stronger landing page, and room for targeted product and
+engineering updates.
+
+[Read post](posts/mkdocs-upgrade/)
