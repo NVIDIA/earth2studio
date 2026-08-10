@@ -92,6 +92,28 @@ jobs:
           for name in ("install.md", "install_options.yml"):
               shutil.copy2(docs / "userguide" / "about" / name, install_dst / name)
 
+          (api_docs / "index.md").write_text(
+              "\n".join(
+                  (
+                      "# Earth2Studio API Reference",
+                      "",
+                      "- [Prognostic Models](modules/models_px.md)",
+                      "- [Diagnostic Models](modules/models_dx.md)",
+                      "- [Data Assimilation](modules/models_da.md)",
+                      "- [Data Sources](modules/datasources_analysis.md)",
+                      "- [Forecast Data Sources](modules/datasources_forecast.md)",
+                      "- [DataFrame Sources](modules/datasources_dataframe.md)",
+                      "- [IO Backends](modules/io.md)",
+                      "- [Perturbations](modules/perturbation.md)",
+                      "- [Statistics](modules/statistics.md)",
+                      "- [Utilities](modules/utils_all.md)",
+                      "- [Workflows](modules/workflows.md)",
+                      "",
+                  )
+              ),
+              encoding="utf-8",
+          )
+
           config = (root / "mkdocs.yml").read_text(encoding="utf-8")
           config = config.replace("docs_dir: docs", "docs_dir: .docs-api")
           config = config.replace(
@@ -137,6 +159,7 @@ jobs:
           head = config.split("\nnav:\n", 1)[0]
           config = head + """
           nav:
+          - Home: index.md
           - API:
             - modules/index.md
             - Prognostic Models: modules/models_px.md
