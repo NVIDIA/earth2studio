@@ -59,6 +59,10 @@ CUSTOM_TARGET_RE = re.compile(
 DOCS_ROOT = Path(__file__).resolve().parent
 INSTALL_SELECTOR_MARKER = "<!-- e2s-install-selector -->"
 INSTALL_SELECTOR_CONFIG = DOCS_ROOT / "userguide" / "about" / "install_options.yml"
+EXAMPLES_GALLERY_DESCRIPTION = (
+    "Runnable examples, grouped by topic. Each card opens the complete source, "
+    "output, and captured figures."
+)
 
 CALLOUT_KINDS = {
     "note",
@@ -162,8 +166,17 @@ REF_TARGETS = {
 
 def on_page_markdown(markdown: str, **kwargs: object) -> str:
     """Convert legacy Sphinx/MyST blocks before Python-Markdown renders pages."""
+    page = kwargs.get("page")
     markdown = _render_install_selector(markdown)
-    return _convert_legacy_blocks(markdown, kwargs.get("page"))
+    markdown = _remove_examples_gallery_description(markdown, page)
+    return _convert_legacy_blocks(markdown, page)
+
+
+def _remove_examples_gallery_description(markdown: str, page: object | None) -> str:
+    """Remove the generated examples index description."""
+    if str(getattr(page, "url", "") or "") != "examples/":
+        return markdown
+    return markdown.replace(f"\n{EXAMPLES_GALLERY_DESCRIPTION}\n", "\n")
 
 
 def _render_install_selector(markdown: str) -> str:

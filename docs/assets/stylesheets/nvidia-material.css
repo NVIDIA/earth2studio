@@ -66,9 +66,6 @@
 .md-announce {
   position: relative;
   z-index: 6;
-  color: var(--nv-fg);
-  background: #003b24;
-  border-bottom: 1px solid rgba(155, 229, 100, 0.32);
 }
 
 .md-banner__inner,
@@ -87,10 +84,6 @@
   font-size: 0.72rem;
   line-height: 1.35;
   text-align: center;
-}
-
-.e2s-announcement strong {
-  color: var(--nv-green-2);
 }
 
 .e2s-announcement__icon {

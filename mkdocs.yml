@@ -18,6 +18,7 @@ theme:
   favicon: _static/favicon.ico
   language: en
   features:
+  - announce.dismiss
   - navigation.tabs
   - navigation.tabs.sticky
   - navigation.sections
