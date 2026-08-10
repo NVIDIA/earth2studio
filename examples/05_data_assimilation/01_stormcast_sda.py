@@ -23,18 +23,19 @@ Running StormCast-CONUS with guided diffusion posterior sampling to assimilate o
 
 This example demonstrates how to use the StormCast-CONUS generative model with
 score-based data assimilation (SDA) over the Continental United States. Sparse
-in-situ surface observations from NOAA ISD are assimilated at each forecast step
-using diffusion posterior sampling (DPS) guidance.
-Two forecasts are run—one without observations and one with ISD surface station
-data from the central United States—to illustrate the impact of data assimilation.
+in-situ surface observations from NOAA Global Historical Climatology Network Hourly
+(GHCNh) are assimilated at each forecast step using diffusion posterior sampling
+(DPS) guidance. Two forecasts from the central United States are run to illustrate the impact of
+data assimilation: one without observations and one with GHCNh surface station data.
 
 In this example you will learn:
 
 - How to load StormCast-CONUS and configure SDA parameters
-- Fetching HRRR initial conditions and ISD surface observations
+- Fetching HRRR initial conditions and GHCNh surface observations
 - Running the model iteratively with and without observation assimilation
 - Comparing assimilated and non-assimilated forecasts
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[data,stormcast-conus] @ git+https://github.com/NVIDIA/earth2studio.git",
@@ -50,7 +51,8 @@ In this example you will learn:
 # - Prognostic Model: StormCast-CONUS :py:class:`earth2studio.models.px.StormCastCONUS`
 #   configured with SDA parameters.
 # - Datasource (state): HRRR analysis :py:class:`earth2studio.data.HRRR`.
-# - Datasource (obs): NOAA ISD surface stations :py:class:`earth2studio.data.ISD`.
+# - Datasource (obs): NOAA GHCNh surface stations
+#   :py:class:`earth2studio.data.GHCNHourly`.
 #
 # StormCast-CONUS extends the StormCast generative architecture to the full CONUS
 # HRRR domain at 3 km resolution. When an observation DataFrame is passed to each
@@ -75,7 +77,7 @@ from tqdm import tqdm
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
-from earth2studio.data import HRRR, ISD, fetch_data
+from earth2studio.data import HRRR, GHCNHourly, fetch_data
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.utils.coords import map_coords
 
@@ -107,12 +109,12 @@ hrrr = HRRR()
 # %%
 # Fetch Initial Conditions
 # ------------------------
-# Pull HRRR analysis data for April 3rd 2025, a date that saw a major tornado
+# Pull HRRR analysis data for 17 April 2026, a date that saw a significant tornado
 # outbreak across the central United States, and align it to the model's
 # coordinate system.
 
 # %%
-init_time = np.array([np.datetime64("2025-04-03T18:00")])
+init_time = np.array([np.datetime64("2026-04-17T18:00")])
 
 x, coords = fetch_data(
     hrrr,
@@ -157,29 +159,33 @@ no_obs_fields = np.stack(no_obs_fields)  # (nsteps, H, W)
 # %%
 # Fetch Observations and Plot Station Locations
 # ---------------------------------------------
-# Fetch NOAA Integrated Surface Database (ISD) surface observations covering
-# the model domain.  The bounding box is derived from the model's lat/lon grid
-# so it automatically adjusts when running on a subdomain.
-# We visualise the station network before running the assimilation forecast.
+# Fetch GHCNh surface observations covering the model domain. The bounding box
+# is derived from the model's lat/lon grid so it automatically adjusts when
+# running on a subdomain. We visualise the station network before running the
+# assimilation forecast.
 
 # %%
-# ISD uses [-180, 180] longitude; model.lon is in [0, 360] — convert here.
+# Model lon is in [0, 360); convert to [-180, 180) for the western-hemisphere
+# CONUS domain. GHCNHourly.get_stations_bbox accepts either convention.
 lat_min = float(model.lat.min())
 lat_max = float(model.lat.max())
 lon_min = float(model.lon.min()) - 360.0
 lon_max = float(model.lon.max()) - 360.0
-stations = ISD.get_stations_bbox((lat_min, lon_min, lat_max, lon_max))
-isd = ISD(stations=stations, time_tolerance=timedelta(minutes=15), verbose=False)
+stations = GHCNHourly.get_stations_bbox((lat_min, lon_min, lat_max, lon_max))
+ghcn = GHCNHourly(
+    stations=stations, time_tolerance=timedelta(minutes=15), verbose=False
+)
 
 # %%
 import cartopy
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
-# Fetch a sample observation at the initial time to retrieve station positions
-sample_df = isd(init_time, plot_vars)
+# Fetch a sample observation at the initial time to retrieve station positions.
+# GHCNh returns lon in [0, 360); shift to [-180, 180) for PlateCarree plots.
+sample_df = ghcn(init_time, plot_vars)
 station_lats = sample_df["lat"].values
-station_lons = sample_df["lon"].values
+station_lons = sample_df["lon"].values - 360.0
 
 plt.close("all")
 fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(8, 6))
@@ -199,16 +205,16 @@ ax.scatter(
     transform=ccrs.PlateCarree(),
     zorder=3,
 )
-ax.set_title("ISD Station Locations - StormCast-CONUS Domain")
-plt.savefig("outputs/03_isd_stations.jpg", dpi=150, bbox_inches="tight")
+ax.set_title("GHCNh Station Locations - StormCast-CONUS Domain")
+plt.savefig("outputs/01_ghcn_stations.jpg", dpi=150, bbox_inches="tight")
 
 # %%
 # Run Inference With Streaming Observations
-# ------------------------------------------
+# -----------------------------------------
 # At each forecast step the next valid time is determined from the current
-# generator state, ISD observations are fetched for that time, and the
+# generator state, GHCNh observations are fetched for that time, and the
 # observation DataFrame is sent to the generator. Zero-value wind reports
-# (anemometer failure) are filtered out before assimilation.
+# (likely anemometer failure) are filtered out before assimilation.
 
 # %%
 np.random.seed(42)
@@ -225,7 +231,7 @@ for step in tqdm(range(nsteps), desc="Obs forecast"):
     valid_time = np.array(
         [c_cur["time"][0] + c_cur["lead_time"][0] + np.timedelta64(1, "h")]
     )
-    obs_df = isd(valid_time, plot_vars)
+    obs_df = ghcn(valid_time, plot_vars)
 
     # Drop zero-value wind reports (common anemometer failure mode)
     if len(obs_df) > 0:
@@ -359,7 +365,7 @@ plt.colorbar(im1, ax=axes[1, -1], shrink=0.6, label=f"{plot_var} (m/s)")
 plt.colorbar(im2, ax=axes[2, -1], shrink=0.6, label=f"{plot_var} (m/s)")
 
 plt.tight_layout()
-plt.savefig("outputs/03_stormcast_conus_sda_comparison.jpg", dpi=150)
+plt.savefig("outputs/01_stormcast_conus_sda_comparison.jpg", dpi=150)
 
 # %%
 # Ground Truth Comparison
@@ -459,4 +465,4 @@ for row_label, ax_row in zip(["|No Obs − Truth|", "|Obs − Truth|"], axes[:, 
 plt.colorbar(im0, ax=axes[0, -1], shrink=0.6, label=f"|Δ{plot_var}| (m/s)")
 plt.colorbar(im1, ax=axes[1, -1], shrink=0.6, label=f"|Δ{plot_var}| (m/s)")
 plt.tight_layout()
-plt.savefig("outputs/03_stormcast_conus_sda_gt_comparison.jpg", dpi=150)
+plt.savefig("outputs/01_stormcast_conus_sda_gt_comparison.jpg", dpi=150)

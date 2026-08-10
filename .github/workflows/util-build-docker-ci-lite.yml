@@ -1,0 +1,95 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: util-build-docker-ci-lite
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Image tag to publish, for example 0.1. Once built you then need to update the workflows to use the new tag.
+        required: true
+        default: "0.1"
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  E2S_CI_LITE_IMAGE: ghcr.io/nvidia/earth2studio-ci-lite
+
+jobs:
+  util-build-docker-ci-lite:
+    name: util-build-docker-ci-lite
+    if: github.repository == 'NVIDIA/earth2studio'
+    runs-on: linux-amd64-cpu8
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Validate image tag
+        id: image
+        env:
+          IMAGE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$IMAGE_TAG" ]; then
+            echo "Image tag must not be empty."
+            exit 1
+          fi
+
+          if [ "${#IMAGE_TAG}" -gt 128 ]; then
+            echo "Image tag must be 128 characters or fewer."
+            exit 1
+          fi
+
+          if [[ ! "$IMAGE_TAG" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+            echo "Image tag may only contain letters, numbers, underscores, periods, and dashes."
+            exit 1
+          fi
+
+          echo "tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "image=$E2S_CI_LITE_IMAGE:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push lite CI image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: test/Dockerfile.lite
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.image.outputs.image }}

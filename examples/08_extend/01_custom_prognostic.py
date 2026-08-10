@@ -30,6 +30,7 @@ In this example you will learn:
 - Implementing a custom prognostic model
 - Running this model in existing workflows
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git",

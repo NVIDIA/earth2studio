@@ -28,7 +28,7 @@ the private helpers.
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import hydra
 import numpy as np
@@ -36,7 +36,7 @@ import torch
 import xarray as xr
 from loguru import logger
 
-from earth2studio.data import fetch_data
+from earth2studio.data import DataSource, fetch_data
 from earth2studio.utils.coords import CoordSystem
 
 if TYPE_CHECKING:
@@ -260,7 +260,7 @@ def declare_single_source_stores(
         stores.append(
             PredownloadStore(
                 name="data",
-                source=data_source,
+                source=cast(DataSource, data_source),
                 times=times,
                 variables=variables,
                 spatial_ref=spatial_ref,
