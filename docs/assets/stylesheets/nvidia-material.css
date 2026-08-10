@@ -39,7 +39,7 @@
 }
 
 .md-grid {
-  max-width: 84rem;
+  max-width: 68rem;
 }
 
 .md-header,
@@ -70,7 +70,7 @@
 
 .md-banner__inner,
 .md-announce__inner {
-  max-width: 84rem;
+  max-width: 68rem;
   margin: 0 auto;
   padding: 0.45rem 1rem;
 }
