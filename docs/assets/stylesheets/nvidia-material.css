@@ -101,6 +101,23 @@ body .md-grid {
 .md-search__form {
   background-color: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(118, 185, 0, 0.18);
+  color: #fff;
+}
+
+.md-header .md-search__input {
+  color: #fff;
+}
+
+.md-header .md-search__input::placeholder {
+  color: rgba(255, 255, 255, 0.78);
+  opacity: 1;
+}
+
+.md-header .md-search__icon,
+.md-header .md-search__options,
+.md-header .md-search__options .md-icon,
+.md-header .md-search__suggest {
+  color: #fff;
 }
 
 .md-tabs__link[href="https://github.com/NVIDIA/earth2studio/tree/main/recipes"]::after,
