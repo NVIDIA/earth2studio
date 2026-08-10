@@ -62,14 +62,19 @@
   color: var(--nv-fg);
 }
 
+.md-banner,
 .md-announce {
+  position: relative;
+  z-index: 6;
   color: var(--nv-fg);
   background: #003b24;
   border-bottom: 1px solid rgba(155, 229, 100, 0.32);
 }
 
+.md-banner__inner,
 .md-announce__inner {
   max-width: 84rem;
+  margin: 0 auto;
   padding: 0.45rem 1rem;
 }
 
