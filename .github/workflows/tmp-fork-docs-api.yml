@@ -1,0 +1,184 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: tmp-fork-api-docs
+
+on:
+  push:
+    branches:
+      - mkdocs-upgrade
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  pages: write
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: tmp-fork-api-docs-pages
+  cancel-in-progress: true
+
+env:
+  UV_PYTHON: "3.13.13"
+
+jobs:
+  build-and-deploy:
+    name: Build and deploy API docs
+    if: github.repository == 'NickGeneva/earth2studio'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Restore uv cache
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        with:
+          path: ~/.cache/uv
+          key: tmp-fork-api-docs-uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            tmp-fork-api-docs-uv-${{ runner.os }}-
+
+      - name: Install docs dependencies
+        run: uv sync --python "$UV_PYTHON" --locked --group docs
+
+      - name: Generate API markdown
+        run: uv run python docs/generate_api.py
+
+      - name: Prepare API-only docs tree
+        run: |
+          uv run python - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          root = Path.cwd()
+          docs = root / "docs"
+          api_docs = root / ".docs-api"
+          if api_docs.exists():
+              shutil.rmtree(api_docs)
+
+          for src, dst in (
+              (docs / "modules", api_docs / "modules"),
+              (docs / "assets", api_docs / "assets"),
+              (docs / "_static", api_docs / "_static"),
+          ):
+              shutil.copytree(src, dst)
+
+          install_dst = api_docs / "userguide" / "about"
+          install_dst.mkdir(parents=True, exist_ok=True)
+          for name in ("install.md", "install_options.yml"):
+              shutil.copy2(docs / "userguide" / "about" / name, install_dst / name)
+
+          config = (root / "mkdocs.yml").read_text(encoding="utf-8")
+          config = config.replace("docs_dir: docs", "docs_dir: .docs-api")
+          config = config.replace(
+              "site_url: https://nvidia.github.io/earth2studio/",
+              "site_url: https://nickgeneva.github.io/earth2studio/",
+          )
+          config = config.replace(
+              "repo_name: NVIDIA/earth2studio",
+              "repo_name: NickGeneva/earth2studio",
+          )
+          config = config.replace(
+              "repo_url: https://github.com/NVIDIA/earth2studio",
+              "repo_url: https://github.com/NickGeneva/earth2studio",
+          )
+          config = config.replace("edit_uri: edit/main/docs/", "edit_uri: edit/mkdocs-upgrade/docs/")
+          config = config.replace("  version:\n    provider: mike\n", "")
+
+          def remove_plugin(text: str, plugin: str) -> str:
+              lines = text.splitlines()
+              out = []
+              i = 0
+              marker = f"- {plugin}:"
+              while i < len(lines):
+                  if lines[i] == marker:
+                      i += 1
+                      while i < len(lines) and not (
+                          lines[i].startswith("- ")
+                          or (
+                              lines[i]
+                              and not lines[i][0].isspace()
+                              and lines[i].endswith(":")
+                          )
+                      ):
+                          i += 1
+                      continue
+                  out.append(lines[i])
+                  i += 1
+              return "\n".join(out) + "\n"
+
+          for plugin in ("earth2studio-gallery", "blog", "mike"):
+              config = remove_plugin(config, plugin)
+
+          head = config.split("\nnav:\n", 1)[0]
+          config = head + """
+          nav:
+          - API:
+            - modules/index.md
+            - Prognostic Models: modules/models_px.md
+            - Diagnostic Models: modules/models_dx.md
+            - Data Assimilation: modules/models_da.md
+            - Data Sources: modules/datasources_analysis.md
+            - Forecast Data Sources: modules/datasources_forecast.md
+            - DataFrame Sources: modules/datasources_dataframe.md
+            - IO Backends: modules/io.md
+            - Perturbations: modules/perturbation.md
+            - Statistics: modules/statistics.md
+            - Utilities: modules/utils_all.md
+            - Workflows: modules/workflows.md
+          - Install: userguide/about/install.md
+          not_in_nav: |
+            modules/generated/**
+          """
+          (root / "mkdocs.fork-api.yml").write_text(config, encoding="utf-8")
+          PY
+
+      - name: Build API docs
+        run: uv run mkdocs build --clean --config-file mkdocs.fork-api.yml --site-dir docs/_build/html
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/_build/html
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Save uv cache
+        if: always()
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ~/.cache/uv
+          key: tmp-fork-api-docs-uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
