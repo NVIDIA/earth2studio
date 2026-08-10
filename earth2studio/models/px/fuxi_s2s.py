@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import os
 import shutil
 import tarfile
@@ -148,6 +149,41 @@ def _resolve_default_assets(package: Package) -> Package:
         asset_directory / "fuxi_s2s",
     )
     return Package(str(asset_directory))
+
+
+def _resolve_model_assets(package: Package) -> Path:
+    """Resolve an ONNX graph beside its external data file."""
+    external_path = Path(package.resolve("fuxi_s2s"))
+    onnx_path = Path(package.resolve("fuxi_s2s.onnx"))
+    if onnx_path.name == "fuxi_s2s.onnx" and external_path == onnx_path.with_name(
+        "fuxi_s2s"
+    ):
+        return onnx_path
+
+    identity_parts = [package.root]
+    for path in (external_path, onnx_path):
+        file_stat = path.stat()
+        identity_parts.extend(
+            (
+                str(path),
+                str(file_stat.st_dev),
+                str(file_stat.st_ino),
+                str(file_stat.st_size),
+                str(file_stat.st_mtime_ns),
+            )
+        )
+    identity = hashlib.sha256("\0".join(identity_parts).encode()).hexdigest()
+    cache_storage = getattr(package.fs, "storage", None)
+    if isinstance(cache_storage, (list, tuple)) and cache_storage:
+        cache_directory = Path(cache_storage[-1]).resolve()
+    else:
+        cache_directory = onnx_path.parent.resolve()
+    asset_directory = cache_directory / "fuxi_s2s_assets" / identity
+
+    with external_path.open("rb") as source:
+        _atomic_copy(source, asset_directory / "fuxi_s2s")
+    with onnx_path.open("rb") as source:
+        return _atomic_copy(source, asset_directory / "fuxi_s2s.onnx")
 
 
 @check_optional_dependencies()
@@ -305,9 +341,8 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if package.root.rstrip("/") == _ZENODO_ROOT:
             package = _resolve_default_assets(package)
 
-        package.resolve("fuxi_s2s")
-        onnx_path = package.resolve("fuxi_s2s.onnx")
-        return cls(onnx_path)
+        onnx_path = _resolve_model_assets(package)
+        return cls(str(onnx_path))
 
     def to(self, device: str | torch.device | int) -> PrognosticModel:
         """Move the wrapper and ONNX Runtime session to a device.

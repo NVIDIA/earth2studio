@@ -20,10 +20,13 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+import fsspec
 import numpy as np
+import onnx
 import pytest
 import torch
 import xarray as xr
+from onnx import TensorProto, helper, numpy_helper
 
 from earth2studio.models.auto import Package
 from earth2studio.models.px import FuXiS2S
@@ -300,6 +303,70 @@ def test_fuxi_s2s_load_model_resolves_external_weights(
 
     assert model.onnx_path == str(tmp_path / "fuxi_s2s.onnx")
     assert resolved == ["fuxi_s2s", "fuxi_s2s.onnx"]
+
+
+def test_fuxi_s2s_load_model_stages_remote_external_weights(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "source"
+    source_path.mkdir()
+    model_path = source_path / "fuxi_s2s.onnx"
+
+    input_info = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1])
+    output_info = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1])
+    weight = numpy_helper.from_array(np.array([2.0], dtype=np.float32), "weight")
+    graph = helper.make_graph(
+        [helper.make_node("Add", ["input", "weight"], ["output"])],
+        "external-data-test",
+        [input_info],
+        [output_info],
+        [weight],
+    )
+    onnx_model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    onnx_model.ir_version = 9
+    onnx.save_model(
+        onnx_model,
+        model_path,
+        save_as_external_data=True,
+        all_tensors_to_one_file=True,
+        location="fuxi_s2s",
+        size_threshold=0,
+    )
+
+    remote_name = tmp_path.name
+    remote_root = f"memory://{remote_name}"
+    memory_fs = fsspec.filesystem("memory")
+    for file_name in ("fuxi_s2s", "fuxi_s2s.onnx"):
+        memory_fs.pipe(
+            f"/{remote_name}/{file_name}",
+            (source_path / file_name).read_bytes(),
+        )
+    package = Package(
+        remote_root,
+        cache_options={"cache_storage": "TMP"},
+    )
+
+    external_path = Path(package.resolve("fuxi_s2s"))
+    cached_model_path = Path(package.resolve("fuxi_s2s.onnx"))
+    assert external_path != cached_model_path.with_name("fuxi_s2s")
+
+    model = FuXiS2S.load_model(package)
+
+    staged_model_path = Path(model.onnx_path)
+    assert staged_model_path.name == "fuxi_s2s.onnx"
+    assert staged_model_path.is_absolute()
+    assert staged_model_path.is_relative_to(Path(package.fs.storage[-1]).resolve())
+    staged_external_path = staged_model_path.with_name("fuxi_s2s")
+    assert staged_external_path.is_file()
+    output = model._get_ort_session().run(
+        None,
+        {"input": np.array([3.0], dtype=np.float32)},
+    )[0]
+    np.testing.assert_array_equal(output, np.array([5.0], dtype=np.float32))
+
+    staged_external_data = staged_external_path.read_bytes()
+    external_path.write_bytes(b"refreshed")
+    assert staged_external_path.read_bytes() == staged_external_data
 
 
 @pytest.mark.package
