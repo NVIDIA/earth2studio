@@ -14,9 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import pathlib
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pytest
@@ -274,3 +275,73 @@ def test_goes_grid(satellite, scan_mode, expected_shape):
     # Check shapes match expected dimensions
     assert lat.shape == expected_shape
     assert lon.shape == expected_shape
+
+
+# A plain fake satisfying the obspec ListAsync protocol — no obstore
+# internals need patching, the store is simply injected.
+class _FakeListStore:
+    def __init__(self):
+        self.calls = 0
+
+    def list_async(self, prefix=None, **kwargs):
+        self.calls += 1
+
+        async def _gen():
+            yield [{"path": f"{prefix}OR_ABI-L2-MCMIPC_fake.nc"}]
+
+        return _gen()
+
+
+def test_goes_list_hour_files_memoization():
+    # Complete (past) hours are listed once and memoized; an incomplete hour
+    # is re-listed on every call so new scans are discovered
+    ds = GOES(satellite="goes16", scan_mode="C", cache=False)
+    fake = _FakeListStore()
+    ds.store = fake
+
+    # Complete (past) hour: one LIST request, then served from the memo
+    past = datetime(2024, 6, 1, 18, 0, 0)
+    files = asyncio.run(ds._list_hour_files(past))
+    assert files == [f"noaa-goes16/{ds._hour_prefix(past)}OR_ABI-L2-MCMIPC_fake.nc"]
+    assert asyncio.run(ds._list_hour_files(past)) == files
+    assert fake.calls == 1
+    assert ds._hour_prefix(past) in ds._hour_listing_cache
+
+    # An incomplete hour: re-listed on every call, never memoized. The next
+    # hour is used rather than the current one so the assertion cannot flake
+    # when the wall-clock hour rolls over mid-test.
+    incomplete = datetime.now(timezone.utc).replace(
+        minute=0, second=0, microsecond=0, tzinfo=None
+    ) + timedelta(hours=1)
+    asyncio.run(ds._list_hour_files(incomplete))
+    asyncio.run(ds._list_hour_files(incomplete))
+    assert fake.calls == 3
+    assert ds._hour_prefix(incomplete) not in ds._hour_listing_cache
+
+
+def test_goes_fetch_no_gather_timeout(monkeypatch):
+    # fetch() must not pass a gather-level task_timeout: it would wrap the
+    # whole fetch_wrapper (including async_retry's retry loop) in a wait_for
+    # of the same magnitude as the per-attempt timeout, cancelling retries on
+    # the first slow attempt
+    from earth2studio.data.utils import gather_with_concurrency
+
+    ds = GOES(satellite="goes16", scan_mode="C", cache=False, verbose=False)
+    ds.store = _FakeListStore()
+
+    seen_kwargs = {}
+
+    async def spy_gather(coros, **kwargs):
+        seen_kwargs.update(kwargs)
+        return await gather_with_concurrency(coros, **kwargs)
+
+    monkeypatch.setattr("earth2studio.data.goes.gather_with_concurrency", spy_gather)
+
+    async def fake_fetch_array(time, variable):
+        return np.zeros((len(variable), *GOES.SCAN_DIMENSIONS["C"]))
+
+    monkeypatch.setattr(ds, "fetch_array", fake_fetch_array)
+
+    out = asyncio.run(ds.fetch([datetime(2024, 6, 1, 18, 0, 0)], ["abi01c"]))
+    assert out.shape == (1, 1, *GOES.SCAN_DIMENSIONS["C"])
+    assert seen_kwargs.get("task_timeout") is None
