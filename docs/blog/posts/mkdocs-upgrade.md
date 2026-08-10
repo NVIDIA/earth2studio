@@ -4,18 +4,18 @@ categories:
   - Documentation
 ---
 
-# MkDocs Migration
+# MkDocs Material Migration
 
-Earth2Studio documentation is being refreshed with a MkDocs-based site, clearer
-install guidance, a stronger landing page, and room for targeted product and
-engineering updates.
+Earth2Studio documentation is being refreshed with a MkDocs Material site,
+clearer install guidance, a stronger landing page, and room for targeted product
+and engineering updates.
 
 <!-- more -->
 
 To help improve the documentation and overall user experience for Earth2Studio,
 we are giving the docs pages a broader upgrade. This includes migrating to
-MkDocs for Markdown-centric documentation that is easier for developers and
-agents to read, edit, and extend.
+MkDocs Material for Markdown-centric documentation that is easier for developers
+and agents to read, edit, and extend, with Zensical powering the backend build.
 
 The refresh also gives us room to expand the docs site with targeted blog posts
 and communications, clearer install methods, a more useful landing page, and

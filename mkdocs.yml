@@ -416,7 +416,7 @@ nav:
 - Blog:
   - Overview: blog/index.md
   - Posts:
-    - MkDocs Migration: blog/posts/mkdocs-upgrade.md
+    - MkDocs Material Migration: blog/posts/mkdocs-upgrade.md
   - Archive: blog/archive.md
   - Categories:
     - Overview: blog/categories.md
