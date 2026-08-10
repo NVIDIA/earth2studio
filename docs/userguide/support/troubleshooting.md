@@ -46,8 +46,7 @@ uv sync --extra data
 ```
 
 will fix the problem.
-For additional information, refer to the
-[Optional Dependencies](../about/install.md#optional_dependencies) section.
+For additional information, refer to the [Install Guide](../about/install.md#install_guide).
 
 ## Earth2Studio not authorized to download public models from NGC
 

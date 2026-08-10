@@ -38,9 +38,8 @@ To create a local development environment with a git repo and uv:
 
 !!! note
     When working with models, additional optional dependencies might be required.
-    Refer to the [Model Dependencies](../about/install.md#model_dependencies)
-    section for details on the optional dependencies
-    inside the package.
+    Refer to the [Install Guide](../about/install.md#install_guide) for details on the
+    optional dependencies inside the package.
     Use the `uv sync --extra <optional dep>` command instead of `pip install`.
     Take note of the difference between the optional dependency groups used here and the
     extra dependencies when using specific models.

@@ -52,6 +52,9 @@ extra_css:
 - assets/stylesheets/nvidia-material.css
 extra_javascript:
 - assets/javascripts/e2s-landing.js
+- assets/javascripts/e2s-install-selector.js
+- assets/javascripts/mathjax.js
+- https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 extra:
   version:
     provider: mike
@@ -116,6 +119,7 @@ plugins:
           - griffe_inherited_docstrings
 - badges:
     style: square
+    selectable_text: false
     group_labels:
       region: Region
       class: Class
@@ -377,7 +381,9 @@ nav:
     - Batch Dimension: userguide/advanced/batch.md
     - AutoModels: userguide/advanced/auto.md
     - Lexicon: userguide/advanced/lexicon.md
-    - Surface Pressure: userguide/notes/surface_pressure.md
+    - Knowledge Base:
+      - userguide/notes/index.md
+      - Surface Pressure: userguide/notes/surface_pressure.md
   - Developer Guide:
     - userguide/developer/index.md
     - Overview: userguide/developer/overview.md

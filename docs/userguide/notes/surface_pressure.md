@@ -1,7 +1,3 @@
----
-orphan: true
----
-
 # Surface Pressure Interpolation
 
 This documentation explains how surface pressure is estimated from pressure-level geopotential (and

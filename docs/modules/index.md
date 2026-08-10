@@ -1,8 +1,5 @@
 # API Reference
 
-The API reference is generated from the legacy Sphinx autosummary source
-files and rendered with MkDocs badges for filtering.
-
 - [Prognostic Models](models_px.md)
 - [Diagnostic Models](models_dx.md)
 - [Data Assimilation](models_da.md)

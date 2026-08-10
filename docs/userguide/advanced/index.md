@@ -4,4 +4,7 @@
 - [Batch Dimension](batch.md)
 - [AutoModels](auto.md)
 - [Lexicon](lexicon.md)
-- [Surface Pressure](../notes/surface_pressure.md)
+
+## Knowledge Base
+
+- [Surface Pressure Interpolation](../notes/surface_pressure.md)

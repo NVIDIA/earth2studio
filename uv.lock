@@ -2592,7 +2592,7 @@ docs = [
     { name = "matplotlib" },
     { name = "mike", specifier = ">=2.1.0" },
     { name = "mkdocs", specifier = ">=1.6.1" },
-    { name = "mkdocs-badges", git = "https://github.com/NickGeneva/mkdocs-badges.git?rev=290590858dc5a00d7ba81e0a4784013b03aeaa5a" },
+    { name = "mkdocs-badges", git = "https://github.com/NickGeneva/mkdocs-badges.git?rev=8edebc272440464b3058b1c90e17a733d6113b3c" },
     { name = "mkdocs-material", specifier = ">=9.6.0" },
     { name = "mkdocstrings", specifier = ">=1.0.4" },
     { name = "mkdocstrings-python", specifier = ">=2.0.5" },
@@ -4927,7 +4927,7 @@ wheels = [
 [[package]]
 name = "mkdocs-badges"
 version = "0.2.0"
-source = { git = "https://github.com/NickGeneva/mkdocs-badges.git?rev=290590858dc5a00d7ba81e0a4784013b03aeaa5a#290590858dc5a00d7ba81e0a4784013b03aeaa5a" }
+source = { git = "https://github.com/NickGeneva/mkdocs-badges.git?rev=8edebc272440464b3058b1c90e17a733d6113b3c#8edebc272440464b3058b1c90e17a733d6113b3c" }
 dependencies = [
     { name = "mkdocs" },
 ]

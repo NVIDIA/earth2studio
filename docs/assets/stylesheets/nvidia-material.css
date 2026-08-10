@@ -15,11 +15,17 @@
   --nv-blue: #38bdf8;
   --nv-purple: #c084fc;
   --nv-gold: #facc15;
-  --md-primary-fg-color: #050806;
-  --md-primary-fg-color--light: #111611;
-  --md-primary-fg-color--dark: #000;
+  --md-primary-fg-color: var(--nv-green-dark);
+  --md-primary-fg-color--light: #075d40;
+  --md-primary-fg-color--dark: #00321f;
   --md-accent-fg-color: var(--nv-green);
+  --md-accent-fg-color--transparent: rgba(118, 185, 0, 0.12);
   --md-typeset-a-color: #4d8c00;
+}
+
+[data-md-color-accent="light-green"] {
+  --md-accent-fg-color: var(--nv-green);
+  --md-accent-fg-color--transparent: rgba(118, 185, 0, 0.12);
 }
 
 [data-md-color-scheme="slate"] {
@@ -34,11 +40,18 @@
 
 .md-header,
 .md-tabs {
-  background:
-    linear-gradient(90deg, rgba(5, 8, 6, 0.22), rgba(5, 8, 6, 0.05)),
-    linear-gradient(90deg, #12210a 0%, #235b05 34%, #0b6f62 68%, #0b4d75 100%);
-  border-bottom: 1px solid rgba(155, 229, 100, 0.22);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  background: var(--nv-green-dark);
+  background-color: var(--nv-green-dark);
+  background-image: none;
+  border-bottom: 1px solid rgba(155, 229, 100, 0.24);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  color: var(--nv-fg);
+}
+
+.md-header__button,
+.md-header__title,
+.md-tabs__link {
+  color: var(--nv-fg);
 }
 
 .md-announce {
@@ -91,15 +104,6 @@
   transform: translateY(-0.06em);
 }
 
-
-body:has(.e2s-home) .md-header__inner {
-  display: none;
-}
-
-body:has(.e2s-home) .md-header {
-  height: auto;
-}
-
 body:has(.e2s-home) .md-tabs .md-grid {
   max-width: none;
   padding-inline: max(1rem, calc((100vw - 84rem) / 2));
@@ -118,7 +122,7 @@ body:has(.e2s-home) .md-tabs .md-grid {
 }
 
 .md-typeset a:hover {
-  color: var(--nv-green);
+  color: var(--md-accent-fg-color);
 }
 
 .md-typeset .e2s-source-link {
@@ -127,10 +131,10 @@ body:has(.e2s-home) .md-tabs .md-grid {
   gap: 0.3rem;
   min-height: 1.85rem;
   padding: 0 0.6rem;
-  border: 1px solid rgba(118, 185, 0, 0.28);
+  border: 1px solid rgba(0, 72, 49, 0.24);
   border-radius: 0.22rem;
-  background: rgba(118, 185, 0, 0.08);
-  color: var(--nv-green-2);
+  background: rgba(118, 185, 0, 0.1);
+  color: var(--nv-green-dark);
   font-size: 0.72rem;
   font-weight: 760;
   text-decoration: none;
@@ -142,13 +146,25 @@ body:has(.e2s-home) .md-tabs .md-grid {
 }
 
 .md-typeset .e2s-source-link:hover {
-  border-color: rgba(155, 229, 100, 0.56);
-  background: rgba(118, 185, 0, 0.14);
-  color: var(--nv-fg);
+  border-color: rgba(0, 72, 49, 0.42);
+  background: rgba(118, 185, 0, 0.18);
+  color: #00321f;
 }
 
 .md-typeset .e2s-source-link:hover::after {
   transform: translateX(0.12rem);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .e2s-source-link {
+  border-color: rgba(118, 185, 0, 0.28);
+  background: rgba(118, 185, 0, 0.08);
+  color: var(--nv-green-2);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .e2s-source-link:hover {
+  border-color: rgba(155, 229, 100, 0.56);
+  background: rgba(118, 185, 0, 0.14);
+  color: var(--nv-fg);
 }
 
 .md-typeset .e2sg-download {
@@ -166,6 +182,20 @@ body:has(.e2s-home) .md-tabs .md-grid {
   transform: translateY(-1px);
 }
 
+.md-typeset h1#install_guide + .admonition.warning {
+  border-left-width: 0.28rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.md-typeset h1#install_guide + .admonition.warning .admonition-title {
+  font-size: 0.84rem;
+}
+
+.md-typeset h1#install_guide + .admonition.warning p {
+  margin-bottom: 0.55rem;
+}
+
 .md-typeset code,
 .md-typeset .admonition,
 .md-typeset details,
@@ -174,6 +204,12 @@ body:has(.e2s-home) .md-tabs .md-grid {
 }
 
 .md-footer {
+  position: relative;
+  z-index: 5;
+  background-color: #080b08;
+}
+
+.md-footer-meta {
   background-color: #080b08;
 }
 
@@ -480,7 +516,7 @@ body:has(.e2s-home) .md-tabs .md-grid {
   margin: 1.9rem auto 0;
   border: 1px solid rgba(118, 185, 0, 0.28);
   border-radius: 0.35rem;
-  background: rgba(5, 8, 6, 0.46);
+  background: rgba(5, 8, 6, 0.68);
   box-shadow:
     inset 0 0 0 1px rgba(118, 185, 0, 0.08),
     0 0.8rem 2.6rem rgba(0, 0, 0, 0.42),
@@ -609,7 +645,7 @@ body:has(.e2s-home) .md-tabs .md-grid {
   padding: 2.8rem 1rem 0.95rem;
   border: 1px solid rgba(118, 185, 0, 0.2);
   border-radius: 0.45rem;
-  background: rgba(5, 8, 6, 0.48);
+  background: rgba(5, 8, 6, 0.7);
   text-align: left;
   box-shadow:
     inset 0 0 0 1px rgba(118, 185, 0, 0.06),
@@ -1107,7 +1143,7 @@ body:has(.e2s-home) .md-tabs .md-grid {
   gap: 0.8rem;
 }
 
-.e2s-start-grid a {
+.md-typeset .e2s-start-grid a {
   min-height: 5.4rem;
   display: grid;
   align-items: end;
@@ -1116,9 +1152,361 @@ body:has(.e2s-home) .md-tabs .md-grid {
   border-radius: 0.35rem;
   background: rgba(16, 21, 15, 0.92);
   color: #fff !important;
+  cursor: pointer !important;
   font-weight: 760;
   text-decoration: none;
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.md-typeset .e2s-install-selector {
+  margin: 1.5rem 0 2.4rem;
+  padding: clamp(1rem, 2vw, 1.35rem);
+  border: 1px solid rgba(76, 124, 14, 0.2);
+  border-radius: 0.38rem;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(118, 185, 0, 0.14), transparent 20rem),
+    radial-gradient(circle at 90% 18%, rgba(14, 165, 164, 0.1), transparent 18rem),
+    linear-gradient(180deg, #fff, #f4f8f0);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.82),
+    0 1rem 2.6rem rgba(18, 32, 14, 0.1);
+}
+
+.e2s-install-selector__intro {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.md-typeset .e2s-install-selector__intro p {
+  max-width: 50rem;
+  margin: 0;
+  color: var(--md-default-fg-color--light);
+  line-height: 1.5;
+}
+
+.md-typeset .e2s-install-selector__url {
+  color: var(--md-default-fg-color--lighter);
+  font-size: 0.82rem;
+}
+
+.e2s-install-selector__layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.e2s-install-selector__controls,
+.e2s-install-selector__output {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.e2s-install-selector__controls {
+  grid-template-columns: 1fr;
+}
+
+.e2s-install-step {
+  min-width: 0;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid rgba(76, 124, 14, 0.18);
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.e2s-install-step legend,
+.e2s-install-select span {
+  display: block;
+  margin-bottom: 0.55rem;
+  color: #3f7f00;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 820;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.e2s-install-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.45rem;
+}
+
+.e2s-install-buttons button {
+  display: grid;
+  gap: 0.18rem;
+  min-height: 4rem;
+  padding: 0.7rem;
+  border: 1px solid rgba(76, 124, 14, 0.2);
+  border-radius: 0.28rem;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+  color: var(--md-default-fg-color);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.e2s-install-buttons button:hover,
+.e2s-install-buttons button.is-active {
+  border-color: rgba(76, 124, 14, 0.48);
+  background:
+    linear-gradient(135deg, rgba(118, 185, 0, 0.16), rgba(14, 165, 164, 0.08)),
+    #fff;
+  transform: translateY(-1px);
+}
+
+.e2s-install-buttons span {
+  color: #182016;
+  font-weight: 780;
+  line-height: 1.15;
+}
+
+.e2s-install-buttons small {
+  color: var(--md-default-fg-color--lighter);
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.e2s-install-select select {
+  width: 100%;
+  min-height: 2.45rem;
+  padding: 0 0.7rem;
+  border: 1px solid rgba(76, 124, 14, 0.24);
+  border-radius: 0.28rem;
+  background: #fff;
+  color: #182016;
+  font: inherit;
+}
+
+.e2s-install-summary {
+  padding: 0.95rem;
+  border: 1px solid rgba(14, 165, 164, 0.2);
+  border-radius: 0.35rem;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(14, 165, 164, 0.12), transparent 16rem),
+    rgba(255, 255, 255, 0.86);
+}
+
+.md-typeset .e2s-install-summary span {
+  color: #3f7f00;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.md-typeset .e2s-install-summary h2 {
+  margin: 0.25rem 0 0;
+  color: #182016;
+  font-size: 1.35rem;
+}
+
+.md-typeset .e2s-install-summary p {
+  margin: 0.35rem 0 0;
+  color: var(--md-default-fg-color--light);
+}
+
+.e2s-install-alert {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-left: 3px solid var(--nv-blue);
+  border-radius: 0.35rem;
+  background: rgba(14, 165, 164, 0.07);
+}
+
+.e2s-install-alert--warning {
+  border-color: rgba(250, 204, 21, 0.22);
+  border-left-color: var(--nv-gold);
+  background: rgba(250, 204, 21, 0.13);
+}
+
+.md-typeset .e2s-install-alert strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: #182016;
+}
+
+.md-typeset .e2s-install-alert ul {
+  margin: 0;
+}
+
+.md-typeset .e2s-install-alert li {
+  margin-bottom: 0.25rem;
+}
+
+.md-typeset .e2s-install-alert a {
+  color: #3f7f00;
+  font-weight: 720;
+}
+
+.md-typeset .e2s-install-alert a:hover {
+  color: #004831;
+}
+
+.e2s-install-card {
+  overflow: hidden;
+  border: 1px solid rgba(76, 124, 14, 0.18);
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.e2s-install-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border-bottom: 1px solid rgba(76, 124, 14, 0.16);
+}
+
+.md-typeset .e2s-install-card h3 {
+  margin: 0;
+  color: #182016;
+  font-size: 0.9rem;
+}
+
+.md-typeset .e2s-install-card p {
+  margin: 0.16rem 0 0;
+  color: var(--md-default-fg-color--lighter);
+  font-size: 0.72rem;
+}
+
+.e2s-install-card button {
+  flex: 0 0 auto;
+  min-height: 1.85rem;
+  padding: 0 0.65rem;
+  border: 1px solid rgba(76, 124, 14, 0.28);
+  border-radius: 0.24rem;
+  background: rgba(118, 185, 0, 0.12);
+  color: #3f7f00;
+  cursor: pointer;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.7rem;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.e2s-install-card button:hover,
+.e2s-install-card button.is-copied {
+  border-color: rgba(76, 124, 14, 0.48);
+  background: rgba(118, 185, 0, 0.2);
+  color: #004831;
+}
+
+.md-typeset .e2s-install-card pre {
+  margin: 0;
+  border-radius: 0;
+  background: #f3f6ef;
+}
+
+.md-typeset .e2s-install-card code {
+  color: #182016;
+  white-space: pre-wrap;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .e2s-install-selector {
+  border-color: rgba(118, 185, 0, 0.22);
+  background:
+    radial-gradient(circle at 12% 8%, rgba(118, 185, 0, 0.16), transparent 20rem),
+    radial-gradient(circle at 90% 18%, rgba(56, 189, 248, 0.1), transparent 18rem),
+    linear-gradient(180deg, rgba(10, 14, 9, 0.98), rgba(5, 8, 6, 0.98));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
+    0 1rem 3rem rgba(0, 0, 0, 0.18);
+}
+
+[data-md-color-scheme="slate"] .e2s-install-step {
+  border-color: rgba(118, 185, 0, 0.16);
+  background: rgba(5, 8, 6, 0.46);
+}
+
+[data-md-color-scheme="slate"] .e2s-install-step legend,
+[data-md-color-scheme="slate"] .e2s-install-select span,
+[data-md-color-scheme="slate"] .md-typeset .e2s-install-summary span {
+  color: var(--nv-green-2);
+}
+
+[data-md-color-scheme="slate"] .e2s-install-buttons button {
+  border-color: rgba(118, 185, 0, 0.18);
+  background: rgba(16, 21, 15, 0.72);
+  box-shadow: none;
+}
+
+[data-md-color-scheme="slate"] .e2s-install-buttons button:hover,
+[data-md-color-scheme="slate"] .e2s-install-buttons button.is-active {
+  border-color: rgba(155, 229, 100, 0.56);
+  background:
+    linear-gradient(135deg, rgba(118, 185, 0, 0.22), rgba(14, 165, 164, 0.12)),
+    rgba(16, 21, 15, 0.88);
+}
+
+[data-md-color-scheme="slate"] .e2s-install-buttons span,
+[data-md-color-scheme="slate"] .md-typeset .e2s-install-summary h2,
+[data-md-color-scheme="slate"] .md-typeset .e2s-install-alert strong,
+[data-md-color-scheme="slate"] .md-typeset .e2s-install-card h3 {
+  color: #fff;
+}
+
+[data-md-color-scheme="slate"] .e2s-install-select select {
+  border-color: rgba(118, 185, 0, 0.22);
+  background: rgba(16, 21, 15, 0.9);
+  color: var(--md-default-fg-color);
+}
+
+[data-md-color-scheme="slate"] .e2s-install-summary {
+  border-color: rgba(56, 189, 248, 0.18);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.13), transparent 16rem),
+    rgba(7, 11, 7, 0.86);
+}
+
+[data-md-color-scheme="slate"] .e2s-install-alert {
+  background: rgba(56, 189, 248, 0.06);
+}
+
+[data-md-color-scheme="slate"] .e2s-install-alert--warning {
+  background: rgba(250, 204, 21, 0.06);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .e2s-install-alert a {
+  color: var(--nv-green-2);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .e2s-install-alert a:hover {
+  color: #fff;
+}
+
+[data-md-color-scheme="slate"] .e2s-install-card {
+  border-color: rgba(118, 185, 0, 0.16);
+  background: rgba(5, 8, 6, 0.72);
+}
+
+[data-md-color-scheme="slate"] .e2s-install-card__header {
+  border-bottom-color: rgba(118, 185, 0, 0.14);
+}
+
+[data-md-color-scheme="slate"] .e2s-install-card button {
+  border-color: rgba(118, 185, 0, 0.3);
+  background: rgba(118, 185, 0, 0.14);
+  color: var(--nv-green-2);
+}
+
+[data-md-color-scheme="slate"] .e2s-install-card button:hover,
+[data-md-color-scheme="slate"] .e2s-install-card button.is-copied {
+  border-color: rgba(155, 229, 100, 0.55);
+  background: rgba(118, 185, 0, 0.22);
+  color: #fff;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .e2s-install-card pre {
+  background: rgba(3, 6, 3, 0.92);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .e2s-install-card code {
+  color: var(--md-code-fg-color);
 }
 
 @media (max-width: 960px) {

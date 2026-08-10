@@ -90,7 +90,7 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
       <h2>Forecast with a growing number of models from NVIDIA and the community</h2>
     </div>
     <div class="e2s-showcase-grid">
-      <div class="e2s-showcase-card e2s-accent--green e2s-reveal"><strong>ForecastNet 3</strong><span>AFNO-based medium-range forecasting.</span></div>
+      <div class="e2s-showcase-card e2s-accent--green e2s-reveal"><strong>FourCastNet 3</strong><span>AFNO-based medium-range forecasting.</span></div>
       <div class="e2s-showcase-card e2s-accent--blue e2s-reveal"><strong>AIFS 2.0</strong><span>ECMWF AI forecast model workflows.</span></div>
       <div class="e2s-showcase-card e2s-accent--blue e2s-reveal"><strong>StormScope</strong><span>Satellite and radar-conditioned forecast workflows.</span></div>
       <div class="e2s-showcase-card e2s-accent--purple e2s-reveal"><strong>HEAL-DA</strong><span>Data assimilation and analysis correction.</span></div>

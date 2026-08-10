@@ -35,8 +35,8 @@ the [developer guide](developer/index.md).
 
 - **Advanced Usage**
 
-    Work with checkpointing, batch dimensions, AutoModels, lexicons, and surface
-    pressure utilities.
+    Work with checkpointing, batch dimensions, AutoModels, lexicons, and
+    technical notes.
 
     [:octicons-arrow-right-24: Advanced usage](advanced/index.md)
 

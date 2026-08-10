@@ -18,8 +18,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 from html import escape
+from pathlib import Path
 from posixpath import dirname, relpath
 
 OPEN_RE = re.compile(
@@ -54,6 +56,9 @@ MYST_ROLE_RE = re.compile(
 CUSTOM_TARGET_RE = re.compile(
     r"^(?P<title>.+?)\s*(?:<|&lt;)(?P<target>[^>&]+)(?:>|&gt;)$"
 )
+DOCS_ROOT = Path(__file__).resolve().parent
+INSTALL_SELECTOR_MARKER = "<!-- e2s-install-selector -->"
+INSTALL_SELECTOR_CONFIG = DOCS_ROOT / "userguide" / "about" / "install_options.yml"
 
 CALLOUT_KINDS = {
     "note",
@@ -157,7 +162,30 @@ REF_TARGETS = {
 
 def on_page_markdown(markdown: str, **kwargs: object) -> str:
     """Convert legacy Sphinx/MyST blocks before Python-Markdown renders pages."""
+    markdown = _render_install_selector(markdown)
     return _convert_legacy_blocks(markdown, kwargs.get("page"))
+
+
+def _render_install_selector(markdown: str) -> str:
+    if INSTALL_SELECTOR_MARKER not in markdown:
+        return markdown
+
+    import yaml
+
+    data = yaml.safe_load(INSTALL_SELECTOR_CONFIG.read_text(encoding="utf-8"))
+    payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
+    html = (
+        '<section class="e2s-install-selector" data-e2s-install-selector>'
+        '<script type="application/json" data-e2s-install-data>'
+        f"{payload}"
+        "</script>"
+        '<div class="e2s-install-selector__layout">'
+        '<div class="e2s-install-selector__controls" data-e2s-install-controls></div>'
+        '<div class="e2s-install-selector__output" data-e2s-install-output></div>'
+        "</div>"
+        "</section>"
+    )
+    return markdown.replace(INSTALL_SELECTOR_MARKER, html)
 
 
 def _relative_url(target: str, page: object | None) -> str:

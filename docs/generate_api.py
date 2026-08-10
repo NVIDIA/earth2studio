@@ -21,14 +21,19 @@ import ast
 import json
 import re
 import shutil
+import warnings
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlencode
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 MODULES = DOCS / "modules"
 GENERATED = MODULES / "generated"
+INSTALL_OPTIONS = DOCS / "userguide" / "about" / "install_options.yml"
 SOURCE_REF = "main"
 
 BADGE_RE = re.compile(
@@ -74,6 +79,14 @@ GROUP_TITLES = {
 }
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
+
+
+@dataclass(frozen=True)
+class InstallTarget:
+    """Install selector target for one API page."""
+
+    category: str
+    item: str
 
 
 @dataclass(frozen=True)
@@ -465,6 +478,74 @@ def yaml_list(values: Iterable[str]) -> str:
     return "[" + ", ".join(yaml_scalar(value) for value in values) + "]"
 
 
+def load_install_targets() -> dict[str, InstallTarget]:
+    """Load API object to install selector mappings from install options."""
+    if not INSTALL_OPTIONS.exists():
+        return {}
+
+    data = yaml.safe_load(INSTALL_OPTIONS.read_text(encoding="utf-8")) or {}
+    targets: dict[str, InstallTarget] = {}
+    for category in data.get("categories", []):
+        if not isinstance(category, dict):
+            continue
+        category_id = category.get("id")
+        if not isinstance(category_id, str) or not category_id:
+            continue
+        for item in category.get("items", []):
+            if not isinstance(item, dict):
+                continue
+            item_id = item.get("id")
+            if not isinstance(item_id, str) or not item_id:
+                continue
+            refs = item.get("api_refs") or ()
+            if isinstance(refs, str):
+                refs = (refs,)
+            for ref in refs:
+                if not isinstance(ref, str) or not ref:
+                    continue
+                target = InstallTarget(category=category_id, item=item_id)
+                if existing := targets.get(ref):
+                    warnings.warn(
+                        "Duplicate install API reference "
+                        f"{ref!r}; using {existing.category}/{existing.item} "
+                        f"and ignoring {target.category}/{target.item}.",
+                        stacklevel=2,
+                    )
+                    continue
+                targets[ref] = target
+    return targets
+
+
+INSTALL_TARGETS = load_install_targets()
+
+
+def install_url(output: Path, target: InstallTarget) -> str:
+    """Return a generated page relative URL to the install selector."""
+    current_dir = output.relative_to(DOCS).parent
+    prefix = "../" * len(current_dir.parts)
+    query = urlencode(
+        {
+            "method": "uv",
+            "source": "github",
+            "category": target.category,
+            "item": target.item,
+        }
+    )
+    return f"{prefix}userguide/about/install.md?{query}#install-command"
+
+
+def install_markdown(full_name: str, output: Path) -> str:
+    """Render an install selector link for API pages with configured targets."""
+    target = INSTALL_TARGETS.get(full_name)
+    if target is None:
+        return ""
+    title = f"category={target.category} item={target.item}"
+    return (
+        f"[View install commands]({install_url(output, target)})"
+        f'{{ .e2s-source-link .e2s-install-link title="{title}" }}'
+    )
+
+
 def base_name(base: ast.expr) -> str:
     """Return a best-effort base class name from an AST expression."""
     if isinstance(base, ast.Subscript):
@@ -640,8 +721,16 @@ def write_object(page: ObjectPage) -> None:
     if page.badges:
         body.extend(["{% badges " + " ".join(page.badges) + " %}", ""])
     body.extend([f"**Import path:** `{page.full_name}`", ""])
-    if source := source_markdown(page.source, page.line_start, page.line_end):
-        body.extend([source, ""])
+    actions = [
+        action
+        for action in (
+            source_markdown(page.source, page.line_start, page.line_end),
+            install_markdown(page.full_name, page.output),
+        )
+        if action
+    ]
+    if actions:
+        body.extend([" ".join(actions), ""])
     if page.docstring:
         body.extend(["## Documentation", "", *mkdocstrings_block(page), ""])
     page.output.write_text("\n".join(body), encoding="utf-8")
@@ -853,9 +942,6 @@ def write_index() -> None:
     ]
     lines = [
         "# API Reference",
-        "",
-        "The API reference is generated from the legacy Sphinx autosummary source",
-        "files and rendered with MkDocs badges for filtering.",
         "",
     ]
     for title, target in pages:
