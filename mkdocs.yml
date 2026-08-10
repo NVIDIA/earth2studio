@@ -64,6 +64,7 @@ extra:
     link: https://github.com/NVIDIA/earth2studio
     name: Earth2Studio on GitHub
 markdown_extensions:
+- mkdocs_badges.zensical
 - admonition
 - attr_list
 - md_in_html
