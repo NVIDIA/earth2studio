@@ -51,12 +51,10 @@ CRIS_BANDS = (
     (2155.0, 1579, 2211),  # short wave
 )
 
-# AIRS wavenumbers are irregular and are loaded from the bundled CSV table.
+# AIRS wavenumbers are irregular (the 281-channel aggregate subset is not a
+# formulaic grid and the wavenumber is not encoded in the BUFR), so they are
+# loaded from the bundled CSV table.
 _AIRS_TABLE_PATH = Path(__file__).with_name("airs_wavenumbers.csv")
-_IR_RANKING_PATH = Path(__file__).with_name("ir_channel_ranking.csv")
-
-# Named preset sizes: ir32 is a subset of ir48.
-IR_CHANNEL_PRESETS: dict[str, int] = {"ir32": 32, "ir48": 48}
 
 
 @functools.cache
@@ -64,45 +62,6 @@ def airs_wavenumber_table() -> dict[int, float]:
     """Map AIRS channel number → wavenumber in cm⁻¹."""
     df = pd.read_csv(_AIRS_TABLE_PATH)
     return dict(zip(df["channel"].tolist(), df["wavenumber_cm_inverse"].tolist()))
-
-
-@functools.cache
-def ir_channel_sets() -> dict[str, tuple[int, ...]]:
-    """Up to 48 ranked channels per IR sounder, not in channel order.
-
-    Keys are ``"airs"``, ``"iasi"``, ``"cris"`` (using NNJA archive sensor names).
-    The ranking was built to match the healda training presets.
-    """
-    df = pd.read_csv(_IR_RANKING_PATH)
-    sets = {
-        sensor: tuple(rows["channel"].tolist())
-        for sensor, rows in df.groupby("sensor", sort=False)
-    }
-    # The ranking CSV uses "cris-fsr" from healda; expose under both names.
-    if "cris-fsr" in sets and "cris" not in sets:
-        sets["cris"] = sets["cris-fsr"]
-    return sets
-
-
-def ir_channel_preset(name: str) -> dict[str, tuple[int, ...]]:
-    """Channel numbers per sensor for a named preset.
-
-    Parameters
-    ----------
-    name : str
-        One of the keys in ``IR_CHANNEL_PRESETS``.
-
-    Returns
-    -------
-    dict[str, tuple[int, ...]]
-        Maps ``"airs"``, ``"iasi"``, ``"cris"`` to channel number tuples.
-    """
-    if name not in IR_CHANNEL_PRESETS:
-        raise ValueError(
-            f"unknown IR channel preset {name!r}; valid: {sorted(IR_CHANNEL_PRESETS)}"
-        )
-    length = IR_CHANNEL_PRESETS[name]
-    return {sensor: channels[:length] for sensor, channels in ir_channel_sets().items()}
 
 
 def wavenumber_cm_inverse(sensor: str, channels: Sequence[int] | Any) -> Any:

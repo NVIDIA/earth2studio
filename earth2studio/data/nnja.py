@@ -53,6 +53,7 @@ from earth2studio.data.utils_ncep import (
     compile_dataframe,
     cycle_windows,
     decode_gpsro,
+    decode_ir_sounder,
     decode_microwave,
     decode_prepbufr,
     map_aircraft_profile_types,
@@ -86,6 +87,21 @@ _NNJA_SAT_PRODUCTS: dict[str, _NNJASatProduct] = {
     "mhs": _NNJASatProduct("mhs/1bmhs", "1bmhs", 2005),
     "amsua": _NNJASatProduct("amsua/1bamua", "1bamua", 1998),
     "amsub": _NNJASatProduct("amsub/1bamub", "1bamub", 1998),
+    "airs": _NNJASatProduct("airs/airsev", "airsev", 2002),
+    "iasi": _NNJASatProduct("iasi/mtiasi", "mtiasi", 2007),
+    "cris": _NNJASatProduct("cris/cris", "cris", 2012),
+}
+
+# Hyperspectral IR sounders share the aggregate cycle-file layout above but
+# decode through decode_ir_sounder rather than decode_microwave
+_NNJA_IR_SENSORS = frozenset({"airs", "iasi", "cris"})
+
+# Valid platforms per IR sensor; every entry is also a member of
+# NCEP_MICROWAVE_SATELLITES, so VALID_SATELLITES needs no extension
+_NNJA_IR_SATELLITES: dict[str, frozenset[str]] = {
+    "airs": frozenset({"aqua"}),
+    "iasi": frozenset({"metop-a", "metop-b", "metop-c"}),
+    "cris": frozenset({"npp", "n20", "n21"}),
 }
 
 
@@ -428,12 +444,21 @@ class NNJAObsConv:
 
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
 class NNJAObsSat:
-    """NNJA historical NCEP aggregate microwave satellite observations.
+    """NNJA historical NCEP aggregate satellite observations.
 
-    This source reads the NCEP satellite ATMS, MHS, AMSU-A, and AMSU-B
-    BUFR products from the NNJA archive. It returns one long-format row per
+    This source reads the NCEP satellite microwave (ATMS, MHS, AMSU-A,
+    AMSU-B) and hyperspectral infrared sounder (AIRS, IASI, CrIS) BUFR
+    products from the NNJA archive. It returns one long-format row per
     finite encoded channel value. ``sensor_index`` is the physical ``CHNM``
     channel number, not a dense index into a selected channel list.
+
+    The IR sounders are returned in brightness temperature (K) regardless of
+    how the archive stores them: AIRS is encoded as brightness temperature
+    (``TMBR``) directly, while IASI (scaled integer radiance, ``SCRA``) and
+    CrIS (float radiance, ``SRAD``) are converted via Planck inversion. The
+    ``wavenumber`` column carries the channel centre wavenumber in cm⁻¹.
+    Every published channel is returned (281 AIRS, up to 8461 IASI, up to
+    2211 CrIS); subset channels downstream via the ``sensor_index`` column.
 
     ``atms`` returns the encoded 22-channel ``TMBR`` scene brightness
     temperature. ``atms_antenna_temperature`` returns the corresponding
@@ -603,7 +628,9 @@ class NNJAObsSat:
                 uri,
                 retries=self._retries,
                 backoff=1.0,
-                task_timeout=120.0,
+                # Hyperspectral IR aggregates (mtiasi, cris) are much larger
+                # than the microwave cycle files; allow 300s per attempt
+                task_timeout=300.0,
                 exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
             for uri in uris
@@ -725,15 +752,32 @@ class NNJAObsSat:
         )
 
     def _decode_file(self, local_path: str, task: _NNJASatTask) -> pd.DataFrame:
-        frame = decode_microwave(
-            local_path,
-            task.sensor,
-            task.var_plan,
-            task.datetime_min,
-            task.datetime_max,
-            self._satellites,
-            decode_workers=self._decode_workers,
-        )
+        if task.sensor in _NNJA_IR_SENSORS:
+            sensor_sats = _NNJA_IR_SATELLITES[task.sensor]
+            sat_filter = (
+                tuple(s for s in self._satellites if s in sensor_sats)
+                if self._satellites is not None
+                else None
+            )
+            frame = decode_ir_sounder(
+                local_path,
+                task.sensor,
+                None,  # every published channel; subset via `fields` downstream
+                task.datetime_min,
+                task.datetime_max,
+                sat_filter,
+                decode_workers=self._decode_workers,
+            )
+        else:
+            frame = decode_microwave(
+                local_path,
+                task.sensor,
+                task.var_plan,
+                task.datetime_min,
+                task.datetime_max,
+                self._satellites,
+                decode_workers=self._decode_workers,
+            )
         return frame[self.SCHEMA.names]
 
     @classmethod

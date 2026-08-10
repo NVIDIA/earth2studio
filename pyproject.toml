@@ -420,7 +420,7 @@ docs = [
 path = "earth2studio/__init__.py"
 
 [tool.hatch.build.targets.sdist]
-include = ["earth2studio/**/*.py", "earth2studio/data/*.yaml"]
+include = ["earth2studio/**/*.py", "earth2studio/data/*.yaml", "earth2studio/data/*.csv"]
 exclude = []
 
 # ==== Ruff configuration ====

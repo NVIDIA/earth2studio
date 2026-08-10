@@ -2013,8 +2013,6 @@ def decode_ir_sounder(
     logger.debug(
         f"Decoded {len(rows):,} {sensor} IR rows in {time.perf_counter() - started:.1f}s"
     )
-    return (
-        pd.DataFrame(rows)
-        if rows
-        else pd.DataFrame(columns=list(NCEP_MICROWAVE_OUTPUT_SCHEMA.names))
-    )
+    # Arrow-typed like the microwave path so mixed MW+IR requests concat
+    # with one dtype contract (uint16 scan_position, uint32 scan_line, ...)
+    return _rows_to_dataframe(rows)

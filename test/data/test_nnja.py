@@ -1238,3 +1238,236 @@ def test_nnja_obs_sat_fields_time_platform_and_adapter_validation():
             datetime(2024, 1, 1),
             decode_workers=1,
         )
+
+
+# ---------------------------------------------------------------------------
+# Hyperspectral IR sounders folded into NNJAObsSat (airs / iasi / cris)
+# ---------------------------------------------------------------------------
+
+
+def _decode_ir_pairs(
+    pairs: list[tuple[int, Any]],
+    sensor: str,
+    channels_filter: frozenset[int] | None = None,
+    satellites: frozenset[str] | None = None,
+    datetime_min: datetime = datetime(2023, 12, 31, 21),
+    datetime_max: datetime = datetime(2024, 1, 1, 3),
+) -> list[dict[str, Any]]:
+    return ncep_microwave._decode_ir_subset(
+        [_MicrowaveDescriptor(descriptor) for descriptor, _ in pairs],
+        [value for _, value in pairs],
+        sensor,
+        channels_filter,
+        datetime_min,
+        datetime_max,
+        satellites,
+    )
+
+
+def _ir_scalar_pairs(said: int) -> list[tuple[int, Any]]:
+    return [
+        (ncep_microwave._YEAR, 2023),
+        (ncep_microwave._MONTH, 12),
+        (ncep_microwave._DAY, 31),
+        (ncep_microwave._HOUR, 21),
+        (ncep_microwave._MINUTE, 2),
+        (ncep_microwave._SECOND, 45.352),
+        (ncep_microwave._LAT_HIGH, 12.34567),
+        (ncep_microwave._LON_HIGH, -45.67891),
+        (ncep_microwave._SAID, said),
+        (ncep_microwave._SCAN_LINE, 8),
+        (ncep_microwave._FOV_NUMBER, 7),
+        (ncep_microwave._SATELLITE_ZENITH, 55.25),
+        (ncep_microwave._SOLAR_ZENITH, 99.47),
+    ]
+
+
+def test_nnja_obs_sat_ir_tasks_use_verified_archive_routes():
+    source = NNJAObsSat(
+        time_tolerance=timedelta(0),
+        cache=False,
+        verbose=False,
+        decode_workers=1,
+    )
+    cycle = datetime(2024, 1, 1)
+    tasks = source._create_tasks([cycle], ["airs", "iasi", "cris"])
+
+    assert len(tasks) == 3
+    by_sensor = {task.sensor: task for task in tasks}
+    assert by_sensor["airs"].uri.endswith(
+        "airs/airsev/2024/01/bufr/gdas.20240101.t00z.airsev.tm00.bufr_d"
+    )
+    assert by_sensor["iasi"].uri.endswith(
+        "iasi/mtiasi/2024/01/bufr/gdas.20240101.t00z.mtiasi.tm00.bufr_d"
+    )
+    assert by_sensor["cris"].uri.endswith(
+        "cris/cris/2024/01/bufr/gdas.20240101.t00z.cris.tm00.bufr_d"
+    )
+    assert by_sensor["airs"].var_plan == {"airs": "TMBR"}
+    assert by_sensor["iasi"].var_plan == {"iasi": "SCRA"}
+    assert by_sensor["cris"].var_plan == {"cris": "SRAD"}
+
+
+def test_nnja_obs_sat_ir_archive_unavailable_before_first_year():
+    source = NNJAObsSat(
+        time_tolerance=timedelta(0),
+        cache=False,
+        verbose=False,
+        decode_workers=1,
+    )
+    with pytest.raises(nnja._NNJAObsSatIncompleteError) as err:
+        source._create_tasks([datetime(2005, 1, 1)], ["cris"])
+    assert err.value.context["reason"] == "archive_unavailable"
+    assert err.value.context["sensor"] == "cris"
+
+
+def test_nnja_obs_sat_decode_file_routes_ir_and_microwave(monkeypatch):
+    source = NNJAObsSat(
+        satellites=["aqua", "npp", "metop-b"],
+        cache=False,
+        verbose=False,
+        decode_workers=1,
+    )
+    empty = ncep_microwave._rows_to_dataframe([])
+    calls: dict[str, dict[str, Any]] = {}
+
+    def fake_ir(path, sensor, channels, dt_min, dt_max, satellites, decode_workers):
+        calls["ir"] = {
+            "sensor": sensor,
+            "channels": channels,
+            "satellites": satellites,
+        }
+        return empty
+
+    def fake_mw(path, sensor, plan, dt_min, dt_max, satellites, decode_workers):
+        calls["mw"] = {"sensor": sensor, "satellites": satellites}
+        return empty
+
+    monkeypatch.setattr(nnja, "decode_ir_sounder", fake_ir)
+    monkeypatch.setattr(nnja, "decode_microwave", fake_mw)
+
+    cycle = datetime(2024, 1, 1)
+    cris_task = nnja._NNJASatTask(
+        uri="uri",
+        datetime_file=cycle,
+        datetime_min=cycle,
+        datetime_max=cycle,
+        sensor="cris",
+        var_plan={"cris": "SRAD"},
+    )
+    frame = source._decode_file("path", cris_task)
+    assert list(frame.columns) == list(NNJAObsSat.SCHEMA.names)
+    # Every published channel is decoded; narrowing happens downstream
+    assert calls["ir"]["channels"] is None
+    # The user filter is narrowed to the sensor's own platforms
+    assert calls["ir"]["satellites"] == ("npp",)
+    assert "mw" not in calls
+
+    atms_task = nnja._NNJASatTask(
+        uri="uri",
+        datetime_file=cycle,
+        datetime_min=cycle,
+        datetime_max=cycle,
+        sensor="atms",
+        var_plan={"atms": "TMBR"},
+    )
+    source._decode_file("path", atms_task)
+    assert calls["mw"]["sensor"] == "atms"
+    assert calls["mw"]["satellites"] == ("aqua", "metop-b", "npp")
+
+
+def test_nnja_obs_sat_lexicon_ir_routes():
+    from earth2studio.lexicon import NNJAObsSatLexicon
+
+    assert NNJAObsSatLexicon.VOCAB["airs"] == "airs::TMBR"
+    assert NNJAObsSatLexicon.VOCAB["iasi"] == "iasi::SCRA"
+    assert NNJAObsSatLexicon.VOCAB["cris"] == "cris::SRAD"
+
+
+def _airs_ir_pairs() -> list[tuple[int, Any]]:
+    return _ir_scalar_pairs(said=784) + [
+        (31002, 2),
+        (ncep_microwave._CHANNEL_NUMBER, 1),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 285.5),
+        (ncep_microwave._ACQF, 0),
+        (ncep_microwave._CHANNEL_NUMBER, 6),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 250.25),
+        (ncep_microwave._ACQF, 2),
+    ]
+
+
+def test_nnja_ir_decode_airs_brightness_temperature_passthrough():
+    rows = _decode_ir_pairs(_airs_ir_pairs(), "airs")
+
+    assert len(rows) == 2
+    by_channel = {row["sensor_index"]: row for row in rows}
+    assert by_channel[1]["observation"] == 285.5
+    assert by_channel[1]["wavenumber"] == pytest.approx(649.62)
+    assert by_channel[1]["quality"] == 0
+    assert by_channel[6]["observation"] == 250.25
+    assert by_channel[6]["wavenumber"] == pytest.approx(650.814)
+    assert by_channel[6]["quality"] == 2
+    assert by_channel[1]["variable"] == "airs"
+    assert by_channel[1]["satellite"] == "aqua"
+
+    # The decode-layer channel filter still narrows rows (internal capability)
+    only = _decode_ir_pairs(_airs_ir_pairs(), "airs", channels_filter=frozenset({6}))
+    assert [row["sensor_index"] for row in only] == [6]
+
+    # Platform filtering drops the whole footprint
+    assert not _decode_ir_pairs(_airs_ir_pairs(), "airs", satellites=frozenset({"npp"}))
+
+
+def test_nnja_ir_decode_iasi_scaled_radiance_planck():
+    from earth2studio.data.utils_ir import C1, C2
+
+    wavenumber = 645.0  # IASI channel 1
+    target_bt = 280.0
+    radiance_mw = C1 * wavenumber**3 / (np.exp(C2 * wavenumber / target_bt) - 1.0)
+    chsf = 7
+    scra = radiance_mw * 10.0**chsf / 1e5
+
+    pairs = _ir_scalar_pairs(said=3) + [
+        (ncep_microwave._STCH, 1),
+        (ncep_microwave._ENCH, 8461),
+        (ncep_microwave._CHSF, chsf),
+        (31002, 1),
+        (ncep_microwave._CHANNEL_NUMBER, 1),
+        (ncep_microwave._SCRA, scra),
+    ]
+    rows = _decode_ir_pairs(pairs, "iasi")
+
+    assert len(rows) == 1
+    assert rows[0]["observation"] == pytest.approx(target_bt, abs=1e-6)
+    assert rows[0]["wavenumber"] == pytest.approx(645.0)
+    assert rows[0]["satellite"] == "metop-b"
+
+    # A channel outside every CHSF band cannot be converted and is skipped
+    no_band = _ir_scalar_pairs(said=3) + [
+        (31002, 1),
+        (ncep_microwave._CHANNEL_NUMBER, 1),
+        (ncep_microwave._SCRA, scra),
+    ]
+    assert not _decode_ir_pairs(no_band, "iasi")
+
+
+def test_nnja_ir_decode_cris_radiance_planck_band_wavenumbers():
+    from earth2studio.data.utils_ir import C1, C2
+
+    wavenumber = 1210.0  # CrIS channel 714, first mid-wave channel
+    target_bt = 260.0
+    radiance_mw = C1 * wavenumber**3 / (np.exp(C2 * wavenumber / target_bt) - 1.0)
+    srad = radiance_mw / 1000.0
+
+    pairs = _ir_scalar_pairs(said=224) + [
+        (31002, 1),
+        (ncep_microwave._CHANNEL_NUMBER, 714),
+        (ncep_microwave._SRAD, srad),
+    ]
+    rows = _decode_ir_pairs(pairs, "cris")
+
+    assert len(rows) == 1
+    assert rows[0]["observation"] == pytest.approx(target_bt, abs=1e-6)
+    assert rows[0]["wavenumber"] == pytest.approx(1210.0)
+    assert rows[0]["satellite"] == "npp"
+    assert rows[0]["quality"] is None
