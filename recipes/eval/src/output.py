@@ -437,7 +437,7 @@ class OutputManager:
         exc_tb: TracebackType | None,
     ) -> None:
         write_error: BaseException | None = None
-        if self._is_async and self._io is not None:
+        if isinstance(self._io, AsyncZarrBackend):
             # Drains the backend's pool and writes out any incomplete shard
             try:
                 self._io.close()
@@ -529,7 +529,7 @@ class OutputManager:
         Called between work items during resume runs, so a completion marker is
         never written before the data it refers to. Raises if a write failed.
         """
-        if self._is_async:
+        if isinstance(self.io, AsyncZarrBackend):
             self.io.flush()
 
     # ------------------------------------------------------------------
