@@ -22,6 +22,7 @@ docs_jobs="${DOCS_JOBS:-1}"
 
 uv sync --python "${uv_python}" --locked --extra all --group docs
 uv run python docs/generate_api.py
+uv run python docs/generate_install_options.py
 
 rm -rf docs/examples examples/outputs
 

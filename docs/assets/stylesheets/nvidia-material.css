@@ -44,9 +44,12 @@ body .md-grid {
 
 .md-header,
 .md-tabs {
-  background: var(--nv-green-dark);
-  background-color: var(--nv-green-dark);
-  background-image: none;
+  background-color: #050806;
+  background-image:
+    radial-gradient(circle at 32% -4%, rgba(118, 185, 0, 0.2), transparent 33rem),
+    radial-gradient(circle at 78% 86%, rgba(14, 165, 164, 0.14), transparent 27rem),
+    radial-gradient(circle at 7% 58%, rgba(250, 204, 21, 0.08), transparent 22rem),
+    linear-gradient(90deg, rgba(5, 8, 6, 0.98), rgba(5, 8, 6, 0.86));
   border-bottom: 1px solid rgba(155, 229, 100, 0.24);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset;
   color: var(--nv-fg);
@@ -66,6 +69,11 @@ body .md-grid {
 .md-announce {
   position: relative;
   z-index: 6;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(118, 185, 0, 0.16), transparent 22rem),
+    linear-gradient(90deg, rgba(5, 8, 6, 0.98), rgba(12, 15, 11, 0.96));
+  border-bottom: 1px solid rgba(118, 185, 0, 0.18);
+  color: var(--nv-fg);
 }
 
 .md-banner__inner,

@@ -1,4 +1,4 @@
-<!-- markdownlint-disable MD046 -->
+<!-- markdownlint-disable MD033 MD046 -->
 
 # Install { #install_guide }
 
@@ -20,7 +20,7 @@
 
 ## Install Selector { #install-command }
 
-<!-- e2s-install-selector -->
+<section class="e2s-install-selector" data-e2s-install-selector></section>
 
 ## Verify Installation
 

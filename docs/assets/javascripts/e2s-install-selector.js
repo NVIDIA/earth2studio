@@ -1,13 +1,40 @@
-(function () {
+(async function () {
+  const script = document.currentScript;
   const root = document.querySelector("[data-e2s-install-selector]");
   if (!root) return;
 
   const dataElement = root.querySelector("[data-e2s-install-data]");
-  const controls = root.querySelector("[data-e2s-install-controls]");
-  const output = root.querySelector("[data-e2s-install-output]");
-  if (!dataElement || !controls || !output) return;
+  let controls = root.querySelector("[data-e2s-install-controls]");
+  let output = root.querySelector("[data-e2s-install-output]");
+  if (!controls || !output) {
+    root.innerHTML = `
+      <div class="e2s-install-selector__layout">
+        <div class="e2s-install-selector__controls" data-e2s-install-controls></div>
+        <div class="e2s-install-selector__output" data-e2s-install-output></div>
+      </div>
+    `;
+    controls = root.querySelector("[data-e2s-install-controls]");
+    output = root.querySelector("[data-e2s-install-output]");
+  }
+  if (!controls || !output) return;
 
-  const data = JSON.parse(dataElement.textContent || "{}");
+  async function loadData() {
+    if (dataElement) {
+      return JSON.parse(dataElement.textContent || "{}");
+    }
+
+    const fallback = script?.src
+      ? new URL("../data/install-options.json", script.src).toString()
+      : "assets/data/install-options.json";
+    const src = root.dataset.e2sInstallDataSrc || fallback;
+    const response = await fetch(src);
+    if (!response.ok) {
+      throw new Error(`Failed to load install selector data: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  const data = await loadData();
   const params = new URLSearchParams(window.location.search);
   const defaults = data.defaults || {};
   const managers = data.managers || [];

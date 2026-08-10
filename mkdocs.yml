@@ -366,7 +366,6 @@ nav:
 - User Guide:
   - Install: userguide/about/install.md
   - Overview: userguide/about/overview.md
-  - Contents: userguide/index.md
   - Core Components:
     - userguide/components/index.md
     - Prognostic Models: userguide/components/prognostic.md

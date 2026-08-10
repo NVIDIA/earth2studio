@@ -79,6 +79,7 @@ coverage:
 docs:
 	uv sync --group docs
 	uv run python docs/generate_api.py
+	uv run python docs/generate_install_options.py
 	rm -rf docs/_build/html
 	E2S_GALLERY_EXECUTE=never uv run zensical build --clean
 	mkdir -p docs/_build
@@ -97,6 +98,7 @@ DOCS_JOBS ?= 1
 docs-dev:
 	uv sync --extra all --group docs
 	uv run python docs/generate_api.py
+	uv run python docs/generate_install_options.py
 	@if [ -n "$(FILENAME)" ]; then 		uv run e2s-gallery build "$(FILENAME)" --execute stale --jobs $(DOCS_JOBS); 	else 		uv run e2s-gallery render; 	fi
 	E2S_GALLERY_EXECUTE=never uv run zensical serve -a 0.0.0.0:$(PORT)
 
@@ -105,6 +107,7 @@ DOC_VERSION ?= main
 docs-build-version:
 	uv sync --group docs
 	uv run python docs/generate_api.py
+	uv run python docs/generate_install_options.py
 	rm -rf docs/_build/html
 	DOC_VERSION=$(DOC_VERSION) E2S_GALLERY_EXECUTE=never uv run zensical build --clean
 	mkdir -p docs/_build
@@ -124,6 +127,7 @@ PORT ?= 8001
 docs-serve:
 	uv sync --group docs
 	uv run python docs/generate_api.py
+	uv run python docs/generate_install_options.py
 	E2S_GALLERY_EXECUTE=never uv run zensical serve -a 0.0.0.0:$(PORT)
 
 .PHONY: container-service
