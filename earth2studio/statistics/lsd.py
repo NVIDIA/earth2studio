@@ -169,14 +169,14 @@ class log_spectral_distance:
         self._validate_coords(x_coords, y_coords)
 
         if self.spatial_dimensions is not None:
-            (x, x_coords) = _spatial_dims_to_end(x, x_coords, self.spatial_dimensions)
-            (y, y_coords) = _spatial_dims_to_end(y, y_coords, self.spatial_dimensions)
+            x, x_coords = _spatial_dims_to_end(x, x_coords, self.spatial_dimensions)
+            y, y_coords = _spatial_dims_to_end(y, y_coords, self.spatial_dimensions)
 
         if self.ensemble_dimension is not None:
             ensemble_dim = list(x_coords).index(self.ensemble_dimension)
             y = y.unsqueeze(ensemble_dim)
 
-        (k, spectrum_x) = power_spectrum(x)
+        k, spectrum_x = power_spectrum(x)
         spectrum_y = power_spectrum(y)[1]
 
         if self.wavenumber_cutoff is not None:
@@ -187,7 +187,7 @@ class log_spectral_distance:
         spectrum_coords = OrderedDict(list(x_coords.items())[:-2])
         spectrum_coords["wavenumber"] = k
 
-        (lsd, out_coords) = self.mean(
+        lsd, out_coords = self.mean(
             torch.log10(spectrum_x / spectrum_y) ** 2, spectrum_coords
         )
         lsd = 10 * lsd.sqrt()  # to dB

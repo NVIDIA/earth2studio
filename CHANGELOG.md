@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated StormCast SDA example to use the `GHCNHourly` data source.
 - `AsyncZarrBackend` now throttles on in flight writes rather than submitted writes, and
   waits for whichever write completes first rather than the oldest.
 - Migrated GOES data source from s3fs to obstore; hour-directory listings are
@@ -40,8 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   samples when processing multiple batches and initialization times.
 - Fixed `AsyncZarrBackend` discarding exceptions raised by non-blocking writes. A write
   future that had already completed was never resulted, so its error was swallowed
+- Fixed `AsyncZarrBackend` bugs covering non-blocking write safety, tensor aliasing,
+  metadata visibility, coordinate parsing, and shard buffer allocation.
 
 ### Security
+
+- Added `zizmor` static security auditing of GitHub Actions workflows (pre-commit
+  hook, `make zizmor` lint step, and a code scanning workflow)
 
 ### Dependencies
 

@@ -205,7 +205,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords = self.output_coords(self.input_coords())
         lat = np.deg2rad(coords["lat"])
         lon = np.deg2rad(coords["lon"])
-        (lat, lon) = np.meshgrid(lat, lon, indexing="ij")
+        lat, lon = np.meshgrid(lat, lon, indexing="ij")
         sincos_latlon = torch.Tensor(
             np.stack([np.sin(lat), np.cos(lat), np.sin(lon), np.cos(lon)], axis=0)
         ).unsqueeze(0)
@@ -472,7 +472,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         for fc_step, (x, coords) in enumerate(self.px_model.create_iterator(x, coords)):
             # Make sure prognostic model has all 73 required variables
-            (x, coords) = map_coords(x, coords, self.output_coords(coords))
+            x, coords = map_coords(x, coords, self.output_coords(coords))
             if fc_step == 0:
                 x0 = x
                 coords0 = coords

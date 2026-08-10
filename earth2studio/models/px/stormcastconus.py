@@ -42,7 +42,7 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.obs import ObsGridMapping
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordSystem, TimeArray
 
 try:
     import physicsnemo.nn.module.dit_layers as _dit_layers
@@ -136,6 +136,11 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ``np.array(CONDITIONING_VARIABLES)``.
     conditioning_data_source : DataSource or ForecastSource or None, optional
         Data source for global conditioning. Required for inference, by default None.
+    conditioning_init_time : datetime, list[datetime], TimeArray, or None, optional
+        Fixed initialisation time for ``conditioning_data_source``. When None,
+        uses the same conditioning initialization time as the forecast. Useful when
+        the conditioning is from a forecast source available on a coarser cycle
+        (e.g. GFS_FX every 6 h while HRRR initialises hourly), by default None.
     sampler_args : dict, optional
         Overrides for the EDM sampler/scheduler. Recognised keys:
         ``sigma_min``, ``sigma_max``, ``rho`` (scheduler), and
@@ -170,6 +175,10 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         loaded via :meth:`load_model`, this flag is also forwarded to
         :class:`_SplitModelWrapper` to enable per-variable physical-minimum clamping,
         by default True.
+
+    Badges
+    ------
+    region:na class:nwc product:wind product:temp product:precip product:radar product:atmos year:2026 gpu:24gb
     """
 
     def __init__(
@@ -185,6 +194,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         variables: np.ndarray = np.array(VARIABLES),
         conditioning_variables: np.ndarray = np.array(CONDITIONING_VARIABLES),
         conditioning_data_source: DataSource | ForecastSource | None = None,
+        conditioning_init_time: datetime | list[datetime] | TimeArray | None = None,
         sampler_args: dict[str, float | int] | None = None,
         num_diffusion_steps: int = 18,
         num_sda_diffusion_steps: int = 36,
@@ -273,6 +283,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "set the conditioning_data_source attribute of the model "
                 "before running inference."
             )
+        self.conditioning_init_time = conditioning_init_time
         self.register_buffer("conditioning_means", conditioning_means)
         self.register_buffer("conditioning_stds", conditioning_stds)
 
@@ -602,13 +613,13 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 t = time + lead_time
                 if obs is not None:
                     if isinstance(obs, tuple):
-                        (y_obs, mask) = obs
+                        y_obs, mask = obs
                     else:
                         y_obs, mask = self.get_obs_mapping(x.device).obs_to_grid(
                             obs, self.variables, t, self.time_tolerance
                         )
                 else:
-                    (y_obs, mask) = (None, None)
+                    y_obs, mask = (None, None)
 
                 for i0 in range(0, len(coords["batch"]), self.batch_size):
                     i1 = i0 + self.batch_size
@@ -704,6 +715,9 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ------
         RuntimeError
             If ``conditioning_data_source`` is not set.
+        ValueError
+            If ``conditioning_init_time`` has an incompatible shape or does not
+            produce a uniform lead-time offset across ``coords["time"]``.
         """
 
         if self.conditioning_data_source is None:
@@ -711,11 +725,34 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "StormCastCONUS has been called without initializing the model's conditioning_data_source"
             )
 
+        if self.conditioning_init_time is not None:
+            init_time = np.asarray(
+                self.conditioning_init_time, dtype=coords["time"].dtype
+            )
+            try:
+                init_time = init_time.reshape(coords["time"].shape)
+            except ValueError:
+                raise ValueError(
+                    "conditioning_init_time must be a scalar or match the "
+                    "shape of coords['time']"
+                )
+            offsets = coords["time"] - init_time
+            if not np.all(offsets == offsets.reshape(-1)[0]):
+                raise ValueError(
+                    "conditioning_init_time must produce a uniform lead-time "
+                    "offset across coords['time']; differing per-time offsets "
+                    "are not supported"
+                )
+            lead_time = coords["lead_time"] + offsets.reshape(-1)[0]
+        else:
+            init_time = coords["time"]
+            lead_time = coords["lead_time"]
+
         conditioning, conditioning_coords = fetch_data(
             self.conditioning_data_source,
-            time=coords["time"],
+            time=init_time,
             variable=self.conditioning_variables,
-            lead_time=coords["lead_time"],
+            lead_time=lead_time,
             device=device,
             interp_to=coords | {"_lat": self.lat, "_lon": self.lon},
             interp_method="linear",
@@ -735,6 +772,13 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning = conditioning.repeat(batch_size, 1, 1, 1, 1, 1)
         conditioning_coords.update({"batch": np.empty(0)})
         conditioning_coords.move_to_end("batch", last=False)
+
+        # Remap forecast coords to the model time/lead axes. Data are already
+        # aligned by valid time; labels may differ when conditioning_init_time
+        # shifts the forecast initialisation.
+        if self.conditioning_init_time is not None:
+            conditioning_coords["time"] = coords["time"]
+            conditioning_coords["lead_time"] = coords["lead_time"]
 
         # Handshake conditioning coords
         handshake_coords(conditioning_coords, coords, "lead_time")
@@ -1001,7 +1045,7 @@ class _SplitModelWrapper(torch.nn.Module):
         """
         self.grid_shape = (bbox[0][1] - bbox[0][0], bbox[1][1] - bbox[1][0])
         p = self.model_high.model.model.patch_size
-        (H_full, W_full) = (
+        H_full, W_full = (
             self.full_grid_shape[0] // p[0],
             self.full_grid_shape[1] // p[1],
         )
@@ -1017,7 +1061,7 @@ class _SplitModelWrapper(torch.nn.Module):
             pos_embed_crop_2D = pos_embed_full_2D[
                 bb_crop[0][0] : bb_crop[0][1], bb_crop[1][0] : bb_crop[1][1], :
             ]
-            (H_crop, W_crop, C) = pos_embed_crop_2D.shape
+            H_crop, W_crop, C = pos_embed_crop_2D.shape
             return pos_embed_crop_2D.reshape(H_crop * W_crop, C)
 
         for key, model in self.models.items():
