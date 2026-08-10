@@ -20,6 +20,7 @@ dependencies = [
     "huggingface-hub>=0.27.0",
     "loguru",
     "netCDF4>=1.6.4,<1.7.3", # https://github.com/Unidata/netcdf4-python/issues/1438
+    "obspec>=0.1",
     "obstore>=0.8",
     "pygrib",
     "python-dotenv",
@@ -280,7 +281,7 @@ windgust-afno = [
 # DA Models
 da-healda = [
     "earth2grid",
-    "nvidia-physicsnemo>=2.0,<=2.1.1 ; python_version < '3.14'",
+    "nvidia-physicsnemo>=2.0 ; python_version < '3.14'",
     "cupy-cuda13x",
     "cudf-cu13>=26.2.0",
 ]
@@ -294,15 +295,11 @@ da-stormcast = [
     "cudf-cu13>=26.2.0",
 ]
 # All, must not have conflicts
-# NOTE: `cosmo` is intentionally excluded here. Its nvidia-physicsnemo is git-pinned
-# for RoPE (see [tool.uv.sources]) and declared conflicting with `da-healda` and
-# `all` (which pull physicsnemo <=2.1.1). TODO(cosmo): drop the git pin for
-# `nvidia-physicsnemo>=2.2.0` and re-add `cosmo` once 2.2.0 ships on PyPI.
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
     "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",
-    "earth2studio[cbottle,climatenet,corrdiff,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
-    "earth2studio[da-interp,da-stormcast]", # TODO reintroduce da-healda when wrapper updates
+    "earth2studio[cbottle,climatenet,corrdiff,cosmo,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
+    "earth2studio[da-interp,da-stormcast,da-healda]",
 ]
 
 # ==== UV configuration ====
@@ -329,18 +326,6 @@ conflicts = [
     { extra = "aifs2" },
     { extra = "aifs2ens" },
     { extra = "aifsens" },
-  ],
-  [
-    { extra = "cosmo" },
-    { extra = "da-healda" },
-  ],
-  [
-    { extra = "da-healda" },
-    { extra = "stormscope" },
-  ],
-  [
-    { extra = "da-healda" },
-    { extra = "stormcast-conus" },
   ]
 ]
 default-groups = ["dev", "build"]
@@ -364,7 +349,7 @@ natten = ["setuptools", "cmake", "torch"]
 # all (which caps/pulls physicsnemo <=2.1.1) in [tool.uv] conflicts.
 onnxruntime-gpu = { index = "ort-cuda-13-nightly" }
 cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
-cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "e48c7eb518d49d4a92b2a1397d683e765c02c354" }
+cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "f0f519987589cc0b368ab892a1adfb2fb30a5587" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" }
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "b38fcb2799d7dbc146fa60459f3f9823394a8bf1"}
 graphcast = { git = "https://github.com/google-deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
@@ -377,9 +362,10 @@ torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
 ]
+# TODO: Remove with next PSN release
 nvidia-physicsnemo = [
-  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ced75d93d014f70bb691372788eee2d201171c12", extra = "cosmo"},
-  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ced75d93d014f70bb691372788eee2d201171c12", extra = "stormcast-conus"},
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "bf0ad4f43275b84a7beab35127d57a99cd359260", extra = "cosmo"},
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "bf0ad4f43275b84a7beab35127d57a99cd359260", extra = "stormcast-conus"},
 ]
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
@@ -395,7 +381,7 @@ build = [
     "setuptools>=70.0.0",
 ]
 dev = [
-    "black==24.1.0",
+    "black==26.5.1",
     "coverage>=6.5.0",
     "interrogate>=1.5.0",
     "hatch>=1.16.5",

@@ -168,7 +168,7 @@ class LatLonInterpolation(nn.Module):
             lon_out.cpu().numpy() if isinstance(lon_out, Tensor) else np.array(lon_out)
         )
 
-        (i_in, j_in) = np.mgrid[: lat_in.shape[0], : lat_in.shape[1]]
+        i_in, j_in = np.mgrid[: lat_in.shape[0], : lat_in.shape[1]]
 
         in_points = np.stack((lat_in.ravel(), lon_in.ravel()), axis=-1)
         i_interp = LinearNDInterpolator(in_points, i_in.ravel())

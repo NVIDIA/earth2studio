@@ -31,6 +31,8 @@ defaults:
     shell: bash
 
 env:
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.2
+  E2S_CI_LITE_IMAGE: &e2s_ci_lite_image ghcr.io/nvidia/earth2studio-ci-lite:0.3
   CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
   EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
@@ -43,7 +45,6 @@ env:
   TESTMON_CACHE: ${{ github.workspace }}/.cache/testmon
   TESTMON_DATAFILE: ${{ github.workspace }}/.cache/testmon/.testmondata
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
-  UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
 
 jobs:
   setup-env:
@@ -52,7 +53,7 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     timeout-minutes: 120
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
@@ -65,25 +66,16 @@ jobs:
       NVCC_THREADS: "2"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Configure git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Restore uv cache
-        id: uv-cache
-        uses: actions/cache/restore@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-
-            e2s-uv-${{ runner.os }}-main-
-
       - name: Restore pre-commit cache
         id: pre-commit-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
         continue-on-error: true
         with:
           path: ${{ env.PRE_COMMIT_HOME }}
@@ -101,15 +93,8 @@ jobs:
       - name: Set up CI environment
         run: make setup-ci
 
-      - name: Save uv cache
-        uses: actions/cache/save@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
-
       - name: Save pre-commit cache
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
         continue-on-error: true
         with:
           path: ${{ env.PRE_COMMIT_HOME }}
@@ -121,20 +106,21 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test
-          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-px-models:
@@ -143,20 +129,21 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-px-models
-          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-dx-models:
@@ -165,20 +152,21 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-dx-models
-          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-data:
@@ -187,20 +175,21 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-data
-          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-perturb:
@@ -209,20 +198,21 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-perturb
-          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-stats:
@@ -231,20 +221,21 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-stats
-          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-da-models:
@@ -253,20 +244,21 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-da-models
-          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-px-models-conflicts:
@@ -275,20 +267,21 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-px-models-conflicts
-          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   test-serve:
@@ -297,20 +290,21 @@ jobs:
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_image
       options: --shm-size=2g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-serve
-          save-model-cache: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
 
   coverage:
@@ -328,38 +322,32 @@ jobs:
       - test-serve
     runs-on: linux-amd64-cpu8
     container:
-      image: ghcr.io/nvidia/earth2studio-ci:0.1
+      image: *e2s_ci_lite_image
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Configure git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Restore uv cache
-        uses: actions/cache/restore@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            e2s-uv-${{ runner.os }}-main-${{ hashFiles('pyproject.toml', 'uv.lock') }}-
-            e2s-uv-${{ runner.os }}-main-
-
       - name: Set up environment
-        run: uv sync
+        run: uv sync --python 3.13.13 --locked --only-dev --no-install-project
 
       - name: Download coverage data
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         continue-on-error: true
         with:
           pattern: coverage-*
           merge-multiple: true
 
       - name: Generate coverage report
+        env:
+          UV_NO_SYNC: "1"
         run: |
           if ! compgen -G ".coverage.*" > /dev/null; then
             echo "No coverage data artifacts found." | tee coverage-report.txt
@@ -370,7 +358,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-report
           path: |

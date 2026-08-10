@@ -50,6 +50,7 @@ In this example you will learn:
 - How to visualize results
 
 """
+
 # /// script
 # dependencies = [
 #   "torch==2.11.0", # Match lock file to avoid torch-harmonics issue

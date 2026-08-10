@@ -32,6 +32,7 @@ In this example you will learn:
 - How to run a single-member forecast with Atlas
 - How to visualize predicted 10m u-wind and total column water vapour
 """
+
 # /// script
 # dependencies = [
 #   "torch==2.11.0", # Match lock file to avoid torch-harmonics issue

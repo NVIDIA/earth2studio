@@ -1,6 +1,17 @@
 FROM nvcr.io/nvidia/cuda-dl-base:26.03-cuda13.2-devel-ubuntu24.04
+
+ARG PYTHON_VERSION=3.13.13
+
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
+
+ENV FLASH_ATTN_CUDA_ARCHS=90 \
+    NATTEN_CUDA_ARCH=9.0 \
+    NATTEN_N_WORKERS=8 \
+    NVCC_THREADS=2 \
+    UV_CACHE_DIR=/opt/uv-cache \
+    UV_LINK_MODE=copy
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     python3-dev \
@@ -41,6 +52,20 @@ RUN for PIP_CONF in "/etc/xdg/pip/pip.conf" "/root/.pip/pip.conf" "/usr/pip.conf
 # Install tox for venv managment
 RUN uv tool install tox --with tox-uv
 
-# Use the build argument
-ARG PYTHON_VERSION=3.13.13
 RUN /usr/bin/uv python install "${PYTHON_VERSION}"
+
+# Build this image from the repository root so these lock files are in context:
+#   docker build -f test/Dockerfile .
+COPY pyproject.toml uv.lock README.md ./
+RUN mkdir -p earth2studio
+COPY earth2studio/__init__.py earth2studio/__init__.py
+
+# Warm uv's package/build cache into the image. CI runs use this same cache
+# directory, avoiding a large GitHub Actions uv cache archive.
+RUN uv venv --python="${PYTHON_VERSION}" \
+    && uv sync --locked --no-install-project \
+    && for EXTRA in all aifs aifs2 aifs2ens aifsens stormcast-conus; do \
+        uv sync --locked --no-install-project --extra "${EXTRA}"; \
+    done \
+    && rm -rf .venv \
+    && chmod -R a+rwX "${UV_CACHE_DIR}"

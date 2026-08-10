@@ -34,6 +34,7 @@ In this example you will learn:
 - Running a deterministic forecast with :py:meth:`earth2studio.run.deterministic`
 - Post-processing and plotting composite reflectivity and 2-m temperature
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[data,stormcast-conus] @ git+https://github.com/NVIDIA/earth2studio.git",
@@ -75,7 +76,7 @@ from earth2studio.models.px import StormCastCONUS
 package = StormCastCONUS.load_default_package()
 
 # By default, the model uses GFS_FX as the conditioning data source
-# Thus we do not need to exlicitly specify the conditioning data source
+# Thus we do not need to explicitly specify the conditioning data source
 model = StormCastCONUS.load_model(package)
 
 # Create the HRRR initial-condition data source

@@ -16,8 +16,8 @@ ci:
     skip: [uv-lock]
 
 repos:
--   repo: https://github.com/psf/black
-    rev: 24.1.0
+-   repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 26.5.1
     hooks:
     - id: black
       exclude: ^\.claude/
@@ -56,7 +56,7 @@ repos:
         exclude: ^\.claude/
 
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.5
+    rev: v0.16.1
     hooks:
     - id: ruff
       args: [--fix]
@@ -70,13 +70,13 @@ repos:
       args: [--config=pyproject.toml]
 
 -   repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.44.0
+    rev: v0.49.1
     hooks:
     - id: markdownlint
-      exclude: ^(\.claude/|skills/.*\.md)$
+      exclude: ^(\.claude/.*|skills/.*\.md)$
 
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.14.1  # Use the sha / tag you want to point at
+    rev: v2.3.0  # Use the sha / tag you want to point at
     hooks:
     -   id: mypy
         # Excludes
@@ -92,8 +92,13 @@ repos:
                 skills)
         additional_dependencies: ['types-requests']
 
+-   repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: 451b56af716f9f0d0c2b816503a3fd0cf8b036fa  # v1.29.0
+    hooks:
+    -   id: zizmor
+
 -   repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.11.26
+    rev: 0.12.1
     hooks:
     -   id: uv-lock

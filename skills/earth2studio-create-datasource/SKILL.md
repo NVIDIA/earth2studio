@@ -1,8 +1,7 @@
 ---
 name: earth2studio-create-datasource
-version: 0.16.0
-license: Apache-2.0
 metadata:
+  version: 0.17.0
   author: NVIDIA Earth-2 Team <agent-skills@nvidia.com>
   tags:
     - earth2studio
@@ -11,11 +10,17 @@ metadata:
     - data-source
     - forecast-source
     - integration
+license: Apache-2.0
+permissions:
+  - network        # WebFetch for API docs; HTTP/S3/GCS/Azure data access
+  - filesystem     # Read/write source files, tests, config
+  - shell          # uv, make, pytest, git, gh CLI
 description: >
   Create and validate Earth2Studio data source wrappers (DataSource,
   ForecastSource, DataFrameSource, ForecastFrameSource) from remote stores.
+  May add Python dependencies to pyproject.toml as part of development.
   Do NOT use for fetching data with existing sources, model inference, or
-  installation tasks.
+  Earth2Studio installation/setup tasks.
 argument-hint: URL or description of remote data store (optional)
 ---
 
@@ -35,6 +40,11 @@ implementation, testing, validation, and PR submission.
 - Access to the target remote data store (credentials if private)
 - Python 3.10+
 
+> **⚠️ Credential Safety:** If the remote store requires authentication,
+> credentials must be passed via environment variables only. Never hard-code
+> secrets in source files. Before any git commit, verify no credentials are
+> staged (check `git diff --cached` for API keys, tokens, or passwords).
+
 ## Workspace
 
 Use the directory containing `pyproject.toml`. For Harbor evals, write to
@@ -47,9 +57,10 @@ Use the directory containing `pyproject.toml`. For Harbor evals, write to
 
 Follow every step in order.
 
-> **[CONFIRM] gates:** Only Step 1 (Source Type) and Step 12 (Sanity-Check
-> Plots) require explicit user approval. All other `[CONFIRM]` markers are
-> advisory — present decisions inline and proceed without blocking.
+> **[CONFIRM] gates:** Step 1 (Source Type), Step 12 (Sanity-Check Plots),
+> and Step 13 (Ready to Submit) require explicit user approval before
+> proceeding. All other `[CONFIRM]` markers are advisory — present
+> decisions inline and proceed without blocking.
 >
 > **Deliverables first:** Write the source file and test file (Steps 6–7)
 > before extended exploration, documentation, registration, CHANGELOG, or PR
@@ -78,7 +89,8 @@ Load these on demand during the relevant steps:
 
 | File | Content | Load at |
 |---|---|---|
-| `references/implementation-guide.py` | Skeleton source with FILL comments | Steps 3–10 |
+| `references/reference-implementation.py` | Obstore-backed source skeleton with FILL comments | Steps 6–10 |
+| `references/reference-lexicon.py` | Lexicon skeleton with FILL comments | Step 4 |
 | `references/testing-guide.py` | Test skeleton with FILL comments | Step 11 |
 | `references/validation-guide.md` | Plot templates, PR body template, Greptile handling | Steps 12–14 (optional, for templates) |
 
@@ -131,37 +143,39 @@ Present recommended type with justification. Ask for confirmation.
 **Analyze:** storage backend, file format, authentication, access pattern,
 temporal/spatial resolution, variable inventory.
 
-**Prefer fsspec:**
+**Prefer Earth2Studio obstore helpers:**
 
-| Backend | Preferred | Avoid |
+| Backend / format | Preferred | Avoid |
 |---|---|---|
-| AWS S3 | `s3fs` (core dep) | `boto3` directly |
-| GCS | `gcsfs` (core dep) | `google-cloud-storage` |
-| Azure | `adlfs` | `azure-storage-blob` |
-| HTTP | `fsspec` (core dep) | `requests` |
+| S3/GCS/HTTP object files | `obstore_store_from_url` + `obstore_fetch_to_cache` | raw SDK clients |
+| Cloud Zarr | `obstore_zarr_store` | hand-rolled fsspec/zarr stores |
+| Azure/object auth | `obstore.store.from_url` via shared helpers | provider SDKs directly |
 | HuggingFace | `huggingface_hub` (core dep) | custom scripts |
 
-Only fall back to dedicated libraries when fsspec cannot access the store.
+Only fall back to dedicated libraries when obstore/shared helpers cannot access the store.
 
 Check `pyproject.toml` — only propose packages not already present.
-Core deps include: `s3fs`, `gcsfs`, `fsspec`, `zarr`, `netCDF4`, `h5py`,
-`pygrib`, `huggingface-hub`, `pandas`, `pyarrow`.
+Core deps include: `obstore`, `zarr`, `netCDF4`, `h5py`, `pygrib`,
+`huggingface-hub`, `pandas`, `pyarrow`.
 
 #### [CONFIRM — Dependencies & Access Pattern]
 
-Present: backend, fsspec filesystem, new packages (with license), auth method.
+Present: backend, obstore helper/store URL, new packages (with license), auth method.
 
 ---
 
 ### Step 3 — Add Dependencies
 
-> **Load `references/implementation-guide.py` from here through Step 10.**
+> **Load `references/reference-implementation.py` from Step 6 through Step 10.**
+> Load `references/reference-lexicon.py` during Step 4.
 
 If new packages needed:
 
-1. `uv add --extra data <package>`
-2. `uv lock`
-3. Add optional dependency imports using `OptionalDependencyFailure` pattern
+1. Present the package name(s), version constraints, and licenses to the user
+2. Confirm the user approves adding them before proceeding
+3. `uv add --extra data <package>`
+4. `uv lock`
+5. Add optional dependency imports using `OptionalDependencyFailure` pattern
 
 ---
 
@@ -173,6 +187,7 @@ Create `earth2studio/lexicon/<source_name>.py` with:
 - `VOCAB: dict[str, str]` mapping E2S names → remote keys
 - `get_item(cls, val)` returning `tuple[str, Callable]`
 - Use `::` separator for structured keys
+- Use `references/reference-lexicon.py` as the starting template
 
 Map remote variables against `E2STUDIO_VOCAB` (282 entries in
 `earth2studio/lexicon/base.py`).
@@ -195,6 +210,8 @@ Skip if no updates needed.
 ---
 
 ### Step 6 — Create Skeleton Data Source File
+
+Use `references/reference-implementation.py` as the starting template.
 
 Follow canonical method ordering:
 
@@ -227,11 +244,11 @@ Present: class name, file path, skeleton code, task dataclass.
 
 **Sync sources:** Use `prep_data_inputs`/`prep_forecast_inputs`, direct `__call__`.
 
-**Async sources:** See `references/implementation-guide.py` for required patterns:
-`_sync_async`, `managed_session`, `gather_with_concurrency`, `async_retry`,
-pure async I/O, `try/finally` cleanup. Constructor params: `cache=True`,
-`verbose=True`, `async_timeout=600`, `async_workers=16`, `retries=3`.
-DataFrame sources add `time_tolerance`.
+**Async sources:** See `references/reference-implementation.py` for required patterns:
+`_sync_async`, `gather_with_concurrency`, `async_retry`, `obstore_fetch_to_cache`,
+`obstore_zarr_store` for Zarr, `try/finally` cleanup. Constructor params:
+`cache=True`, `verbose=True`, `async_timeout=600`, `async_workers=None`,
+`retries=3`. DataFrame sources add `time_tolerance`.
 
 ---
 
@@ -254,7 +271,7 @@ DataFrame sources add `time_tolerance`.
 ### Step 10 — Update CHANGELOG.md
 
 Add entry under the current unreleased version. See
-`references/implementation-guide.py` REGISTRATION CHECKLIST for the format.
+`references/reference-implementation.py` REGISTRATION CHECKLIST for the format.
 
 One line per source. Do NOT add separate lexicon entries.
 
@@ -287,20 +304,33 @@ User MUST visually inspect plots. Do not proceed without confirmation.
 
 ### Step 13 — Branch, Commit & Open PR
 
+> **⚠️ WARNING: This step performs irreversible git operations (push, PR
+> creation). Do NOT proceed without explicit user confirmation. Present all
+> planned git commands to the user and wait for approval.**
+
 1. Create branch `feat/data-source-<name>`
 2. Commit (do NOT add sanity-check script/images)
-3. Push to fork
-4. `gh pr create --repo NVIDIA/earth2studio`
-5. **Immediately post sanity-check validation as PR comment** with:
+3. **Present full command list to user for review**
+4. Push to fork (only after user approves)
+5. `gh pr create --repo NVIDIA/earth2studio` (only after user approves)
+6. **Immediately post sanity-check validation as PR comment** with:
    - Variable coverage table (name, count, range, unit)
    - Data validation summary (regions, storms/stations, time range)
    - Key findings (physically reasonable values, conversions verified)
    - Full validation script in `<details>` block
    - Image placeholder: `<!-- Drag and drop sanity-check image here -->`
 
-#### [CONFIRM — Ready to Submit]
+#### [CONFIRM — Ready to Submit] (MANDATORY)
 
-Verify all steps complete before creating PR.
+**This gate is MANDATORY and blocks all git push/PR operations.**
+Present the following to the user and wait for explicit approval:
+
+1. List of all files to be committed
+2. Full git commands that will be executed (push, PR create)
+3. Target repository and branch
+4. Warning: "These operations are irreversible and will be visible publicly"
+
+Do NOT push or create PRs until the user explicitly confirms.
 
 ---
 
@@ -309,13 +339,15 @@ Verify all steps complete before creating PR.
 1. Poll for Greptile review (5 min timeout)
 2. Categorize feedback (bug/style/perf/docs/suggestion/false-positive)
 3. Present triage table to user
-4. Implement accepted fixes
-5. Respond to PR comments
-6. Push
+4. **Wait for user to approve which comments to address and which to dismiss**
+5. Implement accepted fixes
+6. Respond to PR comments (only with user-approved actions)
+7. Push (with user confirmation)
 
 #### [CONFIRM — Review Triage]
 
-User approves which comments to address.
+User approves which comments to address and which to dismiss. Never
+dismiss code review feedback autonomously.
 
 ---
 
@@ -339,9 +371,10 @@ Agent: [loads skill, proceeds through Steps 0–14]
 ## Reminders
 
 **DO:** `uv run python`, `loguru.logger`, alphabetical order in `__init__.py`/RST/CHANGELOG,
-canonical method ordering, async utilities (`managed_session`, `gather_with_concurrency`,
-`async_retry`), pure async I/O, reference URLs in docstrings, `try/finally` cleanup.
+canonical method ordering, obstore helpers, `gather_with_concurrency`, `async_retry`,
+reference URLs in docstrings, `try/finally` cleanup.
 
-**AVOID:** `asyncio.to_thread`, bare `tqdm.gather`, xarray for loading, full file downloads.
+**AVOID:** hand-rolled fsspec stores, `asyncio.to_thread`, bare `tqdm.gather`,
+xarray for loading, full file downloads.
 
 **NEVER:** `loop.set_default_executor()`, commit secrets, commit sanity-check scripts/images.

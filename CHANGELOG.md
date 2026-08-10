@@ -16,10 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated StormCast SDA example to use the `GHCNHourly` data source.
 - `AsyncZarrBackend` now throttles on in flight writes rather than submitted writes, and
   waits for whichever write completes first rather than the oldest.
 - Migrated ISD, IBTrACS, CFS reforecast, and OPERA data sources from
   fsspec/s3fs to obstore
+- Migrated GOES data source from s3fs to obstore; hour-directory listings are
+  now async and memoized, so same-hour timestamps share one LIST request
+  (~30% faster)
+- Migrated GOES GLM data source from s3fs to obstore; listings of complete
+  hours are memoized per instance while the current hour is always re-listed
 
 ### Deprecated
 
@@ -27,16 +33,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `OPERA` data source returning negative precipitation values (`-99.0 mm/h`
+  for `tprate`, `-0.099 m` for `tp01`) for pixels where the radar detected no rain.
+  Undetect pixels for RATE and ACRR quantities are now filled with `0.0` instead
+  of the reflectivity sentinel `-99.0 dBZ`.
 - Fixed `GHCNHourly` station discovery to use the published GHCNh station
   list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
 - Fixed `AIFS2` and `AIFS2ENS` assigning time-dependent forcing values to the wrong
   samples when processing multiple batches and initialization times.
 - Fixed `AsyncZarrBackend` discarding exceptions raised by non-blocking writes. A write
   future that had already completed was never resulted, so its error was swallowed
+- Fixed `AsyncZarrBackend` bugs covering non-blocking write safety, tensor aliasing,
+  metadata visibility, coordinate parsing, and shard buffer allocation.
 
 ### Security
 
+- Added `zizmor` static security auditing of GitHub Actions workflows (pre-commit
+  hook, `make zizmor` lint step, and a code scanning workflow)
+
 ### Dependencies
+
+- Added `obspec>=0.1` core dependency; the shared obstore helpers are typed
+  against its vendor-neutral store protocols
 
 ## [0.17.0] - 2026-07-30
 
@@ -61,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prognostic iterator interface.
 - Added NNJA satellite observation data frame source (`NNJAObsSat`)
 - Added StormScope NSRDB solar irradiance (GHI) estimation model (`StormScopeDxNSRDB`)
+- Added COSMO-REA downscaling diagnostic model (`CorrDiffCosmoEra5`) for diffusion
+  downscaling of ERA5 to COSMO-REA6 (6 km) and COSMO-REA2 (2.2 km).
 
 ### Changed
 
@@ -143,10 +163,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
 - Added DLESyM-v0-ISCCP-ERA5 climate model
-- Added COSMO-REA downscaling diagnostic model (`CorrDiffCosmoEra5`) and
-  `CosmoLexicon` for regression (mean) and diffusion downscaling of ERA5 to
-  COSMO-REA6 (6 km) and COSMO-REA2 (2.2 km), with sub-domain support via
-  `set_domain`
 
 ### Changed
 

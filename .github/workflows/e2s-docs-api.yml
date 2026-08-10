@@ -1,0 +1,171 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: e2s-docs-api
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: e2s-docs-api-gh-pages
+  cancel-in-progress: false
+
+env:
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.2
+  CDSAPI_URL: https://cds.climate.copernicus.eu/api
+  DOC_PUBLIC_BUILD: "false"
+  EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
+  EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/.cache/earth2studio-data
+  EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
+  TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
+  UV_PYTHON: "3.13.13"
+
+jobs:
+  build-docs:
+    name: Build API docs
+    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch
+    runs-on: linux-amd64-cpu8
+    timeout-minutes: 60
+    container:
+      image: *e2s_ci_image
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Validate docs publication ref
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$GITHUB_REF_NAME" != "$DEFAULT_BRANCH" ]]; then
+            echo "Ref '${GITHUB_REF_NAME}' is not a trusted API docs publication ref." >&2
+            exit 1
+          fi
+
+          echo "API docs publication ref: ${GITHUB_REF_NAME}"
+
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Prepare CI directories
+        run: python3 test/_ci/prepare_ci_paths.py
+
+      - name: Check uv lockfile
+        run: uv lock --check
+
+      - name: Build API docs
+        env:
+          CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
+          EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
+          EARTHMOVER_ORGANIZATION: ${{ secrets.EARTHMOVER_ORGANIZATION }}
+          EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
+          EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: make docs
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: docs-api-html
+          path: docs/_build/html/
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-docs:
+    name: Publish API docs
+    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch
+    permissions:
+      contents: write
+      packages: read
+    needs: build-docs
+    runs-on: linux-amd64-cpu8
+    environment:
+      name: docs-publish
+    container:
+      image: *e2s_ci_image
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download docs artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: docs-api-html
+          path: docs/_build/html
+
+      - name: Publish to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          GH_PAGES_FOLDER="${RUNNER_TEMP}/gh-pages"
+
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+          rm -rf "$GH_PAGES_FOLDER"
+          git clone \
+            --single-branch \
+            --depth 1 \
+            --branch gh-pages \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "$GH_PAGES_FOLDER"
+
+          # Refresh shared Sphinx support directories used by the API pages.
+          rsync -a docs/_build/html/index.html "$GH_PAGES_FOLDER/"
+          rsync -a docs/_build/html/genindex.html "$GH_PAGES_FOLDER/"
+          rsync -a docs/_build/html/search.html "$GH_PAGES_FOLDER/"
+          rsync -a docs/_build/html/modules "$GH_PAGES_FOLDER/"
+          rsync -a docs/_build/html/_sources "$GH_PAGES_FOLDER/"
+          rsync -a docs/_build/html/userguide "$GH_PAGES_FOLDER/"
+          rsync -a docs/_build/html/_static "$GH_PAGES_FOLDER/"
+
+          git_sha_short="${GITHUB_SHA:0:7}"
+          cd "$GH_PAGES_FOLDER"
+          git add --all
+
+          if git diff --cached --quiet; then
+            echo "No docs changes to publish."
+            exit 0
+          fi
+
+          git commit -m "[CI] API Docs Build ${git_sha_short}"
+          git push origin gh-pages

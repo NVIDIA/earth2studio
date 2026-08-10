@@ -173,7 +173,7 @@ class ObsGridMapping:
             self.grid_type: Literal["regular", "irregular"] = "regular"
             if grid_lat.ndim == 2:
                 self.grid_type = "irregular"
-                (grid_i, grid_j) = self.xp.mgrid[
+                grid_i, grid_j = self.xp.mgrid[
                     : self.grid_lat.shape[0], : self.grid_lat.shape[1]
                 ]
                 in_points = self.xp.stack(
@@ -345,7 +345,7 @@ class ObsGridMapping:
                 self.xp.asarray(obs["lon"].values, dtype=np.float32) % 360.0
             )  # Normalize lon to 0-360 to match HRRR grid
 
-        (obs_c, obs_i, obs_j, valid) = self.obs_coords(obs_var, obs_lat, obs_lon)
+        obs_c, obs_i, obs_j, valid = self.obs_coords(obs_var, obs_lat, obs_lon)
 
         # Average multiple observations that map to the same grid cell
         if len(obs_c):
@@ -355,7 +355,7 @@ class ObsGridMapping:
             obs_i = obs_i.round().to(torch.int64)
             obs_j = obs_j.round().to(torch.int64)
             vals = obs_val[valid]
-            (y_obs, mask) = _init_obs_mask()
+            y_obs, mask = _init_obs_mask()
 
             # Flatten (c, i, j) into a single linear index for scatter ops
             flat_idx = obs_c * (self.H * self.W) + obs_i * self.W + obs_j
