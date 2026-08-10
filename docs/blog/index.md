@@ -1,3 +1,4 @@
-# Blog
+# Earth 2 Technical and Engineering Blog Posts
 
-Earth2Studio blog posts and release notes will appear here.
+Technical notes, engineering updates, and documentation announcements for
+Earth2Studio will appear here.
