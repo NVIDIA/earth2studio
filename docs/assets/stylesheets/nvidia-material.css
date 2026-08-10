@@ -38,7 +38,7 @@
   --md-code-fg-color: #e9f2df;
 }
 
-.md-grid {
+body .md-grid {
   max-width: 68rem;
 }
 
@@ -1149,6 +1149,11 @@
   --e2s-install-fg: #182016;
   --e2s-install-muted: #33402f;
   --e2s-install-subtle: #4b5845;
+  --e2s-install-link: #3f7f00;
+  --e2s-install-link-hover: #004831;
+  --e2s-install-panel: rgba(255, 255, 255, 0.9);
+  --e2s-install-panel-strong: #fff;
+  --e2s-install-code-bg: #f3f6ef;
   margin: 1.5rem 0 2.4rem;
   padding: clamp(1rem, 2vw, 1.35rem);
   border: 1px solid rgba(76, 124, 14, 0.2);
@@ -1161,6 +1166,7 @@
     inset 0 0 0 1px rgba(255, 255, 255, 0.82),
     0 1rem 2.6rem rgba(18, 32, 14, 0.1);
   color: var(--e2s-install-fg);
+  color-scheme: light;
 }
 
 .e2s-install-selector__intro {
@@ -1204,14 +1210,14 @@
   padding: 0.75rem;
   border: 1px solid rgba(76, 124, 14, 0.18);
   border-radius: 0.35rem;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--e2s-install-panel);
 }
 
 .e2s-install-step legend,
 .e2s-install-select span {
   display: block;
   margin-bottom: 0.55rem;
-  color: #3f7f00;
+  color: var(--e2s-install-link);
   font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   font-size: 0.72rem;
   font-weight: 820;
@@ -1232,9 +1238,9 @@
   padding: 0.7rem;
   border: 1px solid rgba(76, 124, 14, 0.2);
   border-radius: 0.28rem;
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--e2s-install-panel);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
-  color: var(--md-default-fg-color);
+  color: var(--e2s-install-fg);
   cursor: pointer;
   text-align: left;
   transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
@@ -1245,12 +1251,12 @@
   border-color: rgba(76, 124, 14, 0.48);
   background:
     linear-gradient(135deg, rgba(118, 185, 0, 0.16), rgba(14, 165, 164, 0.08)),
-    #fff;
+    var(--e2s-install-panel-strong);
   transform: translateY(-1px);
 }
 
 .e2s-install-buttons span {
-  color: #182016;
+  color: var(--e2s-install-fg);
   font-weight: 780;
   line-height: 1.15;
 }
@@ -1267,8 +1273,8 @@
   padding: 0 0.7rem;
   border: 1px solid rgba(76, 124, 14, 0.24);
   border-radius: 0.28rem;
-  background: #fff;
-  color: #182016;
+  background: var(--e2s-install-panel-strong);
+  color: var(--e2s-install-fg);
   font: inherit;
 }
 
@@ -1278,11 +1284,11 @@
   border-radius: 0.35rem;
   background:
     radial-gradient(circle at 100% 0%, rgba(14, 165, 164, 0.12), transparent 16rem),
-    rgba(255, 255, 255, 0.86);
+    var(--e2s-install-panel);
 }
 
 .md-typeset .e2s-install-summary span {
-  color: #3f7f00;
+  color: var(--e2s-install-link);
   font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   font-size: 0.72rem;
   font-weight: 820;
@@ -1291,7 +1297,7 @@
 
 .md-typeset .e2s-install-summary h2 {
   margin: 0.25rem 0 0;
-  color: #182016;
+  color: var(--e2s-install-fg);
   font-size: 1.35rem;
 }
 
@@ -1312,12 +1318,13 @@
   border-color: rgba(250, 204, 21, 0.22);
   border-left-color: var(--nv-gold);
   background: rgba(250, 204, 21, 0.13);
+  color: var(--e2s-install-fg);
 }
 
 .md-typeset .e2s-install-alert strong {
   display: block;
   margin-bottom: 0.25rem;
-  color: #182016;
+  color: var(--e2s-install-fg);
 }
 
 .md-typeset .e2s-install-alert ul {
@@ -1329,19 +1336,19 @@
 }
 
 .md-typeset .e2s-install-alert a {
-  color: #3f7f00;
+  color: var(--e2s-install-link);
   font-weight: 720;
 }
 
 .md-typeset .e2s-install-alert a:hover {
-  color: #004831;
+  color: var(--e2s-install-link-hover);
 }
 
 .e2s-install-card {
   overflow: hidden;
   border: 1px solid rgba(76, 124, 14, 0.18);
   border-radius: 0.35rem;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--e2s-install-panel);
 }
 
 .e2s-install-card__header {
@@ -1355,7 +1362,7 @@
 
 .md-typeset .e2s-install-card h3 {
   margin: 0;
-  color: #182016;
+  color: var(--e2s-install-fg);
   font-size: 0.9rem;
 }
 
@@ -1372,7 +1379,7 @@
   border: 1px solid rgba(76, 124, 14, 0.28);
   border-radius: 0.24rem;
   background: rgba(118, 185, 0, 0.12);
-  color: #3f7f00;
+  color: var(--e2s-install-link);
   cursor: pointer;
   font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   font-size: 0.7rem;
@@ -1384,21 +1391,29 @@
 .e2s-install-card button.is-copied {
   border-color: rgba(76, 124, 14, 0.48);
   background: rgba(118, 185, 0, 0.2);
-  color: #004831;
+  color: var(--e2s-install-link-hover);
 }
 
 .md-typeset .e2s-install-card pre {
   margin: 0;
   border-radius: 0;
-  background: #f3f6ef;
+  background: var(--e2s-install-code-bg);
 }
 
 .md-typeset .e2s-install-card code {
-  color: #182016;
+  color: var(--e2s-install-fg);
   white-space: pre-wrap;
 }
 
 [data-md-color-scheme="slate"] .md-typeset .e2s-install-selector {
+  --e2s-install-fg: var(--nv-fg);
+  --e2s-install-muted: #c7d0c0;
+  --e2s-install-subtle: #a5ae9e;
+  --e2s-install-link: var(--nv-green-2);
+  --e2s-install-link-hover: #fff;
+  --e2s-install-panel: rgba(16, 21, 15, 0.72);
+  --e2s-install-panel-strong: rgba(16, 21, 15, 0.88);
+  --e2s-install-code-bg: rgba(3, 6, 3, 0.92);
   border-color: rgba(118, 185, 0, 0.22);
   background:
     radial-gradient(circle at 12% 8%, rgba(118, 185, 0, 0.16), transparent 20rem),
@@ -1407,6 +1422,7 @@
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.025),
     0 1rem 3rem rgba(0, 0, 0, 0.18);
+  color-scheme: dark;
 }
 
 [data-md-color-scheme="slate"] .e2s-install-step {
