@@ -693,6 +693,46 @@ async def test_gather_with_concurrency():
 
 
 @pytest.mark.asyncio
+async def test_gather_with_concurrency_preserves_retries():
+    # A gather-level task_timeout must not be layered on top of a retry-level
+    # per-attempt timeout: the outer wait_for would cancel the retry loop on
+    # the first slow attempt (GOES fetch pattern)
+    call_count = 0
+
+    def make_coro():
+        async def slow_then_succeed():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                await asyncio.sleep(10)
+            return "ok"
+
+        return async_retry(
+            slow_then_succeed,
+            retries=3,
+            backoff=0.01,
+            task_timeout=1.0,
+            exceptions=(OSError, TimeoutError),
+        )
+
+    # Without an outer timeout the first attempt times out and the retry
+    # succeeds
+    out = await gather_with_concurrency([make_coro()], max_workers=1, verbose=True)
+    assert out == ["ok"]
+    assert call_count == 2
+
+    # With an outer timeout shorter than the per-attempt timeout, the whole
+    # retry loop is cancelled on the first attempt — the layering hazard the
+    # GOES fetch path must avoid
+    call_count = 0
+    with pytest.raises(asyncio.TimeoutError):
+        await gather_with_concurrency(
+            [make_coro()], max_workers=1, task_timeout=0.2, verbose=True
+        )
+    assert call_count == 1
+
+
+@pytest.mark.asyncio
 async def test_managed_session():
     class MockFS:
         def __init__(self):
@@ -763,6 +803,13 @@ async def test_obstore_list_prefix():
     out = await obstore_list_prefix(store, "pre/", cache=cache2, cacheable=False)
     assert sorted(out) == ["pre/a.nc", "pre/b.txt", "pre/new.nc"]
     assert cache2 == {}
+
+    # cacheable=False also bypasses a pre-populated cache entry: the prefix
+    # is re-listed and the stale entry is left untouched
+    cache3: dict[str, list[str]] = {"pre/": ["stale.nc"]}
+    out = await obstore_list_prefix(store, "pre/", cache=cache3, cacheable=False)
+    assert sorted(out) == ["pre/a.nc", "pre/b.txt", "pre/new.nc"]
+    assert cache3 == {"pre/": ["stale.nc"]}
 
 
 @pytest.mark.asyncio

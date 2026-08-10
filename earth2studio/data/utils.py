@@ -864,7 +864,8 @@ async def obstore_list_prefix(
     layouts (e.g. per-hour satellite archives) pass a per-instance ``cache``
     dict so repeated fetches over the same prefix issue a single LIST request;
     pass ``cacheable=False`` for prefixes that are still being filled (e.g. the
-    current hour) so they are re-listed on every call.
+    current hour) so the cache is bypassed entirely and they are re-listed on
+    every call.
 
     Parameters
     ----------
@@ -875,14 +876,15 @@ async def obstore_list_prefix(
     cache : dict[str, list[str]] | None, optional
         Memoization dict keyed by prefix; by default None (no memoization)
     cacheable : bool, optional
-        Whether the result may be stored in ``cache``, by default True
+        Whether the result may be read from or stored in ``cache``, by
+        default True
 
     Returns
     -------
     list[str]
         Object keys (bucket-relative paths) under the prefix
     """
-    if cache is not None and prefix in cache:
+    if cache is not None and cacheable and prefix in cache:
         return cache[prefix]
     paths = [
         entry["path"]

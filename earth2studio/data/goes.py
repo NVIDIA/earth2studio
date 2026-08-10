@@ -331,10 +331,12 @@ class GOES:
         async_tasks = [(i, t, variable) for i, t in enumerate(time)]
         coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
 
+        # No gather-level task_timeout here: fetch_wrapper's async_retry
+        # already bounds each attempt at 120s, and an outer timeout of the
+        # same magnitude would cancel the retry loop on the first slow attempt
         await gather_with_concurrency(
             coros,
             max_workers=self._max_workers,
-            task_timeout=120.0,
             desc="Fetching GOES data",
             verbose=(not self._verbose),
         )

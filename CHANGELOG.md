@@ -45,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
+- Added `obspec>=0.1` core dependency; the shared obstore helpers are typed
+  against its vendor-neutral store protocols
+
 ## [0.17.0] - 2026-07-30
 
 ### Added
