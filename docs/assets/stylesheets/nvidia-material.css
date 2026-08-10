@@ -39,7 +39,7 @@
 }
 
 .md-grid {
-  max-width: 88rem;
+  max-width: 84rem;
 }
 
 .md-header,
@@ -69,7 +69,7 @@
 }
 
 .md-announce__inner {
-  max-width: 88rem;
+  max-width: 84rem;
   padding: 0.45rem 1rem;
 }
 
@@ -183,20 +183,6 @@
   border-color: rgb(155 229 100 / 38%) !important;
   filter: none;
   transform: translateY(-1px);
-}
-
-.md-typeset h1#install_guide + .admonition.warning {
-  border-left-width: 0.28rem;
-  font-size: inherit;
-  line-height: 1.55;
-}
-
-.md-typeset h1#install_guide + .admonition.warning .admonition-title {
-  font-size: 0.8rem;
-}
-
-.md-typeset h1#install_guide + .admonition.warning p {
-  margin-bottom: 0.55rem;
 }
 
 .md-typeset code,
