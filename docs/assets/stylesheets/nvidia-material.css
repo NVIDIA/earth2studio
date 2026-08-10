@@ -27,6 +27,8 @@
   --e2s-header-border: rgba(155, 229, 100, 0.24);
   --e2s-header-search-bg: rgba(255, 255, 255, 0.08);
   --e2s-header-search-border: rgba(118, 185, 0, 0.18);
+  --e2s-header-kbd-bg: rgba(5, 8, 6, 0.72);
+  --e2s-header-kbd-border: rgba(255, 255, 255, 0.28);
 }
 
 [data-md-color-accent="light-green"] {
@@ -57,6 +59,9 @@ body .md-grid {
   --md-primary-fg-color: var(--e2s-header-bg);
   --md-primary-bg-color: var(--e2s-header-fg);
   --md-typeset-a-color: var(--e2s-header-fg);
+  --md-typeset-kbd-color: var(--e2s-header-kbd-bg);
+  --md-typeset-kbd-accent-color: var(--e2s-header-kbd-bg);
+  --md-typeset-kbd-border-color: var(--e2s-header-kbd-border);
   background-color: var(--e2s-header-bg) !important;
   background-image:
     radial-gradient(circle at 32% -4%, rgba(118, 185, 0, 0.2), transparent 33rem),
@@ -177,6 +182,22 @@ body .md-grid {
 .md-header .md-search__input::placeholder {
   color: var(--e2s-header-muted) !important;
   opacity: 1;
+}
+
+.md-header .md-search__key,
+.md-header .md-search__key:hover,
+.md-header .md-search__key:focus,
+.md-header .md-search__key:active,
+.md-header kbd,
+.md-header kbd:hover,
+.md-header kbd:focus,
+.md-header kbd:active {
+  color: var(--e2s-header-muted) !important;
+  background-color: var(--e2s-header-kbd-bg) !important;
+  border-color: var(--e2s-header-kbd-border) !important;
+  box-shadow:
+    0 0 0 0.05rem var(--e2s-header-kbd-border),
+    0 0.08rem 0 rgba(0, 0, 0, 0.45) !important;
 }
 
 .md-header .md-search__icon,
