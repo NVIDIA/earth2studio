@@ -80,6 +80,7 @@ docs:
 	uv sync --group docs
 	uv run python docs/generate_api.py
 	uv run python docs/generate_install_options.py
+	uv run python docs/generate_gallery.py
 	rm -rf docs/_build/html
 	E2S_GALLERY_EXECUTE=never uv run zensical build --clean
 	mkdir -p docs/_build
@@ -108,6 +109,7 @@ docs-build-version:
 	uv sync --group docs
 	uv run python docs/generate_api.py
 	uv run python docs/generate_install_options.py
+	uv run python docs/generate_gallery.py
 	rm -rf docs/_build/html
 	DOC_VERSION=$(DOC_VERSION) E2S_GALLERY_EXECUTE=never uv run zensical build --clean
 	mkdir -p docs/_build

@@ -71,6 +71,9 @@ jobs:
       - name: Generate install selector data
         run: uv run python docs/generate_install_options.py
 
+      - name: Generate examples gallery
+        run: uv run python docs/generate_gallery.py
+
       - name: Prepare preview docs config
         run: |
           uv run python - <<'PY'
