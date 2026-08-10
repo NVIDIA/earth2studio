@@ -119,7 +119,7 @@ jobs:
           PY
 
       - name: Build docs preview
-        run: uv run mkdocs build --clean --config-file mkdocs.fork-api.yml --site-dir site
+        run: uv run zensical build --clean --config-file mkdocs.fork-api.yml
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

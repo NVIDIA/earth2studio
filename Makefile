@@ -80,7 +80,7 @@ docs:
 	uv sync --group docs
 	uv run python docs/generate_api.py
 	rm -rf docs/_build/html
-	E2S_GALLERY_EXECUTE=never uv run mkdocs build --clean --site-dir site
+	E2S_GALLERY_EXECUTE=never uv run zensical build --clean
 	mkdir -p docs/_build
 	rsync -a --delete site/ docs/_build/html/
 
@@ -98,7 +98,7 @@ docs-dev:
 	uv sync --extra all --group docs
 	uv run python docs/generate_api.py
 	@if [ -n "$(FILENAME)" ]; then 		uv run e2s-gallery build "$(FILENAME)" --execute stale --jobs $(DOCS_JOBS); 	else 		uv run e2s-gallery render; 	fi
-	E2S_GALLERY_EXECUTE=never uv run mkdocs serve -a 0.0.0.0:$(PORT)
+	E2S_GALLERY_EXECUTE=never uv run zensical serve -a 0.0.0.0:$(PORT)
 
 DOC_VERSION ?= main
 .PHONY: docs-build-version
@@ -106,7 +106,7 @@ docs-build-version:
 	uv sync --group docs
 	uv run python docs/generate_api.py
 	rm -rf docs/_build/html
-	DOC_VERSION=$(DOC_VERSION) E2S_GALLERY_EXECUTE=never uv run mkdocs build --clean --site-dir site
+	DOC_VERSION=$(DOC_VERSION) E2S_GALLERY_EXECUTE=never uv run zensical build --clean
 	mkdir -p docs/_build
 	rsync -a --delete site/ docs/_build/html/
 
@@ -124,7 +124,7 @@ PORT ?= 8001
 docs-serve:
 	uv sync --group docs
 	uv run python docs/generate_api.py
-	E2S_GALLERY_EXECUTE=never uv run mkdocs serve -a 0.0.0.0:$(PORT)
+	E2S_GALLERY_EXECUTE=never uv run zensical serve -a 0.0.0.0:$(PORT)
 
 .PHONY: container-service
 # Example DOCKER_REPO?=nvcr.io/dycvht5ows21

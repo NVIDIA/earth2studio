@@ -31,13 +31,13 @@ mapfile -t sections < <(
 
 for section in "${sections[@]}"; do
     selector="${section#examples/}"
-    echo "::group::Build MkDocs examples: ${selector}"
+    echo "::group::Build docs examples: ${selector}"
     uv run e2s-gallery build "${selector}" --execute stale --jobs "${docs_jobs}"
     echo "::endgroup::"
 done
 
 uv run e2s-gallery render
 rm -rf docs/_build/html
-E2S_GALLERY_EXECUTE=never uv run mkdocs build --clean --site-dir site
+E2S_GALLERY_EXECUTE=never uv run zensical build --clean
 mkdir -p docs/_build
 rsync -a --delete site/ docs/_build/html/

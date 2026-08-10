@@ -124,7 +124,7 @@ jobs:
       - name: Check uv lockfile
         run: uv lock --check
 
-      - name: Build full MkDocs site
+      - name: Build full Zensical site
         env:
           CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
           EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
