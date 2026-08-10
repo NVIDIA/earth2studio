@@ -1324,16 +1324,13 @@ def hero() -> str:
         "--signal-blue",
         "--signal-purple",
     ]
-    cards = "\n".join(
-        f"""
+    cards = "\n".join(f"""
       <section class="core-card" style="--accent: var({accent});">
         <span class="zone-kicker">{esc(kicker)}</span>
         <h3>{esc(title)}</h3>
         <p>{esc(body)}</p>
         <div class="phase">{esc(phase)}</div>
-      </section>"""
-        for (kicker, title, body, phase), accent in zip(core, accents)
-    )
+      </section>""" for (kicker, title, body, phase), accent in zip(core, accents))
     return layout_page(
         "Earth2Studio README hero",
         header(
@@ -1374,8 +1371,7 @@ def quickstart_video() -> str:
     for index, ((icon_name, kicker, title, body, chip), accent) in enumerate(
         zip(steps, accents)
     ):
-        nodes.append(
-            f"""
+        nodes.append(f"""
       <section class="quick-node" style="--accent: var({accent});">
         <div class="icon">{icon(icon_name)}</div>
         <div class="quick-copy">
@@ -1384,8 +1380,7 @@ def quickstart_video() -> str:
           <p>{esc(body)}</p>
           <span class="quick-chip">{esc(chip)}</span>
         </div>
-      </section>"""
-        )
+      </section>""")
         if index < len(steps) - 1:
             nodes.append('<div class="quick-arrow"></div>')
 
@@ -1420,13 +1415,10 @@ def agent_setup() -> str:
         ("earth2studio-data-fetch", "59", "2.95s"),
         ("earth2studio-deterministic-forecast", "72", "4.35s"),
     ]
-    command_lines = "\n".join(
-        f"""
+    command_lines = "\n".join(f"""
         <span class="agent-line" style="--chars: {chars}; animation-delay: {delay}">
           <span class="cmd">$</span> npx skills add NVIDIA/skills --skill {esc(skill)}
-        </span>"""
-        for skill, chars, delay in commands
-    )
+        </span>""" for skill, chars, delay in commands)
     skill_cards = [
         (
             "earth2studio-discover",
@@ -1453,15 +1445,13 @@ def agent_setup() -> str:
     cards = []
     for label, title, body, examples, accent in skill_cards:
         chips = "".join(f"<li>{esc(example)}</li>" for example in examples)
-        cards.append(
-            f"""
+        cards.append(f"""
         <article class="agent-skill-card" style="--accent: var({accent})">
           <div class="label">{esc(label)}</div>
           <h3>{esc(title)}</h3>
           <p>{esc(body)}</p>
           <ul class="agent-examples">{chips}</ul>
-        </article>"""
-        )
+        </article>""")
 
     return layout_page(
         "Earth2Studio agentic setup",
@@ -1512,14 +1502,11 @@ def datasource() -> str:
             "--signal-gold",
         ),
     ]
-    lanes = "\n".join(
-        f"""<div class="source-lane" style="--accent: var({accent});">
+    lanes = "\n".join(f"""<div class="source-lane" style="--accent: var({accent});">
           <span class="lane-label">{esc(kicker)}</span>
           <strong>{esc(title)}</strong>
           <small>{esc(sub)}</small>
-        </div>"""
-        for kicker, title, sub, accent in source_lanes
-    )
+        </div>""" for kicker, title, sub, accent in source_lanes)
     sensors = [
         (
             "satellite",
@@ -1583,8 +1570,7 @@ def datasource() -> str:
           <div class="icon">{icon(icon_name)}</div>
           <span class="sensor-label">{esc(label)}</span>
           <small>{esc(sub)}</small>
-        </div>"""
-        for icon_name, label, sub, accent, style in sensors
+        </div>""" for icon_name, label, sub, accent, style in sensors
     )
     return layout_page(
         "Earth2Studio comprehensive data sources",
@@ -1667,8 +1653,7 @@ def model_zoo() -> str:
             "--signal-gold",
         ),
     ]
-    cards = "\n".join(
-        f"""
+    cards = "\n".join(f"""
       <section class="model-section" style="--accent: var({accent});">
         <span class="zone-kicker">{esc(kicker)}</span>
         <h3>{esc(title)}</h3>
@@ -1676,9 +1661,7 @@ def model_zoo() -> str:
         <div class="model-list">
           {"".join(component(a, b) for a, b in items)}
         </div>
-      </section>"""
-        for kicker, title, desc, items, accent in sections
-    )
+      </section>""" for kicker, title, desc, items, accent in sections)
     return layout_page(
         "Earth2Studio model zoo",
         header(
@@ -1854,12 +1837,10 @@ def write_review() -> None:
     cards = []
     for slug in PAGES:
         title = slug.replace("earth2studio-readme-", "").replace("-", " ").title()
-        cards.append(
-            f"""      <section>
+        cards.append(f"""      <section>
         <header><h2>{esc(title)}</h2><a href="./{slug}.html?v={ASSET_VERSION}" target="_blank">Open HTML</a><a href="./{slug}.png?v={ASSET_VERSION}" target="_blank">Open PNG</a><a href="./{slug}.png?v={ASSET_VERSION}" download="{slug}.png">Download PNG</a></header>
         <div class="viewport"><iframe src="./{slug}.html?v={ASSET_VERSION}" title="{esc(title)}"></iframe></div>
-      </section>"""
-        )
+      </section>""")
     review_css = """
     :root { color-scheme: dark; --green:#76b900; --link:#9cff2e; }
     body[data-preview-theme="dark"] { color-scheme: dark; --bg:#0c0f0b; --panel:#10140f; --card:#131711; --text:#f4f7ef; --muted:#a5ae9e; --border:#293024; --secondary:#1d241a; --preview-bg:#0c0f0b; --preview-grid:rgba(244,247,239,.045); --shadow:rgba(0,0,0,.28); }

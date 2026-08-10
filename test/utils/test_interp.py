@@ -28,10 +28,10 @@ from earth2studio.utils.interp import (
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.parametrize("input_type", ["zeros", "random", "gradient"])
 def test_interpolation(device, input_type):
-    (lat_in, lon_in) = np.meshgrid(
+    lat_in, lon_in = np.meshgrid(
         np.arange(35.0, 38.0, 0.25), np.arange(5.0, 8.0, 0.25), indexing="ij"
     )
-    (lat_out, lon_out) = np.meshgrid(
+    lat_out, lon_out = np.meshgrid(
         np.arange(36.0, 37.0, 0.1), np.arange(6.0, 7.0, 0.1), indexing="ij"
     )
 
@@ -63,7 +63,7 @@ def test_interpolation_analytical(device):
     lat_in = np.array([[0.0, 0.0], [1.0, 1.0]])
     lon_in = np.array([[0.0, 1.0], [0.0, 1.0]])
 
-    (lat_out, lon_out) = np.mgrid[:1.01:0.25, :1.01:0.25]
+    lat_out, lon_out = np.mgrid[:1.01:0.25, :1.01:0.25]
 
     interp = LatLonInterpolation(lat_in, lon_in, lat_out, lon_out)
     interp.to(device=device)

@@ -1125,7 +1125,7 @@ without complications.
 The recommended hardware for the majority of models supported in Earth2Studio is:
 
 | GPU | GPU Memory (GB) | Precision | # of GPUs | Disk Space (GB) |
-|-----|-----------------|-----------|-----------|-----------------|
+| --- | --------------- | --------- | --------- | --------------- |
 | [NVIDIA GPU](https://developer.nvidia.com/cuda-gpus) with compute capability ≥ 8.9 | ≥40 | FP32 | 1 | 128 |
 
 This includes cards such as:
