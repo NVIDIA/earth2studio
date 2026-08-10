@@ -535,6 +535,19 @@ Note that larger *chunks* are not the alternative: `time`, `lead_time` and
 would let concurrent writes read-modify-write the same object and lose one of
 them.  `OutputManager` rejects a chunk size other than 1 on those axes.
 
+Only `lead_time` is safe to shard on a multi-rank run.  `time` and `ensemble`
+are the distributed axes, and shard buffering is per-process, so a shard
+spanning two ranks is written in full by both and the later write silently
+discards the other's data.  `OutputManager` rejects sharding those axes
+whenever the world size is greater than one.  Sharding also interacts with
+resume: `flush()` runs after every work item there, writing out any incomplete
+shard, and re-entering that shard later falls back to a read-modify-write of
+the whole object.  Sharding on `lead_time` only avoids this.  Predownload
+stores hold a single `lead_time` and are always written unsharded.
+
+Reading a sharded store requires zarr ≥ 3 (and a correspondingly recent
+xarray); readers on zarr 2.x fail with a codec error.
+
 ## Configuration
 
 All configuration lives under `cfg/` and uses [Hydra](https://hydra.cc/docs/intro/).

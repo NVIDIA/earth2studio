@@ -352,6 +352,10 @@ class OutputManager:
         If provided, overrides ``output.overwrite`` from config.
     resume : bool | None
         If provided, overrides the top-level ``resume`` from config.
+    shard_coords : dict[str, int] | None
+        If provided, overrides ``output.shard_coords`` from config.  Pass an
+        empty dict for stores that sharding cannot help, such as the
+        single-``lead_time`` predownload stores.
     """
 
     def __init__(
@@ -360,6 +364,7 @@ class OutputManager:
         store_name: str = "forecast.zarr",
         overwrite: bool | None = None,
         resume: bool | None = None,
+        shard_coords: dict[str, int] | None = None,
     ) -> None:
         output_cfg = cfg.output
         self._dist = DistributedManager()
@@ -381,7 +386,9 @@ class OutputManager:
                 f"got {self._backend!r}"
             )
         self._shard_coords: dict[str, int] = dict(
-            output_cfg.get("shard_coords", {}) or {}
+            shard_coords
+            if shard_coords is not None
+            else output_cfg.get("shard_coords", {}) or {}
         )
         self._max_inflight_shards = int(output_cfg.get("max_inflight_shards", 4))
 
@@ -400,7 +407,8 @@ class OutputManager:
         elif self._thread_io > 0:
             logger.warning(
                 "output.thread_writers is ignored with io_backend=zarr, "
-                "writes are synchronous"
+                "writes are synchronous. Use io_backend=async_zarr for "
+                "threaded writes."
             )
 
         bad_axes = sorted(set(self._shard_coords) - {"lead_time"})
@@ -438,7 +446,10 @@ class OutputManager:
     ) -> None:
         write_error: BaseException | None = None
         if isinstance(self._io, AsyncZarrBackend):
-            # Drains the backend's pool and writes out any incomplete shard
+            # Drains the backend's pool and writes out any incomplete shard.
+            # Logged first so that if a rank hangs here, its last log line
+            # names the culprit rather than the collective timeout downstream.
+            logger.debug(f"Rank {self._dist.rank}: draining async writes")
             try:
                 self._io.close()
             except Exception as e:  # noqa: BLE001
@@ -611,9 +622,39 @@ class OutputManager:
                     )
             for dim in self._total_coords:
                 handshake_coords(io.coords, self._total_coords, required_dim=dim)
+            if self._dist.world_size > 1:
+                self._validate_store_shards(io)
             if is_rank0:
                 logger.info(f"Validated existing store for resume: {self._path}")
             else:
                 logger.debug(f"Rank {self._dist.rank} validated store: {self._path}")
 
         return io
+
+    def _validate_store_shards(self, io: ZarrBackend | AsyncZarrBackend) -> None:
+        """Reject resuming multi-rank into a store sharded on a distributed axis.
+
+        The ``shard_coords`` guard in ``__init__`` only sees the config: a store
+        created by an earlier single-process run may already be sharded on
+        ``time`` or ``ensemble``, and multi-rank writes into such shards would
+        silently keep only the last rank's data.
+        """
+        if self._variables is None:
+            return
+        for v in self._variables:
+            array = io[v]
+            if array.shards is None:
+                continue
+            dims = list(array.metadata.dimension_names or [])
+            for axis, dim in enumerate(dims):
+                if dim in ("time", "ensemble") and (
+                    array.shards[axis] > array.chunks[axis]
+                ):
+                    raise ValueError(
+                        f"Existing array '{v}' is sharded on '{dim}' (shard size "
+                        f"{array.shards[axis]}, chunk size {array.chunks[axis]}), "
+                        "likely by an earlier single-process run. Work is "
+                        "distributed over time/ensemble, so resuming with "
+                        "multiple ranks would silently lose data. Resume "
+                        "single-process or recreate the store."
+                    )

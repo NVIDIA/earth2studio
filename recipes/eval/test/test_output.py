@@ -444,3 +444,60 @@ class TestIOBackendSelection:
                 stored = zarr.open(mgr._path)["t2m"][:]
         for step in range(len(total_coords["lead_time"])):
             assert np.all(stored[0, step] == float(step))
+
+    def _create_store(self, tmp_path, total_coords, **overrides):
+        cfg = self._cfg(tmp_path, **overrides)
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
+                with OutputManager(cfg) as mgr:
+                    mgr.validate_output_store(total_coords, VARIABLES)
+        return cfg
+
+    def test_resume_multirank_rejects_store_sharded_on_distributed_axis(
+        self, tmp_path, total_coords
+    ):
+        """The config guard can be sidestepped by an earlier single-process run;
+        the store's actual shard geometry must be re-checked on resume."""
+        self._create_store(tmp_path, total_coords, shard_coords={"time": 4})
+        dist = _make_dist_mock(world_size=2, distributed=True)
+        with patch(_DIST_PATH, return_value=dist):
+            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
+                mgr = OutputManager(
+                    self._cfg(tmp_path, overwrite=False, shard_coords={}),
+                    resume=True,
+                )
+                with pytest.raises(ValueError, match="sharded on 'time'"):
+                    mgr.validate_output_store(total_coords, VARIABLES)
+
+    def test_resume_multirank_allows_lead_time_sharded_store(
+        self, tmp_path, total_coords
+    ):
+        self._create_store(tmp_path, total_coords, shard_coords={"lead_time": 2})
+        dist = _make_dist_mock(world_size=2, distributed=True)
+        with patch(_DIST_PATH, return_value=dist):
+            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
+                mgr = OutputManager(
+                    self._cfg(tmp_path, overwrite=False, shard_coords={"lead_time": 2}),
+                    resume=True,
+                )
+                mgr.validate_output_store(total_coords, VARIABLES)
+                assert "t2m" in mgr.io
+
+    def test_resume_multirank_allows_unsharded_store(self, tmp_path, total_coords):
+        self._create_store(tmp_path, total_coords)
+        dist = _make_dist_mock(world_size=2, distributed=True)
+        with patch(_DIST_PATH, return_value=dist):
+            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
+                mgr = OutputManager(self._cfg(tmp_path, overwrite=False), resume=True)
+                mgr.validate_output_store(total_coords, VARIABLES)
+                assert "t2m" in mgr.io
+
+    def test_shard_coords_parameter_overrides_config(self, tmp_path):
+        """Predownload passes shard_coords={} so its stores are never sharded,
+        even when the campaign config shards the forecast store."""
+        dist = _make_dist_mock(world_size=2, distributed=True)
+        with patch(_DIST_PATH, return_value=dist):
+            mgr = OutputManager(
+                self._cfg(tmp_path, shard_coords={"time": 4}), shard_coords={}
+            )
+            assert mgr._shard_coords == {}

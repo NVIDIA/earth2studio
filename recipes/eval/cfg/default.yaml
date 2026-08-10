@@ -140,7 +140,11 @@ output:
     # --- sharding (async_zarr only) -----------------------------------------
     # Sharding packs many chunks into one storage object, cutting file count
     # without changing the chunk layout readers see.
+    # Only lead_time is safe to shard on a multi-rank run
     shard_coords: {}          # e.g. {lead_time: 8}
+    # Host memory per rank is roughly
+    #   max_inflight_shards * 4 * prod(shard_shape) * itemsize
+    # plus thread_writers in-flight copies of one write each
     max_inflight_shards: 4
 
 # ---------------------------------------------------------------------------
