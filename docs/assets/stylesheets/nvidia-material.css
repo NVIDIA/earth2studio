@@ -104,6 +104,15 @@ body .md-grid {
   color: #fff;
 }
 
+.md-header .md-search__button {
+  color: #fff;
+}
+
+.md-header .md-search__button:hover,
+.md-header .md-search__button:focus {
+  color: #fff;
+}
+
 .md-header .md-search__input {
   color: #fff;
 }
