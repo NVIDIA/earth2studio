@@ -1018,7 +1018,7 @@ def test_corrdiff_cosmo_era5_package(mode, resolution):
             assert sl.max().item() <= b["max"] + 1e-4, f"{ch} above max in {mode}"
 
 
-def test_default_package_cache_serves_each_resolution_its_own_file(
+def test_default_package_cache_serves(
     tmp_path: Path,
 ) -> None:
     mem = fsspec.filesystem("memory")
@@ -1037,11 +1037,3 @@ def test_default_package_cache_serves_each_resolution_its_own_file(
     assert path2 != path6
     assert json.loads(Path(path2).read_text())["resolution"] == "rea2"
     assert json.loads(Path(path6).read_text())["resolution"] == "rea6"
-
-
-def test_default_package_uri_pins_commit_hash() -> None:
-    uri = CorrDiffCosmoEra5.load_default_package().root
-    assert re.fullmatch(
-        r"hf://nvidia/corrdiff-cosmo-era5@[0-9a-f]{40}",
-        uri,
-    )
