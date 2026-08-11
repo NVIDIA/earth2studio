@@ -463,7 +463,9 @@ class NNJAObsSat:
     how the archive stores them: AIRS is encoded as brightness temperature
     (``TMBR``) directly, while IASI (scaled integer radiance, ``SCRA``) and
     CrIS (float radiance, ``SRAD``) are converted via Planck inversion. The
-    ``wavenumber`` column carries the channel centre wavenumber in cm⁻¹.
+    ``wavenumber`` column carries the channel centre wavenumber in cm⁻¹,
+    computed from the instrument grids for IASI/CrIS and read from the
+    per-channel ``LOGRCW`` field of the aggregate for AIRS.
     The aggregates carry the NCEP channel subsets (281 AIRS, 616 IASI, 431
     CrIS) numbered on the instrument grids; ``cris`` routes to the
     full-spectral-resolution ``crisf4`` product whose channel numbers live

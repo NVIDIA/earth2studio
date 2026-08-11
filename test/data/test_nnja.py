@@ -1399,28 +1399,38 @@ def test_nnja_obs_sat_lexicon_ir_routes():
 
 
 def _airs_ir_pairs() -> list[tuple[int, Any]]:
+    # Mirrors the real airsev channel loop layout: CHNM, LOGRCW, ACQF, TMBR
     return _ir_scalar_pairs(said=784) + [
-        (31002, 2),
+        (31002, 3),
         (ncep_microwave._CHANNEL_NUMBER, 1),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 285.5),
+        (ncep_microwave._LOG10_CENTRAL_WAVENUMBER, np.log10(649.62 * 100.0)),
         (ncep_microwave._ACQF, 0),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 285.5),
         (ncep_microwave._CHANNEL_NUMBER, 6),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 250.25),
+        (ncep_microwave._LOG10_CENTRAL_WAVENUMBER, np.log10(650.814 * 100.0)),
         (ncep_microwave._ACQF, 2),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 250.25),
+        # A channel missing LOGRCW keeps its BT but has no wavenumber
+        (ncep_microwave._CHANNEL_NUMBER, 92),
+        (ncep_microwave._ACQF, 0),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 260.0),
     ]
 
 
 def test_nnja_ir_decode_airs_brightness_temperature_passthrough():
     rows = _decode_ir_pairs(_airs_ir_pairs(), "airs")
 
-    assert len(rows) == 2
+    assert len(rows) == 3
     by_channel = {row["sensor_index"]: row for row in rows}
     assert by_channel[1]["observation"] == 285.5
+    # Wavenumber decoded from the file's per-channel LOGRCW field
     assert by_channel[1]["wavenumber"] == pytest.approx(649.62)
     assert by_channel[1]["quality"] == 0
     assert by_channel[6]["observation"] == 250.25
     assert by_channel[6]["wavenumber"] == pytest.approx(650.814)
     assert by_channel[6]["quality"] == 2
+    assert by_channel[92]["observation"] == 260.0
+    assert np.isnan(by_channel[92]["wavenumber"])
     assert by_channel[1]["variable"] == "airs"
     assert by_channel[1]["satellite"] == "aqua"
 
@@ -1498,7 +1508,7 @@ def test_nnja_ir_decode_airs_stops_at_second_replication_block():
         (ncep_microwave._BRIGHTNESS_TEMPERATURE, 201.5),
     ]
     rows = _decode_ir_pairs(pairs, "airs")
-    assert sorted(row["sensor_index"] for row in rows) == [1, 6]
+    assert sorted(row["sensor_index"] for row in rows) == [1, 6, 92]
 
 
 def test_nnja_ir_decode_failure_raises(monkeypatch, tmp_path):
@@ -1631,3 +1641,22 @@ def test_nnja_obs_sat_fetch_mixed_microwave_and_ir(monkeypatch, tmp_path):
     assert len(df) == 2
     # One dtype contract across sensor families after concat
     assert str(df["scan_position"].dtype) == "uint16[pyarrow]"
+
+
+def test_nnja_ir_decode_respects_channel_replication_count():
+    # In real airsev subsets the AMSU-A/HSB blocks that follow the sounder
+    # channels are not always preceded by another replication descriptor;
+    # the declared count is the reliable block terminator
+    pairs = _ir_scalar_pairs(said=784) + [
+        (31002, 1),
+        (ncep_microwave._CHANNEL_NUMBER, 1),
+        (ncep_microwave._LOG10_CENTRAL_WAVENUMBER, np.log10(649.62 * 100.0)),
+        (ncep_microwave._ACQF, 0),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 285.5),
+        # AMSU-A style channels without a second 31002 marker
+        (ncep_microwave._CHANNEL_NUMBER, 3),
+        (ncep_microwave._LOG10_CENTRAL_WAVENUMBER, np.log10(0.8 * 100.0)),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 210.0),
+    ]
+    rows = _decode_ir_pairs(pairs, "airs")
+    assert [row["sensor_index"] for row in rows] == [1]

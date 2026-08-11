@@ -24,13 +24,10 @@ referred to as PLANCK_C1 / PLANCK_C2 in some CRTM references.
 
 from __future__ import annotations
 
-import functools
 from collections.abc import Sequence
-from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
 # CODATA 2018 Planck constants in mW / m^2 / sr / cm^4 and cm·K respectively.
 # Source: https://physics.nist.gov/cuu/Constants/Table/allascii.txt
@@ -51,26 +48,17 @@ CRIS_BANDS = (
     (2155.0, 1579, 2211),  # short wave
 )
 
-# AIRS wavenumbers are irregular (the 281-channel aggregate subset is not a
-# formulaic grid and the wavenumber is not encoded in the BUFR), so they are
-# loaded from the bundled CSV table.
-_AIRS_TABLE_PATH = Path(__file__).with_name("airs_wavenumbers.csv")
-
-
-@functools.cache
-def airs_wavenumber_table() -> dict[int, float]:
-    """Map AIRS channel number → wavenumber in cm⁻¹."""
-    df = pd.read_csv(_AIRS_TABLE_PATH)
-    return dict(zip(df["channel"].tolist(), df["wavenumber_cm_inverse"].tolist()))
-
 
 def wavenumber_cm_inverse(sensor: str, channels: Sequence[int] | Any) -> Any:
     """Centre wavenumber in cm⁻¹ for each channel number.
 
+    AIRS has no formulaic spectral grid — its per-channel wavenumbers are
+    read from the ``LOGRCW`` field encoded in the aggregate BUFR instead.
+
     Parameters
     ----------
     sensor : str
-        One of ``"airs"``, ``"iasi"``, ``"cris"``.
+        One of ``"iasi"``, ``"cris"``.
     channels : sequence of int
         Instrument channel numbers (1-based).
     """
@@ -85,14 +73,6 @@ def wavenumber_cm_inverse(sensor: str, channels: Sequence[int] | Any) -> Any:
             inside = (channels >= first) & (channels <= last)
             result[inside] = start + CRIS_SPACING_CM * (channels[inside] - first)
         return result
-    if sensor == "airs":
-        table = airs_wavenumber_table()
-        missing = sorted(set(channels.tolist()) - table.keys())
-        if missing:
-            raise ValueError(
-                f"AIRS channels not in the published wavenumber table: {missing}"
-            )
-        return np.array([table[int(c)] for c in channels], dtype=np.float64)
     raise ValueError(f"no spectral axis defined for sensor {sensor!r}")
 
 
@@ -129,9 +109,10 @@ def iasi_radiance_mw(scra: Any, chsf: Any) -> Any:
     """Convert IASI SCRA integer codes to mW m⁻² sr⁻¹ (cm⁻¹)⁻¹.
 
     The NNJA IASI BUFR stores per-footprint SCRA integer values and per-band
-    CHSF scale exponents. The physical radiance in W m⁻² sr⁻¹ m⁻¹ is
-    ``SCRA × 10^(-CHSF)``. Converting to mW m⁻² sr⁻¹ (cm⁻¹)⁻¹ adds a
-    factor of 10⁵ (×1000 for mW, ×100 for per-cm⁻¹ vs per-m⁻¹).
+    CHSF scale exponents. The physical radiance in W m⁻² sr⁻¹ (m⁻¹)⁻¹
+    (per unit wavenumber) is ``SCRA × 10^(-CHSF)``. Converting to
+    mW m⁻² sr⁻¹ (cm⁻¹)⁻¹ adds a factor of 10⁵ (×1000 for mW, ×100 for
+    per-cm⁻¹ vs per-m⁻¹).
 
     Parameters
     ----------

@@ -20,7 +20,6 @@ import pytest
 from earth2studio.data.utils_ir import (
     C1,
     C2,
-    airs_wavenumber_table,
     brightness_temperature,
     cris_radiance_mw,
     iasi_radiance_mw,
@@ -46,16 +45,11 @@ def test_cris_band_wavenumbers():
         wavenumber_cm_inverse("cris", [2212])
 
 
-def test_airs_wavenumber_table():
-    table = airs_wavenumber_table()
-    assert len(table) == 281
-    assert wavenumber_cm_inverse("airs", [1]).tolist() == [649.62]
-    # Channels outside the published aggregate subset are rejected
+def test_sensors_without_formulaic_grid_rejected():
+    # AIRS wavenumbers come from the per-channel LOGRCW field in the BUFR,
+    # not from a formulaic grid
     with pytest.raises(ValueError):
-        wavenumber_cm_inverse("airs", [2])
-
-
-def test_unknown_sensor_rejected():
+        wavenumber_cm_inverse("airs", [1])
     with pytest.raises(ValueError):
         wavenumber_cm_inverse("modis", [1])
 

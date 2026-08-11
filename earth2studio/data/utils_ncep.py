@@ -1694,6 +1694,7 @@ _STCH = 25140  # IASI start-channel for CHSF band
 _ENCH = 25141  # IASI end-channel for CHSF band
 _CHSF = 25142  # IASI channel scale factor (exponent)
 _FORN = 5045  # CrIS field-of-regard number
+_LOG10_CENTRAL_WAVENUMBER = 25076  # LOGRCW: log10 of centre wavenumber in m⁻¹
 
 _IR_OBS_DESCRIPTOR: dict[str, int] = {
     "airs": _BRIGHTNESS_TEMPERATURE,
@@ -1741,6 +1742,8 @@ def _decode_ir_subset(
     channels: dict[int, dict[int, Any]] = {}
     current_channel: int | None = None
     in_channel_loop = False
+    channel_budget: int | None = None
+    channels_seen = 0
 
     for descriptor, value in zip(descriptors, values):
         did = int(descriptor.id)
@@ -1767,10 +1770,18 @@ def _decode_ir_subset(
                 # TMBR descriptor); stop so those are not emitted as IR rows
                 break
             in_channel_loop = True
+            # The replication count delimits the sounder block; airsev's
+            # AMSU-A/HSB blocks that follow are not always preceded by
+            # another 31002 in the decoded stream, so the count is the
+            # reliable terminator
+            channel_budget = _as_optional_int(value)
             continue
 
         # ---- Channel data ----
         if did == _CHANNEL_NUMBER and in_channel_loop:
+            channels_seen += 1
+            if channel_budget is not None and channels_seen > channel_budget:
+                break
             current_channel = _as_optional_int(value)
             if current_channel is not None:
                 channels.setdefault(current_channel, {})
@@ -1779,6 +1790,8 @@ def _decode_ir_subset(
         if in_channel_loop and current_channel is not None:
             if did == obs_descriptor:
                 channels[current_channel].setdefault(obs_descriptor, value)
+            elif did == _LOG10_CENTRAL_WAVENUMBER:
+                channels[current_channel].setdefault(did, value)
             elif quality_descriptor and did == quality_descriptor:
                 channels[current_channel].setdefault(quality_descriptor, value)
             continue
@@ -1861,33 +1874,35 @@ def _decode_ir_subset(
         if not np.isfinite(obs_float):
             continue
 
-        # Convert to brightness temperature
+        # Convert to brightness temperature. The output wavenumber comes
+        # from the instrument grids for IASI/CrIS (also used for the Planck
+        # inversion); AIRS has no formulaic grid, so its wavenumber is read
+        # from the per-channel LOGRCW field encoded in the aggregate itself
         if sensor == "airs":
             bt = obs_float  # already Kelvin
+            log10_wn = _as_float(channel.get(_LOG10_CENTRAL_WAVENUMBER))
+            # LOGRCW is log10 of the central wavenumber in m⁻¹
+            wn_out = 10.0**log10_wn / 100.0 if np.isfinite(log10_wn) else np.nan
         elif sensor == "iasi":
             chsf = _iasi_chsf(channel_number)
             if chsf is None:
                 continue
             radiance = iasi_radiance_mw(np.array([obs_float]), np.array([chsf]))[0]
-            wn = wavenumber_cm_inverse("iasi", [channel_number])[0]
-            bt = float(brightness_temperature(np.array([radiance]), np.array([wn]))[0])
+            wn_out = float(wavenumber_cm_inverse("iasi", [channel_number])[0])
+            bt = float(
+                brightness_temperature(np.array([radiance]), np.array([wn_out]))[0]
+            )
         elif sensor == "cris":
             radiance = cris_radiance_mw(np.array([obs_float]))[0]
-            wn = wavenumber_cm_inverse("cris", [channel_number])[0]
-            bt = float(brightness_temperature(np.array([radiance]), np.array([wn]))[0])
+            wn_out = float(wavenumber_cm_inverse("cris", [channel_number])[0])
+            bt = float(
+                brightness_temperature(np.array([radiance]), np.array([wn_out]))[0]
+            )
         else:
             continue
 
         if not np.isfinite(bt):
             continue
-
-        wn_out = _as_float(channel.get(_CHANNEL_FREQUENCY))
-        if not np.isfinite(wn_out):
-            # Fall back to the table
-            try:
-                wn_out = float(wavenumber_cm_inverse(sensor, [channel_number])[0])
-            except Exception:
-                wn_out = np.nan
 
         quality_val = channel.get(quality_descriptor) if quality_descriptor else None
 
