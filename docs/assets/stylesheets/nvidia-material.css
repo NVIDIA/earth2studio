@@ -50,6 +50,17 @@ body .md-grid {
   max-width: 68rem;
 }
 
+@media screen and (min-width: 76.25em) {
+  .md-nav--secondary .md-nav__link {
+    font-size: 0.64rem;
+  }
+
+  .md-nav--secondary .md-typeset,
+  .md-nav--secondary code {
+    font-size: inherit;
+  }
+}
+
 .md-header,
 .md-tabs {
   --md-default-fg-color: var(--e2s-header-fg);

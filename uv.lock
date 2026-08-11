@@ -2597,7 +2597,7 @@ dev = [
 ]
 docs = [
     { name = "cartopy" },
-    { name = "earth2studio-gallery", git = "https://github.com/NickGeneva/earth2studio-gallery.git?rev=605c37877651d8eec82cdc03e91178e0bc429baf" },
+    { name = "earth2studio-gallery", git = "https://github.com/NickGeneva/earth2studio-gallery.git?rev=670a93f43f1271dab96986302541e81f01378c3d" },
     { name = "griffe-inherited-docstrings", specifier = ">=1.1.3" },
     { name = "matplotlib" },
     { name = "mike", specifier = ">=2.1.0" },
@@ -2613,7 +2613,7 @@ docs = [
 [[package]]
 name = "earth2studio-gallery"
 version = "0.1.0"
-source = { git = "https://github.com/NickGeneva/earth2studio-gallery.git?rev=605c37877651d8eec82cdc03e91178e0bc429baf#605c37877651d8eec82cdc03e91178e0bc429baf" }
+source = { git = "https://github.com/NickGeneva/earth2studio-gallery.git?rev=670a93f43f1271dab96986302541e81f01378c3d#670a93f43f1271dab96986302541e81f01378c3d" }
 dependencies = [
     { name = "mkdocs" },
     { name = "mkdocs-material" },
