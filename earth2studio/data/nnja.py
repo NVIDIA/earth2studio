@@ -74,6 +74,7 @@ class _NNJASatProduct:
     prefix: str
     filename: str
     first_year: int
+    last_year: int | None = None
 
 
 class _NNJAObsSatIncompleteError(RuntimeError):
@@ -87,9 +88,15 @@ _NNJA_SAT_PRODUCTS: dict[str, _NNJASatProduct] = {
     "mhs": _NNJASatProduct("mhs/1bmhs", "1bmhs", 2005),
     "amsua": _NNJASatProduct("amsua/1bamua", "1bamua", 1998),
     "amsub": _NNJASatProduct("amsub/1bamub", "1bamub", 1998),
-    "airs": _NNJASatProduct("airs/airsev", "airsev", 2002),
-    "iasi": _NNJASatProduct("iasi/mtiasi", "mtiasi", 2007),
-    "cris": _NNJASatProduct("cris/cris", "cris", 2012),
+    # IR sounder archive coverage verified against the live bucket listings;
+    # the archives start later than the instruments' launch years. The
+    # routed CrIS product is crisf4, the full-spectral-resolution dump whose
+    # channel numbers live on the 2211-channel FSR grid that the conversion
+    # in utils_ir assumes; the older cris/cris archive (2012-2020) is NSR
+    # with different channel numbering and is deliberately not routed.
+    "airs": _NNJASatProduct("airs/airsev", "airsev", 2007, last_year=2020),
+    "iasi": _NNJASatProduct("iasi/mtiasi", "mtiasi", 2008),
+    "cris": _NNJASatProduct("cris/crisf4", "crisf4", 2018),
 }
 
 # Hyperspectral IR sounders share the aggregate cycle-file layout above but
@@ -457,8 +464,13 @@ class NNJAObsSat:
     (``TMBR``) directly, while IASI (scaled integer radiance, ``SCRA``) and
     CrIS (float radiance, ``SRAD``) are converted via Planck inversion. The
     ``wavenumber`` column carries the channel centre wavenumber in cm⁻¹.
-    Every published channel is returned (281 AIRS, up to 8461 IASI, up to
-    2211 CrIS); subset channels downstream via the ``sensor_index`` column.
+    The aggregates carry the NCEP channel subsets (281 AIRS, 616 IASI, 431
+    CrIS) numbered on the instrument grids; ``cris`` routes to the
+    full-spectral-resolution ``crisf4`` product whose channel numbers live
+    on the 2211-channel FSR grid. Archive coverage: AIRS 2007–2020, IASI
+    2008–present, CrIS (FSR) 2018–present. All archived channels are
+    returned by default; pass ``sensor_indices`` to narrow at decode time
+    or subset downstream via the ``sensor_index`` column.
 
     ``atms`` returns the encoded 22-channel ``TMBR`` scene brightness
     temperature. ``atms_antenna_temperature`` returns the corresponding
@@ -502,14 +514,21 @@ class NNJAObsSat:
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
+    sensor_indices : dict[str, Sequence[int]] | None, optional
+        Per-sensor channel-number subsets for the IR sounders, e.g.
+        ``{"cris": [19, 24], "iasi": [16]}``, mirroring the
+        ``sensor_indices`` selection of the JPSS/METOP sources. Sensors
+        absent from the dict (and all microwave sensors) return every
+        archived channel. By default None (all channels).
 
     Warning
     -------
     Aggregate cycle files contain millions of footprints. Broad long-format
-    requests can require substantial memory. A finite archived value is not a
-    QC decision: historical files may retain passive or degraded channels even
-    when the aggregate carries no usable quality flag. Training pipelines
-    should apply an explicit platform/channel validity policy.
+    requests can require substantial memory — hyperspectral IR requests
+    return one row per (footprint, channel). A finite archived value is not
+    a QC decision: historical files may retain passive or degraded channels
+    even when the aggregate carries no usable quality flag. Training
+    pipelines should apply an explicit platform/channel validity policy.
 
     Note
     ----
@@ -546,6 +565,7 @@ class NNJAObsSat:
         async_workers: int = 8,
         decode_workers: int = 8,
         retries: int = 3,
+        sensor_indices: dict[str, Sequence[int]] | None = None,
     ) -> None:
         if satellites is None:
             self._satellites: tuple[str, ...] | None = None
@@ -557,6 +577,20 @@ class NNJAObsSat:
                     f"Valid options: {sorted(self.VALID_SATELLITES)}"
                 )
             self._satellites = tuple(sorted(set(satellites)))
+
+        if sensor_indices is None:
+            self._sensor_indices: dict[str, frozenset[int]] = {}
+        else:
+            invalid_sensors = set(sensor_indices) - _NNJA_IR_SENSORS
+            if invalid_sensors:
+                raise ValueError(
+                    f"sensor_indices only applies to the IR sounders "
+                    f"{sorted(_NNJA_IR_SENSORS)}; got {sorted(invalid_sensors)}"
+                )
+            self._sensor_indices = {
+                sensor: frozenset(int(c) for c in channels)
+                for sensor, channels in sensor_indices.items()
+            }
 
         self._verbose = verbose
         self._cache = cache
@@ -719,8 +753,24 @@ class NNJAObsSat:
         tasks: list[_NNJASatTask] = []
         for sensor, var_plan in variables_by_sensor.items():
             product = _NNJA_SAT_PRODUCTS[sensor]
+            if (
+                sensor in _NNJA_IR_SENSORS
+                and self._satellites is not None
+                and not set(self._satellites) & _NNJA_IR_SATELLITES[sensor]
+            ):
+                # The user's platform filter excludes every satellite carrying
+                # this sensor; skip planning so the multi-GB aggregate is not
+                # fetched and decoded just to filter out every footprint
+                logger.warning(
+                    f"NNJAObsSat: satellites={self._satellites} exclude all "
+                    f"{sensor} platforms {sorted(_NNJA_IR_SATELLITES[sensor])}; "
+                    f"no {sensor} rows will be returned"
+                )
+                continue
             for cycle, (datetime_min, datetime_max) in sorted(windows.items()):
-                if cycle.year < product.first_year:
+                if cycle.year < product.first_year or (
+                    product.last_year is not None and cycle.year > product.last_year
+                ):
                     uri = self._build_satellite_uri(cycle, sensor)
                     raise _NNJAObsSatIncompleteError(
                         "archive_unavailable",
@@ -728,6 +778,7 @@ class NNJAObsSat:
                         sensor=sensor,
                         cycle=cycle.isoformat(),
                         first_year=product.first_year,
+                        last_year=product.last_year,
                     )
                 tasks.append(
                     _NNJASatTask(
@@ -762,7 +813,8 @@ class NNJAObsSat:
             frame = decode_ir_sounder(
                 local_path,
                 task.sensor,
-                None,  # every published channel; subset via `fields` downstream
+                # Every archived channel unless narrowed via sensor_indices
+                self._sensor_indices.get(task.sensor),
                 task.datetime_min,
                 task.datetime_max,
                 sat_filter,

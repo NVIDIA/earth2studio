@@ -1684,8 +1684,9 @@ def decode_microwave(
 
 # BUFR element descriptor IDs for IR sounder aggregate files.
 # AIRS:  observation field is TMBR (already brightness temperature)
-# IASI:  SCRA (scaled integer radiance, W m⁻² sr⁻¹ m⁻¹); per-band CHSF exponent
-# CrIS:  SRAD (float radiance, W m⁻² sr⁻¹ cm⁻¹)
+# IASI:  SCRA (scaled integer radiance, W m⁻² sr⁻¹ m — per unit wavenumber);
+#        per-band CHSF exponent
+# CrIS:  SRAD (float radiance, W m⁻² sr⁻¹ (cm⁻¹)⁻¹)
 _SCRA = 14046  # IASI scaled radiance integer
 _SRAD = 14044  # CrIS channel radiance float
 _ACQF = 33032  # AIRS channel quality flags
@@ -1705,6 +1706,17 @@ _IR_QUALITY_DESCRIPTOR: dict[str, int] = {
     "iasi": 0,  # no per-channel quality flag in NNJA IASI aggregate
     "cris": 0,
 }
+
+
+class _NCEPIRSounderDecodeError(RuntimeError):
+    def __init__(self, path: str, failed_messages: int, total_messages: int) -> None:
+        self.context: dict[str, object] = {
+            "path": path,
+            "decoded_messages": total_messages - failed_messages,
+            "failed_messages": failed_messages,
+            "total_messages": total_messages,
+        }
+        super().__init__(f"Incomplete IR sounder BUFR decode: {self.context}")
 
 
 def _decode_ir_subset(
@@ -1749,6 +1761,11 @@ def _decode_ir_subset(
 
         # ---- Channel loop marker ----
         if did == 31002:  # DRF16BIT — delayed replication count
+            if in_channel_loop:
+                # A second replication block follows the sounder channels
+                # (airsev appends AMSU-A/HSB blocks whose channels reuse the
+                # TMBR descriptor); stop so those are not emitted as IR rows
+                break
             in_channel_loop = True
             continue
 
@@ -2007,9 +2024,9 @@ def decode_ir_sounder(
             failures += batch_failures
 
     if failures:
-        logger.warning(
-            f"decode_ir_sounder: {failures}/{len(messages)} messages failed for {sensor}"
-        )
+        # Same strict completeness contract as decode_microwave: a partial
+        # decode must not silently return a truncated observation set
+        raise _NCEPIRSounderDecodeError(path, failures, len(messages))
     logger.debug(
         f"Decoded {len(rows):,} {sensor} IR rows in {time.perf_counter() - started:.1f}s"
     )

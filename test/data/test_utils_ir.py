@@ -60,6 +60,14 @@ def test_unknown_sensor_rejected():
         wavenumber_cm_inverse("modis", [1])
 
 
+def test_planck_constants_pinned():
+    # CODATA-2018 first and second radiation constants in the CRTM/GSI units
+    # (mW m⁻² sr⁻¹ cm⁴ and cm·K). Pinned so a unit or value regression cannot
+    # pass the roundtrip tests below unnoticed.
+    assert C1 == 1.191042972e-5
+    assert C2 == 1.438776877
+
+
 def test_brightness_temperature_planck_roundtrip():
     wavenumber = np.array([700.0, 1000.0, 2400.0])
     temperature = np.array([220.0, 280.0, 310.0])

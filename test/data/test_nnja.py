@@ -1289,36 +1289,50 @@ def test_nnja_obs_sat_ir_tasks_use_verified_archive_routes():
         verbose=False,
         decode_workers=1,
     )
-    cycle = datetime(2024, 1, 1)
+    cycle = datetime(2019, 1, 1)
     tasks = source._create_tasks([cycle], ["airs", "iasi", "cris"])
 
     assert len(tasks) == 3
     by_sensor = {task.sensor: task for task in tasks}
     assert by_sensor["airs"].uri.endswith(
-        "airs/airsev/2024/01/bufr/gdas.20240101.t00z.airsev.tm00.bufr_d"
+        "airs/airsev/2019/01/bufr/gdas.20190101.t00z.airsev.tm00.bufr_d"
     )
     assert by_sensor["iasi"].uri.endswith(
-        "iasi/mtiasi/2024/01/bufr/gdas.20240101.t00z.mtiasi.tm00.bufr_d"
+        "iasi/mtiasi/2019/01/bufr/gdas.20190101.t00z.mtiasi.tm00.bufr_d"
     )
     assert by_sensor["cris"].uri.endswith(
-        "cris/cris/2024/01/bufr/gdas.20240101.t00z.cris.tm00.bufr_d"
+        "cris/crisf4/2019/01/bufr/gdas.20190101.t00z.crisf4.tm00.bufr_d"
     )
     assert by_sensor["airs"].var_plan == {"airs": "TMBR"}
     assert by_sensor["iasi"].var_plan == {"iasi": "SCRA"}
     assert by_sensor["cris"].var_plan == {"cris": "SRAD"}
 
 
-def test_nnja_obs_sat_ir_archive_unavailable_before_first_year():
+def test_nnja_obs_sat_ir_archive_unavailable_outside_coverage():
     source = NNJAObsSat(
         time_tolerance=timedelta(0),
         cache=False,
         verbose=False,
         decode_workers=1,
     )
+    # Before the archive start (crisf4 begins 2018, mtiasi 2008)
+    for sensor, cycle in [
+        ("cris", datetime(2017, 1, 1)),
+        ("iasi", datetime(2007, 6, 1)),
+    ]:
+        with pytest.raises(nnja._NNJAObsSatIncompleteError) as err:
+            source._create_tasks([cycle], [sensor])
+        assert err.value.context["reason"] == "archive_unavailable"
+        assert err.value.context["sensor"] == sensor
+
+    # After the archive end (airsev stops in 2020)
     with pytest.raises(nnja._NNJAObsSatIncompleteError) as err:
-        source._create_tasks([datetime(2005, 1, 1)], ["cris"])
+        source._create_tasks([datetime(2021, 1, 1)], ["airs"])
     assert err.value.context["reason"] == "archive_unavailable"
-    assert err.value.context["sensor"] == "cris"
+    assert err.value.context["last_year"] == 2020
+
+    # Inside coverage plans normally
+    assert source._create_tasks([datetime(2019, 1, 1)], ["airs", "cris"])
 
 
 def test_nnja_obs_sat_decode_file_routes_ir_and_microwave(monkeypatch):
@@ -1471,3 +1485,92 @@ def test_nnja_ir_decode_cris_radiance_planck_band_wavenumbers():
     assert rows[0]["wavenumber"] == pytest.approx(1210.0)
     assert rows[0]["satellite"] == "npp"
     assert rows[0]["quality"] is None
+
+
+def test_nnja_ir_decode_airs_stops_at_second_replication_block():
+    # airsev appends AMSU-A/HSB channel blocks that reuse the TMBR
+    # descriptor; their channels must not be emitted as AIRS rows
+    pairs = _airs_ir_pairs() + [
+        (31002, 2),
+        (ncep_microwave._CHANNEL_NUMBER, 2),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 199.75),
+        (ncep_microwave._CHANNEL_NUMBER, 3),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 201.5),
+    ]
+    rows = _decode_ir_pairs(pairs, "airs")
+    assert sorted(row["sensor_index"] for row in rows) == [1, 6]
+
+
+def test_nnja_ir_decode_failure_raises(monkeypatch, tmp_path):
+    # decode_ir_sounder honors the same strict completeness contract as
+    # decode_microwave: failed messages raise instead of silently truncating
+    bufr = tmp_path / "fake.bufr"
+    bufr.write_bytes(b"")
+    monkeypatch.setattr(
+        ncep_microwave,
+        "_parse_prepbufr_messages",
+        lambda *a, **k: ({1: 1}, {1: 1}, [(b"m", None)]),
+    )
+    monkeypatch.setattr(ncep_microwave, "_init_decode_worker", lambda *a: None)
+    monkeypatch.setattr(
+        ncep_microwave, "_decode_ir_message_batch", lambda argument: ([], 1)
+    )
+    with pytest.raises(ncep_microwave._NCEPIRSounderDecodeError) as err:
+        ncep_microwave.decode_ir_sounder(
+            str(bufr),
+            "cris",
+            None,
+            datetime(2024, 1, 1),
+            datetime(2024, 1, 2),
+            decode_workers=1,
+        )
+    assert err.value.context["failed_messages"] == 1
+
+
+def test_nnja_obs_sat_sensor_indices_narrow_ir_decode(monkeypatch):
+    with pytest.raises(ValueError, match="sensor_indices"):
+        NNJAObsSat(sensor_indices={"atms": [1]}, cache=False, verbose=False)
+
+    source = NNJAObsSat(
+        sensor_indices={"cris": [19, 24]},
+        cache=False,
+        verbose=False,
+        decode_workers=1,
+    )
+    seen = {}
+
+    def fake_ir(path, sensor, channels, dt_min, dt_max, satellites, decode_workers):
+        seen[sensor] = channels
+        return ncep_microwave._rows_to_dataframe([])
+
+    monkeypatch.setattr(nnja, "decode_ir_sounder", fake_ir)
+    cycle = datetime(2024, 1, 1)
+
+    for sensor in ["cris", "iasi"]:
+        task = nnja._NNJASatTask(
+            uri="uri",
+            datetime_file=cycle,
+            datetime_min=cycle,
+            datetime_max=cycle,
+            sensor=sensor,
+            var_plan={sensor: "X"},
+        )
+        source._decode_file("path", task)
+
+    assert seen["cris"] == frozenset({19, 24})
+    assert seen["iasi"] is None
+
+
+def test_nnja_obs_sat_ir_tasks_skipped_when_satellites_exclude_sensor():
+    # A platform filter naming no satellite of an IR sensor skips planning
+    # instead of fetching and decoding the aggregate for zero rows
+    source = NNJAObsSat(
+        satellites=["n15"],
+        time_tolerance=timedelta(0),
+        cache=False,
+        verbose=False,
+        decode_workers=1,
+    )
+    assert source._create_tasks([datetime(2019, 1, 1)], ["iasi"]) == []
+    # Microwave planning is unaffected by the IR skip
+    assert source._create_tasks([datetime(2019, 1, 1)], ["amsua"])
