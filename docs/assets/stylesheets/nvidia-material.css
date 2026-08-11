@@ -175,16 +175,6 @@ body .md-grid {
   color: var(--e2s-header-fg) !important;
 }
 
-.md-header .md-search__button {
-  color: var(--e2s-header-fg) !important;
-}
-
-.md-header .md-search__button:hover,
-.md-header .md-search__button:focus,
-.md-header .md-search__button:active {
-  color: var(--e2s-header-fg) !important;
-}
-
 .md-header .md-search__input {
   color: var(--e2s-header-fg) !important;
   background: transparent !important;
@@ -207,6 +197,10 @@ body .md-grid {
 .md-search kbd:hover,
 .md-search kbd:focus,
 .md-search kbd:active,
+.md-search .md-search__button,
+.md-search .md-search__button:hover,
+.md-search .md-search__button:focus,
+.md-search .md-search__button:active,
 .md-header .md-search__key,
 .md-header .md-search__key:hover,
 .md-header .md-search__key:focus,
@@ -218,7 +212,11 @@ body .md-grid {
 .md-header kbd,
 .md-header kbd:hover,
 .md-header kbd:focus,
-.md-header kbd:active {
+.md-header kbd:active,
+.md-header .md-search__button,
+.md-header .md-search__button:hover,
+.md-header .md-search__button:focus,
+.md-header .md-search__button:active {
   color: var(--e2s-header-muted) !important;
   background-color: var(--e2s-header-kbd-bg) !important;
   border-color: var(--e2s-header-kbd-border) !important;

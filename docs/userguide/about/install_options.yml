@@ -239,6 +239,7 @@ categories:
         api_refs:
           - earth2studio.models.px.StormScopeGOES
           - earth2studio.models.px.StormScopeMRMS
+          - earth2studio.models.dx.StormScopeDxNSRDB
         warnings:
           - Depends on natten for Python versions before 3.14, which can take a long
             time to build.

@@ -166,7 +166,7 @@ REF_TARGETS = {
     ),
     "userguide": ("User Guide", "userguide/"),
 }
-API_REF_TARGETS: dict[str, str] | None = None
+API_REF_TARGETS: dict[str, tuple[str, str]] | None = None
 
 
 def on_page_markdown(markdown: str, **kwargs: object) -> str:
@@ -183,13 +183,13 @@ def on_page_content(html: str, **kwargs: object) -> str:
     return _convert_docstring_xrefs(html, page)
 
 
-def _api_ref_targets() -> dict[str, str]:
-    """Map import paths to generated API documentation URLs."""
+def _api_ref_targets() -> dict[str, tuple[str, str]]:
+    """Map import paths to generated API documentation URLs and object paths."""
     global API_REF_TARGETS
     if API_REF_TARGETS is not None:
         return API_REF_TARGETS
 
-    targets: dict[str, str] = {}
+    targets: dict[str, tuple[str, str]] = {}
     for path in GENERATED_API_ROOT.rglob("*.md"):
         text = path.read_text(encoding="utf-8")
         match = re.search(
@@ -199,10 +199,55 @@ def _api_ref_targets() -> dict[str, str]:
         )
         if match is None:
             continue
+        object_match = re.search(r"^::::?\s+(?P<object>\S+)", text, re.M)
+        object_path = object_match.group("object") if object_match else ""
         url = path.relative_to(DOCS_ROOT).with_suffix("").as_posix() + "/"
-        targets[match.group("target")] = url
+        targets[match.group("target")] = (url, object_path)
     API_REF_TARGETS = targets
     return targets
+
+
+def _public_api_target(target: str) -> str | None:
+    """Resolve a role target to the generated public API target when possible."""
+    target = target.strip()
+    if target.startswith("~"):
+        target = target[1:]
+    if not target or " " in target:
+        return None
+
+    targets = _api_ref_targets()
+    if target in targets or any(target.startswith(path + ".") for path in targets):
+        return target
+
+    parts = target.split(".")
+    for index, part in enumerate(parts):
+        matches = [
+            import_path
+            for import_path in targets
+            if import_path.rsplit(".", 1)[-1] == part
+        ]
+        if len(matches) != 1:
+            continue
+        suffix = ".".join(parts[index + 1 :])
+        return f"{matches[0]}.{suffix}" if suffix else matches[0]
+    return None
+
+
+def _api_ref_url(target: str) -> str | None:
+    """Return the generated API URL for an import path or member path."""
+    target = _public_api_target(target) or target
+    targets = _api_ref_targets()
+    exact = targets.get(target)
+    if exact is not None:
+        return exact[0]
+
+    for import_path, (url, object_path) in targets.items():
+        prefix = import_path + "."
+        if not target.startswith(prefix) or not object_path:
+            continue
+        member = target[len(prefix) :]
+        return f"{url}#{object_path}.{member}"
+    return None
 
 
 def _convert_docstring_xrefs(html: str, page: object | None) -> str:
@@ -211,7 +256,7 @@ def _convert_docstring_xrefs(html: str, page: object | None) -> str:
     def repl(match: re.Match[str]) -> str:
         title = match.group("title")
         target = match.group("target")
-        url = _api_ref_targets().get(target)
+        url = _api_ref_url(target)
         if url is None:
             return f"<code>{escape(title)}</code>"
         href = escape(_relative_url(url, page), quote=True)
@@ -306,18 +351,26 @@ def _doc_link(label: str, page: object | None) -> str:
     )
 
 
-def _python_role(label: str) -> str:
+def _python_role(label: str, page: object | None) -> str:
     title, target = _split_role_target(label)
     display = title or target.lstrip("~")
     display = escape(display).replace("_", "&#95;")
+    url = _api_ref_url(target)
+    if url is not None:
+        return (
+            f'<a href="{escape(_relative_url(url, page), quote=True)}">'
+            f"<code>{display}</code></a>"
+        )
     return f"<code>{display}</code>"
 
 
 def _convert_legacy_roles(line: str, page: object | None) -> str:
     line = REF_RE.sub(lambda match: _xref(match.group("target"), page), line)
     line = DOC_RE.sub(lambda match: _doc_link(match.group("target"), page), line)
-    line = PY_ROLE_RE.sub(lambda match: _python_role(match.group("target")), line)
-    return MYST_ROLE_RE.sub(lambda match: _python_role(match.group("target")), line)
+    line = PY_ROLE_RE.sub(lambda match: _python_role(match.group("target"), page), line)
+    return MYST_ROLE_RE.sub(
+        lambda match: _python_role(match.group("target"), page), line
+    )
 
 
 def _active_indent(stack: list[dict[str, object]]) -> str:

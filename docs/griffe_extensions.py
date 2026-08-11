@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import griffe
 
@@ -52,6 +53,9 @@ EXTERNAL_REF_PREFIXES = (
     "torch.",
     "xarray.",
 )
+GENERATED_API_ROOT = Path(__file__).resolve().parent / "modules" / "generated"
+API_IMPORT_PATHS: set[str] | None = None
+SHORT_API_IMPORT_PATHS: dict[str, str | None] | None = None
 
 
 def _visible_name(target: str) -> str:
@@ -71,12 +75,72 @@ def _split_role_target(target: str) -> tuple[str, str]:
     return _visible_name(target), target
 
 
+def _api_import_paths() -> set[str]:
+    """Return public API import paths emitted by the generated API pages."""
+    global API_IMPORT_PATHS
+    if API_IMPORT_PATHS is not None:
+        return API_IMPORT_PATHS
+
+    paths: set[str] = set()
+    for path in GENERATED_API_ROOT.rglob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        match = re.search(
+            r"^\*\*Import path:\*\*\s+`(?P<target>earth2studio\.[^`]+)`",
+            text,
+            re.M,
+        )
+        if match is not None:
+            paths.add(match.group("target"))
+    API_IMPORT_PATHS = paths
+    return paths
+
+
+def _short_api_import_paths() -> dict[str, str | None]:
+    """Map unqualified public API names to their import path when unambiguous."""
+    global SHORT_API_IMPORT_PATHS
+    if SHORT_API_IMPORT_PATHS is not None:
+        return SHORT_API_IMPORT_PATHS
+
+    paths: dict[str, str | None] = {}
+    for target in _api_import_paths():
+        name = target.rsplit(".", 1)[-1]
+        if name not in paths:
+            paths[name] = target
+        elif paths[name] != target:
+            paths[name] = None
+    SHORT_API_IMPORT_PATHS = paths
+    return paths
+
+
+def _resolve_internal_target(target: str) -> str | None:
+    """Resolve a Sphinx role target to a public Earth2Studio API path."""
+    target = target.strip()
+    if target.startswith("~"):
+        target = target[1:]
+    if not target or " " in target:
+        return None
+    paths = _api_import_paths()
+    if target in paths or any(target.startswith(path + ".") for path in paths):
+        return target
+
+    short_paths = _short_api_import_paths()
+    parts = target.split(".")
+    for index, part in enumerate(parts):
+        resolved = short_paths.get(part)
+        if resolved is None:
+            continue
+        suffix = ".".join(parts[index + 1 :])
+        return f"{resolved}.{suffix}" if suffix else resolved
+    return None
+
+
 def _format_role(match: re.Match[str]) -> str:
     """Convert a simple Sphinx role into Markdown."""
     title, target = _split_role_target(match.group("target"))
     target = target.strip()
-    if target.startswith("earth2studio."):
-        return f"[{title}][{target}]"
+    resolved = _resolve_internal_target(target)
+    if resolved is not None:
+        return f"[{title}][{resolved}]"
     if target.startswith(EXTERNAL_REF_PREFIXES) and " " not in target:
         return f"[`{title}`][{target}]"
     return f"`{title}`"
