@@ -3,10 +3,9 @@
 # Install { #install_guide }
 
 !!! warning "Base Install Limitations"
-    **Base install scope:** The base install only includes the core Earth2Studio
-    package. Many models, data sources, examples, and workflows require optional
-    dependency groups. Use the selector below to choose the install that matches the
-    component you want to use.
+    **Base install scope:** The base install includes only core Earth2Studio APIs.
+    Most models, data sources, examples, and workflows require an optional dependency
+    group selected below.
 
     **GPU dependency compatibility:** GPU-dependent model dependencies can be sensitive
     to the PyTorch and CUDA versions in your environment.
