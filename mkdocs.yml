@@ -122,6 +122,7 @@ plugins:
 - badges:
     style: square
     selectable_text: false
+    autosummary_root: modules/generated
     group_labels:
       region: Region
       class: Class
