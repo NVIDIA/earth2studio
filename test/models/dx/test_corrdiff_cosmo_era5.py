@@ -24,7 +24,6 @@ preserves the full per-resolution/per-mode config.
 
 import json
 import os
-import re
 import types
 import warnings
 from collections import OrderedDict
