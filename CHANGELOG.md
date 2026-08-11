@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (~30% faster)
 - Migrated GOES GLM data source from s3fs to obstore; listings of complete
   hours are memoized per instance while the current hour is always re-listed
+- Pinned the default `CorrDiffCosmoEra5` Hugging Face package to a specific revision.
 
 ### Deprecated
 
@@ -31,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `CorrDiffCosmoEra5` loading files from the wrong resolution when cache names
+  collided. Cache names now include the resolution.
 - Fixed `OPERA` data source returning negative precipitation values (`-99.0 mm/h`
   for `tprate`, `-0.099 m` for `tp01`) for pixels where the radar detected no rain.
   Undetect pixels for RATE and ACRR quantities are now filled with `0.0` instead

@@ -53,6 +53,7 @@ from typing import Literal
 import numpy as np
 import torch
 import xarray as xr
+from fsspec.implementations.cache_mapper import BasenameCacheMapper
 from loguru import logger
 
 from earth2studio.lexicon import CosmoLexicon
@@ -111,7 +112,9 @@ SUPPORTED_VARIANTS = ("rea6", "rea2")
 # ``load_default_package`` / ``from_pretrained``. The package nests rea6/ and
 # rea2/ subfolders; ``load_model(..., resolution=)`` selects the subfolder, so
 # one URI serves all four models.
-DEFAULT_PACKAGE_URI: str = "hf://nvidia/corrdiff-cosmo-era5"
+DEFAULT_PACKAGE_URI: str = (
+    "hf://nvidia/corrdiff-cosmo-era5@44064f304158f863f6ae02948b1b8e08d523458e"
+)
 
 
 def _points_in_grid_footprint(
@@ -1609,7 +1612,10 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             DEFAULT_PACKAGE_URI,
             cache_options={
                 "cache_storage": Package.default_cache("corrdiff_cosmo_era5"),
-                "same_names": True,
+                # Include the resolution directory to distinguish files with
+                # matching basenames, such as rea2/metadata.json and
+                # rea6/metadata.json.
+                "cache_mapper": BasenameCacheMapper(directory_levels=1),
             },
         )
 
