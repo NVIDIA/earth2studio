@@ -622,8 +622,8 @@ class OutputManager:
                     )
             for dim in self._total_coords:
                 handshake_coords(io.coords, self._total_coords, required_dim=dim)
-            if self._dist.world_size > 1:
-                self._validate_store_shards(io)
+            if self._is_async or self._dist.world_size > 1:
+                self._validate_store_geometry(io)
             if is_rank0:
                 logger.info(f"Validated existing store for resume: {self._path}")
             else:
@@ -631,24 +631,37 @@ class OutputManager:
 
         return io
 
-    def _validate_store_shards(self, io: ZarrBackend | AsyncZarrBackend) -> None:
-        """Reject resuming multi-rank into a store sharded on a distributed axis.
+    def _validate_store_geometry(self, io: ZarrBackend | AsyncZarrBackend) -> None:
+        """Reject resuming into a store whose on-disk layout the writers would race on.
 
-        The ``shard_coords`` guard in ``__init__`` only sees the config: a store
-        created by an earlier single-process run may already be sharded on
-        ``time`` or ``ensemble``, and multi-rank writes into such shards would
-        silently keep only the last rank's data.
+        The ``__init__`` guards only see the config; the store carries the geometry
+        it was created with.  Two layouts would silently lose data: chunks > 1 on an
+        iteration axis, which async slice-at-a-time writes race on (checked on any
+        async resume), and shards on a distributed axis, which two ranks would each
+        write in full (checked when ``world_size > 1``).
         """
         if self._variables is None:
             return
         for v in self._variables:
             array = io[v]
-            if array.shards is None:
-                continue
             dims = list(array.metadata.dimension_names or [])
             for axis, dim in enumerate(dims):
-                if dim in ("time", "ensemble") and (
-                    array.shards[axis] > array.chunks[axis]
+                if dim not in _ITERATION_DIMS:
+                    continue
+                if self._is_async and array.chunks[axis] != 1:
+                    raise ValueError(
+                        f"Existing array '{v}' has chunk size "
+                        f"{array.chunks[axis]} on '{dim}', likely created with "
+                        "io_backend=zarr. async_zarr writes one slice at a time, "
+                        "so concurrent writes into a shared chunk would silently "
+                        "lose data. Resume with output.io_backend=zarr or "
+                        "recreate the store."
+                    )
+                if (
+                    self._dist.world_size > 1
+                    and dim in ("time", "ensemble")
+                    and array.shards is not None
+                    and array.shards[axis] > array.chunks[axis]
                 ):
                     raise ValueError(
                         f"Existing array '{v}' is sharded on '{dim}' (shard size "

@@ -453,6 +453,37 @@ class TestIOBackendSelection:
                     mgr.validate_output_store(total_coords, VARIABLES)
         return cfg
 
+    def test_resume_async_rejects_store_with_chunked_iteration_axis(
+        self, tmp_path, total_coords
+    ):
+        """A store created under io_backend=zarr may have chunks > 1 on an
+        iteration axis; async slice-at-a-time writes into a shared chunk are
+        last-writer-wins, so resuming it with async_zarr must be rejected."""
+        self._create_store(
+            tmp_path,
+            total_coords,
+            io_backend="zarr",
+            chunks={"time": 1, "lead_time": 3},
+        )
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
+                mgr = OutputManager(self._cfg(tmp_path, overwrite=False), resume=True)
+                with pytest.raises(ValueError, match="chunk size"):
+                    mgr.validate_output_store(total_coords, VARIABLES)
+
+    def test_resume_zarr_allows_store_with_chunked_iteration_axis(
+        self, tmp_path, total_coords
+    ):
+        create_cfg = dict(io_backend="zarr", chunks={"time": 1, "lead_time": 3})
+        self._create_store(tmp_path, total_coords, **create_cfg)
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
+                mgr = OutputManager(
+                    self._cfg(tmp_path, overwrite=False, **create_cfg), resume=True
+                )
+                mgr.validate_output_store(total_coords, VARIABLES)
+                assert "t2m" in mgr.io
+
     def test_resume_multirank_rejects_store_sharded_on_distributed_axis(
         self, tmp_path, total_coords
     ):
