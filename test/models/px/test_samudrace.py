@@ -304,6 +304,73 @@ def test_samudrace_iter_device(model, device):
         assert torch.isfinite(out[:, :, :, j]).all()
 
 
+def test_cudnn_benchmark_context():
+    """The cuDNN autotuning context enables the flag and restores what it found.
+
+    Runs without a GPU, so it still covers the enable path on CPU-only runners,
+    where the wrapper itself leaves the setting alone.
+    """
+    from earth2studio.models.px.samudrace import _cudnn_benchmark
+
+    previous = torch.backends.cudnn.benchmark
+    try:
+        # A non-default ambient value catches a restore hardcoded to False
+        torch.backends.cudnn.benchmark = True
+        with _cudnn_benchmark(True):
+            assert torch.backends.cudnn.benchmark is True
+        assert torch.backends.cudnn.benchmark is True
+
+        # Disabled leaves the global setting untouched
+        with _cudnn_benchmark(False):
+            assert torch.backends.cudnn.benchmark is True
+        assert torch.backends.cudnn.benchmark is True
+
+        torch.backends.cudnn.benchmark = False
+        with _cudnn_benchmark(True):
+            assert torch.backends.cudnn.benchmark is True
+        assert torch.backends.cudnn.benchmark is False
+    finally:
+        torch.backends.cudnn.benchmark = previous
+
+
+@pytest.mark.parametrize("device", device_params)
+def test_samudrace_cudnn_benchmark(model, device):
+    """The coupled step runs with cuDNN autotuning enabled on GPU, with no leak.
+
+    Reproducing the checkpoint's reference results depends on the flag being set
+    the way FME's inference entrypoints set it, and the setting is process-global
+    so it must not leak out of the coupled step.
+    """
+    from unittest.mock import patch
+
+    time = np.array([np.datetime64("2001-01-01T00:00")])
+    p = model.to(device)
+    x, coords = build_input(p, time)
+    x = x.to(device)
+
+    observed = []
+    original = p.stepper.predict
+
+    def recording_predict(*args, **kwargs):
+        """Record the cuDNN autotuning flag as the stepper sees it."""
+        observed.append(torch.backends.cudnn.benchmark)
+        return original(*args, **kwargs)
+
+    previous = torch.backends.cudnn.benchmark
+    try:
+        # Ambient False, so enabling the flag is observable rather than inherited
+        torch.backends.cudnn.benchmark = False
+        with patch.object(p.stepper, "predict", recording_predict):
+            step_once(p, x, coords)
+        assert torch.backends.cudnn.benchmark is False
+    finally:
+        torch.backends.cudnn.benchmark = previous
+
+    # Enabled where cuDNN is used, left alone where it is not
+    assert len(observed) == 1
+    assert observed[0] == (torch.device(device).type == "cuda")
+
+
 def test_samudrace_input_coords(model):
     in_coords = model.input_coords()
     assert list(in_coords["variable"]) == IN_VARS
