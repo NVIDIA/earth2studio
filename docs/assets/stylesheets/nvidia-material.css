@@ -311,21 +311,6 @@ body .md-grid {
   color: var(--nv-fg);
 }
 
-.md-typeset .e2sg-download {
-  color: #f4f7ef !important;
-  background: #004831 !important;
-  border: 1px solid rgb(155 229 100 / 20%) !important;
-  transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
-}
-
-.md-typeset .e2sg-download:hover {
-  color: #fff !important;
-  background: #07633f !important;
-  border-color: rgb(155 229 100 / 38%) !important;
-  filter: none;
-  transform: translateY(-1px);
-}
-
 .md-typeset code,
 .md-typeset .admonition,
 .md-typeset details,
