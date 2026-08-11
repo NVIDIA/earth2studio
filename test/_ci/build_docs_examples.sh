@@ -40,5 +40,6 @@ done
 uv run e2s-gallery render
 rm -rf docs/_build/html
 E2S_GALLERY_EXECUTE=never uv run zensical build --clean
+uv run python docs/fix_api_xrefs.py
 mkdir -p docs/_build
 rsync -a --delete site/ docs/_build/html/

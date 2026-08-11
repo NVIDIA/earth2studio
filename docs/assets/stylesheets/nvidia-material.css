@@ -830,10 +830,7 @@ body .md-grid {
 .e2s-band {
   padding: clamp(4.5rem, 8vw, 7rem) var(--e2s-page-gutter);
   border-top: 1px solid rgba(118, 185, 0, 0.18);
-  background:
-    radial-gradient(circle at 9% 46%, rgba(118, 185, 0, 0.1), transparent 25rem),
-    radial-gradient(circle at 88% 18%, rgba(56, 189, 248, 0.07), transparent 28rem),
-    linear-gradient(180deg, rgba(12, 15, 11, 0.58), rgba(5, 8, 6, 0.68));
+  background: rgba(5, 8, 6, 0.72);
 }
 
 .e2s-band--fast {
@@ -841,9 +838,7 @@ body .md-grid {
   grid-template-columns: minmax(0, 0.85fr) minmax(22rem, 1fr);
   gap: clamp(1.5rem, 5vw, 4rem);
   align-items: center;
-  background:
-    radial-gradient(circle at 80% 0%, rgba(118, 185, 0, 0.14), transparent 34%),
-    rgba(8, 12, 8, 0.72);
+  background: rgba(8, 12, 8, 0.72);
 }
 
 .e2s-fast-copy p:not(.e2s-section-kicker),
@@ -912,11 +907,7 @@ body .md-grid {
 
 .e2s-ecosystem {
   overflow: hidden;
-  background:
-    radial-gradient(circle at 32% -4%, rgba(118, 185, 0, 0.2), transparent 33rem),
-    radial-gradient(circle at 78% 86%, rgba(14, 165, 164, 0.14), transparent 27rem),
-    radial-gradient(circle at 7% 58%, rgba(250, 204, 21, 0.08), transparent 22rem),
-    rgba(5, 8, 6, 0.78);
+  background: rgba(5, 8, 6, 0.78);
 }
 
 .e2s-marquee {
@@ -959,19 +950,11 @@ body .md-grid {
 
 .e2s-showcase,
 .e2s-connectors {
-  background:
-    radial-gradient(circle at 11% 66%, rgba(14, 165, 164, 0.16), transparent 25rem),
-    radial-gradient(circle at 88% 16%, rgba(118, 185, 0, 0.16), transparent 29rem),
-    radial-gradient(circle at 56% 96%, rgba(192, 132, 252, 0.11), transparent 23rem),
-    rgba(5, 8, 6, 0.72);
+  background: rgba(5, 8, 6, 0.72);
 }
 
 .e2s-connectors {
-  background:
-    radial-gradient(circle at 86% 30%, rgba(250, 204, 21, 0.11), transparent 23rem),
-    radial-gradient(circle at 24% 92%, rgba(56, 189, 248, 0.16), transparent 29rem),
-    radial-gradient(circle at 4% 18%, rgba(118, 185, 0, 0.14), transparent 25rem),
-    rgba(5, 8, 6, 0.72);
+  background: rgba(5, 8, 6, 0.72);
 }
 
 .e2s-accent--green { --e2s-accent: var(--nv-green); }
@@ -1159,21 +1142,13 @@ body .md-grid {
 }
 
 #api {
-  background:
-    radial-gradient(circle at 14% 84%, rgba(118, 185, 0, 0.13), transparent 27rem),
-    radial-gradient(circle at 62% 6%, rgba(14, 165, 164, 0.12), transparent 25rem),
-    radial-gradient(circle at 94% 54%, rgba(250, 204, 21, 0.08), transparent 23rem),
-    rgba(5, 8, 6, 0.7);
+  background: rgba(5, 8, 6, 0.7);
 }
 
 .e2s-agent {
   padding-top: clamp(3.4rem, 6vw, 5.3rem);
   padding-bottom: clamp(3.4rem, 6vw, 5.3rem);
-  background:
-    radial-gradient(circle at 78% 22%, rgba(192, 132, 252, 0.16), transparent 27rem),
-    radial-gradient(circle at 18% 74%, rgba(250, 204, 21, 0.12), transparent 24rem),
-    radial-gradient(circle at 52% 104%, rgba(14, 165, 164, 0.11), transparent 24rem),
-    rgba(5, 8, 6, 0.74);
+  background: rgba(5, 8, 6, 0.74);
 }
 
 .e2s-agent .e2s-section-copy p:not(.e2s-section-kicker) {
@@ -1256,11 +1231,7 @@ body .md-grid {
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.62fr);
   gap: 2rem;
   align-items: center;
-  background:
-    radial-gradient(circle at 72% 12%, rgba(118, 185, 0, 0.13), transparent 23rem),
-    radial-gradient(circle at 8% 82%, rgba(56, 189, 248, 0.11), transparent 24rem),
-    radial-gradient(circle at 46% 46%, rgba(192, 132, 252, 0.06), transparent 20rem),
-    rgba(5, 8, 6, 0.7);
+  background: rgba(5, 8, 6, 0.7);
 }
 
 .e2s-start-grid {
@@ -1409,7 +1380,7 @@ body .md-grid {
 .e2s-install-select select {
   width: 100%;
   min-height: 2.45rem;
-  padding: 0 0.7rem;
+  padding: 0 1.6rem 0 0.7rem;
   border: 1px solid rgba(76, 124, 14, 0.24);
   border-radius: 0.28rem;
   background: var(--e2s-install-panel-strong);

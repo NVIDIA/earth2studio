@@ -76,7 +76,7 @@ def _format_role(match: re.Match[str]) -> str:
     title, target = _split_role_target(match.group("target"))
     target = target.strip()
     if target.startswith("earth2studio."):
-        return f"`{title}`"
+        return f"[{title}][{target}]"
     if target.startswith(EXTERNAL_REF_PREFIXES) and " " not in target:
         return f"[`{title}`][{target}]"
     return f"`{title}`"

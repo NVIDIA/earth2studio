@@ -56,7 +56,11 @@ MYST_ROLE_RE = re.compile(
 CUSTOM_TARGET_RE = re.compile(
     r"^(?P<title>.+?)\s*(?:<|&lt;)(?P<target>[^>&]+)(?:>|&gt;)$"
 )
+DOCSTRING_XREF_RE = re.compile(
+    r"\[(?P<title>[^\[\]]+)\]\[(?P<target>earth2studio\.[^\[\]\s]+)\]"
+)
 DOCS_ROOT = Path(__file__).resolve().parent
+GENERATED_API_ROOT = DOCS_ROOT / "modules" / "generated"
 INSTALL_SELECTOR_MARKER = "<!-- e2s-install-selector -->"
 INSTALL_SELECTOR_CONFIG = DOCS_ROOT / "userguide" / "about" / "install_options.yml"
 EXAMPLES_GALLERY_DESCRIPTION = (
@@ -162,6 +166,7 @@ REF_TARGETS = {
     ),
     "userguide": ("User Guide", "userguide/"),
 }
+API_REF_TARGETS: dict[str, str] | None = None
 
 
 def on_page_markdown(markdown: str, **kwargs: object) -> str:
@@ -170,6 +175,54 @@ def on_page_markdown(markdown: str, **kwargs: object) -> str:
     markdown = _render_install_selector(markdown)
     markdown = _remove_examples_gallery_description(markdown, page)
     return _convert_legacy_blocks(markdown, page)
+
+
+def on_page_content(html: str, **kwargs: object) -> str:
+    """Convert leftover docstring cross-references after mkdocstrings rendering."""
+    page = kwargs.get("page")
+    return _convert_docstring_xrefs(html, page)
+
+
+def _api_ref_targets() -> dict[str, str]:
+    """Map import paths to generated API documentation URLs."""
+    global API_REF_TARGETS
+    if API_REF_TARGETS is not None:
+        return API_REF_TARGETS
+
+    targets: dict[str, str] = {}
+    for path in GENERATED_API_ROOT.rglob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        match = re.search(
+            r"^\*\*Import path:\*\*\s+`(?P<target>earth2studio\.[^`]+)`",
+            text,
+            re.M,
+        )
+        if match is None:
+            continue
+        url = path.relative_to(DOCS_ROOT).with_suffix("").as_posix() + "/"
+        targets[match.group("target")] = url
+    API_REF_TARGETS = targets
+    return targets
+
+
+def _convert_docstring_xrefs(html: str, page: object | None) -> str:
+    """Link mkdocstrings docstring cross-reference syntax left in rendered HTML."""
+
+    def repl(match: re.Match[str]) -> str:
+        title = match.group("title")
+        target = match.group("target")
+        url = _api_ref_targets().get(target)
+        if url is None:
+            return f"<code>{escape(title)}</code>"
+        href = escape(_relative_url(url, page), quote=True)
+        if url.endswith("/") and not href.endswith("/"):
+            href += "/"
+        return (
+            f'<a class="autorefs autorefs-internal" href="{href}">'
+            f"<code>{escape(title)}</code></a>"
+        )
+
+    return DOCSTRING_XREF_RE.sub(repl, html)
 
 
 def _remove_examples_gallery_description(markdown: str, page: object | None) -> str:
