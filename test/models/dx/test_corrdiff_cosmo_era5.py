@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import fsspec
 import numpy as np
 import pytest
 import torch
@@ -1014,3 +1015,24 @@ def test_corrdiff_cosmo_era5_package(mode, resolution):
             assert sl.min().item() >= b["min"] - 1e-4, f"{ch} below min in {mode}"
         if b.get("max") is not None:
             assert sl.max().item() <= b["max"] + 1e-4, f"{ch} above max in {mode}"
+
+
+def test_default_package_cache_serves(
+    tmp_path: Path,
+) -> None:
+    mem = fsspec.filesystem("memory")
+    mem.pipe_file("/corrdiff-pkg/rea2/metadata.json", b'{"resolution": "rea2"}')
+    mem.pipe_file("/corrdiff-pkg/rea6/metadata.json", b'{"resolution": "rea6"}')
+
+    # Use the model's actual cache options (redirect only the cache dir), so a
+    # regression to same_names would run here and fail rather than be bypassed.
+    options = dict(CorrDiffCosmoEra5.load_default_package().cache_options)
+    options["cache_storage"] = str(tmp_path)
+    package = Package("memory://corrdiff-pkg", cache_options=options)
+
+    # Cache both (shared basename) before reading -- the collision the fix prevents.
+    path2 = package.resolve("rea2/metadata.json")
+    path6 = package.resolve("rea6/metadata.json")
+    assert path2 != path6
+    assert json.loads(Path(path2).read_text())["resolution"] == "rea2"
+    assert json.loads(Path(path6).read_text())["resolution"] == "rea6"
