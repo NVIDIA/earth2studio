@@ -24,7 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (~30% faster)
 - Migrated GOES GLM data source from s3fs to obstore; listings of complete
   hours are memoized per instance while the current hour is always re-listed
-- Pinned the default `CorrDiffCosmoEra5` Hugging Face package to a specific revision.
 
 ### Deprecated
 
