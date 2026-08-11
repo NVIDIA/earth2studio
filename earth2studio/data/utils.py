@@ -54,6 +54,7 @@ from earth2studio.data.base import (
 from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.time import (
     leadtimearray_to_timedelta,
+    normalize_time_precision,
     timearray_to_datetime,
     to_time_array,
 )
@@ -74,6 +75,24 @@ try:
     import cudf
 except ImportError:
     cudf = None
+
+
+def _offset_times(time: TimeArray, lead: np.timedelta64) -> np.ndarray:
+    """Offset times by a lead time, keeping nanosecond precision when possible.
+
+    Parameters
+    ----------
+    time : TimeArray
+        Timestamps to offset.
+    lead : np.timedelta64
+        Lead time to add to each timestamp.
+
+    Returns
+    -------
+    np.ndarray
+        Offset timestamps, as ``datetime64[ns]`` when representable.
+    """
+    return normalize_time_precision(np.array([t + lead for t in time]))
 
 
 def fetch_data(
@@ -129,7 +148,7 @@ def fetch_data(
     else:
         da = []
         for lead in lead_time:
-            adjust_times = np.array([t + lead for t in time], dtype="datetime64[ns]")
+            adjust_times = _offset_times(time, lead)
             da0 = source(adjust_times, variable)  # type: ignore
             da0 = da0.expand_dims(dim={"lead_time": 1}, axis=1)
             da0 = da0.assign_coords(lead_time=np.array([lead], dtype="timedelta64[ns]"))
@@ -471,7 +490,7 @@ def datasource_to_file(
 
     # Compile all times
     for lead in lead_time:
-        adjust_times = np.array([t + lead for t in time], dtype="datetime64[ns]")
+        adjust_times = _offset_times(time, lead)
         time = np.concatenate([time, adjust_times], axis=0)
     time = np.unique(time)
 

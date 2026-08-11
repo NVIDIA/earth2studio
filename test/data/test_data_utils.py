@@ -202,6 +202,38 @@ def test_fetch_data(time, lead_time, device):
     assert not torch.isnan(x).any()
 
 
+def test_fetch_data_out_of_ns_range():
+    """Times outside the datetime64[ns] range must reach the source unwrapped.
+
+    Climate emulators trained on model-year calendars (such as SamudrACE, whose
+    CM4 initial conditions are at model year 151-319) fall outside the
+    nanosecond-precision range, which numpy wraps silently rather than raising.
+    """
+    domain = OrderedDict({"lat": np.random.randn(8), "lon": np.random.randn(16)})
+    random_source = Random(domain)
+    received: list[np.ndarray] = []
+
+    class RecordingSource:
+        """Data source that records the times it is asked for."""
+
+        def __call__(self, time, variable):
+            """Record the requested times and delegate to a Random source."""
+            received.append(np.asarray(time))
+            return random_source(time, variable)
+
+    time = np.array([np.datetime64("0311-01-01T00:00:00", "s")])
+    variable = np.array(["a"])
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+
+    x, coords = fetch_data(RecordingSource(), time, variable, lead_time)
+
+    assert len(received) == len(lead_time)
+    assert received[0][0] == time[0]
+    assert received[1][0] == time[0] + np.timedelta64(6, "h")
+    assert np.all(coords["time"] == time)
+    assert not torch.isnan(x).any()
+
+
 @pytest.mark.parametrize(
     "device",
     [

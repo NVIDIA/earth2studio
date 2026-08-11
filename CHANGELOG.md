@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed `GHCNHourly` station discovery to use the published GHCNh station
   list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
+- Fixed `to_time_array` and `fetch_data` silently wrapping timestamps outside the
+  `datetime64[ns]` range (roughly 1678-2262) to unrelated dates, which prevented
+  workflows such as `run.deterministic` from using the model-year calendars of
+  climate emulators (for example the CM4 initial conditions of `SamudrACE`).
+  Nanosecond precision is still used whenever the times are representable.
 
 ### Security
 

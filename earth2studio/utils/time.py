@@ -19,6 +19,33 @@ import numpy as np
 
 from earth2studio.utils.type import LeadTimeArray, TimeArray, TimeTolerance
 
+# Bounds of the datetime64[ns] representable range.
+_NS_TIME_MIN = np.datetime64("1678-01-01T00:00:00", "s")
+_NS_TIME_MAX = np.datetime64("2262-01-01T00:00:00", "s")
+
+
+def normalize_time_precision(time: np.ndarray) -> np.ndarray:
+    """Cast a datetime64 array to nanosecond precision when representable.
+
+    Nanosecond precision is the Earth2Studio default, since it preserves the
+    sub-second resolution some observation data sources carry. Times outside the
+    ``datetime64[ns]`` range would wrap to unrelated dates if cast, so the
+    array's own precision is kept instead.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Numpy datetime64 array
+
+    Returns
+    -------
+    np.ndarray
+        The array as ``datetime64[ns]`` when representable, otherwise unchanged
+    """
+    if time.size == 0 or np.all((time >= _NS_TIME_MIN) & (time <= _NS_TIME_MAX)):
+        return time.astype("datetime64[ns]")
+    return time
+
 
 def timearray_to_datetime(time: TimeArray) -> list[datetime]:
     """Simple converter from numpy datetime64 array into a list of datetimes.
@@ -94,7 +121,7 @@ def to_time_array(time: list[str] | list[datetime] | TimeArray) -> TimeArray:
                 f"Invalid time data type provided {ts}, should be datetime, string or np.datetime64"
             )
 
-    return np.array(output).astype("datetime64[ns]")
+    return normalize_time_precision(np.array(output))
 
 
 def normalize_time_tolerance(
