@@ -1574,3 +1574,60 @@ def test_nnja_obs_sat_ir_tasks_skipped_when_satellites_exclude_sensor():
     assert source._create_tasks([datetime(2019, 1, 1)], ["iasi"]) == []
     # Microwave planning is unaffected by the IR skip
     assert source._create_tasks([datetime(2019, 1, 1)], ["amsua"])
+
+
+def test_nnja_obs_sat_fetch_mixed_microwave_and_ir(monkeypatch, tmp_path):
+    # The folded single entry point returns one Arrow-typed frame for a
+    # request spanning both sensor families
+    source = NNJAObsSat(
+        time_tolerance=timedelta(0),
+        cache=False,
+        verbose=False,
+        decode_workers=1,
+    )
+
+    async def fake_fetch_files(uris):
+        return None
+
+    def _row(variable, observation, wavenumber):
+        return {
+            "time": np.datetime64("2019-01-01T00:00:00", "ns"),
+            "class": "rad",
+            "lat": 10.0,
+            "lon": 240.0,
+            "elev": np.nan,
+            "scan_angle": np.nan,
+            "scan_position": 7,
+            "scan_line": 8,
+            "sensor_index": 19,
+            "wavenumber": wavenumber,
+            "solza": 90.0,
+            "solaza": 100.0,
+            "satellite_za": 50.0,
+            "satellite_aza": 200.0,
+            "quality": None,
+            "satellite": "npp",
+            "observation": observation,
+            "variable": variable,
+        }
+
+    def fake_decode(path, task):
+        if task.sensor in nnja._NNJA_IR_SENSORS:
+            frame = ncep_microwave._rows_to_dataframe([_row("cris", 250.0, 661.25)])
+        else:
+            frame = ncep_microwave._rows_to_dataframe([_row("atms", 220.0, np.nan)])
+        return frame[NNJAObsSat.SCHEMA.names]
+
+    cached = tmp_path / "cached.bufr"
+    cached.write_bytes(b"fake")
+    monkeypatch.setattr(source, "fetch_files", fake_fetch_files)
+    monkeypatch.setattr(source, "local_path", lambda uri: str(cached))
+    monkeypatch.setattr(source, "_decode_file", fake_decode)
+
+    df = source(datetime(2019, 1, 1), ["atms", "cris"])
+
+    assert list(df.columns) == NNJAObsSat.SCHEMA.names
+    assert set(df["variable"]) == {"atms", "cris"}
+    assert len(df) == 2
+    # One dtype contract across sensor families after concat
+    assert str(df["scan_position"].dtype) == "uint16[pyarrow]"
