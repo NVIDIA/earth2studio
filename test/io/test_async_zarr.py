@@ -16,6 +16,7 @@
 
 import asyncio
 import concurrent.futures
+import datetime
 import functools
 import os
 import threading
@@ -1154,3 +1155,123 @@ async def test_async_zarr_shard_validation(tmp_path: str) -> None:
     z.write(x[0:1], total_coords, "fields")
     z.close()
     assert (await z.root.get("fields")).shards is None
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_async_zarr_nonblocking_no_aliasing(tmp_path: str, device: str) -> None:
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("cuda not available")
+
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    total_coords = OrderedDict(
+        {
+            "lead_time": lead_time[0:1],
+            "lat": np.linspace(-90, 90, 8),
+            "lon": np.linspace(0, 360, 16, endpoint=False),
+        }
+    )
+
+    z = AsyncZarrBackend(
+        f"{tmp_path}/aliasing.zarr",
+        parallel_coords=OrderedDict({"lead_time": lead_time}),
+        fs_factory=LocalFileSystem,
+        blocking=False,
+        pool_size=4,
+    )
+
+    # One buffer reused across steps, exactly as an in-place model would
+    buffer = torch.ones(1, 8, 16, device=device)
+    for i in range(len(lead_time)):
+        buffer.fill_(float(i + 1))
+        total_coords["lead_time"] = lead_time[i : i + 1]
+        z.write(buffer, total_coords, "fields")
+        # The model would now compute the next step straight into `buffer`
+        buffer.fill_(-999.0)
+    z.close()
+
+    stored = zarr.open(f"{tmp_path}/aliasing.zarr")["fields"][:]
+    assert np.all(stored[0] == 1.0)
+    assert np.all(stored[1] == 2.0)
+
+
+def test_async_zarr_datetime_coords_converted(tmp_path: str) -> None:
+    z = AsyncZarrBackend(
+        f"{tmp_path}/datetime.zarr",
+        parallel_coords={},
+        fs_factory=LocalFileSystem,
+        blocking=True,
+    )
+    total_coords = OrderedDict(
+        {
+            "time": np.array([datetime.datetime(2024, 1, 1)], dtype=object),
+            "lat": np.linspace(-90, 90, 4),
+        }
+    )
+    z.write(torch.ones(1, 4), total_coords, "fields")
+    z.close()
+
+    assert zarr.open(f"{tmp_path}/datetime.zarr")["time"].dtype.kind == "M"
+
+
+def test_async_zarr_write_after_consolidate(tmp_path: str) -> None:
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    total_coords = OrderedDict(
+        {
+            "lead_time": lead_time[0:1],
+            "lat": np.linspace(-90, 90, 8),
+            "lon": np.linspace(0, 360, 16, endpoint=False),
+        }
+    )
+
+    def backend() -> AsyncZarrBackend:
+        return AsyncZarrBackend(
+            f"{tmp_path}/consolidated.zarr",
+            parallel_coords=OrderedDict({"lead_time": lead_time}),
+            fs_factory=LocalFileSystem,
+            blocking=True,
+        )
+
+    run1 = backend()
+    run1.write(torch.ones(1, 8, 16), total_coords, "a")
+    run1.close()
+    zarr.consolidate_metadata(run1.root.store)
+
+    # Second run creates an array the consolidated snapshot does not know about
+    run2 = backend()
+    run2.write(torch.full((1, 8, 16), 2.0), total_coords, "b")
+    total_coords["lead_time"] = lead_time[1:2]
+    run2.write(torch.full((1, 8, 16), 3.0), total_coords, "b")
+    run2.close()
+    zarr.consolidate_metadata(run2.root.store)
+
+    stored = zarr.open(f"{tmp_path}/consolidated.zarr")["b"][:]
+    assert np.all(stored[0] == 2.0) and np.all(stored[1] == 3.0)
+    assert np.all(zarr.open(f"{tmp_path}/consolidated.zarr")["a"][0] == 1.0)
+
+
+def test_async_zarr_shard_with_chunked_spatial_coord(tmp_path: str) -> None:
+    lead_time = np.array([np.timedelta64(6 * i, "h") for i in range(8)])
+    total_coords = OrderedDict(
+        {
+            "lead_time": lead_time[0:1],
+            "lat": np.linspace(-90, 90, 32),
+            "lon": np.linspace(0, 360, 16, endpoint=False),
+        }
+    )
+
+    z = AsyncZarrBackend(
+        f"{tmp_path}/shard_chunk.zarr",
+        parallel_coords=OrderedDict({"lead_time": lead_time}),
+        chunked_coords={"lat": 4},
+        shard_coords={"lead_time": 4},
+        fs_factory=LocalFileSystem,
+        blocking=True,
+    )
+    for i in range(len(lead_time)):
+        total_coords["lead_time"] = lead_time[i : i + 1]
+        z.write(torch.full((1, 32, 16), float(i)), total_coords, "fields")
+    z.close()
+
+    stored = zarr.open(f"{tmp_path}/shard_chunk.zarr")["fields"][:]
+    for i in range(len(lead_time)):
+        assert np.all(stored[i] == float(i))
