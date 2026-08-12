@@ -13,13 +13,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Spectral axis and brightness temperature conversion for hyperspectral IR sounders.
+"""Spectral axis and radiance unit conversions for hyperspectral IR sounders.
 
 IASI and CrIS are archived as radiance and must be converted to brightness temperature
-before use. AIRS is already in kelvin in the NNJA aggregate BUFR files.
-
-Planck constants follow CODATA 2018 in the units CRTM and GSI use. The same pair is
-referred to as PLANCK_C1 / PLANCK_C2 in some CRTM references.
+before use (via :func:`earth2studio.data.utils.radiance_to_bt`; pure Planck inversion
+with no band correction, matching the convention used by the MetOp IASI and JPSS CrIS
+granule sources). AIRS is already in kelvin in the NNJA aggregate BUFR files.
 """
 
 from __future__ import annotations
@@ -29,18 +28,16 @@ from typing import Any
 
 import numpy as np
 
-# CODATA 2018 Planck constants in mW / m^2 / sr / cm^4 and cm·K respectively.
-# Source: https://physics.nist.gov/cuu/Constants/Table/allascii.txt
-C1 = 1.191042972e-5  # mW m^-2 sr^-1 cm^4
-C2 = 1.438776877  # cm K
-
 # IASI: uniform spectral grid, EUMETSAT L1C. Verified against GSI diagnostics.
 IASI_FIRST_WAVENUMBER_CM = 645.0
 IASI_SPACING_CM = 0.25
 IASI_CHANNELS = 8461
 
-# CrIS FSR: three bands numbered contiguously in CRTM order. Band edges verified against
-# the archive's band_calibration_quality column boundaries.
+# CrIS FSR: three bands (start wavenumber cm⁻¹, first channel, last channel)
+# numbered contiguously on the CRTM/GSI sensor_chan grid; the same grid as
+# jpss_cris.py builds from its per-band science channel counts. Band ranges
+# match the NFQF/NCQF per-band quality struct in the crisf4 BUFR (0-33-077 /
+# 0-33-076).
 CRIS_SPACING_CM = 0.625
 CRIS_BANDS = (
     (650.0, 1, 713),  # long wave
@@ -74,35 +71,6 @@ def wavenumber_cm_inverse(sensor: str, channels: Sequence[int] | Any) -> Any:
             result[inside] = start + CRIS_SPACING_CM * (channels[inside] - first)
         return result
     raise ValueError(f"no spectral axis defined for sensor {sensor!r}")
-
-
-def brightness_temperature(
-    radiance: Any,
-    wavenumber: Any,
-    *,
-    dtype: Any = np.float64,
-) -> Any:
-    """Monochromatic Planck inversion: radiance → brightness temperature.
-
-    Parameters
-    ----------
-    radiance : array-like
-        Spectral radiance in mW m⁻² sr⁻¹ (cm⁻¹)⁻¹.
-    wavenumber : array-like
-        Channel centre wavenumber in cm⁻¹, same shape as ``radiance``.
-
-    Returns
-    -------
-    np.ndarray
-        Brightness temperature in K. NaN where radiance ≤ 0.
-    """
-    radiance = np.asarray(radiance, dtype=dtype)
-    wavenumber = np.asarray(wavenumber, dtype=np.float64)
-    numerator = np.asarray(C2 * wavenumber, dtype=dtype)
-    argument = np.asarray(C1 * wavenumber**3, dtype=dtype)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        temperature = numerator / np.log(1.0 + argument / radiance)
-    return np.where(radiance > 0, temperature, np.nan)
 
 
 def iasi_radiance_mw(scra: Any, chsf: Any) -> Any:

@@ -17,10 +17,8 @@
 import numpy as np
 import pytest
 
+from earth2studio.data.utils import PLANCK_C1, PLANCK_C2, radiance_to_bt
 from earth2studio.data.utils_ir import (
-    C1,
-    C2,
-    brightness_temperature,
     cris_radiance_mw,
     iasi_radiance_mw,
     wavenumber_cm_inverse,
@@ -45,6 +43,27 @@ def test_cris_band_wavenumbers():
         wavenumber_cm_inverse("cris", [2212])
 
 
+def test_cris_grid_agrees_with_jpss_cris():
+    # The CrIS FSR spectral axis is also defined by the JPSS granule source;
+    # this asserts the two cannot drift apart silently.
+    from earth2studio.data.jpss_cris import _CRIS_WAVENUMBER_APOD
+
+    channels = np.arange(1, _CRIS_WAVENUMBER_APOD.size + 1)
+    np.testing.assert_array_equal(
+        wavenumber_cm_inverse("cris", channels), _CRIS_WAVENUMBER_APOD
+    )
+
+
+def test_iasi_grid_agrees_with_metop_iasi():
+    # metop_iasi reads its axis from GIADR calibration data at runtime, so
+    # only the channel count is a shared static constant; the grid formula
+    # endpoints are pinned in test_iasi_wavenumber_grid above.
+    from earth2studio.data.metop_iasi import _NUM_CHANNELS
+    from earth2studio.data.utils_ir import IASI_CHANNELS
+
+    assert IASI_CHANNELS == _NUM_CHANNELS
+
+
 def test_sensors_without_formulaic_grid_rejected():
     # AIRS wavenumbers come from the per-channel LOGRCW field in the BUFR,
     # not from a formulaic grid
@@ -58,20 +77,22 @@ def test_planck_constants_pinned():
     # CODATA-2018 first and second radiation constants in the CRTM/GSI units
     # (mW m⁻² sr⁻¹ cm⁴ and cm·K). Pinned so a unit or value regression cannot
     # pass the roundtrip tests below unnoticed.
-    assert C1 == 1.191042972e-5
-    assert C2 == 1.438776877
+    assert PLANCK_C1 == 1.191042972e-5
+    assert PLANCK_C2 == 1.438776877
 
 
-def test_brightness_temperature_planck_roundtrip():
+def test_radiance_to_bt_planck_roundtrip():
     wavenumber = np.array([700.0, 1000.0, 2400.0])
     temperature = np.array([220.0, 280.0, 310.0])
-    radiance = C1 * wavenumber**3 / (np.exp(C2 * wavenumber / temperature) - 1.0)
-    out = brightness_temperature(radiance, wavenumber)
+    radiance = (
+        PLANCK_C1 * wavenumber**3 / (np.exp(PLANCK_C2 * wavenumber / temperature) - 1.0)
+    )
+    out = radiance_to_bt(radiance, wavenumber)
     np.testing.assert_allclose(out, temperature, rtol=1e-12)
 
 
-def test_brightness_temperature_nonpositive_radiance_is_nan():
-    out = brightness_temperature([0.0, -1.0], [700.0, 700.0])
+def test_radiance_to_bt_nonpositive_radiance_is_nan():
+    out = radiance_to_bt(np.array([0.0, -1.0]), 700.0)
     assert np.isnan(out).all()
 
 
