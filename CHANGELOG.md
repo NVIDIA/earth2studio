@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated MRMS data source from s3fs to obstore; day-directory listings of
   past (complete) days are memoized per instance while the current day is
   always re-listed
+- MRMS grib decoding now computes the regular-grid lat/lon axes from
+  grid-definition header keys instead of `latlons()` (which decodes full 2-D
+  coordinate arrays, ~8 s per file) and runs in a worker thread so concurrent
+  tasks decode in parallel (~6x faster fetches)
 - Migrated NClimGridDaily data source from s3fs to obstore; monthly NetCDF
   files are now downloaded once into the cache and shared across all
   (day, variable) slices instead of being streamed per slice over fsspec

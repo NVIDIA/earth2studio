@@ -54,6 +54,46 @@ except ImportError:
     eccodes = None  # type: ignore[assignment]
 
 
+def _decode_mrms_grib(grib_file: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Decode field values and 1-D lat/lon axes from a single-message MRMS grib.
+
+    MRMS CONUS products are on a regular lat/lon grid, so the coordinate axes
+    are computed from the grid-definition header keys. ``latlons()`` decodes
+    full 2-D coordinate arrays and dominates fetch time (~8 s per 3500x7000
+    file vs ~0.1 ms for the header keys); it is kept only as a fallback for
+    non-regular grids.
+
+    Parameters
+    ----------
+    grib_file : str
+        Path to local single-message grib file.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray]
+        ``(values, lat, lon)`` with values of shape ``(len(lat), len(lon))``.
+    """
+    grbs = pygrib.open(grib_file)
+    try:
+        grb = grbs[1]
+        values = grb.values  # (ny, nx)
+        try:
+            lat0 = grb.latitudeOfFirstGridPointInDegrees
+            lon0 = grb.longitudeOfFirstGridPointInDegrees
+            dlat = grb.jDirectionIncrementInDegrees
+            dlon = grb.iDirectionIncrementInDegrees
+            lat_step = dlat if grb.jScansPositively else -dlat
+            lat = lat0 + lat_step * np.arange(grb.Nj)
+            lon = lon0 + dlon * np.arange(grb.Ni)
+        except (KeyError, RuntimeError):
+            lats, lons = grb.latlons()
+            lat = lats[:, 0]
+            lon = lons[0, :]
+        return values, lat, lon
+    finally:
+        grbs.close()
+
+
 @check_optional_dependencies("data")
 class MRMS:
     """NOAA Multi-Radar/Multi-Sensor (MRMS) products via AWS S3.
@@ -304,20 +344,14 @@ class MRMS:
 
             grib_file = await self._download_and_decompress_async(s3_uri)
 
-            grbs = None
             try:
-                grbs = pygrib.open(grib_file)
-
-                grb = grbs[1]
-                values = grb.values  # (ny, nx)
-                lats, lons = grb.latlons()
-                lat = lats[:, 0]
-                lon = lons[0, :]
+                # pygrib decode is blocking; run in a thread so concurrent
+                # (time, product) tasks decode in parallel
+                values, lat, lon = await asyncio.to_thread(
+                    _decode_mrms_grib, grib_file
+                )
             except Exception as e:
-                if grbs is None:
-                    logger.error(f"Failed to open grib file {grib_file}")
-                else:
-                    logger.error(f"Failed to read grib file {grib_file}")
+                logger.error(f"Failed to read grib file {grib_file}")
                 last_exc = e
                 if "End of resource reached when reading message" in str(
                     e
@@ -328,9 +362,6 @@ class MRMS:
                     )
                     continue
                 raise
-            finally:
-                if grbs is not None:
-                    grbs.close()
 
             return {
                 "time_index": time_index,
