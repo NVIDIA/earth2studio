@@ -807,4 +807,3 @@ class CFS_FX_Flux(CFS_FX):
     CFS_LON = np.linspace(0, 360 - 360 / 384, 384)
 
     LEXICON: Any = CFSFluxLexicon
-

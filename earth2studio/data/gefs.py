@@ -406,7 +406,9 @@ class GEFS_FX:
             byte_length=byte_length,
         )
         # pygrib decode is blocking and GIL-bound; run in a thread with timeout
-        values = await cancellable_to_thread(decode_grib_message, grib_file, timeout=30.0)
+        values = await cancellable_to_thread(
+            decode_grib_message, grib_file, timeout=30.0
+        )
         return modifier(values)
 
     def _validate_time(self, times: list[datetime]) -> None:
@@ -718,4 +720,3 @@ class GEFS_FX_721x1440(GEFS_FX):
                     raise ValueError(
                         f"Requested lead time {delta} needs to be 3 hour interval for first 10 days in GEFS 0.25 degree data"
                     )
-

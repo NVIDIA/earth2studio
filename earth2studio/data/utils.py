@@ -870,9 +870,7 @@ def decode_grib_message(grib_file: str, message_index: int = 1) -> np.ndarray:
     try:
         return np.asarray(grbs[message_index].values)
     except Exception:
-        logger.error(
-            f"Failed to read grib file {grib_file} at message {message_index}"
-        )
+        logger.error(f"Failed to read grib file {grib_file} at message {message_index}")
         raise
     finally:
         grbs.close()

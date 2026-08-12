@@ -490,7 +490,9 @@ class HRRR:
             byte_length=byte_length,
         )
         # pygrib decode is blocking and GIL-bound; run in a thread with timeout
-        values = await cancellable_to_thread(decode_grib_message, grib_file, timeout=30.0)
+        values = await cancellable_to_thread(
+            decode_grib_message, grib_file, timeout=30.0
+        )
         return modifier(values)
 
     def _validate_time(self, times: list[datetime]) -> None:
@@ -903,4 +905,3 @@ class HRRR_FX(HRRR):
                     raise ValueError(
                         f"Requested lead time {delta} can only be between [0,18] hours for HRRR forecast not on 6 hour interval {time}"
                     )
-
