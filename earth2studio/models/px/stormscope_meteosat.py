@@ -764,7 +764,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Loaded and initialised :class:`StormScopeMeteosatEU` model.
         """
         # load model registry:
-        config = OmegaConf.load(package.resolve("model.yaml"))
+        config = OmegaConf.load(package.resolve("config.yaml"))
 
         model_spec = [
             {
