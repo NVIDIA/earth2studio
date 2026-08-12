@@ -56,7 +56,7 @@ jobs:
     timeout-minutes: 180
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
