@@ -100,7 +100,7 @@ sample = data(
     to_time_array(["2021-06-01"]),
     prognostic_model.input_coords()["variable"],
 )
-print(f"Cached GFS input shape: {sample.shape}")
+print(sample)
 
 # %%
 # Execute the Workflow

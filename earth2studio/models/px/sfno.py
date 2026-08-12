@@ -149,10 +149,6 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ----------
     core_model : torch.nn.Module
         Core PyTorch model with loaded weights
-    center : torch.Tensor
-        Model center normalization tensor
-    scale : torch.Tensor
-        Model scale normalization tensor
     variables : np.array, optional
         Variables associated with model, by default 73 variable model.
 

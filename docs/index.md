@@ -192,7 +192,7 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
   <section class="e2s-band e2s-showcase" aria-label="Model interfaces">
     <div class="e2s-section-copy e2s-section-copy--center">
       <p class="e2s-section-kicker">Model interfaces</p>
-      <h2>Forecast with a growing number of models from NVIDIA and the community</h2>
+      <h2>Forecast with the largest collection of AI models in the community</h2>
     </div>
     <div class="e2s-showcase-grid">
       <div class="e2s-showcase-card e2s-accent--green e2s-reveal"><strong>FourCastNet 3</strong><span>AFNO-based medium-range forecasting.</span></div>

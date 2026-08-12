@@ -938,25 +938,73 @@ def build_module_page(path: Path) -> None:
 def write_index() -> None:
     """Write the API reference landing page."""
     pages = [
-        ("Prognostic Models", "models_px.md"),
-        ("Diagnostic Models", "models_dx.md"),
-        ("Data Assimilation", "models_da.md"),
-        ("Data Sources", "datasources_analysis.md"),
-        ("Forecast Data Sources", "datasources_forecast.md"),
-        ("DataFrame Sources", "datasources_dataframe.md"),
-        ("IO Backends", "io.md"),
-        ("Perturbations", "perturbation.md"),
-        ("Statistics", "statistics.md"),
-        ("Utilities", "utils_all.md"),
-        ("Workflows", "workflows.md"),
+        (
+            "Prognostic Models",
+            "models_px.md",
+            "Forecast future weather and climate states from initial conditions.",
+        ),
+        (
+            "Diagnostic Models",
+            "models_dx.md",
+            "Predict derived fields or downscaled products from existing model state.",
+        ),
+        (
+            "Data Assimilation",
+            "models_da.md",
+            "Combine observations and model state to produce updated analyses.",
+        ),
+        (
+            "Analysis Data Sources",
+            "datasources_analysis.md",
+            "Fetch analysis, reanalysis, and initial-condition array data.",
+        ),
+        (
+            "Forecast Data Sources",
+            "datasources_forecast.md",
+            "Fetch forecast products and forecast-like gridded model outputs.",
+        ),
+        (
+            "DataFrame Sources",
+            "datasources_dataframe.md",
+            "Fetch tabular observation data for point, station, or report workflows.",
+        ),
+        (
+            "IO Backends",
+            "io.md",
+            "Store workflow outputs in memory, Zarr, NetCDF, or custom backends.",
+        ),
+        (
+            "Perturbations",
+            "perturbation.md",
+            "Generate or apply perturbations for ensemble and uncertainty workflows.",
+        ),
+        (
+            "Statistics",
+            "statistics.md",
+            "Compute metrics, reductions, and ensemble summary statistics.",
+        ),
+        (
+            "Utilities",
+            "utils_all.md",
+            "Use shared helpers for coordinates, time handling, lexicons, and setup.",
+        ),
+        (
+            "Workflows",
+            "workflows.md",
+            "Compose models, data sources, IO, perturbations, and statistics.",
+        ),
     ]
     lines = [
+        "<!-- markdownlint-disable MD033 -->",
+        "",
         "# API Reference",
         "",
     ]
-    for title, target in pages:
-        lines.append(f"- [{title}]({target})")
-    lines.append("")
+    lines.extend(["Browse Earth2Studio's public APIs by component.", ""])
+    lines.extend(['<div class="grid cards" markdown>', ""])
+    for title, target, description in pages:
+        lines.extend([f"- **[{title}]({target})**", "", f"    {description}", ""])
+    lines.extend(["</div>", ""])
     (MODULES / "index.md").write_text("\n".join(lines), encoding="utf-8")
 
 

@@ -352,6 +352,7 @@ plugins:
     fail_fast: true
     optimize_images: true
     generate_notebooks: true
+    output_open: true
     collect_telemetry: true
     backreferences: true
 - blog:

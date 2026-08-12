@@ -427,6 +427,7 @@ fail_fast = true
 optimize_images = true
 generate_notebooks = true
 download_button_color = "#76b900"
+output_open = true
 collect_telemetry = true
 backreferences = true
 

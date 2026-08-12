@@ -185,11 +185,6 @@ class InterpEquirectangular(torch.nn.Module):
         """Creates a generator which accepts collection of input observations and
         outputs a collection of assimilated data.
 
-        Parameters
-        ----------
-        x : AssimilationInput
-            Input configuration for the assimilation model
-
         Yields
         ------
         xr.DataArray
