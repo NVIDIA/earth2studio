@@ -25,20 +25,23 @@ import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import h5py
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-import s3fs
 from loguru import logger
 
 from earth2studio.data.utils import (
+    AsyncListableStore,
     _sync_async,
     datasource_cache_root,
     gather_with_concurrency,
+    obstore_list_prefix,
+    obstore_read_range,
+    obstore_store_from_url,
     prep_data_inputs,
     radiance_to_bt,
 )
@@ -660,7 +663,13 @@ class JPSS_CRIS:
                 raise ValueError("sensor_indices must be unique")
             self._sensor_indices = normalized
 
-        self.fs: s3fs.S3FileSystem | None = None
+        # Object stores (one per satellite bucket) are lazily initialized on
+        # first call
+        self.stores: dict[str, AsyncListableStore] | None = None
+        # Memoized S3 day-directory listings keyed by bucket then prefix.
+        # Only day directories that can no longer gain files are cached so
+        # near-real-time polling still sees newly arriving granules.
+        self._listing_caches: dict[str, dict[str, list[str]]] = {}
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
@@ -684,13 +693,22 @@ class JPSS_CRIS:
     # Async initialisation
     # ------------------------------------------------------------------
     async def _async_init(self) -> None:
-        """Initialise the async S3 filesystem."""
-        self.fs = s3fs.S3FileSystem(
-            anon=True,
-            client_kwargs={},
-            asynchronous=True,
-            skip_instance_cache=True,
-        )
+        """Async initialization of the per-bucket object stores
+
+        Note
+        ----
+        Unlike async fsspec filesystems, obstore stores are event-loop
+        independent and could be built in ``__init__``; kept as a lazy async
+        method to preserve the initialization seam.
+        """
+        buckets = {_SAT_BUCKET_MAP[sat] for sat in self._satellites}
+        self.stores = {
+            bucket: obstore_store_from_url(
+                f"s3://{bucket}", max_pool_connections=self._max_workers
+            )
+            for bucket in buckets
+        }
+        self._listing_caches = {bucket: {} for bucket in buckets}
 
     def __call__(
         self,
@@ -746,10 +764,8 @@ class JPSS_CRIS:
         pd.DataFrame
             Long-format DataFrame.
         """
-        if self.fs is None:
+        if self.stores is None:
             await self._async_init()
-
-        session = await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         time_list, variable_list = prep_data_inputs(time, variable)
         schema = self.resolve_fields(fields)
@@ -781,9 +797,6 @@ class JPSS_CRIS:
             verbose=(not self._verbose),
         )
 
-        if session:
-            await session.close()
-
         # Decode and compile
         df = self._compile_dataframe(tasks, schema)
         return df
@@ -810,6 +823,10 @@ class JPSS_CRIS:
 
             for sat in self._satellites:
                 bucket = _SAT_BUCKET_MAP[sat]
+                if self.stores is None:
+                    raise ValueError("Object stores are not initialized")
+                store = self.stores[bucket]
+                listing_cache = self._listing_caches.setdefault(bucket, {})
 
                 for t in time_list:
                     tmin = t + self._tolerance_lower
@@ -821,52 +838,55 @@ class JPSS_CRIS:
 
                     while day <= end_day:
                         sdr_prefix = (
-                            f"{bucket}/CrIS-FS-SDR/"
+                            f"CrIS-FS-SDR/"
                             f"{day.year:04d}/{day.month:02d}/{day.day:02d}/"
                         )
                         geo_prefix = (
-                            f"{bucket}/CrIS-SDR-GEO/"
+                            f"CrIS-SDR-GEO/"
                             f"{day.year:04d}/{day.month:02d}/{day.day:02d}/"
                         )
 
-                        # Issue both listings concurrently
-                        sdr_coro = self.fs._ls(sdr_prefix, detail=False)  # type: ignore[union-attr]
-                        geo_coro = self.fs._ls(geo_prefix, detail=False)  # type: ignore[union-attr]
+                        # Day directories are memoized only once they can no
+                        # longer gain files, so near-real-time polling still
+                        # sees newly arriving granules
+                        cacheable = day + timedelta(days=1, hours=1) <= datetime.now(
+                            timezone.utc
+                        ).replace(tzinfo=None)
 
-                        sdr_listing: list[str] = []
-                        geo_listing: list[str] = []
-                        try:
-                            sdr_listing, geo_listing = await asyncio.gather(
-                                sdr_coro, geo_coro
-                            )
-                        except FileNotFoundError:
-                            # One or both directories missing — try individually
-                            try:
-                                sdr_listing = await self.fs._ls(  # type: ignore[union-attr]
-                                    sdr_prefix, detail=False
-                                )
-                            except FileNotFoundError:
-                                logger.warning(f"No CrIS data at s3://{sdr_prefix}")
-                            try:
-                                geo_listing = await self.fs._ls(  # type: ignore[union-attr]
-                                    geo_prefix, detail=False
-                                )
-                            except FileNotFoundError:
-                                logger.warning(f"No CrIS GEO data at s3://{geo_prefix}")
+                        # Issue both listings concurrently. obstore lists a
+                        # missing prefix as empty rather than raising.
+                        sdr_listing, geo_listing = await asyncio.gather(
+                            obstore_list_prefix(
+                                store,
+                                sdr_prefix,
+                                cache=listing_cache,
+                                cacheable=cacheable,
+                            ),
+                            obstore_list_prefix(
+                                store,
+                                geo_prefix,
+                                cache=listing_cache,
+                                cacheable=cacheable,
+                            ),
+                        )
 
                         if not sdr_listing:
+                            logger.warning(
+                                f"No CrIS data at s3://{bucket}/{sdr_prefix}"
+                            )
                             day += timedelta(days=1)
                             continue
 
                         # Build GEO lookup keyed by granule key
+                        # (values are bucket-relative object keys)
                         geo_lookup: dict[str, str] = {}
-                        for gpath in geo_listing:
-                            gname = gpath.rsplit("/", 1)[-1]
+                        for gkey in geo_listing:
+                            gname = gkey.rsplit("/", 1)[-1]
                             if gname.startswith("GCRSO_"):
-                                geo_lookup[self._granule_key(gname)] = gpath
+                                geo_lookup[self._granule_key(gname)] = gkey
 
-                        for path in sdr_listing:
-                            fname = path.rsplit("/", 1)[-1]
+                        for key in sdr_listing:
+                            fname = key.rsplit("/", 1)[-1]
                             if not fname.startswith("SCRIF_"):
                                 continue
 
@@ -880,8 +900,8 @@ class JPSS_CRIS:
                                     continue
                                 tasks.append(
                                     _CrISAsyncTask(
-                                        sdr_uri=f"s3://{path}",
-                                        geo_uri=f"s3://{geo_lookup[sdr_key]}",
+                                        sdr_uri=f"s3://{bucket}/{key}",
+                                        geo_uri=f"s3://{bucket}/{geo_lookup[sdr_key]}",
                                         datetime_min=tmin,
                                         datetime_max=tmax,
                                         satellite=sat,
@@ -903,10 +923,14 @@ class JPSS_CRIS:
         if pathlib.Path(local_path).is_file():
             return
 
+        if self.stores is None:
+            raise ValueError("Object stores are not initialized")
+        bucket, key = s3_uri.removeprefix("s3://").split("/", 1)
+
         last_exc: Exception | None = None
         for attempt in range(1, self._retries + 1):
             try:
-                data = await self.fs._cat_file(s3_uri.replace("s3://", "", 1))  # type: ignore[union-attr]
+                data = await obstore_read_range(self.stores[bucket], key)
                 with open(local_path, "wb") as fh:
                     fh.write(data)
                 return

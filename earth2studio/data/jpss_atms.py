@@ -24,19 +24,22 @@ import shutil
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-import s3fs
 from loguru import logger
 
 from earth2studio.data.utils import (
+    AsyncListableStore,
     _sync_async,
     datasource_cache_root,
     gather_with_concurrency,
+    obstore_list_prefix,
+    obstore_read_range,
+    obstore_store_from_url,
     prep_data_inputs,
 )
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
@@ -392,7 +395,13 @@ class JPSS_ATMS:
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
 
-        self.fs: s3fs.S3FileSystem | None = None
+        # Object stores (one per satellite bucket) are lazily initialized
+        # on first call
+        self.stores: dict[str, AsyncListableStore] | None = None
+        # Memoized S3 day-directory listings, one cache dict per bucket
+        # (the same bucket-relative prefix exists in multiple buckets).
+        # Only day directories that can no longer gain files are cached.
+        self._listing_caches: dict[str, dict[str, list[str]]] = {}
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
@@ -402,13 +411,22 @@ class JPSS_ATMS:
     # Async initialisation
     # ------------------------------------------------------------------
     async def _async_init(self) -> None:
-        """Initialise the async S3 filesystem."""
-        self.fs = s3fs.S3FileSystem(
-            anon=True,
-            client_kwargs={},
-            asynchronous=True,
-            skip_instance_cache=True,
-        )
+        """Async initialization of the per-bucket object stores
+
+        Note
+        ----
+        Unlike async fsspec filesystems, obstore stores are event-loop
+        independent and could be built in ``__init__``; kept as a lazy async
+        method to preserve the initialization seam.
+        """
+        buckets = {_SAT_BUCKET_MAP[sat] for sat in self._satellites}
+        self.stores = {
+            bucket: obstore_store_from_url(
+                f"s3://{bucket}", max_pool_connections=self._max_workers
+            )
+            for bucket in buckets
+        }
+        self._listing_caches = {bucket: {} for bucket in buckets}
 
     # ------------------------------------------------------------------
     # Synchronous entry point
@@ -470,10 +488,8 @@ class JPSS_ATMS:
         pd.DataFrame
             Long-format DataFrame.
         """
-        if self.fs is None:
+        if self.stores is None:
             await self._async_init()
-
-        session = await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         time_list, variable_list = prep_data_inputs(time, variable)
         schema = self.resolve_fields(fields)
@@ -500,9 +516,6 @@ class JPSS_ATMS:
             desc="Fetching ATMS BUFR files",
             verbose=(not self._verbose),
         )
-
-        if session:
-            await session.close()
 
         # Decode and compile
         df = self._compile_dataframe(tasks, schema)
@@ -539,26 +552,41 @@ class JPSS_ATMS:
                     end_day = tmax.replace(hour=0, minute=0, second=0, microsecond=0)
 
                     while day <= end_day:
-                        prefix = (
-                            f"{bucket}/ATMS_BUFR/"
+                        if self.stores is None:
+                            raise ValueError("Object stores are not initialized")
+                        day_prefix = (
+                            f"ATMS_BUFR/"
                             f"{day.year:04d}/{day.month:02d}/{day.day:02d}/"
                         )
-                        try:
-                            listing = await self.fs._ls(prefix, detail=False)  # type: ignore[union-attr]
-                        except FileNotFoundError:
-                            logger.warning(f"No ATMS data at s3://{prefix}")
+                        # Day directories that can still gain files (today,
+                        # allowing an hour of upload latency) bypass the
+                        # per-bucket listing memoization
+                        listing = await obstore_list_prefix(
+                            self.stores[bucket],
+                            day_prefix,
+                            cache=self._listing_caches.setdefault(bucket, {}),
+                            cacheable=day + timedelta(days=1, hours=1)
+                            <= datetime.now(timezone.utc).replace(tzinfo=None),
+                        )
+                        if not listing:
+                            logger.warning(
+                                f"No ATMS data at s3://{bucket}/{day_prefix}"
+                            )
                             day += timedelta(days=1)
                             continue
 
-                        for path in listing:
-                            fname = path.rsplit("/", 1)[-1]
+                        for key in listing:
+                            fname = key.rsplit("/", 1)[-1]
                             file_time = self._parse_filename_time(fname)
                             if file_time is None:
                                 continue
                             if tmin <= file_time <= tmax:
                                 tasks.append(
                                     _ATMSAsyncTask(
-                                        s3_uri=f"s3://{path}",
+                                        # Keys are bucket-relative; the full
+                                        # s3://bucket/key form matches the
+                                        # historical cache-key scheme
+                                        s3_uri=f"s3://{bucket}/{key}",
                                         datetime_min=tmin,
                                         datetime_max=tmax,
                                         satellite=sat,
@@ -581,10 +609,14 @@ class JPSS_ATMS:
         if pathlib.Path(local_path).is_file():
             return
 
+        if self.stores is None:
+            raise ValueError("Object stores are not initialized")
+        bucket, key = s3_uri.removeprefix("s3://").split("/", 1)
+
         last_exc: Exception | None = None
         for attempt in range(1, self._retries + 1):
             try:
-                data = await self.fs._cat_file(s3_uri.replace("s3://", "", 1))  # type: ignore[union-attr]
+                data = await obstore_read_range(self.stores[bucket], key)
                 with open(local_path, "wb") as fh:
                     fh.write(data)
                 return
