@@ -9,42 +9,144 @@ hide:
 <div class="e2s-home" data-e2s-home>
   <canvas class="e2s-home-canvas" aria-hidden="true"></canvas>
   <section class="e2s-hero" aria-label="Earth2Studio overview">
-    <div class="e2s-planet-scene" aria-hidden="true">
-      <div class="e2s-planet"></div>
-    </div>
     <div class="e2s-hero__content">
-      <p class="e2s-eyebrow">Earth2Studio</p>
-      <h1>Experience the next generation of weather and climate modeling</h1>
-      <p class="e2s-hero__lede">
-        Access a leading collection of weather and climate AI models,
-        production-ready data sources,
-        composable inference APIs, and GPU-accelerated workflows in one
-        Python package.
-      </p>
-      <a class="e2s-hero__start" href="userguide/about/install/" aria-label="Get started with Earth2Studio">
-        <span>Get Started</span>
-      </a>
-      <div class="e2s-install-command" data-e2s-install aria-label="Install Earth2Studio with FCN support">
-        <div class="e2s-install-tabs" role="tablist" aria-label="Package manager">
-          <button type="button" class="is-active" data-e2s-command='uv pip install "earth2studio[fcn]"'>UV</button>
-          <button type="button" data-e2s-command='pip install "earth2studio[fcn]"'>pip</button>
+      <div class="e2s-hero__top">
+        <div class="e2s-hero__copy">
+          <p class="e2s-eyebrow">Earth2Studio</p>
+          <h1>Experience the next generation of weather and climate modeling</h1>
+          <p class="e2s-hero__lede">
+            Access a leading collection of weather and climate AI models,
+            production-ready data sources,
+            composable inference APIs, and GPU-accelerated workflows in one
+            Python package.
+          </p>
+          <a class="e2s-hero__start" href="userguide/about/install/" aria-label="Get started with Earth2Studio">
+            <span>Get Started</span>
+          </a>
         </div>
-        <div class="e2s-install-line">
-          <span>$</span><code>uv pip install &quot;earth2studio[fcn]&quot;</code>
-          <button type="button" class="e2s-copy-button" data-e2s-copy-command='uv pip install "earth2studio[fcn]"' aria-label="Copy install command">Copy</button>
+        <div class="e2s-hero__visual">
+          <div class="e2s-orbit" data-e2s-orbit role="img" aria-label="Earth2Studio mark: weather and climate icons around a globe">
+            <svg class="e2s-orbit__globe" viewBox="0 0 240 240" aria-hidden="true">
+              <defs>
+                <clipPath id="e2s-orbit-globe-clip">
+                  <circle cx="120" cy="120" r="72"></circle>
+                </clipPath>
+              </defs>
+              <circle cx="120" cy="120" r="72"></circle>
+              <g clip-path="url(#e2s-orbit-globe-clip)">
+                <ellipse cx="120" cy="120" rx="28" ry="72"></ellipse>
+                <ellipse cx="120" cy="120" rx="54" ry="72"></ellipse>
+                <path d="M48 120h144"></path>
+                <path d="M58 88c32 10 92 10 124 0"></path>
+                <path d="M58 152c32-10 92-10 124 0"></path>
+                <path d="M120 48v144"></path>
+              </g>
+            </svg>
+            <div class="e2s-orbit__icons">
+              <button type="button" class="e2s-orbit__icon e2s-orbit__icon--solar" data-e2s-orbit-label="Solar prediction" aria-label="Solar prediction">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"></path></svg>
+              </button>
+              <button type="button" class="e2s-orbit__icon e2s-orbit__icon--cloud" data-e2s-orbit-label="Atmospheric prediction" aria-label="Atmospheric prediction">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18h11a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.3 8.6 4.5 4.5 0 0 0 6 18z"></path></svg>
+              </button>
+              <button type="button" class="e2s-orbit__icon e2s-orbit__icon--storm" data-e2s-orbit-label="Storm nowcasting" aria-label="Storm nowcasting">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L5 13h6l-1 9 8-11h-6z"></path></svg>
+              </button>
+              <button type="button" class="e2s-orbit__icon e2s-orbit__icon--ocean" data-e2s-orbit-label="Ocean modeling" aria-label="Ocean modeling">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0M2 16c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0"></path></svg>
+              </button>
+              <button type="button" class="e2s-orbit__icon e2s-orbit__icon--energy" data-e2s-orbit-label="Renewable energy workflows" aria-label="Renewable energy workflows">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13v8M9 21h6M12 13V5M12 13l6.9 4M12 13l-6.9 4"></path><circle cx="12" cy="13" r="1.4"></circle></svg>
+              </button>
+              <button type="button" class="e2s-orbit__icon e2s-orbit__icon--wind" data-e2s-orbit-label="Wind products" aria-label="Wind products">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h9a3 3 0 1 0-3-3M3 12h13a3 3 0 1 1-3 3M3 16h6a2 2 0 1 1-2 2"></path></svg>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="e2s-hero__panel" aria-label="Forecast quickstart code example">
-        <div class="e2s-terminal">
-          <span class="e2s-terminal__dot"></span>
-          <span class="e2s-terminal__dot"></span>
-          <span class="e2s-terminal__dot"></span>
-          <pre><code>from earth2studio import run; from earth2studio.data import GFS
+      <div class="e2s-hero__separator" aria-hidden="true"></div>
+      <div class="e2s-hero__quickstart">
+        <div class="e2s-install-command" data-e2s-install aria-label="Install Earth2Studio with FCN support">
+          <div class="e2s-install-tabs" role="tablist" aria-label="Package manager">
+            <button type="button" class="is-active" data-e2s-command='uv pip install "earth2studio[fcn]"'>UV</button>
+            <button type="button" data-e2s-command='pip install "earth2studio[fcn]"'>pip</button>
+          </div>
+          <div class="e2s-install-line">
+            <span>$</span><code>uv pip install &quot;earth2studio[fcn]&quot;</code>
+            <button type="button" class="e2s-copy-button" data-e2s-copy-command='uv pip install "earth2studio[fcn]"' aria-label="Copy install command">Copy</button>
+          </div>
+        </div>
+        <div class="e2s-hero__panel" aria-label="Forecast quickstart code example">
+          <div class="e2s-terminal">
+            <span class="e2s-terminal__dot"></span>
+            <span class="e2s-terminal__dot"></span>
+            <span class="e2s-terminal__dot"></span>
+            <pre><code>from earth2studio import run; from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend; from earth2studio.models.px import FCN
 model = FCN.load_model(FCN.load_default_package())
 run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;fcn.zarr&quot;))</code></pre>
+          </div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section id="solutions" class="e2s-band e2s-solutions" aria-label="Earth2Studio open platform">
+    <div class="e2s-section-copy e2s-section-copy--center">
+      <p class="e2s-section-kicker">Open platform</p>
+      <h2>AI weather and climate solutions for every sector</h2>
+      <p>
+        Earth2Studio gives research groups, agencies, enterprises, developers,
+        and classrooms a shared Python surface for models, data, verification,
+        and operational workflows.
+      </p>
+    </div>
+    <div class="e2s-solution-grid">
+      <article class="e2s-solution-card">
+        <span class="e2s-solution-card__icon"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
+        <h3>Scientists & researchers</h3>
+        <p>
+          Benchmark models on identical data through one API, design ensemble
+          experiments, and verify outputs with built-in deterministic and
+          probabilistic metrics.
+        </p>
+      </article>
+      <article class="e2s-solution-card">
+        <span class="e2s-solution-card__icon"><i class="fa-solid fa-landmark" aria-hidden="true"></i></span>
+        <h3>Met services & agencies</h3>
+        <p>
+          Run, fine-tune, and deploy forecasting capability on infrastructure
+          you control, from medium-range global guidance to rapid regional
+          workflows.
+        </p>
+      </article>
+      <article class="e2s-solution-card">
+        <span class="e2s-solution-card__icon"><i class="fa-solid fa-building" aria-hidden="true"></i></span>
+        <h3>Enterprise</h3>
+        <p>
+          Build ensemble risk workflows for energy, insurance, logistics,
+          agriculture, and climate resilience with reproducible AI forecasts.
+        </p>
+      </article>
+      <article class="e2s-solution-card">
+        <span class="e2s-solution-card__icon"><i class="fa-solid fa-code" aria-hidden="true"></i></span>
+        <h3>Developers</h3>
+        <p>
+          Build weather-aware APIs, dashboards, agents, and decision products
+          on a composable SDK that keeps models, data, IO, and workflows
+          separate.
+        </p>
+      </article>
+      <article class="e2s-solution-card">
+        <span class="e2s-solution-card__icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></span>
+        <h3>Educators & students</h3>
+        <p>
+          Teach Earth system AI with an open on-ramp that can fetch data, load
+          models, run forecasts, and store outputs using familiar scientific
+          Python tools.
+        </p>
+      </article>
     </div>
   </section>
 

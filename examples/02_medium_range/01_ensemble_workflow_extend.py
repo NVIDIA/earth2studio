@@ -36,7 +36,7 @@ In this example you will learn:
 
 # /// script
 # dependencies = [
-#   "torch==2.12.0", # Match torch-harmonics examples
+#   "torch==2.13.0", # Match torch-harmonics examples
 #   "earth2studio[dlwp,perturbation] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "matplotlib",
 # ]

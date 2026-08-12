@@ -36,7 +36,7 @@ In this example you will learn:
 
 # /// script
 # dependencies = [
-#   "torch==2.12.0", # Match torch-harmonics examples
+#   "torch==2.13.0", # Match torch-harmonics examples
 #   "earth2studio[fcn,perturbation] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "scipy>=1.15.2",
 #   "cartopy",
@@ -67,7 +67,7 @@ In this example you will learn:
 # - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
 # - IO Backend: Save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 import os
 
 os.makedirs("outputs", exist_ok=True)
@@ -102,6 +102,16 @@ io = ZarrBackend(
 )
 
 # %%
+# Fetch Initial Data
+# ------------------
+# Fetching the model input once warms the local cache. The inference workflow below
+# can reuse this cached GFS data instead of measuring download time.
+
+# %% tags=["e2sg-profile:setup"]
+sample = data(["2024-01-01"], model.input_coords()["variable"])
+print(f"Cached GFS input shape: {sample.shape}")
+
+# %%
 # Execute the Workflow
 # --------------------
 # With all components initialized, running the workflow is a single line of Python code.
@@ -112,7 +122,7 @@ io = ZarrBackend(
 # For the forecast we will predict for 10 steps (for FCN, this is 60 hours) with 8 ensemble
 # members which will be ran in 2 batches with batch size 4.
 
-# %%
+# %% tags=["e2sg-profile:inference"]
 
 nsteps = 10
 nensemble = 8
@@ -137,7 +147,7 @@ io = ensemble(
 #
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-# %%
+# %% tags=["e2sg-profile:plotting"]
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 

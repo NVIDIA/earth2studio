@@ -62,7 +62,7 @@ In this example you will learn:
 # - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
 # - IO Backend: Save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 import os
 
 os.makedirs("outputs", exist_ok=True)
@@ -89,6 +89,16 @@ data = GFS()
 io = ZarrBackend()
 
 # %%
+# Fetch Initial Data
+# ------------------
+# Fetching the model input once warms the local cache. The inference workflow below
+# can reuse this cached GFS data instead of measuring download time.
+
+# %% tags=["e2sg-profile:setup"]
+sample = data(["2021-06-01"], prognostic_model.input_coords()["variable"])
+print(f"Cached GFS input shape: {sample.shape}")
+
+# %%
 # Execute the Workflow
 # --------------------
 # With all components initialized, running the workflow is a single line of Python code.
@@ -96,7 +106,7 @@ io = ZarrBackend()
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
 
-# %%
+# %% tags=["e2sg-profile:inference"]
 import earth2studio.run as run
 
 nsteps = 8
@@ -119,7 +129,7 @@ print(io.root.tree())
 #     outputs of both the prognostic and diagnostic, we recommend writing a custom
 #     workflow.
 
-# %%
+# %% tags=["e2sg-profile:plotting"]
 from datetime import datetime
 
 import cartopy.crs as ccrs
