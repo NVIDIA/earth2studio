@@ -789,11 +789,11 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">async_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">16</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">async_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">32</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">retries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/himawari_ahi.py#L235-L904"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.HimawariAHI" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/himawari_ahi.py#L244-L941"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.HimawariAHI" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:as" style="background-color:#1e88e5;color:#fff;" title="Asia"><span class="sphinx-badge-icon"><i class="fa-solid fa-earth-asia"></i></span><span class="sphinx-badge-label">AS</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:au" style="background-color:#42a5f5;color:#000;" title="Australia"><span class="sphinx-badge-icon"><i class="fa-solid fa-earth-oceania"></i></span><span class="sphinx-badge-label">AU</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:observation" style="background-color:#15803d;color:#fff;" title="Direct Observations"><i class="fa-solid fa-binoculars"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:sat" style="background-color:#1c7ed6;color:#fff;" title="Satellite"><i class="fa-solid fa-satellite"></i></span></span><p>Himawari-8/9 AHI (Advanced Himawari Imager) data source.</p>
 <p>This data source provides access to Himawari-8 and Himawari-9 satellite
 imagery from the NOAA ISatSS L2 Full Disk product on AWS S3. The data
@@ -815,8 +815,9 @@ are downloaded.  When <code class="docutils literal notranslate"><span class="pr
 <li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress, by default True</p></li>
 <li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Total timeout in seconds for the entire fetch operation,
 by default 600</p></li>
-<li><p><strong>async_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum number of concurrent async fetch tasks,
-by default 16</p></li>
+<li><p><strong>async_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum number of concurrent async fetch tasks. Fetches are many
+small tile objects, so throughput is round-trip-latency bound;
+by default 32</p></li>
 <li><p><strong>retries</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of retry attempts per failed fetch task with
 exponential backoff, by default 3</p></li>
 </ul>
@@ -839,7 +840,7 @@ consists of 88 tile files per channel.</p>
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.HimawariAHI.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/himawari_ahi.py#L364-L393"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.HimawariAHI.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/himawari_ahi.py#L383-L412"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.HimawariAHI.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Function to get Himawari AHI data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -861,7 +862,7 @@ to return. Must be in the Himawari lexicon (ahi01-ahi16).</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.HimawariAHI.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/himawari_ahi.py#L395-L478"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.HimawariAHI.fetch" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/himawari_ahi.py#L414-L498"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.HimawariAHI.fetch" title="Link to this definition">#</a></dt>
 <dd><p>Async function to get Himawari AHI data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -881,7 +882,7 @@ to return. Must be in the Himawari lexicon (ahi01-ahi16).</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.HimawariAHI.available">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">satellite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'himawari9'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/himawari_ahi.py#L785-L847"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.HimawariAHI.available" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">satellite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'himawari9'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/himawari_ahi.py#L824-L884"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.HimawariAHI.available" title="Link to this definition">#</a></dt>
 <dd><p>Check if given date time is available in the Himawari object store.</p>
 <p>Performs a lightweight S3 listing to verify that data files actually
 exist for the requested time, accounting for potential data gaps.</p>
