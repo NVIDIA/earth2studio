@@ -45,9 +45,9 @@ In this example you will learn:
 # %%
 # We need the following:
 #
-# - Prognostic Model: Use the Atlas model `earth2studio.models.px.Atlas`.
-# - Datasource: Pull data from the ARCO data source `earth2studio.data.ARCO`.
-# - IO Backend: Save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
+# - Prognostic Model: Use the Atlas model [`earth2studio.models.px.Atlas`][earth2studio.models.px.Atlas].
+# - Datasource: Pull data from the ARCO data source [`earth2studio.data.ARCO`][earth2studio.data.ARCO].
+# - IO Backend: Save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 #
 # !!! note
 #     Atlas requires two input lead times (t-6h and t) to produce a forecast.
@@ -93,8 +93,8 @@ io = ZarrBackend()
 # Manual Forward Pass
 # -------------------
 # For more control over the inference loop, Atlas can be called directly using
-# `earth2studio.data.utils.fetch_data` for initial conditions and
-# `earth2studio.models.px.Atlas.prep_next_input` to advance the sliding
+# [`earth2studio.data.utils.fetch_data`][earth2studio.data.utils.fetch_data] for initial conditions and
+# [`earth2studio.models.px.Atlas.prep_next_input`][earth2studio.models.px.Atlas.prep_next_input] to advance the sliding
 # window between steps. This is useful when you need access to intermediate tensors
 # or want to customize the rollout logic.
 #

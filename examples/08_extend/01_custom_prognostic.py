@@ -43,7 +43,7 @@ In this example you will learn:
 # -----------------
 # As discussed in the [Prognostic Models](../../userguide/components/prognostic.md#prognostic_model_userguide) section of the user guide,
 # Earth2Studio defines a prognostic model through a simple interface
-# `earth2studio.models.px.base.PrognosticModel`. This can be used to help
+# [`earth2studio.models.px.base.PrognosticModel`][earth2studio.models.px.base.PrognosticModel]. This can be used to help
 # guide the required APIs needed to successfully create our own custom prognostic.
 #
 # In this example, let's create a simple prognostic that simply predicts adds normal
@@ -246,21 +246,21 @@ class CustomPrognostic(torch.nn.Module):
 # %%
 # !!! warning
 #       It is the responsibility of the model check if the input tensor and coordinate
-#       system are indeed valid. The `earth2studio.utils.coords.handshake_coords`
-#       and `earth2studio.utils.coords.handshake_dim` can help make this easier.
+#       system are indeed valid. The [`earth2studio.utils.coords.handshake_coords`][earth2studio.utils.coords.handshake_coords]
+#       and [`earth2studio.utils.coords.handshake_dim`][earth2studio.utils.coords.handshake_dim] can help make this easier.
 
 # %%
 # Set Up
 # ------
 # With the custom prognostic defined, it's now easily usable in a standard workflow. In
-# this example, we will use the build in workflow `earth2studio.run.deterministic`.
+# this example, we will use the build in workflow [`earth2studio.run.deterministic`][earth2studio.run.deterministic].
 
 # %%
 # Let's instantiate the components needed.
 #
 # - Prognostic Model: Use our custom prognostic defined above.
-# - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
-# - IO Backend: Save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - IO Backend: Save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 
 # %%
 from dotenv import load_dotenv

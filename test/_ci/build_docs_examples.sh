@@ -104,6 +104,9 @@ uv sync --python "${uv_python}" --locked --extra all --group docs
 current_step="generate API markdown"
 uv run python docs/generate_api.py
 
+current_step="generate catalog metadata"
+uv run python docs/generate_catalog.py
+
 current_step="generate install options"
 uv run python docs/generate_install_options.py
 

@@ -70,10 +70,10 @@ In this example you will learn:
 #
 # This example also needs the following:
 #
-# - Prognostic Base Model: Use SFNO model architecture `earth2studio.models.px.SFNO`.
-# - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
-# - Perturbation Method: HENS uses a novel perturbation method `earth2studio.perturbation.HemisphericCentredBredVector`.
-# - Seeding Perturbation Method: Perturbation method to seed the Bred Vector `earth2studio.perturbation.CorrelatedSphericalGaussian`.
+# - Prognostic Base Model: Use SFNO model architecture [`earth2studio.models.px.SFNO`][earth2studio.models.px.SFNO].
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - Perturbation Method: HENS uses a novel perturbation method [`earth2studio.perturbation.HemisphericCentredBredVector`][earth2studio.perturbation.HemisphericCentredBredVector].
+# - Seeding Perturbation Method: Perturbation method to seed the Bred Vector [`earth2studio.perturbation.CorrelatedSphericalGaussian`][earth2studio.perturbation.CorrelatedSphericalGaussian].
 
 # %%
 import os

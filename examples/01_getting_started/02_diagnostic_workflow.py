@@ -44,7 +44,7 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# For this example, the built in diagnostic workflow `earth2studio.run.diagnostic`
+# For this example, the built in diagnostic workflow [`earth2studio.run.diagnostic`][earth2studio.run.diagnostic]
 # will be used.
 
 # %%
@@ -57,10 +57,10 @@ In this example you will learn:
 # %%
 # Thus, we need the following:
 #
-# - Prognostic Model: Use the built in FourCastNet Model `earth2studio.models.px.FCN`.
-# - Diagnostic Model: Use the built in precipitation AFNO model `earth2studio.models.dx.PrecipitationAFNO`.
-# - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
-# - IO Backend: Save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
+# - Prognostic Model: Use the built in FourCastNet Model [`earth2studio.models.px.FCN`][earth2studio.models.px.FCN].
+# - Diagnostic Model: Use the built in precipitation AFNO model [`earth2studio.models.dx.PrecipitationAFNO`][earth2studio.models.dx.PrecipitationAFNO].
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - IO Backend: Save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 
 # %% tags=["e2sg-profile:setup"]
 import os

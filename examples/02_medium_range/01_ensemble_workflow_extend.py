@@ -47,7 +47,7 @@ In this example you will learn:
 # ------
 # All workflows inside Earth2Studio require constructed components to be
 # handed to them. In this example, we will use the built in ensemble workflow
-# `earth2studio.run.ensemble`.
+# [`earth2studio.run.ensemble`][earth2studio.run.ensemble].
 
 # %%
 # .. literalinclude:: ../../earth2studio/run.py
@@ -58,10 +58,10 @@ In this example you will learn:
 # %%
 # We need the following:
 #
-# - Prognostic Model: Use the built in DLWP model `earth2studio.models.px.DLWP`.
-# - perturbation_method: Extend the Spherical Gaussian Method `earth2studio.perturbation.SphericalGaussian`.
-# - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
-# - IO Backend: Save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
+# - Prognostic Model: Use the built in DLWP model [`earth2studio.models.px.DLWP`][earth2studio.models.px.DLWP].
+# - perturbation_method: Extend the Spherical Gaussian Method [`earth2studio.perturbation.SphericalGaussian`][earth2studio.perturbation.SphericalGaussian].
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - IO Backend: Save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 
 # %%
 import os

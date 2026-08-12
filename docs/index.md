@@ -20,8 +20,11 @@ hide:
             composable inference APIs, and GPU-accelerated workflows in one
             Python package.
           </p>
-          <a class="e2s-hero__start" href="userguide/about/install/" aria-label="Get started with Earth2Studio">
+          <a class="e2s-hero__start e2s-home-button" href="userguide/about/install/" aria-label="Get started with Earth2Studio">
             <span>Get Started</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6"></path>
+            </svg>
           </a>
         </div>
         <div class="e2s-hero__visual">
@@ -43,22 +46,22 @@ hide:
               </g>
             </svg>
             <div class="e2s-orbit__icons">
-              <button type="button" class="e2s-orbit__icon e2s-orbit__icon--solar" data-e2s-orbit-label="Solar prediction" aria-label="Solar prediction">
+              <button type="button" class="e2s-orbit__icon e2s-home-button e2s-orbit__icon--solar" data-e2s-orbit-label="Solar prediction" aria-label="Solar prediction">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"></path></svg>
               </button>
-              <button type="button" class="e2s-orbit__icon e2s-orbit__icon--cloud" data-e2s-orbit-label="Atmospheric prediction" aria-label="Atmospheric prediction">
+              <button type="button" class="e2s-orbit__icon e2s-home-button e2s-orbit__icon--cloud" data-e2s-orbit-label="Atmospheric prediction" aria-label="Atmospheric prediction">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18h11a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.3 8.6 4.5 4.5 0 0 0 6 18z"></path></svg>
               </button>
-              <button type="button" class="e2s-orbit__icon e2s-orbit__icon--storm" data-e2s-orbit-label="Storm nowcasting" aria-label="Storm nowcasting">
+              <button type="button" class="e2s-orbit__icon e2s-home-button e2s-orbit__icon--storm" data-e2s-orbit-label="Storm nowcasting" aria-label="Storm nowcasting">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L5 13h6l-1 9 8-11h-6z"></path></svg>
               </button>
-              <button type="button" class="e2s-orbit__icon e2s-orbit__icon--ocean" data-e2s-orbit-label="Ocean modeling" aria-label="Ocean modeling">
+              <button type="button" class="e2s-orbit__icon e2s-home-button e2s-orbit__icon--ocean" data-e2s-orbit-label="Ocean modeling" aria-label="Ocean modeling">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0M2 16c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0"></path></svg>
               </button>
-              <button type="button" class="e2s-orbit__icon e2s-orbit__icon--energy" data-e2s-orbit-label="Renewable energy workflows" aria-label="Renewable energy workflows">
+              <button type="button" class="e2s-orbit__icon e2s-home-button e2s-orbit__icon--energy" data-e2s-orbit-label="Renewable energy workflows" aria-label="Renewable energy workflows">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13v8M9 21h6M12 13V5M12 13l6.9 4M12 13l-6.9 4"></path><circle cx="12" cy="13" r="1.4"></circle></svg>
               </button>
-              <button type="button" class="e2s-orbit__icon e2s-orbit__icon--wind" data-e2s-orbit-label="Wind products" aria-label="Wind products">
+              <button type="button" class="e2s-orbit__icon e2s-home-button e2s-orbit__icon--wind" data-e2s-orbit-label="Wind products" aria-label="Wind products">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h9a3 3 0 1 0-3-3M3 12h13a3 3 0 1 1-3 3M3 16h6a2 2 0 1 1-2 2"></path></svg>
               </button>
             </div>
@@ -69,12 +72,12 @@ hide:
       <div class="e2s-hero__quickstart">
         <div class="e2s-install-command" data-e2s-install aria-label="Install Earth2Studio with FCN support">
           <div class="e2s-install-tabs" role="tablist" aria-label="Package manager">
-            <button type="button" class="is-active" data-e2s-command='uv pip install "earth2studio[fcn]"'>UV</button>
-            <button type="button" data-e2s-command='pip install "earth2studio[fcn]"'>pip</button>
+            <button type="button" class="e2s-home-button is-active" data-e2s-command='uv pip install "earth2studio[fcn]"'>UV</button>
+            <button type="button" class="e2s-home-button" data-e2s-command='pip install "earth2studio[fcn]"'>pip</button>
           </div>
           <div class="e2s-install-line">
             <span>$</span><code>uv pip install &quot;earth2studio[fcn]&quot;</code>
-            <button type="button" class="e2s-copy-button" data-e2s-copy-command='uv pip install "earth2studio[fcn]"' aria-label="Copy install command">Copy</button>
+            <button type="button" class="e2s-copy-button e2s-home-button" data-e2s-copy-command='uv pip install "earth2studio[fcn]"' aria-label="Copy install command">Copy</button>
           </div>
         </div>
         <div class="e2s-hero__panel" aria-label="Forecast quickstart code example">
@@ -205,7 +208,7 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
       <div class="e2s-showcase-card e2s-accent--cyan e2s-reveal"><strong>ACE-2</strong><span>Allen Institute climate and weather model interface.</span></div>
       <div class="e2s-showcase-card e2s-accent--blue e2s-reveal"><strong>Atlas</strong><span>Generative medium-range forecast workflows.</span></div>
     </div>
-    <p class="e2s-more-note e2s-reveal">and more</p>
+    <a class="e2s-more-note e2s-more-note--button e2s-home-button e2s-reveal" href="userguide/about/catalog/?tab=models">and more</a>
   </section>
 
   <section class="e2s-band e2s-connectors" aria-label="Global data connectors">
@@ -227,42 +230,42 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
       <div class="e2s-connector e2s-accent--purple e2s-reveal">AWS Open Data</div>
       <div class="e2s-connector e2s-accent--blue e2s-reveal">NNJA</div>
     </div>
-    <p class="e2s-more-note e2s-reveal">and more</p>
+    <a class="e2s-more-note e2s-more-note--button e2s-home-button e2s-reveal" href="userguide/about/catalog/?tab=data">and more</a>
   </section>
 
   <section id="api" class="e2s-band" aria-label="API entry points">
     <p class="e2s-section-kicker">Explore the API</p>
     <h2>Choose the workflow surface you need</h2>
     <div class="e2s-capability-grid">
-      <a class="e2s-capability" href="modules/models_px/?badge=class%3Amrf">
+      <a class="e2s-capability e2s-home-button" href="modules/models_px/?badge=class%3Amrf">
         <span>Prognostic</span><strong>Medium range models</strong>
         <small>Global forecast rollouts and ensemble workflows.</small>
       </a>
-      <a class="e2s-capability" href="modules/models_dx/?badge=class%3Anwc">
+      <a class="e2s-capability e2s-home-button" href="modules/models_dx/?badge=class%3Anwc">
         <span>Prognostic</span><strong>Nowcasting models</strong>
         <small>Rapid-update precipitation, satellite, and radar workflows.</small>
       </a>
-      <a class="e2s-capability" href="modules/models_da/?badge=class%3Ada">
+      <a class="e2s-capability e2s-home-button" href="modules/models_da/?badge=class%3Ada">
         <span>Assimilation</span><strong>Data assimilation models</strong>
         <small>Observation-informed analysis and correction workflows.</small>
       </a>
-      <a class="e2s-capability" href="modules/models_px/?badge=class%3Acm&badge=class%3As2s">
+      <a class="e2s-capability e2s-home-button" href="modules/models_px/?badge=class%3Acm&badge=class%3As2s">
         <span>Prognostic</span><strong>Climate models</strong>
         <small>Seasonal, climate, and coupled Earth-system models.</small>
       </a>
-      <a class="e2s-capability" href="modules/datasources_analysis/?badge=dataclass%3Aanalysis&badge=dataclass%3Areanalysis">
+      <a class="e2s-capability e2s-home-button" href="modules/datasources_analysis/?badge=dataclass%3Aanalysis&badge=dataclass%3Areanalysis">
         <span>Reanalysis</span><strong>Analysis data</strong>
         <small>ERA5, ARCO, HRRR, IFS, and analysis-ready sources.</small>
       </a>
-      <a class="e2s-capability" href="modules/datasources_forecast/?badge=dataclass%3Asimulation">
+      <a class="e2s-capability e2s-home-button" href="modules/datasources_forecast/?badge=dataclass%3Asimulation">
         <span>Numerical</span><strong>Forecast data</strong>
         <small>Operational forecasts for initialization and conditioning.</small>
       </a>
-      <a class="e2s-capability" href="modules/datasources_dataframe/?badge=dataclass%3Aobservation">
+      <a class="e2s-capability e2s-home-button" href="modules/datasources_dataframe/?badge=dataclass%3Aobservation">
         <span>DataFrames</span><strong>Observation data</strong>
         <small>Conventional, satellite, radar, and station datasets.</small>
       </a>
-      <a class="e2s-capability" href="modules/models_dx/?badge=class%3Ads">
+      <a class="e2s-capability e2s-home-button" href="modules/models_dx/?badge=class%3Ads">
         <span>Diagnostic</span><strong>Downscaling models</strong>
         <small>Super-resolution, correction, and diagnostic downscaling tools.</small>
       </a>
@@ -305,10 +308,10 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
       </p>
     </div>
     <div class="e2s-start-grid">
-      <a href="https://www.youtube.com/watch?v=Sog6aCapZeA" target="_blank" rel="noopener">Tutorial</a>
-      <a href="userguide/about/install/">Install</a>
-      <a href="examples/">Examples</a>
-      <a href="modules/">API reference</a>
+      <a class="e2s-home-button" href="https://www.youtube.com/watch?v=Sog6aCapZeA" target="_blank" rel="noopener">Tutorial</a>
+      <a class="e2s-home-button" href="userguide/about/install/">Install</a>
+      <a class="e2s-home-button" href="examples/">Examples</a>
+      <a class="e2s-home-button" href="modules/">API Reference</a>
     </div>
   </section>
 </div>

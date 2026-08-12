@@ -43,7 +43,7 @@ In this example you will learn:
 # -----------------
 # As discussed in the [Diagnostic Models](../../userguide/components/diagnostic.md#diagnostic_model_userguide) section of the user guide,
 # Earth2Studio defines a diagnostic model through a simple interface
-# `earth2studio.models.dx.base.Diagnostic Model`. This can be used to help
+# [`earth2studio.models.dx.base.DiagnosticModel`][earth2studio.models.dx.base.DiagnosticModel]. This can be used to help
 # guide the required APIs needed to successfully create our own model.
 #
 # In this example, lets consider a simple diagnostic that converts the surface
@@ -155,8 +155,8 @@ class CustomDiagnostic(torch.nn.Module):
 # coordinate system.
 #
 # For this diagnostic model, we simply define the input coordinates
-# to be the global surface temperature specified in :file:`earth2studio.lexicon.base.py`.
-# The output is a custom variable :code:`t2m_c` that represents the temperature in
+# to be the global surface temperature specified in [`earth2studio/lexicon/base.py`](https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/lexicon/base.py).
+# The output is a custom variable `t2m_c` that represents the temperature in
 # Celsius.
 
 # %%
@@ -176,15 +176,15 @@ class CustomDiagnostic(torch.nn.Module):
 # Set Up
 # ------
 # With the custom diagnostic model defined, the next step is to set up and run a
-# workflow. We will use the built in workflow `earth2studio.run.diagnostic`.
+# workflow. We will use the built in workflow [`earth2studio.run.diagnostic`][earth2studio.run.diagnostic].
 
 # %%
 # Lets instantiate the components needed.
 #
-# - Prognostic Model: Use the built in DLWP model `earth2studio.models.px.DLWP`.
+# - Prognostic Model: Use the built in DLWP model [`earth2studio.models.px.DLWP`][earth2studio.models.px.DLWP].
 # - Diagnostic Model: The custom diagnostic model defined above
-# - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
-# - IO Backend: Save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - IO Backend: Save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 
 # %%
 from dotenv import load_dotenv

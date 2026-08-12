@@ -112,7 +112,7 @@ if dist.rank != 0:
 # the same cache location, then only one should download the checkpoint triggered by
 # `load_model`.
 #
-# Here `earth2studio.models.px.DLWP` checkpoint files are first downloaded by
+# Here [`earth2studio.models.px.DLWP`][earth2studio.models.px.DLWP] checkpoint files are first downloaded by
 # process 0 and then loaded by other processes.
 
 # %%

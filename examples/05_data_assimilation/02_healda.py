@@ -47,11 +47,11 @@ In this example you will learn:
 # ------
 # This example requires the following components:
 #
-# - Assimilation Model: HealDA `earth2studio.models.da.HealDA`.
+# - Assimilation Model: HealDA [`earth2studio.models.da.HealDA`][earth2studio.models.da.HealDA].
 # - Datasource (conv): UFS conventional observations
-#   `earth2studio.data.UFSObsConv`.
+#   [`earth2studio.data.UFSObsConv`][earth2studio.data.UFSObsConv].
 # - Datasource (sat): UFS satellite observations
-#   `earth2studio.data.UFSObsSat`.
+#   [`earth2studio.data.UFSObsSat`][earth2studio.data.UFSObsSat].
 #
 # HealDA is a stateless neural-network-based data assimilation model that ingests
 # conventional (radiosonde, surface station, GPS-RO, etc.) and satellite radiance
@@ -91,7 +91,7 @@ model = model.to("cuda:0")
 # Pull conventional and satellite observation DataFrames for the analysis time.
 # The UFS data sources return pandas DataFrames that match the schemas expected by
 # `HealDA.input_coords`.  We use
-# `earth2studio.data.fetch_dataframe` which attaches ``request_time``
+# [`earth2studio.data.fetch_dataframe`][earth2studio.data.fetch_dataframe] which attaches ``request_time``
 # metadata required by the model.  The time_tolerance parameter defines a time
 # window around the analysis time so that observations will be retrieved for.
 

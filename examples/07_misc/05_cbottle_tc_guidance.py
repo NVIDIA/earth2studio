@@ -36,7 +36,7 @@ For more information on the odds ratio see:
 
 In this example you will learn:
 
-- Running guided TC sampling with `earth2studio.models.dx.CBottleTCGuidance`
+- Running guided TC sampling with [`earth2studio.models.dx.CBottleTCGuidance`][earth2studio.models.dx.CBottleTCGuidance]
 - Visualizing a guided sample over a regional domain
 - Reloading the model with second-order derivative support for odds-ratio computation
 - Computing and interpreting the log-odds ratio of a guided sample
@@ -59,7 +59,7 @@ In this example you will learn:
 #
 # Thus, we need the following:
 #
-# - Diagnostic Model: Use the built in CBottle TC Guidance Model `earth2studio.models.dx.CBottleTCGuidance`.
+# - Diagnostic Model: Use the built in CBottle TC Guidance Model [`earth2studio.models.dx.CBottleTCGuidance`][earth2studio.models.dx.CBottleTCGuidance].
 
 # %%
 import os

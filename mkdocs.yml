@@ -53,6 +53,7 @@ extra_css:
 extra_javascript:
 - assets/javascripts/e2s-landing.js
 - assets/javascripts/e2s-install-selector.js
+- assets/javascripts/e2s-catalog.js
 - assets/javascripts/mathjax.js
 - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 extra:
@@ -352,6 +353,7 @@ plugins:
     optimize_images: true
     generate_notebooks: true
     collect_telemetry: true
+    backreferences: true
 - blog:
     blog_dir: blog
     post_dir: '{blog}/posts'
@@ -368,6 +370,7 @@ nav:
 - User Guide:
   - Install: userguide/about/install.md
   - Overview: userguide/about/overview.md
+  - Catalog: userguide/about/catalog.md
   - Core Components:
     - userguide/components/index.md
     - Prognostic Models: userguide/components/prognostic.md

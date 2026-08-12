@@ -48,15 +48,15 @@ In this example you will learn:
 # ------
 # This example will look at tracking cyclones during August 2009, a moment in time when
 # multiple tropical cyclones where impacting East Asia.
-# Earth2Studio provides multiple variations of TC trackers such as `earth2studio.models.dx.TCTrackerVitart`
-# and `earth2studio.models.dx.TCTrackerWuDuan`.
+# Earth2Studio provides multiple variations of TC trackers such as [`earth2studio.models.dx.TCTrackerVitart`][earth2studio.models.dx.TCTrackerVitart]
+# and [`earth2studio.models.dx.TCTrackerWuDuan`][earth2studio.models.dx.TCTrackerWuDuan].
 # The difference being the underlying algorithm used to identify the center.
 #
 # This example needs the following:
 #
-# - Diagostic Model: Use the TC tracker `earth2studio.models.dx.TCTrackerWuDuan`.
-# - Datasource: Pull data from the WB2 ERA5 data api `earth2studio.data.WB2ERA5`.
-# - Prognostic Model: Use the built in FourCastNet Model `earth2studio.models.px.FCN`.
+# - Diagostic Model: Use the TC tracker [`earth2studio.models.dx.TCTrackerWuDuan`][earth2studio.models.dx.TCTrackerWuDuan].
+# - Datasource: Pull data from the WB2 ERA5 data api [`earth2studio.data.WB2ERA5`][earth2studio.data.WB2ERA5].
+# - Prognostic Model: Use the built in FourCastNet Model [`earth2studio.models.px.FCN`][earth2studio.models.px.FCN].
 
 # %%
 import os
@@ -172,7 +172,7 @@ torch.save(sfno_tracks, "outputs/13_sfno_paths.pt")
 #
 # Finally we can plot the results to compare the track ground truths from ERA5 with
 # those produced by SFNO.
-# Recall the outputs of `earth2studio.models.dx.TCTrackerWuDuan` has the path
+# Recall the outputs of [`earth2studio.models.dx.TCTrackerWuDuan`][earth2studio.models.dx.TCTrackerWuDuan] has the path
 # ID in the second dimension, thus that is what will determine the number of lines.
 # The lat/lon coords are the first two variables in the last dimension.
 # Lastly we just need to be mindful of the NaN filler values which can get easily

@@ -54,9 +54,9 @@ In this example you will learn:
 #
 # This example needs the following:
 #
-# - Interpolation Model: `earth2studio.models.px.InterpModAFNO`.
-# - Prognostic Base Model: Use SFNO model `earth2studio.models.px.SFNO`.
-# - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
+# - Interpolation Model: [`earth2studio.models.px.InterpModAFNO`][earth2studio.models.px.InterpModAFNO].
+# - Prognostic Base Model: Use SFNO model [`earth2studio.models.px.SFNO`][earth2studio.models.px.SFNO].
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
 
 # %%
 import os

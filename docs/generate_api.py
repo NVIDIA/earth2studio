@@ -721,6 +721,12 @@ def write_object(page: ObjectPage) -> None:
     if page.badges:
         body.extend(["{% badges " + " ".join(page.badges) + " %}", ""])
     body.extend([f"**Import path:** `{page.full_name}`", ""])
+    backreference_targets = [
+        page.full_name,
+        *(f"{page.full_name}.{member.name}" for member in page.members),
+    ]
+    body.extend(f'<span id="{target}"></span>' for target in backreference_targets)
+    body.append("")
     actions = [
         action
         for action in (
@@ -733,6 +739,10 @@ def write_object(page: ObjectPage) -> None:
         body.extend([" ".join(actions), ""])
     if page.docstring:
         body.extend(["## Documentation", "", *mkdocstrings_block(page), ""])
+    body.extend(
+        f"<!-- e2sg-backreferences: {target} -->" for target in backreference_targets
+    )
+    body.append("")
     page.output.write_text("\n".join(body), encoding="utf-8")
 
 

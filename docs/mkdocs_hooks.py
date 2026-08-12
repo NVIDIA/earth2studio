@@ -63,6 +63,7 @@ DOCS_ROOT = Path(__file__).resolve().parent
 GENERATED_API_ROOT = DOCS_ROOT / "modules" / "generated"
 INSTALL_SELECTOR_MARKER = "<!-- e2s-install-selector -->"
 INSTALL_SELECTOR_CONFIG = DOCS_ROOT / "userguide" / "about" / "install_options.yml"
+CATALOG_MARKER = "<!-- e2s-catalog -->"
 EXAMPLES_GALLERY_DESCRIPTION = (
     "Runnable examples, grouped by topic. Each card opens the complete source, "
     "output, and captured figures."
@@ -173,6 +174,7 @@ def on_page_markdown(markdown: str, **kwargs: object) -> str:
     """Convert legacy Sphinx/MyST blocks before Python-Markdown renders pages."""
     page = kwargs.get("page")
     markdown = _render_install_selector(markdown)
+    markdown = _render_catalog(markdown, page)
     markdown = _remove_examples_gallery_description(markdown, page)
     return _convert_legacy_blocks(markdown, page)
 
@@ -297,6 +299,334 @@ def _render_install_selector(markdown: str) -> str:
         "</section>"
     )
     return markdown.replace(INSTALL_SELECTOR_MARKER, html)
+
+
+def _render_catalog(markdown: str, page: object | None) -> str:
+    if CATALOG_MARKER not in markdown:
+        return markdown
+
+    records = _catalog_records(page)
+    payload = json.dumps(records, separators=(",", ":")).replace("</", "<\\/")
+    html = (
+        '<section class="e2s-catalog" data-e2s-catalog>'
+        '<script type="application/json" data-e2s-catalog-data>'
+        f"{payload}"
+        "</script>" + _catalog_fallback(records) + "</section>"
+    )
+    return markdown.replace(CATALOG_MARKER, html)
+
+
+def _catalog_fallback(records: list[dict[str, object]]) -> str:
+    models = [record for record in records if record.get("kind") == "model"][:24]
+    data_sources = [record for record in records if record.get("kind") == "data"][:24]
+    return (
+        '<div class="e2s-catalog-fallback">'
+        '<div class="e2s-catalog-fallback__group">'
+        "<h2>Models</h2>" + _catalog_fallback_cards(models) + "</div>"
+        '<div class="e2s-catalog-fallback__group">'
+        "<h2>Data Sources</h2>" + _catalog_fallback_cards(data_sources) + "</div>"
+        "</div>"
+    )
+
+
+def _catalog_fallback_cards(records: list[dict[str, object]]) -> str:
+    cards = []
+    for record in records:
+        title = escape(str(record.get("title") or "Catalog entry"))
+        summary = escape(str(record.get("summary") or ""))
+        url = escape(str(record.get("url") or "#"), quote=True)
+        chips = "".join(
+            f"<span>{escape(str(chip))}</span>"
+            for chip in list(record.get("chips") or ())[:4]
+        )
+        cards.append(
+            '<article class="e2s-catalog-card" data-kind="'
+            + escape(str(record.get("kind") or "model"), quote=True)
+            + '" data-tone="'
+            + escape(str(record.get("tone") or "model"), quote=True)
+            + '">'
+            '<div class="e2s-catalog-card__art" aria-hidden="true"><span></span></div>'
+            '<div class="e2s-catalog-card__body">'
+            f'<h3><a href="{url}">{title}</a></h3>'
+            f"<p>{summary}</p>"
+            f'<div class="e2s-catalog-card__chips">{chips}</div>'
+            "</div>"
+            "</article>"
+        )
+    return '<div class="e2s-catalog-list">' + "".join(cards) + "</div>"
+
+
+def _front_matter(path: Path) -> dict[str, object]:
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---\n"):
+        return {}
+    try:
+        import yaml
+
+        _start, raw, _body = text.split("---", 2)
+        return yaml.safe_load(raw) or {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _catalog_records(page: object | None) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for path in sorted(GENERATED_API_ROOT.rglob("*.md")):
+        parts = path.relative_to(GENERATED_API_ROOT).parts
+        if len(parts) < 2 or parts[0] not in {"models", "data"}:
+            continue
+
+        meta = _front_matter(path)
+        title = str(meta.get("title") or path.stem)
+        badges = [str(item) for item in meta.get("badges", []) if isinstance(item, str)]
+        kind, group = _catalog_kind_group(parts)
+        if kind is None:
+            continue
+
+        import_path = _generated_import_path(path)
+        source = _catalog_source(title, import_path, kind)
+        framework = _catalog_framework(title, import_path) if kind == "model" else ""
+        family = _catalog_family(title, import_path, badges)
+        filters = _catalog_filters(kind, group, source, framework, family, badges)
+        chips = _catalog_chips(kind, group, source, framework, family, badges)
+        records.append(
+            {
+                "kind": kind,
+                "group": group,
+                "title": title.removeprefix("data."),
+                "summary": str(meta.get("summary") or "API reference page."),
+                "signature": str(meta.get("signature") or ""),
+                "url": _relative_url(
+                    path.relative_to(DOCS_ROOT).with_suffix("").as_posix() + "/",
+                    page,
+                ),
+                "badges": badges,
+                "chips": chips,
+                "filters": filters,
+                "tone": _catalog_tone(badges, kind),
+            }
+        )
+    return records
+
+
+def _generated_import_path(path: Path) -> str:
+    text = path.read_text(encoding="utf-8")
+    match = re.search(
+        r"^\*\*Import path:\*\*\s+`(?P<target>earth2studio\.[^`]+)`", text, re.M
+    )
+    return match.group("target") if match else ""
+
+
+def _catalog_kind_group(parts: tuple[str, ...]) -> tuple[str | None, str]:
+    if parts[0] == "models":
+        return "model", {
+            "px": "Prognostic",
+            "dx": "Diagnostic",
+            "da": "Data Assimilation",
+        }.get(parts[1], parts[1].replace("_", " ").title())
+    if parts[0] == "data":
+        return "data", {
+            "analysis": "Array Data Source",
+            "forecast": "Forecast Data Source",
+            "dataframe": "DataFrame Source",
+        }.get(parts[1], parts[1].replace("_", " ").title())
+    return None, ""
+
+
+def _catalog_source(title: str, import_path: str, kind: str) -> str:
+    key = f"{title} {import_path}".lower()
+    model_sources = (
+        ("graphcast", "Google DeepMind"),
+        ("gencast", "Google DeepMind"),
+        ("pangu", "Huawei"),
+        ("aurora", "Microsoft"),
+        ("ace2", "Allen Institute"),
+        ("fuxi", "Fudan University"),
+        ("aifs", "ECMWF"),
+    )
+    data_sources = (
+        ("earthmover", "EarthMover"),
+        ("dynamical", "Dynamical"),
+        ("planetarycomputer", "Planetary Computer"),
+        ("ecmwf", "ECMWF"),
+        ("ifs", "ECMWF"),
+        ("aifs", "ECMWF"),
+        ("era5", "ECMWF"),
+        ("arco", "Google Cloud"),
+        ("wb2", "WeatherBench"),
+        ("gfs", "NOAA"),
+        ("gefs", "NOAA"),
+        ("gdas", "NOAA"),
+        ("hrrr", "NOAA"),
+        ("mrms", "NOAA"),
+        ("goes", "NOAA"),
+        ("jpss", "NOAA"),
+        ("ninja", "NOAA"),
+        ("nomad", "NOAA"),
+        ("ufs", "NOAA"),
+        ("ghcn", "NOAA"),
+        ("nclim", "NOAA"),
+        ("iem", "Iowa State"),
+        ("cmip", "CMIP"),
+        ("meteosat", "EUMETSAT"),
+        ("metop", "EUMETSAT"),
+        ("himawari", "JMA"),
+        ("opera", "OPERA"),
+    )
+    source_map = model_sources if kind == "model" else data_sources
+    for needle, source in source_map:
+        if needle in key:
+            return source
+    return "NVIDIA" if kind == "model" else "Earth2Studio"
+
+
+def _catalog_framework(title: str, import_path: str) -> str:
+    key = f"{title} {import_path}".lower()
+    if any(name in key for name in ("graphcast", "gencast")):
+        return "JAX origin"
+    return "PyTorch"
+
+
+def _catalog_family(title: str, import_path: str, badges: list[str]) -> str:
+    key = f"{title} {import_path}".lower()
+    families = (
+        "era5",
+        "ifs",
+        "aifs",
+        "gfs",
+        "gefs",
+        "gdas",
+        "hrrr",
+        "mrms",
+        "goes",
+        "jpss",
+        "cmip6",
+        "weatherbench",
+        "satellite",
+        "radar",
+        "reanalysis",
+        "forecast",
+        "observation",
+    )
+    for family in families:
+        if family in key:
+            return (
+                family.upper()
+                if family
+                not in {"satellite", "radar", "reanalysis", "forecast", "observation"}
+                else family.title()
+            )
+    dataclass = next(
+        (badge.split(":", 1)[1] for badge in badges if badge.startswith("dataclass:")),
+        "",
+    )
+    return dataclass.replace("_", " ").title() if dataclass else "General"
+
+
+def _catalog_filters(
+    kind: str,
+    group: str,
+    source: str,
+    framework: str,
+    family: str,
+    badges: list[str],
+) -> dict[str, list[str]]:
+    filters: dict[str, list[str]] = {
+        "type": [group],
+        "source": [source],
+        "product": [
+            _badge_label(badge) for badge in badges if badge.startswith("product:")
+        ],
+        "region": [
+            _badge_label(badge) for badge in badges if badge.startswith("region:")
+        ],
+    }
+    if kind == "model":
+        filters["workflow"] = [
+            _badge_label(badge) for badge in badges if badge.startswith("class:")
+        ]
+        filters["framework"] = [framework]
+    else:
+        filters["data class"] = [
+            _badge_label(badge) for badge in badges if badge.startswith("dataclass:")
+        ]
+        filters["data family"] = [family]
+    return {
+        key: [value for value in values if value] for key, values in filters.items()
+    }
+
+
+def _catalog_chips(
+    kind: str,
+    group: str,
+    source: str,
+    framework: str,
+    family: str,
+    badges: list[str],
+) -> list[str]:
+    chips = [group, source]
+    chips.append(framework if kind == "model" else family)
+    chips.extend(
+        _badge_label(badge)
+        for badge in badges
+        if badge.startswith(("class:", "dataclass:", "product:"))
+    )
+    return list(dict.fromkeys(chip for chip in chips if chip))[:6]
+
+
+def _badge_label(badge: str) -> str:
+    labels = {
+        "region:global": "Global",
+        "region:na": "North America",
+        "region:eu": "Europe",
+        "region:as": "Asia",
+        "region:au": "Australia",
+        "region:af": "Africa",
+        "region:sa": "South America",
+        "class:nwc": "Nowcasting",
+        "class:ds": "Downscaling",
+        "class:mrf": "Medium Range",
+        "class:s2s": "Sub-seasonal",
+        "class:da": "Data Assimilation",
+        "class:cm": "Climate",
+        "dataclass:analysis": "Analysis",
+        "dataclass:reanalysis": "Reanalysis",
+        "dataclass:observation": "Observation",
+        "dataclass:simulation": "Simulation",
+        "product:wind": "Wind",
+        "product:precip": "Precipitation",
+        "product:temp": "Temperature",
+        "product:atmos": "Atmosphere",
+        "product:ocean": "Ocean",
+        "product:land": "Land",
+        "product:veg": "Vegetation",
+        "product:solar": "Solar",
+        "product:radar": "Radar",
+        "product:sat": "Satellite",
+        "product:insitu": "In-situ",
+    }
+    if badge in labels:
+        return labels[badge]
+    return badge.split(":", 1)[-1].replace("_", " ").replace("-", " ").title()
+
+
+def _catalog_tone(badges: list[str], kind: str) -> str:
+    tones = (
+        ("product:radar", "radar"),
+        ("product:sat", "satellite"),
+        ("product:solar", "solar"),
+        ("product:ocean", "ocean"),
+        ("product:precip", "precip"),
+        ("class:da", "assimilation"),
+        ("class:ds", "downscaling"),
+        ("dataclass:observation", "observation"),
+        ("dataclass:reanalysis", "reanalysis"),
+        ("dataclass:simulation", "simulation"),
+    )
+    for badge, tone in tones:
+        if badge in badges:
+            return tone
+    return "model" if kind == "model" else "data"
 
 
 def _relative_url(target: str, page: object | None) -> str:

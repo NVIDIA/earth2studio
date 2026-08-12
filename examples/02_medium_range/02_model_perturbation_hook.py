@@ -54,7 +54,7 @@ In this example you will learn:
 #
 # To start let's begin with creating an ensemble workflow to use. We encourage
 # users to explore and experiment with their own custom workflows that borrow ideas from
-# built in workflows inside `earth2studio.run` or the examples.
+# built in workflows inside [`earth2studio.run`][earth2studio.run] or the examples.
 #
 # Creating our own generalizable ensemble workflow is easy when we rely on the component
 # interfaces defined in Earth2Studio (use dependency injection). Here we create a run
@@ -76,9 +76,9 @@ In this example you will learn:
 #
 # We need the following:
 #
-# - Prognostic Model: Use the built in DLWP model `earth2studio.models.px.DLWP`.
-# - Datasource: Pull data from the GFS data api `earth2studio.data.GFS`.
-# - IO Backend: Save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
+# - Prognostic Model: Use the built in DLWP model [`earth2studio.models.px.DLWP`][earth2studio.models.px.DLWP].
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - IO Backend: Save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 #
 # We will first run the ensemble workflow using an unmodified function, that is a model that has the
 # default (identity) forward and rear hooks. Then we will define new hooks for the model and rerun the
@@ -118,7 +118,7 @@ io_unperturbed = ZarrBackend(
 # %%
 # Execute the Workflow
 # --------------------
-# First, we will run the ensemble workflow but with a `earth2studio.perturbation.Gaussian`
+# First, we will run the ensemble workflow but with a [`earth2studio.perturbation.Gaussian`][earth2studio.perturbation.Gaussian]
 # perturbation as the control.
 #
 # The workflow will return the provided IO object back to the user, which can be used to
@@ -151,7 +151,7 @@ io_unperturbed = ensemble(
 
 # %%
 # Now let's introduce slight model perturbation using the prognostic model hooks defined
-# in `earth2studio.models.px.utils.PrognosticMixin`.
+# in [`earth2studio.models.px.utils.PrognosticMixin`][earth2studio.models.px.utils.PrognosticMixin].
 # Note that `center.unsqueeze(-1)` is DLWP specific since it operates on a cubed sphere
 # with grid dimensions (nface, lat, lon) instead of just (lat,lon).
 # To switch out the model, consider removing the `unsqueeze` .

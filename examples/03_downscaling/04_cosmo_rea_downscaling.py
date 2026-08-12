@@ -314,7 +314,7 @@ wrapped = DiagnosticWrapper(sfno, dx_de, prepare_dx_input_tensor=PrepareCosmoREA
 
 # Roll out a downscaled Germany forecast and keep T_2M at every lead time. A real
 # workflow would stream the rolled-out fields into an IO backend (e.g.
-# ``earth2studio.io.ZarrBackend``); here we keep the T_2M frames in memory to plot.
+# [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend]); here we keep the T_2M frames in memory to plot.
 frames = {}
 it = wrapped.create_iterator(x, coords)  # reuse the initial condition above
 for step in range(lead_hours // dt_hours + 1):

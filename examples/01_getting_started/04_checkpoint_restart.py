@@ -21,13 +21,13 @@ Checkpointing a Deterministic Forecast
 
 Basic inference workflow checkpointing.
 
-This example shows how to use `earth2studio.utils.checkpoint.Checkpoint`
+This example shows how to use [`earth2studio.utils.checkpoint.Checkpoint`][earth2studio.utils.checkpoint.Checkpoint]
 to restart a deterministic forecast after it stops partway through a run. See the
 [checkpointing user guide](../../userguide/advanced/checkpointing.md) for more
 information on checkpoint catalogs and restart policies.
 
-The example uses `earth2studio.data.Random` and
-`earth2studio.models.px.FCN`, the FourCastNet AFNO prognostic model.
+The example uses [`earth2studio.data.Random`][earth2studio.data.Random] and
+[`earth2studio.models.px.FCN`][earth2studio.models.px.FCN], the FourCastNet AFNO prognostic model.
 
 In this example you will learn:
 

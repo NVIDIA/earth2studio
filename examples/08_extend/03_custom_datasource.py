@@ -42,11 +42,11 @@ In this example you will learn:
 # Custom Data Source
 # ------------------
 # Earth2Studio defines the required APIs for data sources in
-# `earth2studio.data.base.DataSource` which requires just a call function.
+# [`earth2studio.data.base.DataSource`][earth2studio.data.base.DataSource] which requires just a call function.
 # For this example, we will consider extending an existing remote data source with
 # another atmospheric field we can calculate.
 #
-# The `earth2studio.data.ARCO` data source provides the ERA5 dataset in a cloud
+# The [`earth2studio.data.ARCO`][earth2studio.data.ARCO] data source provides the ERA5 dataset in a cloud
 # optimized format, however it only provides specific humidity. This is a problem for
 # models that may use relative humidity as an input. Based on ECMWF documentation we can
 # calculate the relative humidity based on temperature and geo-potential.
@@ -253,14 +253,14 @@ plt.savefig("outputs/03_custom_datasource_gfs_versus_custom.jpg")
 # Execute Workflow
 # ----------------
 # We will use this custom data source to run deterministic inference with a model that
-# requires relative humidity. `earth2studio.models.px.FCN` is one such model. Since
+# requires relative humidity. [`earth2studio.models.px.FCN`][earth2studio.models.px.FCN] is one such model. Since
 # we are using ARCO, we can run inference for a time quite far back in time.
 #
 # Let's instantiate the components needed.
 #
-# - Prognostic Model: Use the built in FourCastNet Model `earth2studio.models.px.FCN`.
+# - Prognostic Model: Use the built in FourCastNet Model [`earth2studio.models.px.FCN`][earth2studio.models.px.FCN].
 # - Datasource: Custom data source above
-# - IO Backend: Save the outputs into a Zarr store `earth2studio.io.ZarrBackend`.
+# - IO Backend: Save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 
 # %%
 from dotenv import load_dotenv
