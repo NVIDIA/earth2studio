@@ -34,6 +34,7 @@ In this example you will learn:
 - Running the model with different observation combinations
 - Comparing the assimilated global fields against ERA5 data
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[da-healda] @ git+https://github.com/NVIDIA/earth2studio.git",

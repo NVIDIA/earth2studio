@@ -178,7 +178,7 @@ variables.
 
 <!-- markdownlint-disable MD013 -->
 | Parameter | Environment Variable | Default | Description |
-|-----------|---------------------|---------|-------------|
+| ----------- | --------------------- | --------- | ------------- |
 | `enabled` | `OBJECT_STORAGE_ENABLED` | `false` | Enable object storage |
 | `storage_type` | `OBJECT_STORAGE_TYPE` | `s3` | Storage provider: `s3` or `azure` |
 | `bucket` | `OBJECT_STORAGE_BUCKET` | `null` | S3 bucket name (Azure container comes from request ``container_url``) |
@@ -243,7 +243,7 @@ flows) and authorize reads with your own Azure token flow.
 ### Storage Type Values
 
 | Value | Description |
-|-------|-------------|
+| ------- | ------------- |
 | `server` | Results stored locally on the inference server |
 | `s3` | Results stored in S3, accessible via CloudFront signed URL |
 | `azure` | Results stored in Azure Blob Storage; reads use client-issued tokens (no server SAS) |

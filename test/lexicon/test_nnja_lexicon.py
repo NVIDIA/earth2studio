@@ -17,7 +17,7 @@
 import pandas as pd
 import pytest
 
-from earth2studio.lexicon import NNJAObsConvLexicon
+from earth2studio.lexicon import NNJAObsConvLexicon, NNJAObsSatLexicon
 
 
 def test_nnja_obs_conv_lexicon_parse():
@@ -63,3 +63,22 @@ def test_nnja_obs_conv_lexicon_routes():
     assert NNJAObsConvLexicon.VOCAB["gps"] == "gpsro::15037"
     assert "gps_t" not in NNJAObsConvLexicon.VOCAB
     assert "gps_q" not in NNJAObsConvLexicon.VOCAB
+
+
+def test_nnja_obs_sat_lexicon_routes_and_quantity_identity():
+    assert NNJAObsSatLexicon.VOCAB == {
+        "atms": "atms::TMBR",
+        "atms_antenna_temperature": "atms::TMANT",
+        "mhs": "mhs::TMBR",
+        "amsua": "amsua::TMBR",
+        "amsub": "amsub::TMBR",
+    }
+
+    frame = pd.DataFrame({"observation": [201.25]})
+    for variable in NNJAObsSatLexicon.VOCAB:
+        source_key, modifier = NNJAObsSatLexicon[variable]
+        assert source_key == NNJAObsSatLexicon.VOCAB[variable]
+        assert modifier(frame) is frame
+
+    with pytest.raises(KeyError):
+        NNJAObsSatLexicon["crisfsr"]

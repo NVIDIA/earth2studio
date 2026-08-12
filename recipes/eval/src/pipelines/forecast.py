@@ -98,11 +98,22 @@ class ForecastPipeline(Pipeline):
     _prognostic_ic: CoordSystem
     _dx_input_coords: dict[int, CoordSystem]
 
+    @staticmethod
+    def _model_node(cfg: DictConfig) -> DictConfig:
+        """Config node holding the prognostic model spec.
+
+        Defaults to ``cfg.model``.  Subclasses whose model config nests
+        the prognostic next to other components (e.g.
+        ``AssimilationForecastPipeline`` with ``cfg.model.forecast``
+        beside ``cfg.model.da``) override this.
+        """
+        return cfg.model
+
     def setup(self, cfg: DictConfig, device: torch.device) -> None:
         self.nsteps = cfg.nsteps
 
         # All ranks must participate in model loading for barrier correctness.
-        self.prognostic = load_prognostic(cfg).to(device)
+        self.prognostic = load_prognostic(cfg, self._model_node(cfg)).to(device)
         self.diagnostics = [dx.to(device) for dx in load_diagnostics(cfg)]
 
         self.perturbation = None
@@ -148,7 +159,7 @@ class ForecastPipeline(Pipeline):
 
         # Inspect the prognostic (CPU — no weights copied to device) to infer
         # IC lead_times, variables, and step stride.
-        model = load_prognostic(cfg)
+        model = load_prognostic(cfg, self._model_node(cfg))
         ic_coords = model.input_coords()
         spatial_ref = model.output_coords(ic_coords)
 
@@ -175,12 +186,20 @@ class ForecastPipeline(Pipeline):
             spatial_ref=spatial_ref,
         )
 
-    def run_item(
+    def _fetch_initial_state(
         self,
         item: WorkItem,
         data_source: DataSource,
         device: torch.device,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Assemble the prognostic's initial state for one work item.
+
+        Default: fetch from the resolved ``DataSource``, align to the
+        model grid, and sub-select onto the model's input coords.
+        Subclasses that build the initial state differently (e.g. from a
+        data-assimilation analysis) override this — the perturbation /
+        RNG / rollout machinery in :meth:`run_item` is shared.
+        """
         x, coords = fetch_data(
             source=data_source,
             time=[item.time],
@@ -190,6 +209,15 @@ class ForecastPipeline(Pipeline):
         )
         x, coords = _align_to_grid(x, coords, self._prognostic_ic)
         x, coords = map_coords(x, coords, self._prognostic_ic)
+        return x, coords
+
+    def run_item(
+        self,
+        item: WorkItem,
+        data_source: DataSource,
+        device: torch.device,
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        x, coords = self._fetch_initial_state(item, data_source, device)
 
         if self.perturbation is not None:
             torch.manual_seed(item.seed)

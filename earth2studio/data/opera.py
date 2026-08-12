@@ -158,6 +158,12 @@ class OPERA:
     pixel resolutions, a :exc:`ValueError` is raised — request each resolution
     group separately.
 
+    ODIM pixels with no radar coverage (``nodata``) are set to NaN.  Pixels
+    where the radar was active but detected nothing (``undetect``) are filled
+    with a quantity-specific value: ``0.0`` for precipitation quantities (RATE,
+    ACRR) and ``-99.0 dBZ`` for reflectivity (DBZH) to match the MRMS refc
+    convention.  All other values are scaled by the gain and offset parameters
+    in the ODIM HDF5 file.
 
     Parameters
     ----------
@@ -190,6 +196,11 @@ class OPERA:
     ------
     region:eu dataclass:observation product:precip product:radar
     """
+
+    # Undetect fill values per ODIM quantity.  Precipitation quantities use 0.0
+    # because "radar detected nothing" means zero rain, not a sentinel dBZ value.
+    # DBZH (and any unrecognised quantity) falls back to -99.0 to match MRMS refc.
+    _UNDETECT_FILL: dict[str, float] = {"RATE": 0.0, "ACRR": 0.0}
 
     # Class-level lat/lon grid cache keyed by (ysize, xsize).
     _grid_cache: dict[tuple[int, int], tuple[np.ndarray, np.ndarray]] = {}
@@ -231,9 +242,11 @@ class OPERA:
             key=_key,
         )
 
-    @staticmethod
-    def _apply_linear_scaling(raw: np.ndarray, what: dict[str, Any]) -> np.ndarray:
-        """Apply ODIM gain/offset scaling and replace nodata/undetect with NaN."""
+    @classmethod
+    def _apply_linear_scaling(
+        cls, raw: np.ndarray, what: dict[str, Any], odim_quantity: str = "DBZH"
+    ) -> np.ndarray:
+        """Apply ODIM gain/offset scaling; replace nodata with NaN and undetect with quantity-specific fill."""
         gain = float(what.get("gain", 1.0))
         offset = float(what.get("offset", 0.0))
         nodata = what.get("nodata")
@@ -242,7 +255,9 @@ class OPERA:
         if nodata is not None:
             result[raw == nodata] = np.nan
         if undetect is not None:
-            result[raw == undetect] = np.nan
+            result[raw == undetect] = cls._UNDETECT_FILL.get(
+                odim_quantity.upper(), -99.0
+            )
         return result
 
     @staticmethod
@@ -285,7 +300,9 @@ class OPERA:
                     what = OPERA._odim_attrs(da["what"])
                     if str(what.get("quantity", "")).upper() != odim_quantity.upper():
                         continue
-                    return OPERA._apply_linear_scaling(da["data"][:], what)
+                    return OPERA._apply_linear_scaling(
+                        da["data"][:], what, odim_quantity
+                    )
 
                 # ODYSSEY era: quantity in dataset*/what, data array in dataset*/data1
                 if "what" in ds:
@@ -294,7 +311,7 @@ class OPERA:
                         da_names = OPERA._sort_odim_groups(ds, "data")
                         if da_names and "data" in ds[da_names[0]]:
                             return OPERA._apply_linear_scaling(
-                                ds[da_names[0]]["data"][:], what
+                                ds[da_names[0]]["data"][:], what, odim_quantity
                             )
 
         raise ValueError(f"ODIM quantity '{odim_quantity}' not found in HDF5 file")

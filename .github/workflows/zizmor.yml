@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Audits GitHub Actions workflows with zizmor and uploads findings to
+# GitHub code scanning (Security tab).
+name: zizmor
+
+on:
+  push:
+    branches:
+      - main
+      - "pull-request/**"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  zizmor:
+    name: Audit workflows
+    if: github.repository == 'NVIDIA/earth2studio'
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Run zizmor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # zizmor exits 0 with no findings and 10-14 when findings exist;
+        # findings are reported through code scanning, not the job status.
+        run: |
+          pipx run zizmor==1.29.0 --format=sarif .github/ > zizmor.sarif && ec=0 || ec=$?
+          if [ "$ec" -ne 0 ] && [ "$ec" -lt 10 ]; then
+            exit "$ec"
+          fi
+
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor

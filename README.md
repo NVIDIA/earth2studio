@@ -123,19 +123,20 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > [!NOTE]
 > As of version `0.14.0`, Earth2Studio TOML default installs now target CUDA 13.
 
-- [**AIFS 2.0**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.AIFS2.html),
-    ECMWF's AIFS 2.0 prognostic model with wave and 10 hPa pressure level support,
-    plus an ensemble variant (`AIFS2ENS`) with stochastic noise injection.
-- [**U-CAST**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.UCast.html),
-    U-CAST prognostic model with 1.5-degree global ERA5 forecasting support.
-- [**CFS Forecast Sources**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.CFS_FX.html),
-    NCEP CFSv2 operational forecast and 9-month reforecast data sources backed by
-    NOMADS and the AWS Open Data mirror.
-- [**IBTrACS**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.IBTrACS.html),
-    tropical cyclone best-track DataFrame source for historical storm analysis.
-- **Checkpoint/Restart**, session utilities and restart support for deterministic,
-    diagnostic, and ensemble inference workflows. Individual model support is rolling
-    out progressively.
+- [**Aurora v1.5**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.Aurora1p5.html),
+    Microsoft Aurora v1.5 deterministic and ensemble model wrapper for global
+    weather forecasting.
+- [**StormCast CONUS**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.StormCastCONUS.html),
+    StormCast CONUS prognostic model for convective-scale forecasting over the
+    contiguous United States.
+- [**Dynamical.org Sources**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.DynamicalGFS.html),
+    a comprehensive suite of analysis and forecast data sources reading from
+    anonymous Icechunk repositories (AIFS, GFS, GEFS, HRRR, MRMS, ICON-EU, IFS-ENS).
+- [**EarthMover Data Sources**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.EarthMoverERA5.html),
+    EarthMover ERA5 0.25-degree reanalysis and IFS 0.1-degree forecast sources
+    hosted by BrightBand.
+- [**StormScope NSRDB**](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.StormScopeDxNSRDB.html),
+    solar irradiance (GHI) estimation diagnostic model.
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 
@@ -195,7 +196,7 @@ Earth2Studio maintains the largest collection of pre-trained state-of-the-art AI
 Available models include but are not limited to:
 
 | Model | Resolution | Architecture | Time Step | Coverage |
-|-------|------------|--------------|-----------|----------|
+| ------- | ------------ | -------------- | ----------- | ---------- |
 | GraphCast Small | 1.0° | Graph Neural Network | 6h | Global |
 | GraphCast Operational | 0.25° | Graph Neural Network | 6h | Global |
 | Pangu 3hr | 0.25° | Transformer | 3h | Global |
@@ -232,9 +233,9 @@ Earth2Studio contains a growing collection of specialized diagnostic models for
 Available diagnostics include but are not limited to:
 
 | Model | Resolution | Architecture | Coverage | Output |
-|-------|------------|--------------|----------|--------|
-| PrecipitationAFNO | 0.25° | Neural Operator  | Global | Total precipitation |
-| SolarRadiationAFNO1H | 0.25° | Neural Operator  | Global | Surface solar radiation |
+| ------- | ------------ | -------------- | ---------- | -------- |
+| PrecipitationAFNO | 0.25° | Neural Operator | Global | Total precipitation |
+| SolarRadiationAFNO1H | 0.25° | Neural Operator | Global | Surface solar radiation |
 | WindgustAFNO | 0.25° | AFNO | Global | Maximum wind gust |
 | TCTrackerVitart | 0.25° | Algorithmic | Global | TC tracks & properties |
 | CBottleInfill | 100km | Diffusion | Global | Global climate sample |
@@ -266,7 +267,7 @@ Earth2Studio includes data sources ranging from operational weather models (GFS,
 Available data sources include but are not limited to:
 
 | Data Source | Type | Resolution | Coverage | Data Format |
-|-------------|------|------------|----------|-------------|
+| ------------- | ------ | ------------ | ---------- | ------------- |
 | GFS | Operational | 0.25° | Global | GRIB2 |
 | GFS_FX | Forecast | 0.25° | Global | GRIB2 |
 | HRRR | Operational | 3km | Regional (US) | GRIB2 |
@@ -298,12 +299,12 @@ Earth2Studio includes IO backends ranging from traditional scientific formats (N
 Available IO backends include:
 
 | IO Backend | Format | Features | Location |
-|------------|--------|----------|----------|
+| ------------ | -------- | ---------- | ---------- |
 | ZarrBackend | Zarr | Compression, Chunking | In-Memory/Local |
 | AsyncZarrBackend | Zarr | Async writes, Parallel I/O | In-Memory/Local/Remote |
 | NetCDF4Backend | NetCDF4 | CF-compliant, Metadata | In-Memory/Local |
 | XarrayBackend | Xarray Dataset | Rich metadata, Analysis-ready | In-Memory |
-| KVBackend | Key-Value| Fast Temporary Access | In-Memory |
+| KVBackend | Key-Value | Fast Temporary Access | In-Memory |
 
 For a complete list, see the [IO API docs][e2studio_io_api].
 
@@ -320,7 +321,7 @@ For a complete list, see the [IO API docs][e2studio_io_api].
 Available perturbations include but are not limited to:
 
 | Perturbation Method | Type | Spatial Correlation | Temporal Correlation |
-|---------------------|------|-------------------|---------------------|
+| --------------------- | ------ | ------------------- | --------------------- |
 | Gaussian | Noise | None | None |
 | Correlated SphericalGaussian | Noise | Spherical | AR(1) process |
 | Spherical Gaussian | Noise | Spherical (Matern) | None |
@@ -344,7 +345,7 @@ For a complete list, see the [perturbations API docs][e2studio_pb_url].
 Available operations include but are not limited to:
 
 | Statistic | Type | Application |
-|-----------|------|-------------|
+| ----------- | ------ | ------------- |
 | RMSE | Error Metric | Forecast accuracy |
 | ACC | Correlation | Pattern correlation |
 | CRPS | Ensemble Metric | Probabilistic skill |

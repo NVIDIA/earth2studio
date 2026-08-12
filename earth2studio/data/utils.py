@@ -20,6 +20,7 @@ import asyncio
 import os
 import random
 import tempfile
+import uuid
 from collections import OrderedDict
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -27,10 +28,11 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
 from pathlib import Path
-from typing import Any, ClassVar, Literal, TypeVar
+from typing import Any, ClassVar, Literal, Protocol, TypeVar
 
 import fsspec.asyn
 import numpy as np
+import obspec
 import obstore as obs
 import obstore.store
 import pandas as pd
@@ -508,6 +510,39 @@ def datasource_cache_root() -> str:
     return default_cache
 
 
+def datasource_cache_dir(subdir: str, persistent: bool, tmp_hash: str | None) -> str:
+    """Return (and create) a data-source-specific cache directory.
+
+    Provides the standard cache-location logic used by all observation data
+    sources: ``<root>/<subdir>`` for persistent caches, or
+    ``<root>/<subdir>/tmp_<subdir>_<hash>`` for ephemeral per-instance caches.
+
+    Parameters
+    ----------
+    subdir : str
+        Source-specific subdirectory name (e.g. ``"nnja"``, ``"gdas_prepbufr"``).
+    persistent : bool
+        When True the directory is shared across runs (warm cache).  When
+        False a unique temp subdirectory is used.
+    tmp_hash : str | None
+        Per-instance identifier for the temp subdirectory.  When *persistent*
+        is False and this is None, a random hash is generated.  Ignored when
+        *persistent* is True.
+
+    Returns
+    -------
+    str
+        Absolute path to the cache directory (already created).
+    """
+    cache_location = os.path.join(datasource_cache_root(), subdir)
+    if not persistent:
+        if tmp_hash is None:
+            tmp_hash = uuid.uuid4().hex[:8]
+        cache_location = os.path.join(cache_location, f"tmp_{subdir}_{tmp_hash}")
+    os.makedirs(cache_location, exist_ok=True)
+    return cache_location
+
+
 # =============================================================================
 # Async Utilities for Data Sources
 # =============================================================================
@@ -800,6 +835,67 @@ def resolve_async_workers(
     return max(1, min(n_tasks, cap))
 
 
+class AsyncReadableStore(
+    obspec.GetAsync, obspec.GetRangeAsync, obspec.HeadAsync, Protocol
+):
+    """obspec capabilities required by the async byte-range read helpers.
+
+    Any obspec-conforming store (obstore stores included) satisfies this
+    structurally; tests can pass a plain fake object instead of patching
+    obstore internals.
+    """
+
+
+class AsyncListableStore(AsyncReadableStore, obspec.ListAsync, Protocol):
+    """Read + list obspec capabilities required by listing data sources
+    (e.g. GOES / GOES GLM hour-directory discovery)."""
+
+
+async def obstore_list_prefix(
+    store: AsyncListableStore,
+    prefix: str,
+    cache: dict[str, list[str]] | None = None,
+    cacheable: bool = True,
+) -> list[str]:
+    """Lists object keys under a prefix, optionally memoizing per prefix.
+
+    The list stream is consumed asynchronously so LIST round-trips don't block
+    the event loop while downloads are in flight. Callers with directory-style
+    layouts (e.g. per-hour satellite archives) pass a per-instance ``cache``
+    dict so repeated fetches over the same prefix issue a single LIST request;
+    pass ``cacheable=False`` for prefixes that are still being filled (e.g. the
+    current hour) so the cache is bypassed entirely and they are re-listed on
+    every call.
+
+    Parameters
+    ----------
+    store : AsyncListableStore
+        obspec-conforming store to list (e.g. an obstore store)
+    prefix : str
+        Key prefix to list (bucket-relative)
+    cache : dict[str, list[str]] | None, optional
+        Memoization dict keyed by prefix; by default None (no memoization)
+    cacheable : bool, optional
+        Whether the result may be read from or stored in ``cache``, by
+        default True
+
+    Returns
+    -------
+    list[str]
+        Object keys (bucket-relative paths) under the prefix
+    """
+    if cache is not None and cacheable and prefix in cache:
+        return cache[prefix]
+    paths = [
+        entry["path"]
+        async for chunk in store.list_async(prefix=prefix)
+        for entry in chunk
+    ]
+    if cache is not None and cacheable:
+        cache[prefix] = paths
+    return paths
+
+
 def obstore_store_from_url(
     url: str,
     anonymous: bool = True,
@@ -844,7 +940,7 @@ def obstore_store_from_url(
 
 
 async def obstore_read_range(
-    store: obstore.store.ObjectStore,
+    store: AsyncReadableStore,
     key: str,
     byte_offset: int = 0,
     byte_length: int | None = None,
@@ -862,8 +958,8 @@ async def obstore_read_range(
 
     Parameters
     ----------
-    store : obstore.store.ObjectStore
-        Object store to read from
+    store : AsyncReadableStore
+        obspec-conforming store to read from (e.g. an obstore store)
     key : str
         Object key (bucket-relative path)
     byte_offset : int, optional
@@ -885,16 +981,16 @@ async def obstore_read_range(
     """
     try:
         if byte_length is not None:
-            data = await obs.get_range_async(
-                store, key, start=byte_offset, length=byte_length
+            data = await store.get_range_async(
+                key, start=byte_offset, length=byte_length
             )
         elif byte_offset == 0:
-            resp = await obs.get_async(store, key)
-            data = await resp.bytes_async()
+            resp = await store.get_async(key)
+            data = await resp.buffer_async()
         else:
-            meta = await obs.head_async(store, key)
-            data = await obs.get_range_async(
-                store, key, start=byte_offset, end=int(meta["size"])
+            meta = await store.head_async(key)
+            data = await store.get_range_async(
+                key, start=byte_offset, end=int(meta["size"])
             )
     except (FileNotFoundError, obs.exceptions.NotFoundError):
         raise FileNotFoundError(f"Object {key} not found in store")
@@ -902,7 +998,7 @@ async def obstore_read_range(
 
 
 async def obstore_fetch_to_cache(
-    store: obstore.store.ObjectStore,
+    store: AsyncReadableStore,
     key: str,
     cache_dir: str,
     byte_offset: int = 0,
@@ -919,8 +1015,8 @@ async def obstore_fetch_to_cache(
 
     Parameters
     ----------
-    store : obstore.store.ObjectStore
-        Object store to read from
+    store : AsyncReadableStore
+        obspec-conforming store to read from (e.g. an obstore store)
     key : str
         Object key (bucket-relative path)
     cache_dir : str

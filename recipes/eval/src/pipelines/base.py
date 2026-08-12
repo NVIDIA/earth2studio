@@ -152,6 +152,50 @@ class PredownloadStore:
     extra_coords: dict[str, np.ndarray] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class PredownloadFrameStore:
+    """Declarative spec for a DataFrame store that ``predownload.py`` populates.
+
+    The tabular twin of :class:`PredownloadStore`, used for observation
+    inputs of data-assimilation pipelines (``DataFrameSource`` protocol
+    rather than gridded ``DataSource``).  ``predownload.py`` fetches one
+    DataFrame per timestamp via
+    :func:`earth2studio.data.fetch_dataframe` and writes it as a parquet
+    file under ``<output.path>/<name>.parquet/`` (one file per time,
+    named by :func:`src.data.frame_filename`).  At inference time
+    :class:`~src.data.PredownloadedFrameSource` serves the store in place
+    of the live source.
+
+    Parameters
+    ----------
+    name : str
+        Logical store name.  Controls the on-disk location
+        (``<output.path>/<name>.parquet``) and the progress-marker
+        namespace.  DA pipelines use ``"obs_<slot>"`` (e.g.
+        ``"obs_conv"``, ``"obs_sat"``).
+    source : object
+        Live ``DataFrameSource`` to fetch from.
+    times : list[np.datetime64]
+        Analysis times to fetch.  Each becomes the ``request_time`` of
+        one fetch — sources with a ``time_tolerance`` window expand it
+        internally, so the stored frame holds the full observation
+        window for that analysis time.
+    variables : list[str]
+        Variable names to request (the schema's ``variable`` entry).
+    fields : list[str]
+        DataFrame columns to request (the schema's keys).
+    role : str
+        Informational tag shown in logs.  Defaults to ``"observation"``.
+    """
+
+    name: str
+    source: object
+    times: list[np.datetime64]
+    variables: list[str]
+    fields: list[str]
+    role: str = "observation"
+
+
 # ======================================================================
 # Pipeline ABC
 # ======================================================================
@@ -364,6 +408,26 @@ class Pipeline(ABC):
         -------
         list[PredownloadStore]
             One entry per zarr store to populate.
+        """
+        return []
+
+    def predownload_frame_stores(self, cfg: DictConfig) -> list[PredownloadFrameStore]:
+        """Declare DataFrame stores that ``predownload.py`` should populate.
+
+        The tabular counterpart of :meth:`predownload_stores`, for
+        pipelines whose inputs include ``DataFrameSource`` observations
+        (the DA pipelines).  Default implementation returns an empty
+        list.
+
+        Parameters
+        ----------
+        cfg : DictConfig
+            Full Hydra config.
+
+        Returns
+        -------
+        list[PredownloadFrameStore]
+            One entry per parquet store to populate.
         """
         return []
 
