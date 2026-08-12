@@ -31,7 +31,7 @@ from earth2studio.utils import handshake_dim
 class PhooMeteosatDiffusionModel(torch.nn.Module):
     def __init__(self, nvar=4):
         super().__init__()
-        self.sigma_min = 0.0
+        self.sigma_min = 0.02
         self.sigma_max = 88.0
         self.nvar = nvar
         self.call_count = 0
@@ -65,6 +65,8 @@ def create_spoof_model(
     ir_38_warm_threshold=4095.0,
     num_diffusion_steps=2,
     sigma_threshold=1.0,
+    sampler_args=None,
+    model_spec=None,
     batch_size=1,
     use_amp=False,
 ):
@@ -100,14 +102,31 @@ def create_spoof_model(
         scale_factor = torch.ones(nvar, 1, 1)
     if add_offset is None:
         add_offset = torch.zeros(nvar, 1, 1)
+    if sampler_args is None:
+        sampler_args = {"sigma_min": 0.02, "sigma_max": 10.0}
     invariants = torch.zeros(1, n_inv, h_pkg, w_pkg)
 
-    model_low = PhooMeteosatDiffusionModel(nvar=nvar)
-    model_high = PhooMeteosatDiffusionModel(nvar=nvar)
+    if model_spec is None:
+        # Two-expert model_spec split at sigma_threshold, so tests that rely on
+        # expert routing (e.g. test_stormscope_meteosat_expert_selection) can
+        # still target a specific split point. model.experts[0] is the
+        # low-sigma expert and model.experts[1] is the high-sigma expert
+        # (sorted ascending by sigma_min in __init__).
+        model_spec = [
+            {
+                "model": PhooMeteosatDiffusionModel(nvar=nvar),
+                "sigma_min": 0.01,
+                "sigma_max": sigma_threshold,
+            },
+            {
+                "model": PhooMeteosatDiffusionModel(nvar=nvar),
+                "sigma_min": sigma_threshold,
+                "sigma_max": 88.0,
+            },
+        ]
 
     model = StormScopeMeteosatEU(
-        model_low=model_low,
-        model_high=model_high,
+        model_spec=model_spec,
         means=means,
         stds=stds,
         scale_factor=scale_factor,
@@ -122,13 +141,12 @@ def create_spoof_model(
         mtg_xlim=mtg_xlim,
         inference_mtg_box=inference_mtg_box,
         variables=variables,
-        sampler_args={"sigma_min": 0.02, "sigma_max": 10.0},
+        sampler_args=sampler_args,
         input_times=input_times,
         output_times=output_times,
         ir_38_warm_scale_factor=ir_38_warm_scale_factor,
         ir_38_warm_threshold=ir_38_warm_threshold,
         num_diffusion_steps=num_diffusion_steps,
-        sigma_threshold=sigma_threshold,
         batch_size=batch_size,
         use_amp=use_amp,
     ).to(device)
@@ -211,13 +229,15 @@ def test_stormscope_meteosat_call(time, device, batch, model_batch_size):
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormscope_meteosat_expert_selection(device):
-    """_conditioned_x0_predictor routes to model_high at/above sigma_threshold
-    and model_low below it, for both single- and multi-sample sigma batches."""
+    """_conditioned_x0_predictor routes to the high-sigma expert at/above
+    sigma_threshold and the low-sigma expert below it, for both single- and
+    multi-sample sigma batches."""
     nvar = 3
     sigma_threshold = 5.0
     model = create_spoof_model(
         nvar=nvar, sigma_threshold=sigma_threshold, device=device
     )
+    model_low, model_high = model.experts[0], model.experts[1]
 
     h, w = model.lat.shape
     x_noisy = torch.randn(2, nvar, h, w, device=device)
@@ -226,18 +246,18 @@ def test_stormscope_meteosat_expert_selection(device):
 
     t_low = torch.full((2,), sigma_threshold - 1.0, device=device)
     x0_predictor(x_noisy, t_low)
-    assert model.model_low.call_count == 1
-    assert model.model_high.call_count == 0
+    assert model_low.call_count == 1
+    assert model_high.call_count == 0
 
     t_high = torch.full((2,), sigma_threshold + 1.0, device=device)
     x0_predictor(x_noisy, t_high)
-    assert model.model_low.call_count == 1
-    assert model.model_high.call_count == 1
+    assert model_low.call_count == 1
+    assert model_high.call_count == 1
 
     # Exactly at the threshold routes to the high-sigma expert (>=)
     t_eq = torch.full((1,), sigma_threshold, device=device)
     x0_predictor(x_noisy[:1], t_eq)
-    assert model.model_high.call_count == 2
+    assert model_high.call_count == 2
 
 
 @pytest.mark.parametrize("use_amp", [False, True])
@@ -333,12 +353,18 @@ def test_stormscope_meteosat_default_bbox():
     scale_factor = torch.ones(nvar, 1, 1)
     add_offset = torch.zeros(nvar, 1, 1)
     invariants = torch.zeros(1, 1, h_pkg, w_pkg)
+    model_spec = [
+        {
+            "model": PhooMeteosatDiffusionModel(nvar=nvar),
+            "sigma_min": 0.01,
+            "sigma_max": 88.0,
+        }
+    ]
 
     # mtg_ylim, mtg_xlim, and inference_mtg_box are all intentionally omitted
     # here to exercise the Model_FCI_BBox class-level defaults.
     model = StormScopeMeteosatEU(
-        model_low=PhooMeteosatDiffusionModel(nvar=nvar),
-        model_high=PhooMeteosatDiffusionModel(nvar=nvar),
+        model_spec=model_spec,
         means=means,
         stds=stds,
         scale_factor=scale_factor,
@@ -524,15 +550,50 @@ def test_stormscope_meteosat_azimuth_zenith(device):
 def test_stormscope_meteosat_compile(device):
     """compile_model wraps the diffusion sub-models with torch.compile"""
     model = create_spoof_model(device=device)
-    orig_low_forward = model.model_low.forward
-    orig_high_forward = model.model_high.forward
+    orig_experts = list(model.experts)
 
     model.compile_model()
 
-    assert model.model_low.forward is not orig_low_forward
-    assert model.model_high.forward is not orig_high_forward
-    assert callable(model.model_low.forward)
-    assert callable(model.model_high.forward)
+    assert len(model.experts) == len(orig_experts)
+    for orig_expert, expert in zip(orig_experts, model.experts):
+        assert expert is not orig_expert
+        assert callable(expert)
+
+
+@pytest.mark.parametrize(
+    "sampler_args",
+    [
+        {"sigma_min": 0.001, "sigma_max": 10.0},  # below model_spec's combined min
+        {"sigma_min": 0.02, "sigma_max": 200.0},  # above model_spec's combined max
+    ],
+)
+def test_stormscope_meteosat_sampler_sigma_range(sampler_args):
+    """__init__ rejects sampler_args sigma_min/sigma_max outside the combined
+    sigma range covered by model_spec."""
+    with pytest.raises(ValueError):
+        create_spoof_model(sampler_args=sampler_args)
+
+
+def test_stormscope_meteosat_noncontiguous_sigma_range():
+    """__init__ rejects a model_spec whose expert sigma ranges leave a gap,
+    i.e. do not combine to a single continuous range."""
+    nvar = 4
+    # Gap between the first expert's sigma_max (1.0) and the second expert's
+    # sigma_min (2.0): the ranges are not contiguous.
+    model_spec = [
+        {
+            "model": PhooMeteosatDiffusionModel(nvar=nvar),
+            "sigma_min": 0.01,
+            "sigma_max": 1.0,
+        },
+        {
+            "model": PhooMeteosatDiffusionModel(nvar=nvar),
+            "sigma_min": 2.0,
+            "sigma_max": 88.0,
+        },
+    ]
+    with pytest.raises(ValueError):
+        create_spoof_model(nvar=nvar, model_spec=model_spec)
 
 
 def test_stormscope_meteosat_exceptions():

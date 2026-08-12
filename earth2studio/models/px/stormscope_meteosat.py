@@ -74,21 +74,26 @@ VARIABLES = (
 class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Generative diffusion nowcasting model for MTG-I1 FCI satellite imagery.
 
-    Predicts the next 10-minute MTG Full Combined Imager (FCI) frame from a sliding
-    window of ``L`` consecutive input frames. The model uses a two-stage denoising
-    strategy: a high-sigma denoiser captures coarse structure and a low-sigma denoiser
-    refines fine details. Solar geometry angles are computed on the fly and provided as
-    conditioning alongside static invariant fields.
+    Predicts MTG Full Combined Imager (FCI) frames from ``len(input_times)``
+    consecutive input frames at 10-min resolution. Uses an "ensemble of experts"
+    denoising strategy: the diffusion sampler is invoked in stages, each using a
+    different set of model weights applicable to a specific sigma range, as defined
+    by ``model_spec``.
 
     The model operates on a rectangular sub-region of the MTG full-disk image specified
     by ``mtg_ylim`` and ``mtg_xlim`` in native MTG pixel coordinates.
 
     Parameters
     ----------
-    model_low : torch.nn.Module
-        Denoising sub-model applied at low noise levels (sigma < ``sigma_threshold``).
-    model_high : torch.nn.Module
-        Denoising sub-model applied at high noise levels (sigma ≥ ``sigma_threshold``).
+    model_spec : list[dict[str, Any]]
+        Sequence of stage specifications. Each entry must contain:
+
+        - ``model``: torch.nn.Module
+        - ``sigma_min``: float
+        - ``sigma_max``: float
+
+        The sigma interval determines which expert is applied during denoising.
+        The ranges must combine to a single continuous interval with no gaps or overlaps.
     means : torch.Tensor
         Per-channel mean of raw pixel counts used for normalisation, shape ``(C, 1, 1)``.
     stds : torch.Tensor
@@ -131,7 +136,9 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Overrides for the EDM sampler/scheduler. Recognised keys:
         ``sigma_min``, ``sigma_max``, ``rho`` (scheduler) and
         ``S_churn``, ``S_min``, ``S_max``, ``S_noise`` (solver).
-        Unspecified keys use sensible defaults, by default None
+        ``sigma_min``/``sigma_max`` must fall within the combined sigma range
+        spanned by ``model_spec`` and default to that combined range if not
+        given. Other unspecified keys use sensible defaults, by default None
     input_times : np.ndarray, optional
         Context-window time offsets relative to the analysis time; each element is a
         ``np.timedelta64``. The number of elements ``L`` determines the sliding-window
@@ -147,10 +154,6 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ir_38 scaling is applied, by default 4095.0
     num_diffusion_steps : int, optional
         Number of EDM diffusion sampling steps, by default 48
-    sigma_threshold : float, optional
-        Noise level that splits the forward pass between ``model_high``
-        (sigma ≥ sigma_threshold) and ``model_low`` (sigma < sigma_threshold),
-        by default 1.0
     batch_size : int, optional
         Maximum number of samples processed per forward pass, by default 1
     use_amp : bool, optional
@@ -169,8 +172,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def __init__(
         self,
-        model_low: torch.nn.Module,
-        model_high: torch.nn.Module,
+        model_spec: list[dict[str, Any]],
         means: torch.Tensor,
         stds: torch.Tensor,
         scale_factor: torch.Tensor,
@@ -191,21 +193,38 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ir_38_warm_scale_factor: float = 0.024222141,
         ir_38_warm_threshold: float = 4095.0,
         num_diffusion_steps: int = 48,
-        sigma_threshold: float = 1.0,
         batch_size: int = 1,
         use_amp: bool = True,
     ):
         super().__init__()
-        self.model_low = model_low
-        self.model_high = model_high
+
+        # Sort experts by ascending sigma
+        model_spec = sorted(model_spec, key=lambda s: float(s["sigma_min"]))
+        # Store in tensor / ModuleList so `.to(device)` works
+        self.register_buffer(
+            "expert_sigma_min",
+            torch.as_tensor([spec["sigma_min"] for spec in model_spec]),
+        )
+        self.register_buffer(
+            "expert_sigma_max",
+            torch.as_tensor([spec["sigma_max"] for spec in model_spec]),
+        )
+        if not (self.expert_sigma_min[1:] == self.expert_sigma_max[:-1]).all():
+            raise ValueError(
+                "Expert sigma ranges must combine to a single continuous range."
+            )
+        self.experts = torch.nn.ModuleList([spec["model"] for spec in model_spec])
+        combined_sigma_min = model_spec[0]["sigma_min"]
+        combined_sigma_max = model_spec[-1]["sigma_max"]
+
         self.register_buffer("means", means)
         self.register_buffer("stds", stds)
         self.register_buffer("scale_factor", scale_factor)
         self.register_buffer("add_offset", add_offset)
         self.register_buffer("invariants", invariants)
         self.sampler_args = {
-            "sigma_min": 0.001,
-            "sigma_max": 300,
+            "sigma_min": combined_sigma_min,
+            "sigma_max": combined_sigma_max,
             "sigma_data": 1.0,
             "rho": 7,
             "S_churn": 0.0,
@@ -215,6 +234,15 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         }
         if sampler_args is not None:
             self.sampler_args.update(sampler_args)
+        if (
+            self.sampler_args["sigma_min"] < combined_sigma_min
+            or self.sampler_args["sigma_max"] > combined_sigma_max
+        ):
+            raise ValueError(
+                f"The sampled sigma range [{self.sampler_args['sigma_min']}, "
+                f"{self.sampler_args['sigma_max']}] must be contained within the "
+                f"model sigma range [{combined_sigma_min}, {combined_sigma_max}]."
+            )
 
         # Slice lat/lon/invariants to the requested sub-region of the package data.
         # Package data covers inference_mtg_box; compute indices relative to its origin.
@@ -277,7 +305,6 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         self.num_diffusion_steps = num_diffusion_steps
-        self.sigma_threshold = sigma_threshold
         self.batch_size = batch_size
         self.use_amp = use_amp
 
@@ -340,9 +367,9 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return output_coords
 
     def compile_model(self) -> None:
-        """Compile the diffusion model forward pass with ``torch.compile``."""
-        self.model_low.forward = torch.compile(self.model_low.forward, dynamic=False)
-        self.model_high.forward = torch.compile(self.model_high.forward, dynamic=False)
+        """Compile each denoising expert with ``torch.compile``."""
+        for i in range(len(self.experts)):
+            self.experts[i] = torch.compile(self.experts[i], dynamic=False)
 
     def raw_to_physical(self, x: torch.Tensor, in_place: bool = False) -> torch.Tensor:
         """Convert raw MTG data file values to physical values."""
@@ -504,9 +531,18 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Return an x0-predictor closure conditioned on ``condition``."""
 
         def x0_predictor(x_noisy: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-            diffusion_model = (
-                self.model_high if t[0] >= self.sigma_threshold else self.model_low
-            )
+            if t[0] < self.expert_sigma_max[0]:
+                expert_idx = 0
+            elif t[0] >= self.expert_sigma_min[-1]:
+                expert_idx = len(self.experts) - 1
+            else:
+                expert_idx = (
+                    ((t[0] >= self.expert_sigma_min) & (t[0] < self.expert_sigma_max))
+                    .to(dtype=torch.int64)
+                    .argmax()
+                )
+            diffusion_model = self.experts[expert_idx]
+
             with torch.autocast(
                 x_noisy.device.type, dtype=torch.bfloat16, enabled=self.use_amp
             ):
@@ -730,12 +766,16 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # load model registry:
         config = OmegaConf.load(package.resolve("model.yaml"))
 
-        model_low = EDMPreconditioner.from_checkpoint(
-            package.resolve("StormscopeMTG-low.mdlus")
-        ).eval()
-        model_high = EDMPreconditioner.from_checkpoint(
-            package.resolve("StormscopeMTG-high.mdlus")
-        ).eval()
+        model_spec = [
+            {
+                "sigma_min": float(spec["sigma_min"]),
+                "sigma_max": float(spec["sigma_max"]),
+                "model": EDMPreconditioner.from_checkpoint(
+                    package.resolve(spec["path"])
+                ).eval(),
+            }
+            for spec in config["model_spec"]
+        ]
 
         # Load metadata: means, stds, grid
         with xr.open_dataset(package.resolve("metadata.nc")) as metadata:
@@ -782,8 +822,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_times = np.array([np.timedelta64(step_interval, "m")])
 
         return cls(
-            model_low,
-            model_high,
+            model_spec,
             means=means,
             stds=stds,
             invariants=invariants,
@@ -797,7 +836,6 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             variables=variables,
             sampler_args=sampler_args,
             inference_mtg_box=inference_mtg_box,
-            sigma_threshold=config["sigma_threshold"],
             mtg_y=mtg_y,
             mtg_x=mtg_x,
             mtg_ylim=mtg_ylim,
