@@ -607,6 +607,13 @@ body .md-grid {
   animation: e2s-orbit-spin 140s linear infinite;
 }
 
+.e2s-orbit:hover .e2s-orbit__icons,
+.e2s-orbit:focus-within .e2s-orbit__icons,
+.e2s-orbit:hover .e2s-orbit__icon svg,
+.e2s-orbit:focus-within .e2s-orbit__icon svg {
+  animation-play-state: paused;
+}
+
 .e2s-orbit__icon {
   --e2s-orbit-angle: -90deg;
   --e2s-orbit-radius: clamp(5.5rem, 10.4vw, 8.5rem);
