@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `CorrDiffCosmoEra5` loading files from the wrong resolution when cache names
+  collided. Cache names now include the resolution.
 - Fixed `OPERA` data source returning negative precipitation values (`-99.0 mm/h`
   for `tprate`, `-0.099 m` for `tp01`) for pixels where the radar detected no rain.
   Undetect pixels for RATE and ACRR quantities are now filled with `0.0` instead
