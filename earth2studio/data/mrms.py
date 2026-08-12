@@ -347,9 +347,7 @@ class MRMS:
             try:
                 # pygrib decode is blocking; run in a thread so concurrent
                 # (time, product) tasks decode in parallel
-                values, lat, lon = await asyncio.to_thread(
-                    _decode_mrms_grib, grib_file
-                )
+                values, lat, lon = await asyncio.to_thread(_decode_mrms_grib, grib_file)
             except Exception as e:
                 logger.error(f"Failed to read grib file {grib_file}")
                 last_exc = e

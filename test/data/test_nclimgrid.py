@@ -200,9 +200,7 @@ def test_nclimgrid_call_mock(tmp_path: pathlib.Path):
 
     with (
         patch.object(NClimGridDaily, "_async_init", return_value=None),
-        patch.object(
-            NClimGridDaily, "_fetch_monthly_file", fake_fetch_monthly_file
-        ),
+        patch.object(NClimGridDaily, "_fetch_monthly_file", fake_fetch_monthly_file),
     ):
         ds = NClimGridDaily(cache=False)
         ds.store = MagicMock()
