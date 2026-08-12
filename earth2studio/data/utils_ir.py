@@ -13,13 +13,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Spectral axis and radiance unit conversions for hyperspectral IR sounders.
-
-IASI and CrIS are archived as radiance and must be converted to brightness temperature
-before use (via :func:`earth2studio.data.utils.radiance_to_bt`; pure Planck inversion
-with no band correction, matching the convention used by the MetOp IASI and JPSS CrIS
-granule sources). AIRS is already in kelvin in the NNJA aggregate BUFR files.
-"""
+# Spectral axis and radiance unit conversions for hyperspectral IR sounders.
+#
+# IASI and CrIS are archived as radiance and must be converted to brightness
+# temperature before use (via earth2studio.data.utils.radiance_to_bt; pure
+# Planck inversion with no band correction, matching the convention used by
+# the MetOp IASI and JPSS CrIS granule sources). AIRS is already in kelvin in
+# the NNJA aggregate BUFR files.
 
 from __future__ import annotations
 

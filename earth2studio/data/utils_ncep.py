@@ -1377,9 +1377,11 @@ NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
             metadata={
                 "description": (
                     "Encoded channel-quality flags; interpretation is sensor "
-                    "and product specific. AIRS: 24-bit ACQF. CrIS: "
+                    "and product specific. Microwave: per-channel 0-33-081 "
+                    "flags as encoded. AIRS: 24-bit ACQF. CrIS: "
                     "NFQF (bits 0-18) | NCQF<<19 (bits 19-27) for the "
-                    "channel's band. IASI/MW: null."
+                    "channel's band. IASI: null (mtiasi carries no "
+                    "per-channel flag)."
                 )
             },
         ),
@@ -2024,12 +2026,13 @@ def _decode_ir_message_batch(
         datetime_max,
         satellites,
     ) = arguments
+    if _worker_decoder is None:
+        # Same contract as the microwave batch worker: a worker-init bug is a
+        # programming error, not a per-message decode failure
+        raise RuntimeError("BUFR decoder worker is not initialized")
     rows: list[dict[str, Any]] = []
     failures = 0
     for _index, message_bytes in indexed_messages:
-        if _worker_decoder is None:
-            failures += 1
-            continue
         try:
             with _silence_bufr_noise():
                 message = _worker_decoder.process(message_bytes)
