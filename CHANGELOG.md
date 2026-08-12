@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   minute-directory listings (scans older than an hour)
 - Migrated ISD, IBTrACS, CFS reforecast, and OPERA data sources from
   fsspec/s3fs to obstore
+- CFS reforecast grib decoding now resolves all requested variables in a
+  single pass over the file's messages instead of one `pygrib.select` scan
+  per variable (~20x faster for full-lexicon requests)
 
 ### Deprecated
 

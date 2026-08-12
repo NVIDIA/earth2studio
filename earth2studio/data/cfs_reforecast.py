@@ -647,8 +647,8 @@ def _decode_cfs_reforecast_grib(
     grib_file : str
         Path to the cached grib file on local disk.
     variables : list of (var_idx, parameterName, typeOfLevel, level, modifier)
-        Variables to extract from this grib file. Each tuple is processed
-        independently against ``pygrib.select``; missing variables emit a
+        Variables to extract from this grib file. All variables are resolved
+        in a single pass over the file's messages; missing variables emit a
         warning but do not abort the others.
 
     Returns
@@ -665,21 +665,34 @@ def _decode_cfs_reforecast_grib(
         logger.error(f"Failed to open grib file {grib_file}")
         raise e
     try:
+        # One pass over the file: pygrib.select() rescans every message per
+        # call, which is O(variables x messages) and dominates fetch time for
+        # large requests (~1.2 s per select on a 524-message pgbf file).
+        # Matching the first message per requested key preserves select()'s
+        # matches[0] behaviour.
+        wanted = {
+            (param_name, type_of_level, level)
+            for _, param_name, type_of_level, level, _ in variables
+        }
+        found: dict[tuple[str, str, int], Any] = {}
+        for grb in grbs:
+            key = (grb.parameterName, grb.typeOfLevel, grb.level)
+            if key in wanted and key not in found:
+                found[key] = grb
+                if len(found) == len(wanted):
+                    break
+
         out: list[tuple[int, np.ndarray]] = []
         for var_idx, param_name, type_of_level, level, modifier in variables:
-            matches = grbs.select(
-                parameterName=param_name,
-                typeOfLevel=type_of_level,
-                level=level,
-            )
-            if not matches:
+            grb = found.get((param_name, type_of_level, level))
+            if grb is None:
                 logger.warning(
                     f"CFS reforecast grib {grib_file} has no record matching "
                     f"parameterName={param_name!r} typeOfLevel={type_of_level!r} "
                     f"level={level}; variable will be left unset."
                 )
                 continue
-            out.append((var_idx, modifier(np.asarray(matches[0].values))))
+            out.append((var_idx, modifier(np.asarray(grb.values))))
         return out
     finally:
         grbs.close()
