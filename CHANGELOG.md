@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CFS reforecast grib decoding now resolves all requested variables in a
   single pass over the file's messages instead of one `pygrib.select` scan
   per variable (~20x faster for full-lexicon requests)
+- Consolidated the four identical per-source grib decode helpers
+  (`_decode_gfs_grib`, `_decode_hrrr_grib`, `_decode_gefs_grib`,
+  `_decode_cfs_grib`) into a shared `decode_grib_message` helper in
+  `earth2studio.data.utils`
 
 ### Deprecated
 

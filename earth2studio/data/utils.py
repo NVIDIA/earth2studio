@@ -835,6 +835,49 @@ def resolve_async_workers(
     return max(1, min(n_tasks, cap))
 
 
+def decode_grib_message(grib_file: str, message_index: int = 1) -> np.ndarray:
+    """Decode one message from a local grib file into a numpy array.
+
+    Shared by the GRIB byte-range data sources (GFS, HRRR, GEFS, CFS), which
+    cache single-message (or few-submessage) slices to disk. Sync and
+    module-level so callers can dispatch it via ``cancellable_to_thread`` and
+    patch it in offline tests. Uses pygrib, which is faster and lower memory
+    than xarray/cfgrib for single-message slices.
+
+    Parameters
+    ----------
+    grib_file : str
+        Path to local grib file.
+    message_index : int, optional
+        1-based pygrib message index to extract, by default 1. Byte-range
+        slices hold a single message; vector wind packings (e.g. CFS
+        `UGRD`/`VGRD` siblings) hold multiple submessages.
+
+    Returns
+    -------
+    np.ndarray
+        Decoded 2-D field values.
+    """
+    # Local import keeps pygrib (a heavy C extension) out of the import path
+    # of data sources that do not read grib.
+    import pygrib
+
+    try:
+        grbs = pygrib.open(grib_file)
+    except Exception:
+        logger.error(f"Failed to open grib file {grib_file}")
+        raise
+    try:
+        return np.asarray(grbs[message_index].values)
+    except Exception:
+        logger.error(
+            f"Failed to read grib file {grib_file} at message {message_index}"
+        )
+        raise
+    finally:
+        grbs.close()
+
+
 class AsyncReadableStore(
     obspec.GetAsync, obspec.GetRangeAsync, obspec.HeadAsync, Protocol
 ):
