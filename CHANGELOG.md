@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `CFS_Reforecast_FX` and `CFS_Reforecast_FX_Flux` pointing at the retired
+  NCEI archive path; the reforecast archive moved to
+  `https://www.ncei.noaa.gov/oa/prod-cfs-reforecast` with renamed product subdirs
 - Fixed `CorrDiffCosmoEra5` loading files from the wrong resolution when cache names
   collided. Cache names now include the resolution.
 - Fixed `OPERA` data source returning negative precipitation values (`-99.0 mm/h`

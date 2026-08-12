@@ -200,8 +200,7 @@ class CFS_Reforecast_FX:
     Additional information on the data repository:
 
     - https://www.ncei.noaa.gov/products/weather-climate-models/climate-forecast-system
-    - https://www.ncei.noaa.gov/data/climate-forecast-system/access/reforecast/6-hourly-by-pressure-level-9-month-runs/
-    - https://www.ncei.noaa.gov/data/climate-forecast-system/access/reforecast/6-hourly-flux-9-month-runs/
+    - https://www.ncei.noaa.gov/oa/prod-cfs-reforecast/index.html
 
     Badges
     ------
@@ -209,15 +208,15 @@ class CFS_Reforecast_FX:
     """
 
     # NCEI HTTPS base path; both pgbf and flxf live under the same parent
-    # but differ in the product subdir.
-    CFS_NCEI_BASE = (
-        "https://www.ncei.noaa.gov/data/climate-forecast-system/access/reforecast"
-    )
+    # but differ in the product subdir. The archive moved from
+    # /data/climate-forecast-system/access/reforecast to this S3-style
+    # endpoint (the old path now only serves a readme with the new URL).
+    CFS_NCEI_BASE = "https://www.ncei.noaa.gov/oa/prod-cfs-reforecast"
 
     # File prefix and product subdirectory for this product.  Overridden in
     # :class:`CFS_Reforecast_FX_Flux`.
     CFS_PRODUCT = "pgbf"
-    CFS_NCEI_SUBDIR = "6-hourly-by-pressure-level-9-month-runs"
+    CFS_NCEI_SUBDIR = "6-hourly_9mon_pgbf"
 
     # 1 degree regular lat-lon grid, identical to the operational pgbf.
     CFS_LAT = CFS_FX.CFS_LAT
@@ -620,7 +619,7 @@ class CFS_Reforecast_FX_Flux(CFS_Reforecast_FX):
     Additional information on the data repository:
 
     - https://www.ncei.noaa.gov/products/weather-climate-models/climate-forecast-system
-    - https://www.ncei.noaa.gov/data/climate-forecast-system/access/reforecast/6-hourly-flux-9-month-runs/
+    - https://www.ncei.noaa.gov/oa/prod-cfs-reforecast/index.html
 
     Badges
     ------
@@ -628,7 +627,7 @@ class CFS_Reforecast_FX_Flux(CFS_Reforecast_FX):
     """
 
     CFS_PRODUCT = "flxf"
-    CFS_NCEI_SUBDIR = "6-hourly-flux-9-month-runs"
+    CFS_NCEI_SUBDIR = "cfs_reforecast_6-hourly_9mon_flxf"
 
     # T126 Gaussian grid, identical to the operational flxf.
     CFS_LAT = CFS_FX_Flux.CFS_LAT
