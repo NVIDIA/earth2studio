@@ -10,20 +10,14 @@ A collection of utilities to manipulate and check coordinate systems dictionarie
 currentmodule: earth2studio
 template: function
 output: generated/utils/1
-objects:
-- utils.coords.handshake_dim
-- utils.coords.handshake_coords
-- utils.coords.handshake_size
-- utils.coords.map_coords
-- utils.coords.split_coords
 -->
 
 {% autosummary %}
-modules/generated/utils/1/utils_coords_handshake_dim.md
-modules/generated/utils/1/utils_coords_handshake_coords.md
-modules/generated/utils/1/utils_coords_handshake_size.md
-modules/generated/utils/1/utils_coords_map_coords.md
-modules/generated/utils/1/utils_coords_split_coords.md
+earth2studio.utils.coords.handshake_dim
+earth2studio.utils.coords.handshake_coords
+earth2studio.utils.coords.handshake_size
+earth2studio.utils.coords.map_coords
+earth2studio.utils.coords.split_coords
 {% endautosummary %}
 
 ## Grid Interpolation
@@ -32,12 +26,10 @@ modules/generated/utils/1/utils_coords_split_coords.md
 currentmodule: earth2studio
 template: class
 output: generated/utils/2
-objects:
-- utils.interp.LatLonInterpolation
 -->
 
 {% autosummary %}
-modules/generated/utils/2/utils_interp_LatLonInterpolation.md
+earth2studio.utils.interp.LatLonInterpolation
 {% endautosummary %}
 
 ## Observation Utilities
@@ -46,12 +38,10 @@ modules/generated/utils/2/utils_interp_LatLonInterpolation.md
 currentmodule: earth2studio
 template: class
 output: generated/utils/3
-objects:
-- utils.obs.ObsGridMapping
 -->
 
 {% autosummary %}
-modules/generated/utils/3/utils_obs_ObsGridMapping.md
+earth2studio.utils.obs.ObsGridMapping
 {% endautosummary %}
 
 ## Time Utilities
@@ -60,14 +50,11 @@ modules/generated/utils/3/utils_obs_ObsGridMapping.md
 currentmodule: earth2studio
 template: function
 output: generated/utils/4
-objects:
-- utils.time.timearray_to_datetime
-- utils.time.to_time_array
 -->
 
 {% autosummary %}
-modules/generated/utils/4/utils_time_timearray_to_datetime.md
-modules/generated/utils/4/utils_time_to_time_array.md
+earth2studio.utils.time.timearray_to_datetime
+earth2studio.utils.time.to_time_array
 {% endautosummary %}
 
 ## Checkpoint Classes
@@ -76,18 +63,13 @@ modules/generated/utils/4/utils_time_to_time_array.md
 currentmodule: earth2studio
 template: class
 output: generated/utils/5
-objects:
-- utils.checkpoint.Checkpoint
-- utils.checkpoint.CheckpointSession
-- utils.checkpoint.CheckpointState
-- utils.checkpoint.NullCheckpoint
 -->
 
 {% autosummary %}
-modules/generated/utils/5/utils_checkpoint_Checkpoint.md
-modules/generated/utils/5/utils_checkpoint_CheckpointSession.md
-modules/generated/utils/5/utils_checkpoint_CheckpointState.md
-modules/generated/utils/5/utils_checkpoint_NullCheckpoint.md
+earth2studio.utils.checkpoint.Checkpoint
+earth2studio.utils.checkpoint.CheckpointSession
+earth2studio.utils.checkpoint.CheckpointState
+earth2studio.utils.checkpoint.NullCheckpoint
 {% endautosummary %}
 
 ## Checkpoint Helpers
@@ -96,12 +78,10 @@ modules/generated/utils/5/utils_checkpoint_NullCheckpoint.md
 currentmodule: earth2studio
 template: function
 output: generated/utils/6
-objects:
-- utils.checkpoint.bind_checkpoint_state
 -->
 
 {% autosummary %}
-modules/generated/utils/6/utils_checkpoint_bind_checkpoint_state.md
+earth2studio.utils.checkpoint.bind_checkpoint_state
 {% endautosummary %}
 
 ## Data Utilities
@@ -110,16 +90,12 @@ modules/generated/utils/6/utils_checkpoint_bind_checkpoint_state.md
 currentmodule: earth2studio
 template: function
 output: generated/utils/7
-objects:
-- data.datasource_to_file
-- data.fetch_data
-- data.prep_data_array
 -->
 
 {% autosummary %}
-modules/generated/utils/7/data_datasource_to_file.md
-modules/generated/utils/7/data_fetch_data.md
-modules/generated/utils/7/data_prep_data_array.md
+earth2studio.data.datasource_to_file
+earth2studio.data.fetch_data
+earth2studio.data.prep_data_array
 {% endautosummary %}
 
 ## Model Utilities
@@ -128,12 +104,9 @@ modules/generated/utils/7/data_prep_data_array.md
 currentmodule: earth2studio.models
 template: class
 output: generated/utils/8
-objects:
-- auto.Package
-- batch.batch_func
 -->
 
 {% autosummary %}
-modules/generated/utils/8/auto_Package.md
-modules/generated/utils/8/batch_batch_func.md
+earth2studio.models.auto.Package
+earth2studio.models.batch.batch_func
 {% endautosummary %}

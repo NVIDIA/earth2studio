@@ -48,6 +48,11 @@ RST_LIST_TABLE_RE = re.compile(
     re.I,
 )
 MYST_TARGET_RE = re.compile(r"^\((?P<label>[A-Za-z0-9_.:-]+)\)=\s*$")
+RST_INLINE_ROLE_RE = re.compile(
+    r":(?:(?P<domain>[A-Za-z][\w-]*):)?"
+    r"(?P<role>func|meth|class|attr|mod|data|obj|exc):`(?P<target>[^`]+)`"
+)
+MARKDOWN_CODE_XREF_RE = re.compile(r"\[`([^`]+)`\]\[([^\]]+)\]")
 DOCS_ROOT = Path(__file__).resolve().parent
 GENERATED_API_ROOT = DOCS_ROOT / "modules" / "generated"
 INSTALL_SELECTOR_MARKER = "<!-- e2s-install-selector -->"
@@ -635,6 +640,49 @@ def _convert_rst_list_table(
     return i
 
 
+def _is_class_like_xref(label: str) -> bool:
+    """Return whether a Markdown xref label looks like a class/type."""
+    name = label.split(".")[-1].lstrip("~")
+    stripped = name.lstrip("_")
+    return bool(stripped) and stripped[0].isupper()
+
+
+def _legacy_role_label(target: str) -> str:
+    """Return the displayed text for a Sphinx inline role as inline code."""
+    target = target.strip()
+    explicit = re.match(r"(?P<label>.+?)\s+<(?P<target>[^<>]+)>", target)
+    if explicit:
+        return explicit.group("label").strip()
+    if target.startswith("~"):
+        return target[1:].rsplit(".", 1)[-1]
+    return target
+
+
+def _inline_code(label: str) -> str:
+    """Return Markdown inline code for label text."""
+    escaped = label.replace("`", r"\`")
+    return f"`{escaped}`"
+
+
+def _convert_legacy_inline_roles(markdown: str) -> str:
+    """Render unsupported Sphinx inline roles as Markdown inline code."""
+
+    def replace(match: re.Match[str]) -> str:
+        return _inline_code(_legacy_role_label(match.group("target")))
+
+    return RST_INLINE_ROLE_RE.sub(replace, markdown)
+
+
+def _convert_markdown_code_xrefs(markdown: str) -> str:
+    """Keep class code xrefs, but render method/function xrefs as inline code."""
+
+    def replace(match: re.Match[str]) -> str:
+        label = match.group(1)
+        return match.group(0) if _is_class_like_xref(label) else _inline_code(label)
+
+    return MARKDOWN_CODE_XREF_RE.sub(replace, markdown)
+
+
 def _convert_rst_directive(
     lines: list[str], i: int, out: list[str], prefix: str, page: object | None
 ) -> int | None:
@@ -741,7 +789,11 @@ def _convert_legacy_blocks(markdown: str, page: object | None = None) -> str:
                 i = next_i
                 continue
 
-        out.append(prefix + lines[i])
+        line = prefix + lines[i]
+        if not in_code_fence:
+            line = _convert_legacy_inline_roles(line)
+            line = _convert_markdown_code_xrefs(line)
+        out.append(line)
         i += 1
 
     return "\n".join(out) + ("\n" if markdown.endswith("\n") else "")

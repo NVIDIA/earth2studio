@@ -12,14 +12,10 @@ use cases.
 currentmodule: earth2studio
 template: function
 output: generated/workflows/1
-objects:
-- run.deterministic
-- run.diagnostic
-- run.ensemble
 -->
 
 {% autosummary %}
-modules/generated/workflows/1/run_deterministic.md
-modules/generated/workflows/1/run_diagnostic.md
-modules/generated/workflows/1/run_ensemble.md
+earth2studio.run.deterministic
+earth2studio.run.diagnostic
+earth2studio.run.ensemble
 {% endautosummary %}

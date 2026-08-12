@@ -408,7 +408,7 @@ docs = [
     "matplotlib",
     "mike>=2.1.0",
     "mkdocs>=1.6.1",
-    "mkdocs-badges @ git+https://github.com/NickGeneva/mkdocs-badges.git@24869323b41ec3384acef191812975bfaa78c073",
+    "mkdocs-badges @ git+https://github.com/NickGeneva/mkdocs-badges.git@e69516d5a1659081fc51af1ccb0cfa71d7f9a727",
     "mkdocs-material>=9.6.0",
     "mkdocstrings>=1.0.4",
     "mkdocstrings-python>=2.0.5",

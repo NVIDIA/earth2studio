@@ -749,6 +749,7 @@ def write_object(page: ObjectPage) -> None:
         f"title: {yaml_scalar(page.display)}",
         f"summary: {yaml_scalar(page.summary)}",
         f"signature: {yaml_scalar(page.signature)}",
+        f"symbol: {yaml_scalar(page.full_name)}",
         f"badges: {yaml_list(page.badges)}",
         "---",
         "",
@@ -784,21 +785,37 @@ def write_object(page: ObjectPage) -> None:
 
 
 API_AUTOSUMMARY_RE = re.compile(r"<!--\s*e2s-autosummary\s*\n(?P<body>.*?)\n-->", re.S)
+AUTOSUMMARY_BLOCK_RE = re.compile(
+    r"\{%\s*autosummary\s*%\}\s*\n(?P<body>.*?)\n\{%\s*endautosummary\s*%\}",
+    re.S,
+)
 
 
 def collect_autosummaries(path: Path) -> list[SummaryGroup]:
-    """Collect autosummary entries from Markdown metadata blocks."""
+    """Collect autosummary entries from Markdown API summary pages."""
     content = path.read_text(encoding="utf-8")
+    metadata = list(API_AUTOSUMMARY_RE.finditer(content))
+    summaries = list(AUTOSUMMARY_BLOCK_RE.finditer(content))
+    if len(metadata) != len(summaries):
+        raise ValueError(
+            f"{path} has {len(metadata)} e2s-autosummary metadata block(s) "
+            f"but {len(summaries)} autosummary block(s)"
+        )
+
     groups: list[SummaryGroup] = []
-    for match in API_AUTOSUMMARY_RE.finditer(content):
-        data = yaml.safe_load(match.group("body")) or {}
+    for meta_match, summary_match in zip(metadata, summaries, strict=True):
+        data = yaml.safe_load(meta_match.group("body")) or {}
         current_module = str(data.get("currentmodule") or "earth2studio")
         template = str(data.get("template") or "class").removesuffix(".rst")
         output = Path(str(data.get("output") or "generated"))
         badges = tuple(str(item) for item in data.get("badges", []) or [])
         raw_options = data.get("filter", {}) or {}
         options = {str(key): str(value) for key, value in raw_options.items()}
-        objects = tuple(str(item) for item in data.get("objects", []) or [])
+        objects = tuple(
+            line.strip().strip("`")
+            for line in summary_match.group("body").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        )
         groups.append(
             SummaryGroup(
                 current_module=current_module,
@@ -833,6 +850,15 @@ def filter_options(options: dict[str, str]) -> str:
     return " ".join(parts)
 
 
+def display_name(current_module: str, symbol: str) -> str:
+    """Return a compact display name for a generated API object page."""
+    full = full_name(current_module, symbol)
+    prefix = f"{current_module}."
+    if full.startswith(prefix):
+        return full.removeprefix(prefix)
+    return full.removeprefix("earth2studio.")
+
+
 def build_module_page(path: Path) -> None:
     """Generate object pages referenced by one Markdown API summary page."""
     groups = collect_autosummaries(path)
@@ -840,7 +866,7 @@ def build_module_page(path: Path) -> None:
         out_dir = MODULES / group.output
         pages = [
             object_page(
-                obj,
+                display_name(group.current_module, obj),
                 full_name(group.current_module, obj),
                 out_dir,
                 group.template,

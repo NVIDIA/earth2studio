@@ -6,18 +6,12 @@ IO Backends for saving your inference results for further post processing.
 currentmodule: earth2studio
 template: io
 output: generated/io/1
-objects:
-- io.AsyncZarrBackend
-- io.KVBackend
-- io.NetCDF4Backend
-- io.XarrayBackend
-- io.ZarrBackend
 -->
 
 {% autosummary %}
-modules/generated/io/1/io_AsyncZarrBackend.md
-modules/generated/io/1/io_KVBackend.md
-modules/generated/io/1/io_NetCDF4Backend.md
-modules/generated/io/1/io_XarrayBackend.md
-modules/generated/io/1/io_ZarrBackend.md
+earth2studio.io.AsyncZarrBackend
+earth2studio.io.KVBackend
+earth2studio.io.NetCDF4Backend
+earth2studio.io.XarrayBackend
+earth2studio.io.ZarrBackend
 {% endautosummary %}

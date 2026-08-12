@@ -38,54 +38,30 @@ filter:
   order: fixed
   toggle: 'true'
   hidden: product
-objects:
-- data.AIFS_FX
-- data.CAMS_FX
-- data.AIFS_ENS_FX
-- data.CFS_FX
-- data.CFS_FX_Flux
-- data.CFS_Reforecast_FX
-- data.CFS_Reforecast_FX_Flux
-- data.DynamicalGFS_FX
-- data.DynamicalGEFS_FX
-- data.DynamicalHRRR_FX
-- data.DynamicalICON_EU_FX
-- data.DynamicalIFS_ENS_FX
-- data.DynamicalAIFS_FX
-- data.DynamicalAIFSENS_FX
-- data.EarthMoverBrightBandIFS_FX
-- data.GFS_FX
-- data.GEFS_FX
-- data.GEFS_FX_721x1440
-- data.HRRR_FX
-- data.IFS_FX
-- data.IFS_ENS_FX
 -->
-
 <!-- mkdocs-badges:filter region:global region:na region:eu region:as region:au region:af region:sa dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu mode=or order=fixed toggle=true hidden="product" -->
-
 {% autosummary %}
-modules/generated/data/forecast/data_AIFS_FX.md
-modules/generated/data/forecast/data_CAMS_FX.md
-modules/generated/data/forecast/data_AIFS_ENS_FX.md
-modules/generated/data/forecast/data_CFS_FX.md
-modules/generated/data/forecast/data_CFS_FX_Flux.md
-modules/generated/data/forecast/data_CFS_Reforecast_FX.md
-modules/generated/data/forecast/data_CFS_Reforecast_FX_Flux.md
-modules/generated/data/forecast/data_DynamicalGFS_FX.md
-modules/generated/data/forecast/data_DynamicalGEFS_FX.md
-modules/generated/data/forecast/data_DynamicalHRRR_FX.md
-modules/generated/data/forecast/data_DynamicalICON_EU_FX.md
-modules/generated/data/forecast/data_DynamicalIFS_ENS_FX.md
-modules/generated/data/forecast/data_DynamicalAIFS_FX.md
-modules/generated/data/forecast/data_DynamicalAIFSENS_FX.md
-modules/generated/data/forecast/data_EarthMoverBrightBandIFS_FX.md
-modules/generated/data/forecast/data_GFS_FX.md
-modules/generated/data/forecast/data_GEFS_FX.md
-modules/generated/data/forecast/data_GEFS_FX_721x1440.md
-modules/generated/data/forecast/data_HRRR_FX.md
-modules/generated/data/forecast/data_IFS_FX.md
-modules/generated/data/forecast/data_IFS_ENS_FX.md
+earth2studio.data.AIFS_FX
+earth2studio.data.CAMS_FX
+earth2studio.data.AIFS_ENS_FX
+earth2studio.data.CFS_FX
+earth2studio.data.CFS_FX_Flux
+earth2studio.data.CFS_Reforecast_FX
+earth2studio.data.CFS_Reforecast_FX_Flux
+earth2studio.data.DynamicalGFS_FX
+earth2studio.data.DynamicalGEFS_FX
+earth2studio.data.DynamicalHRRR_FX
+earth2studio.data.DynamicalICON_EU_FX
+earth2studio.data.DynamicalIFS_ENS_FX
+earth2studio.data.DynamicalAIFS_FX
+earth2studio.data.DynamicalAIFSENS_FX
+earth2studio.data.EarthMoverBrightBandIFS_FX
+earth2studio.data.GFS_FX
+earth2studio.data.GEFS_FX
+earth2studio.data.GEFS_FX_721x1440
+earth2studio.data.HRRR_FX
+earth2studio.data.IFS_FX
+earth2studio.data.IFS_ENS_FX
 {% endautosummary %}
 
 <!-- mkdocs-badges:end -->

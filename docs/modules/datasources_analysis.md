@@ -45,90 +45,48 @@ filter:
   order: fixed
   toggle: 'true'
   hidden: product
-objects:
-- data.ARCO
-- data.CDS
-- data.CMIP6
-- data.CMIP6MultiRealm
-- data.DynamicalAIFS
-- data.DynamicalAIFS_ENS
-- data.DynamicalGFS
-- data.DynamicalGEFS
-- data.DynamicalHRRR
-- data.DynamicalIFS_ENS
-- data.DynamicalMRMS
-- data.EarthMoverBrightBandIFS
-- data.EarthMoverERA5
-- data.GFS
-- data.GOES
-- data.GOESGLMGrid
-- data.HimawariAHI
-- data.HRRR
-- data.IFS
-- data.IFS_ENS
-- data.JPSS
-- data.MRMS
-- data.MeteosatFCI
-- data.NClimGridDaily
-- data.NCAR_ERA5
-- data.OPERA
-- data.PlanetaryComputerECMWFOpenDataIFS
-- data.PlanetaryComputerGOES
-- data.PlanetaryComputerMODISFire
-- data.PlanetaryComputerOISST
-- data.PlanetaryComputerSentinel3AOD
-- data.Random
-- data.WB2ERA5
-- data.WB2ERA5_121x240
-- data.WB2ERA5_32x64
-- data.WB2Climatology
-- data.DataArrayFile
-- data.DataSetFile
-- data.DataArrayPathList
 -->
-
 <!-- mkdocs-badges:filter region:global region:na region:eu region:as region:au region:af region:sa dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu mode=or order=fixed toggle=true hidden="product" -->
-
 {% autosummary %}
-modules/generated/data/analysis/data_ARCO.md
-modules/generated/data/analysis/data_CDS.md
-modules/generated/data/analysis/data_CMIP6.md
-modules/generated/data/analysis/data_CMIP6MultiRealm.md
-modules/generated/data/analysis/data_DynamicalAIFS.md
-modules/generated/data/analysis/data_DynamicalAIFS_ENS.md
-modules/generated/data/analysis/data_DynamicalGFS.md
-modules/generated/data/analysis/data_DynamicalGEFS.md
-modules/generated/data/analysis/data_DynamicalHRRR.md
-modules/generated/data/analysis/data_DynamicalIFS_ENS.md
-modules/generated/data/analysis/data_DynamicalMRMS.md
-modules/generated/data/analysis/data_EarthMoverBrightBandIFS.md
-modules/generated/data/analysis/data_EarthMoverERA5.md
-modules/generated/data/analysis/data_GFS.md
-modules/generated/data/analysis/data_GOES.md
-modules/generated/data/analysis/data_GOESGLMGrid.md
-modules/generated/data/analysis/data_HimawariAHI.md
-modules/generated/data/analysis/data_HRRR.md
-modules/generated/data/analysis/data_IFS.md
-modules/generated/data/analysis/data_IFS_ENS.md
-modules/generated/data/analysis/data_JPSS.md
-modules/generated/data/analysis/data_MRMS.md
-modules/generated/data/analysis/data_MeteosatFCI.md
-modules/generated/data/analysis/data_NClimGridDaily.md
-modules/generated/data/analysis/data_NCAR_ERA5.md
-modules/generated/data/analysis/data_OPERA.md
-modules/generated/data/analysis/data_PlanetaryComputerECMWFOpenDataIFS.md
-modules/generated/data/analysis/data_PlanetaryComputerGOES.md
-modules/generated/data/analysis/data_PlanetaryComputerMODISFire.md
-modules/generated/data/analysis/data_PlanetaryComputerOISST.md
-modules/generated/data/analysis/data_PlanetaryComputerSentinel3AOD.md
-modules/generated/data/analysis/data_Random.md
-modules/generated/data/analysis/data_WB2ERA5.md
-modules/generated/data/analysis/data_WB2ERA5_121x240.md
-modules/generated/data/analysis/data_WB2ERA5_32x64.md
-modules/generated/data/analysis/data_WB2Climatology.md
-modules/generated/data/analysis/data_DataArrayFile.md
-modules/generated/data/analysis/data_DataSetFile.md
-modules/generated/data/analysis/data_DataArrayPathList.md
+earth2studio.data.ARCO
+earth2studio.data.CDS
+earth2studio.data.CMIP6
+earth2studio.data.CMIP6MultiRealm
+earth2studio.data.DynamicalAIFS
+earth2studio.data.DynamicalAIFS_ENS
+earth2studio.data.DynamicalGFS
+earth2studio.data.DynamicalGEFS
+earth2studio.data.DynamicalHRRR
+earth2studio.data.DynamicalIFS_ENS
+earth2studio.data.DynamicalMRMS
+earth2studio.data.EarthMoverBrightBandIFS
+earth2studio.data.EarthMoverERA5
+earth2studio.data.GFS
+earth2studio.data.GOES
+earth2studio.data.GOESGLMGrid
+earth2studio.data.HimawariAHI
+earth2studio.data.HRRR
+earth2studio.data.IFS
+earth2studio.data.IFS_ENS
+earth2studio.data.JPSS
+earth2studio.data.MRMS
+earth2studio.data.MeteosatFCI
+earth2studio.data.NClimGridDaily
+earth2studio.data.NCAR_ERA5
+earth2studio.data.OPERA
+earth2studio.data.PlanetaryComputerECMWFOpenDataIFS
+earth2studio.data.PlanetaryComputerGOES
+earth2studio.data.PlanetaryComputerMODISFire
+earth2studio.data.PlanetaryComputerOISST
+earth2studio.data.PlanetaryComputerSentinel3AOD
+earth2studio.data.Random
+earth2studio.data.WB2ERA5
+earth2studio.data.WB2ERA5_121x240
+earth2studio.data.WB2ERA5_32x64
+earth2studio.data.WB2Climatology
+earth2studio.data.DataArrayFile
+earth2studio.data.DataSetFile
+earth2studio.data.DataArrayPathList
 {% endautosummary %}
 
 <!-- mkdocs-badges:end -->
@@ -167,14 +125,10 @@ filter:
   order: fixed
   toggle: 'true'
   hidden: product
-objects:
-- data.CBottle3D
 -->
-
 <!-- mkdocs-badges:filter region:global region:na region:eu region:as region:au region:af region:sa dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu mode=or order=fixed toggle=true hidden="product" -->
-
 {% autosummary %}
-modules/generated/data/analysis/data_CBottle3D.md
+earth2studio.data.CBottle3D
 {% endautosummary %}
 
 <!-- mkdocs-badges:end -->

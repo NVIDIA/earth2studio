@@ -8,24 +8,15 @@ creating ensemble forecasts.
 currentmodule: earth2studio
 template: perturbation
 output: generated/perturbation/1
-objects:
-- perturbation.Brown
-- perturbation.BredVector
-- perturbation.CorrelatedSphericalGaussian
-- perturbation.Gaussian
-- perturbation.HemisphericCentredBredVector
-- perturbation.LaggedEnsemble
-- perturbation.SphericalGaussian
-- perturbation.Zero
 -->
 
 {% autosummary %}
-modules/generated/perturbation/1/perturbation_Brown.md
-modules/generated/perturbation/1/perturbation_BredVector.md
-modules/generated/perturbation/1/perturbation_CorrelatedSphericalGaussian.md
-modules/generated/perturbation/1/perturbation_Gaussian.md
-modules/generated/perturbation/1/perturbation_HemisphericCentredBredVector.md
-modules/generated/perturbation/1/perturbation_LaggedEnsemble.md
-modules/generated/perturbation/1/perturbation_SphericalGaussian.md
-modules/generated/perturbation/1/perturbation_Zero.md
+earth2studio.perturbation.Brown
+earth2studio.perturbation.BredVector
+earth2studio.perturbation.CorrelatedSphericalGaussian
+earth2studio.perturbation.Gaussian
+earth2studio.perturbation.HemisphericCentredBredVector
+earth2studio.perturbation.LaggedEnsemble
+earth2studio.perturbation.SphericalGaussian
+earth2studio.perturbation.Zero
 {% endautosummary %}

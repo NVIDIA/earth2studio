@@ -57,18 +57,12 @@ filter:
   order: fixed
   toggle: 'true'
   hidden: product year
-objects:
-- HealDA
-- InterpEquirectangular
-- StormCastSDA
 -->
-
 <!-- mkdocs-badges:filter region:global region:na region:eu region:as region:au region:af region:sa class:nwc class:ds class:mrf class:s2s class:da class:cm product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu year:2021 year:2022 year:2023 year:2024 year:2025 year:2026 gpu:96gb gpu:80gb gpu:48gb gpu:40gb mode=or order=fixed toggle=true hidden="product year" -->
-
 {% autosummary %}
-modules/generated/models/da/HealDA.md
-modules/generated/models/da/InterpEquirectangular.md
-modules/generated/models/da/StormCastSDA.md
+earth2studio.models.da.HealDA
+earth2studio.models.da.InterpEquirectangular
+earth2studio.models.da.StormCastSDA
 {% endautosummary %}
 
 <!-- mkdocs-badges:end -->
