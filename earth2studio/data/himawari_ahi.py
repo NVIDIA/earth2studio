@@ -230,11 +230,6 @@ def _compute_pixel_roi(
 _HDF5_LOCK = threading.Lock()
 
 
-def _utcnow() -> datetime:
-    """Naive UTC now, matching the naive datetimes used throughout."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
 @dataclass
 class HimawariAsyncTask:
     """Async task for fetching a single Himawari tile."""
@@ -544,7 +539,8 @@ class HimawariAHI:
                 self.store,
                 prefix,
                 cache=self._minute_listing_cache,
-                cacheable=t + timedelta(hours=1) <= _utcnow(),
+                cacheable=t + timedelta(hours=1)
+                <= datetime.now(timezone.utc).replace(tzinfo=None),
             )
             all_files = [f"{self._bucket}/{p}" for p in paths]
             if not all_files:
