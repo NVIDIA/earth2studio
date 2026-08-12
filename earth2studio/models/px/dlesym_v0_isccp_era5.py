@@ -171,7 +171,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
     Parameters
     ----------
     *args
-        Positional arguments forwarded to [`DLESyM`][DLESyM].
+        Positional arguments forwarded to :class:`DLESyM`.
     use_ttr : bool, optional
         If True, declare ``ttr`` as the radiative input variable and apply
         the TTR -> OLR transform internally. If False, declare ``rlut``
@@ -190,7 +190,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
         Lower bound applied to the transformed OLR (the upstream pipeline
         uses a small positive quantile floor). Defaults to 0.0.
     **kwargs
-        Keyword arguments forwarded to [`DLESyM`][DLESyM].
+        Keyword arguments forwarded to :class:`DLESyM`.
 
     Note
     ----
@@ -316,7 +316,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
             and (when ``use_ttr=True``) ``era5_ttr_doy_stats_hpx64.nc`` and
             ``isccp_olr_doy_stats_hpx64.nc``.
         use_ttr : bool, optional
-            See [`DLESyMv0_ISCCP_ERA5`][DLESyMv0_ISCCP_ERA5]. Defaults to True.
+            See :class:`DLESyMv0_ISCCP_ERA5`. Defaults to True.
         atmos_model_idx : int, optional
             Index into ``cfg.models.atmos_model_checkpoints``. Defaults to 0.
         ocean_model_idx : int, optional
@@ -428,7 +428,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
     def _apply_ttr_to_olr(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
         """Replace the TTR channel in ``x`` with ISCCP-distributed OLR.
 
-        Delegates to [`apply_ttr_to_olr`][apply_ttr_to_olr] after locating the TTR channel
+        Delegates to :func:`apply_ttr_to_olr` after locating the TTR channel
         in ``coords["variable"]``. No-op if ``coords`` already advertises
         ``rlut`` (the model output space) at the radiation slot.
         """
@@ -540,10 +540,10 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
 
 @check_optional_dependencies()
 class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
-    """Lat/lon convenience wrapper for [`DLESyMv0_ISCCP_ERA5`][DLESyMv0_ISCCP_ERA5].
+    """Lat/lon convenience wrapper for :class:`DLESyMv0_ISCCP_ERA5`.
 
     Combines the DLESyMv0_ISCCP_ERA5 climate checkpoints (see
-    [`DLESyMv0_ISCCP_ERA5`][DLESyMv0_ISCCP_ERA5]) with the lat/lon regridding interface of
+    :class:`DLESyMv0_ISCCP_ERA5`) with the lat/lon regridding interface of
     [`DLESyMLatLon`][earth2studio.models.px.dlesym.DLESyMLatLon]. Inputs are accepted
     on the equiangular lat/lon grid (so any ERA5-compatible
     [`DataSource`][earth2studio.data.DataSource] works directly), regridded to
@@ -552,7 +552,7 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
     most users of the upstream checkpoints, including climate-timescale
     rollouts.
 
-    Like [`DLESyMv0_ISCCP_ERA5`][DLESyMv0_ISCCP_ERA5], when ``use_ttr=True`` (default) the
+    Like :class:`DLESyMv0_ISCCP_ERA5`, when ``use_ttr=True`` (default) the
     wrapper advertises ERA5 ``ttr`` as the radiative input variable and applies
     the per-day-of-year moment-matching TTR -> OLR transform internally. The
     transform is applied *after* the initial condition is regridded to HEALPix;
@@ -564,14 +564,14 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
     Parameters
     ----------
     *args
-        Positional arguments forwarded to [`DLESyMv0_ISCCP_ERA5`][DLESyMv0_ISCCP_ERA5].
+        Positional arguments forwarded to :class:`DLESyMv0_ISCCP_ERA5`.
     **kwargs
-        Keyword arguments forwarded to [`DLESyMv0_ISCCP_ERA5`][DLESyMv0_ISCCP_ERA5] (including
+        Keyword arguments forwarded to :class:`DLESyMv0_ISCCP_ERA5` (including
         ``use_ttr`` and the climatology arrays).
 
     Note
     ----
-    See [`DLESyMv0_ISCCP_ERA5`][DLESyMv0_ISCCP_ERA5] and
+    See :class:`DLESyMv0_ISCCP_ERA5` and
     [`DLESyMLatLon`][earth2studio.models.px.dlesym.DLESyMLatLon] for details. Model
     hooks applied during iteration operate on the HEALPix grid, as with
     [`DLESyMLatLon`][earth2studio.models.px.dlesym.DLESyMLatLon].
@@ -683,7 +683,7 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
         # (``rlut``) output, so the transform is not reapplied. We keep ``x`` on
         # the HEALPix grid for the rollout but yield the initial condition back
         # on the lat/lon grid, in model variable space (post-transform) to match
-        # [`DLESyMv0_ISCCP_ERA5`][DLESyMv0_ISCCP_ERA5].
+        # :class:`DLESyMv0_ISCCP_ERA5`.
         x = self.to_hpx(x)
         if self.use_ttr:
             x = self._ttr_to_olr_hpx(x, self.coords_to_hpx(coords))

@@ -630,7 +630,7 @@ class MetOpAVHRR:
     3B, 4, and 5 provide brightness temperatures (thermal IR). Channels 3A
     and 3B cannot operate simultaneously.
 
-    The returned [`DataFrame`][pandas.DataFrame] has one row per pixel per channel,
+    The returned :class:`~pandas.DataFrame` has one row per pixel per channel,
     following the same convention as [`UFSObsSat`][earth2studio.data.UFSObsSat].
     The ``sensor_index`` column (1--6) identifies each channel.  The ``class``
     column differentiates observation types: ``"refl"`` for visible/NIR

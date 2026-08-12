@@ -18,8 +18,8 @@
 
 This module provides common helpers for decoding NCEP PrepBUFR files
 (DX table extraction, message splitting, and pybufrkit table
-registration) used by [`earth2studio.data.gdas`][earth2studio.data.gdas] and
-[`earth2studio.data.nnja`][earth2studio.data.nnja].
+registration) used by :mod:`earth2studio.data.gdas` and
+:mod:`earth2studio.data.nnja`.
 """
 
 from __future__ import annotations
@@ -518,6 +518,6 @@ def get_worker_decoder() -> Any:
     Returns
     -------
     pybufrkit.decoder.Decoder
-        The decoder created by [`init_decode_worker`][init_decode_worker].
+        The decoder created by :func:`init_decode_worker`.
     """
     return _worker_decoder

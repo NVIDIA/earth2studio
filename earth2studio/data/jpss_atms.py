@@ -207,7 +207,7 @@ class JPSS_ATMS:
 
     Each BUFR file contains a single scan line with 96 cross-track
     field-of-view (FOV) positions and 22 microwave channels.
-    The returned [`DataFrame`][pandas.DataFrame] has one row per FOV per channel,
+    The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
     following the same convention as [`UFSObsSat`][earth2studio.data.UFSObsSat].
 
     ATMS has 22 channels spanning 23.8--183.31 GHz.  The ``sensor_index``

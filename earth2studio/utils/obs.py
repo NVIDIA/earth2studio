@@ -59,7 +59,7 @@ def filter_time_range(
 
     Filters the DataFrame to include only rows where the time column value is within
     [request_time + lower_bound, request_time + upper_bound]. When *request_time* is a
-    [`ndarray`][numpy.ndarray] of datetime64 values, a row is kept if it falls within the
+    :class:`~numpy.ndarray` of datetime64 values, a row is kept if it falls within the
     tolerance window of **any** of the provided times.
 
     Parameters

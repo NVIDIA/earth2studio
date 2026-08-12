@@ -78,7 +78,7 @@ class NomadsGDASObsConv:
     identifiers, ``quality`` is the QFRO flag table, ``pres`` is null, and
     ``elev`` is impact parameter minus Earth radius of curvature.
 
-    The output schema matches [`UFSObsConv`][UFSObsConv] with additional PrepBUFR
+    The output schema matches :class:`UFSObsConv` with additional PrepBUFR
     ``quality``, ``pressure_quality``, and ``level_cat`` metadata.
 
     Parameters
@@ -118,7 +118,7 @@ class NomadsGDASObsConv:
 
     Data is retained on the NOMADS production server for approximately
     2 days. Older data should be retrieved from the UFS GEFSv13 Replay
-    dataset via [`UFSObsConv`][UFSObsConv].
+    dataset via :class:`UFSObsConv`.
 
     Badges
     ------
@@ -170,7 +170,7 @@ class NomadsGDASObsConv:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             Variables to return. Must be in
-            [`GDASObsConvLexicon`][GDASObsConvLexicon].
+            :class:`GDASObsConvLexicon`.
         fields : str | list[str] | pa.Schema | None, optional
             Schema fields to include in output. None returns all fields.
 

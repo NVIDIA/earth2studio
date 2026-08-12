@@ -110,8 +110,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Parameters
     ----------
     diffusion_model : torch.nn.Module
-        Configured diffusion model (e.g. a [`_SplitModelWrapper`][_SplitModelWrapper] instance
-        created by ``load_model``). Must be a [`_SplitModelWrapper`][_SplitModelWrapper] instance
+        Configured diffusion model (e.g. a :class:`_SplitModelWrapper` instance
+        created by :meth:`load_model`). Must be a :class:`_SplitModelWrapper` instance
         to set ``hrrr_lat_lim`` or ``hrrr_lon_lim`` to non-default values.
     means : torch.Tensor
         Per-channel mean for normalising the high-resolution state.
@@ -172,8 +172,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         bfloat16, by default True.
     clamp_values : bool, optional
         Whether to apply reflectivity clipping in ``_forward``. When the model is
-        loaded via ``load_model``, this flag is also forwarded to
-        [`_SplitModelWrapper`][_SplitModelWrapper] to enable per-variable physical-minimum clamping,
+        loaded via :meth:`load_model`, this flag is also forwarded to
+        :class:`_SplitModelWrapper` to enable per-variable physical-minimum clamping,
         by default True.
 
     Badges
@@ -806,7 +806,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
         **model_kwargs: Any,
     ) -> "StormCastCONUS":
-        """Load a [`StormCastCONUS`][StormCastCONUS] model from a package.
+        """Load a :class:`StormCastCONUS` model from a package.
 
         Parameters
         ----------
@@ -818,7 +818,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Additional keyword arguments forwarded to the model constructor
             (e.g. ``hrrr_lat_lim``, ``num_diffusion_steps``, ``use_amp``,
             ``clamp_values``). ``clamp_values`` is additionally applied to
-            the internal [`_SplitModelWrapper`][_SplitModelWrapper].
+            the internal :class:`_SplitModelWrapper`.
 
         Returns
         -------

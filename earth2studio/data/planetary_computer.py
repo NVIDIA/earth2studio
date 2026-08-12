@@ -93,9 +93,9 @@ class _PlanetaryComputerData:
     The base class handles STAC searches, concurrent asset downloads, and conversion of
     MPC assets into Earth2Studio's standardized xarray interface. Subclasses configure
     the collection parameters and typically only need to implement
-    [`extract_variable_numpy`][extract_variable_numpy], which receives the [`AssetPlan`][AssetPlan], opens the
+    :meth:`extract_variable_numpy`, which receives the :class:`AssetPlan`, opens the
     cached data file, and adapts the raw fields into numpy arrays. Advanced MPC
-    products can still override [`_prepare_asset_plans`][_prepare_asset_plans] when they require custom
+    products can still override :meth:`_prepare_asset_plans` when they require custom
     asset selection logic, but most data sources work out-of-the-box once spatial
     metadata and the lexicon are provided.
 
@@ -120,7 +120,7 @@ class _PlanetaryComputerData:
         Mapping of spatial dimension names to coordinate arrays defining the grid, by
         default None
     data_attrs : Mapping[str, Any] | None, optional
-        Extra attributes copied onto the output [`xarray.DataArray`][xarray.DataArray], by default None
+        Extra attributes copied onto the output :class:`xarray.DataArray`, by default None
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -412,7 +412,7 @@ class _PlanetaryComputerData:
         Parameters
         ----------
         item : pystac.Item
-            STAC item returned by [`_locate_item`][_locate_item], potentially carrying
+            STAC item returned by :meth:`_locate_item`, potentially carrying
             collection-specific metadata.
         variables : Sequence[VariableSpec]
             Variable specifications resolved from the lexicon for the current request.
@@ -424,9 +424,9 @@ class _PlanetaryComputerData:
 
         Notes
         -----
-        The produced plans drive the remainder of the workflow: [`_fetch_array`][_fetch_array]
-        iterates over them, [`_downloaded_asset`][_downloaded_asset] fetches cache misses, and
-        [`extract_variable_numpy`][extract_variable_numpy] ultimately materializes the requested numpy
+        The produced plans drive the remainder of the workflow: :meth:`_fetch_array`
+        iterates over them, :meth:`_downloaded_asset` fetches cache misses, and
+        :meth:`extract_variable_numpy` ultimately materializes the requested numpy
         arrays.
 
         This method might be overridden for collections that distribute variables across

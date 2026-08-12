@@ -603,7 +603,7 @@ def _read_object_store_dataset(
     """Read and subset an S3-hosted NetCDF file synchronously via obstore.
 
     Only the byte ranges h5py requests are downloaded (block-cached ranged
-    reads via [`_ObstoreBlockCachedIO`][_ObstoreBlockCachedIO]), never the whole multi-GB
+    reads via :class:`_ObstoreBlockCachedIO`), never the whole multi-GB
     NetCDF object.
     Module-level so it can be dispatched to a worker thread (via
     ``cancellable_to_thread``) and patched in offline tests; the h5py decode

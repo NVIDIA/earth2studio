@@ -63,7 +63,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     """Estimate Global Horizontal Irradiance from GOES imagery.
 
     This diagnostic model is designed to be used with the
-    [`earth2studio.models.px.StormScopeGOES`][earth2studio.models.px.StormScopeGOES] prognostic model, consuming
+    :py:class:`earth2studio.models.px.StormScopeGOES` prognostic model, consuming
     its GOES channel outputs to produce solar irradiance estimates.
 
     A regression network produces a first estimate that is refined with a
@@ -120,8 +120,8 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     Example
     -------
     Using the diagnostic with forecasted GOES imagery from
-    [`earth2studio.models.px.StormScopeGOES`][earth2studio.models.px.StormScopeGOES]. A
-    [`earth2studio.data.GOES`][earth2studio.data.GOES] data source can also be used directly
+    :py:class:`earth2studio.models.px.StormScopeGOES`. A
+    :py:class:`earth2studio.data.GOES` data source can also be used directly
     in place of the prognostic model output:
 
     >>> # Load StormScopeGOES prognostic and NSRDB diagnostic models

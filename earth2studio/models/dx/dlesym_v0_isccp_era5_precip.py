@@ -382,7 +382,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
             ``use_ttr=True``) the TTR/OLR climatology netCDFs
             (``era5_ttr_doy_stats_hpx64.nc`` and ``isccp_olr_doy_stats_hpx64.nc``).
         use_ttr : bool, optional
-            See [`DLESyMv0_ISCCP_ERA5Precip`][DLESyMv0_ISCCP_ERA5Precip]. Defaults to True.
+            See :class:`DLESyMv0_ISCCP_ERA5Precip`. Defaults to True.
 
         Returns
         -------

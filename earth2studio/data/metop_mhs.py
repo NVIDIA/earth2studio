@@ -459,7 +459,7 @@ class MetOpMHS:
     2021), MetOp-B, and MetOp-C.  It will be replaced by the Microwave
     Sounder (MWS) on the MetOp Second Generation (MetOp-SG) satellites.
 
-    The returned [`DataFrame`][pandas.DataFrame] has one row per FOV per channel,
+    The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
     following the same convention as [`UFSObsSat`][earth2studio.data.UFSObsSat].
     The ``sensor_index`` column (1--5) identifies each channel.
 

@@ -213,7 +213,7 @@ class CFS_Reforecast_FX:
     )
 
     # File prefix and product subdirectory for this product.  Overridden in
-    # [`CFS_Reforecast_FX_Flux`][CFS_Reforecast_FX_Flux].
+    # :class:`CFS_Reforecast_FX_Flux`.
     CFS_PRODUCT = "pgbf"
     CFS_NCEI_SUBDIR = "6-hourly-by-pressure-level-9-month-runs"
 
@@ -594,7 +594,7 @@ class CFS_Reforecast_FX:
 class CFS_Reforecast_FX_Flux(CFS_Reforecast_FX):
     """NCEP CFSv2 6-hourly 9-month reforecast (surface-flux product).
 
-    Same archive and access pattern as [`CFS_Reforecast_FX`][CFS_Reforecast_FX] but
+    Same archive and access pattern as :class:`CFS_Reforecast_FX` but
     exposes the ``flxf`` product on the native T126 Gaussian grid
     (190 x 384). Variable inventory mirrors
     [`CFSFluxLexicon`][earth2studio.lexicon.CFSFluxLexicon] (which the reforecast

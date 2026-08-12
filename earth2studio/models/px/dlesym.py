@@ -923,7 +923,7 @@ class DLESyMLatLon(DLESyM):
 
     Note
     ----
-    See [`DLESyM`][DLESyM] for more information about the prognostic model. Due to the internal
+    See :class:`DLESyM` for more information about the prognostic model. Due to the internal
     regridding, model hooks applied during iteration will need to operate on the HEALPix grid.
 
     Example
@@ -950,9 +950,9 @@ class DLESyMLatLon(DLESyM):
     Args
     ----
     *args
-        Arguments for [`DLESyM`][DLESyM]
+        Arguments for :class:`DLESyM`
     **kwargs
-        Keyword arguments for [`DLESyM`][DLESyM]
+        Keyword arguments for :class:`DLESyM`
 
     Badges
     ------

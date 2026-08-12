@@ -434,7 +434,7 @@ def datasource_to_file(
 ) -> None:
     """Utility function that can be used for building a local data store needed
     for an inference request. This file can then be used with the
-    [`earth2studio.data.DataArrayFile`][earth2studio.data.DataArrayFile] data source to load data from file.
+    :py:class:`earth2studio.data.DataArrayFile` data source to load data from file.
     This is useful when multiple runs of the same input data is needed.
 
     Parameters
@@ -908,7 +908,7 @@ def obstore_store_from_url(
     sources. Supports ``s3://`` (anonymous access injects
     ``skip_signature=True`` and a ``us-east-1`` region default), ``gs://``
     (anonymous access injects ``skip_signature=True``) and ``http(s)://``
-    URLs via [`obstore.store.from_url`][obstore.store.from_url].
+    URLs via :func:`obstore.store.from_url`.
 
     Parameters
     ----------
@@ -921,7 +921,7 @@ def obstore_store_from_url(
         concurrency of the caller, by default 24
     **store_kwargs : Any
         Additional store configuration forwarded to
-        [`obstore.store.from_url`][obstore.store.from_url], overriding the defaults above
+        :func:`obstore.store.from_url`, overriding the defaults above
 
     Returns
     -------
@@ -1154,10 +1154,10 @@ def obstore_zarr_store(
     url : str
         Store URL, e.g. "gs://bucket/path/to/store.zarr". Scheme dispatch
         (s3://, gs://, az://, file://, ...) is handled by
-        [`obstore.store.from_url`][obstore.store.from_url].
+        :func:`obstore.store.from_url`.
     cache_storage : str | None, optional
         Local cache directory. If provided, whole-object reads are cached to
-        a URL-specific sub-directory via [`LocalCachingStore`][LocalCachingStore], by
+        a URL-specific sub-directory via :class:`LocalCachingStore`, by
         default None (no caching)
     credential_provider : Any | None, optional
         An obstore credential provider for authenticated access. Takes
@@ -1166,7 +1166,7 @@ def obstore_zarr_store(
         Bearer token sent as an ``Authorization`` header for authenticated
         access, by default None
     store_kwargs : dict[str, Any] | None, optional
-        Additional configuration forwarded to [`obstore.store.from_url`][obstore.store.from_url],
+        Additional configuration forwarded to :func:`obstore.store.from_url`,
         e.g. ``{"skip_signature": True}`` for anonymous access to public
         buckets, by default None
 

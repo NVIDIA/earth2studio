@@ -794,8 +794,7 @@ class MeteosatFCI:
 
         if not segments:
             raise ValueError(
-                f"Channel '{channel_name}' not found in BODY segments "
-                f"at {product_dir}"
+                f"Channel '{channel_name}' not found in BODY segments at {product_dir}"
             )
 
         full = np.concatenate(segments, axis=0)
@@ -949,7 +948,7 @@ class MeteosatFCI:
         Computes the ``(x_min, x_max, y_min, y_max)`` extent of the FCI
         grid in native geostationary projection coordinates.  This is
         useful for plotting with ``imshow`` on a
-        [`cartopy.crs.Geostationary`][cartopy.crs.Geostationary] axis.
+        :class:`cartopy.crs.Geostationary` axis.
 
         Parameters
         ----------

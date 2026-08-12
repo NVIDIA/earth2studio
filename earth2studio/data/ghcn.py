@@ -281,7 +281,7 @@ class _GHCNBase:
         GHCNDaily and GHCNHourly publish separate station lists in different
         formats, so each subclass implements this method independently. The
         returned frame must include at least ``ID``, ``LAT`` and ``LON`` columns,
-        which [`get_stations_bbox`][get_stations_bbox] relies on.
+        which :py:meth:`get_stations_bbox` relies on.
 
         Returns
         -------
@@ -358,10 +358,10 @@ class GHCNDaily(_GHCNBase):
     Note
     ----
     To help get a list of possible station IDs, this class includes
-    [`GHCNDaily.get_stations_bbox`][GHCNDaily.get_stations_bbox] which accepts a lat-lon bounding box and will
+    :py:meth:`GHCNDaily.get_stations_bbox` which accepts a lat-lon bounding box and will
     return known station IDs. For more information on the stations, users should
     consult the ``ghcnd-stations.txt`` which can be accessed with
-    [`GHCNDaily.get_station_metadata`][GHCNDaily.get_station_metadata].
+    :py:meth:`GHCNDaily.get_station_metadata`.
 
     Note
     ----
@@ -506,7 +506,6 @@ class GHCNDaily(_GHCNBase):
                 raise KeyError(f"variable id {v} not found in GHCNDaily lexicon")
 
         async with managed_session(self.fs) as session:  # noqa: F841
-
             if self._station_meta is None:
                 self._station_meta = self.get_station_metadata()
 
@@ -736,7 +735,7 @@ class GHCNDaily(_GHCNBase):
 
         # Check if the year partition exists on S3 (using TMAX as representative)
         s3_path = (
-            f"s3://{cls._S3_BUCKET}/parquet/by_year/" f"YEAR={time.year}/ELEMENT=TMAX/"
+            f"s3://{cls._S3_BUCKET}/parquet/by_year/YEAR={time.year}/ELEMENT=TMAX/"
         )
         try:
             fs = s3fs.S3FileSystem(anon=True)
@@ -781,7 +780,7 @@ class GHCNHourly(_GHCNBase):
     ----------
     stations : list[str]
         Station IDs in GHCN station format (11 characters), e.g. ``"USW00013874"``
-        for Atlanta Hartsfield-Jackson. Use [`GHCNHourly.get_stations_bbox`][GHCNHourly.get_stations_bbox]
+        for Atlanta Hartsfield-Jackson. Use :py:meth:`GHCNHourly.get_stations_bbox`
         to discover IDs by geographic area.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single value
@@ -808,10 +807,10 @@ class GHCNHourly(_GHCNBase):
     Note
     ----
     To help get a list of possible station IDs, this class includes
-    [`GHCNHourly.get_stations_bbox`][GHCNHourly.get_stations_bbox] which accepts a lat-lon bounding box and
+    :py:meth:`GHCNHourly.get_stations_bbox` which accepts a lat-lon bounding box and
     will return known station IDs. For more information on the stations, users
     should consult the ``ghcnh-station-list.csv`` file accessible via
-    [`GHCNHourly.get_station_metadata`][GHCNHourly.get_station_metadata].
+    :py:meth:`GHCNHourly.get_station_metadata`.
 
     Note
     ----
@@ -904,7 +903,7 @@ class GHCNHourly(_GHCNBase):
         stations are available in GHCNh and can return IDs without hourly files.
         The CSV carries the same descriptive columns as the daily list plus
         ``ICAO`` and ``ISO_CODE``; column names are normalized to match
-        [`GHCNDaily.get_station_metadata`][GHCNDaily.get_station_metadata].
+        :py:meth:`GHCNDaily.get_station_metadata`.
 
         Returns
         -------

@@ -136,7 +136,7 @@ class CosmoLexicon(metaclass=LexiconType):
     def to_e2studio(cls, cosmo_name: str) -> tuple[str, float]:
         """Map a COSMO output variable name to ``(earth2studio_name, scale)``.
 
-        The reverse of [`VOCAB`][VOCAB], accepting either resolution's spelling.
+        The reverse of :attr:`VOCAB`, accepting either resolution's spelling.
         Unknown names fall back to their lowercased form with unit scale 1.0, so a
         new COSMO field still gets a sensible name rather than raising.
         """

@@ -41,7 +41,7 @@ class DynamicalLexicon(metaclass=LexiconType):
     so pressure-level fields map to dedicated ``*_<level>hpa`` names.
 
     Unit conversions follow the same pattern as other Earth2Studio lexicons:
-    the modifier returned by [`get_item`][get_item] converts from the source's native
+    the modifier returned by :meth:`get_item` converts from the source's native
     unit to the Earth2Studio convention (e.g. geopotential height in metres to
     geopotential in m2 s-2, Celsius to Kelvin). Variable names absent from this
     lexicon may still be requested by their native dynamical.org name as a

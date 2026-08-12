@@ -56,7 +56,7 @@ except ImportError:  # pragma: no cover
 class CorrDiffCMIP6(CorrDiff):
     """CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model
     can be used to downscale both in the spatial and temporal dimensions.
-    This model works with the [`earth2studio.data.CMIP6MultiRealm`][earth2studio.data.CMIP6MultiRealm] data source.
+    This model works with the :py:class:`earth2studio.data.CMIP6MultiRealm` data source.
 
     Note
     ----

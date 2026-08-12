@@ -24,6 +24,43 @@ import griffe
 BADGE_RE = re.compile(
     r"\b(?:region|class|dataclass|year|product|gpu):[A-Za-z0-9_.-]+\b"
 )
+RST_INLINE_ROLE_RE = re.compile(
+    r":(?:(?P<domain>[A-Za-z][\w-]*):)?"
+    r"(?P<role>func|meth|class|attr|mod|data|obj|exc):`(?P<target>[^`]+)`"
+)
+
+
+def _legacy_role_label(target: str) -> tuple[str, str]:
+    """Return the display label and target for a Sphinx inline role."""
+    target = target.strip()
+    explicit = re.match(r"(?P<label>.+?)\s+<(?P<target>[^<>]+)>", target)
+    if explicit:
+        return explicit.group("label").strip(), explicit.group("target").strip().lstrip(
+            "~"
+        )
+    if target.startswith("~"):
+        normalized = target[1:]
+        return normalized.rsplit(".", 1)[-1], normalized
+    return target, target
+
+
+def _inline_code(label: str) -> str:
+    """Return Markdown inline code for label text."""
+    escaped = label.replace("`", r"\`")
+    return f"`{escaped}`"
+
+
+def _convert_inline_roles(docstring: str) -> str:
+    """Render supported Sphinx inline roles for Markdown API docs."""
+
+    def replace(match: re.Match[str]) -> str:
+        raw_target = match.group("target").strip()
+        label, target = _legacy_role_label(raw_target)
+        if raw_target.startswith("~earth2studio."):
+            return f"[`{label}`][{target}]"
+        return _inline_code(label)
+
+    return RST_INLINE_ROLE_RE.sub(replace, docstring)
 
 
 def _is_doctest_line(line: str) -> bool:
@@ -90,4 +127,5 @@ class StripBadgesSection(griffe.Extension):
         if not obj.docstring:
             return
         docstring = _strip_badges_section(obj.docstring.value)
+        docstring = _convert_inline_roles(docstring)
         obj.docstring.value = _convert_doctest_blocks(docstring)

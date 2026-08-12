@@ -79,9 +79,9 @@ class ISD:
     Note
     ----
     To help get a list of possible station IDs, this class includes
-    [`ISD.get_stations_bbox`][ISD.get_stations_bbox] which accepts a lat-lon bounding box and will return
+    :py:meth:`ISD.get_stations_bbox` which accepts a lat-lon bounding box and will return
     known historical stations IDs. For more information on the stations, users should
-    consult the `isd-history.csv` which can easily accessed with [`ISD.get_station_history`][ISD.get_station_history]
+    consult the `isd-history.csv` which can easily accessed with :py:meth:`ISD.get_station_history`
 
     Note
     ----

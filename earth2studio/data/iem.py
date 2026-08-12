@@ -174,7 +174,7 @@ class IEM_ASOS:
         time : datetime | list[datetime] | TimeArray
             Timestamps to return observations for in UTC.
         variable : str | list[str] | VariableArray
-            Variables from [`IEM_ASOSLexicon`][IEM_ASOSLexicon] to return.
+            Variables from :class:`IEM_ASOSLexicon` to return.
         fields : str | list[str] | pa.Schema | None, optional
             Output fields to include, by default None (all fields).
 
@@ -205,7 +205,7 @@ class IEM_ASOS:
         time : datetime | list[datetime] | TimeArray
             Timestamps to return observations for in UTC.
         variable : str | list[str] | VariableArray
-            Variables from [`IEM_ASOSLexicon`][IEM_ASOSLexicon] to return.
+            Variables from :class:`IEM_ASOSLexicon` to return.
         fields : str | list[str] | pa.Schema | None, optional
             Output fields to include, by default None (all fields).
 
@@ -452,7 +452,7 @@ class IEM_ASOS:
         Returns
         -------
         pa.Schema
-            Validated subset of [`SCHEMA`][SCHEMA].
+            Validated subset of :attr:`SCHEMA`.
 
         Raises
         ------

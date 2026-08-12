@@ -277,7 +277,7 @@ class GOESGLM:
             datetimes are converted to UTC automatically.
         variable : str | list[str] | VariableArray
             Variable ids defined in
-            [`earth2studio.lexicon.GOESGLMLexicon`][earth2studio.lexicon.GOESGLMLexicon]
+            :py:class:`earth2studio.lexicon.GOESGLMLexicon`
             (``"flashe"`` and/or ``"flashc"``).
         fields : str | list[str] | pa.Schema | None, optional
             Output column subset. ``None`` (default) returns all
@@ -311,7 +311,7 @@ class GOESGLM:
         time : datetime | list[datetime] | TimeArray
             Timestamps to return events for (UTC).
         variable : str | list[str] | VariableArray
-            Variable ids defined in [`GOESGLMLexicon`][GOESGLMLexicon].
+            Variable ids defined in :py:class:`GOESGLMLexicon`.
         fields : str | list[str] | pa.Schema | None, optional
             Output column subset. ``None`` (default) returns all
             schema fields.
@@ -522,7 +522,7 @@ class GOESGLM:
         """Verify date times fall within the GLM archive window.
 
         Per-platform availability (G16/G17/G18/G19 cutovers) is enforced
-        downstream in [`_satellite_for_time`][_satellite_for_time]; this classmethod
+        downstream in :py:meth:`_satellite_for_time`; this classmethod
         only screens out timestamps before the earliest archive date.
         """
         for t in times:
@@ -738,7 +738,7 @@ def _normalize_lat_lon_bbox(
 class GOESGLMGrid:
     """Gridded GOES GLM (Geostationary Lightning Mapper) lightning product for StormScope.
 
-    Wraps [`GOESGLM`][GOESGLM] (a per-event LCFA source) and accumulates events
+    Wraps :py:class:`GOESGLM` (a per-event LCFA source) and accumulates events
     into a regular **0.1-degree** lat/lon grid via 5-minute binning and 2D
     histogramming, matching the GLM grid the StormScope MRMS+GLM nowcast model
     was trained on.
@@ -755,7 +755,7 @@ class GOESGLMGrid:
     Parameters
     ----------
     satellite : str, optional
-        GOES platform selector passed to [`GOESGLM`][GOESGLM] (``"east"`` default).
+        GOES platform selector passed to :py:class:`GOESGLM` (``"east"`` default).
     cache : bool, optional
         Cache downloaded NetCDFs, by default True.
     verbose : bool, optional

@@ -539,7 +539,7 @@ class _EarthMoverBase:
         return has_time_coord
 
     def available(self, time: datetime | np.datetime64) -> bool:
-        """Synchronous wrapper for [`_available`][_available]."""
+        """Synchronous wrapper for :meth:`_available`."""
         time_list, _ = prep_data_inputs(time, "")
         try:
             self._validate_time(time_list)

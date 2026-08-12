@@ -699,7 +699,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
         This method handles the full observation pipeline:
 
-        1. Convert raw inputs via [`prep_conv`][prep_conv] / [`prep_sat_sensor`][prep_sat_sensor].
+        1. Convert raw inputs via :meth:`prep_conv` / :meth:`prep_sat_sensor`.
         2. Merge per-channel normalization statistics.
         3. Apply QC filters (range checks, height/pressure bounds for conv).
         4. Z-score normalize observations.
@@ -823,7 +823,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         Parameters
         ----------
         obs_dict : dict[str, list[pd.DataFrame | None]]
-            Keyed by sensor name ([`ALL_SENSORS`][ALL_SENSORS]).  Each value is a list
+            Keyed by sensor name (:data:`ALL_SENSORS`).  Each value is a list
             of length ``len(request_time)`` with a observation DataFrame per time slot
             (or ``None`` when no observations exist for that slot).
         request_time : TimeArray

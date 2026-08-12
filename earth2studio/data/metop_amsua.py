@@ -400,7 +400,7 @@ class MetOpAMSUA:
     Channel 15 (89.0 GHz) may have a high fraction of missing values in some
     L1B products due to quality filtering.
 
-    The returned [`DataFrame`][pandas.DataFrame] has one row per FOV per channel,
+    The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
     following the same convention as [`UFSObsSat`][earth2studio.data.UFSObsSat].
     The ``sensor_index`` column (1--15) identifies each channel.
 

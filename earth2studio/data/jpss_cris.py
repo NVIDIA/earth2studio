@@ -458,7 +458,7 @@ class JPSS_CRIS:
     measured ``SatelliteZenithAngle`` from the GEO product.
 
     With ``sensor_indices=None`` and ``apodize=False``, the returned
-    [`DataFrame`][pandas.DataFrame] has one row per FOV per channel including guard
+    :class:`~pandas.DataFrame` has one row per FOV per channel including guard
     channels. The ``sensor_index`` column uses the GSI ``sensor_chan`` numbering
     convention:
 
@@ -933,7 +933,7 @@ class JPSS_CRIS:
         numpy compute release the GIL, so threads give effective speedup
         without the serialisation overhead of multiprocessing.
 
-        Each granule is decoded into a compact [`_CrISDecodedGranule`][_CrISDecodedGranule]
+        Each granule is decoded into a compact :class:`_CrISDecodedGranule`
         (spatial arrays + 2-D brightness-temperature matrix).  The expensive
         expansion to long-format (one row per channel per FOV) is done once at
         the end over all granules combined, avoiding intermediate DataFrame
@@ -1148,11 +1148,11 @@ class JPSS_CRIS:
     ) -> _CrISDecodedGranule | None:
         """Decode a CrIS SDR + GEO HDF5 file pair into compact arrays.
 
-        Returns a [`_CrISDecodedGranule`][_CrISDecodedGranule] containing spatial arrays
+        Returns a :class:`_CrISDecodedGranule` containing spatial arrays
         (one element per valid FOV) and a 2-D brightness-temperature matrix
         ``(n_valid, n_channels)``.  The expensive channel-expansion into
         long-format rows is deferred to
-        [`_compile_dataframe`][_compile_dataframe].
+        :py:meth:`_compile_dataframe`.
 
         Scan lines whose FORTime falls entirely outside the tolerance
         window are skipped before reading the (much larger) radiance
