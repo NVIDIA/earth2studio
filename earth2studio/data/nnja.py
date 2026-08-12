@@ -121,6 +121,17 @@ _NNJA_IR_SATELLITES: dict[str, frozenset[str]] = {
     "cris": frozenset({"npp", "n20", "n21"}),
 }
 
+# Instrument-grid channel-number bounds per IR sensor, for validating
+# sensor_indices at construction. The archives carry NCEP subsets (281 AIRS,
+# 616 IASI, 431 CrIS channels) whose membership varies by product era, so
+# only the instrument grid can be checked statically; a valid-but-unarchived
+# channel simply matches no rows at decode time.
+_NNJA_IR_CHANNEL_MAX: dict[str, int] = {
+    "airs": 2378,  # AIRS instrument grid
+    "iasi": 8461,  # IASI L1C grid, 645-2760 cm⁻¹
+    "cris": 2211,  # CrIS FSR sensor_chan grid
+}
+
 
 @dataclass(frozen=True)
 class _NNJASatTask:
@@ -481,9 +492,9 @@ class NNJAObsSat:
     full-spectral-resolution ``crisf4`` product whose channel numbers live
     on the 2211-channel FSR grid. Archive coverage: AIRS 2002–2023
     (NASA/Aqua route), IASI 2008–present, CrIS (FSR) 2018–present. All
-    archived channels are returned by default; pass ``sensor_indices``
-    to narrow at decode time
-    or subset downstream via the ``sensor_index`` column.
+    archived channels are returned by default; pass ``sensor_indices`` to
+    narrow at decode time or subset downstream via the ``sensor_index``
+    column.
 
     ``atms`` returns the encoded 22-channel ``TMBR`` scene brightness
     temperature. ``atms_antenna_temperature`` returns the corresponding
@@ -499,10 +510,23 @@ class NNJAObsSat:
     confirms that exception for AMSU-A. The platform identity is retained so a
     downstream transform can apply the appropriate convention explicitly.
 
-    ``scan_position`` preserves the encoded one-based FOV number.
-    ``scan_angle`` is the signed nominal instrument look angle derived from
-    that FOV; negative values are on the first half of the scan. The encoded
-    ``satellite_za`` remains the unsigned Earth-view zenith magnitude.
+    ``scan_position`` is the one-based cross-track position: the encoded
+    ``FOVN`` for the microwave sensors, AIRS (1-90), and IASI (1-120, a
+    composite of 30 fields of regard x 4 detectors), and the encoded
+    ``FORN`` (1-30) for CrIS, whose ``FOVN`` is the 1-9 detector index
+    within the 3x3 field of regard and is not carried. ``scan_angle`` is
+    the signed nominal instrument look angle derived from the FOV for the
+    microwave sensors; it is always NaN for the IR sounders, whose scan
+    geometry is sensor-specific — use ``satellite_za`` (the unsigned
+    Earth-view zenith magnitude) for view-angle screening.
+
+    ``elev`` (surface elevation) is populated only for CrIS, whose template
+    carries ``HOLS``; the AIRS and IASI templates carry no surface-elevation
+    field at all, so ``elev`` is null for them. (Their ``SELV`` field is the
+    platform's orbital altitude, ~700-840 km, and must not be mistaken for
+    surface elevation.) ``scan_line`` is the encoded ``SLNM``, a
+    granule-local counter that repeats within a cycle file; pair it with
+    ``time`` to address a scan.
 
     Parameters
     ----------
@@ -529,19 +553,31 @@ class NNJAObsSat:
         backoff, by default 3.
     sensor_indices : dict[str, Sequence[int]] | None, optional
         Per-sensor channel-number subsets for the IR sounders, e.g.
-        ``{"cris": [19, 24], "iasi": [16]}``, mirroring the
-        ``sensor_indices`` selection of the JPSS/METOP sources. Sensors
-        absent from the dict (and all microwave sensors) return every
-        archived channel. By default None (all channels).
+        ``{"cris": [19, 24], "iasi": [16]}``. Named after the
+        ``sensor_indices`` selection of the JPSS/METOP sources and applied
+        at decode time like theirs, but keyed per sensor since this source
+        spans several instruments. Selections must be non-empty, unique
+        integers on the instrument grid (AIRS 1-2378, IASI 1-8461, CrIS FSR
+        1-2211); a channel on the grid but absent from the archived NCEP
+        subset matches no rows. Sensors absent from the dict (and all
+        microwave sensors) return every archived channel. By default None
+        (all channels).
 
     Warning
     -------
-    Aggregate cycle files contain millions of footprints. Broad long-format
-    requests can require substantial memory — hyperspectral IR requests
-    return one row per (footprint, channel). A finite archived value is not
-    a QC decision: historical files may retain passive or degraded channels
-    even when the aggregate carries no usable quality flag. Training
-    pipelines should apply an explicit platform/channel validity policy.
+    Aggregate cycle files contain millions of footprints, and hyperspectral
+    IR requests return one long-format row per (footprint, channel). At all
+    channels a single 6-hour cycle is on the order of 10⁸-10⁹ rows per
+    sensor (CrIS ~940 M across its three platforms, IASI ~400 M, AIRS
+    ~210 M), which does not fit in memory on ordinary machines. All-channel
+    requests are for narrow time windows and diagnostics; use
+    ``sensor_indices`` to select a channel subset for anything larger — the
+    narrowing is applied before rows are built, so a 32-channel CrIS
+    request costs roughly 32/431 of the above. A finite archived value is
+    not a QC decision: historical files may retain passive or degraded
+    channels even when the aggregate carries no usable quality flag.
+    Training pipelines should apply an explicit platform/channel validity
+    policy.
 
     Note
     ----
@@ -600,10 +636,31 @@ class NNJAObsSat:
                     f"sensor_indices only applies to the IR sounders "
                     f"{sorted(_NNJA_IR_SENSORS)}; got {sorted(invalid_sensors)}"
                 )
-            self._sensor_indices = {
-                sensor: frozenset(int(c) for c in channels)
-                for sensor, channels in sensor_indices.items()
-            }
+            self._sensor_indices = {}
+            for sensor, channels in sensor_indices.items():
+                requested = tuple(channels)
+                if not requested:
+                    raise ValueError(
+                        f"sensor_indices[{sensor!r}] must contain at least "
+                        f"one channel number; omit the sensor to read all "
+                        f"archived channels"
+                    )
+                channel_max = _NNJA_IR_CHANNEL_MAX[sensor]
+                if any(
+                    isinstance(c, bool)
+                    or not isinstance(c, (int, np.integer))
+                    or c < 1
+                    or c > channel_max
+                    for c in requested
+                ):
+                    raise ValueError(
+                        f"sensor_indices[{sensor!r}] must be integer channel "
+                        f"numbers from 1 to {channel_max}"
+                    )
+                normalized = frozenset(int(c) for c in requested)
+                if len(normalized) != len(requested):
+                    raise ValueError(f"sensor_indices[{sensor!r}] must be unique")
+                self._sensor_indices[sensor] = normalized
 
         self._verbose = verbose
         self._cache = cache

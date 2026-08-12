@@ -30,6 +30,7 @@ import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
+from earth2studio.data.utils import radiance_to_bt
 from earth2studio.data.utils_bufr import (
     HDR_DHR,
     HDR_ELV,
@@ -57,6 +58,12 @@ from earth2studio.data.utils_bufr import (
     parse_prepbufr_messages as _parse_prepbufr_messages,
 )
 from earth2studio.data.utils_bufr import silence_bufr_noise as _silence_bufr_noise
+from earth2studio.data.utils_ir import (
+    CRIS_BANDS,
+    cris_radiance_mw,
+    iasi_radiance_mw,
+    wavenumber_cm_inverse,
+)
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA, LexiconType
 
 # GPS RO BUFR descriptor IDs (NCEP gpsro encoding). GPSRO is not a PrepBUFR
@@ -1786,20 +1793,30 @@ def _decode_ir_subset(
                 cris_ncqf.append(val)
             continue
 
-        # ---- Channel loop marker ----
-        if did == 31002:  # DRF16BIT — delayed replication count
+        # ---- Channel loop markers ----
+        # DRF16BIT (0-31-002) opens the sounder channel block. The declared
+        # replication count (channel_budget) is the primary terminator:
+        # airsev's trailing AMSU-A/HSB blocks reuse the TMBR descriptor and
+        # are not always preceded by another marker in the decoded stream.
+        # Markers seen after the block opens are explicit backstops on top
+        # of the budget: a second 31002 ends the AIRS sounder block, and
+        # DRF8BIT (0-31-001) opens crisf4's guard-spectrum block, whose
+        # CHNM/SRAD slots must not be decoded as science channels. The
+        # second-31002 break is AIRS-only so that a nested replication
+        # block added to a future IASI/CrIS product cannot silently
+        # truncate footprints.
+        if did == 31002:
             if in_channel_loop:
-                # A second replication block follows the sounder channels
-                # (airsev appends AMSU-A/HSB blocks whose channels reuse the
-                # TMBR descriptor); stop so those are not emitted as IR rows
-                break
+                if sensor == "airs":
+                    break
+                continue
             in_channel_loop = True
-            # The replication count delimits the sounder block; airsev's
-            # AMSU-A/HSB blocks that follow are not always preceded by
-            # another 31002 in the decoded stream, so the count is the
-            # reliable terminator
             channel_budget = _as_optional_int(value)
             continue
+        if did == 31001 and in_channel_loop:
+            # crisf4 guard-spectrum replication (empty in practice; twelve
+            # reserved slots, no values observed in the archive)
+            break
 
         # ---- Channel data ----
         if did == _CHANNEL_NUMBER and in_channel_loop:
@@ -1862,6 +1879,11 @@ def _decode_ir_subset(
         scan_position = _as_optional_int(scalars.get(_FORN))
     else:
         scan_position = _as_optional_int(scalars.get(_FOV_NUMBER))
+    # scan_position is non-nullable uint16 in the output schema, so a
+    # footprint without it cannot be represented; drop the footprint, as the
+    # microwave path does
+    if scan_position is None:
+        return []
 
     scalar_values = {
         "time": observation_time,
@@ -1886,15 +1908,20 @@ def _decode_ir_subset(
                 return c
         return None
 
-    from earth2studio.data.utils import radiance_to_bt
-    from earth2studio.data.utils_ir import (
-        CRIS_BANDS,
-        cris_radiance_mw,
-        iasi_radiance_mw,
-        wavenumber_cm_inverse,
-    )
+    # Channel wavenumbers are instrument constants; resolve them once per
+    # footprint rather than once per channel, which allocated a one-element
+    # numpy array per channel and dominated decode cost for large channel
+    # counts. AIRS wavenumbers come from the per-channel LOGRCW field and
+    # cannot be pre-computed here.
+    wn_by_channel: dict[int, float] = {}
+    if sensor in ("iasi", "cris"):
+        ch_list = list(channels)
+        wn_by_channel = dict(
+            zip(ch_list, wavenumber_cm_inverse(sensor, ch_list).tolist())
+        )
 
     rows: list[dict[str, Any]] = []
+    iasi_skipped_no_chsf = 0
     for channel_number, channel in channels.items():
         if channels_filter is not None and channel_number not in channels_filter:
             continue
@@ -1918,13 +1945,14 @@ def _decode_ir_subset(
         elif sensor == "iasi":
             chsf = _iasi_chsf(channel_number)
             if chsf is None:
+                iasi_skipped_no_chsf += 1
                 continue
             radiance = iasi_radiance_mw(np.array([obs_float]), np.array([chsf]))[0]
-            wn_out = float(wavenumber_cm_inverse("iasi", [channel_number])[0])
+            wn_out = wn_by_channel[channel_number]
             bt = float(radiance_to_bt(np.array([radiance]), wn_out)[0])
         elif sensor == "cris":
             radiance = cris_radiance_mw(np.array([obs_float]))[0]
-            wn_out = float(wavenumber_cm_inverse("cris", [channel_number])[0])
+            wn_out = wn_by_channel[channel_number]
             bt = float(radiance_to_bt(np.array([radiance]), wn_out)[0])
         else:
             continue
@@ -1967,6 +1995,13 @@ def _decode_ir_subset(
                 "observation": bt,
                 "variable": sensor,
             }
+        )
+    if iasi_skipped_no_chsf:
+        # Distinguishes a product with a narrower CHSF band table than
+        # expected from a product with no data
+        logger.debug(
+            f"IASI footprint skipped {iasi_skipped_no_chsf} channel(s) "
+            f"outside every CHSF band"
         )
     return rows
 

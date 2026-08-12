@@ -1524,6 +1524,66 @@ def test_nnja_ir_decode_cris_quality_null_without_band_flags():
     assert rows[0]["quality"] is None
 
 
+def test_nnja_ir_decode_cris_guard_block_not_emitted():
+    # crisf4's guard-spectrum block opens with DRF8BIT (0-31-001) and reuses
+    # CHNM/SRAD; its slots must not be decoded as science channels
+    pairs = _ir_scalar_pairs(said=224) + [
+        (ncep_microwave._FORN, 3),
+        # Budget deliberately larger than the declared channels so the
+        # 31001 marker, not the budget, is what stops the guard block
+        (31002, 13),
+        (ncep_microwave._CHANNEL_NUMBER, 714),
+        (ncep_microwave._SRAD, 0.05),
+        # Guard block: replication marker then guard CHNM/SRAD slots
+        (31001, 12),
+        (ncep_microwave._CHANNEL_NUMBER, 1),
+        (ncep_microwave._SRAD, 0.07),
+    ]
+    rows = _decode_ir_pairs(pairs, "cris")
+    assert [row["sensor_index"] for row in rows] == [714]
+
+
+def test_nnja_ir_decode_second_marker_break_is_airs_only():
+    # A second DRF16BIT does not terminate IASI/CrIS decoding; the channel
+    # budget is the terminator, so a nested replication block added to a
+    # future product cannot silently truncate footprints
+    pairs = _ir_scalar_pairs(said=224) + [
+        (ncep_microwave._FORN, 3),
+        (31002, 2),
+        (ncep_microwave._CHANNEL_NUMBER, 714),
+        (ncep_microwave._SRAD, 0.05),
+        (31002, 5),  # unexpected nested marker mid-block
+        (ncep_microwave._CHANNEL_NUMBER, 715),
+        (ncep_microwave._SRAD, 0.05),
+    ]
+    rows = _decode_ir_pairs(pairs, "cris")
+    assert sorted(row["sensor_index"] for row in rows) == [714, 715]
+
+
+def test_nnja_ir_decode_footprint_without_scan_position_dropped():
+    # scan_position is non-nullable uint16 in the output schema; a footprint
+    # missing its cross-track position (FORN for CrIS, FOVN otherwise) is
+    # dropped rather than emitting None into a non-nullable column
+    pairs_no_forn = _ir_scalar_pairs(said=224) + [
+        (31002, 1),
+        (ncep_microwave._CHANNEL_NUMBER, 714),
+        (ncep_microwave._SRAD, 0.05),
+    ]
+    assert not _decode_ir_pairs(pairs_no_forn, "cris")
+
+    pairs_no_fovn = [
+        pair
+        for pair in _ir_scalar_pairs(said=784)
+        if pair[0] != ncep_microwave._FOV_NUMBER
+    ] + [
+        (31002, 1),
+        (ncep_microwave._CHANNEL_NUMBER, 1),
+        (ncep_microwave._LOG10_CENTRAL_WAVENUMBER, np.log10(649.62 * 100.0)),
+        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 285.5),
+    ]
+    assert not _decode_ir_pairs(pairs_no_fovn, "airs")
+
+
 def test_nnja_ir_decode_airs_stops_at_second_replication_block():
     # airsev appends AMSU-A/HSB channel blocks that reuse the TMBR
     # descriptor; their channels must not be emitted as AIRS rows
@@ -1596,6 +1656,37 @@ def test_nnja_obs_sat_sensor_indices_narrow_ir_decode(monkeypatch):
 
     assert seen["cris"] == frozenset({19, 24})
     assert seen["iasi"] is None
+
+
+def test_nnja_obs_sat_sensor_indices_validation():
+    # Empty selection would silently return nothing after a full download;
+    # raise at construction instead, matching the JPSS/METOP sources
+    with pytest.raises(ValueError, match="at least one"):
+        NNJAObsSat(sensor_indices={"cris": []}, cache=False, verbose=False)
+    # Out of instrument-grid range
+    with pytest.raises(ValueError, match="1 to 2211"):
+        NNJAObsSat(sensor_indices={"cris": [0]}, cache=False, verbose=False)
+    with pytest.raises(ValueError, match="1 to 2211"):
+        NNJAObsSat(sensor_indices={"cris": [2212]}, cache=False, verbose=False)
+    with pytest.raises(ValueError, match="1 to 8461"):
+        NNJAObsSat(sensor_indices={"iasi": [8462]}, cache=False, verbose=False)
+    with pytest.raises(ValueError, match="1 to 2378"):
+        NNJAObsSat(sensor_indices={"airs": [2379]}, cache=False, verbose=False)
+    # Non-integer and bool entries
+    with pytest.raises(ValueError, match="integer"):
+        NNJAObsSat(sensor_indices={"cris": [1.5]}, cache=False, verbose=False)
+    with pytest.raises(ValueError, match="integer"):
+        NNJAObsSat(sensor_indices={"cris": [True]}, cache=False, verbose=False)
+    # Duplicates
+    with pytest.raises(ValueError, match="unique"):
+        NNJAObsSat(sensor_indices={"cris": [19, 19]}, cache=False, verbose=False)
+    # Valid boundary selections construct fine
+    source = NNJAObsSat(
+        sensor_indices={"cris": [1, 2211], "iasi": [1, 8461], "airs": [1, 2378]},
+        cache=False,
+        verbose=False,
+    )
+    assert source._sensor_indices["cris"] == frozenset({1, 2211})
 
 
 def test_nnja_obs_sat_ir_tasks_skipped_when_satellites_exclude_sensor():

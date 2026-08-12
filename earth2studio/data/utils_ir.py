@@ -76,9 +76,11 @@ def wavenumber_cm_inverse(sensor: str, channels: Sequence[int] | Any) -> Any:
 def iasi_radiance_mw(scra: Any, chsf: Any) -> Any:
     """Convert IASI SCRA integer codes to mW m⁻² sr⁻¹ (cm⁻¹)⁻¹.
 
-    The NNJA IASI BUFR stores per-footprint SCRA integer values and per-band
-    CHSF scale exponents. The physical radiance in W m⁻² sr⁻¹ (m⁻¹)⁻¹
-    (per unit wavenumber) is ``SCRA × 10^(-CHSF)``. Converting to
+    The NNJA IASI BUFR stores per-footprint SCRA integer values and CHSF
+    scale exponents declared per channel group (``mtiasi`` carries ten
+    STCH/ENCH/CHSF groups per footprint; the caller resolves each channel's
+    group). The physical radiance in W m⁻² sr⁻¹ (m⁻¹)⁻¹ (per unit
+    wavenumber) is ``SCRA × 10^(-CHSF)``. Converting to
     mW m⁻² sr⁻¹ (cm⁻¹)⁻¹ adds a factor of 10⁵ (×1000 for mW, ×100 for
     per-cm⁻¹ vs per-m⁻¹).
 
@@ -87,7 +89,7 @@ def iasi_radiance_mw(scra: Any, chsf: Any) -> Any:
     scra : array-like
         Raw SCRA integer values from the BUFR (pybufrkit decoded, not yet scaled).
     chsf : array-like
-        Per-channel CHSF exponent, same shape as ``scra``.
+        CHSF exponent already resolved to each channel, same shape as ``scra``.
     """
     scra = np.asarray(scra, dtype=np.float64)
     chsf = np.asarray(chsf, dtype=np.float64)
