@@ -68,6 +68,9 @@ jobs:
       - name: Generate API markdown
         run: uv run python docs/generate_api.py
 
+      - name: Generate catalog data
+        run: uv run python docs/generate_catalog.py
+
       - name: Generate install selector data
         run: uv run python docs/generate_install_options.py
 
@@ -126,6 +129,9 @@ jobs:
 
       - name: Build docs preview
         run: uv run zensical build --clean --config-file mkdocs.fork-api.yml
+
+      - name: Fix API cross-references
+        run: uv run python docs/fix_api_xrefs.py
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
