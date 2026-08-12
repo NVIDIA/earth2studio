@@ -193,7 +193,13 @@ body .md-grid {
 .md-search__form {
   background-color: var(--e2s-header-search-bg) !important;
   border: 1px solid var(--e2s-header-search-border) !important;
+  border-radius: 0.55rem !important;
   color: var(--e2s-header-fg) !important;
+  overflow: hidden;
+}
+
+.md-header .md-search > .md-search__button {
+  border-radius: 0.55rem !important;
 }
 
 .md-header .md-search__input {
@@ -251,6 +257,20 @@ body .md-grid {
 .md-header .md-search__options .md-icon,
 .md-header .md-search__suggest {
   color: var(--e2s-header-fg) !important;
+}
+
+.md-header .md-search .md-search__form button[type="button"].md-search__button,
+.md-header .md-search .md-search__form .md-search__key,
+.md-header .md-search .md-search__form kbd {
+  color: var(--e2s-header-muted) !important;
+  -webkit-text-fill-color: var(--e2s-header-muted) !important;
+  background: var(--e2s-header-kbd-bg) !important;
+  background-color: var(--e2s-header-kbd-bg) !important;
+  border: 1px solid var(--e2s-header-kbd-border) !important;
+  border-radius: 0.2rem !important;
+  box-shadow:
+    0 0 0 0.05rem var(--e2s-header-kbd-border),
+    0 0.08rem 0 rgba(0, 0, 0, 0.45) !important;
 }
 
 .md-tabs__link[href="https://github.com/NVIDIA/earth2studio/tree/main/recipes"]::after,

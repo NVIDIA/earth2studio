@@ -71,6 +71,7 @@ load_dotenv()  # TODO: make common example prep function
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import DLWP
+from earth2studio.utils.time import to_time_array
 
 # Load the default model package which downloads the check point from NGC
 package = DLWP.load_default_package()
@@ -90,7 +91,7 @@ io = ZarrBackend()
 
 # %% tags=["e2sg-profile:setup"]
 sample = data(
-    ["2023-12-31T18:00:00", "2024-01-01"],
+    to_time_array(["2023-12-31T18:00:00", "2024-01-01"]),
     model.input_coords()["variable"],
 )
 print(f"Cached GFS input shape: {sample.shape}")

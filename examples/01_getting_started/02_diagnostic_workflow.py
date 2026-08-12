@@ -74,6 +74,7 @@ from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.models.dx import PrecipitationAFNO
 from earth2studio.models.px import FCN
+from earth2studio.utils.time import to_time_array
 
 # Load the default model package which downloads the check point from NGC
 package = FCN.load_default_package()
@@ -95,7 +96,10 @@ io = ZarrBackend()
 # can reuse this cached GFS data instead of measuring download time.
 
 # %% tags=["e2sg-profile:setup"]
-sample = data(["2021-06-01"], prognostic_model.input_coords()["variable"])
+sample = data(
+    to_time_array(["2021-06-01"]),
+    prognostic_model.input_coords()["variable"],
+)
 print(f"Cached GFS input shape: {sample.shape}")
 
 # %%
