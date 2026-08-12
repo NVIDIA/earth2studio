@@ -116,11 +116,16 @@ model.eval()
 model.compile_model()
 
 # %%
-# Set Up Data Source
-# ------------------
+# Set Up Data Sources
+# -------------------
 # ``MeteosatFCI`` is configured with ``pixel_bbox`` matching the model's
 # domain (``Model_FCI_BBox``) so that the returned ``y``/``x`` scan-angle
-# coordinates align exactly with what the model expects.
+# coordinates align #with what the model expects.
+#
+# Meteosat FCI visible and NIR channels are provided by the EUMETSAT data store
+# at 1 km resolution while IR channels are 2 km, so we set up data sources for
+# both. The 1 km grid is exactly 2 times the pixels of the 2 km grid, so we get
+# the 1 km bounding box by doubling the 2 km bounding box.
 
 # %%
 bbox_2km = StormScopeMeteosatEU.Model_FCI_BBox
@@ -137,11 +142,14 @@ fci = {
 # %%
 # Fetch Initial Condition
 # -----------------------
-# We fetch the sliding window of ``L`` consecutive FCI frames ending at
+# We fetch initial window of 6 consecutive FCI frames ending at
 # the chosen analysis time. ``fetch_data`` calls the data source at
 # ``start_time + lead_time`` for each lead-time offset defined by the model
-# (e.g. ``[-50 min, -40 min, ..., 0 min]`` for a 6-frame window).
+# (``[-50 min, -40 min, ..., 0 min]`` for a 6-frame window).
 #
+# StormScope MTG uses the 2 km grid for all channels, so we need to resize
+# the channels retrieved from the 1 km data source. We can use 2x2 average
+# pooling to produce the 2 km inputs from the 1 km data.
 
 # %%
 # Analysis time; replace with any time for which MTG-I1 FCI data is available.
@@ -179,7 +187,7 @@ with torch.no_grad():
     )
     del x_res
 
-    # ensure data is on model grid
+    # ensure data is on model grid (reorders variables if needed)
     x, coords = map_coords(x, coords, in_coords)
 
 # %%
