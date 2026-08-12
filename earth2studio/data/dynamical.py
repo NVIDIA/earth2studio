@@ -82,7 +82,7 @@ class _DynamicalBase:
 
     Resolves a dynamical.org STAC collection to its Icechunk repository,
     opens it lazily with xarray, and maps Earth2Studio variable ids to the
-    collection's variables (via :class:`DynamicalLexicon` plus native
+    collection's variables (via [`DynamicalLexicon`][DynamicalLexicon] plus native
     pass-through), applying lexicon-defined unit conversions to the
     Earth2Studio convention.
     """
@@ -461,7 +461,7 @@ class _DynamicalBase:
         dynamical.org collections advertise an open-ended STAC extent (they are
         continuously updated), so the upper bound is taken from the last
         coordinate actually present in the opened store rather than the (absent)
-        STAC end. This keeps :meth:`available` honest and turns out-of-range
+        STAC end. This keeps [`available`][available] honest and turns out-of-range
         requests into a clear error instead of an opaque xarray ``KeyError``.
 
         Parameters

@@ -1,4 +1,4 @@
-:mod:`earth2studio.io`: IO Backends
+[`earth2studio.io`][earth2studio.io]: IO Backends
 -----------------------------------
 
 IO Backends for saving your inference results for further post processing.

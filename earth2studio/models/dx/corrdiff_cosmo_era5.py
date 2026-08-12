@@ -16,7 +16,7 @@
 
 """COSMO-REA downscaling diagnostic models (ERA5 -> COSMO-REA6 / REA2).
 
-Earth2Studio :class:`DiagnosticModel` wrapper for the ``corrdiff-cosmo-era5``
+Earth2Studio [`DiagnosticModel`][DiagnosticModel] wrapper for the ``corrdiff-cosmo-era5``
 package. One class: ``mode`` selects mean (deterministic) or diffusion (sampled
 with the EDM/Karras scheme); ``resolution`` selects the rea6/rea2 checkpoint. Both
 modes use a DiT-RoPE network (a diffusion transformer with rotary position
@@ -31,9 +31,9 @@ Domain handling:
 * The package ships the **native** trained grid + static invariants verbatim, plus
   an **extended** grid + invariants covering a margin around it. Full-domain
   ``__call__`` takes input regridded onto ``input_coords()`` (the native footprint);
-  sub-regions -- including into the extended margin -- are reached via :meth:`set_domain`
+  sub-regions -- including into the extended margin -- are reached via [`set_domain`][set_domain]
   (next bullet).
-* A **sub-region** is obtained with :meth:`set_domain`, which slices the grid +
+* A **sub-region** is obtained with [`set_domain`][set_domain], which slices the grid +
   exact invariants to a bounding box (no aggregation). The bbox may lie inside the
   native trained footprint, or reach into the extended invariant margin -- the
   latter proceeds with a one-time out-of-distribution warning; beyond the extended
@@ -232,7 +232,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
       reproducibility) that also captures the spread the mean cannot represent.
 
     Both networks are PhysicsNeMo DiTs at a fixed grid resolution but crop-size
-    agnostic, so :meth:`set_domain` returns an instance restricted to any lat/lon
+    agnostic, so [`set_domain`][set_domain] returns an instance restricted to any lat/lon
     sub-region without retraining (bounded to the trained footprint). Each
     resolution ships an extended grid beyond its native footprint; for COSMO-REA2
     -- whose native footprint is central-European -- the extended grid reaches a
@@ -240,7 +240,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     surface and model-level (3D) fields -- winds,
     temperature, humidity, precipitation, cloud cover, fluxes, TKE, PBL height;
     variables with a canonical Earth2Studio name are relabelled via
-    :class:`~earth2studio.lexicon.CosmoLexicon` and COSMO-specific fields keep a
+    [`CosmoLexicon`][earth2studio.lexicon.CosmoLexicon] and COSMO-specific fields keep a
     descriptive name. Optionally emits derived hub-height wind components (see
     ``hub_heights``).
 
@@ -780,8 +780,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system on the rotated-pole target grid.
 
-        The input must be on the native ERA5 grid (:meth:`input_coords`); for a
-        sub-region use :meth:`set_domain` (which gives a new instance with its own
+        The input must be on the native ERA5 grid ([`input_coords`][input_coords]); for a
+        sub-region use [`set_domain`][set_domain] (which gives a new instance with its own
         native grid). Arbitrary/flexible domains are not supported.
         """
         target = self.input_coords()
@@ -1114,7 +1114,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
     def _snap_to_patch(self, lo: int, hi: int, n: int) -> tuple[int, int]:
         """Snap a run-window extent ``[lo, hi)`` (one axis) to a multiple of
-        ``_patch_size``. Called by :meth:`set_domain` per axis: the DiT patch
+        ``_patch_size``. Called by [`set_domain`][set_domain] per axis: the DiT patch
         detokenizer requires the run grid's extent to be a multiple of
         ``patch_size`` (an odd extent would floor to extent-1 and mismatch the
         output grid).
@@ -1169,9 +1169,9 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     def _inference_context(self) -> AbstractContextManager:
         """Context manager wrapping the network forward passes.
 
-        Returns :func:`contextlib.nullcontext` (full precision) by default, or a
+        Returns [`contextlib.nullcontext`][contextlib.nullcontext] (full precision) by default, or a
         bf16 ``torch.autocast`` context when ``amp`` is enabled. The sampler
-        bookkeeping in :meth:`_denoise` stays in fp64 regardless — autocast only
+        bookkeeping in [`_denoise`][_denoise] stays in fp64 regardless — autocast only
         affects the network's own float32 ops.
         """
         if self.amp:
@@ -1381,7 +1381,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     ) -> "CorrDiffCosmoEra5":
         """Restrict the model to a sub-domain for a lat/lon bounding box.
 
-        Returns a NEW :class:`CorrDiffCosmoEra5` that shares the loaded network(s)
+        Returns a NEW [`CorrDiffCosmoEra5`][CorrDiffCosmoEra5] that shares the loaded network(s)
         but whose target grid + static invariants are sliced to the smallest
         block of the (rotated) grid covering ``[lat_min, lat_max] x [lon_min,
         lon_max]``. The returned instance is a fixed-domain model with its own

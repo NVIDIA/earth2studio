@@ -40,9 +40,10 @@ BADGE_RE = re.compile(
     r"\b(?:region|class|dataclass|year|product|gpu):[A-Za-z0-9_.-]+\b"
 )
 RST_ROLE_RE = re.compile(
-    r":(?:py:)?(?:mod|class|func|obj|meth|attr|exc|data|const):`~?([^`]+)`"
+    r":(?:py:)?(?:mod|class|func|obj|meth|attr|exc|data|const):" r"`(?P<target>[^`]+)`"
 )
-RST_LINK_RE = re.compile(r"`([^`<]+)\s*<([^`>]+)>`_")
+RST_LINK_RE = re.compile(r"`(?P<title>[^`<]+)\s*<(?P<url>[^`>]+)>`_")
+ROLE_TARGET_RE = re.compile(r"(?P<title>.*?)\s*<(?P<target>[^>]+)>$")
 
 METHODS_BY_TEMPLATE = {
     "dataassim.rst": (
@@ -123,10 +124,31 @@ class ObjectPage:
     template: str
 
 
+def _markdown_ref(raw: str) -> str:
+    """Format one cross-reference target as a Markdown autorefs link."""
+    raw = raw.strip()
+    match = ROLE_TARGET_RE.fullmatch(raw)
+    if match is not None:
+        title = match.group("title").strip()
+        target = match.group("target").strip()
+    else:
+        target = raw
+        title = raw
+
+    if title.startswith("~"):
+        target = target.lstrip("~")
+        title = title[1:].rsplit(".", 1)[-1]
+    else:
+        target = target.lstrip("~")
+    return f"[`{title}`][{target}]"
+
+
 def clean_rst_roles(text: str) -> str:
-    """Convert simple reStructuredText roles to Markdown code or links."""
-    text = RST_ROLE_RE.sub(lambda match: f"`{match.group(1)}`", text)
-    text = RST_LINK_RE.sub(r"[\1](\2)", text)
+    """Convert simple reStructuredText roles to Markdown links."""
+    text = RST_ROLE_RE.sub(lambda match: _markdown_ref(match.group("target")), text)
+    text = RST_LINK_RE.sub(
+        lambda match: f"[{match.group('title')}]({match.group('url')})", text
+    )
     return text.replace("``", "`")
 
 

@@ -88,7 +88,6 @@ docs:
 	uv run python docs/generate_gallery.py
 	rm -rf docs/_build/html
 	E2S_GALLERY_EXECUTE=never uv run zensical build --clean
-	uv run python docs/fix_api_xrefs.py
 	mkdir -p docs/_build
 	rsync -a --delete site/ docs/_build/html/
 
@@ -120,7 +119,6 @@ docs-build-version:
 	uv run python docs/generate_gallery.py
 	rm -rf docs/_build/html
 	DOC_VERSION=$(DOC_VERSION) E2S_GALLERY_EXECUTE=never uv run zensical build --clean
-	uv run python docs/fix_api_xrefs.py
 	mkdir -p docs/_build
 	rsync -a --delete site/ docs/_build/html/
 

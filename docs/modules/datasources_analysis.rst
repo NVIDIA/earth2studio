@@ -1,6 +1,6 @@
 .. _earth2studio.data.analysis:
 
-:mod:`earth2studio.data`: Data Sources
+[`earth2studio.data`][earth2studio.data]: Data Sources
 --------------------------------------
 
 Data sources used for downloading, caching and reading different weather / climate data
@@ -71,7 +71,7 @@ Used for fetching initial conditions for inference and validation data for scori
       data.DataSetFile
       data.DataArrayPathList
 
-:mod:`earth2studio.data`: AI Sources
+[`earth2studio.data`][earth2studio.data]: AI Sources
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Data sources that leverage an AI model to generate weather / climate data that can be

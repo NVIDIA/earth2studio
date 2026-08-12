@@ -131,20 +131,19 @@ class IBTrACS:
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    from datetime import datetime, timedelta
+    from earth2studio.data import IBTrACS
 
-        from datetime import datetime, timedelta
-        from earth2studio.data import IBTrACS
+    # Fetch North Atlantic and Eastern Pacific storms
+    ds = IBTrACS(region=["NA", "EP"], time_tolerance=timedelta(days=1))
+    df = ds(datetime(2024, 9, 1), ["tcwnd", "mslp"])
 
-        # Fetch North Atlantic and Eastern Pacific storms
-        ds = IBTrACS(region=["NA", "EP"], time_tolerance=timedelta(days=1))
-        df = ds(datetime(2024, 9, 1), ["tcwnd", "mslp"])
+    # Get active storms
+    ds_active = IBTrACS(region="ACTIVE")
+    df_active = ds_active(datetime.utcnow(), ["tcwnd", "mslp"])
 
-        # Get active storms
-        ds_active = IBTrACS(region="ACTIVE")
-        df_active = ds_active(datetime.utcnow(), ["tcwnd", "mslp"])
-
+    ```
     Badges
     ------
     region:global dataclass:observation product:wind product:atmos

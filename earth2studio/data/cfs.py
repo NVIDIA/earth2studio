@@ -748,7 +748,7 @@ class CFS_FX:
 class CFS_FX_Flux(CFS_FX):
     """NCEP Climate Forecast System v2 surface-flux forecast source.
 
-    Identical access pattern to :class:`CFS_FX` but exposes the ``flxf``
+    Identical access pattern to [`CFS_FX`][CFS_FX] but exposes the ``flxf``
     product, which carries surface and near-surface diagnostic fields on the
     native T126 Gaussian grid (190 x 384). Use this source for surface fluxes
     (sensible/latent heat, radiation, precipitation rate), boundary-layer

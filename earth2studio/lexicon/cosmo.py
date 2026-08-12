@@ -25,7 +25,7 @@ class CosmoLexicon(metaclass=LexiconType):
     """COSMO-REA Lexicon
 
     Maps between Earth2Studio vocabulary and the COSMO-REA output variable names
-    used by :class:`~earth2studio.models.dx.CorrDiffCosmoEra5` (COSMO-REA6 and
+    used by [`CorrDiffCosmoEra5`][earth2studio.models.dx.CorrDiffCosmoEra5] (COSMO-REA6 and
     COSMO-REA2). The vocabulary is the union over both resolutions: where a field
     has a canonical Earth2Studio name and matching units it maps to that name
     (e.g. ``t2m``, ``sp``, ``tp``, ``blh``); COSMO-specific fields with no canonical
@@ -136,7 +136,7 @@ class CosmoLexicon(metaclass=LexiconType):
     def to_e2studio(cls, cosmo_name: str) -> tuple[str, float]:
         """Map a COSMO output variable name to ``(earth2studio_name, scale)``.
 
-        The reverse of :attr:`VOCAB`, accepting either resolution's spelling.
+        The reverse of [`VOCAB`][VOCAB], accepting either resolution's spelling.
         Unknown names fall back to their lowercased form with unit scale 1.0, so a
         new COSMO field still gets a sensible name rather than raising.
         """

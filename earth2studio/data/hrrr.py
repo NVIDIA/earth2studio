@@ -80,17 +80,17 @@ class HRRR:
     The `hrrr_x` and `hrrr_y` coordinates of the resulting `DataArray` are the native
     coordinates of the HRRR model. The corresponding CRS can be set up with cartopy:
 
-    .. code-block:: python
+    ```python
+    import cartopy.crs as ccrs
 
-        import cartopy.crs as ccrs
+    proj_hrrr = ccrs.LambertConformal(
+        central_longitude=262.5,
+        central_latitude=38.5,
+        standard_parallels=(38.5, 38.5),
+        globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
+    )
 
-        proj_hrrr = ccrs.LambertConformal(
-            central_longitude=262.5,
-            central_latitude=38.5,
-            standard_parallels=(38.5, 38.5),
-            globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
-        )
-
+    ```
     Parameters
     ----------
     source : str, optional

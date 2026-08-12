@@ -14,9 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: e2s-docs-full
+name: e2s-docs-light
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -44,14 +47,11 @@ env:
 
 jobs:
   build-docs:
-    name: Build and publish full docs
-    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && (github.ref_name == github.event.repository.default_branch || endsWith(github.ref_name, '-rc'))
+    name: Build and publish light docs
+    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch
     permissions:
       contents: write
       packages: read
-    outputs:
-      doc-version: ${{ steps.docs-meta.outputs.doc-version }}
-      is-rc: ${{ steps.docs-meta.outputs.is-rc }}
     runs-on: linux-amd64-gpu-h100-latest-1
     timeout-minutes: 180
     container:
@@ -67,34 +67,18 @@ jobs:
       NATTEN_N_WORKERS: "8"
       NVCC_THREADS: "2"
     steps:
-      - name: Resolve docs version
-        id: docs-meta
+      - name: Validate docs publication ref
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
 
-          ref_name="${GITHUB_REF_NAME##*/}"
-          doc_version="main"
-          is_rc="false"
-
-          if [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]; then
-            :
-          elif [[ "$ref_name" =~ ^([0-9]+[.][0-9]+[.][0-9]+[0-9A-Za-z._]*)-rc$ ]]; then
-            doc_version="${BASH_REMATCH[1]}"
-            is_rc="true"
-          else
-            echo "Ref '${GITHUB_REF_NAME}' is not a trusted docs publication ref." >&2
+          if [[ "$GITHUB_REF_NAME" != "$DEFAULT_BRANCH" ]]; then
+            echo "Ref '${GITHUB_REF_NAME}' is not a trusted API docs publication ref." >&2
             exit 1
           fi
 
-          echo "DOC_VERSION=${doc_version}" >> "$GITHUB_ENV"
-          echo "doc-version=${doc_version}" >> "$GITHUB_OUTPUT"
-          echo "is-rc=${is_rc}" >> "$GITHUB_OUTPUT"
-
-          echo "### Full docs build" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Branch: \`${GITHUB_REF_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- DOC_VERSION: \`${doc_version}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "API docs publication ref: ${GITHUB_REF_NAME}"
 
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -102,16 +86,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Configure git safe directory
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - name: Build full Zensical site
+      - name: Build light Zensical site
         uses: ./.github/actions/build-light-docs
         with:
-          artifact-name: docs-full-html
-          artifact-retention-days: "10"
-          gallery-cache-name: ${{ github.ref_name }}
-          model-cache-name: docs-full-main
+          artifact-name: docs-light-html
+          artifact-retention-days: "1"
+          gallery-cache-name: main
+          model-cache-name: docs-light-main
           save-caches: "true"
           upload-artifact: "false"
         env:
@@ -122,21 +103,18 @@ jobs:
           EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
-      - name: Deploy full docs
+      - name: Deploy light docs
         run: |
           set -euo pipefail
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin "${DOCS_PAGES_BRANCH}" --depth=1
-          uv run mike deploy "${DOC_VERSION}" \
-            --title "${DOC_VERSION}" \
+          uv run mike deploy main \
             --branch "${DOCS_PAGES_BRANCH}" \
-            --message "Deploy full docs ${DOC_VERSION} for ${GITHUB_SHA}" \
+            --message "Deploy light docs for ${GITHUB_SHA}" \
             --push
-          if [[ "${DOC_VERSION}" == "main" ]]; then
-            uv run mike set-default main \
-              --branch "${DOCS_PAGES_BRANCH}" \
-              --message "Set default docs version to main" \
-              --push
-          fi
+          uv run mike set-default main \
+            --branch "${DOCS_PAGES_BRANCH}" \
+            --message "Set default docs version to main" \
+            --push

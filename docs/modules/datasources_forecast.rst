@@ -1,6 +1,6 @@
 .. _earth2studio.data.forecast:
 
-:mod:`earth2studio.data`: Forecast Sources
+[`earth2studio.data`][earth2studio.data]: Forecast Sources
 -------------------------------------------
 
 Extended data sources that allow users to download forecast data, these are not

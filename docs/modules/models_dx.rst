@@ -1,6 +1,6 @@
 .. _earth2studio.models.dx:
 
-:mod:`earth2studio.models.dx`: Diagnostics
+[`earth2studio.models.dx`][earth2studio.models.dx]: Diagnostics
 ------------------------------------------
 
 .. automodule:: earth2studio.models.dx

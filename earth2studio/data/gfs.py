@@ -92,7 +92,7 @@ class GFS:
     Note
     ----
     This data source only fetches the initial state of GFS and does not fetch an
-    predicted time steps. See :class:`~earth2studio.data.GFS_FX` for fetching predicted
+    predicted time steps. See [`GFS_FX`][earth2studio.data.GFS_FX] for fetching predicted
     data from this forecast system.
 
     Note

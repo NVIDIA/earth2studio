@@ -3368,7 +3368,7 @@
     "group": "Diagnostic",
     "kind": "model",
     "signature": "CorrDiffCMIP6(input_variables: Sequence[str], output_variables: Sequence[str], residual_model: torch.nn.Module, regression_model: torch.nn.Module, lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, in_center: torch.Tensor, in_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, invariants: OrderedDict | None = None, invariant_center: torch.Tensor | None = None, invariant_scale: torch.Tensor | None = None, number_of_samples: int = 1, number_of_steps: int = 18, solver: Literal['euler', 'heun'] = 'euler', sampler_type: Literal['deterministic', 'stochastic'] = 'stochastic', inference_mode: Literal['regression', 'diffusion', 'both'] = 'both', hr_mean_conditioning: bool = True, seed: int | None = None, grid_spacing_tolerance: float = 1e-05, grid_bounds_margin: float = 0.0, sigma_min: float | None = None, sigma_max: float | None = None, time_feature_center: torch.Tensor | None = None, time_feature_scale: torch.Tensor | None = None, output_lead_times: LeadTimeArray = np.array([np.timedelta64(-12, 'h')]))",
-    "summary": "CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model can be used to downscale both in the spatial and temporal dimensions. This model works with the `earth2studio.data.CMIP6MultiRealm` data source.",
+    "summary": "CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model can be used to downscale both in the spatial and temporal dimensions. This model works with the [`earth2studio.data.CMIP6MultiRealm`][earth2studio.data.CMIP6MultiRealm] data source.",
     "title": "CorrDiffCMIP6",
     "tone": "precip",
     "url": "../../../modules/generated/models/dx/CorrDiffCMIP6"
@@ -4518,7 +4518,7 @@
     "group": "Prognostic",
     "kind": "model",
     "signature": "Aurora1p5Ensemble(core_model: torch.nn.Module, static_vars: dict[str, torch.Tensor], seed: int | None = None)",
-    "summary": "Aurora v1.5 ensemble 0.25 degree global forecast model. Identical to `Aurora1p5` except it uses the stochastic ensemble checkpoint, where each forward pass injects fresh Gaussian noise into the backbone conditioning context. Calling the model N times (or with a batch of N copies of the same initial condition) therefore produces N statistically independent members.",
+    "summary": "Aurora v1.5 ensemble 0.25 degree global forecast model. Identical to [`Aurora1p5`][Aurora1p5] except it uses the stochastic ensemble checkpoint, where each forward pass injects fresh Gaussian noise into the backbone conditioning context. Calling the model N times (or with a batch of N copies of the same initial condition) therefore produces N statistically independent members.",
     "title": "Aurora1p5Ensemble",
     "tone": "solar",
     "url": "../../../modules/generated/models/px/Aurora1p5Ensemble"
@@ -4755,7 +4755,7 @@
     "group": "Prognostic",
     "kind": "model",
     "signature": "DLESyMv0_ISCCP_ERA5LatLon()",
-    "summary": "Lat/lon convenience wrapper for `DLESyMv0_ISCCP_ERA5`.",
+    "summary": "Lat/lon convenience wrapper for [`DLESyMv0_ISCCP_ERA5`][DLESyMv0_ISCCP_ERA5].",
     "title": "DLESyMv0_ISCCP_ERA5LatLon",
     "tone": "ocean",
     "url": "../../../modules/generated/models/px/DLESyMv0_ISCCP_ERA5LatLon"

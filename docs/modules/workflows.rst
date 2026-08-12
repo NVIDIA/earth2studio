@@ -1,4 +1,4 @@
-:mod:`earth2studio.run`: Workflows
+[`earth2studio.run`][earth2studio.run]: Workflows
 ----------------------------------
 
 Built in workflows designed to be a catalyst to help accelerate user defined inference

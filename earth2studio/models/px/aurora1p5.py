@@ -201,7 +201,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Aurora v1.5 was pretrained on ERA5 and fine-tuned on IFS operational
     analyses and as such recommended to be initialized with IFS analyses.
     The open-data IFS does not publish sea ice concentration (``sic``).
-    :class:`earth2studio.data.NCAR_ERA5` or :class:`earth2studio.data.ARCO`
+    [`earth2studio.data.NCAR_ERA5`][earth2studio.data.NCAR_ERA5] or [`earth2studio.data.ARCO`][earth2studio.data.ARCO]
     (which provide all required variables) may be used instead. GFS is not
     supported due to missing surface variables.
 
@@ -603,12 +603,12 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 @check_optional_dependencies()
 class Aurora1p5Ensemble(Aurora1p5):
     """Aurora v1.5 ensemble 0.25 degree global forecast model. Identical to
-    :class:`Aurora1p5` except it uses the stochastic ensemble checkpoint, where
+    [`Aurora1p5`][Aurora1p5] except it uses the stochastic ensemble checkpoint, where
     each forward pass injects fresh Gaussian noise into the backbone conditioning
     context. Calling the model N times (or with a batch of N copies of the same
     initial condition) therefore produces N statistically independent members.
 
-    Like :class:`Aurora1p5`, this wrapper uses an hourly rollout by default,
+    Like [`Aurora1p5`][Aurora1p5], this wrapper uses an hourly rollout by default,
     leveraging the 6-hour base time-step to produce hourly lead times without
     additional model evaluations per AR cycle.
 
@@ -623,7 +623,7 @@ class Aurora1p5Ensemble(Aurora1p5):
     - https://microsoft.github.io/aurora/example_v1p5.html
 
     Aurora v1.5 was pretrained on ERA5 and fine-tuned on IFS operational
-    analyses. See :class:`Aurora1p5` for data source recommendations.
+    analyses. See [`Aurora1p5`][Aurora1p5] for data source recommendations.
 
     Warning
     -------
@@ -638,8 +638,8 @@ class Aurora1p5Ensemble(Aurora1p5):
         Dictionary of static field tensors (e.g., lsm, z, slt_*, tvh_*, tvl_*, ...).
         Each tensor should have shape (720, 1440).
     seed : int | None, optional
-        If specified, sets the random seed via :meth:`set_rng` at the start of
-        each :meth:`create_iterator` call for reproducible stochastic noise.
+        If specified, sets the random seed via [`set_rng`][set_rng] at the start of
+        each [`create_iterator`][create_iterator] call for reproducible stochastic noise.
         By default None (non-reproducible).
 
     Badges
@@ -662,7 +662,7 @@ class Aurora1p5Ensemble(Aurora1p5):
         Parameters
         ----------
         seed : int | None
-            Seed for :func:`torch.manual_seed`. If None, only resets the noise cache.
+            Seed for [`torch.manual_seed`][torch.manual_seed]. If None, only resets the noise cache.
         """
         if seed is not None:
             torch.manual_seed(seed)

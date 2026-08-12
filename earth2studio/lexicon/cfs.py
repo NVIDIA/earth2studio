@@ -86,7 +86,7 @@ class CFSLexicon(metaclass=LexiconType):
         The CFS ``pgbf`` product is a pressure-level archive and does not publish
         most near-surface fields (``t2m``, ``u10m``, ``v10m``, ``sp``, ``q2m``,
         ``tcwv``); those live on the T126 Gaussian ``flxf`` grid -- use
-        :class:`CFSFluxLexicon` and :class:`~earth2studio.data.CFS_FX_Flux`
+        [`CFSFluxLexicon`][CFSFluxLexicon] and [`CFS_FX_Flux`][earth2studio.data.CFS_FX_Flux]
         for them. Variables that *are* available at the surface in pgbf
         (dewpoint and relative humidity at 2 m, MSL pressure) are exposed here.
         """

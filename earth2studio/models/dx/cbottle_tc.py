@@ -78,7 +78,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
     Note
     ----
-    This model provides the function :py:func:`model.create_guidance_tensor`
+    This model provides the function [`model.create_guidance_tensor`][model.create_guidance_tensor]
     as a utility to create the input guidance tensor.
 
     Parameters
@@ -534,7 +534,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         Parameters
         ----------
         x : torch.Tensor
-            Input guidance tensor with the same layout expected by :meth:`__call__`.
+            Input guidance tensor with the same layout expected by [`__call__`][__call__].
         coords : CoordSystem
             Coordinate system associated with ``x``.
         guidance_scale : float, optional
@@ -551,7 +551,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         Note
         ----
         This method requires the underlying cBottle model to be loaded with
-        ``allow_second_order_derivatives=True`` via :meth:`load_model`. The default
+        ``allow_second_order_derivatives=True`` via [`load_model`][load_model]. The default
         ``allow_second_order_derivatives=False`` path is optimized for standard guided
         sampling and fails for odds-ratio computations.
         """

@@ -44,8 +44,8 @@ class TimeWindow:
     ----------
     datasource : DataSource
         The underlying datasource to wrap. Must implement the
-        :class:`~earth2studio.data.DataSource` protocol (single time dimension).
-        :class:`ForecastSource` is not supported.
+        [`DataSource`][earth2studio.data.DataSource] protocol (single time dimension).
+        [`ForecastSource`][ForecastSource] is not supported.
 
         TimeWindow-specific requirements: The datasource must return variable
         names without time suffixes (e.g., "tas", "u10m"). The wrapper will
@@ -88,8 +88,8 @@ class TimeWindow:
     is handled consistently, and (3) the model receives a standard DataSource interface
     without needing offset logic.
 
-    This wrapper only supports :class:`~earth2studio.data.DataSource` (single time
-    dimension). It does not support :class:`ForecastSource` (which has both init time
+    This wrapper only supports [`DataSource`][earth2studio.data.DataSource] (single time
+    dimension). It does not support [`ForecastSource`][ForecastSource] (which has both init time
     and lead time).
 
     The wrapper is transparent and does not add validation beyond what the underlying

@@ -131,7 +131,6 @@ jobs:
         run: uv run zensical build --clean --config-file mkdocs.fork-api.yml
 
       - name: Fix API cross-references
-        run: uv run python docs/fix_api_xrefs.py
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

@@ -949,7 +949,7 @@ class MeteosatFCI:
         Computes the ``(x_min, x_max, y_min, y_max)`` extent of the FCI
         grid in native geostationary projection coordinates.  This is
         useful for plotting with ``imshow`` on a
-        :class:`cartopy.crs.Geostationary` axis.
+        [`cartopy.crs.Geostationary`][cartopy.crs.Geostationary] axis.
 
         Parameters
         ----------

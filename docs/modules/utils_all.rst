@@ -1,11 +1,11 @@
 .. _earth2studio.utils_api:
 
-:mod:`earth2studio`: Utilities
+[`earth2studio`][earth2studio]: Utilities
 -------------------------------
 
 .. _earth2studio.utils.coords:
 
-:mod:`earth2studio.utils`: Coordinates
+[`earth2studio.utils`][earth2studio.utils]: Coordinates
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: earth2studio.utils
@@ -34,7 +34,7 @@ A collection of utilities to manipulate and check coordinate systems dictionarie
 
 .. _earth2studio.utils.obs:
 
-:mod:`earth2studio.utils`: Observations
+[`earth2studio.utils`][earth2studio.utils]: Observations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Helper classes for mapping point observations onto model grids.
@@ -47,7 +47,7 @@ Helper classes for mapping point observations onto model grids.
 
 .. _earth2studio.utils.time:
 
-:mod:`earth2studio.utils`: Time
+[`earth2studio.utils`][earth2studio.utils]: Time
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A collection of utilities to help interact with time coordinate arrays. Earth2Studio
@@ -63,7 +63,7 @@ The following functions can be used to convert to and from these numpy arrays.
 
 .. _earth2studio.utils.checkpoint:
 
-:mod:`earth2studio.utils`: Checkpointing
+[`earth2studio.utils`][earth2studio.utils]: Checkpointing
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Checkpoint utilities for restartable inference workflows. Checkpoints track
@@ -88,7 +88,7 @@ IO backend.
 
 .. _earth2studio.data.functions:
 
-:mod:`earth2studio.data`: Data
+[`earth2studio.data`][earth2studio.data]: Data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. currentmodule:: earth2studio
@@ -103,7 +103,7 @@ IO backend.
 
 .. _earth2studio.models.utils_api:
 
-:mod:`earth2studio.models`: Models
+[`earth2studio.models`][earth2studio.models]: Models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: earth2studio.models

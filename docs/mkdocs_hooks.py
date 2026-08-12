@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""MkDocs compatibility hooks for legacy Sphinx/MyST documentation blocks."""
+"""MkDocs hooks for Earth2Studio documentation components."""
 
 from __future__ import annotations
 
@@ -48,20 +48,6 @@ RST_LIST_TABLE_RE = re.compile(
     re.I,
 )
 MYST_TARGET_RE = re.compile(r"^\((?P<label>[A-Za-z0-9_.:-]+)\)=\s*$")
-REF_RE = re.compile(r"(?:\{ref\}|:ref:)`(?P<target>[^`]+)`")
-DOC_RE = re.compile(r":doc:`(?P<target>[^`]+)`")
-PY_ROLE_RE = re.compile(
-    r":(?:py:)?(?P<role>class|func|meth|mod|obj|attr|exc|data|const):`(?P<target>[^`]+)`"
-)
-MYST_ROLE_RE = re.compile(
-    r"\{(?P<role>class|func|meth|mod|obj|attr|exc|data|const)\}`(?P<target>[^`]+)`"
-)
-CUSTOM_TARGET_RE = re.compile(
-    r"^(?P<title>.+?)\s*(?:<|&lt;)(?P<target>[^>&]+)(?:>|&gt;)$"
-)
-DOCSTRING_XREF_RE = re.compile(
-    r"\[(?P<title>[^\[\]]+)\]\[(?P<target>earth2studio\.[^\[\]\s]+)\]"
-)
 DOCS_ROOT = Path(__file__).resolve().parent
 GENERATED_API_ROOT = DOCS_ROOT / "modules" / "generated"
 INSTALL_SELECTOR_MARKER = "<!-- e2s-install-selector -->"
@@ -101,76 +87,6 @@ KNOWN_TYPES = {
     "important",
     "caution",
 }
-REF_TARGETS = {
-    "automodel_userguide": (
-        "AutoModels",
-        "userguide/advanced/auto/#automodel_userguide",
-    ),
-    "batch_function_userguide": (
-        "Batch Dimension",
-        "userguide/advanced/batch/#batch_function_userguide",
-    ),
-    "building_documentation": (
-        "Building Documentation",
-        "userguide/developer/documentation/#building-documentation",
-    ),
-    "configuration_userguide": (
-        "Configuration",
-        "userguide/about/install/#configuration_userguide",
-    ),
-    "coordinates_userguide": (
-        "Coordinate Systems",
-        "userguide/about/overview/#coordinates_userguide",
-    ),
-    "data_userguide": ("Data Movement", "userguide/about/overview/#data_userguide"),
-    "developer_overview": (
-        "Developer Overview",
-        "userguide/developer/overview/#developer_overview",
-    ),
-    "diagnostic_model_userguide": (
-        "Diagnostic Models",
-        "userguide/components/diagnostic/#diagnostic_model_userguide",
-    ),
-    "earth2studio.data.analysis": (
-        "earth2studio.data.analysis",
-        "modules/datasources_analysis/",
-    ),
-    "earth2studio.models.dx": ("earth2studio.models.dx", "modules/models_dx/"),
-    "earth2studio.models.px": ("earth2studio.models.px", "modules/models_px/"),
-    "earth2studio.perturbation": (
-        "earth2studio.perturbation",
-        "modules/perturbation/",
-    ),
-    "examples_userguide": ("Examples", "examples/"),
-    "extension_examples": ("extension examples", "examples/08_extend/"),
-    "install_guide": ("Install", "userguide/about/install/#install_guide"),
-    "lexicon_userguide": (
-        "Lexicon",
-        "userguide/advanced/lexicon/#lexicon_userguide",
-    ),
-    "model_dependencies": (
-        "Model Dependencies",
-        "userguide/about/install/#model_dependencies",
-    ),
-    "optional_dependencies": (
-        "Optional Dependencies",
-        "userguide/about/install/#optional_dependencies",
-    ),
-    "prognostic_model_userguide": (
-        "Prognostic Models",
-        "userguide/components/prognostic/#prognostic_model_userguide",
-    ),
-    "pytorch_container_environment": (
-        "Docker Container",
-        "userguide/about/install/#pytorch_container_environment",
-    ),
-    "sphx_glr_examples_01_getting_started_03_ensemble_workflow.py": (
-        "getting started ensemble workflow example",
-        "examples/01_getting_started/03_ensemble_workflow/",
-    ),
-    "userguide": ("User Guide", "userguide/"),
-}
-API_REF_TARGETS: dict[str, tuple[str, str]] | None = None
 
 
 def on_page_markdown(markdown: str, **kwargs: object) -> str:
@@ -180,99 +96,6 @@ def on_page_markdown(markdown: str, **kwargs: object) -> str:
     markdown = _render_catalog(markdown, page)
     markdown = _remove_examples_gallery_description(markdown, page)
     return _convert_legacy_blocks(markdown, page)
-
-
-def on_page_content(html: str, **kwargs: object) -> str:
-    """Convert leftover docstring cross-references after mkdocstrings rendering."""
-    page = kwargs.get("page")
-    return _convert_docstring_xrefs(html, page)
-
-
-def _api_ref_targets() -> dict[str, tuple[str, str]]:
-    """Map import paths to generated API documentation URLs and object paths."""
-    global API_REF_TARGETS
-    if API_REF_TARGETS is not None:
-        return API_REF_TARGETS
-
-    targets: dict[str, tuple[str, str]] = {}
-    for path in GENERATED_API_ROOT.rglob("*.md"):
-        text = path.read_text(encoding="utf-8")
-        match = re.search(
-            r"^\*\*Import path:\*\*\s+`(?P<target>earth2studio\.[^`]+)`",
-            text,
-            re.M,
-        )
-        if match is None:
-            continue
-        object_match = re.search(r"^::::?\s+(?P<object>\S+)", text, re.M)
-        object_path = object_match.group("object") if object_match else ""
-        url = path.relative_to(DOCS_ROOT).with_suffix("").as_posix() + "/"
-        targets[match.group("target")] = (url, object_path)
-    API_REF_TARGETS = targets
-    return targets
-
-
-def _public_api_target(target: str) -> str | None:
-    """Resolve a role target to the generated public API target when possible."""
-    target = target.strip()
-    if target.startswith("~"):
-        target = target[1:]
-    if not target or " " in target:
-        return None
-
-    targets = _api_ref_targets()
-    if target in targets or any(target.startswith(path + ".") for path in targets):
-        return target
-
-    parts = target.split(".")
-    for index, part in enumerate(parts):
-        matches = [
-            import_path
-            for import_path in targets
-            if import_path.rsplit(".", 1)[-1] == part
-        ]
-        if len(matches) != 1:
-            continue
-        suffix = ".".join(parts[index + 1 :])
-        return f"{matches[0]}.{suffix}" if suffix else matches[0]
-    return None
-
-
-def _api_ref_url(target: str) -> str | None:
-    """Return the generated API URL for an import path or member path."""
-    target = _public_api_target(target) or target
-    targets = _api_ref_targets()
-    exact = targets.get(target)
-    if exact is not None:
-        return exact[0]
-
-    for import_path, (url, object_path) in targets.items():
-        prefix = import_path + "."
-        if not target.startswith(prefix) or not object_path:
-            continue
-        member = target[len(prefix) :]
-        return f"{url}#{object_path}.{member}"
-    return None
-
-
-def _convert_docstring_xrefs(html: str, page: object | None) -> str:
-    """Link mkdocstrings docstring cross-reference syntax left in rendered HTML."""
-
-    def repl(match: re.Match[str]) -> str:
-        title = match.group("title")
-        target = match.group("target")
-        url = _api_ref_url(target)
-        if url is None:
-            return f"<code>{escape(title)}</code>"
-        href = escape(_relative_url(url, page), quote=True)
-        if url.endswith("/") and not href.endswith("/"):
-            href += "/"
-        return (
-            f'<a class="autorefs autorefs-internal" href="{href}">'
-            f"<code>{escape(title)}</code></a>"
-        )
-
-    return DOCSTRING_XREF_RE.sub(repl, html)
 
 
 def _remove_examples_gallery_description(markdown: str, page: object | None) -> str:
@@ -664,57 +487,6 @@ def _relative_url(target: str, page: object | None) -> str:
     return "" if relative == "." else relative
 
 
-def _split_role_target(value: str) -> tuple[str | None, str]:
-    value = value.strip()
-    custom = CUSTOM_TARGET_RE.match(value)
-    if custom:
-        return custom.group("title").strip(), custom.group("target").strip()
-    return None, value
-
-
-def _xref(label: str, page: object | None) -> str:
-    title, target = _split_role_target(label)
-    default_title, url = REF_TARGETS.get(target, (target, ""))
-    if not url:
-        return f"<code>{escape(title or default_title)}</code>"
-    return (
-        f'<a href="{escape(_relative_url(url, page), quote=True)}">'
-        f"{escape(title or default_title)}</a>"
-    )
-
-
-def _doc_link(label: str, page: object | None) -> str:
-    title, target = _split_role_target(label)
-    if not title:
-        title = target.strip("/").rsplit("/", 1)[-1].replace("-", " ").title()
-    return (
-        f'<a href="{escape(_relative_url(target, page), quote=True)}">'
-        f"{escape(title)}</a>"
-    )
-
-
-def _python_role(label: str, page: object | None) -> str:
-    title, target = _split_role_target(label)
-    display = title or target.lstrip("~")
-    display = escape(display).replace("_", "&#95;")
-    url = _api_ref_url(target)
-    if url is not None:
-        return (
-            f'<a href="{escape(_relative_url(url, page), quote=True)}">'
-            f"<code>{display}</code></a>"
-        )
-    return f"<code>{display}</code>"
-
-
-def _convert_legacy_roles(line: str, page: object | None) -> str:
-    line = REF_RE.sub(lambda match: _xref(match.group("target"), page), line)
-    line = DOC_RE.sub(lambda match: _doc_link(match.group("target"), page), line)
-    line = PY_ROLE_RE.sub(lambda match: _python_role(match.group("target"), page), line)
-    return MYST_ROLE_RE.sub(
-        lambda match: _python_role(match.group("target"), page), line
-    )
-
-
 def _active_indent(stack: list[dict[str, object]]) -> str:
     return " " * sum(int(item.get("indent", 0)) for item in stack)
 
@@ -786,7 +558,7 @@ def _consume_indented(
             break
         if line.strip():
             content = line[3:] if line.startswith("   ") else line.lstrip()
-            out.append(prefix + "    " + _convert_legacy_roles(content, page))
+            out.append(prefix + "    " + content)
         else:
             out.append("")
         i += 1
@@ -794,7 +566,7 @@ def _consume_indented(
 
 
 def _table_cell(text: str, page: object | None) -> str:
-    text = _convert_legacy_roles(text.strip(), page)
+    text = text.strip()
     return text.replace("|", r"\|") or " "
 
 
@@ -969,8 +741,7 @@ def _convert_legacy_blocks(markdown: str, page: object | None = None) -> str:
                 i = next_i
                 continue
 
-        line = lines[i] if in_code_fence else _convert_legacy_roles(lines[i], page)
-        out.append(prefix + line)
+        out.append(prefix + lines[i])
         i += 1
 
     return "\n".join(out) + ("\n" if markdown.endswith("\n") else "")

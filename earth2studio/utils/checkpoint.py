@@ -99,7 +99,7 @@ class CheckpointEntry:
 
 
 class CheckpointState(Generic[T]):
-    """Bound checkpoint state proxy returned by :func:`bind_checkpoint_state`.
+    """Bound checkpoint state proxy returned by [`bind_checkpoint_state`][bind_checkpoint_state].
 
     The proxy forwards normal attribute access to the wrapped dataclass while
     exposing checkpoint metadata through ``checkpoint_*`` properties.
@@ -296,7 +296,7 @@ def bind_checkpoint_state(state: T | CheckpointState[T]) -> CheckpointState[T]:
     The returned proxy forwards normal dataclass field access and exposes
     checkpoint metadata through ``checkpoint_*`` properties. When no checkpoint
     session is active, state is buffered for the most recently instantiated
-    :class:`Checkpoint` in this context.
+    [`Checkpoint`][Checkpoint] in this context.
     """
     bound_state: CheckpointState[Any]
     if isinstance(state, CheckpointState):
@@ -323,7 +323,7 @@ class Checkpoint:
     A checkpoint owns the on-disk catalog and commit directories for one logical
     inference run. Each committed catalog row stores generic workflow metadata
     and component state bound through
-    :func:`bind_checkpoint_state`.
+    [`bind_checkpoint_state`][bind_checkpoint_state].
 
     Parameters
     ----------
@@ -675,7 +675,7 @@ class CheckpointSession:
 
     A session is the context-bound handle used by workflows and components to
     restore bound state, record completed restart boundaries, and commit new
-    checkpoint rows. Sessions created from :meth:`Checkpoint.select` restore an
+    checkpoint rows. Sessions created from [`Checkpoint.select`][Checkpoint.select] restore an
     existing catalog row; sessions opened by ``with checkpoint`` on an empty
     catalog create the first row for the checkpoint.
 
@@ -767,7 +767,7 @@ class CheckpointSession:
         return metadata[name]
 
     def artifact(self, name: str) -> Any:
-        """Compatibility alias for :meth:`metadata_value`."""
+        """Compatibility alias for [`metadata_value`][metadata_value]."""
         return self.metadata_value(name)
 
     def bind(self, state: T | CheckpointState[T]) -> CheckpointState[T]:

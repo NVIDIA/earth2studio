@@ -1,6 +1,6 @@
 .. _earth2studio.data.dataframe:
 
-:mod:`earth2studio.data`: DataFrame Sources
+[`earth2studio.data`][earth2studio.data]: DataFrame Sources
 --------------------------------------------
 
 Data sources that provide tabular data as DataFrames.

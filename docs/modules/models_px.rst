@@ -1,6 +1,6 @@
 .. _earth2studio.models.px:
 
-:mod:`earth2studio.models.px`: Prognostics
+[`earth2studio.models.px`][earth2studio.models.px]: Prognostics
 ------------------------------------------
 
 .. automodule:: earth2studio.models.px

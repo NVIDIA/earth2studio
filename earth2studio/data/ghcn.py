@@ -281,7 +281,7 @@ class _GHCNBase:
         GHCNDaily and GHCNHourly publish separate station lists in different
         formats, so each subclass implements this method independently. The
         returned frame must include at least ``ID``, ``LAT`` and ``LON`` columns,
-        which :py:meth:`get_stations_bbox` relies on.
+        which [`get_stations_bbox`][get_stations_bbox] relies on.
 
         Returns
         -------
@@ -358,10 +358,10 @@ class GHCNDaily(_GHCNBase):
     Note
     ----
     To help get a list of possible station IDs, this class includes
-    :py:meth:`GHCNDaily.get_stations_bbox` which accepts a lat-lon bounding box and will
+    [`GHCNDaily.get_stations_bbox`][GHCNDaily.get_stations_bbox] which accepts a lat-lon bounding box and will
     return known station IDs. For more information on the stations, users should
     consult the ``ghcnd-stations.txt`` which can be accessed with
-    :py:meth:`GHCNDaily.get_station_metadata`.
+    [`GHCNDaily.get_station_metadata`][GHCNDaily.get_station_metadata].
 
     Note
     ----
@@ -372,14 +372,13 @@ class GHCNDaily(_GHCNBase):
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    # Southeast US, lat lon bounding box (lat min, lon min, lat max, lon max)
+    stations = GHCNDaily.get_stations_bbox((30, -90, 36, -80))
+    ds = GHCNDaily(stations, time_tolerance=timedelta(days=1))
+    df = ds(datetime(2024, 1, 1), ["t2m_max", "tp"])
 
-        # Southeast US, lat lon bounding box (lat min, lon min, lat max, lon max)
-        stations = GHCNDaily.get_stations_bbox((30, -90, 36, -80))
-        ds = GHCNDaily(stations, time_tolerance=timedelta(days=1))
-        df = ds(datetime(2024, 1, 1), ["t2m_max", "tp"])
-
+    ```
     Badges
     ------
     region:global dataclass:observation product:wind product:precip product:temp product:atmos product:solar product:insitu
@@ -782,7 +781,7 @@ class GHCNHourly(_GHCNBase):
     ----------
     stations : list[str]
         Station IDs in GHCN station format (11 characters), e.g. ``"USW00013874"``
-        for Atlanta Hartsfield-Jackson. Use :py:meth:`GHCNHourly.get_stations_bbox`
+        for Atlanta Hartsfield-Jackson. Use [`GHCNHourly.get_stations_bbox`][GHCNHourly.get_stations_bbox]
         to discover IDs by geographic area.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single value
@@ -809,10 +808,10 @@ class GHCNHourly(_GHCNBase):
     Note
     ----
     To help get a list of possible station IDs, this class includes
-    :py:meth:`GHCNHourly.get_stations_bbox` which accepts a lat-lon bounding box and
+    [`GHCNHourly.get_stations_bbox`][GHCNHourly.get_stations_bbox] which accepts a lat-lon bounding box and
     will return known station IDs. For more information on the stations, users
     should consult the ``ghcnh-station-list.csv`` file accessible via
-    :py:meth:`GHCNHourly.get_station_metadata`.
+    [`GHCNHourly.get_station_metadata`][GHCNHourly.get_station_metadata].
 
     Note
     ----
@@ -823,14 +822,13 @@ class GHCNHourly(_GHCNBase):
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    # Atlanta Hartsfield-Jackson airport
+    stations = GHCNHourly.get_stations_bbox((33, -85, 34, -84))
+    ds = GHCNHourly(stations, time_tolerance=timedelta(hours=1))
+    df = ds(datetime(2024, 1, 1, 12), ["t2m", "ws10m"])
 
-        # Atlanta Hartsfield-Jackson airport
-        stations = GHCNHourly.get_stations_bbox((33, -85, 34, -84))
-        ds = GHCNHourly(stations, time_tolerance=timedelta(hours=1))
-        df = ds(datetime(2024, 1, 1, 12), ["t2m", "ws10m"])
-
+    ```
     Badges
     ------
     region:global dataclass:observation product:wind product:precip product:temp
@@ -906,7 +904,7 @@ class GHCNHourly(_GHCNBase):
         stations are available in GHCNh and can return IDs without hourly files.
         The CSV carries the same descriptive columns as the daily list plus
         ``ICAO`` and ``ISO_CODE``; column names are normalized to match
-        :py:meth:`GHCNDaily.get_station_metadata`.
+        [`GHCNDaily.get_station_metadata`][GHCNDaily.get_station_metadata].
 
         Returns
         -------

@@ -1,6 +1,6 @@
 .. _earth2studio.perturbation:
 
-:mod:`earth2studio.perturbation`: Perturbations
+[`earth2studio.perturbation`][earth2studio.perturbation]: Perturbations
 -----------------------------------------------
 
 Perturbation methods are used for perturbing the input data they are provided, typically

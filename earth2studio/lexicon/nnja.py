@@ -137,7 +137,7 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
 
     Note
     ----
-    This lexicon parallels :py:class:`earth2studio.lexicon.GDASObsConvLexicon`
+    This lexicon parallels [`earth2studio.lexicon.GDASObsConvLexicon`][earth2studio.lexicon.GDASObsConvLexicon]
     while retaining NNJA route prefixes.
 
     Additional resources:

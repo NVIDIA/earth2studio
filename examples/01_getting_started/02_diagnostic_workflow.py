@@ -90,10 +90,12 @@ data = GFS()
 io = ZarrBackend()
 
 # %%
-# Fetch Initial Data
-# ------------------
-# Fetching the model input once warms the local cache. The inference workflow below
-# can reuse this cached GFS data instead of measuring download time.
+# Fetch Data
+# ----------
+# You can easily fetch raw Xarray data from an initial condition data source with
+# a simple call. By default, this caches the data locally on your machine, so you
+# won't have to re-download it if you access it again or use it in an inference
+# pipeline.
 
 # %% tags=["e2sg-profile:setup"]
 sample = data(

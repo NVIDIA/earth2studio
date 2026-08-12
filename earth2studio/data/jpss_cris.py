@@ -458,7 +458,7 @@ class JPSS_CRIS:
     measured ``SatelliteZenithAngle`` from the GEO product.
 
     With ``sensor_indices=None`` and ``apodize=False``, the returned
-    :class:`~pandas.DataFrame` has one row per FOV per channel including guard
+    [`DataFrame`][pandas.DataFrame] has one row per FOV per channel including guard
     channels. The ``sensor_index`` column uses the GSI ``sensor_chan`` numbering
     convention:
 
@@ -500,12 +500,12 @@ class JPSS_CRIS:
         contains all 2223 channels, including 12 guards with
         ``sensor_index=0``.
 
-        .. note::
+        !!! note
 
-           NOAA's CrIS SDR ATBD defines Hamming apodization on the Nyquist
-           grid as this exact three-point radiance-space operator. Exact
-           brightness-temperature reproduction additionally requires the same
-           Planck constants as the comparison product.
+            NOAA's CrIS SDR ATBD defines Hamming apodization on the Nyquist
+            grid as this exact three-point radiance-space operator. Exact
+            brightness-temperature reproduction additionally requires the same
+            Planck constants as the comparison product.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
@@ -933,7 +933,7 @@ class JPSS_CRIS:
         numpy compute release the GIL, so threads give effective speedup
         without the serialisation overhead of multiprocessing.
 
-        Each granule is decoded into a compact :class:`_CrISDecodedGranule`
+        Each granule is decoded into a compact [`_CrISDecodedGranule`][_CrISDecodedGranule]
         (spatial arrays + 2-D brightness-temperature matrix).  The expensive
         expansion to long-format (one row per channel per FOV) is done once at
         the end over all granules combined, avoiding intermediate DataFrame
@@ -1148,11 +1148,11 @@ class JPSS_CRIS:
     ) -> _CrISDecodedGranule | None:
         """Decode a CrIS SDR + GEO HDF5 file pair into compact arrays.
 
-        Returns a :class:`_CrISDecodedGranule` containing spatial arrays
+        Returns a [`_CrISDecodedGranule`][_CrISDecodedGranule] containing spatial arrays
         (one element per valid FOV) and a 2-D brightness-temperature matrix
         ``(n_valid, n_channels)``.  The expensive channel-expansion into
         long-format rows is deferred to
-        :py:meth:`_compile_dataframe`.
+        [`_compile_dataframe`][_compile_dataframe].
 
         Scan lines whose FORTime falls entirely outside the tolerance
         window are skipped before reading the (much larger) radiance

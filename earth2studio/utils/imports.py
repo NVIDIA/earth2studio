@@ -190,7 +190,7 @@ def _find_pyproject_toml() -> Path:
     """Locate pyproject.toml relative to this module.
 
     This only works for editable/source installs. For wheel installs,
-    use :func:`_parse_optional_dependencies` which prefers
+    use [`_parse_optional_dependencies`][_parse_optional_dependencies] which prefers
     ``importlib.metadata``.
 
     Returns

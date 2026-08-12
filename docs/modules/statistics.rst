@@ -1,4 +1,4 @@
-:mod:`earth2studio.statistics`: Statistics
+[`earth2studio.statistics`][earth2studio.statistics]: Statistics
 ------------------------------------------
 
 Various statistic and metric calculations for analysing inference data.
@@ -29,7 +29,7 @@ Various statistic and metric calculations for analysing inference data.
     statistics.variance
 
 
-:mod:`earth2studio.statistics`: Utilities
+[`earth2studio.statistics`][earth2studio.statistics]: Utilities
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. autosummary::
     :nosignatures:

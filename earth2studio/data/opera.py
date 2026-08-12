@@ -155,7 +155,7 @@ class OPERA:
 
     All grids share the same spatial extent (3800 km x 4400 km) and LAEA
     projection origin.  If a single call requests variables with different
-    pixel resolutions, a :exc:`ValueError` is raised — request each resolution
+    pixel resolutions, a [`ValueError`][ValueError] is raised — request each resolution
     group separately.
 
     ODIM pixels with no radar coverage (``nodata``) are set to NaN.  Pixels

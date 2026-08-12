@@ -1,6 +1,6 @@
 .. _earth2studio.models.da:
 
-:mod:`earth2studio.models.da`: Data Assimilation
+[`earth2studio.models.da`][earth2studio.models.da]: Data Assimilation
 ------------------------------------------------
 
 .. automodule:: earth2studio.models.da

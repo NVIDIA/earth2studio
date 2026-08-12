@@ -155,7 +155,6 @@ current_step="build Zensical site"
 E2S_GALLERY_EXECUTE=never uv run zensical build --clean
 
 current_step="repair API cross-references"
-uv run python docs/fix_api_xrefs.py
 
 current_step="copy built site to docs/_build/html"
 mkdir -p docs/_build
