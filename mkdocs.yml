@@ -375,6 +375,7 @@ nav:
     - userguide/components/index.md
     - Prognostic Models: userguide/components/prognostic.md
     - Diagnostic Models: userguide/components/diagnostic.md
+    - Data Assimilation Models: userguide/components/data_assimilation.md
     - Data Sources: userguide/components/datasources.md
     - Perturbations: userguide/components/perturbation.md
     - IO Backends: userguide/components/io.md

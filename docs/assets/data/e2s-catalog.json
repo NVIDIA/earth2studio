@@ -9,37 +9,30 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Google Cloud",
       "Reanalysis",
-      "Wind",
-      "Precipitation",
-      "Temperature"
+      "Surface Winds",
+      "Surface Precipitation",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
       ],
-      "data family": [
-        "Reanalysis"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Google Cloud"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.ARCO(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
     "summary": "Analysis-Ready, Cloud Optimized (ARCO) is a data store of ERA5 re-analysis data currated by Google. This data is stored in Zarr format and contains 31 surface variables, pressure level variables defined on 37 pressure levels, and model level variables defined on the 137 native ERA5 vertical levels, all on a 0.25 degree lat lon grid. Temporal resolution is 1 hour.",
@@ -58,38 +51,31 @@
       "product:ocean"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Earth2Studio",
       "Simulation",
-      "Wind",
-      "Precipitation",
-      "Temperature"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "Simulation"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
         "Ocean"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.CBottle3D(core_model: torch.nn.Module, sst_ds: xr.Dataset, lat_lon: bool = True, sampler_steps: int = 18, sigma_max: float = 200.0, batch_size: int = 4, seed: int | None = None, dataset_modality: DatasetModality = DatasetModality.ERA5, cache: bool = False, verbose: bool = True)",
     "summary": "Climate in a bottle data source Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate simulations and reanalysis on the equal-area HEALPix grid. The cBottle data source uses the a globally-trained coarse-resolution image diffusion model that generates 100km (50k-pixel) fields given monthly average sea surface temperatures and solar conditioning.",
@@ -107,37 +93,30 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Earth2Studio",
       "Reanalysis",
-      "Wind",
-      "Precipitation",
-      "Temperature"
+      "Surface Winds",
+      "Surface Precipitation",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
       ],
-      "data family": [
-        "Reanalysis"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.CDS(cache: bool = True, verbose: bool = True)",
     "summary": "The climate data source (CDS) serving ERA5 re-analysis data. This data source requires users to have a CDS API access key which can be obtained for free on the CDS webpage.",
@@ -156,38 +135,31 @@
       "product:ocean"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "CMIP",
       "CMIP6",
-      "Simulation",
-      "Wind",
-      "Precipitation"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "CMIP6"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
         "Ocean"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "CMIP"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.CMIP6(experiment_id: str, source_id: str, table_id: str, variant_label: str, file_start: str | None = None, file_end: str | None = None, cache: bool = True, verbose: bool = True, exact_time_match: bool = False, pressure_level_tolerance: int = 0)",
     "summary": "CMIP6 data source for Earth2Studio.",
@@ -206,38 +178,31 @@
       "product:ocean"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "CMIP",
       "CMIP6",
-      "Simulation",
-      "Wind",
-      "Precipitation"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "CMIP6"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
         "Ocean"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "CMIP"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.CMIP6MultiRealm(cmip6_source_list: list[CMIP6])",
     "summary": "CMIP6 data source for Earth2Studio with multiple realms.",
@@ -248,25 +213,18 @@
   {
     "badges": [],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Earth2Studio",
       "General"
     ],
     "filters": {
       "data class": [],
-      "data family": [
-        "General"
-      ],
+      "gpu": [],
       "product": [],
       "region": [],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.DataArrayFile(file_path: str, **xr_args: Any)",
     "summary": "A local xarray dataarray file data source. This file should be compatible with xarray. For example, a netCDF file.",
@@ -277,25 +235,18 @@
   {
     "badges": [],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Earth2Studio",
       "General"
     ],
     "filters": {
       "data class": [],
-      "data family": [
-        "General"
-      ],
+      "gpu": [],
       "product": [],
       "region": [],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.DataArrayPathList(paths: str | list[str], **xr_args: Any)",
     "summary": "A local xarray dataarray directory data source that handles multiple files.",
@@ -306,25 +257,18 @@
   {
     "badges": [],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Earth2Studio",
       "General"
     ],
     "filters": {
       "data class": [],
-      "data family": [
-        "General"
-      ],
+      "gpu": [],
       "product": [],
       "region": [],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.DataSetFile(file_path: str, array_name: str, **xr_args: Any)",
     "summary": "A local xarray dataset file data source. This file should be compatible with xarray. For example, a netCDF file.",
@@ -341,36 +285,29 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Dynamical",
       "IFS",
-      "Analysis",
-      "Wind",
-      "Temperature"
+      "Analysis / Initial Conditions",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Analysis"
+        "Analysis / Initial Conditions"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.DynamicalAIFS(cache: bool = True, verbose: bool = True)",
     "summary": "ECMWF AIFS Single analysis view from the dynamical.org catalog.",
@@ -387,36 +324,29 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Dynamical",
       "IFS",
-      "Analysis",
-      "Wind",
-      "Temperature"
+      "Analysis / Initial Conditions",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Analysis"
+        "Analysis / Initial Conditions"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.DynamicalAIFS_ENS(member: int = 0, cache: bool = True, verbose: bool = True)",
     "summary": "ECMWF AIFS ENS analysis view from the dynamical.org catalog.",
@@ -433,36 +363,29 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Dynamical",
       "GEFS",
-      "Analysis",
-      "Wind",
-      "Temperature"
+      "Analysis / Initial Conditions",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Analysis"
+        "Analysis / Initial Conditions"
       ],
-      "data family": [
-        "GEFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.DynamicalGEFS(cache: bool = True, verbose: bool = True)",
     "summary": "NOAA GEFS analysis from the dynamical.org catalog.",
@@ -479,36 +402,29 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Dynamical",
       "GFS",
-      "Analysis",
-      "Wind",
-      "Temperature"
+      "Analysis / Initial Conditions",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Analysis"
+        "Analysis / Initial Conditions"
       ],
-      "data family": [
-        "GFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.DynamicalGFS(cache: bool = True, verbose: bool = True)",
     "summary": "NOAA GFS analysis from the dynamical.org catalog.",
@@ -526,37 +442,30 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Dynamical",
       "HRRR",
-      "Analysis",
-      "Wind",
-      "Precipitation"
+      "Analysis / Initial Conditions",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Analysis"
+        "Analysis / Initial Conditions"
       ],
-      "data family": [
-        "HRRR"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
-        "North America"
+        "NA"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.DynamicalHRRR(cache: bool = True, verbose: bool = True)",
     "summary": "NOAA HRRR analysis from the dynamical.org catalog.",
@@ -573,36 +482,29 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Dynamical",
       "IFS",
-      "Analysis",
-      "Wind",
-      "Temperature"
+      "Analysis / Initial Conditions",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Analysis"
+        "Analysis / Initial Conditions"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.DynamicalIFS_ENS(member: int = 0, cache: bool = True, verbose: bool = True)",
     "summary": "ECMWF IFS ENS analysis view from the dynamical.org catalog.",
@@ -618,35 +520,28 @@
       "product:radar"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Dynamical",
       "MRMS",
-      "Analysis",
-      "Precipitation",
+      "Analysis / Initial Conditions",
+      "Surface Precipitation",
       "Radar"
     ],
     "filters": {
       "data class": [
-        "Analysis"
+        "Analysis / Initial Conditions"
       ],
-      "data family": [
-        "MRMS"
-      ],
+      "gpu": [],
       "product": [
-        "Precipitation",
+        "Surface Precipitation",
         "Radar"
       ],
       "region": [
-        "North America"
+        "NA"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.DynamicalMRMS(cache: bool = True, verbose: bool = True)",
     "summary": "NOAA MRMS CONUS analysis from the dynamical.org catalog.",
@@ -665,38 +560,31 @@
       "product:land"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "EarthMover",
       "IFS",
-      "Analysis",
-      "Wind",
-      "Temperature"
+      "Analysis / Initial Conditions",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Analysis"
+        "Analysis / Initial Conditions"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere",
         "Ocean",
-        "Land"
+        "Land/Soil"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "EarthMover"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.EarthMoverBrightBandIFS(repo: str | None = None, branch: str = DEFAULT_BRANCH, client: arraylake.AsyncClient | None = None, cache: bool = True, verbose: bool = True)",
     "summary": "Brightband ECMWF IFS 0.25 degree initial-condition data source on Earthmover Arraylake.",
@@ -715,38 +603,31 @@
       "product:solar"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "EarthMover",
       "ERA5",
       "Reanalysis",
-      "Wind",
-      "Precipitation"
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
       ],
-      "data family": [
-        "ERA5"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
         "Solar"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "EarthMover"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.EarthMoverERA5(repo: str | None = None, branch: str = DEFAULT_BRANCH, client: arraylake.AsyncClient | None = None, cache: bool = True, verbose: bool = True)",
     "summary": "Earthmover ERA5 0.25 degree reanalysis data source.",
@@ -764,37 +645,30 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "NOAA",
       "GFS",
-      "Analysis",
-      "Wind",
-      "Precipitation"
+      "Analysis / Initial Conditions",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Analysis"
+        "Analysis / Initial Conditions"
       ],
-      "data family": [
-        "GFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.GFS(source: str = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
     "summary": "The global forecast service (GFS) initial state data source provided on an equirectangular grid. GFS is a weather forecast model developed by NOAA. This data source is provided on a 0.25 degree lat lon grid at 6-hour intervals spanning from Jan 1st 2021 to present date.",
@@ -809,33 +683,26 @@
       "product:sat"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "NOAA",
       "GOES",
-      "Observation",
+      "Direct Observations",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "GOES"
-      ],
+      "gpu": [],
       "product": [
         "Satellite"
       ],
       "region": [
-        "North America"
+        "NA"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.GOES(satellite: str = 'goes16', scan_mode: str = 'F', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, retries: int = 3)",
     "summary": "GOES (Geostationary Operational Environmental Satellite) data source.",
@@ -850,33 +717,26 @@
       "product:sat"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "NOAA",
       "GOES",
-      "Observation",
+      "Direct Observations",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "GOES"
-      ],
+      "gpu": [],
       "product": [
         "Satellite"
       ],
       "region": [
-        "North America"
+        "NA"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.GOESGLMGrid(satellite: str = 'east', cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, retries: int = 3)",
     "summary": "Gridded GOES GLM (Geostationary Lightning Mapper) lightning product for StormScope.",
@@ -895,38 +755,31 @@
       "product:radar"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "NOAA",
       "HRRR",
-      "Analysis",
-      "Wind",
-      "Precipitation"
+      "Analysis / Initial Conditions",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Analysis"
+        "Analysis / Initial Conditions"
       ],
-      "data family": [
-        "HRRR"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
         "Radar"
       ],
       "region": [
-        "North America"
+        "NA"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.HRRR(source: str = 'aws', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
     "summary": "High-Resolution Rapid Refresh (HRRR) data source provides hourly North-American weather analysis data developed by NOAA (used to initialize the HRRR forecast model). This data source is provided on a Lambert conformal 3km grid at 1-hour intervals. The spatial dimensionality of HRRR data is [1059, 1799].",
@@ -942,33 +795,27 @@
       "product:sat"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "JMA",
       "Observation",
+      "Direct Observations",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
         "Satellite"
       ],
       "region": [
-        "Asia",
-        "Australia"
+        "AS",
+        "AU"
       ],
-      "source": [
-        "JMA"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.HimawariAHI(satellite: str = 'himawari9', lat_lon_bbox: tuple[float, float, float, float] | None = None, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 16, retries: int = 3)",
     "summary": "Himawari-8/9 AHI (Advanced Himawari Imager) data source.",
@@ -986,37 +833,30 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "ECMWF",
       "IFS",
-      "Analysis",
-      "Wind",
-      "Precipitation"
+      "Analysis / Initial Conditions",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Analysis"
+        "Analysis / Initial Conditions"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.IFS(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
     "summary": "Integrated forecast system (IFS) HRES initial state (analysis) data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
@@ -1034,37 +874,30 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "ECMWF",
       "IFS",
-      "Analysis",
-      "Wind",
-      "Precipitation"
+      "Analysis / Initial Conditions",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Analysis"
+        "Analysis / Initial Conditions"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.IFS_ENS(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', member: int = 1, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
     "summary": "Integrated forecast system (IFS) ensemble (ENS) initial state data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
@@ -1079,33 +912,26 @@
       "product:sat"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "NOAA",
       "JPSS",
-      "Observation",
+      "Direct Observations",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "JPSS"
-      ],
+      "gpu": [],
       "product": [
         "Satellite"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.JPSS(satellite: str = 'noaa-20', product_type: str = 'I', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
     "summary": "JPSS VIIRS data source for NOAA-20, NOAA-21, and Suomi-NPP supporting both SDR (L1) and EDR (L2) products.",
@@ -1120,33 +946,26 @@
       "product:radar"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "NOAA",
       "MRMS",
-      "Observation",
+      "Direct Observations",
       "Radar"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "MRMS"
-      ],
+      "gpu": [],
       "product": [
         "Radar"
       ],
       "region": [
-        "North America"
+        "NA"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.MRMS(max_offset_minutes: float = 10, cache: bool = True, verbose: bool = True, max_workers: int = 24, async_timeout: int = 600)",
     "summary": "NOAA Multi-Radar/Multi-Sensor (MRMS) products via AWS S3.",
@@ -1162,33 +981,27 @@
       "product:sat"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "EUMETSAT",
       "Observation",
+      "Direct Observations",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
         "Satellite"
       ],
       "region": [
-        "Europe",
-        "Africa"
+        "EU",
+        "AF"
       ],
-      "source": [
-        "EUMETSAT"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.MeteosatFCI(resolution: Literal['2km', '1km', '500m'] = '2km', lat_lon_bbox: tuple[tuple[float, float], tuple[float, float]] | None = None, pixel_bbox: tuple[tuple[int, int], tuple[int, int]] | None = None, flip_north_south: bool = False, cache: bool = True, verbose: bool = True, async_timeout: int = 1200, retries: int = 3)",
     "summary": "EUMETSAT MTG-I FCI Level-1C Full Disk calibrated radiance data source.",
@@ -1206,37 +1019,30 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "ECMWF",
       "ERA5",
       "Reanalysis",
-      "Wind",
-      "Precipitation"
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
       ],
-      "data family": [
-        "ERA5"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.NCAR_ERA5(max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
     "summary": "ERA5 data provided by NSF NCAR via the AWS Open Data Sponsorship Program. ERA5 is the fifth generation of the ECMWF global reanalysis and available on a 0.25 degree WGS84 grid at hourly intervals spanning from 1940 to the present.",
@@ -1252,34 +1058,28 @@
       "product:precip"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "NOAA",
       "Observation",
-      "Temperature",
-      "Precipitation"
+      "Direct Observations",
+      "Surface Temperature",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
-        "Temperature",
-        "Precipitation"
+        "Surface Temperature",
+        "Surface Precipitation"
       ],
       "region": [
-        "North America"
+        "NA"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.NClimGridDaily(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
     "summary": "NOAA NClimGrid daily gridded climate data source.",
@@ -1295,34 +1095,28 @@
       "product:radar"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "OPERA",
       "Observation",
-      "Precipitation",
+      "Direct Observations",
+      "Surface Precipitation",
       "Radar"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
-        "Precipitation",
+        "Surface Precipitation",
         "Radar"
       ],
       "region": [
-        "Europe"
+        "EU"
       ],
-      "source": [
-        "OPERA"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.OPERA(cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 16, retries: int = 3)",
     "summary": "EUMETNET OPERA European weather radar composite data source.",
@@ -1340,37 +1134,30 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Planetary Computer",
       "IFS",
-      "Analysis",
-      "Wind",
-      "Precipitation"
+      "Analysis / Initial Conditions",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Analysis"
+        "Analysis / Initial Conditions"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Planetary Computer"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.PlanetaryComputerECMWFOpenDataIFS(cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
     "summary": "IFS analysis data from the ECMWF Open Data repository.",
@@ -1385,33 +1172,26 @@
       "product:sat"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Planetary Computer",
       "GOES",
-      "Observation",
+      "Direct Observations",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "GOES"
-      ],
+      "gpu": [],
       "product": [
         "Satellite"
       ],
       "region": [
-        "North America"
+        "NA"
       ],
-      "source": [
-        "Planetary Computer"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.PlanetaryComputerGOES(satellite: str = 'goes16', scan_mode: str = 'F', cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
     "summary": "GOES-R ABI L2 Cloud and Moisture Imagery on Planetary Computer.",
@@ -1427,34 +1207,28 @@
       "product:sat"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Planetary Computer",
       "Observation",
-      "Land",
+      "Direct Observations",
+      "Land/Soil",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
-        "Land",
+        "Land/Soil",
         "Satellite"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Planetary Computer"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.PlanetaryComputerMODISFire(tile: str = 'h35v10', cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
     "summary": "MODIS Thermal Anomalies/Fire Daily (FireMask, MaxFRP, QA).",
@@ -1469,32 +1243,26 @@
       "product:ocean"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Planetary Computer",
       "Observation",
+      "Direct Observations",
       "Ocean"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
         "Ocean"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Planetary Computer"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.PlanetaryComputerOISST(cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
     "summary": "Daily 0.25\u00b0 NOAA Optimum Interpolation SST from Microsoft Planetary Computer.",
@@ -1510,19 +1278,18 @@
       "product:sat"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Planetary Computer",
       "Observation",
+      "Direct Observations",
       "Atmosphere",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
         "Atmosphere",
         "Satellite"
@@ -1530,14 +1297,9 @@
       "region": [
         "Global"
       ],
-      "source": [
-        "Planetary Computer"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.PlanetaryComputerSentinel3AOD(cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
     "summary": "Sentinel-3 SYNERGY Level-2 aerosol optical depth and surface reflectance.",
@@ -1548,25 +1310,18 @@
   {
     "badges": [],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "Earth2Studio",
       "General"
     ],
     "filters": {
       "data class": [],
-      "data family": [
-        "General"
-      ],
+      "gpu": [],
       "product": [],
       "region": [],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.Random(domain_coords: OrderedDict[str, np.ndarray])",
     "summary": "A randomly generated normally distributed data. Primarily useful for testing.",
@@ -1584,37 +1339,30 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "WeatherBench",
       "Reanalysis",
-      "Wind",
-      "Precipitation",
-      "Temperature"
+      "Surface Winds",
+      "Surface Precipitation",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
       ],
-      "data family": [
-        "Reanalysis"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "WeatherBench"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.WB2Climatology(climatology_zarr_store: ClimatologyZarrStore = '1990-2017_6h_1440x721.zarr', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
     "summary": "Climatology provided by WeatherBench2,",
@@ -1632,37 +1380,30 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "ECMWF",
       "ERA5",
       "Reanalysis",
-      "Wind",
-      "Precipitation"
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
       ],
-      "data family": [
-        "ERA5"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.WB2ERA5(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
     "summary": "ERA5 reanalysis data with several derived variables on a 0.25 degree lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels. Provided by the WeatherBench2 data repository.",
@@ -1680,37 +1421,30 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "ECMWF",
       "ERA5",
       "Reanalysis",
-      "Wind",
-      "Precipitation"
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
       ],
-      "data family": [
-        "ERA5"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.WB2ERA5_121x240(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
     "summary": "ERA5 reanalysis data with several derived variables down sampled to a 1.5 degree lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels. Provided by the WeatherBench2 data repository.",
@@ -1728,37 +1462,30 @@
       "product:atmos"
     ],
     "chips": [
-      "Array Data Source",
+      "Data Source",
       "ECMWF",
       "ERA5",
       "Reanalysis",
-      "Wind",
-      "Precipitation"
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
       ],
-      "data family": [
-        "ERA5"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Array Data Source"
-      ]
+      "year": []
     },
-    "group": "Array Data Source",
+    "group": "Data Source",
     "kind": "data",
     "signature": "data.WB2ERA5_32x64(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
     "summary": "ERA5 reanalysis data with several derived variables down sampled to a 5.625 degree lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels. Provided by the WeatherBench2 data repository.",
@@ -1781,34 +1508,27 @@
       "DataFrame Source",
       "NOAA",
       "Observation",
-      "Wind",
-      "Precipitation",
-      "Temperature"
+      "Direct Observations",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
         "Solar",
-        "In-situ"
+        "In-Situ Observations"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -1831,32 +1551,25 @@
       "DataFrame Source",
       "NOAA",
       "Observation",
-      "Wind",
-      "Precipitation",
-      "Temperature"
+      "Direct Observations",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
-        "In-situ"
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
+        "In-Situ Observations"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -1877,29 +1590,22 @@
       "DataFrame Source",
       "NOAA",
       "GOES",
-      "Observation",
+      "Direct Observations",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "GOES"
-      ],
+      "gpu": [],
       "product": [
         "Satellite"
       ],
       "region": [
-        "North America",
-        "South America"
+        "NA",
+        "SA"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -1920,29 +1626,23 @@
       "DataFrame Source",
       "Earth2Studio",
       "Observation",
-      "Wind",
+      "Direct Observations",
+      "Surface Winds",
       "Atmosphere"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
+        "Surface Winds",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -1966,33 +1666,26 @@
       "DataFrame Source",
       "Iowa State",
       "Observation",
-      "Wind",
-      "Precipitation",
-      "Temperature"
+      "Direct Observations",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
-        "In-situ"
+        "In-Situ Observations"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Iowa State"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2015,32 +1708,25 @@
       "DataFrame Source",
       "Earth2Studio",
       "Observation",
-      "Wind",
-      "Precipitation",
-      "Temperature"
+      "Direct Observations",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
-        "In-situ"
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
+        "In-Situ Observations"
       ],
       "region": [
-        "North America"
+        "NA"
       ],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2060,28 +1746,21 @@
       "DataFrame Source",
       "NOAA",
       "JPSS",
-      "Observation",
+      "Direct Observations",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "JPSS"
-      ],
+      "gpu": [],
       "product": [
         "Satellite"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2101,28 +1780,21 @@
       "DataFrame Source",
       "NOAA",
       "JPSS",
-      "Observation",
+      "Direct Observations",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "JPSS"
-      ],
+      "gpu": [],
       "product": [
         "Satellite"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2142,27 +1814,21 @@
       "DataFrame Source",
       "EUMETSAT",
       "Observation",
+      "Direct Observations",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
         "Satellite"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "EUMETSAT"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2182,27 +1848,21 @@
       "DataFrame Source",
       "EUMETSAT",
       "Observation",
+      "Direct Observations",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
         "Satellite"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "EUMETSAT"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2222,27 +1882,21 @@
       "DataFrame Source",
       "EUMETSAT",
       "Observation",
+      "Direct Observations",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
         "Satellite"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "EUMETSAT"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2262,27 +1916,21 @@
       "DataFrame Source",
       "EUMETSAT",
       "Observation",
+      "Direct Observations",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
         "Satellite"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "EUMETSAT"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2305,32 +1953,25 @@
       "DataFrame Source",
       "Earth2Studio",
       "Observation",
-      "Wind",
-      "Temperature",
-      "Atmosphere"
+      "Direct Observations",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere",
-        "In-situ"
+        "In-Situ Observations"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2351,16 +1992,15 @@
       "DataFrame Source",
       "Earth2Studio",
       "Observation",
+      "Direct Observations",
       "Atmosphere",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
         "Atmosphere",
         "Satellite"
@@ -2368,12 +2008,7 @@
       "region": [
         "Global"
       ],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2396,32 +2031,25 @@
       "DataFrame Source",
       "NOAA",
       "GDAS",
-      "Observation",
-      "Wind",
-      "Temperature"
+      "Direct Observations",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "GDAS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere",
-        "In-situ"
+        "In-Situ Observations"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2440,17 +2068,10 @@
     ],
     "filters": {
       "data class": [],
-      "data family": [
-        "General"
-      ],
+      "gpu": [],
       "product": [],
       "region": [],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2471,29 +2092,23 @@
       "DataFrame Source",
       "NOAA",
       "Observation",
+      "Direct Observations",
       "Atmosphere",
-      "In-situ"
+      "In-Situ Observations"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
         "Atmosphere",
-        "In-situ"
+        "In-Situ Observations"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2514,16 +2129,15 @@
       "DataFrame Source",
       "NOAA",
       "Observation",
+      "Direct Observations",
       "Atmosphere",
       "Satellite"
     ],
     "filters": {
       "data class": [
-        "Observation"
+        "Direct Observations"
       ],
-      "data family": [
-        "Observation"
-      ],
+      "gpu": [],
       "product": [
         "Atmosphere",
         "Satellite"
@@ -2531,12 +2145,7 @@
       "region": [
         "Global"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "DataFrame Source"
-      ]
+      "year": []
     },
     "group": "DataFrame Source",
     "kind": "data",
@@ -2559,32 +2168,25 @@
       "Forecast Data Source",
       "ECMWF",
       "IFS",
-      "Simulation",
-      "Wind",
-      "Precipitation"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -2607,32 +2209,25 @@
       "Forecast Data Source",
       "ECMWF",
       "IFS",
-      "Simulation",
-      "Wind",
-      "Precipitation"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -2654,31 +2249,24 @@
       "Forecast Data Source",
       "Earth2Studio",
       "Simulation",
-      "Wind",
-      "Temperature",
-      "Atmosphere"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "Simulation"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -2700,31 +2288,24 @@
       "Forecast Data Source",
       "Earth2Studio",
       "Simulation",
-      "Wind",
-      "Temperature",
-      "Atmosphere"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "Simulation"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -2748,33 +2329,26 @@
       "Forecast Data Source",
       "Earth2Studio",
       "Simulation",
-      "Wind",
-      "Precipitation",
-      "Temperature"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "Simulation"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
-        "Land"
+        "Land/Soil"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -2797,30 +2371,23 @@
       "Earth2Studio",
       "Forecast",
       "Reanalysis",
-      "Wind",
-      "Temperature"
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
       ],
-      "data family": [
-        "Forecast"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -2843,30 +2410,23 @@
       "Earth2Studio",
       "Forecast",
       "Reanalysis",
-      "Precipitation",
-      "Land"
+      "Surface Precipitation",
+      "Land/Soil"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
       ],
-      "data family": [
-        "Forecast"
-      ],
+      "gpu": [],
       "product": [
-        "Precipitation",
-        "Land",
+        "Surface Precipitation",
+        "Land/Soil",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Earth2Studio"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -2888,31 +2448,24 @@
       "Forecast Data Source",
       "Dynamical",
       "IFS",
-      "Simulation",
-      "Wind",
-      "Temperature"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -2934,31 +2487,24 @@
       "Forecast Data Source",
       "Dynamical",
       "IFS",
-      "Simulation",
-      "Wind",
-      "Temperature"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -2980,31 +2526,24 @@
       "Forecast Data Source",
       "Dynamical",
       "GEFS",
-      "Simulation",
-      "Wind",
-      "Temperature"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "GEFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -3026,31 +2565,24 @@
       "Forecast Data Source",
       "Dynamical",
       "GFS",
-      "Simulation",
-      "Wind",
-      "Temperature"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "GFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -3073,32 +2605,25 @@
       "Forecast Data Source",
       "Dynamical",
       "HRRR",
-      "Simulation",
-      "Wind",
-      "Precipitation"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "HRRR"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
-        "North America"
+        "NA"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -3121,32 +2646,25 @@
       "Forecast Data Source",
       "Dynamical",
       "Simulation",
-      "Wind",
-      "Precipitation",
-      "Temperature"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "Simulation"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
-        "Europe"
+        "EU"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -3168,31 +2686,24 @@
       "Forecast Data Source",
       "Dynamical",
       "IFS",
-      "Simulation",
-      "Wind",
-      "Temperature"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Dynamical"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -3215,32 +2726,25 @@
       "Forecast Data Source",
       "EarthMover",
       "IFS",
-      "Simulation",
-      "Wind",
-      "Precipitation"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "EarthMover"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -3263,32 +2767,25 @@
       "Forecast Data Source",
       "NOAA",
       "GEFS",
-      "Simulation",
-      "Wind",
-      "Precipitation"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "GEFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -3311,32 +2808,25 @@
       "Forecast Data Source",
       "NOAA",
       "GEFS",
-      "Simulation",
-      "Wind",
-      "Precipitation"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "GEFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -3359,32 +2849,25 @@
       "Forecast Data Source",
       "NOAA",
       "GFS",
-      "Simulation",
-      "Wind",
-      "Precipitation"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "GFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -3408,33 +2891,26 @@
       "Forecast Data Source",
       "NOAA",
       "HRRR",
-      "Simulation",
-      "Wind",
-      "Precipitation"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "HRRR"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
         "Radar"
       ],
       "region": [
-        "North America"
+        "NA"
       ],
-      "source": [
-        "NOAA"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -3457,32 +2933,25 @@
       "Forecast Data Source",
       "ECMWF",
       "IFS",
-      "Simulation",
-      "Wind",
-      "Precipitation"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -3505,32 +2974,25 @@
       "Forecast Data Source",
       "ECMWF",
       "IFS",
-      "Simulation",
-      "Wind",
-      "Precipitation"
+      "Numerical / AI Simulation",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
-        "Simulation"
+        "Numerical / AI Simulation"
       ],
-      "data family": [
-        "IFS"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Forecast Data Source"
-      ]
+      "year": []
     },
     "group": "Forecast Data Source",
     "kind": "data",
@@ -3556,32 +3018,29 @@
       "Data Assimilation",
       "NVIDIA",
       "PyTorch",
-      "Wind",
-      "Temperature",
-      "Atmosphere"
+      "DA",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere",
         "Satellite",
-        "In-situ"
+        "In-Situ Observations"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Data Assimilation"
-      ],
       "workflow": [
-        "Data Assimilation"
+        "DA"
+      ],
+      "year": [
+        "2026"
       ]
     },
     "group": "Data Assimilation",
@@ -3604,30 +3063,24 @@
       "Data Assimilation",
       "NVIDIA",
       "PyTorch",
+      "DA",
       "Atmosphere",
-      "In-situ"
+      "In-Situ Observations"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
-      ],
+      "gpu": [],
       "product": [
         "Atmosphere",
-        "In-situ"
+        "In-Situ Observations"
       ],
       "region": [
         "Global",
-        "North America"
-      ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Data Assimilation"
+        "NA"
       ],
       "workflow": [
-        "Data Assimilation"
-      ]
+        "DA"
+      ],
+      "year": []
     },
     "group": "Data Assimilation",
     "kind": "model",
@@ -3654,33 +3107,30 @@
       "Data Assimilation",
       "NVIDIA",
       "PyTorch",
-      "Nowcasting",
-      "Wind",
-      "Temperature"
+      "DA",
+      "NWC",
+      "Surface Winds"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere",
         "Radar",
-        "In-situ"
+        "In-Situ Observations"
       ],
       "region": [
-        "North America"
-      ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Data Assimilation"
+        "NA"
       ],
       "workflow": [
-        "Data Assimilation",
-        "Nowcasting"
+        "DA",
+        "NWC"
+      ],
+      "year": [
+        "2024"
       ]
     },
     "group": "Data Assimilation",
@@ -3707,32 +3157,29 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Climate",
-      "Wind",
-      "Precipitation"
+      "CM",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "80 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
         "Ocean"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Climate"
+        "CM"
+      ],
+      "year": [
+        "2025"
       ]
     },
     "group": "Diagnostic",
@@ -3758,31 +3205,28 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Downscaling",
-      "Wind",
-      "Precipitation"
+      "DS",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "80 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Downscaling"
+        "DS"
+      ],
+      "year": [
+        "2025"
       ]
     },
     "group": "Diagnostic",
@@ -3808,31 +3252,28 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Climate",
-      "Wind",
-      "Precipitation"
+      "CM",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "80 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Climate"
+        "CM"
+      ],
+      "year": [
+        "2025"
       ]
     },
     "group": "Diagnostic",
@@ -3855,12 +3296,12 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
+      "MRF",
       "Atmosphere"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
         "Atmosphere"
@@ -3868,14 +3309,11 @@
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2021"
       ]
     },
     "group": "Diagnostic",
@@ -3902,32 +3340,29 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Downscaling",
-      "Climate",
-      "Wind"
+      "DS",
+      "CM",
+      "Surface Winds"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "80 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Downscaling",
-        "Climate"
+        "DS",
+        "CM"
+      ],
+      "year": [
+        "2026"
       ]
     },
     "group": "Diagnostic",
@@ -3953,31 +3388,28 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Downscaling",
-      "Wind",
-      "Precipitation"
+      "DS",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "80 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
-        "Europe"
-      ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
+        "EU"
       ],
       "workflow": [
-        "Downscaling"
+        "DS"
+      ],
+      "year": [
+        "2026"
       ]
     },
     "group": "Diagnostic",
@@ -4003,31 +3435,28 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Downscaling",
-      "Wind",
-      "Precipitation"
+      "DS",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
-        "Asia"
-      ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
+        "AS"
       ],
       "workflow": [
-        "Downscaling"
+        "DS"
+      ],
+      "year": [
+        "2023"
       ]
     },
     "group": "Diagnostic",
@@ -4050,27 +3479,24 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Climate",
-      "Precipitation"
+      "CM",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Precipitation"
+        "Surface Precipitation"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Climate"
+        "CM"
+      ],
+      "year": [
+        "2024"
       ]
     },
     "group": "Diagnostic",
@@ -4093,22 +3519,15 @@
       "Atmosphere"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
-      ],
+      "gpu": [],
       "product": [
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
-      "workflow": []
+      "workflow": [],
+      "year": []
     },
     "group": "Diagnostic",
     "kind": "model",
@@ -4130,22 +3549,15 @@
       "Atmosphere"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
-      ],
+      "gpu": [],
       "product": [
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
-      "workflow": []
+      "workflow": [],
+      "year": []
     },
     "group": "Diagnostic",
     "kind": "model",
@@ -4167,22 +3579,15 @@
       "Atmosphere"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
-      ],
+      "gpu": [],
       "product": [
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
-      "workflow": []
+      "workflow": [],
+      "year": []
     },
     "group": "Diagnostic",
     "kind": "model",
@@ -4204,22 +3609,15 @@
       "Atmosphere"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
-      ],
+      "gpu": [],
       "product": [
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
-      "workflow": []
+      "workflow": [],
+      "year": []
     },
     "group": "Diagnostic",
     "kind": "model",
@@ -4243,9 +3641,7 @@
       "Atmosphere"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
-      ],
+      "gpu": [],
       "product": [
         "Vegetation",
         "Atmosphere"
@@ -4253,13 +3649,8 @@
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
-      "workflow": []
+      "workflow": [],
+      "year": []
     },
     "group": "Diagnostic",
     "kind": "model",
@@ -4279,27 +3670,20 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Wind",
+      "Surface Winds",
       "Atmosphere"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
-      ],
+      "gpu": [],
       "product": [
-        "Wind",
+        "Surface Winds",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
-      "workflow": []
+      "workflow": [],
+      "year": []
     },
     "group": "Diagnostic",
     "kind": "model",
@@ -4317,18 +3701,11 @@
       "PyTorch"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
-      ],
+      "gpu": [],
       "product": [],
       "region": [],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
-      "workflow": []
+      "workflow": [],
+      "year": []
     },
     "group": "Diagnostic",
     "kind": "model",
@@ -4350,27 +3727,24 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
-      "Precipitation"
+      "MRF",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Precipitation"
+        "Surface Precipitation"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2025"
       ]
     },
     "group": "Diagnostic",
@@ -4393,27 +3767,24 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
-      "Precipitation"
+      "MRF",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Precipitation"
+        "Surface Precipitation"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2022"
       ]
     },
     "group": "Diagnostic",
@@ -4436,27 +3807,24 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
-      "Precipitation"
+      "MRF",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Precipitation"
+        "Surface Precipitation"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2024"
       ]
     },
     "group": "Diagnostic",
@@ -4479,12 +3847,12 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
+      "MRF",
       "Solar"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
         "Solar"
@@ -4492,14 +3860,11 @@
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2024"
       ]
     },
     "group": "Diagnostic",
@@ -4522,12 +3887,12 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
+      "MRF",
       "Solar"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
         "Solar"
@@ -4535,14 +3900,11 @@
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2024"
       ]
     },
     "group": "Diagnostic",
@@ -4565,27 +3927,24 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Nowcasting",
+      "NWC",
       "Solar"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "48 GB"
       ],
       "product": [
         "Solar"
       ],
       "region": [
-        "North America"
-      ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
+        "NA"
       ],
       "workflow": [
-        "Nowcasting"
+        "NWC"
+      ],
+      "year": [
+        "2026"
       ]
     },
     "group": "Diagnostic",
@@ -4606,28 +3965,21 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
+      "MRF",
       "Atmosphere"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
-      ],
+      "gpu": [],
       "product": [
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Medium Range"
-      ]
+        "MRF"
+      ],
+      "year": []
     },
     "group": "Diagnostic",
     "kind": "model",
@@ -4648,27 +4000,22 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
+      "MRF",
       "Atmosphere"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
-      ],
+      "gpu": [],
       "product": [
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2023"
       ]
     },
     "group": "Diagnostic",
@@ -4691,27 +4038,24 @@
       "Diagnostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
-      "Wind"
+      "MRF",
+      "Surface Winds"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind"
+        "Surface Winds"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Diagnostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2024"
       ]
     },
     "group": "Diagnostic",
@@ -4739,33 +4083,30 @@
       "Prognostic",
       "Allen Institute",
       "PyTorch",
-      "Climate",
-      "Wind",
-      "Precipitation"
+      "CM",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
         "Ocean",
-        "Land"
+        "Land/Soil"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Allen Institute"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Climate"
+        "CM"
+      ],
+      "year": [
+        "2024"
       ]
     },
     "group": "Prognostic",
@@ -4793,33 +4134,30 @@
       "Prognostic",
       "ECMWF",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Precipitation"
+      "MRF",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
-        "Land",
+        "Land/Soil",
         "Solar"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2025"
       ]
     },
     "group": "Prognostic",
@@ -4848,34 +4186,31 @@
       "Prognostic",
       "ECMWF",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Precipitation"
+      "MRF",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
-        "Land",
+        "Land/Soil",
         "Solar",
         "Ocean"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2026"
       ]
     },
     "group": "Prognostic",
@@ -4904,34 +4239,31 @@
       "Prognostic",
       "ECMWF",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Precipitation"
+      "MRF",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
-        "Land",
+        "Land/Soil",
         "Solar",
         "Ocean"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2026"
       ]
     },
     "group": "Prognostic",
@@ -4959,33 +4291,30 @@
       "Prognostic",
       "ECMWF",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Precipitation"
+      "MRF",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "48 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
-        "Land",
+        "Land/Soil",
         "Solar"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "ECMWF"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2025"
       ]
     },
     "group": "Prognostic",
@@ -5011,31 +4340,28 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Precipitation"
+      "MRF",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "80 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2026"
       ]
     },
     "group": "Prognostic",
@@ -5060,30 +4386,27 @@
       "Prognostic",
       "Microsoft",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Temperature"
+      "MRF",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "48 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Microsoft"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2024"
       ]
     },
     "group": "Prognostic",
@@ -5112,34 +4435,31 @@
       "Prognostic",
       "Microsoft",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Temperature"
+      "MRF",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "48 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere",
-        "Precipitation",
-        "Land",
+        "Surface Precipitation",
+        "Land/Soil",
         "Ocean",
         "Solar"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Microsoft"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2026"
       ]
     },
     "group": "Prognostic",
@@ -5168,34 +4488,31 @@
       "Prognostic",
       "Microsoft",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Temperature"
+      "MRF",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "48 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere",
-        "Precipitation",
-        "Land",
+        "Surface Precipitation",
+        "Land/Soil",
         "Ocean",
         "Solar"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Microsoft"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2026"
       ]
     },
     "group": "Prognostic",
@@ -5222,32 +4539,29 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Climate",
-      "Wind",
-      "Precipitation"
+      "CM",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
         "Solar"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Climate"
+        "CM"
+      ],
+      "year": [
+        "2025"
       ]
     },
     "group": "Prognostic",
@@ -5273,31 +4587,28 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Sub-seasonal",
-      "Wind",
-      "Temperature"
+      "S2S",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere",
         "Ocean"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Sub-seasonal"
+        "S2S"
+      ],
+      "year": [
+        "2025"
       ]
     },
     "group": "Prognostic",
@@ -5323,31 +4634,28 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Sub-seasonal",
-      "Wind",
-      "Temperature"
+      "S2S",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere",
         "Ocean"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Sub-seasonal"
+        "S2S"
+      ],
+      "year": [
+        "2025"
       ]
     },
     "group": "Prognostic",
@@ -5373,31 +4681,28 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Climate",
-      "Wind",
-      "Temperature"
+      "CM",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere",
         "Ocean"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Climate"
+        "CM"
+      ],
+      "year": [
+        "2024"
       ]
     },
     "group": "Prognostic",
@@ -5423,31 +4728,28 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Climate",
-      "Wind",
-      "Temperature"
+      "CM",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere",
         "Ocean"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Climate"
+        "CM"
+      ],
+      "year": [
+        "2024"
       ]
     },
     "group": "Prognostic",
@@ -5471,29 +4773,26 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Sub-seasonal",
-      "Temperature",
+      "S2S",
+      "Surface Temperature",
       "Atmosphere"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Temperature",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Sub-seasonal"
+        "S2S"
+      ],
+      "year": [
+        "2021"
       ]
     },
     "group": "Prognostic",
@@ -5512,18 +4811,11 @@
       "PyTorch"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
-      ],
+      "gpu": [],
       "product": [],
       "region": [],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
-      "workflow": []
+      "workflow": [],
+      "year": []
     },
     "group": "Prognostic",
     "kind": "model",
@@ -5541,18 +4833,11 @@
       "PyTorch"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
-      ],
+      "gpu": [],
       "product": [],
       "region": [],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
-      "workflow": []
+      "workflow": [],
+      "year": []
     },
     "group": "Prognostic",
     "kind": "model",
@@ -5576,30 +4861,27 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Temperature"
+      "MRF",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2022"
       ]
     },
     "group": "Prognostic",
@@ -5624,30 +4906,27 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Temperature"
+      "MRF",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "80 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2025"
       ]
     },
     "group": "Prognostic",
@@ -5672,30 +4951,27 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Temperature"
+      "MRF",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2023"
       ]
     },
     "group": "Prognostic",
@@ -5721,31 +4997,28 @@
       "Prognostic",
       "Fudan University",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Precipitation"
+      "MRF",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Fudan University"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2023"
       ]
     },
     "group": "Prognostic",
@@ -5772,32 +5045,29 @@
       "Prognostic",
       "Google DeepMind",
       "JAX origin",
-      "Medium Range",
-      "Wind",
-      "Precipitation"
+      "MRF",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "JAX origin"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere",
         "Ocean"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Google DeepMind"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2024"
       ]
     },
     "group": "Prognostic",
@@ -5823,31 +5093,28 @@
       "Prognostic",
       "Google DeepMind",
       "JAX origin",
-      "Medium Range",
-      "Wind",
-      "Precipitation"
+      "MRF",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "JAX origin"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Google DeepMind"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2022"
       ]
     },
     "group": "Prognostic",
@@ -5873,31 +5140,28 @@
       "Prognostic",
       "Google DeepMind",
       "JAX origin",
-      "Medium Range",
-      "Wind",
-      "Precipitation"
+      "MRF",
+      "Surface Winds",
+      "Surface Precipitation"
     ],
     "filters": {
-      "framework": [
-        "JAX origin"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Precipitation",
-        "Temperature",
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Google DeepMind"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2022"
       ]
     },
     "group": "Prognostic",
@@ -5922,30 +5186,27 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Temperature"
+      "MRF",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2024"
       ]
     },
     "group": "Prognostic",
@@ -5970,30 +5231,27 @@
       "Prognostic",
       "Huawei",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Temperature"
+      "MRF",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Huawei"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2023"
       ]
     },
     "group": "Prognostic",
@@ -6018,30 +5276,27 @@
       "Prognostic",
       "Huawei",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Temperature"
+      "MRF",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Huawei"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2023"
       ]
     },
     "group": "Prognostic",
@@ -6066,30 +5321,27 @@
       "Prognostic",
       "Huawei",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Temperature"
+      "MRF",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "Huawei"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2023"
       ]
     },
     "group": "Prognostic",
@@ -6108,18 +5360,11 @@
       "PyTorch"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
-      ],
+      "gpu": [],
       "product": [],
       "region": [],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
-      "workflow": []
+      "workflow": [],
+      "year": []
     },
     "group": "Prognostic",
     "kind": "model",
@@ -6143,30 +5388,27 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Temperature"
+      "MRF",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2023"
       ]
     },
     "group": "Prognostic",
@@ -6192,31 +5434,28 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Nowcasting",
-      "Wind",
-      "Temperature"
+      "NWC",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Radar",
         "Atmosphere"
       ],
       "region": [
-        "North America"
-      ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
+        "NA"
       ],
       "workflow": [
-        "Nowcasting"
+        "NWC"
+      ],
+      "year": [
+        "2024"
       ]
     },
     "group": "Prognostic",
@@ -6243,32 +5482,29 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Nowcasting",
-      "Wind",
-      "Temperature"
+      "NWC",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "24 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
-        "Precipitation",
+        "Surface Winds",
+        "Surface Temperature",
+        "Surface Precipitation",
         "Radar",
         "Atmosphere"
       ],
       "region": [
-        "North America"
-      ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
+        "NA"
       ],
       "workflow": [
-        "Nowcasting"
+        "NWC"
+      ],
+      "year": [
+        "2026"
       ]
     },
     "group": "Prognostic",
@@ -6291,27 +5527,24 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Nowcasting",
+      "NWC",
       "Satellite"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "80 GB"
       ],
       "product": [
         "Satellite"
       ],
       "region": [
-        "North America"
-      ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
+        "NA"
       ],
       "workflow": [
-        "Nowcasting"
+        "NWC"
+      ],
+      "year": [
+        "2026"
       ]
     },
     "group": "Prognostic",
@@ -6334,27 +5567,24 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Nowcasting",
+      "NWC",
       "Radar"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "80 GB"
       ],
       "product": [
         "Radar"
       ],
       "region": [
-        "North America"
-      ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
+        "NA"
       ],
       "workflow": [
-        "Nowcasting"
+        "NWC"
+      ],
+      "year": [
+        "2026"
       ]
     },
     "group": "Prognostic",
@@ -6380,31 +5610,28 @@
       "Prognostic",
       "NVIDIA",
       "PyTorch",
-      "Medium Range",
-      "Wind",
-      "Temperature"
+      "MRF",
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
-      "framework": [
-        "PyTorch"
+      "gpu": [
+        "40 GB"
       ],
       "product": [
-        "Wind",
-        "Temperature",
+        "Surface Winds",
+        "Surface Temperature",
         "Atmosphere",
         "Ocean"
       ],
       "region": [
         "Global"
       ],
-      "source": [
-        "NVIDIA"
-      ],
-      "type": [
-        "Prognostic"
-      ],
       "workflow": [
-        "Medium Range"
+        "MRF"
+      ],
+      "year": [
+        "2026"
       ]
     },
     "group": "Prognostic",

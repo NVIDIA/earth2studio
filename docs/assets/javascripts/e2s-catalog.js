@@ -20,8 +20,8 @@
     data: "Data Sources",
   };
   const groupOrder = {
-    model: ["type", "workflow", "source", "framework", "product", "region"],
-    data: ["type", "data class", "data family", "source", "product", "region"],
+    model: ["workflow", "product", "region", "gpu", "year"],
+    data: ["data class", "product", "region", "gpu", "year"],
   };
   const pageSize = 10;
 

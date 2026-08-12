@@ -20,9 +20,12 @@ from __future__ import annotations
 
 import json
 import re
+from functools import lru_cache
 from html import escape
 from pathlib import Path
 from posixpath import dirname, relpath
+
+from mkdocs_badges.render import DEFAULT_COLOR, resolve_badge
 
 OPEN_RE = re.compile(
     r"^(?P<indent>\s*)(?P<fence>:{3,}|`{3,})"
@@ -369,6 +372,39 @@ def _front_matter(path: Path) -> dict[str, object]:
         return {}
 
 
+@lru_cache(maxsize=1)
+def _mkdocs_badges_config() -> dict[str, object]:
+    """Return the configured mkdocs-badges plugin options."""
+    try:
+        import yaml
+
+        config_text = (DOCS_ROOT.parent / "mkdocs.yml").read_text(encoding="utf-8")
+        config = yaml.safe_load(re.sub(r"!!python/name:\S+", "null", config_text)) or {}
+    except (OSError, ValueError, yaml.YAMLError):
+        return {}
+
+    plugins = config.get("plugins", [])
+    if not isinstance(plugins, list):
+        return {}
+    for plugin in plugins:
+        if isinstance(plugin, dict) and "badges" in plugin:
+            badges = plugin.get("badges")
+            return badges if isinstance(badges, dict) else {}
+    return {}
+
+
+def _mkdocs_badge_definitions() -> dict[str, dict[str, object]]:
+    """Return badge definitions using the mkdocs-badges config schema."""
+    definitions = _mkdocs_badges_config().get("definitions", {})
+    return definitions if isinstance(definitions, dict) else {}
+
+
+def _mkdocs_badge_default_color() -> str:
+    """Return the configured mkdocs-badges fallback color."""
+    default_color = _mkdocs_badges_config().get("default_color", DEFAULT_COLOR)
+    return str(default_color)
+
+
 def _catalog_records(page: object | None) -> list[dict[str, object]]:
     records: list[dict[str, object]] = []
     for path in sorted(GENERATED_API_ROOT.rglob("*.md")):
@@ -426,7 +462,7 @@ def _catalog_kind_group(parts: tuple[str, ...]) -> tuple[str | None, str]:
         }.get(parts[1], parts[1].replace("_", " ").title())
     if parts[0] == "data":
         return "data", {
-            "analysis": "Array Data Source",
+            "analysis": "Data Source",
             "forecast": "Forecast Data Source",
             "dataframe": "DataFrame Source",
         }.get(parts[1], parts[1].replace("_", " ").title())
@@ -532,25 +568,23 @@ def _catalog_filters(
     badges: list[str],
 ) -> dict[str, list[str]]:
     filters: dict[str, list[str]] = {
-        "type": [group],
-        "source": [source],
         "product": [
             _badge_label(badge) for badge in badges if badge.startswith("product:")
         ],
         "region": [
             _badge_label(badge) for badge in badges if badge.startswith("region:")
         ],
+        "gpu": [_badge_label(badge) for badge in badges if badge.startswith("gpu:")],
+        "year": [_badge_label(badge) for badge in badges if badge.startswith("year:")],
     }
     if kind == "model":
         filters["workflow"] = [
             _badge_label(badge) for badge in badges if badge.startswith("class:")
         ]
-        filters["framework"] = [framework]
     else:
         filters["data class"] = [
             _badge_label(badge) for badge in badges if badge.startswith("dataclass:")
         ]
-        filters["data family"] = [family]
     return {
         key: [value for value in values if value] for key, values in filters.items()
     }
@@ -575,39 +609,17 @@ def _catalog_chips(
 
 
 def _badge_label(badge: str) -> str:
-    labels = {
-        "region:global": "Global",
-        "region:na": "North America",
-        "region:eu": "Europe",
-        "region:as": "Asia",
-        "region:au": "Australia",
-        "region:af": "Africa",
-        "region:sa": "South America",
-        "class:nwc": "Nowcasting",
-        "class:ds": "Downscaling",
-        "class:mrf": "Medium Range",
-        "class:s2s": "Sub-seasonal",
-        "class:da": "Data Assimilation",
-        "class:cm": "Climate",
-        "dataclass:analysis": "Analysis",
-        "dataclass:reanalysis": "Reanalysis",
-        "dataclass:observation": "Observation",
-        "dataclass:simulation": "Simulation",
-        "product:wind": "Wind",
-        "product:precip": "Precipitation",
-        "product:temp": "Temperature",
-        "product:atmos": "Atmosphere",
-        "product:ocean": "Ocean",
-        "product:land": "Land",
-        "product:veg": "Vegetation",
-        "product:solar": "Solar",
-        "product:radar": "Radar",
-        "product:sat": "Satellite",
-        "product:insitu": "In-situ",
-    }
-    if badge in labels:
-        return labels[badge]
-    return badge.split(":", 1)[-1].replace("_", " ").replace("-", " ").title()
+    """Return the configured display label for a badge ID."""
+    resolved = resolve_badge(
+        badge,
+        _mkdocs_badge_definitions(),
+        _mkdocs_badge_default_color(),
+    )
+    if resolved.label:
+        return resolved.label
+    if resolved.tooltip:
+        return resolved.tooltip
+    return resolve_badge(badge, {}, _mkdocs_badge_default_color()).label
 
 
 def _catalog_tone(badges: list[str], kind: str) -> str:
