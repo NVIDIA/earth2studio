@@ -75,6 +75,10 @@ class _NNJASatProduct:
     filename: str
     first_year: int
     last_year: int | None = None
+    # Cycle-file naming convention within <prefix>/YYYY/MM/bufr/:
+    #   "gdas": gdas.YYYYMMDD.tHHz.<filename>.tm00.bufr_d (NCEP dumps)
+    #   "nasa": <filename>.YYYYMMDD.tHHz.bufr (NASA GES DISC final products)
+    naming: str = "gdas"
 
 
 class _NNJAObsSatIncompleteError(RuntimeError):
@@ -89,12 +93,18 @@ _NNJA_SAT_PRODUCTS: dict[str, _NNJASatProduct] = {
     "amsua": _NNJASatProduct("amsua/1bamua", "1bamua", 1998),
     "amsub": _NNJASatProduct("amsub/1bamub", "1bamub", 1998),
     # IR sounder archive coverage verified against the live bucket listings;
-    # the archives start later than the instruments' launch years. The
-    # routed CrIS product is crisf4, the full-spectral-resolution dump whose
-    # channel numbers live on the 2211-channel FSR grid that the conversion
-    # in utils_ir assumes; the older cris/cris archive (2012-2020) is NSR
-    # with different channel numbering and is deliberately not routed.
-    "airs": _NNJASatProduct("airs/airsev", "airsev", 2007, last_year=2020),
+    # the archives start later than the instruments' launch years. AIRS routes
+    # to airs/nasa/aqua (2002-08-31 → 2023-01-18) rather than airs/airsev
+    # (2007-02-21 → 2020-12-07); the two are structurally identical BUFR files
+    # and agree on the infrared values, but the NASA route spans five more
+    # early years and the instrument's final two. The routed CrIS product is
+    # crisf4, the full-spectral-resolution dump whose channel numbers live on
+    # the 2211-channel FSR grid that the conversion in utils_ir assumes; the
+    # older cris/cris archive (2012-2020) is NSR with different channel
+    # numbering and is deliberately not routed.
+    "airs": _NNJASatProduct(
+        "airs/nasa/aqua", "airs_disc_final", 2002, last_year=2023, naming="nasa"
+    ),
     "iasi": _NNJASatProduct("iasi/mtiasi", "mtiasi", 2008),
     "cris": _NNJASatProduct("cris/crisf4", "crisf4", 2018),
 }
@@ -469,9 +479,10 @@ class NNJAObsSat:
     The aggregates carry the NCEP channel subsets (281 AIRS, 616 IASI, 431
     CrIS) numbered on the instrument grids; ``cris`` routes to the
     full-spectral-resolution ``crisf4`` product whose channel numbers live
-    on the 2211-channel FSR grid. Archive coverage: AIRS 2007–2020, IASI
-    2008–present, CrIS (FSR) 2018–present. All archived channels are
-    returned by default; pass ``sensor_indices`` to narrow at decode time
+    on the 2211-channel FSR grid. Archive coverage: AIRS 2002–2023
+    (NASA/Aqua route), IASI 2008–present, CrIS (FSR) 2018–present. All
+    archived channels are returned by default; pass ``sensor_indices``
+    to narrow at decode time
     or subset downstream via the ``sensor_index`` column.
 
     ``atms`` returns the encoded 22-channel ``TMBR`` scene brightness
@@ -796,13 +807,12 @@ class NNJAObsSat:
 
     @staticmethod
     def _build_satellite_uri(cycle: datetime, sensor: str) -> str:
-        """Build the NNJA S3 URI for one aggregate microwave cycle."""
+        """Build the NNJA S3 URI for one aggregate satellite cycle file."""
         product = _NNJA_SAT_PRODUCTS[sensor]
-        return (
-            f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/{product.prefix}/"
-            f"{cycle:%Y/%m}/bufr/gdas.{cycle:%Y%m%d}.t{cycle:%H}z."
-            f"{product.filename}.tm00.bufr_d"
-        )
+        base = f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/{product.prefix}/{cycle:%Y/%m}/bufr/"
+        if product.naming == "nasa":
+            return f"{base}{product.filename}.{cycle:%Y%m%d}.t{cycle:%H}z.bufr"
+        return f"{base}gdas.{cycle:%Y%m%d}.t{cycle:%H}z.{product.filename}.tm00.bufr_d"
 
     def _decode_file(self, local_path: str, task: _NNJASatTask) -> pd.DataFrame:
         if task.sensor in _NNJA_IR_SENSORS:

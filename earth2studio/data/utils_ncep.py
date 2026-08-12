@@ -678,7 +678,7 @@ def empty_dataframe(
             dtype = np.float32
         elif pa.types.is_float64(field.type):
             dtype = np.float64
-        elif pa.types.is_uint16(field.type):
+        elif pa.types.is_unsigned_integer(field.type):
             dtype = pd.ArrowDtype(field.type)
         else:
             dtype = object
@@ -727,7 +727,7 @@ def _finalize_rows(
             frame[field.name] = pd.Series(
                 pd.NaT, index=frame.index, dtype="datetime64[ns]"
             )
-        elif pa.types.is_uint16(field.type):
+        elif pa.types.is_unsigned_integer(field.type):
             frame[field.name] = pd.Series(
                 pd.NA, index=frame.index, dtype=pd.ArrowDtype(field.type)
             )
@@ -737,7 +737,7 @@ def _finalize_rows(
     for field in schema:
         if pa.types.is_timestamp(field.type):
             frame[field.name] = pd.to_datetime(frame[field.name])
-        elif pa.types.is_uint16(field.type):
+        elif pa.types.is_unsigned_integer(field.type):
             frame[field.name] = pd.to_numeric(
                 frame[field.name], errors="coerce"
             ).astype(pd.ArrowDtype(field.type))
@@ -890,8 +890,7 @@ def decode_prepbufr(
                 )
             )
     logger.debug(
-        f"Decoded {len(rows):,} PrepBUFR rows in "
-        f"{time.perf_counter() - started:.1f}s"
+        f"Decoded {len(rows):,} PrepBUFR rows in {time.perf_counter() - started:.1f}s"
     )
     return _finalize_rows(
         rows,
@@ -1163,8 +1162,7 @@ def resolve_output_schema(
     for name in fields:
         if name not in schema.names:
             raise KeyError(
-                f"Field '{name}' not in {class_name} SCHEMA. "
-                f"Available: {schema.names}"
+                f"Field '{name}' not in {class_name} SCHEMA. Available: {schema.names}"
             )
         selected.append(schema.field(name))
     return pa.schema(selected)
@@ -1367,12 +1365,14 @@ NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
         E2STUDIO_SCHEMA.field("satellite_aza"),
         pa.field(
             "quality",
-            pa.uint16(),
+            pa.uint32(),
             nullable=True,
             metadata={
                 "description": (
                     "Encoded channel-quality flags; interpretation is sensor "
-                    "and product specific"
+                    "and product specific. AIRS: 24-bit ACQF. CrIS: "
+                    "NFQF (bits 0-18) | NCQF<<19 (bits 19-27) for the "
+                    "channel's band. IASI/MW: null."
                 )
             },
         ),
@@ -1689,12 +1689,14 @@ def decode_microwave(
 # CrIS:  SRAD (float radiance, W m⁻² sr⁻¹ (cm⁻¹)⁻¹)
 _SCRA = 14046  # IASI scaled radiance integer
 _SRAD = 14044  # CrIS channel radiance float
-_ACQF = 33032  # AIRS channel quality flags
+_ACQF = 33032  # AIRS channel quality flags (24-bit)
 _STCH = 25140  # IASI start-channel for CHSF band
 _ENCH = 25141  # IASI end-channel for CHSF band
 _CHSF = 25142  # IASI channel scale factor (exponent)
-_FORN = 5045  # CrIS field-of-regard number
+_FORN = 5045  # CrIS field-of-regard number (cross-track, 1-30)
 _LOG10_CENTRAL_WAVENUMBER = 25076  # LOGRCW: log10 of centre wavenumber in m⁻¹
+_NFQF = 33077  # CrIS noise-figure quality flag (19-bit, per-band ×3)
+_NCQF = 33076  # CrIS channel quality flag (9-bit, per-band ×3)
 
 _IR_OBS_DESCRIPTOR: dict[str, int] = {
     "airs": _BRIGHTNESS_TEMPERATURE,
@@ -1704,7 +1706,12 @@ _IR_OBS_DESCRIPTOR: dict[str, int] = {
 
 _IR_QUALITY_DESCRIPTOR: dict[str, int] = {
     "airs": _ACQF,
-    "iasi": 0,  # no per-channel quality flag in NNJA IASI aggregate
+    # mtiasi carries no per-channel flag; the footprint-level QGFQ/QGQI/QGQIL/
+    # QGQIR/QGQIS scalars (0-33-060..064) exist but do not fit the per-channel
+    # `quality` column.
+    "iasi": 0,
+    # CrIS quality is handled separately: NFQF (0-33-077) and NCQF (0-33-076)
+    # are per-band (×3) and decoded in _decode_ir_subset outside this table.
     "cris": 0,
 }
 
@@ -1739,6 +1746,11 @@ def _decode_ir_subset(
     _stch: int | None = None
     _ench: int | None = None
 
+    # CrIS per-band quality flags; crisf4 emits 3 occurrences of NFQF and NCQF
+    # (one per band: LW, MW, SW) in the BCFQFSQ block before the channel loop
+    cris_nfqf: list[int] = []
+    cris_ncqf: list[int] = []
+
     channels: dict[int, dict[int, Any]] = {}
     current_channel: int | None = None
     in_channel_loop = False
@@ -1760,6 +1772,18 @@ def _decode_ir_subset(
             if _stch is not None and _ench is not None and chsf is not None:
                 chsf_bands.append((_stch, _ench, chsf))
             _stch = _ench = None
+            continue
+
+        # ---- CrIS per-band quality flags (header section, 3 bands) ----
+        if did == _NFQF and not in_channel_loop:
+            val = _as_optional_int(value)
+            if val is not None:
+                cris_nfqf.append(val)
+            continue
+        if did == _NCQF and not in_channel_loop:
+            val = _as_optional_int(value)
+            if val is not None:
+                cris_ncqf.append(val)
             continue
 
         # ---- Channel loop marker ----
@@ -1830,7 +1854,14 @@ def _decode_ir_subset(
     if satellites is not None and satellite not in satellites:
         return []
 
-    scan_position = _as_optional_int(scalars.get(_FOV_NUMBER))
+    # For CrIS, FOVN is the within-FoR detector index (1-9 across the 3×3
+    # array); the cross-track position is FORN (1-30). All other sensors use
+    # FOVN as the cross-track FOV number, consistent with the scan_position
+    # semantics.
+    if sensor == "cris":
+        scan_position = _as_optional_int(scalars.get(_FORN))
+    else:
+        scan_position = _as_optional_int(scalars.get(_FOV_NUMBER))
 
     scalar_values = {
         "time": observation_time,
@@ -1855,8 +1886,9 @@ def _decode_ir_subset(
                 return c
         return None
 
+    from earth2studio.data.utils import radiance_to_bt
     from earth2studio.data.utils_ir import (
-        brightness_temperature,
+        CRIS_BANDS,
         cris_radiance_mw,
         iasi_radiance_mw,
         wavenumber_cm_inverse,
@@ -1889,29 +1921,49 @@ def _decode_ir_subset(
                 continue
             radiance = iasi_radiance_mw(np.array([obs_float]), np.array([chsf]))[0]
             wn_out = float(wavenumber_cm_inverse("iasi", [channel_number])[0])
-            bt = float(
-                brightness_temperature(np.array([radiance]), np.array([wn_out]))[0]
-            )
+            bt = float(radiance_to_bt(np.array([radiance]), wn_out)[0])
         elif sensor == "cris":
             radiance = cris_radiance_mw(np.array([obs_float]))[0]
             wn_out = float(wavenumber_cm_inverse("cris", [channel_number])[0])
-            bt = float(
-                brightness_temperature(np.array([radiance]), np.array([wn_out]))[0]
-            )
+            bt = float(radiance_to_bt(np.array([radiance]), wn_out)[0])
         else:
             continue
 
         if not np.isfinite(bt):
             continue
 
-        quality_val = channel.get(quality_descriptor) if quality_descriptor else None
+        if sensor == "cris" and cris_nfqf:
+            # Resolve the channel to its band (0=LW, 1=MW, 2=SW) and pack that
+            # band's flags as NFQF | NCQF<<19. NFQF is 19 bits and NCQF 9, so
+            # the packed value is 28 bits and fits the uint32 quality column.
+            # NFQF is the flag that fires on real sensor failures such as the
+            # NOAA-21 neon event, whose damaged radiances are otherwise finite
+            # and physically plausible.
+            band = next(
+                (
+                    i
+                    for i, (_, lo, hi) in enumerate(CRIS_BANDS)
+                    if lo <= channel_number <= hi
+                ),
+                None,
+            )
+            if band is not None and band < len(cris_nfqf):
+                ncqf_val = cris_ncqf[band] if band < len(cris_ncqf) else 0
+                quality_out: int | None = cris_nfqf[band] | (ncqf_val << 19)
+            else:
+                quality_out = None
+        else:
+            quality_val = (
+                channel.get(quality_descriptor) if quality_descriptor else None
+            )
+            quality_out = _as_optional_int(quality_val)
 
         rows.append(
             {
                 **scalar_values,
                 "sensor_index": channel_number,
                 "wavenumber": wn_out,
-                "quality": _as_optional_int(quality_val),
+                "quality": quality_out,
                 "observation": bt,
                 "variable": sensor,
             }

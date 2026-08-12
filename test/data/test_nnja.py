@@ -1295,7 +1295,7 @@ def test_nnja_obs_sat_ir_tasks_use_verified_archive_routes():
     assert len(tasks) == 3
     by_sensor = {task.sensor: task for task in tasks}
     assert by_sensor["airs"].uri.endswith(
-        "airs/airsev/2019/01/bufr/gdas.20190101.t00z.airsev.tm00.bufr_d"
+        "airs/nasa/aqua/2019/01/bufr/airs_disc_final.20190101.t00z.bufr"
     )
     assert by_sensor["iasi"].uri.endswith(
         "iasi/mtiasi/2019/01/bufr/gdas.20190101.t00z.mtiasi.tm00.bufr_d"
@@ -1325,11 +1325,11 @@ def test_nnja_obs_sat_ir_archive_unavailable_outside_coverage():
         assert err.value.context["reason"] == "archive_unavailable"
         assert err.value.context["sensor"] == sensor
 
-    # After the archive end (airsev stops in 2020)
+    # After the archive end (airs/nasa/aqua stops in January 2023)
     with pytest.raises(nnja._NNJAObsSatIncompleteError) as err:
-        source._create_tasks([datetime(2021, 1, 1)], ["airs"])
+        source._create_tasks([datetime(2024, 1, 1)], ["airs"])
     assert err.value.context["reason"] == "archive_unavailable"
-    assert err.value.context["last_year"] == 2020
+    assert err.value.context["last_year"] == 2023
 
     # Inside coverage plans normally
     assert source._create_tasks([datetime(2019, 1, 1)], ["airs", "cris"])
@@ -1443,7 +1443,8 @@ def test_nnja_ir_decode_airs_brightness_temperature_passthrough():
 
 
 def test_nnja_ir_decode_iasi_scaled_radiance_planck():
-    from earth2studio.data.utils_ir import C1, C2
+    from earth2studio.data.utils import PLANCK_C1 as C1
+    from earth2studio.data.utils import PLANCK_C2 as C2
 
     wavenumber = 645.0  # IASI channel 1
     target_bt = 280.0
@@ -1476,7 +1477,8 @@ def test_nnja_ir_decode_iasi_scaled_radiance_planck():
 
 
 def test_nnja_ir_decode_cris_radiance_planck_band_wavenumbers():
-    from earth2studio.data.utils_ir import C1, C2
+    from earth2studio.data.utils import PLANCK_C1 as C1
+    from earth2studio.data.utils import PLANCK_C2 as C2
 
     wavenumber = 1210.0  # CrIS channel 714, first mid-wave channel
     target_bt = 260.0
@@ -1484,6 +1486,15 @@ def test_nnja_ir_decode_cris_radiance_planck_band_wavenumbers():
     srad = radiance_mw / 1000.0
 
     pairs = _ir_scalar_pairs(said=224) + [
+        (ncep_microwave._FORN, 15),
+        # Three per-band NFQF/NCQF occurrences (LW, MW, SW) precede the
+        # channel loop in crisf4; channel 714 is the first mid-wave channel
+        (ncep_microwave._NFQF, 1),
+        (ncep_microwave._NCQF, 0),
+        (ncep_microwave._NFQF, 4),
+        (ncep_microwave._NCQF, 2),
+        (ncep_microwave._NFQF, 0),
+        (ncep_microwave._NCQF, 0),
         (31002, 1),
         (ncep_microwave._CHANNEL_NUMBER, 714),
         (ncep_microwave._SRAD, srad),
@@ -1494,6 +1505,22 @@ def test_nnja_ir_decode_cris_radiance_planck_band_wavenumbers():
     assert rows[0]["observation"] == pytest.approx(target_bt, abs=1e-6)
     assert rows[0]["wavenumber"] == pytest.approx(1210.0)
     assert rows[0]["satellite"] == "npp"
+    # CrIS scan_position is FORN (cross-track 1-30), not FOVN (detector 1-9)
+    assert rows[0]["scan_position"] == 15
+    # Mid-wave band quality: NFQF=4 | NCQF=2 << 19
+    assert rows[0]["quality"] == 4 | (2 << 19)
+
+
+def test_nnja_ir_decode_cris_quality_null_without_band_flags():
+    # A crisf4 subset without NFQF/NCQF occurrences leaves quality null
+    pairs = _ir_scalar_pairs(said=224) + [
+        (ncep_microwave._FORN, 3),
+        (31002, 1),
+        (ncep_microwave._CHANNEL_NUMBER, 714),
+        (ncep_microwave._SRAD, 0.05),
+    ]
+    rows = _decode_ir_pairs(pairs, "cris")
+    assert len(rows) == 1
     assert rows[0]["quality"] is None
 
 
