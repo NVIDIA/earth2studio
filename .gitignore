@@ -97,7 +97,6 @@ cufile.log
 # Documentation build outputs
 site/
 docs/assets/stylesheets/earth2studio-gallery.css
-docs/modules/*.md
 .e2sgallery/
 _build
 docs/modules/generated

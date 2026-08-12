@@ -13,9 +13,9 @@ main areas:
    Python examples with `uv run --script` and then renders the retained results into a
    MkDocs Material gallery.
 
-3. API landing pages are generated from the legacy `docs/modules/*.rst` autosummary
-   sources using `docs/generate_api.py`. Model and data-source badges are rendered and
-   filtered with `mkdocs-badges`.
+3. API landing pages are Markdown files in `docs/modules/` with autosummary
+   blocks read by `docs/generate_api.py`. Model and data-source badges are rendered
+   and filtered with `mkdocs-badges`.
 
 4. The user guide is written in Markdown and documents concepts that cannot be fully
    communicated in examples.

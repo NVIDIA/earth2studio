@@ -111,7 +111,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ----------
     diffusion_model : torch.nn.Module
         Configured diffusion model (e.g. a [`_SplitModelWrapper`][_SplitModelWrapper] instance
-        created by [`load_model`][load_model]). Must be a [`_SplitModelWrapper`][_SplitModelWrapper] instance
+        created by ``load_model``). Must be a [`_SplitModelWrapper`][_SplitModelWrapper] instance
         to set ``hrrr_lat_lim`` or ``hrrr_lon_lim`` to non-default values.
     means : torch.Tensor
         Per-channel mean for normalising the high-resolution state.
@@ -172,7 +172,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         bfloat16, by default True.
     clamp_values : bool, optional
         Whether to apply reflectivity clipping in ``_forward``. When the model is
-        loaded via [`load_model`][load_model], this flag is also forwarded to
+        loaded via ``load_model``, this flag is also forwarded to
         [`_SplitModelWrapper`][_SplitModelWrapper] to enable per-variable physical-minimum clamping,
         by default True.
 
@@ -686,7 +686,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Iterator wrapper around [`create_generator`][create_generator] without observation input."""
+        """Iterator wrapper around ``create_generator`` without observation input."""
         yield from self.create_generator(x, coords)
 
     def _get_conditioning(

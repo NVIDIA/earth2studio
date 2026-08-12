@@ -817,7 +817,7 @@
     },
     "group": "Data Source",
     "kind": "data",
-    "signature": "data.HimawariAHI(satellite: str = 'himawari9', lat_lon_bbox: tuple[float, float, float, float] | None = None, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 16, retries: int = 3)",
+    "signature": "data.HimawariAHI(satellite: str = 'himawari9', lat_lon_bbox: tuple[float, float, float, float] | None = None, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 32, retries: int = 3)",
     "summary": "Himawari-8/9 AHI (Advanced Himawari Imager) data source.",
     "title": "HimawariAHI",
     "tone": "satellite",

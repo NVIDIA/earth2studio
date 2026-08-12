@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Generate MkDocs API pages from the legacy Sphinx autosummary sources."""
+"""Generate MkDocs API pages from Markdown autosummary sources."""
 
 from __future__ import annotations
 
@@ -46,24 +46,27 @@ RST_LINK_RE = re.compile(r"`(?P<title>[^`<]+)\s*<(?P<url>[^`>]+)>`_")
 ROLE_TARGET_RE = re.compile(r"(?P<title>.*?)\s*<(?P<target>[^>]+)>$")
 
 METHODS_BY_TEMPLATE = {
-    "dataassim.rst": (
+    "dataassim": (
         "__call__",
         "create_generator",
         "load_default_package",
         "load_model",
     ),
-    "datasource.rst": ("__call__", "fetch", "available"),
-    "diagnostic.rst": ("__call__", "load_default_package", "load_model"),
-    "io.rst": ("add_array", "write"),
-    "perturbation.rst": ("__call__",),
-    "prognostic.rst": (
+    "datasource": ("__call__", "fetch", "available"),
+    "diagnostic": ("__call__", "load_default_package", "load_model"),
+    "io": ("add_array", "write"),
+    "perturbation": ("__call__",),
+    "prognostic": (
         "__call__",
         "create_iterator",
         "load_default_package",
         "load_model",
     ),
-    "statistics.rst": ("__call__",),
+    "statistics": ("__call__",),
 }
+METHODS_BY_TEMPLATE.update(
+    {f"{key}.rst": value for key, value in tuple(METHODS_BY_TEMPLATE.items())}
+)
 
 GROUP_TITLES = {
     "datasources_analysis": ("Data Sources", "AI Data Sources"),
@@ -88,6 +91,18 @@ class InstallTarget:
 
     category: str
     item: str
+
+
+@dataclass(frozen=True)
+class SummaryGroup:
+    """Metadata for one Markdown autosummary group."""
+
+    current_module: str
+    template: str
+    output: Path
+    badges: tuple[str, ...]
+    options: dict[str, str]
+    objects: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -645,7 +660,7 @@ def template_members(
     template: str, source: Path | None, node: ast.AST | None
 ) -> tuple[str, ...]:
     """Return the class members requested by an autosummary template."""
-    if template == "class.rst":
+    if template in {"class", "class.rst"}:
         return public_class_members(source, node)
     return METHODS_BY_TEMPLATE.get(template, ())
 
@@ -768,113 +783,33 @@ def write_object(page: ObjectPage) -> None:
     page.output.write_text("\n".join(body), encoding="utf-8")
 
 
-def collect_autosummaries(
-    path: Path,
-) -> list[tuple[str, list[str], dict[str, str], str, list[str]]]:
-    """Collect autosummary entries and badge-filter options from RST."""
-    lines = path.read_text(encoding="utf-8").splitlines()
-    current_module = "earth2studio"
-    result: list[tuple[str, list[str], dict[str, str], str, list[str]]] = []
-    for index, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.startswith(".. currentmodule::"):
-            current_module = stripped.split("::", 1)[1].strip()
-        if not stripped.startswith(".. autosummary::"):
-            continue
+API_AUTOSUMMARY_RE = re.compile(r"<!--\s*e2s-autosummary\s*\n(?P<body>.*?)\n-->", re.S)
 
-        badges: list[str] = []
-        options: dict[str, str] = {}
-        for prev in range(index - 1, -1, -1):
-            previous = lines[prev]
-            pstrip = previous.strip()
-            if pstrip.startswith(".. badge-filter::"):
-                badges.extend(BADGE_RE.findall(pstrip))
-                scan = prev + 1
-                while scan < index:
-                    s = lines[scan].strip()
-                    if s.startswith(":filter-mode:"):
-                        options["mode"] = s.split(":", 2)[2].strip()
-                    elif s.startswith(":badge-order-fixed:"):
-                        options["order"] = "fixed"
-                    elif s.startswith(":group-visibility-toggle:"):
-                        options["toggle"] = "true"
-                    elif s.startswith(":group-hidden:"):
-                        options["hidden"] = s.split(":", 2)[2].strip()
-                    else:
-                        badges.extend(BADGE_RE.findall(s))
-                    scan += 1
-                break
-            if pstrip and not previous.startswith(" ") and not pstrip.startswith(":"):
-                break
 
-        objects: list[str] = []
-        template = "class.rst"
-        scan = index + 1
-        while scan < len(lines):
-            raw = lines[scan]
-            s = raw.strip()
-            if not s:
-                scan += 1
-                continue
-            if not raw.startswith(" "):
-                break
-            if s.startswith(":template:"):
-                template = s.split(":", 2)[2].strip()
-                scan += 1
-                continue
-            if s.startswith(":") or s.startswith(".."):
-                scan += 1
-                continue
-            objects.append(s)
-            scan += 1
-        result.append(
-            (current_module, list(dict.fromkeys(badges)), options, template, objects)
+def collect_autosummaries(path: Path) -> list[SummaryGroup]:
+    """Collect autosummary entries from Markdown metadata blocks."""
+    content = path.read_text(encoding="utf-8")
+    groups: list[SummaryGroup] = []
+    for match in API_AUTOSUMMARY_RE.finditer(content):
+        data = yaml.safe_load(match.group("body")) or {}
+        current_module = str(data.get("currentmodule") or "earth2studio")
+        template = str(data.get("template") or "class").removesuffix(".rst")
+        output = Path(str(data.get("output") or "generated"))
+        badges = tuple(str(item) for item in data.get("badges", []) or [])
+        raw_options = data.get("filter", {}) or {}
+        options = {str(key): str(value) for key, value in raw_options.items()}
+        objects = tuple(str(item) for item in data.get("objects", []) or [])
+        groups.append(
+            SummaryGroup(
+                current_module=current_module,
+                template=template,
+                output=output,
+                badges=badges,
+                options=options,
+                objects=objects,
+            )
         )
-    return result
-
-
-def intro_markdown(path: Path) -> str:
-    """Convert introductory RST content to Markdown."""
-    lines = path.read_text(encoding="utf-8").splitlines()
-    output: list[str] = []
-    skip_directive = False
-    index = 0
-    while index < len(lines):
-        line = lines[index]
-        stripped = line.strip()
-        if stripped.startswith(".. badge-filter::") or stripped.startswith(
-            ".. autosummary::"
-        ):
-            break
-        if (
-            stripped.startswith(".. _")
-            or stripped.startswith(".. automodule::")
-            or stripped.startswith(".. currentmodule::")
-        ):
-            skip_directive = True
-            index += 1
-            continue
-        if skip_directive:
-            if line.startswith(" ") or not stripped:
-                index += 1
-                continue
-            skip_directive = False
-        if index + 1 < len(lines) and set(lines[index + 1].strip()) in (
-            {"-"},
-            {"~"},
-        ):
-            heading = rst_title(stripped)
-            level = "#" if set(lines[index + 1].strip()) == {"-"} else "##"
-            output.append(f"{level} {heading}")
-            index += 1
-            continue
-        if index > 0 and set(stripped) in ({"-"}, {"~"}):
-            index += 1
-            continue
-        output.append(clean_rst_roles(line))
-        index += 1
-    text = "\n".join(output).strip()
-    return text or f"# {path.stem.replace('_', ' ').title()}"
+    return groups
 
 
 def full_name(current_module: str, name: str) -> str:
@@ -898,63 +833,22 @@ def filter_options(options: dict[str, str]) -> str:
     return " ".join(parts)
 
 
-def generated_dir_for(path: Path, group_index: int) -> Path:
-    """Return the output directory for generated API object pages."""
-    name = path.stem
-    if name.startswith("models_"):
-        return GENERATED / "models" / name.removeprefix("models_")
-    if name.startswith("datasources_"):
-        return GENERATED / "data" / name.removeprefix("datasources_")
-    if name == "statistics":
-        return GENERATED / "statistics" / str(group_index)
-    if name == "utils_all":
-        return GENERATED / "utils" / str(group_index)
-    return GENERATED / name / str(group_index)
-
-
-def group_title(path: Path, group_index: int) -> str:
-    """Return a human-readable section title for an autosummary group."""
-    titles = GROUP_TITLES.get(path.stem)
-    if titles and group_index <= len(titles):
-        return titles[group_index - 1]
-    return f"{path.stem.replace('_', ' ').title()} {group_index}"
-
-
 def build_module_page(path: Path) -> None:
-    """Generate one MkDocs API summary page from a Sphinx page."""
+    """Generate object pages referenced by one Markdown API summary page."""
     groups = collect_autosummaries(path)
-    md_path = path.with_suffix(".md")
-    body = [intro_markdown(path), ""]
-    for group_index, (current_module, badges, options, template, objects) in enumerate(
-        groups, start=1
-    ):
-        if not objects:
-            continue
-        out_dir = generated_dir_for(path, group_index)
+    for group in groups:
+        out_dir = MODULES / group.output
         pages = [
-            object_page(obj, full_name(current_module, obj), out_dir, template)
-            for obj in objects
+            object_page(
+                obj,
+                full_name(group.current_module, obj),
+                out_dir,
+                group.template,
+            )
+            for obj in group.objects
         ]
         for page in pages:
             write_object(page)
-        if len(groups) > 1:
-            body.extend([f"## {group_title(path, group_index)}", ""])
-        option_text = filter_options(options)
-        if badges:
-            body.append(
-                "<!-- mkdocs-badges:filter "
-                + " ".join(badges)
-                + (f" {option_text}" if option_text else "")
-                + " -->"
-            )
-            body.append("")
-        body.append("{% autosummary %}")
-        body.extend(page.output.relative_to(DOCS).as_posix() for page in pages)
-        body.append("{% endautosummary %}")
-        if badges:
-            body.extend(["", "<!-- mkdocs-badges:end -->"])
-        body.append("")
-    md_path.write_text("\n".join(body), encoding="utf-8")
 
 
 def write_index() -> None:
@@ -1031,12 +925,13 @@ def write_index() -> None:
 
 
 def main() -> None:
-    """Generate all MkDocs API pages."""
+    """Generate all MkDocs API object pages."""
     if GENERATED.exists():
         shutil.rmtree(GENERATED)
-    for path in sorted(MODULES.glob("*.rst")):
+    for path in sorted(MODULES.glob("*.md")):
+        if path.name == "index.md":
+            continue
         build_module_page(path)
-    write_index()
 
 
 if __name__ == "__main__":
