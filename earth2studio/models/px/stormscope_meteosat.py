@@ -426,7 +426,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         if zen_azi is None:
-            (H, W) = self.lon_tensor.shape
+            H, W = self.lon_tensor.shape
             T = len(times)
             zen_azi = torch.empty(
                 3, T, H, W, dtype=self.lon_tensor.dtype, device=self.lon_tensor.device
@@ -435,7 +435,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Compute solar angles for every time step in the list
         for i, t in enumerate(times):
             t_dt = datetime.fromisoformat(str(t))
-            (_, zen_azi[0, i], zen_azi[1, i], zen_azi[2, i]) = zenith_azimuth_angles(
+            _, zen_azi[0, i], zen_azi[1, i], zen_azi[2, i] = zenith_azimuth_angles(
                 t_dt, self.lon_tensor, self.lat_tensor
             )
 
@@ -475,7 +475,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             The last slice ``[:, -1]`` holds the predicted next frame.
         """
         # reshape x to the order needed by the model
-        (B, L, C, H, W) = x.shape
+        B, L, C, H, W = x.shape
         x = x.reshape(B, C * L, H, W)
 
         zen_azi = zen_azi.view(1, 3 * (L + 1), H, W).expand(B, -1, -1, -1)
@@ -591,7 +591,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_coords = self.output_coords(coords)
 
         # x: (batch, time, n_input_times, C, H, W)
-        (B, T, L, C, H, W) = x.shape
+        B, T, L, C, H, W = x.shape
         x = self.normalize(x)
 
         for j, time in enumerate(coords["time"]):
@@ -633,7 +633,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         yield x, coords
 
-        (B, T, L, C, H, W) = x.shape
+        B, T, L, C, H, W = x.shape
         x = self.normalize(x)
         times = coords["time"].copy()
         time_step = self.output_times[0]

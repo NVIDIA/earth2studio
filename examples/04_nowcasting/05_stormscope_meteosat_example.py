@@ -34,6 +34,7 @@ In this example you will learn:
 - Running iterative nowcasting
 - Plotting an RGB composite of FCI channels with cartopy
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[stormscope] @ git+https://github.com/NVIDIA/earth2studio.git",
@@ -179,7 +180,7 @@ with torch.no_grad():
     del x_res
 
     # ensure data is on model grid
-    (x, coords) = map_coords(x, coords, in_coords)
+    x, coords = map_coords(x, coords, in_coords)
 
 # %%
 # Add Ensemble Dimension

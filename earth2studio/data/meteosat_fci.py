@@ -1007,7 +1007,7 @@ class MeteosatFCI:
         fci_x = MeteosatFCI.FCI_X[resolution]
         fci_y = MeteosatFCI.FCI_Y[resolution]
         if pixel_bbox is not None:
-            ((i0, i1), (j0, j1)) = pixel_bbox
+            (i0, i1), (j0, j1) = pixel_bbox
             fci_y = fci_y[i0:i1]
             fci_x = fci_x[j0:j1]
 
