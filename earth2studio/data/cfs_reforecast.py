@@ -28,8 +28,8 @@ from typing import Any
 import numpy as np
 import pygrib
 import xarray as xr
+from fsspec.implementations.http import HTTPFileSystem
 from loguru import logger
-from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.cfs import CFS_FX, CFS_FX_Flux
@@ -39,8 +39,6 @@ from earth2studio.data.utils import (
     cancellable_to_thread,
     datasource_cache_root,
     gather_with_concurrency,
-    obstore_fetch_to_cache,
-    obstore_store_from_url,
     prep_forecast_inputs,
 )
 from earth2studio.lexicon import CFSFluxLexicon, CFSLexicon
@@ -241,11 +239,16 @@ class CFS_Reforecast_FX:
         self.async_timeout = async_timeout
 
         # Filesystem is lazily initialised inside the event loop.
-        self.store: ObjectStore | None = None
+        self.fs: HTTPFileSystem | None = None
 
     async def _async_init(self) -> None:
-        """Async initialization of the obstore HTTP store"""
-        self.store = obstore_store_from_url(self.CFS_NCEI_BASE)
+        """Async initialisation of the HTTPS fsspec backend.
+
+        Note
+        ----
+        Async fsspec expects initialisation inside the execution loop.
+        """
+        self.fs = HTTPFileSystem(asynchronous=True)
 
     def __call__(
         self,
@@ -301,7 +304,7 @@ class CFS_Reforecast_FX:
         xr.DataArray
             CFS reforecast data array.
         """
-        if self.store is None:
+        if self.fs is None:
             await self._async_init()
 
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
@@ -511,23 +514,25 @@ class CFS_Reforecast_FX:
         str
             Path to the cached file on local disk.
         """
-        if self.store is None:
-            raise ValueError("Object store is not initialised")
+        if self.fs is None:
+            raise ValueError("File system is not initialised")
 
-        # Hash the full URI (unchanged scheme) so warm caches populated
-        # before the obstore migration remain valid
-        cache_key = hashlib.sha256(uri.encode()).hexdigest()
-        key = uri.removeprefix(self.CFS_NCEI_BASE + "/")
+        cache_path = os.path.join(self.cache, hashlib.sha256(uri.encode()).hexdigest())
+        if pathlib.Path(cache_path).is_file():
+            return cache_path
+
         try:
-            return await obstore_fetch_to_cache(
-                self.store, key, self.cache, cache_key=cache_key
-            )
+            data = await self.fs._cat_file(uri)
         except FileNotFoundError as e:
             logger.error(
                 f"CFS reforecast file not found at {uri}: cycle/lead may not "
                 "fall on the 5-day reforecast schedule."
             )
             raise e
+
+        with open(cache_path, "wb") as fh:
+            fh.write(data)
+        return cache_path
 
     def _grib_uri(self, time: datetime, lead_time: timedelta) -> str:
         """Build the HTTPS URI for a (time, lead_time) grib file."""

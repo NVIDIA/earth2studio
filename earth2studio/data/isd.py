@@ -26,18 +26,15 @@ from datetime import datetime
 from typing import Any
 
 import numpy as np
-import obstore as obs
 import pandas as pd
 import pyarrow as pa
+import s3fs
 from loguru import logger
-from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     _sync_async,
     datasource_cache_root,
-    obstore_read_range,
-    obstore_store_from_url,
     prep_data_inputs,
 )
 from earth2studio.lexicon import ISDLexicon
@@ -150,21 +147,19 @@ class ISD:
         self._tmp_cache_hash: str | None = None
         self._verbose = verbose
 
-        # Object store is lazily initialized on first call
-        self.store: ObjectStore | None = None
+        # Filesystem is lazily initialized on first call
+        self.fs: s3fs.S3FileSystem | None = None
 
         self.async_timeout = async_timeout
 
     async def _async_init(self) -> None:
-        """Async initialization of the object store
+        """Async initialization of fs object
 
         Note
         ----
-        Unlike async fsspec filesystems, obstore stores are event-loop
-        independent; kept as a lazy async method to preserve the
-        initialization seam.
+        Async fsspec expects initialization inside of the execution loop
         """
-        self.store = obstore_store_from_url("s3://noaa-global-hourly-pds")
+        self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
 
     def __call__(
         self,
@@ -224,8 +219,11 @@ class ISD:
         pd.DataFrame
             ISD data frame
         """
-        if self.store is None:
+        if self.fs is None:
             await self._async_init()
+
+        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
+        session = await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         time, variable = prep_data_inputs(time, variable)
         schema = self.resolve_fields(fields)
@@ -299,6 +297,10 @@ class ISD:
         result = self._create_observation_dataframe(df, variable, schema)
         result.attrs["source"] = self.SOURCE_ID
 
+        # Close aiohttp client if s3fs
+        if session:
+            await session.close()
+
         return result
 
     def _create_observation_dataframe(
@@ -352,8 +354,8 @@ class ISD:
         pd.DataFrame
             Pandas dataframe of CSV
         """
-        if self.store is None:
-            raise ValueError("Object store is not initialized")
+        if self.fs is None:
+            raise ValueError("File system is not initialized")
 
         s3_url = f"s3://noaa-global-hourly-pds/{year}/{station_id}.csv"
         # Hash the URL for cache file names
@@ -364,16 +366,17 @@ class ISD:
         if self._cache and os.path.isfile(parquet_path):
             df = await asyncio.to_thread(pd.read_parquet, parquet_path)
         else:
-            # Download CSV via obstore, then read with pandas
+            # Download CSV via s3fs to cache, then read with pandas
             try:
-                data = await obstore_read_range(self.store, f"{year}/{station_id}.csv")
-                df = await asyncio.to_thread(
-                    pd.read_csv,
-                    io.BytesIO(data),
-                    parse_dates=["DATE"],
-                    low_memory=False,  # Mixed types
-                )
-                await asyncio.to_thread(df.to_parquet, parquet_path, index=False)
+                # file_butter = await self.fs._open(s3_url)
+                async with await self.fs.open_async(s3_url, "rb") as f:
+                    df = await asyncio.to_thread(
+                        pd.read_csv,
+                        io.BytesIO(await f.read()),
+                        parse_dates=["DATE"],
+                        low_memory=False,  # Mixed types
+                    )
+                    await asyncio.to_thread(df.to_parquet, parquet_path, index=False)
             except FileNotFoundError:
                 # If that station does not have data for this year, return empty
                 if self._verbose:
@@ -491,9 +494,8 @@ class ISD:
         catalog_csv = os.path.join(cache_dir, "isd-history.csv")
 
         if not os.path.isfile(catalog_csv):
-            store = obstore_store_from_url("s3://noaa-isd-pds")
-            data = obs.get(store, "isd-history.csv").bytes()
-            pathlib.Path(catalog_csv).write_bytes(data)
+            fs = s3fs.S3FileSystem(anon=True)
+            fs.get("s3://noaa-isd-pds/isd-history.csv", catalog_csv)
         return pd.read_csv(catalog_csv)
 
     @classmethod

@@ -22,8 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated StormCast SDA example to use the `GHCNHourly` data source.
 - `AsyncZarrBackend` now throttles on in flight writes rather than submitted writes, and
   waits for whichever write completes first rather than the oldest.
-- Migrated ISD, IBTrACS, CFS reforecast, and OPERA data sources from
-  fsspec/s3fs to obstore
 - Migrated GOES data source from s3fs to obstore; hour-directory listings are
   now async and memoized, so same-hour timestamps share one LIST request
   (~30% faster)

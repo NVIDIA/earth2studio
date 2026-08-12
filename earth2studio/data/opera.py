@@ -31,15 +31,13 @@ from typing import Any
 import numpy as np
 import xarray as xr
 from loguru import logger
-from obstore.store import ObjectStore
 
 from earth2studio.data.utils import (
     _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
-    obstore_read_range,
-    obstore_store_from_url,
+    managed_session,
     prep_data_inputs,
 )
 from earth2studio.lexicon.opera import OPERALexicon
@@ -332,11 +330,18 @@ class OPERA:
         self._retries = retries
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
-        self.store: ObjectStore | None = None
+        self.fs: Any = None
 
     async def _async_init(self) -> None:
-        """Async initialization of the obstore HTTP store"""
-        self.store = obstore_store_from_url(_ARCHIVE_BASE)
+        """Async initialization of zarr group
+
+        Note
+        ----
+        Async fsspec expects initialization inside of the execution loop
+        """
+        from fsspec.implementations.http import HTTPFileSystem
+
+        self.fs = HTTPFileSystem(asynchronous=True)
 
     def __call__(
         self,
@@ -387,7 +392,7 @@ class OPERA:
         xr.DataArray
             OPERA weather data array
         """
-        if self.store is None:
+        if self.fs is None:
             await self._async_init()
 
         time_list, variable_list = prep_data_inputs(time, variable)
@@ -403,14 +408,15 @@ class OPERA:
         async def _accumulate(task: _OPERAAsyncTask) -> None:
             results[(task.time_idx, task.var_idx)] = await self.fetch_wrapper(task)
 
-        coros = [_accumulate(task) for task in tasks]
-        await gather_with_concurrency(
-            coros,
-            max_workers=self._async_workers,
-            task_timeout=120.0,
-            desc="Fetching OPERA data",
-            verbose=(not self._verbose),
-        )
+        async with managed_session(self.fs):
+            coros = [_accumulate(task) for task in tasks]
+            await gather_with_concurrency(
+                coros,
+                max_workers=self._async_workers,
+                task_timeout=120.0,
+                desc="Fetching OPERA data",
+                verbose=(not self._verbose),
+            )
 
         # Validate that all variables have the same grid shape.
         shapes = {arr.shape for arr in results.values()}
@@ -522,11 +528,9 @@ class OPERA:
         ValueError
             If the filesystem is not initialised or the quantity is absent.
         """
-        if self.store is None:
-            raise ValueError("Object store is not initialized; call _async_init first")
+        if self.fs is None:
+            raise ValueError("Filesystem not initialized; call _async_init first")
 
-        # Hash the full URL (unchanged scheme) so warm caches populated
-        # before the obstore migration remain valid
         sha = hashlib.sha256(task.url.encode())
         cache_path = os.path.join(self.cache, sha.hexdigest())
 
@@ -535,8 +539,7 @@ class OPERA:
             data_bytes = pathlib.Path(cache_path).read_bytes()
         else:
             logger.debug(f"Fetching {task.url}")
-            key = task.url.removeprefix(_ARCHIVE_BASE + "/")
-            data_bytes = await obstore_read_range(self.store, key)
+            data_bytes = await self.fs._cat_file(task.url)
             with open(cache_path, "wb") as fh:
                 await asyncio.to_thread(fh.write, data_bytes)
 
