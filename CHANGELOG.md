@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (~30% faster)
 - Migrated GOES GLM data source from s3fs to obstore; listings of complete
   hours are memoized per instance while the current hour is always re-listed
+- Migrated Himawari AHI data source from s3fs to obstore with memoized
+  minute-directory listings (scans older than an hour)
 
 ### Deprecated
 
