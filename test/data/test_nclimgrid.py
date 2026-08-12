@@ -173,7 +173,7 @@ def test_nclimgrid_create_tasks_invalid_variable():
 
 
 def test_nclimgrid_call_mock(tmp_path: pathlib.Path):
-    """Test NClimGridDaily __call__ with mocked S3 filesystem (no network)."""
+    """Test NClimGridDaily __call__ with a mocked monthly download (no network)."""
     # Create a mock monthly NetCDF with fake CONUS grid
     lat = np.linspace(24.0, 50.0, 10, dtype=np.float32)
     lon = np.linspace(-125.0, -67.0, 15, dtype=np.float32)
@@ -195,13 +195,17 @@ def test_nclimgrid_call_mock(tmp_path: pathlib.Path):
     nc_path = tmp_path / "mock_nclimgrid.nc"
     mock_ds.to_netcdf(nc_path)
 
-    mock_fs = MagicMock()
-    mock_fs.open.return_value.__enter__ = lambda s: open(nc_path, "rb")
-    mock_fs.open.return_value.__exit__ = MagicMock(return_value=False)
+    async def fake_fetch_monthly_file(self, nc_uri: str) -> str:
+        return str(nc_path)
 
-    with patch.object(NClimGridDaily, "_async_init", return_value=None):
+    with (
+        patch.object(NClimGridDaily, "_async_init", return_value=None),
+        patch.object(
+            NClimGridDaily, "_fetch_monthly_file", fake_fetch_monthly_file
+        ),
+    ):
         ds = NClimGridDaily(cache=False)
-        ds.fs = mock_fs
+        ds.store = MagicMock()
 
         data = ds(datetime(2010, 7, 1), ["t2m_max", "tp"])
 
