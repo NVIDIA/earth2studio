@@ -66,6 +66,7 @@ jobs:
       NATTEN_CUDA_ARCH: "9.0"
       NATTEN_N_WORKERS: "8"
       NVCC_THREADS: "2"
+      UV_CACHE_DIR: /opt/uv-cache
     steps:
       - name: Resolve docs version
         id: docs-meta

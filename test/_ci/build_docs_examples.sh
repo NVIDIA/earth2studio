@@ -24,6 +24,26 @@ main_log="${log_dir}/docs-full.log"
 current_step="initializing"
 current_selector=""
 current_section_log=""
+export UV_CACHE_DIR="${UV_CACHE_DIR:-/opt/uv-cache}"
+
+prune_gallery_harness_envs() {
+    local environments_dir
+    environments_dir="$(realpath -m "${UV_CACHE_DIR}/environments-v2")"
+    if [ ! -d "${environments_dir}" ]; then
+        return 0
+    fi
+    if [[ "${environments_dir}" != */environments-v2 ]]; then
+        echo "Skipping unsafe uv harness cleanup path: ${environments_dir}"
+        return 0
+    fi
+    find "${environments_dir}" \
+        -mindepth 1 \
+        -maxdepth 1 \
+        -type d \
+        -name 'harness-*' \
+        -print \
+        -exec rm -rf -- {} +
+}
 
 print_gallery_failures() {
     local selector="$1"
@@ -141,6 +161,8 @@ for section in "${sections[@]}"; do
         print_gallery_failures "${selector}" || true
         exit "${status}"
     fi
+    current_step="prune gallery harness environments: ${selector}"
+    prune_gallery_harness_envs
 done
 
 current_step="render complete gallery"
