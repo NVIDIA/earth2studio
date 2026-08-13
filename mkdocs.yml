@@ -14,9 +14,12 @@ copyright: Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
 theme:
   name: material
   custom_dir: docs/overrides
-  logo: _static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png
+  logo: _static/nvidia-logo-horiz-rgb-wht-for-screen.svg
   favicon: _static/favicon.ico
   language: en
+  font:
+    text: NVIDIA Sans
+    code: NVIDIA Sans
   features:
   - announce.dismiss
   - navigation.tabs
