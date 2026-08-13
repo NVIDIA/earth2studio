@@ -17,6 +17,7 @@
 from collections import OrderedDict
 from collections.abc import Callable, Generator
 from datetime import datetime
+from math import prod
 from typing import Any
 
 import numpy as np
@@ -723,6 +724,56 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Predicted frame tensor and output coordinate system after each step.
         """
         yield from self.create_generator(x, coords)
+
+    @classmethod
+    def combine_1km_2km_inputs(
+        cls,
+        x_1km: torch.Tensor,
+        coords_1km: CoordSystem,
+        x_2km: torch.Tensor,
+        coords_2km: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Combine 1 km and 2 km resolution FCI channels onto the model 2 km grid.
+
+        MTG FCI visible and NIR channels are natively provided at 1 km resolution
+        and IR channels at 2 km resolution, while StormScopeMeteosatEU operates
+        entirely on the 2 km grid. This function makes the data compatible with
+        the model by 2x2 average-pooling the 1 km data, then concatenating the 1 km
+        and 2 km data.
+
+        Parameters
+        ----------
+        x_1km : torch.Tensor
+            Input tensor of 1 km resolution channels, shape ``(..., C_1km, 2*H, 2*W)``
+            where ``H`` and ``W`` are the 2 km grid dimensions.
+        coords_1km : CoordSystem
+            Coordinate system for ``x_1km``.
+        x_2km : torch.Tensor
+            Input tensor of 2 km resolution channels, shape ``(..., C_2km, H, W)``.
+        coords_2km : CoordSystem
+            Coordinate system for ``x_2km``.
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Combined tensor and coordinate system on the common 2 km grid, with
+            shape ``(..., C_1km+C_2km, H, W)`` and variables ordered as 1 km
+            variables first followed by 2 km variables.
+        """
+        # 2x downsample 1km data to common 2km grid
+        batch_dims = x_1km.shape[:-3]
+        x_1km = torch.nn.functional.avg_pool2d(
+            x_1km.reshape(prod(batch_dims), *x_1km.shape[-3:]), 2
+        )
+        x_1km = x_1km.reshape(*batch_dims, *x_1km.shape[-3:])
+
+        # merge downsampled and native 2km data
+        x = torch.concat([x_1km, x_2km], dim=-3)
+        coords = coords_2km.copy()
+        coords["variable"] = np.concatenate(
+            [coords_1km["variable"], coords_2km["variable"]]
+        )
+        return (x, coords)
 
     @classmethod
     def load_default_package(cls) -> Package:

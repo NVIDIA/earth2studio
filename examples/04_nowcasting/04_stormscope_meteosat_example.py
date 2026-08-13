@@ -65,7 +65,6 @@ In this example you will learn:
 # %%
 import os
 from datetime import datetime, timezone
-from math import prod
 
 os.makedirs("outputs", exist_ok=True)
 from dotenv import load_dotenv
@@ -147,13 +146,13 @@ fci = {
 # ``start_time + lead_time`` for each lead-time offset defined by the model
 # (``[-50 min, -40 min, ..., 0 min]`` for a 6-frame window).
 #
-# StormScope MTG uses the 2 km grid for all channels, so we need to resize
-# the channels retrieved from the 1 km data source. We can use 2x2 average
-# pooling to produce the 2 km inputs from the 1 km data.
+# StormScope MTG uses the 2 km grid for all channels, so we use
+# ``StormScopeMeteosatEU.combine_1km_2km_inputs`` to resize the channels
+# retrieved from the 1 km data source.
 
 # %%
 # Analysis time; replace with any time for which MTG-I1 FCI data is available.
-start_time = np.datetime64(datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc))
+start_time = np.datetime64(datetime(2026, 6, 15, 12, 0, 0, tzinfo=timezone.utc))
 in_coords = model.input_coords()
 variables = in_coords["variable"]
 
@@ -174,19 +173,10 @@ with torch.no_grad():
         )
 
     # 2x downsample 1km data to common 2km grid
-    x = x_res["1km"][0]
-    batch_dims = x.shape[:-3]
-    x = torch.nn.functional.avg_pool2d(x.reshape(prod(batch_dims), *x.shape[-3:]), 2)
-    x = x.reshape(*batch_dims, *x.shape[-3:])
-
-    # merge downsampled and native 2km data
-    x = torch.concat([x, x_res["2km"][0]], dim=-3)
-    coords = x_res["2km"][1]
-    coords["variable"] = np.concatenate(
-        [x_res["1km"][1]["variable"], coords["variable"]]
+    x, coords = StormScopeMeteosatEU.combine_1km_2km_inputs(
+        *x_res["1km"], *x_res["2km"]
     )
     del x_res
-
     # ensure data is on model grid (reorders variables if needed)
     x, coords = map_coords(x, coords, in_coords)
 
