@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   day-directory listings of completed days are memoized per instance while
   in-progress days are always re-listed, and the CrIS SDR/GEO dual listings
   remain concurrent
+- Vectorized the JPSS ATMS BUFR decode (numpy column assembly + Arrow table
+  accumulation instead of per-row dicts), roughly halving end-to-end fetch
+  time; decoded output is bit-identical to the previous implementation
 
 ### Deprecated
 

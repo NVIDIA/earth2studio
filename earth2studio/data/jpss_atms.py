@@ -151,17 +151,17 @@ _C_CM_S: float = 2.99792458e10
 _ATMS_CHANNEL_WAVENUMBER: np.ndarray = _ATMS_CHANNEL_FREQ_GHZ * 1e9 / _C_CM_S
 
 
-def _fov_to_scan_angle(fov: float) -> float:
+def _fov_to_scan_angle(fov: float | np.ndarray) -> float | np.ndarray:
     """Convert a 1-indexed field-of-view number to scan angle in degrees.
 
     Parameters
     ----------
-    fov : float
-        Field-of-view number (1–96).
+    fov : float | np.ndarray
+        Field-of-view number (1–96), scalar or per-FOV array.
 
     Returns
     -------
-    float
+    float | np.ndarray
         Scan angle in degrees (negative = left of nadir, positive = right).
     """
     return (fov - (_ATMS_NUM_FOVS + 1) / 2.0) * _ATMS_DEG_PER_FOV
@@ -700,7 +700,7 @@ class JPSS_ATMS:
         brightness temperature array has *C* channel values, yielding
         ``N * C`` rows in the output.
         """
-        rows: list[dict] = []
+        tables: list[pa.Table] = []
 
         with open(path, "rb") as fh:
             while True:
@@ -789,77 +789,102 @@ class JPSS_ATMS:
                     except Exception:
                         sat_name = task.satellite
 
-                    # Build rows: one per (FOV, channel)
-                    for i in range(n_fov):
-                        try:
-                            obs_time = datetime(
-                                int(years[i]),
-                                int(months[i]),
-                                int(days[i]),
-                                int(hours[i]),
-                                int(minutes[i]),
-                                int(seconds[i]),
-                            )
-                        except (ValueError, OverflowError):
-                            continue  # skip FOVs with invalid timestamps
+                    # Build rows vectorized: one per (FOV, channel), FOV-major
+                    # so the row order matches the historical nested loop.
 
-                        # Add sub-second offset based on FOV position in
-                        # the scan line.  BUFR only carries integer-second
-                        # timestamps; the offset recovers ~18 ms per-FOV
-                        # timing from the ATMS scan geometry (ATBD §3).
-                        fov_index = float(fov[i])
-                        obs_time = obs_time + _fov_to_time_offset(fov_index)
+                    # Base integer-second timestamps per FOV; invalid
+                    # component combinations coerce to NaT (the row loop
+                    # skipped these FOVs via ValueError/OverflowError)
+                    base_time = pd.to_datetime(
+                        {
+                            "year": years,
+                            "month": months,
+                            "day": days,
+                            "hour": hours,
+                            "minute": minutes,
+                            "second": seconds,
+                        },
+                        errors="coerce",
+                    ).to_numpy()
 
-                        for ch in range(n_channels):
-                            raw_val = float(bt[i, ch])
-                            # Skip missing / fill values
-                            if raw_val > 1e6 or raw_val < 0:
-                                continue
+                    # Add sub-second offset based on FOV position in the
+                    # scan line.  BUFR only carries integer-second
+                    # timestamps; the offset recovers ~18 ms per-FOV
+                    # timing from the ATMS scan geometry (ATBD §3).
+                    offsets = np.array(
+                        [_fov_to_time_offset(float(f)) for f in fov],
+                        dtype="timedelta64[us]",
+                    )
+                    obs_time = base_time + offsets
 
-                            val = float(task.modifier(raw_val))
+                    # Fill-value test kept verbatim from the row loop: only
+                    # values > 1e6 or < 0 are dropped (NaN fails both
+                    # comparisons and is therefore kept)
+                    bt_flat = bt.reshape(-1)
+                    keep = ~((bt_flat > 1e6) | (bt_flat < 0))
+                    keep &= np.repeat(~np.isnat(obs_time), n_channels)
+                    if not keep.any():
+                        continue
 
-                            rows.append(
-                                {
-                                    "time": obs_time,
-                                    "class": "rad",
-                                    "lat": float(lat[i]),
-                                    "lon": float(lon[i]) % 360.0,
-                                    "scan_angle": _fov_to_scan_angle(fov_index),
-                                    "sensor_index": ch + 1,
-                                    "wavenumber": float(_ATMS_CHANNEL_WAVENUMBER[ch]),
-                                    "solza": float(solza[i]),
-                                    "solaza": float(solaza[i]),
-                                    "satellite_za": float(sat_za[i]),
-                                    "satellite_aza": float(sat_aza[i]),
-                                    "quality": int(
-                                        cqf[i, ch] if cqf.ndim == 2 else cqf[ch]
-                                    ),
-                                    "satellite": sat_name,
-                                    "observation": val,
-                                    "variable": task.variable,
-                                }
-                            )
+                    if cqf.ndim == 2:
+                        quality = cqf.reshape(-1)
+                    else:
+                        quality = np.tile(cqf, n_fov)
+
+                    n_out = int(keep.sum())
+                    columns = {
+                        "time": np.repeat(obs_time, n_channels)[keep].astype(
+                            "datetime64[ms]"
+                        ),
+                        "class": np.full(n_out, "rad", dtype=object),
+                        "lat": np.repeat(lat, n_channels)[keep].astype(np.float32),
+                        "lon": np.repeat(lon % 360.0, n_channels)[keep].astype(
+                            np.float32
+                        ),
+                        "scan_angle": np.repeat(
+                            _fov_to_scan_angle(fov.astype(np.float64)), n_channels
+                        )[keep].astype(np.float32),
+                        "sensor_index": np.tile(
+                            np.arange(1, n_channels + 1, dtype=np.uint16), n_fov
+                        )[keep],
+                        "wavenumber": np.tile(
+                            _ATMS_CHANNEL_WAVENUMBER[:n_channels], n_fov
+                        )[keep],
+                        "solza": np.repeat(solza, n_channels)[keep].astype(np.float32),
+                        "solaza": np.repeat(solaza, n_channels)[keep].astype(
+                            np.float32
+                        ),
+                        "satellite_za": np.repeat(sat_za, n_channels)[keep].astype(
+                            np.float32
+                        ),
+                        "satellite_aza": np.repeat(sat_aza, n_channels)[keep].astype(
+                            np.float32
+                        ),
+                        "quality": quality[keep].astype(np.uint16),
+                        "satellite": np.full(n_out, sat_name, dtype=object),
+                        "observation": np.asarray(task.modifier(bt_flat[keep])).astype(
+                            np.float32
+                        ),
+                        "variable": np.full(n_out, task.variable, dtype=object),
+                    }
+                    tables.append(
+                        pa.table(
+                            {
+                                name: pa.array(columns[name])
+                                for name in self.SCHEMA.names
+                            }
+                        )
+                    )
                 finally:
                     eccodes.codes_release(msgid)
 
-        if not rows:
+        if not tables:
             return pd.DataFrame(columns=self.SCHEMA.names)
 
-        df = pd.DataFrame(rows)
-        # Enforce schema dtypes
-        df["time"] = pd.to_datetime(df["time"]).astype("datetime64[ms]")
-        df["lat"] = df["lat"].astype(np.float32)
-        df["lon"] = df["lon"].astype(np.float32)
-        df["scan_angle"] = df["scan_angle"].astype(np.float32)
-        df["sensor_index"] = df["sensor_index"].astype(np.uint16)
-        df["wavenumber"] = df["wavenumber"].astype(np.float64)
-        df["solza"] = df["solza"].astype(np.float32)
-        df["solaza"] = df["solaza"].astype(np.float32)
-        df["satellite_za"] = df["satellite_za"].astype(np.float32)
-        df["satellite_aza"] = df["satellite_aza"].astype(np.float32)
-        df["quality"] = df["quality"].astype(np.uint16)
-        df["observation"] = df["observation"].astype(np.float32)
-        return df
+        # Numpy columns above already carry the schema dtypes; one Arrow
+        # concat + to_pandas replaces per-row dict assembly and the
+        # column-by-column astype passes
+        return pa.concat_tables(tables).to_pandas()
 
     # ------------------------------------------------------------------
     # File-name timestamp parsing
