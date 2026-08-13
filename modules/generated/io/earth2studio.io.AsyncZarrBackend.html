@@ -797,8 +797,15 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">max_inflight_shards</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L201-L1334"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L202-L1519"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend" title="Link to this definition">#</a></dt>
 <dd><p>Async Zarr v3 IO Backend</p>
+<p>An asynchronous Zarr backend for inference pipelines that produce
+data faster than a store can absorb it synchronously. Iteratively generated dimensions
+(time, lead_time, ensemble) go into <cite>parallel_coords</cite> with their complete value sets,
+each inference step writes one slice along them, and <cite>close()</cite> is called at the end
+to drain pending writes and write out any incomplete shard. Remote stores are supported
+through <cite>fs_factory</cite>, and Zarr v3 sharding via <cite>shard_coords</cite> keeps the file count of
+large campaigns low.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>This IO backend presently does not support overwritting existing Zarr stores. Only
@@ -875,6 +882,20 @@ and the store has bandwidth to spare, by default 4</p></li>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
+<p>Relation to ZarrBackend</p>
+<p>Exposes the same surface as <a class="reference internal" href="earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend" title="earth2studio.io.ZarrBackend"><code class="xref py py-class docutils literal notranslate"><span class="pre">ZarrBackend</span></code></a> and can be used as a drop-in
+replacement, with a few behavioral differences:</p>
+<ul class="simple">
+<li><p><cite>add_array</cite> takes a <cite>dtype</cite> instead of a template <cite>data</cite> tensor and is
+idempotent, so it is safe to call from every rank of a distributed job.</p></li>
+<li><p>In non-blocking mode a failed write raises at a later <cite>write</cite>, <cite>flush</cite> or
+<cite>close</cite> rather than at the failing call, and inputs are copied so callers
+may freely reuse their buffers.</p></li>
+<li><p><cite>coords</cite> is read back from the store, and <cite>__getitem__</cite> flushes pending
+writes first; intended for inspection, not reads in a write loop.</p></li>
+<li><p>Consolidated metadata is not maintained; consolidate at the end of a
+pipeline if desired, e.g. <code class="docutils literal notranslate"><span class="pre">zarr.consolidate_metadata(io.store)</span></code>.</p></li>
+</ul>
 <p>Sharding</p>
 <p>Because every coordinate in <cite>parallel_coords</cite> is chunked with a size of 1, a large
 inference campaign can produce an enormous number of small files, which is a common
@@ -896,16 +917,62 @@ on the fast path.</p>
 <p>Sharding composes with <cite>zarr_codecs</cite>, which compresses the inner chunks within a
 shard, and with <cite>chunked_coords</cite>, which sets the chunk size of coordinates outside
 <cite>parallel_coords</cite>.</p>
+<p class="rubric">Examples</p>
+<p>Write a forecast one lead time at a time, hiding the IO behind the model steps:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">&quot;2024-01-01&quot;</span><span class="p">)])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lead_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">6</span> <span class="o">*</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">io</span> <span class="o">=</span> <span class="n">AsyncZarrBackend</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="s2">&quot;forecast.zarr&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">parallel_coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">times</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">lead_times</span><span class="p">},</span>
+<span class="gp">... </span>    <span class="n">blocking</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">shard_coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">},</span>  <span class="c1"># optional: 4 chunks per storage object</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">total_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="p">{</span>
+<span class="gp">... </span>        <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">times</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">lead_times</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">),</span>
+<span class="gp">... </span>        <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">}</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span><span class="n">total_coords</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;z500&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lead_times</span><span class="p">)):</span>
+<span class="gp">... </span>    <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">721</span><span class="p">,</span> <span class="mi">1440</span><span class="p">)</span>  <span class="c1"># model output for this step</span>
+<span class="gp">... </span>    <span class="n">step_coords</span> <span class="o">=</span> <span class="n">total_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="gp">... </span>    <span class="n">step_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lead_times</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+<span class="gp">... </span>    <span class="n">io</span><span class="o">.</span><span class="n">write</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">],</span> <span class="n">step_coords</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;z500&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">io</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>  <span class="c1"># drain pending writes, write out any incomplete shard</span>
+</pre></div>
+</div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.io.AsyncZarrBackend.add_array">
-<span class="sig-name descname"><span class="pre">add_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L1139-L1144"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.add_array" title="Link to this definition">#</a></dt>
-<dd><p>Pass through, arrays are initialized lazily in this io object</p>
+<span class="sig-name descname"><span class="pre">add_array</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">**kwargs</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L1271-L1311"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.add_array" title="Link to this definition">#</a></dt>
+<dd><p>Create arrays and their coordinate arrays in the store</p>
+<p>Arrays are otherwise created lazily on first write, which is per process:
+several processes writing the same array for the first time all see it as
+absent and race on creation. Creating the schema up front, from one process,
+avoids that race. It also allows arrays with different dimension sets, which
+no single first write could imply.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>coords</strong> (<em>OrderedDict</em><em>[</em><em>str</em><em>, </em><em>ndarray</em><em>]</em>)</p></li>
-<li><p><strong>array_name</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>]</em>)</p></li>
-<li><p><strong>kwargs</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>)</p></li>
+<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Coordinate system of the array(s).</p></li>
+<li><p><strong>array_name</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>]</em>) – Name(s) of the array(s) to create.</p></li>
+<li><p><strong>dtype</strong> (<em>np.dtype</em><em>, </em><em>optional</em>) – Data type of the array(s), by default np.float32 (matching
+<cite>ZarrBackend.add_array</cite> without data). Arrays created lazily by
+<cite>write</cite> instead use the written tensor’s dtype.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>) – Accepted for <cite>IOBackend</cite> compatibility (e.g. <cite>ZarrBackend</cite>’s <cite>data=</cite>)
+but not supported here, array content comes from <cite>write</cite> and creation
+options from the constructor. Ignored with a warning.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -916,7 +983,7 @@ shard, and with <cite>chunked_coords</cite>, which sets the chunk size of coordi
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.io.AsyncZarrBackend.write">
-<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L1146-L1192"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.write" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L1331-L1377"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.write" title="Link to this definition">#</a></dt>
 <dd><p>Write data</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
