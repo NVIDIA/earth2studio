@@ -38,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JPSS ATMS now decodes each BUFR file as soon as its download completes
   (pipelined with in-flight downloads, one decode per unique file) instead
   of decoding after all downloads finish
+- JPSS CrIS granule downloads now fetch large objects as concurrent byte
+  ranges (1 MiB x 8 streams per file) instead of one single-stream GET,
+  roughly halving fetch time for typical requests
 
 ### Deprecated
 

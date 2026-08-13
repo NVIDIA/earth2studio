@@ -32,6 +32,7 @@ from earth2studio.data.jpss_cris import (
     _hamming_apodize,
     _iet_to_utc,
     _nominal_cris_scan_angle,
+    _read_object_chunked,
 )
 
 
@@ -818,6 +819,87 @@ def test_jpss_cris_create_tasks_empty_listing():
         "No CrIS data at s3://noaa-nesdis-n20-pds/CrIS-FS-SDR/2024/06/01/" in m
         for m in messages
     )
+
+
+# ---------------------------------------------------------------------------
+# Offline fake obspec store tests of _read_object_chunked (no network)
+# ---------------------------------------------------------------------------
+class _FakeByteRangeStore:
+    """Fake obspec store serving head/range requests from an in-memory blob."""
+
+    def __init__(self, blob: bytes):
+        self.blob = blob
+        self.requested_ranges: list[tuple[int, int]] = []
+
+    async def head_async(self, key):
+        return {"size": len(self.blob)}
+
+    async def get_range_async(self, key, *, start, end=None, length=None):
+        if end is None:
+            end = start + length
+        self.requested_ranges.append((start, end))
+        return self.blob[start:end]
+
+
+@pytest.mark.timeout(15)
+def test_jpss_cris_read_object_chunked_large():
+    """A large object is reassembled exactly from non-overlapping,
+    in-order byte ranges that cover [0, size)."""
+    import asyncio
+
+    chunk_size = 1024 * 1024
+    size = 20 * chunk_size + 12345  # not a multiple of chunk_size
+    blob = np.random.default_rng(0).integers(0, 256, size, dtype=np.uint8).tobytes()
+    store = _FakeByteRangeStore(blob)
+
+    data = asyncio.run(
+        _read_object_chunked(store, "some/key.h5", chunk_size=chunk_size)
+    )
+
+    assert data == blob
+    # More than one range GET was issued (chunked path taken)
+    assert len(store.requested_ranges) == 21
+    # Ranges tile [0, size) exactly: non-overlapping, in-order coverage
+    ranges = sorted(store.requested_ranges)
+    assert ranges[0][0] == 0
+    assert ranges[-1][1] == size
+    for (_, prev_end), (next_start, _) in zip(ranges[:-1], ranges[1:]):
+        assert next_start == prev_end
+    # All but the tail range are exactly chunk_size long
+    assert all(end - start == chunk_size for start, end in ranges[:-1])
+    assert ranges[-1][1] - ranges[-1][0] == size % chunk_size
+
+
+@pytest.mark.timeout(15)
+def test_jpss_cris_read_object_chunked_small():
+    """An object at most chunk_size bytes long uses a single range GET."""
+    import asyncio
+
+    blob = np.random.default_rng(1).integers(0, 256, 4096, dtype=np.uint8).tobytes()
+    store = _FakeByteRangeStore(blob)
+
+    data = asyncio.run(
+        _read_object_chunked(store, "some/key.h5", chunk_size=1024 * 1024)
+    )
+
+    assert data == blob
+    assert store.requested_ranges == [(0, len(blob))]
+
+
+@pytest.mark.timeout(15)
+def test_jpss_cris_read_object_chunked_not_found():
+    """Missing objects surface as FileNotFoundError so retry semantics hold."""
+    import asyncio
+
+    class _MissingStore:
+        async def head_async(self, key):
+            raise FileNotFoundError(key)
+
+        async def get_range_async(self, key, **kwargs):
+            raise AssertionError("should not be reached")
+
+    with pytest.raises(FileNotFoundError):
+        asyncio.run(_read_object_chunked(_MissingStore(), "missing/key.h5"))
 
 
 # ---------------------------------------------------------------------------
