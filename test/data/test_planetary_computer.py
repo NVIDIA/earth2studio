@@ -17,6 +17,7 @@
 import pathlib
 import shutil
 from datetime import datetime, timedelta, timezone
+from time import perf_counter
 
 import numpy as np
 import pytest
@@ -29,7 +30,10 @@ from earth2studio.data import (
     PlanetaryComputerSentinel3AOD,
 )
 from earth2studio.data.planetary_computer import _PlanetaryComputerData
-from earth2studio.lexicon.planetary_computer import PlanetaryComputerOISSTLexicon
+from earth2studio.lexicon.planetary_computer import (
+    PlanetaryComputerECMWFOpenDataIFSLexicon,
+    PlanetaryComputerOISSTLexicon,
+)
 
 
 def test_planetary_computer_base_init() -> None:
@@ -241,6 +245,104 @@ def test_planetary_computer_modis_fire_cache(cache: bool) -> None:
         shutil.rmtree(cache_path)
     except FileNotFoundError:
         pass
+
+
+def test_planetary_computer_parse_blob_href() -> None:
+    account, container, key = _PlanetaryComputerData._parse_blob_href(
+        "https://noaacdr.blob.core.windows.net/sst/data/v2.1/oisst.20240619.nc"
+    )
+    assert account == "noaacdr"
+    assert container == "sst"
+    assert key == "data/v2.1/oisst.20240619.nc"
+
+    with pytest.raises(ValueError):
+        _PlanetaryComputerData._parse_blob_href("https://example.com/sst/data.nc")
+    with pytest.raises(ValueError):
+        _PlanetaryComputerData._parse_blob_href(
+            "https://noaacdr.blob.core.windows.net/sst"
+        )
+
+
+def test_planetary_computer_local_asset_path_discriminator() -> None:
+    class DummyLexicon(PlanetaryComputerOISSTLexicon):
+        pass
+
+    ds = _PlanetaryComputerData(
+        collection_id="dummy-collection",
+        lexicon=DummyLexicon,
+        spatial_dims={"lat": np.linspace(-1, 1, 2), "lon": np.linspace(0, 1, 2)},
+    )
+    href = "https://noaacdr.blob.core.windows.net/sst/data/oisst.20240619.nc"
+    whole = ds._local_asset_path(href)
+    subset_a = ds._local_asset_path(href, "2t::::")
+    subset_b = ds._local_asset_path(href, "2t::::,gh::500::")
+    # Distinct content identities must map to distinct cache entries
+    assert len({whole.name, subset_a.name, subset_b.name}) == 3
+    assert whole.suffix == subset_a.suffix == ".nc"
+    # And the same identity must map to a stable entry
+    assert ds._local_asset_path(href, "2t::::").name == subset_a.name
+
+
+def test_planetary_computer_ifs_index_entry_matches() -> None:
+    matches = PlanetaryComputerECMWFOpenDataIFS._index_entry_matches
+
+    sfc = {"param": "2t", "levtype": "sfc", "_offset": 0, "_length": 10}
+    prs = {"param": "gh", "levtype": "pl", "levelist": "500"}
+    sol = {"param": "sot", "levtype": "sol", "levelist": "1"}
+
+    # Lexicon dataset keys route to the right index entries
+    assert matches(sfc, "2t::::")
+    assert matches(prs, "gh::500::")
+    assert matches(sol, "sot::::1")
+
+    # Wrong param, level type, or level must not match
+    assert not matches(sfc, "10u::::")
+    assert not matches(prs, "gh::850::")
+    assert not matches(prs, "gh::::")  # pl entry must not serve a sfc key
+    assert not matches(sol, "sot::::2")
+    assert not matches(sfc, "2t::500::")
+
+    # Every lexicon dataset key must parse into the var::plev::lay shape
+    for dataset_key, _ in PlanetaryComputerECMWFOpenDataIFSLexicon.VOCAB.values():
+        var, plev, lay = dataset_key.split("::")
+        assert var
+
+
+@pytest.mark.slow
+@pytest.mark.xfail()
+@pytest.mark.timeout(240)
+def test_planetary_computer_ifs_ranged_benchmark() -> None:
+    """Benchmark GRIB index byte-range fetches against whole-file downloads.
+
+    The ranged path resolves per-message byte ranges from the item's GRIB
+    index sidecar and must produce values identical to extracting the same
+    variables from the whole downloaded file, while transferring only the
+    requested messages (a few MB instead of ~120 MB per analysis file).
+    """
+    variables = ["t2m", "u10m", "z500", "q850", "stl1"]
+    time_ = datetime(2025, 7, 28)
+
+    ds_ranged = PlanetaryComputerECMWFOpenDataIFS(cache=False, verbose=False)
+    start = perf_counter()
+    ranged = ds_ranged(time_, variables)
+    t_ranged = perf_counter() - start
+
+    class WholeFileIFS(PlanetaryComputerECMWFOpenDataIFS):
+        INDEX_ASSET_KEY = "no-such-asset"  # force the whole-file fallback
+
+    ds_whole = WholeFileIFS(cache=False, verbose=False)
+    start = perf_counter()
+    whole = ds_whole(time_, variables)
+    t_whole = perf_counter() - start
+
+    assert (ranged.values == whole.values).all()
+    print(
+        f"IFS ranged: {t_ranged:.1f}s, whole-file: {t_whole:.1f}s "
+        f"({t_whole / t_ranged:.1f}x)"
+    )
+    # Generous bound: ranged fetches ~3 MB vs ~120 MB, so even with STAC
+    # search overhead it should never be slower than the whole file
+    assert t_ranged < t_whole
 
 
 @pytest.mark.slow

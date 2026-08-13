@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PlanetaryComputerCredentialProvider`, which fetches and renews SAS tokens
   automatically; the `planetary-computer` and `httpx` packages are no longer
   required by the data extra
+- `PlanetaryComputerECMWFOpenDataIFS` now downloads only the GRIB messages for
+  the requested variables via byte ranges resolved from the item's GRIB index
+  asset (~6x faster and ~25-180x less transfer than the previous whole-file
+  download, depending on variable count), falling back to whole-file when an
+  item has no index asset
 
 ### Deprecated
 

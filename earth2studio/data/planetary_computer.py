@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import os
 import pathlib
 import shutil
@@ -40,6 +41,7 @@ from earth2studio.data.utils import (
     async_retry,
     datasource_cache_root,
     obstore_fetch_to_cache,
+    obstore_read_range,
     prep_data_inputs,
 )
 from earth2studio.lexicon.base import LexiconType
@@ -92,6 +94,9 @@ class AssetPlan:
     media_type: str | None
     local_path: pathlib.Path
     variables: list[VariableSpec]
+    # Object key of a GRIB index sidecar enabling per-message byte-range
+    # fetches instead of a whole-file download, by default None (whole file)
+    index_key: str | None = None
 
 
 @check_optional_dependencies()
@@ -493,11 +498,9 @@ class _PlanetaryComputerData:
         async with semaphore:
             try:
                 await async_retry(
-                    obstore_fetch_to_cache,
+                    self._fetch_asset,
                     store,
-                    plan.key,
-                    str(plan.local_path.parent),
-                    cache_key=plan.local_path.name,
+                    plan,
                     retries=self._max_retries,
                     backoff=1.0,
                     exceptions=(OSError, TimeoutError, ConnectionError),
@@ -508,6 +511,26 @@ class _PlanetaryComputerData:
                 raise RuntimeError(
                     f"Failed to download asset {plan.unsigned_href}"
                 ) from error
+
+    async def _fetch_asset(self, store: AzureStore, plan: AssetPlan) -> None:
+        """Fetch the whole asset object into the local cache file.
+
+        Subclasses may override this to fetch partial content instead, e.g.
+        per-message GRIB byte ranges resolved from an index sidecar.
+
+        Parameters
+        ----------
+        store : AzureStore
+            Object store the asset lives in.
+        plan : AssetPlan
+            Plan describing the asset and its local cache path.
+        """
+        await obstore_fetch_to_cache(
+            store,
+            plan.key,
+            str(plan.local_path.parent),
+            cache_key=plan.local_path.name,
+        )
 
     def _locate_item(self, when: datetime) -> Item:
         """Locate the closest STAC item to ``when`` within the configured tolerance."""
@@ -547,12 +570,24 @@ class _PlanetaryComputerData:
             logger.warning("Found more than one matching item, returning first match")
         return items[0]
 
-    def _local_asset_path(self, href: str) -> pathlib.Path:
-        """Resolve the cache path for a remote asset href."""
+    def _local_asset_path(self, href: str, discriminator: str = "") -> pathlib.Path:
+        """Resolve the cache path for a remote asset href.
+
+        Parameters
+        ----------
+        href : str
+            Remote asset href.
+        discriminator : str, optional
+            Extra content identity mixed into the cache file name, for cache
+            entries holding only part of an asset (e.g. a GRIB message
+            subset), by default "" (cache entry holds the whole asset).
+        """
         # Use a hashed filename so long URLs map to stable cache entries.
         parsed = urlparse(href)
         suffix = pathlib.Path(parsed.path).suffix or ""
-        filename = hashlib.sha256(parsed.path.encode()).hexdigest() + suffix
+        filename = (
+            hashlib.sha256((parsed.path + discriminator).encode()).hexdigest() + suffix
+        )
         return pathlib.Path(self.cache) / filename
 
     def _validate_time(self, times: list[datetime]) -> None:
@@ -977,6 +1012,7 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
 
     COLLECTION_ID = "ecmwf-forecast"
     ASSET_KEY = "data"
+    INDEX_ASSET_KEY = "index"
     SEARCH_KWARGS = {
         "query": {
             "ecmwf:stream": {"in": ["oper", "scda"]},
@@ -1014,6 +1050,85 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
             max_retries=max_retries,
             async_timeout=async_timeout,
         )
+
+    def _prepare_asset_plans(
+        self,
+        item: Item,
+        variables: Sequence[VariableSpec],
+    ) -> list[AssetPlan]:
+        """Prepare asset plans, enabling per-message byte-range fetches.
+
+        ECMWF Open Data items carry a GRIB index sidecar as a first-class
+        ``index`` asset. When present, the plan records its object key so
+        :meth:`_fetch_asset` can download only the requested GRIB messages
+        instead of the whole (~120 MB per analysis) file.
+        """
+        plans = super()._prepare_asset_plans(item, variables)
+        index_asset = item.assets.get(self.INDEX_ASSET_KEY)
+        if index_asset is None:
+            return plans
+        plan = plans[0]
+        _, _, plan.index_key = self._parse_blob_href(index_asset.href)
+        # Ranged cache files hold only the requested messages, so the cache
+        # entry must be keyed by the variable subset as well as the asset href
+        discriminator = ",".join(sorted({s.dataset_key for s in plan.variables}))
+        plan.local_path = self._local_asset_path(plan.unsigned_href, discriminator)
+        return plans
+
+    async def _fetch_asset(self, store: AzureStore, plan: AssetPlan) -> None:
+        """Fetch only the GRIB messages serving the requested variables.
+
+        Resolves byte ranges from the item's GRIB index sidecar and issues a
+        single multi-range read; the concatenated messages form a valid GRIB
+        file (messages are self-contained), so extraction is unchanged. Falls
+        back to a whole-file download when the item has no index asset.
+        """
+        if plan.index_key is None:
+            return await super()._fetch_asset(store, plan)
+        if plan.local_path.exists():
+            return
+        index_bytes = await obstore_read_range(store, plan.index_key)
+        entries = [
+            json.loads(line)
+            for line in index_bytes.decode().splitlines()
+            if line.strip()
+        ]
+        ranges: set[tuple[int, int]] = set()
+        for spec in plan.variables:
+            matches = [
+                entry
+                for entry in entries
+                if self._index_entry_matches(entry, spec.dataset_key)
+            ]
+            if not matches:
+                raise FileNotFoundError(
+                    f"No GRIB index entry for variable '{spec.variable_id}' "
+                    f"({spec.dataset_key}) in {plan.index_key}"
+                )
+            ranges.update(
+                (int(entry["_offset"]), int(entry["_offset"]) + int(entry["_length"]))
+                for entry in matches
+            )
+        sorted_ranges = sorted(ranges)
+        buffers = await store.get_ranges_async(
+            plan.key,
+            starts=[start for start, _ in sorted_ranges],
+            ends=[end for _, end in sorted_ranges],
+        )
+        data = b"".join(bytes(buffer) for buffer in buffers)
+        await asyncio.to_thread(plan.local_path.write_bytes, data)
+
+    @staticmethod
+    def _index_entry_matches(entry: dict, dataset_key: str) -> bool:
+        """Check whether a GRIB index entry serves a lexicon dataset key."""
+        var, plev, lay = dataset_key.split("::")
+        if entry.get("param") != var:
+            return False
+        if plev:
+            return entry.get("levtype") == "pl" and str(entry.get("levelist")) == plev
+        if lay:
+            return entry.get("levtype") == "sol" and str(entry.get("levelist")) == lay
+        return entry.get("levtype") == "sfc"
 
     def extract_variable_numpy(
         self,
