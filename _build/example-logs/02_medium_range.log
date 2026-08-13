@@ -1,0 +1,116 @@
+21:05:08  DISCOVER 
+                     selected 6 example(s)
+21:05:08  EXAMPLE    02_medium_range/01_ensemble_workflow_extend.py
+                     starting 1/6
+21:05:08  CACHE      02_medium_range/01_ensemble_workflow_extend.py
+                     checking source and runner fingerprint
+21:05:08  CACHE      02_medium_range/01_ensemble_workflow_extend.py
+                     hit; reusing 3 artifact(s)
+21:05:08  EXAMPLE    02_medium_range/02_model_perturbation_hook.py
+                     starting 2/6
+21:05:08  CACHE      02_medium_range/02_model_perturbation_hook.py
+                     checking source and runner fingerprint
+21:05:08  CACHE      02_medium_range/02_model_perturbation_hook.py
+                     hit; reusing 4 artifact(s)
+21:05:08  EXAMPLE    02_medium_range/03_huge_ensembles.py
+                     starting 3/6
+21:05:08  CACHE      02_medium_range/03_huge_ensembles.py
+                     checking source and runner fingerprint
+21:05:08  CACHE      02_medium_range/03_huge_ensembles.py
+                     hit; reusing 1 artifact(s)
+21:05:08  EXAMPLE    02_medium_range/04_temporal_interpolation.py
+                     starting 4/6
+21:05:08  CACHE      02_medium_range/04_temporal_interpolation.py
+                     checking source and runner fingerprint
+21:05:08  CACHE      02_medium_range/04_temporal_interpolation.py
+                     hit; reusing 1 artifact(s)
+21:05:08  EXAMPLE    02_medium_range/05_cyclone_tracking.py
+                     starting 5/6
+21:05:08  CACHE      02_medium_range/05_cyclone_tracking.py
+                     checking source and runner fingerprint
+21:05:08  CACHE      02_medium_range/05_cyclone_tracking.py
+                     hit; reusing 2 artifact(s)
+21:05:08  EXAMPLE    02_medium_range/06_atlas_inference.py
+                     starting 6/6
+21:05:08  CACHE      02_medium_range/06_atlas_inference.py
+                     checking source and runner fingerprint
+21:05:08  CACHE      02_medium_range/06_atlas_inference.py
+                     hit; reusing 1 artifact(s)
+21:05:08  RENDER     02_medium_range/01_ensemble_workflow_extend.py
+                     converting cells to Markdown
+21:05:08  IMAGE      02_medium_range/01_ensemble_workflow_extend.py
+                     kept 001-cell-10.jpg (59.8 KiB; below limits)
+21:05:08  IMAGE      02_medium_range/01_ensemble_workflow_extend.py
+                     optimized 002-cell-11.png: 828×459 274.2 KiB → 828×459 WebP 43.4 KiB
+21:05:08  IMAGE      02_medium_range/01_ensemble_workflow_extend.py
+                     kept 003-cell-12.jpg (30.1 KiB; below limits)
+21:05:08  NOTEBOOK   02_medium_range/01_ensemble_workflow_extend.py
+                     generated 01_ensemble_workflow_extend.ipynb
+21:05:08  TELEMETRY  02_medium_range/01_ensemble_workflow_extend.py
+                     rendered runtime telemetry panel
+21:05:08  RENDER     02_medium_range/01_ensemble_workflow_extend.py
+                     wrote examples/02_medium_range/01_ensemble_workflow_extend.md
+21:05:08  RENDER     02_medium_range/02_model_perturbation_hook.py
+                     converting cells to Markdown
+21:05:09  IMAGE      02_medium_range/02_model_perturbation_hook.py
+                     optimized 001-cell-9.png: 5479×2955 1.4 MiB → 2400×1294 WebP 181.0 KiB
+21:05:10  IMAGE      02_medium_range/02_model_perturbation_hook.py
+                     optimized 002-cell-9.png: 5427×2955 1.5 MiB → 2400×1307 WebP 201.8 KiB
+21:05:10  IMAGE      02_medium_range/02_model_perturbation_hook.py
+                     optimized 003-cell-9.png: 5687×2955 1.4 MiB → 2400×1247 WebP 175.4 KiB
+21:05:11  IMAGE      02_medium_range/02_model_perturbation_hook.py
+                     optimized 004-cell-9.png: 5414×2955 1.8 MiB → 2400×1310 WebP 259.2 KiB
+21:05:11  NOTEBOOK   02_medium_range/02_model_perturbation_hook.py
+                     generated 02_model_perturbation_hook.ipynb
+21:05:11  TELEMETRY  02_medium_range/02_model_perturbation_hook.py
+                     rendered runtime telemetry panel
+21:05:11  RENDER     02_medium_range/02_model_perturbation_hook.py
+                     wrote examples/02_medium_range/02_model_perturbation_hook.md
+21:05:11  RENDER     02_medium_range/03_huge_ensembles.py
+                     converting cells to Markdown
+21:05:11  IMAGE      02_medium_range/03_huge_ensembles.py
+                     kept 001-cell-6.jpg (100.7 KiB; below limits)
+21:05:11  NOTEBOOK   02_medium_range/03_huge_ensembles.py
+                     generated 03_huge_ensembles.ipynb
+21:05:11  TELEMETRY  02_medium_range/03_huge_ensembles.py
+                     rendered runtime telemetry panel
+21:05:11  RENDER     02_medium_range/03_huge_ensembles.py
+                     wrote examples/02_medium_range/03_huge_ensembles.md
+21:05:11  RENDER     02_medium_range/04_temporal_interpolation.py
+                     converting cells to Markdown
+21:05:11  IMAGE      02_medium_range/04_temporal_interpolation.py
+                     optimized 001-cell-6.jpg: 1500×600 147.2 KiB → 1500×600 WebP 123.0 KiB
+21:05:11  NOTEBOOK   02_medium_range/04_temporal_interpolation.py
+                     generated 04_temporal_interpolation.ipynb
+21:05:11  TELEMETRY  02_medium_range/04_temporal_interpolation.py
+                     rendered runtime telemetry panel
+21:05:11  RENDER     02_medium_range/04_temporal_interpolation.py
+                     wrote examples/02_medium_range/04_temporal_interpolation.md
+21:05:11  RENDER     02_medium_range/05_cyclone_tracking.py
+                     converting cells to Markdown
+21:05:12  IMAGE      02_medium_range/05_cyclone_tracking.py
+                     optimized 001-cell-8.jpg: 3060×2460 253.1 KiB → 1990×1600 WebP 61.1 KiB
+21:05:12  IMAGE      02_medium_range/05_cyclone_tracking.py
+                     kept 002-cell-9.png (100.4 KiB; below limits)
+21:05:12  NOTEBOOK   02_medium_range/05_cyclone_tracking.py
+                     generated 05_cyclone_tracking.ipynb
+21:05:12  TELEMETRY  02_medium_range/05_cyclone_tracking.py
+                     rendered runtime telemetry panel
+21:05:12  RENDER     02_medium_range/05_cyclone_tracking.py
+                     wrote examples/02_medium_range/05_cyclone_tracking.md
+21:05:12  RENDER     02_medium_range/06_atlas_inference.py
+                     converting cells to Markdown
+21:05:12  IMAGE      02_medium_range/06_atlas_inference.py
+                     optimized 001-cell-8.jpg: 4800×1500 571.9 KiB → 2400×750 WebP 164.6 KiB
+21:05:12  NOTEBOOK   02_medium_range/06_atlas_inference.py
+                     generated 06_atlas_inference.ipynb
+21:05:12  TELEMETRY  02_medium_range/06_atlas_inference.py
+                     rendered runtime telemetry panel
+21:05:12  RENDER     02_medium_range/06_atlas_inference.py
+                     wrote examples/02_medium_range/06_atlas_inference.md
+21:05:12  INDEX    
+                     rendering combined gallery index
+21:05:12  BACKREFS 
+                     indexed 58 API object(s) across 30 example(s); processed 664 marker(s) on 16 changed page(s)
+21:05:12  COMPLETE 
+                     finished 6 example(s), 0 failure(s)

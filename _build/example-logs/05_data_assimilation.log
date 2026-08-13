@@ -1,0 +1,56 @@
+21:05:16  DISCOVER 
+                     selected 2 example(s)
+21:05:16  EXAMPLE    05_data_assimilation/01_stormcast_sda.py
+                     starting 1/2
+21:05:16  CACHE      05_data_assimilation/01_stormcast_sda.py
+                     checking source and runner fingerprint
+21:05:16  CACHE      05_data_assimilation/01_stormcast_sda.py
+                     hit; reusing 5 artifact(s)
+21:05:16  EXAMPLE    05_data_assimilation/02_healda.py
+                     starting 2/2
+21:05:16  CACHE      05_data_assimilation/02_healda.py
+                     checking source and runner fingerprint
+21:05:16  CACHE      05_data_assimilation/02_healda.py
+                     hit; reusing 5 artifact(s)
+21:05:16  RENDER     05_data_assimilation/01_stormcast_sda.py
+                     converting cells to Markdown
+21:05:16  IMAGE      05_data_assimilation/01_stormcast_sda.py
+                     optimized 001-cell-9.jpg: 1126×724 149.6 KiB → 1126×724 WebP 124.8 KiB
+21:05:16  IMAGE      05_data_assimilation/01_stormcast_sda.py
+                     kept 002-cell-10.png (111.8 KiB; below limits)
+21:05:16  IMAGE      05_data_assimilation/01_stormcast_sda.py
+                     optimized 003-cell-13.jpg: 3600×1200 939.1 KiB → 2400×800 WebP 479.6 KiB
+21:05:16  IMAGE      05_data_assimilation/01_stormcast_sda.py
+                     optimized 004-cell-14.png: 2375×790 2.7 MiB → 2375×790 WebP 513.3 KiB
+21:05:16  IMAGE      05_data_assimilation/01_stormcast_sda.py
+                     optimized 005-cell-17.jpg: 3600×900 730.9 KiB → 2400×600 WebP 415.7 KiB
+21:05:16  NOTEBOOK   05_data_assimilation/01_stormcast_sda.py
+                     generated 01_stormcast_sda.ipynb
+21:05:16  TELEMETRY  05_data_assimilation/01_stormcast_sda.py
+                     rendered runtime telemetry panel
+21:05:16  RENDER     05_data_assimilation/01_stormcast_sda.py
+                     wrote examples/05_data_assimilation/01_stormcast_sda.md
+21:05:16  RENDER     05_data_assimilation/02_healda.py
+                     converting cells to Markdown
+21:05:17  IMAGE      05_data_assimilation/02_healda.py
+                     optimized 001-cell-6.jpg: 2400×600 382.5 KiB → 2400×600 WebP 411.2 KiB
+21:05:17  IMAGE      05_data_assimilation/02_healda.py
+                     optimized 002-cell-7.png: 1448×397 862.9 KiB → 1448×397 WebP 196.4 KiB
+21:05:17  IMAGE      05_data_assimilation/02_healda.py
+                     optimized 003-cell-12.jpg: 2100×1200 279.8 KiB → 2100×1200 WebP 228.5 KiB
+21:05:17  IMAGE      05_data_assimilation/02_healda.py
+                     optimized 004-cell-13.png: 1244×781 624.1 KiB → 1244×781 WebP 122.2 KiB
+21:05:17  IMAGE      05_data_assimilation/02_healda.py
+                     optimized 005-cell-16.jpg: 1630×1062 265.8 KiB → 1630×1062 WebP 237.7 KiB
+21:05:17  NOTEBOOK   05_data_assimilation/02_healda.py
+                     generated 02_healda.ipynb
+21:05:17  TELEMETRY  05_data_assimilation/02_healda.py
+                     rendered runtime telemetry panel
+21:05:17  RENDER     05_data_assimilation/02_healda.py
+                     wrote examples/05_data_assimilation/02_healda.md
+21:05:17  INDEX    
+                     rendering combined gallery index
+21:05:17  BACKREFS 
+                     indexed 58 API object(s) across 30 example(s); processed 664 marker(s) on 6 changed page(s)
+21:05:17  COMPLETE 
+                     finished 2 example(s), 0 failure(s)

@@ -1,0 +1,96 @@
+21:05:12  DISCOVER 
+                     selected 4 example(s)
+21:05:12  EXAMPLE    03_downscaling/01_corrdiff_inference.py
+                     starting 1/4
+21:05:12  CACHE      03_downscaling/01_corrdiff_inference.py
+                     checking source and runner fingerprint
+21:05:12  CACHE      03_downscaling/01_corrdiff_inference.py
+                     hit; reusing 1 artifact(s)
+21:05:12  EXAMPLE    03_downscaling/02_cbottle_super_resolution.py
+                     starting 2/4
+21:05:12  CACHE      03_downscaling/02_cbottle_super_resolution.py
+                     checking source and runner fingerprint
+21:05:12  CACHE      03_downscaling/02_cbottle_super_resolution.py
+                     hit; reusing 1 artifact(s)
+21:05:12  EXAMPLE    03_downscaling/03_ensemble_downscaling.py
+                     starting 3/4
+21:05:12  CACHE      03_downscaling/03_ensemble_downscaling.py
+                     checking source and runner fingerprint
+21:05:12  CACHE      03_downscaling/03_ensemble_downscaling.py
+                     hit; reusing 1 artifact(s)
+21:05:12  EXAMPLE    03_downscaling/04_cosmo_rea_downscaling.py
+                     starting 4/4
+21:05:12  CACHE      03_downscaling/04_cosmo_rea_downscaling.py
+                     checking source and runner fingerprint
+21:05:12  CACHE      03_downscaling/04_cosmo_rea_downscaling.py
+                     hit; reusing 13 artifact(s)
+21:05:12  RENDER     03_downscaling/01_corrdiff_inference.py
+                     converting cells to Markdown
+21:05:12  IMAGE      03_downscaling/01_corrdiff_inference.py
+                     optimized 001-cell-8.jpg: 3200×800 152.4 KiB → 2400×600 WebP 65.3 KiB
+21:05:13  NOTEBOOK   03_downscaling/01_corrdiff_inference.py
+                     generated 01_corrdiff_inference.ipynb
+21:05:13  TELEMETRY  03_downscaling/01_corrdiff_inference.py
+                     rendered runtime telemetry panel
+21:05:13  RENDER     03_downscaling/01_corrdiff_inference.py
+                     wrote examples/03_downscaling/01_corrdiff_inference.md
+21:05:13  RENDER     03_downscaling/02_cbottle_super_resolution.py
+                     converting cells to Markdown
+21:05:13  IMAGE      03_downscaling/02_cbottle_super_resolution.py
+                     optimized 001-cell-9.jpg: 3472×2809 690.9 KiB → 1978×1600 WebP 204.6 KiB
+21:05:13  NOTEBOOK   03_downscaling/02_cbottle_super_resolution.py
+                     generated 02_cbottle_super_resolution.ipynb
+21:05:13  TELEMETRY  03_downscaling/02_cbottle_super_resolution.py
+                     rendered runtime telemetry panel
+21:05:13  RENDER     03_downscaling/02_cbottle_super_resolution.py
+                     wrote examples/03_downscaling/02_cbottle_super_resolution.md
+21:05:13  RENDER     03_downscaling/03_ensemble_downscaling.py
+                     converting cells to Markdown
+21:05:13  IMAGE      03_downscaling/03_ensemble_downscaling.py
+                     kept 001-cell-8.jpg (80.0 KiB; below limits)
+21:05:13  NOTEBOOK   03_downscaling/03_ensemble_downscaling.py
+                     generated 03_ensemble_downscaling.ipynb
+21:05:13  TELEMETRY  03_downscaling/03_ensemble_downscaling.py
+                     rendered runtime telemetry panel
+21:05:13  RENDER     03_downscaling/03_ensemble_downscaling.py
+                     wrote examples/03_downscaling/03_ensemble_downscaling.md
+21:05:13  RENDER     03_downscaling/04_cosmo_rea_downscaling.py
+                     converting cells to Markdown
+21:05:13  IMAGE      03_downscaling/04_cosmo_rea_downscaling.py
+                     optimized 001-cell-10.jpg: 2100×1650 316.0 KiB → 2036×1600 WebP 225.1 KiB
+21:05:13  IMAGE      03_downscaling/04_cosmo_rea_downscaling.py
+                     optimized 002-cell-11.png: 1390×1083 632.0 KiB → 1390×1083 WebP 132.5 KiB
+21:05:13  IMAGE      03_downscaling/04_cosmo_rea_downscaling.py
+                     optimized 003-cell-12.jpg: 2250×1050 163.2 KiB → 2250×1050 WebP 96.3 KiB
+21:05:14  IMAGE      03_downscaling/04_cosmo_rea_downscaling.py
+                     optimized 004-cell-13.png: 1490×666 173.7 KiB → 1490×666 WebP 55.8 KiB
+21:05:14  IMAGE      03_downscaling/04_cosmo_rea_downscaling.py
+                     optimized 005-cell-14.jpg: 2708×758 149.9 KiB → 2400×672 WebP 85.7 KiB
+21:05:14  IMAGE      03_downscaling/04_cosmo_rea_downscaling.py
+                     optimized 006-cell-15.png: 1806×505 360.5 KiB → 1806×505 WebP 59.6 KiB
+21:05:14  IMAGE      03_downscaling/04_cosmo_rea_downscaling.py
+                     optimized 007-cell-16.jpg: 1362×1382 187.8 KiB → 1362×1382 WebP 127.0 KiB
+21:05:14  IMAGE      03_downscaling/04_cosmo_rea_downscaling.py
+                     optimized 008-cell-17.png: 908×921 255.8 KiB → 908×921 WebP 71.3 KiB
+21:05:14  IMAGE      03_downscaling/04_cosmo_rea_downscaling.py
+                     optimized 009-cell-18.jpg: 2685×877 209.2 KiB → 2400×784 WebP 112.7 KiB
+21:05:14  IMAGE      03_downscaling/04_cosmo_rea_downscaling.py
+                     optimized 010-cell-19.png: 1790×584 269.9 KiB → 1790×584 WebP 79.4 KiB
+21:05:14  IMAGE      03_downscaling/04_cosmo_rea_downscaling.py
+                     kept 011-cell-20.jpg (70.4 KiB; below limits)
+21:05:14  IMAGE      03_downscaling/04_cosmo_rea_downscaling.py
+                     kept 012-cell-21.png (115.9 KiB; below limits)
+21:05:14  IMAGE      03_downscaling/04_cosmo_rea_downscaling.py
+                     kept 013-cell-22.jpg (73.3 KiB; below limits)
+21:05:14  NOTEBOOK   03_downscaling/04_cosmo_rea_downscaling.py
+                     generated 04_cosmo_rea_downscaling.ipynb
+21:05:14  TELEMETRY  03_downscaling/04_cosmo_rea_downscaling.py
+                     rendered runtime telemetry panel
+21:05:14  RENDER     03_downscaling/04_cosmo_rea_downscaling.py
+                     wrote examples/03_downscaling/04_cosmo_rea_downscaling.md
+21:05:14  INDEX    
+                     rendering combined gallery index
+21:05:14  BACKREFS 
+                     indexed 58 API object(s) across 30 example(s); processed 664 marker(s) on 9 changed page(s)
+21:05:14  COMPLETE 
+                     finished 4 example(s), 0 failure(s)

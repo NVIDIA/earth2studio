@@ -1,0 +1,60 @@
+21:05:18  DISCOVER 
+                     selected 3 example(s)
+21:05:18  EXAMPLE    08_extend/01_custom_prognostic.py
+                     starting 1/3
+21:05:18  CACHE      08_extend/01_custom_prognostic.py
+                     checking source and runner fingerprint
+21:05:18  CACHE      08_extend/01_custom_prognostic.py
+                     hit; reusing 1 artifact(s)
+21:05:18  EXAMPLE    08_extend/02_custom_diagnostic.py
+                     starting 2/3
+21:05:18  CACHE      08_extend/02_custom_diagnostic.py
+                     checking source and runner fingerprint
+21:05:18  CACHE      08_extend/02_custom_diagnostic.py
+                     hit; reusing 1 artifact(s)
+21:05:18  EXAMPLE    08_extend/03_custom_datasource.py
+                     starting 3/3
+21:05:18  CACHE      08_extend/03_custom_datasource.py
+                     checking source and runner fingerprint
+21:05:18  CACHE      08_extend/03_custom_datasource.py
+                     hit; reusing 3 artifact(s)
+21:05:18  RENDER     08_extend/01_custom_prognostic.py
+                     converting cells to Markdown
+21:05:18  IMAGE      08_extend/01_custom_prognostic.py
+                     kept 001-cell-13.jpg (35.0 KiB; below limits)
+21:05:18  NOTEBOOK   08_extend/01_custom_prognostic.py
+                     generated 01_custom_prognostic.ipynb
+21:05:18  TELEMETRY  08_extend/01_custom_prognostic.py
+                     rendered runtime telemetry panel
+21:05:18  RENDER     08_extend/01_custom_prognostic.py
+                     wrote examples/08_extend/01_custom_prognostic.md
+21:05:18  RENDER     08_extend/02_custom_diagnostic.py
+                     converting cells to Markdown
+21:05:18  IMAGE      08_extend/02_custom_diagnostic.py
+                     kept 001-cell-11.jpg (70.1 KiB; below limits)
+21:05:18  NOTEBOOK   08_extend/02_custom_diagnostic.py
+                     generated 02_custom_diagnostic.ipynb
+21:05:18  TELEMETRY  08_extend/02_custom_diagnostic.py
+                     rendered runtime telemetry panel
+21:05:18  RENDER     08_extend/02_custom_diagnostic.py
+                     wrote examples/08_extend/02_custom_diagnostic.md
+21:05:18  RENDER     08_extend/03_custom_datasource.py
+                     converting cells to Markdown
+21:05:18  IMAGE      08_extend/03_custom_datasource.py
+                     kept 001-cell-7.jpg (62.2 KiB; below limits)
+21:05:19  IMAGE      08_extend/03_custom_datasource.py
+                     optimized 002-cell-8.png: 1011×311 392.2 KiB → 1011×311 WebP 63.7 KiB
+21:05:19  IMAGE      08_extend/03_custom_datasource.py
+                     kept 003-cell-11.jpg (33.0 KiB; below limits)
+21:05:19  NOTEBOOK   08_extend/03_custom_datasource.py
+                     generated 03_custom_datasource.ipynb
+21:05:19  TELEMETRY  08_extend/03_custom_datasource.py
+                     rendered runtime telemetry panel
+21:05:19  RENDER     08_extend/03_custom_datasource.py
+                     wrote examples/08_extend/03_custom_datasource.md
+21:05:19  INDEX    
+                     rendering combined gallery index
+21:05:19  BACKREFS 
+                     indexed 58 API object(s) across 30 example(s); processed 664 marker(s) on 9 changed page(s)
+21:05:19  COMPLETE 
+                     finished 3 example(s), 0 failure(s)

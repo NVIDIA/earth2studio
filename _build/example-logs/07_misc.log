@@ -1,0 +1,96 @@
+21:05:18  DISCOVER 
+                     selected 5 example(s)
+21:05:18  EXAMPLE    07_misc/01_distributed_manager.py
+                     starting 1/5
+21:05:18  CACHE      07_misc/01_distributed_manager.py
+                     checking source and runner fingerprint
+21:05:18  CACHE      07_misc/01_distributed_manager.py
+                     hit; reusing 1 artifact(s)
+21:05:18  EXAMPLE    07_misc/02_cbottle_generation.py
+                     starting 2/5
+21:05:18  CACHE      07_misc/02_cbottle_generation.py
+                     checking source and runner fingerprint
+21:05:18  CACHE      07_misc/02_cbottle_generation.py
+                     hit; reusing 3 artifact(s)
+21:05:18  EXAMPLE    07_misc/03_io_performance.py
+                     starting 3/5
+21:05:18  CACHE      07_misc/03_io_performance.py
+                     checking source and runner fingerprint
+21:05:18  CACHE      07_misc/03_io_performance.py
+                     hit; reusing 1 artifact(s)
+21:05:18  EXAMPLE    07_misc/04_local_datasource.py
+                     starting 4/5
+21:05:18  CACHE      07_misc/04_local_datasource.py
+                     checking source and runner fingerprint
+21:05:18  CACHE      07_misc/04_local_datasource.py
+                     hit; reusing 1 artifact(s)
+21:05:18  EXAMPLE    07_misc/05_cbottle_tc_guidance.py
+                     starting 5/5
+21:05:18  CACHE      07_misc/05_cbottle_tc_guidance.py
+                     checking source and runner fingerprint
+21:05:18  CACHE      07_misc/05_cbottle_tc_guidance.py
+                     hit; reusing 3 artifact(s)
+21:05:18  RENDER     07_misc/01_distributed_manager.py
+                     converting cells to Markdown
+21:05:18  IMAGE      07_misc/01_distributed_manager.py
+                     kept 001-cell-11.jpg (71.6 KiB; below limits)
+21:05:18  NOTEBOOK   07_misc/01_distributed_manager.py
+                     generated 01_distributed_manager.ipynb
+21:05:18  TELEMETRY  07_misc/01_distributed_manager.py
+                     rendered runtime telemetry panel
+21:05:18  RENDER     07_misc/01_distributed_manager.py
+                     wrote examples/07_misc/01_distributed_manager.md
+21:05:18  RENDER     07_misc/02_cbottle_generation.py
+                     converting cells to Markdown
+21:05:18  IMAGE      07_misc/02_cbottle_generation.py
+                     kept 001-cell-7.jpg (100.1 KiB; below limits)
+21:05:18  IMAGE      07_misc/02_cbottle_generation.py
+                     optimized 002-cell-8.png: 972×590 564.0 KiB → 972×590 WebP 89.3 KiB
+21:05:18  IMAGE      07_misc/02_cbottle_generation.py
+                     kept 003-cell-13.jpg (103.9 KiB; below limits)
+21:05:18  NOTEBOOK   07_misc/02_cbottle_generation.py
+                     generated 02_cbottle_generation.ipynb
+21:05:18  TELEMETRY  07_misc/02_cbottle_generation.py
+                     rendered runtime telemetry panel
+21:05:18  RENDER     07_misc/02_cbottle_generation.py
+                     wrote examples/07_misc/02_cbottle_generation.md
+21:05:18  RENDER     07_misc/03_io_performance.py
+                     converting cells to Markdown
+21:05:18  IMAGE      07_misc/03_io_performance.py
+                     kept 001-cell-27.jpg (85.2 KiB; below limits)
+21:05:18  NOTEBOOK   07_misc/03_io_performance.py
+                     generated 03_io_performance.ipynb
+21:05:18  TELEMETRY  07_misc/03_io_performance.py
+                     rendered runtime telemetry panel
+21:05:18  RENDER     07_misc/03_io_performance.py
+                     wrote examples/07_misc/03_io_performance.md
+21:05:18  RENDER     07_misc/04_local_datasource.py
+                     converting cells to Markdown
+21:05:18  IMAGE      07_misc/04_local_datasource.py
+                     optimized 001-cell-9.png: 1800×1050 1.1 MiB → 1800×1050 WebP 197.2 KiB
+21:05:18  NOTEBOOK   07_misc/04_local_datasource.py
+                     generated 04_local_datasource.ipynb
+21:05:18  TELEMETRY  07_misc/04_local_datasource.py
+                     rendered runtime telemetry panel
+21:05:18  RENDER     07_misc/04_local_datasource.py
+                     wrote examples/07_misc/04_local_datasource.md
+21:05:18  RENDER     07_misc/05_cbottle_tc_guidance.py
+                     converting cells to Markdown
+21:05:18  IMAGE      07_misc/05_cbottle_tc_guidance.py
+                     kept 001-cell-6.jpg (38.8 KiB; below limits)
+21:05:18  IMAGE      07_misc/05_cbottle_tc_guidance.py
+                     kept 002-cell-7.png (99.6 KiB; below limits)
+21:05:18  IMAGE      07_misc/05_cbottle_tc_guidance.py
+                     kept 003-cell-10.jpg (36.5 KiB; below limits)
+21:05:18  NOTEBOOK   07_misc/05_cbottle_tc_guidance.py
+                     generated 05_cbottle_tc_guidance.ipynb
+21:05:18  TELEMETRY  07_misc/05_cbottle_tc_guidance.py
+                     rendered runtime telemetry panel
+21:05:18  RENDER     07_misc/05_cbottle_tc_guidance.py
+                     wrote examples/07_misc/05_cbottle_tc_guidance.md
+21:05:18  INDEX    
+                     rendering combined gallery index
+21:05:18  BACKREFS 
+                     indexed 58 API object(s) across 30 example(s); processed 664 marker(s) on 12 changed page(s)
+21:05:18  COMPLETE 
+                     finished 5 example(s), 0 failure(s)

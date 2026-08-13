@@ -1,0 +1,112 @@
+21:02:48  DISCOVER 
+                     selected 4 example(s)
+21:02:48  EXAMPLE    01_getting_started/01_deterministic_workflow.py
+                     starting 1/4
+21:02:48  CACHE      01_getting_started/01_deterministic_workflow.py
+                     checking source and runner fingerprint
+21:02:48  PREPARE    01_getting_started/01_deterministic_workflow.py
+                     creating isolated execution harness
+21:02:48  EXECUTE    01_getting_started/01_deterministic_workflow.py
+                     UV resolving environment and running (timeout 7200s)
+21:03:18  EXECUTE    01_getting_started/01_deterministic_workflow.py
+                     still running (30s elapsed)
+21:03:28  EXECUTE    01_getting_started/01_deterministic_workflow.py
+                     completed in 39.7s
+21:03:28  ENVIRONMENT  01_getting_started/01_deterministic_workflow.py
+                     captured 154 installed package(s)
+21:03:28  CAPTURE    01_getting_started/01_deterministic_workflow.py
+                     collecting images and cell output
+21:03:28  CAPTURE    01_getting_started/01_deterministic_workflow.py
+                     collected 1 image artifact(s)
+21:03:28  TELEMETRY  01_getting_started/01_deterministic_workflow.py
+                     recorded 39 resource sample(s)
+21:03:28  EXAMPLE    01_getting_started/02_diagnostic_workflow.py
+                     starting 2/4
+21:03:28  CACHE      01_getting_started/02_diagnostic_workflow.py
+                     checking source and runner fingerprint
+21:03:28  PREPARE    01_getting_started/02_diagnostic_workflow.py
+                     creating isolated execution harness
+21:03:28  EXECUTE    01_getting_started/02_diagnostic_workflow.py
+                     UV resolving environment and running (timeout 7200s)
+21:03:56  EXECUTE    01_getting_started/02_diagnostic_workflow.py
+                     completed in 28.2s
+21:03:56  ENVIRONMENT  01_getting_started/02_diagnostic_workflow.py
+                     captured 154 installed package(s)
+21:03:56  CAPTURE    01_getting_started/02_diagnostic_workflow.py
+                     collecting images and cell output
+21:03:56  CAPTURE    01_getting_started/02_diagnostic_workflow.py
+                     collected 1 image artifact(s)
+21:03:56  TELEMETRY  01_getting_started/02_diagnostic_workflow.py
+                     recorded 29 resource sample(s)
+21:03:56  EXAMPLE    01_getting_started/03_ensemble_workflow.py
+                     starting 3/4
+21:03:56  CACHE      01_getting_started/03_ensemble_workflow.py
+                     checking source and runner fingerprint
+21:03:56  PREPARE    01_getting_started/03_ensemble_workflow.py
+                     creating isolated execution harness
+21:03:56  EXECUTE    01_getting_started/03_ensemble_workflow.py
+                     UV resolving environment and running (timeout 7200s)
+21:04:26  EXECUTE    01_getting_started/03_ensemble_workflow.py
+                     still running (30s elapsed)
+21:04:56  EXECUTE    01_getting_started/03_ensemble_workflow.py
+                     still running (60s elapsed)
+21:05:08  EXECUTE    01_getting_started/03_ensemble_workflow.py
+                     completed in 71.4s
+21:05:08  ENVIRONMENT  01_getting_started/03_ensemble_workflow.py
+                     captured 156 installed package(s)
+21:05:08  CAPTURE    01_getting_started/03_ensemble_workflow.py
+                     collecting images and cell output
+21:05:08  CAPTURE    01_getting_started/03_ensemble_workflow.py
+                     collected 1 image artifact(s)
+21:05:08  TELEMETRY  01_getting_started/03_ensemble_workflow.py
+                     recorded 70 resource sample(s)
+21:05:08  EXAMPLE    01_getting_started/04_checkpoint_restart.py
+                     starting 4/4
+21:05:08  CACHE      01_getting_started/04_checkpoint_restart.py
+                     checking source and runner fingerprint
+21:05:08  CACHE      01_getting_started/04_checkpoint_restart.py
+                     hit; reusing 0 artifact(s)
+21:05:08  RENDER     01_getting_started/01_deterministic_workflow.py
+                     converting cells to Markdown
+21:05:08  IMAGE      01_getting_started/01_deterministic_workflow.py
+                     kept 001-cell-10.jpg (60.9 KiB; below limits)
+21:05:08  NOTEBOOK   01_getting_started/01_deterministic_workflow.py
+                     generated 01_deterministic_workflow.ipynb
+21:05:08  TELEMETRY  01_getting_started/01_deterministic_workflow.py
+                     rendered runtime telemetry panel
+21:05:08  RENDER     01_getting_started/01_deterministic_workflow.py
+                     wrote examples/01_getting_started/01_deterministic_workflow.md
+21:05:08  RENDER     01_getting_started/02_diagnostic_workflow.py
+                     converting cells to Markdown
+21:05:08  IMAGE      01_getting_started/02_diagnostic_workflow.py
+                     kept 001-cell-10.jpg (57.8 KiB; below limits)
+21:05:08  NOTEBOOK   01_getting_started/02_diagnostic_workflow.py
+                     generated 02_diagnostic_workflow.ipynb
+21:05:08  TELEMETRY  01_getting_started/02_diagnostic_workflow.py
+                     rendered runtime telemetry panel
+21:05:08  RENDER     01_getting_started/02_diagnostic_workflow.py
+                     wrote examples/01_getting_started/02_diagnostic_workflow.md
+21:05:08  RENDER     01_getting_started/03_ensemble_workflow.py
+                     converting cells to Markdown
+21:05:08  IMAGE      01_getting_started/03_ensemble_workflow.py
+                     kept 001-cell-10.jpg (59.9 KiB; below limits)
+21:05:08  NOTEBOOK   01_getting_started/03_ensemble_workflow.py
+                     generated 03_ensemble_workflow.ipynb
+21:05:08  TELEMETRY  01_getting_started/03_ensemble_workflow.py
+                     rendered runtime telemetry panel
+21:05:08  RENDER     01_getting_started/03_ensemble_workflow.py
+                     wrote examples/01_getting_started/03_ensemble_workflow.md
+21:05:08  RENDER     01_getting_started/04_checkpoint_restart.py
+                     converting cells to Markdown
+21:05:08  NOTEBOOK   01_getting_started/04_checkpoint_restart.py
+                     generated 04_checkpoint_restart.ipynb
+21:05:08  TELEMETRY  01_getting_started/04_checkpoint_restart.py
+                     rendered runtime telemetry panel
+21:05:08  RENDER     01_getting_started/04_checkpoint_restart.py
+                     wrote examples/01_getting_started/04_checkpoint_restart.md
+21:05:08  INDEX    
+                     rendering combined gallery index
+21:05:08  BACKREFS 
+                     indexed 58 API object(s) across 30 example(s); processed 664 marker(s) on 49 changed page(s)
+21:05:08  COMPLETE 
+                     finished 4 example(s), 0 failure(s)
