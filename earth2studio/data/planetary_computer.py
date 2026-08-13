@@ -35,7 +35,13 @@ from loguru import logger
 from tqdm import tqdm
 
 from earth2studio.data import GOES
-from earth2studio.data.utils import _sync_async, datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    _sync_async,
+    async_retry,
+    datasource_cache_root,
+    obstore_fetch_to_cache,
+    prep_data_inputs,
+)
 from earth2studio.lexicon.base import LexiconType
 from earth2studio.lexicon.planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFSLexicon,
@@ -51,17 +57,17 @@ from earth2studio.utils.imports import (
 from earth2studio.utils.type import TimeArray, VariableArray
 
 try:
-    import httpx
-    import planetary_computer
     import rioxarray
+    from obstore.auth.planetary_computer import PlanetaryComputerCredentialProvider
+    from obstore.store import AzureStore
     from pystac import Item
     from pystac_client import Client
 except ImportError:
     OptionalDependencyFailure("data")
-    httpx = None
     Client = None
-    planetary_computer = None
     rioxarray = None
+    AzureStore = None
+    PlanetaryComputerCredentialProvider = None
     Item = TypeVar("Item")  # type: ignore
 
 
@@ -80,7 +86,9 @@ class AssetPlan:
     """Plan describing an asset download and the variables it satisfies."""
 
     unsigned_href: str
-    signed_href: str
+    account_name: str
+    container_name: str
+    key: str
     media_type: str | None
     local_path: pathlib.Path
     variables: list[VariableSpec]
@@ -128,7 +136,7 @@ class _PlanetaryComputerData:
     max_workers : int, optional
         Upper bound on concurrent download and processing tasks, by default 24
     request_timeout : int, optional
-        Timeout (seconds) applied to individual HTTP requests, by default 60
+        Connect timeout (seconds) applied to individual HTTP requests, by default 60
     max_retries : int, optional
         Maximum retry attempts for transient network failures, by default 4
     async_timeout : int, optional
@@ -137,6 +145,9 @@ class _PlanetaryComputerData:
 
     Notes
     -----
+    Assets are read from Azure Blob Storage with obstore, using short-lived SAS
+    tokens fetched (and renewed) automatically by obstore's
+    :class:`~obstore.auth.planetary_computer.PlanetaryComputerCredentialProvider`.
     More information on the Microsoft Planetary Computer is available at
     https://planetarycomputer.microsoft.com/.
     """
@@ -146,8 +157,6 @@ class _PlanetaryComputerData:
     DEFAULT_TIMEOUT = 60
     DEFAULT_RETRIES = 4
     DEFAULT_ASYNC_TIMEOUT = 600
-    CHUNK_SIZE = 1 << 20
-    USER_AGENT = "earth2studio-planetary-computer"
 
     def __init__(
         self,
@@ -192,6 +201,9 @@ class _PlanetaryComputerData:
         self._async_timeout = async_timeout
 
         self._client: Client | None = None
+        # obstore stores keyed by (storage account, container); each store
+        # renews its Planetary Computer SAS token automatically
+        self._stores: dict[tuple[str, str], AzureStore] = {}
 
     def __call__(
         self,
@@ -290,41 +302,32 @@ class _PlanetaryComputerData:
 
         # Create download tasks
         # Use a fancy tqdm progress bar too
-        timeout = httpx.Timeout(self._request_timeout)
-        limits = httpx.Limits(max_connections=self._max_workers)
-        transport = httpx.AsyncHTTPTransport(
-            limits=limits,
-            retries=self._max_retries,
-        )
-        async with httpx.AsyncClient(timeout=timeout, transport=transport) as client:
-            semaphore = asyncio.Semaphore(self._max_workers)
-            with tqdm(
-                total=len(times) * len(variables),
-                disable=not self._verbose,
-                desc=f"Fetching msft-pc {self._collection_id}",
-            ) as progress:
-                tasks = [
-                    asyncio.create_task(
-                        self._fetch_data(
-                            client=client,
-                            semaphore=semaphore,
-                            requested_time=normalized_times[index],
-                            variables=specs,
-                            xr_array=xr_array,
-                            time_index=index,
-                            progress=progress,
-                        )
+        semaphore = asyncio.Semaphore(self._max_workers)
+        with tqdm(
+            total=len(times) * len(variables),
+            disable=not self._verbose,
+            desc=f"Fetching msft-pc {self._collection_id}",
+        ) as progress:
+            tasks = [
+                asyncio.create_task(
+                    self._fetch_data(
+                        semaphore=semaphore,
+                        requested_time=normalized_times[index],
+                        variables=specs,
+                        xr_array=xr_array,
+                        time_index=index,
+                        progress=progress,
                     )
-                    for index in range(len(times))
-                ]
-                if tasks:
-                    await asyncio.gather(*tasks)
+                )
+                for index in range(len(times))
+            ]
+            if tasks:
+                await asyncio.gather(*tasks)
 
         return xr_array
 
     async def _fetch_data(
         self,
-        client: httpx.AsyncClient,
         semaphore: asyncio.Semaphore,
         requested_time: datetime,
         variables: Sequence[VariableSpec],
@@ -337,8 +340,6 @@ class _PlanetaryComputerData:
 
         Parameters
         ----------
-        client : httpx.AsyncClient
-            Shared HTTP client used for asset requests.
         semaphore : asyncio.Semaphore
             Semaphore limiting concurrent download tasks.
         requested_time : datetime
@@ -359,7 +360,7 @@ class _PlanetaryComputerData:
 
         # Download any assets that are not yet cached locally.
         download_tasks = [
-            self._downloaded_asset(client, semaphore, plan)
+            self._downloaded_asset(semaphore, plan)
             for plan in asset_plans
             if not plan.local_path.exists()
         ]
@@ -437,50 +438,75 @@ class _PlanetaryComputerData:
         if asset_key not in item.assets:
             raise KeyError(f"Asset '{asset_key}' not available in item {item.id}")
         asset = item.assets[asset_key]
-        signed_asset = planetary_computer.sign(asset)  # type: ignore[union-attr]
         unsigned_href = asset.href
+        account_name, container_name, key = self._parse_blob_href(unsigned_href)
         local_path = self._local_asset_path(unsigned_href)
         return [
             AssetPlan(
                 unsigned_href=unsigned_href,
-                signed_href=signed_asset.href,
+                account_name=account_name,
+                container_name=container_name,
+                key=key,
                 media_type=asset.media_type,
                 local_path=local_path,
                 variables=list(variables),
             )
         ]
 
+    @staticmethod
+    def _parse_blob_href(href: str) -> tuple[str, str, str]:
+        """Split an Azure Blob Storage href into account, container and object key."""
+        parsed = urlparse(href)
+        account_name = parsed.netloc.split(".")[0]
+        container_name, _, key = parsed.path.lstrip("/").partition("/")
+        if not parsed.netloc.endswith(".blob.core.windows.net") or not key:
+            raise ValueError(f"Asset href is not an Azure Blob Storage URL: {href}")
+        return account_name, container_name, key
+
+    def _get_store(self, account_name: str, container_name: str) -> AzureStore:
+        """Return (creating if needed) the obstore store for a blob container."""
+        store_key = (account_name, container_name)
+        if store_key not in self._stores:
+            credential_provider = PlanetaryComputerCredentialProvider(
+                account_name=account_name, container_name=container_name
+            )
+            self._stores[store_key] = AzureStore(
+                credential_provider=credential_provider,
+                client_options={
+                    "connect_timeout": f"{self._request_timeout}s",
+                    "timeout": f"{self._async_timeout}s",
+                    "pool_max_idle_per_host": str(self._max_workers),
+                },
+            )
+        return self._stores[store_key]
+
     async def _downloaded_asset(
         self,
-        client: httpx.AsyncClient,
         semaphore: asyncio.Semaphore,
         plan: AssetPlan,
     ) -> None:
         """Download asset from remote source"""
-        # Ensure cache directories exist before writing any temp files.
+        # Ensure the cache directory exists before writing any files.
         plan.local_path.parent.mkdir(parents=True, exist_ok=True)
 
+        store = self._get_store(plan.account_name, plan.container_name)
         async with semaphore:
-            temp_path = plan.local_path.with_suffix(".tmp")
             try:
-                # Stream asset contents to a temporary file to guard against partial writes.
-                async with client.stream(
-                    "GET",
-                    plan.signed_href,
-                    headers={"User-Agent": self.USER_AGENT},
-                ) as response:
-                    response.raise_for_status()
-                    with temp_path.open("wb") as file_handle:
-                        async for chunk in response.aiter_bytes(self.CHUNK_SIZE):
-                            if chunk:
-                                file_handle.write(chunk)
-                temp_path.replace(plan.local_path)
+                await async_retry(
+                    obstore_fetch_to_cache,
+                    store,
+                    plan.key,
+                    str(plan.local_path.parent),
+                    cache_key=plan.local_path.name,
+                    retries=self._max_retries,
+                    backoff=1.0,
+                    exceptions=(OSError, TimeoutError, ConnectionError),
+                )
             except Exception as error:
                 # Clean up partial downloads so future retries start cleanly.
-                temp_path.unlink(missing_ok=True)
                 plan.local_path.unlink(missing_ok=True)
                 raise RuntimeError(
-                    f"Failed to download asset {plan.signed_href}"
+                    f"Failed to download asset {plan.unsigned_href}"
                 ) from error
 
     def _locate_item(self, when: datetime) -> Item:

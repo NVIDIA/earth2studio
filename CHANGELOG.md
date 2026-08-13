@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hours are memoized per instance while the current hour is always re-listed
 - Migrated Himawari AHI data source from s3fs to obstore with memoized
   minute-directory listings (scans older than an hour)
+- Migrated Planetary Computer data sources from `planetary_computer.sign()` +
+  httpx streaming to obstore `AzureStore` with the
+  `PlanetaryComputerCredentialProvider`, which fetches and renews SAS tokens
+  automatically; the `planetary-computer` and `httpx` packages are no longer
+  required by the data extra
 
 ### Deprecated
 
