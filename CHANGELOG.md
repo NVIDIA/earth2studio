@@ -42,6 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`_decode_gfs_grib`, `_decode_hrrr_grib`, `_decode_gefs_grib`,
   `_decode_cfs_grib`) into a shared `decode_grib_message` helper in
   `earth2studio.data.utils`
+- Migrated MRMS data source from s3fs to obstore, with memoized day-directory
+  listings and threaded, header-based grid decoding
+- Migrated NClimGridDaily data source from s3fs to obstore; monthly NetCDF
+  files are now downloaded once into the cache and shared across all
+  (day, variable) slices instead of being streamed per slice over fsspec
 
 ### Deprecated
 
