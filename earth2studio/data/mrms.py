@@ -381,17 +381,18 @@ class MRMS:
 
     async def _download_and_decompress_async(self, s3_uri: str) -> str:
         """Async download of gzipped GRIB2 from S3 and decompress into cache; return path."""
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
+        key = s3_uri.removeprefix(f"s3://{self.MRMS_BUCKET_NAME}/")
+
         # Cache filenames derived from key
-        key_hash = hashlib.sha256(s3_uri.encode()).hexdigest()
+        key_hash = hashlib.sha256(key.encode()).hexdigest()
         grib_path = os.path.join(self.cache, f"{key_hash}.grib2")
 
         # Download gz and decompress if not present
         if not pathlib.Path(grib_path).is_file():
-            if self.store is None:
-                raise ValueError("Object store is not initialized")
             # Read gzipped payload into memory and decompress to GRIB;
             # decompression and disk write are blocking, so run in a thread
-            key = s3_uri.removeprefix(f"s3://{self.MRMS_BUCKET_NAME}/")
             data = await obstore_read_range(self.store, key)
 
             def _decompress_to_disk() -> None:
