@@ -1499,3 +1499,80 @@ def test_async_zarr_object_store_parity(tmp_path: str) -> None:
     a = xr.open_zarr(fs_root)
     b = xr.open_zarr(ob_root)
     xr.testing.assert_identical(a, b)
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(120)
+@pytest.mark.parametrize("blocking", [True, False])
+@pytest.mark.skipif(
+    "S3FS_KEY" not in os.environ or "S3FS_SECRET" not in os.environ,
+    reason="S3FS credentials not found in environment",
+)
+def test_async_zarr_object_store_remote(blocking: bool) -> None:
+    """Cloud write smoke test for the obstore-backed store path, the ObjectStore
+    twin of test_async_zarr_remote"""
+    import uuid
+
+    import obstore
+    import obstore.store
+
+    config: dict[str, str] = {
+        "access_key_id": os.environ["S3FS_KEY"],
+        "secret_access_key": os.environ["S3FS_SECRET"],
+    }
+    if endpoint := os.environ.get("S3FS_ENDPOINT"):
+        config["endpoint"] = endpoint
+
+    root = f"s3://earth2studio/ci/pytest/{uuid.uuid4()}.zarr"
+    store = obstore.store.from_url(root, config=config)
+
+    times = [
+        np.datetime64("1971-06-01T06:00:00"),
+        np.datetime64("2021-11-23T18:00:00"),
+        np.datetime64("2021-11-24T00:00:00"),
+    ]
+    parallel_coords = {
+        "time": np.asarray(times),
+    }
+    variable = np.asarray(["t2m", "tcwv"])
+
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray(times),
+            "variable": variable,
+            "lat": np.linspace(-90, 90, 8),
+            "lon": np.linspace(0, 360, 16, endpoint=False),
+        }
+    )
+    shape = [v.shape[0] for v in total_coords.values()]
+    x = torch.randn(shape, dtype=torch.float32)
+    z = AsyncZarrBackend(
+        "unused.zarr",
+        parallel_coords=parallel_coords,
+        store=store,
+        blocking=blocking,
+    )
+
+    try:
+        for i, time0 in enumerate(times):
+            total_coords["time"] = np.array([time0])
+            split_x, coords, array_names = split_coords(
+                x[i : i + 1], total_coords, dim="variable"
+            )
+            z.write(split_x, coords, array_names)
+        z.close()
+
+        # Verify contents through a fresh read-only store
+        read_store = zarr.storage.ObjectStore(
+            obstore.store.from_url(root, config=config), read_only=True
+        )
+        ds = xr.open_zarr(read_store, consolidated=False)
+        for i, v in enumerate(variable):
+            assert v in ds
+            assert np.allclose(ds[v].values, x[:, i].numpy())
+    finally:
+        # Delete the zarr store via obstore
+        keys = [entry["path"] for chunk in obstore.list(store) for entry in chunk]
+        if keys:
+            obstore.delete(store, keys)
