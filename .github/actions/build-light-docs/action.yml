@@ -74,7 +74,6 @@ runs:
       shell: bash
       env:
         EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
-        UV_CACHE_DIR: /opt/uv-cache
       run: make docs-full
 
     - name: Upload docs artifact
