@@ -151,7 +151,9 @@ fci = {
 # retrieved from the 1 km data source.
 
 # %%
-# Analysis time; replace with any time for which MTG-I1 FCI data is available.
+# Start time; replace with any time for which MTG-I1 FCI data is available.
+# StormScopeMeteosatEU was trained on November 2024 - May 2026 data; start times
+# should generally be outside that period.
 start_time = np.datetime64(datetime(2026, 6, 15, 12, 0, 0, tzinfo=timezone.utc))
 in_coords = model.input_coords()
 variables = in_coords["variable"]
