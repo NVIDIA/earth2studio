@@ -792,14 +792,31 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">async_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">decode_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">retries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">sensor_indices</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L429-L774"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsSat" title="Link to this definition">#</a></dt>
-<dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:observation" style="background-color:#15803d;color:#fff;" title="Direct Observations"><i class="fa-solid fa-binoculars"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:atmos" style="background-color:#74c0fc;color:#fff;" title="Atmosphere"><i class="fa-solid fa-cloud"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:sat" style="background-color:#1c7ed6;color:#fff;" title="Satellite"><i class="fa-solid fa-satellite"></i></span></span><p>NNJA historical NCEP aggregate microwave satellite observations.</p>
-<p>This source reads the NCEP satellite ATMS, MHS, AMSU-A, and AMSU-B
-BUFR products from the NNJA archive. It returns one long-format row per
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L473-L939"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsSat" title="Link to this definition">#</a></dt>
+<dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:observation" style="background-color:#15803d;color:#fff;" title="Direct Observations"><i class="fa-solid fa-binoculars"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:atmos" style="background-color:#74c0fc;color:#fff;" title="Atmosphere"><i class="fa-solid fa-cloud"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:sat" style="background-color:#1c7ed6;color:#fff;" title="Satellite"><i class="fa-solid fa-satellite"></i></span></span><p>NNJA historical NCEP aggregate satellite observations.</p>
+<p>This source reads the NCEP satellite microwave (ATMS, MHS, AMSU-A,
+AMSU-B) and hyperspectral infrared sounder (AIRS, IASI, CrIS) BUFR
+products from the NNJA archive. It returns one long-format row per
 finite encoded channel value. <code class="docutils literal notranslate"><span class="pre">sensor_index</span></code> is the physical <code class="docutils literal notranslate"><span class="pre">CHNM</span></code>
 channel number, not a dense index into a selected channel list.</p>
+<p>The IR sounders are returned in brightness temperature (K) regardless of
+how the archive stores them: AIRS is encoded as brightness temperature
+(<code class="docutils literal notranslate"><span class="pre">TMBR</span></code>) directly, while IASI (scaled integer radiance, <code class="docutils literal notranslate"><span class="pre">SCRA</span></code>) and
+CrIS (float radiance, <code class="docutils literal notranslate"><span class="pre">SRAD</span></code>) are converted via Planck inversion. The
+<code class="docutils literal notranslate"><span class="pre">wavenumber</span></code> column carries the channel centre wavenumber in cm⁻¹,
+computed from the instrument grids for IASI/CrIS and read from the
+per-channel <code class="docutils literal notranslate"><span class="pre">LOGRCW</span></code> field of the aggregate for AIRS.
+The aggregates carry the NCEP channel subsets (281 AIRS, 616 IASI, 431
+CrIS) numbered on the instrument grids; <code class="docutils literal notranslate"><span class="pre">cris</span></code> routes to the
+full-spectral-resolution <code class="docutils literal notranslate"><span class="pre">crisf4</span></code> product whose channel numbers live
+on the 2211-channel FSR grid. Archive coverage: AIRS 2002–2023
+(NASA/Aqua route), IASI 2008–present, CrIS (FSR) 2018–present. All
+archived channels are returned by default; pass <code class="docutils literal notranslate"><span class="pre">sensor_indices</span></code> to
+narrow at decode time or subset downstream via the <code class="docutils literal notranslate"><span class="pre">sensor_index</span></code>
+column.</p>
 <p><code class="docutils literal notranslate"><span class="pre">atms</span></code> returns the encoded 22-channel <code class="docutils literal notranslate"><span class="pre">TMBR</span></code> scene brightness
 temperature. <code class="docutils literal notranslate"><span class="pre">atms_antenna_temperature</span></code> returns the corresponding
 encoded <code class="docutils literal notranslate"><span class="pre">TMANT</span></code> antenna temperature. No conversion is performed between
@@ -812,10 +829,22 @@ temperature for AMSU-A, AMSU-B, and MHS, except for NOAA-15/16, which its
 reader treats as already converted upstream. NOAA satingest independently
 confirms that exception for AMSU-A. The platform identity is retained so a
 downstream transform can apply the appropriate convention explicitly.</p>
-<p><code class="docutils literal notranslate"><span class="pre">scan_position</span></code> preserves the encoded one-based FOV number.
-<code class="docutils literal notranslate"><span class="pre">scan_angle</span></code> is the signed nominal instrument look angle derived from
-that FOV; negative values are on the first half of the scan. The encoded
-<code class="docutils literal notranslate"><span class="pre">satellite_za</span></code> remains the unsigned Earth-view zenith magnitude.</p>
+<p><code class="docutils literal notranslate"><span class="pre">scan_position</span></code> is the one-based cross-track position: the encoded
+<code class="docutils literal notranslate"><span class="pre">FOVN</span></code> for the microwave sensors, AIRS (1-90), and IASI (1-120, a
+composite of 30 fields of regard x 4 detectors), and the encoded
+<code class="docutils literal notranslate"><span class="pre">FORN</span></code> (1-30) for CrIS, whose <code class="docutils literal notranslate"><span class="pre">FOVN</span></code> is the 1-9 detector index
+within the 3x3 field of regard and is not carried. <code class="docutils literal notranslate"><span class="pre">scan_angle</span></code> is
+the signed nominal instrument look angle derived from the FOV for the
+microwave sensors; it is always NaN for the IR sounders, whose scan
+geometry is sensor-specific — use <code class="docutils literal notranslate"><span class="pre">satellite_za</span></code> (the unsigned
+Earth-view zenith magnitude) for view-angle screening.</p>
+<p><code class="docutils literal notranslate"><span class="pre">elev</span></code> (surface elevation) is populated only for CrIS, whose template
+carries <code class="docutils literal notranslate"><span class="pre">HOLS</span></code>; the AIRS and IASI templates carry no surface-elevation
+field at all, so <code class="docutils literal notranslate"><span class="pre">elev</span></code> is null for them. (Their <code class="docutils literal notranslate"><span class="pre">SELV</span></code> field is the
+platform’s orbital altitude, ~700-840 km, and must not be mistaken for
+surface elevation.) <code class="docutils literal notranslate"><span class="pre">scan_line</span></code> is the encoded <code class="docutils literal notranslate"><span class="pre">SLNM</span></code>, a
+granule-local counter that repeats within a cycle file; pair it with
+<code class="docutils literal notranslate"><span class="pre">time</span></code> to address a scan.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -832,16 +861,34 @@ the requested aggregate files.</p></li>
 disable multiprocessing, by default 8.</p></li>
 <li><p><strong>retries</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of retry attempts per failed fetch task with exponential
 backoff, by default 3.</p></li>
+<li><p><strong>sensor_indices</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Sequence</em><em>[</em><em>int</em><em>]</em><em>] </em><em>| </em><em>None</em><em>, </em><em>optional</em>) – Per-sensor channel-number subsets for the IR sounders, e.g.
+<code class="docutils literal notranslate"><span class="pre">{&quot;cris&quot;:</span> <span class="pre">[19,</span> <span class="pre">24],</span> <span class="pre">&quot;iasi&quot;:</span> <span class="pre">[16]}</span></code>. Named after the
+<code class="docutils literal notranslate"><span class="pre">sensor_indices</span></code> selection of the JPSS/METOP sources and applied
+at decode time like theirs, but keyed per sensor since this source
+spans several instruments. Selections must be non-empty, unique
+integers on the instrument grid (AIRS 1-2378, IASI 1-8461, CrIS FSR
+1-2211); a channel on the grid but absent from the archived NCEP
+subset matches no rows. Sensors absent from the dict (and all
+microwave sensors) return every archived channel. By default None
+(all channels).</p></li>
 </ul>
 </dd>
 </dl>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Aggregate cycle files contain millions of footprints. Broad long-format
-requests can require substantial memory. A finite archived value is not a
-QC decision: historical files may retain passive or degraded channels even
-when the aggregate carries no usable quality flag. Training pipelines
-should apply an explicit platform/channel validity policy.</p>
+<p>Aggregate cycle files contain millions of footprints, and hyperspectral
+IR requests return one long-format row per (footprint, channel). At all
+channels a single 6-hour cycle is on the order of 10⁸-10⁹ rows per
+sensor (CrIS ~940 M across its three platforms, IASI ~400 M, AIRS
+~210 M), which does not fit in memory on ordinary machines. All-channel
+requests are for narrow time windows and diagnostics; use
+<code class="docutils literal notranslate"><span class="pre">sensor_indices</span></code> to select a channel subset for anything larger — the
+narrowing is applied before rows are built, so a 32-channel CrIS
+request costs roughly 32/431 of the above. A finite archived value is
+not a QC decision: historical files may retain passive or degraded
+channels even when the aggregate carries no usable quality flag.
+Training pipelines should apply an explicit platform/channel validity
+policy.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -860,7 +907,7 @@ should apply an explicit platform/channel validity policy.</p>
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.NNJAObsSat.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L555-L569"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsSat.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L684-L698"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsSat.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Fetch observations for a set of timestamps.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -878,7 +925,7 @@ should apply an explicit platform/channel validity policy.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.NNJAObsSat.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L571-L596"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsSat.fetch" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L700-L725"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsSat.fetch" title="Link to this definition">#</a></dt>
 <dd><p>Async function to get data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -896,7 +943,7 @@ should apply an explicit platform/channel validity policy.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.NNJAObsSat.available">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L749-L769"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsSat.available" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L914-L934"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NNJAObsSat.available" title="Link to this definition">#</a></dt>
 <dd><p>Check if given date time is available.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
