@@ -232,7 +232,8 @@ class AsyncZarrBackend:
     Parameters
     ----------
     file_name : str
-        Path location to place zarr store
+        Path location to place zarr store. Ignored when `store` is provided, since
+        the store then defines the output location.
     parallel_coords : CoordSystem
         Coordinates that enable parallel writes during inference. These coordinates
         specify which dimensions will be written in parallel via async operations,
@@ -243,7 +244,8 @@ class AsyncZarrBackend:
         populated upon the first write to the respective array.
     fs_factory : Callable[..., fsspec.spec.AbstractFileSystem], optional
         FSSpec file system factory method. This is a callable object that should return
-        an instance of the desired filesystem to use, by default LocalFileSystem
+        an instance of the desired filesystem to use, by default LocalFileSystem.
+        Ignored when `store` is provided.
     blocking : bool, optional
         Blocking write calls in the synchronous API. When set to false, the IO backend
         will execute write calls in separate threads. Users should call the `close()`
@@ -276,6 +278,18 @@ class AsyncZarrBackend:
         what keep sharded write throughput up, at the cost of holding that many shards
         in memory. Lower it if memory is tight, raise it if writes are the bottleneck
         and the store has bandwidth to spare, by default 4
+    store : str | zarr.abc.store.Store | obstore store, optional
+        Obstore-backed output store, bypassing fsspec entirely so cloud writes use
+        obstore's native put / multipart upload. Accepts a store URL resolved with
+        ``obstore.store.from_url`` (e.g. ``s3://bucket/forecast.zarr``,
+        ``gs://bucket/out.zarr``, ``file:///tmp/out.zarr``), an obstore store
+        instance, or an already constructed zarr store. Credentials are resolved
+        from the environment by obstore unless passed via `store_kwargs`. When set,
+        `file_name` and `fs_factory` are ignored, by default None
+    store_kwargs : dict[str, Any], optional
+        Additional configuration forwarded to ``obstore.store.from_url`` when
+        `store` is a URL string (e.g. ``region``, ``skip_signature``, credentials),
+        by default {}
 
     Raises
     ------
@@ -328,6 +342,8 @@ class AsyncZarrBackend:
         chunked_coords: dict[str, int] = {},
         shard_coords: dict[str, int] = {},
         max_inflight_shards: int = 4,
+        store: str | zarr.abc.store.Store | Any | None = None,
+        store_kwargs: dict[str, Any] = {},
     ) -> None:
         # May need to trigger warning about this, needed to handle multi-threading!
         # But silent for now since people wont know what this means / get confused by an error message I think
@@ -337,6 +353,12 @@ class AsyncZarrBackend:
             raise TypeError(
                 "fs_factory must be a callable that returns a fsspec.spec.AbstractFileSystem"
             )
+
+        # Obstore-backed output store; when set the fsspec machinery is bypassed
+        # and every loop in the pool shares this single store instance (obstore
+        # binds each request to the calling event loop, so cross-loop sharing is
+        # safe and mirrors the shared state of the remote object store)
+        self._object_store = self._resolve_store(store, store_kwargs)
 
         self.overwrite = False  # Not formally supported
         self.parallel_coords = self._scrub_coordinates(parallel_coords.copy())
@@ -399,6 +421,42 @@ class AsyncZarrBackend:
         fsspec.asyn.sync(loop, self._validate_parallel_coords)
         self.loop = loop
 
+    @staticmethod
+    def _resolve_store(
+        store: str | zarr.abc.store.Store | Any | None,
+        store_kwargs: dict[str, Any],
+    ) -> zarr.abc.store.Store | None:
+        """Resolves the `store` parameter into a zarr store, or None.
+
+        Parameters
+        ----------
+        store : str | zarr.abc.store.Store | Any | None
+            Store URL (resolved with ``obstore.store.from_url``), obstore store
+            instance, already constructed zarr store, or None for the fsspec path
+        store_kwargs : dict[str, Any]
+            Configuration forwarded to ``obstore.store.from_url`` for URL inputs
+
+        Returns
+        -------
+        zarr.abc.store.Store | None
+            Writable zarr store, or None when no store was requested
+        """
+        if store is None:
+            return None
+        if isinstance(store, zarr.abc.store.Store):
+            if store.read_only:
+                raise ValueError(
+                    "Provided zarr store is read-only; the IO backend needs a "
+                    "writable store"
+                )
+            return store
+
+        import obstore.store
+
+        if isinstance(store, str):
+            store = obstore.store.from_url(store, **store_kwargs)
+        return zarr.storage.ObjectStore(store, read_only=False)
+
     def _initialize_loop_pool(
         self, max_pool_size: int
     ) -> list[asyncio.AbstractEventLoop]:
@@ -443,7 +501,7 @@ class AsyncZarrBackend:
         root: str,
         fs_factory: Callable[..., fsspec.spec.AbstractFileSystem],
         zarr_kwargs: dict[str, Any] = {},
-    ) -> tuple[AsyncGroup, fsspec.AbstractFileSystem]:
+    ) -> tuple[AsyncGroup, fsspec.AbstractFileSystem | None]:
         """Initializes both the fsspec filesystem and zarr group, its critical this
         function is called inside the correct loop
 
@@ -458,24 +516,29 @@ class AsyncZarrBackend:
 
         Returns
         -------
-        tuple[zarr.AsyncGroup, fsspec.AbstractFileSystem]
-            Initialzied zarr group and file system
+        tuple[zarr.AsyncGroup, fsspec.AbstractFileSystem | None]
+            Initialzied zarr group and file system (None when an obstore-backed
+            store is used, which needs no fsspec session handling)
         """
-        fs = fs_factory()
-        if "local" in fs.protocol:
-            zstore = zarr.storage.LocalStore(root=root)
-        elif "memory" in fs.protocol:
-            # In in memory store we just reuse the same zarr object for the entire pool
-            # async loop is not a concern here
-            if len(self.zarr_pool) > 0:
-                return self.zarr_pool[0], fs
-            zstore = zarr.storage.MemoryStore()
+        if self._object_store is not None:
+            fs = None
+            zstore: zarr.abc.store.Store = self._object_store
         else:
-            if not fs.asynchronous:
-                raise TypeError(
-                    f"Initialized file system {fs} needs to be asynchronous"
-                )
-            zstore = zarr.storage.FsspecStore(fs, path=root)
+            fs = fs_factory()
+            if "local" in fs.protocol:
+                zstore = zarr.storage.LocalStore(root=root)
+            elif "memory" in fs.protocol:
+                # In in memory store we just reuse the same zarr object for the entire pool
+                # async loop is not a concern here
+                if len(self.zarr_pool) > 0:
+                    return self.zarr_pool[0], fs
+                zstore = zarr.storage.MemoryStore()
+            else:
+                if not fs.asynchronous:
+                    raise TypeError(
+                        f"Initialized file system {fs} needs to be asynchronous"
+                    )
+                zstore = zarr.storage.FsspecStore(fs, path=root)
 
         # Zarr ≥3.1 reads a zarr.json consolidated-metadata snapshot
         # Any workflow calling zarr.consolidate_metadata on exit therefore makes arrays
@@ -1223,7 +1286,7 @@ class AsyncZarrBackend:
         x: dict[str, torch.Tensor],
         coords: CoordSystem,
         zs: AsyncGroup,
-        fs: fsspec.AbstractFileSystem,
+        fs: fsspec.AbstractFileSystem | None,
     ) -> None:
         """_summary_
 
@@ -1235,8 +1298,9 @@ class AsyncZarrBackend:
             Coordinates of the passed data.
         zs : zarr.AsyncGroup
             Zarr store to use
-        fs : fsspec.AbstractFileSystem
-            File system to use (relevant for session creation)
+        fs : fsspec.AbstractFileSystem | None
+            File system to use (relevant for session creation); None for
+            obstore-backed stores, which manage their own sessions
         """
 
         # Move data to CPU
