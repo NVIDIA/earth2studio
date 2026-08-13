@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added Zarr v3 sharding support to `AsyncZarrBackend`
+- Added a working `add_array` plus `__contains__`, `__getitem__`, `__iter__`,
+  `__len__`, `store` and `coords` to `AsyncZarrBackend`, matching `ZarrBackend`, and
+  `output.io_backend` to the eval recipe to select between them (`async_zarr` is the
+  new default)
+- Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
+  `NNJAObsSat`, returned as brightness temperature (K) with per-channel
+  wavenumbers alongside the existing microwave sensors
 
 ### Changed
 
@@ -24,6 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (~30% faster)
 - Migrated GOES GLM data source from s3fs to obstore; listings of complete
   hours are memoized per instance while the current hour is always re-listed
+- Migrated Himawari AHI data source from s3fs to obstore with memoized
+  minute-directory listings (scans older than an hour)
+- Migrated MRMS data source from s3fs to obstore, with memoized day-directory
+  listings and threaded, header-based grid decoding
+- Migrated NClimGridDaily data source from s3fs to obstore; monthly NetCDF
+  files are now downloaded once into the cache and shared across all
+  (day, variable) slices instead of being streamed per slice over fsspec
 
 ### Deprecated
 
