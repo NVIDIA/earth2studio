@@ -16,10 +16,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import pathlib
 import shutil
+import threading
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
 import h5py  # type: ignore
@@ -38,6 +41,10 @@ from earth2studio.data.utils import (
 )
 from earth2studio.lexicon.jpss import JPSSLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
+
+# HDF5 (netCDF4) is not thread-safe; serialize HDF5 reads across the
+# decode worker threads while downloads keep flowing on the event loop
+_HDF5_LOCK = threading.Lock()
 
 
 class JPSS:
@@ -308,27 +315,41 @@ class JPSS:
         # Fetch the file from S3
         local_file = await self._fetch_remote_file(s3_uri)
 
-        # NetCDF file - use xarray
-        with h5py.File(local_file, "r") as h5:
-            # Get dataset from HDF5 file
-            if self._product_type in ["I", "M"]:
-                ds = h5["All_Data"][folder + "_All"][dataset_name]
-            else:
-                ds = h5[dataset_name]
-
-            # Get data from dataset
-            data = ds[...]
-
-            # Filter VIIRS fill values BEFORE converting to float32 to preserve original dtype
-            filtered_data = self._filter_fill_values(data, ds)
-
-            # Apply CF-convention scaling (scale_factor / add_offset) when present
-            filtered_data = self._apply_cf_scaling(filtered_data, ds)
-
-            # Apply modifier
-            processed_data = modifier(filtered_data)
+        # HDF5 decode is CPU-bound; run in a worker thread so it overlaps
+        # with concurrent granule downloads instead of blocking the event loop
+        processed_data = await asyncio.to_thread(
+            self._decode_data, local_file, folder, dataset_name, modifier
+        )
 
         return processed_data, timestamp, filename
+
+    def _decode_data(
+        self,
+        local_file: str,
+        folder: str,
+        dataset_name: str,
+        modifier: Callable,
+    ) -> np.ndarray:
+        """Decode a cached VIIRS HDF5 granule into a processed numpy array"""
+        with _HDF5_LOCK:
+            with h5py.File(local_file, "r") as h5:
+                # Get dataset from HDF5 file
+                if self._product_type in ["I", "M"]:
+                    ds = h5["All_Data"][folder + "_All"][dataset_name]
+                else:
+                    ds = h5[dataset_name]
+
+                # Get data from dataset
+                data = ds[...]
+
+                # Filter VIIRS fill values BEFORE converting to float32 to preserve original dtype
+                filtered_data = self._filter_fill_values(data, ds)
+
+                # Apply CF-convention scaling (scale_factor / add_offset) when present
+                filtered_data = self._apply_cf_scaling(filtered_data, ds)
+
+        # Apply modifier
+        return modifier(filtered_data)
 
     async def fetch_geolocation_wrapper(
         self,
@@ -361,15 +382,25 @@ class JPSS:
         # Fetch the file from S3
         local_file = await self._fetch_remote_file(s3_uri)
 
-        with h5py.File(local_file, "r") as h5:
-            lat_ds = h5["All_Data"][list(h5["All_Data"].keys())[0]][
-                "Latitude"
-            ]  # Kind of a hacky way to get the lat/lon data
-            lon_ds = h5["All_Data"][list(h5["All_Data"].keys())[0]]["Longitude"]
-            lat = np.asarray(lat_ds[...], dtype=np.float32)
-            lon = np.asarray(lon_ds[...], dtype=np.float32)
+        # HDF5 decode is CPU-bound; run in a worker thread so it overlaps
+        # with concurrent granule downloads instead of blocking the event loop
+        lat, lon = await asyncio.to_thread(self._decode_geolocation, local_file)
 
         return lat, lon, timestamp, filename
+
+    @staticmethod
+    def _decode_geolocation(local_file: str) -> tuple[np.ndarray, np.ndarray]:
+        """Decode a cached VIIRS geolocation HDF5 file into lat/lon arrays"""
+        with _HDF5_LOCK:
+            with h5py.File(local_file, "r") as h5:
+                lat_ds = h5["All_Data"][list(h5["All_Data"].keys())[0]][
+                    "Latitude"
+                ]  # Kind of a hacky way to get the lat/lon data
+                lon_ds = h5["All_Data"][list(h5["All_Data"].keys())[0]]["Longitude"]
+                lat = np.asarray(lat_ds[...], dtype=np.float32)
+                lon = np.asarray(lon_ds[...], dtype=np.float32)
+
+        return lat, lon
 
     def _filter_fill_values(
         self, data: np.ndarray, dataset: h5py.Dataset

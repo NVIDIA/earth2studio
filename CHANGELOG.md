@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Vectorized the JPSS ATMS BUFR decode (numpy column assembly + Arrow table
   accumulation instead of per-row dicts), roughly halving end-to-end fetch
   time; decoded output is bit-identical to the previous implementation
+- JPSS VIIRS HDF5 decode now runs in worker threads (serialized by an HDF5
+  lock) so decoding no longer blocks concurrent granule downloads
 
 ### Deprecated
 
