@@ -38,7 +38,6 @@ env:
   DOCS_PAGES_BRANCH: gh-pages
   EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
   EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/.cache/earth2studio-data
-  EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
   UV_PYTHON: "3.13.13"
 
@@ -112,7 +111,6 @@ jobs:
           artifact-name: docs-full-html
           artifact-retention-days: "10"
           gallery-cache-name: ${{ github.ref_name }}
-          model-cache-name: docs-full-main
           save-caches: "true"
           upload-artifact: "false"
         env:

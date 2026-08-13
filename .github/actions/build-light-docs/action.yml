@@ -27,9 +27,6 @@ inputs:
   gallery-cache-name:
     description: Stable gallery cache scope to restore and optionally update.
     default: main
-  model-cache-name:
-    description: Stable model cache scope to restore and optionally update.
-    default: docs-light-main
   save-caches:
     description: Whether to save updated gallery and model caches.
     default: "false"
@@ -47,18 +44,6 @@ runs:
     - name: Prepare runner temp model cache
       shell: bash
       run: mkdir -p "${RUNNER_TEMP}/earth2studio-models"
-
-    - name: Restore model cache
-      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-      continue-on-error: true
-      with:
-        path: ${{ runner.temp }}/earth2studio-models
-        key: e2s-model-${{ runner.os }}-${{ inputs.model-cache-name }}-${{ github.run_id }}-${{ github.run_attempt }}
-        restore-keys: |
-          e2s-model-${{ runner.os }}-${{ inputs.model-cache-name }}-
-          e2s-model-${{ runner.os }}-docs-light-main-
-          e2s-model-${{ runner.os }}-docs-full-main-
-          e2s-model-${{ runner.os }}-
 
     - name: Restore gallery cache
       uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
@@ -89,6 +74,7 @@ runs:
       shell: bash
       env:
         EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
+        UV_CACHE_DIR: /opt/uv-cache
       run: make docs-full
 
     - name: Upload docs artifact
@@ -109,13 +95,3 @@ runs:
       with:
         path: .e2sgallery
         key: e2s-gallery-${{ runner.os }}-${{ inputs.gallery-cache-name }}-${{ github.run_id }}-${{ github.run_attempt }}
-
-    - name: Save model cache
-      if: >
-        always() &&
-        inputs.save-caches == 'true'
-      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
-      continue-on-error: true
-      with:
-        path: ${{ runner.temp }}/earth2studio-models
-        key: e2s-model-${{ runner.os }}-${{ inputs.model-cache-name }}-${{ github.run_id }}-${{ github.run_attempt }}
