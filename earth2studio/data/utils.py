@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import random
 import tempfile
@@ -593,6 +594,7 @@ async def async_retry(
     backoff: float = 1.0,
     task_timeout: float | None = None,
     exceptions: tuple[type[BaseException], ...] = (OSError, TimeoutError),
+    no_retry: tuple[type[BaseException], ...] = (),
     **kwargs: Any,
 ) -> Any:
     """Retry an async callable with exponential backoff and jitter.
@@ -613,6 +615,11 @@ async def async_retry(
         Exception types to catch and retry on. Should be scoped to transient
         I/O errors (OSError, IOError, TimeoutError, ConnectionError), not
         broad Exception which would mask programming errors.
+    no_retry : tuple, optional
+        Exception types to re-raise immediately even when they subclass an
+        entry in ``exceptions``, for permanent failures that would otherwise
+        be retried uselessly (e.g. FileNotFoundError under OSError), by
+        default ()
     **kwargs : Any
         Keyword arguments for coro_func
 
@@ -642,6 +649,9 @@ async def async_retry(
             last_exc = asyncio.TimeoutError(
                 f"Attempt {attempt + 1}/{retries + 1} timed out after {task_timeout}s"
             )
+        except no_retry:
+            # Permanent failures: retrying cannot succeed
+            raise
         except exceptions as e:
             last_exc = e
         if attempt < retries:
@@ -997,6 +1007,34 @@ async def obstore_read_range(
     return bytes(data)
 
 
+def atomic_write_bytes(path: str | os.PathLike, data: bytes) -> None:
+    """Writes bytes to a file atomically via a same-directory temp file.
+
+    Readers never observe a partially written file: content is written to a
+    unique temporary file in the destination directory and published with an
+    atomic ``os.replace``. Concurrent writers of the same path are safe (the
+    last writer wins with complete content), and interrupted writes leave the
+    destination untouched.
+
+    Parameters
+    ----------
+    path : str | os.PathLike
+        Destination file path
+    data : bytes
+        Content to write
+    """
+    path = os.fspath(path)
+    fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path) or ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as file:
+            file.write(data)
+        os.replace(tmp_path, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_path)
+        raise
+
+
 async def obstore_fetch_to_cache(
     store: AsyncReadableStore,
     key: str,
@@ -1012,6 +1050,11 @@ async def obstore_fetch_to_cache(
     migrating from fsspec-based fetching should pass an explicit ``cache_key``
     hashed from their historical (e.g. bucket-prefixed) path so existing warm
     caches remain valid.
+
+    Whole-object fetches are streamed to disk chunk by chunk to bound memory
+    usage, and every fetch is published atomically (temp file + rename), so a
+    crash or concurrent fetch of the same object can never leave a partial
+    file behind as a poisoned cache entry.
 
     Parameters
     ----------
@@ -1038,10 +1081,30 @@ async def obstore_fetch_to_cache(
     cache_path = os.path.join(cache_dir, cache_key)
     if Path(cache_path).is_file():
         return cache_path
-    data = await obstore_read_range(
-        store, key, byte_offset=byte_offset, byte_length=byte_length
-    )
-    await asyncio.to_thread(Path(cache_path).write_bytes, data)
+    if byte_offset == 0 and byte_length is None:
+        # Whole object: stream chunks straight to a temp file so large assets
+        # are never buffered fully in memory, then publish atomically
+        try:
+            resp = await store.get_async(key)
+        except (FileNotFoundError, obs.exceptions.NotFoundError):
+            raise FileNotFoundError(f"Object {key} not found in store") from None
+        fd, tmp_path = await asyncio.to_thread(
+            tempfile.mkstemp, dir=cache_dir, suffix=".tmp"
+        )
+        try:
+            with os.fdopen(fd, "wb") as file:
+                async for chunk in resp:
+                    file.write(chunk)
+            await asyncio.to_thread(os.replace, tmp_path, cache_path)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_path)
+            raise
+    else:
+        data = await obstore_read_range(
+            store, key, byte_offset=byte_offset, byte_length=byte_length
+        )
+        await asyncio.to_thread(atomic_write_bytes, cache_path, data)
     return cache_path
 
 
