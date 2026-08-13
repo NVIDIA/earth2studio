@@ -1305,8 +1305,8 @@ def radiance_to_bt(
     Notes
     -----
     Uses NIST CODATA 2018 radiation constants:
-    - C1 = 1.191042953e-5 mW/(m²·sr·cm⁻⁴)
-    - C2 = 1.4387774 K·cm
+    - C1 = 1.191042972e-5 mW/(m²·sr·cm⁻⁴)
+    - C2 = 1.438776877 K·cm
 
     Examples
     --------
@@ -1324,9 +1324,12 @@ def radiance_to_bt(
     nu = np.asarray(wavenumber)
     nu3 = nu * nu * nu
 
-    # Compute inverse Planck, suppressing warnings for invalid radiance
+    # Compute inverse Planck, suppressing warnings for invalid radiance.
+    # log(1 + x) rather than log1p: the argument is e^(C2·nu/T) - 1, which
+    # never falls below ~16 over Earth scenes, so log1p buys no accuracy
+    # here and is measurably slower.
     with np.errstate(divide="ignore", invalid="ignore"):
-        t_star = PLANCK_C2 * nu / np.log1p(PLANCK_C1 * nu3 / radiance)
+        t_star = PLANCK_C2 * nu / np.log(1.0 + PLANCK_C1 * nu3 / radiance)
 
     # Mask invalid radiance (≤0 or NaN) → NaN in output
     invalid = ~(radiance > 0)
