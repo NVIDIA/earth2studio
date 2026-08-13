@@ -351,18 +351,23 @@ class TestGHCNMock:
             verbose=False,
         )
 
-        # Mock the async filesystem
-        mock_fs = MagicMock()
-        mock_fs.set_session = AsyncMock(return_value=MagicMock(close=AsyncMock()))
-        mock_fs._ls = AsyncMock(
-            return_value=[
-                f"noaa-ghcn-pds/parquet/by_year/YEAR=2023/ELEMENT={element}/part.parquet"
-            ]
-        )
-        mock_fs._cat_file = AsyncMock(return_value=parquet_bytes)
-        ds.fs = mock_fs
-
-        result = ds(datetime(2023, 1, 1), [variable])
+        # Mock the obstore listing and byte reads
+        ds.store = MagicMock()
+        with (
+            patch(
+                "earth2studio.data.ghcn.obstore_list_prefix",
+                AsyncMock(
+                    return_value=[
+                        f"parquet/by_year/YEAR=2023/ELEMENT={element}/part.parquet"
+                    ]
+                ),
+            ),
+            patch(
+                "earth2studio.data.ghcn.obstore_read_range",
+                AsyncMock(return_value=parquet_bytes),
+            ),
+        ):
+            result = ds(datetime(2023, 1, 1), [variable])
 
         assert list(result.columns) == ds.SCHEMA.names
         assert set(result["variable"].unique()) == {variable}

@@ -24,20 +24,22 @@ import uuid
 from abc import abstractmethod
 from datetime import datetime
 
-import fsspec
 import numpy as np
+import obstore as obs
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-import s3fs
 from loguru import logger
+from obstore.store import ObjectStore
 
 from earth2studio.data.utils import (
     _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
-    managed_session,
+    obstore_list_prefix,
+    obstore_read_range,
+    obstore_store_from_url,
     prep_data_inputs,
 )
 from earth2studio.lexicon.ghcn import GHCNDailyLexicon, GHCNHourlyLexicon
@@ -420,8 +422,9 @@ class GHCNDaily(_GHCNBase):
         stations_file = os.path.join(cache_dir, "ghcnd-stations.txt")
 
         if not os.path.isfile(stations_file):
-            fs = s3fs.S3FileSystem(anon=True)
-            fs.get("s3://noaa-ghcn-pds/ghcnd-stations.txt", stations_file)
+            store = obstore_store_from_url("s3://noaa-ghcn-pds")
+            data = obs.get(store, "ghcnd-stations.txt").bytes()
+            pathlib.Path(stations_file).write_bytes(data)
 
         return pd.read_fwf(
             stations_file,
@@ -450,21 +453,14 @@ class GHCNDaily(_GHCNBase):
         )
         # Station metadata (lat, lon, elev) loaded lazily
         self._station_meta: pd.DataFrame | None = None
-        self.fs: s3fs.S3FileSystem | None = None
+        self.store: ObjectStore | None = None
+        # Memoized partition listings; past years' partitions are immutable so
+        # repeated fetches over the same (year, element) share one LIST request.
+        self._list_cache: dict[str, list[str]] = {}
 
     async def _async_init(self) -> None:
-        """Async initialization of filesystem.
-
-        Note
-        ----
-        Async fsspec expects initialization inside the execution loop.
-        """
-        self.fs = s3fs.S3FileSystem(
-            anon=True,
-            client_kwargs={},
-            asynchronous=True,
-            skip_instance_cache=True,
-        )
+        """Async initialization of the obstore S3 store"""
+        self.store = obstore_store_from_url(f"s3://{self._S3_BUCKET}")
 
     async def fetch(
         self,
@@ -489,7 +485,7 @@ class GHCNDaily(_GHCNBase):
         pd.DataFrame
             GHCN data frame
         """
-        if self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
@@ -506,134 +502,133 @@ class GHCNDaily(_GHCNBase):
             except KeyError:
                 raise KeyError(f"variable id {v} not found in GHCNDaily lexicon")
 
-        async with managed_session(self.fs) as session:  # noqa: F841
 
-            if self._station_meta is None:
-                self._station_meta = self.get_station_metadata()
+        if self._station_meta is None:
+            self._station_meta = self.get_station_metadata()
 
-            # Build unique (year, product) pairs needed. Tolerance windows can
-            # span year boundaries, so enumerate every year in [tmin, tmax].
-            year_product_pairs: set[tuple[int, str]] = set()
-            for dt in time:
-                tmin = dt + self._tolerance_lower
-                tmax = dt + self._tolerance_upper
-                for product in products:
-                    for yr in range(tmin.year, tmax.year + 1):
-                        year_product_pairs.add((yr, product))
+        # Build unique (year, product) pairs needed. Tolerance windows can
+        # span year boundaries, so enumerate every year in [tmin, tmax].
+        year_product_pairs: set[tuple[int, str]] = set()
+        for dt in time:
+            tmin = dt + self._tolerance_lower
+            tmax = dt + self._tolerance_upper
+            for product in products:
+                for yr in range(tmin.year, tmax.year + 1):
+                    year_product_pairs.add((yr, product))
 
-            # Fetch all required parquet partitions in parallel
-            pair_list = sorted(year_product_pairs)
-            coros = [
-                async_retry(
-                    self._fetch_year_element,
-                    year,
-                    product,
-                    retries=self._retries,
-                    backoff=1.0,
-                    task_timeout=60.0,
-                    exceptions=(OSError, IOError, TimeoutError, ConnectionError),
-                )
-                for year, product in pair_list
-            ]
-
-            partition_dfs = await gather_with_concurrency(
-                coros,
-                max_workers=self._async_workers,
-                desc="Fetching NOAA GHCN data",
-                verbose=(not self._verbose),
+        # Fetch all required parquet partitions in parallel
+        pair_list = sorted(year_product_pairs)
+        coros = [
+            async_retry(
+                self._fetch_year_element,
+                year,
+                product,
+                retries=self._retries,
+                backoff=1.0,
+                task_timeout=60.0,
+                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
+            for year, product in pair_list
+        ]
 
-            # Index partitions by (year, product)
-            partition_map: dict[tuple[int, str], pd.DataFrame] = {
-                (year, product): df
-                for (year, product), df in zip(pair_list, partition_dfs)
-            }
+        partition_dfs = await gather_with_concurrency(
+            coros,
+            max_workers=self._async_workers,
+            desc="Fetching NOAA GHCN data",
+            verbose=(not self._verbose),
+        )
 
-            # Build reverse map: product code -> E2Studio variable name
-            product_to_var: dict[str, str] = {}
-            for v in variable:
-                product_to_var[GHCNDailyLexicon.VOCAB[v]] = v
+        # Index partitions by (year, product)
+        partition_map: dict[tuple[int, str], pd.DataFrame] = {
+            (year, product): df
+            for (year, product), df in zip(pair_list, partition_dfs)
+        }
 
-            # Filter by station, time tolerance, apply unit conversion per product.
-            # Collect per-variable DataFrames separately, then concat within each
-            # variable before merging across variables to avoid column name collisions.
-            station_set = set(self.stations)
-            var_frames: dict[str, list[pd.DataFrame]] = {v: [] for v in variable}
+        # Build reverse map: product code -> E2Studio variable name
+        product_to_var: dict[str, str] = {}
+        for v in variable:
+            product_to_var[GHCNDailyLexicon.VOCAB[v]] = v
 
-            for dt in time:
-                tmin = dt + self._tolerance_lower
-                tmax = dt + self._tolerance_upper
-                date_min = tmin.strftime("%Y%m%d")
-                date_max = tmax.strftime("%Y%m%d")
+        # Filter by station, time tolerance, apply unit conversion per product.
+        # Collect per-variable DataFrames separately, then concat within each
+        # variable before merging across variables to avoid column name collisions.
+        station_set = set(self.stations)
+        var_frames: dict[str, list[pd.DataFrame]] = {v: [] for v in variable}
 
-                for product in products:
-                    # Walk every year the tolerance window touches so cross-year
-                    # windows (e.g. Dec 31 +/- 1 day) don't drop data.
-                    for yr in range(tmin.year, tmax.year + 1):
-                        df = partition_map.get((yr, product))
-                        if df is None or df.empty:
-                            continue
+        for dt in time:
+            tmin = dt + self._tolerance_lower
+            tmax = dt + self._tolerance_upper
+            date_min = tmin.strftime("%Y%m%d")
+            date_max = tmax.strftime("%Y%m%d")
 
-                        # Filter to requested stations
-                        mask = df["ID"].isin(station_set)
-                        # Filter by date range (DATE is string YYYYMMDD)
-                        mask = (
-                            mask & (df["DATE"] >= date_min) & (df["DATE"] <= date_max)
-                        )
-                        # Filter by quality flag: None/NaN means passed all QC
-                        mask = mask & df["Q_FLAG"].isna()
+            for product in products:
+                # Walk every year the tolerance window touches so cross-year
+                # windows (e.g. Dec 31 +/- 1 day) don't drop data.
+                for yr in range(tmin.year, tmax.year + 1):
+                    df = partition_map.get((yr, product))
+                    if df is None or df.empty:
+                        continue
 
-                        df_window = df.loc[mask, ["ID", "DATE", "DATA_VALUE"]].copy()
-                        if df_window.empty:
-                            continue
+                    # Filter to requested stations
+                    mask = df["ID"].isin(station_set)
+                    # Filter by date range (DATE is string YYYYMMDD)
+                    mask = (
+                        mask & (df["DATE"] >= date_min) & (df["DATE"] <= date_max)
+                    )
+                    # Filter by quality flag: None/NaN means passed all QC
+                    mask = mask & df["Q_FLAG"].isna()
 
-                        # Apply unit conversion for this product's variable
-                        var_name = product_to_var[product]
-                        _, mod = GHCNDailyLexicon[var_name]  # type: ignore[misc]
-                        df_window[var_name] = mod(
-                            pd.to_numeric(df_window["DATA_VALUE"], errors="coerce")
-                        )
-                        df_window = df_window.drop(columns=["DATA_VALUE"])
-                        var_frames[var_name].append(df_window)
+                    df_window = df.loc[mask, ["ID", "DATE", "DATA_VALUE"]].copy()
+                    if df_window.empty:
+                        continue
 
-            # Concat all rows per variable, deduplicate, then merge across variables
-            per_var_dfs: list[pd.DataFrame] = [
-                pd.concat(var_frames[v], ignore_index=True).drop_duplicates(
-                    subset=["ID", "DATE"]
-                )
-                for v in variable
-                if var_frames[v]
-            ]
+                    # Apply unit conversion for this product's variable
+                    var_name = product_to_var[product]
+                    _, mod = GHCNDailyLexicon[var_name]  # type: ignore[misc]
+                    df_window[var_name] = mod(
+                        pd.to_numeric(df_window["DATA_VALUE"], errors="coerce")
+                    )
+                    df_window = df_window.drop(columns=["DATA_VALUE"])
+                    var_frames[var_name].append(df_window)
 
-            if len(per_var_dfs) == 0:
-                return pd.DataFrame(columns=schema.names)
+        # Concat all rows per variable, deduplicate, then merge across variables
+        per_var_dfs: list[pd.DataFrame] = [
+            pd.concat(var_frames[v], ignore_index=True).drop_duplicates(
+                subset=["ID", "DATE"]
+            )
+            for v in variable
+            if var_frames[v]
+        ]
 
-            df = per_var_dfs[0]
-            for extra in per_var_dfs[1:]:
-                df = df.merge(extra, on=["ID", "DATE"], how="outer")
+        if len(per_var_dfs) == 0:
+            return pd.DataFrame(columns=schema.names)
 
-            # Convert DATE (string YYYYMMDD) to datetime
-            df["DATE"] = pd.to_datetime(df["DATE"], format="%Y%m%d")
+        df = per_var_dfs[0]
+        for extra in per_var_dfs[1:]:
+            df = df.merge(extra, on=["ID", "DATE"], how="outer")
 
-            # Join station metadata (lat, lon, elev)
-            meta: pd.DataFrame = self._station_meta  # type: ignore[assignment]
-            meta_subset = meta[meta["ID"].isin(station_set)][
-                ["ID", "LAT", "LON", "ELEV"]
-            ].drop_duplicates(subset="ID")
-            df = df.merge(meta_subset, on="ID", how="left")
+        # Convert DATE (string YYYYMMDD) to datetime
+        df["DATE"] = pd.to_datetime(df["DATE"], format="%Y%m%d")
 
-            # Rename columns using schema metadata
-            df = df.rename(columns=self.column_map())
-            df["station"] = df["station"].astype(str)
+        # Join station metadata (lat, lon, elev)
+        meta: pd.DataFrame = self._station_meta  # type: ignore[assignment]
+        meta_subset = meta[meta["ID"].isin(station_set)][
+            ["ID", "LAT", "LON", "ELEV"]
+        ].drop_duplicates(subset="ID")
+        df = df.merge(meta_subset, on="ID", how="left")
 
-            # Normalize longitude from [-180, 180) to [0, 360)
-            if "lon" in df.columns:
-                df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
-                df["lon"] = (df["lon"] + 360.0) % 360.0
+        # Rename columns using schema metadata
+        df = df.rename(columns=self.column_map())
+        df["station"] = df["station"].astype(str)
 
-            # Transform to long format (one observation per row)
-            result = self._create_observation_dataframe(df, variable, schema)
-            result.attrs["source"] = self.SOURCE_ID
+        # Normalize longitude from [-180, 180) to [0, 360)
+        if "lon" in df.columns:
+            df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
+            df["lon"] = (df["lon"] + 360.0) % 360.0
+
+        # Transform to long format (one observation per row)
+        result = self._create_observation_dataframe(df, variable, schema)
+        result.attrs["source"] = self.SOURCE_ID
 
         return result
 
@@ -652,8 +647,8 @@ class GHCNDaily(_GHCNBase):
         pd.DataFrame
             Parquet partition data with columns ID, DATE, DATA_VALUE, Q_FLAG
         """
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
 
         s3_path = f"{self._S3_BUCKET}/parquet/by_year/YEAR={year}/ELEMENT={element}/"
         # Hash the URL for cache file names
@@ -665,14 +660,21 @@ class GHCNDaily(_GHCNBase):
             df = await asyncio.to_thread(pd.read_parquet, parquet_path)
         else:
             try:
-                # List parquet files in the partition directory using async fs
-                files = await self.fs._ls(f"s3://{s3_path}", detail=False)
+                # List parquet files in the partition directory; partitions of
+                # past years are immutable and may be served from the memo cache
+                prefix = f"parquet/by_year/YEAR={year}/ELEMENT={element}/"
+                files = await obstore_list_prefix(
+                    self.store,
+                    prefix,
+                    cache=self._list_cache,
+                    cacheable=(year < datetime.now().year),
+                )
                 # Read all parquet files using async byte reads
                 frames: list[pd.DataFrame] = []
                 for file_path in files:
                     if not file_path.endswith(".parquet"):
                         continue
-                    data = await self.fs._cat_file(file_path)
+                    data = await obstore_read_range(self.store, file_path)
                     table = pq.read_table(
                         io.BytesIO(data),
                         columns=["ID", "DATE", "DATA_VALUE", "Q_FLAG"],
@@ -740,9 +742,11 @@ class GHCNDaily(_GHCNBase):
             f"s3://{cls._S3_BUCKET}/parquet/by_year/" f"YEAR={time.year}/ELEMENT=TMAX/"
         )
         try:
-            fs = s3fs.S3FileSystem(anon=True)
-            return fs.exists(s3_path)
-        except OSError:
+            store = obstore_store_from_url(f"s3://{cls._S3_BUCKET}")
+            prefix = s3_path.removeprefix(f"s3://{cls._S3_BUCKET}/")
+            chunk = next(iter(obs.list(store, prefix=prefix, chunk_size=1)), [])
+            return len(chunk) > 0
+        except (OSError, obs.exceptions.BaseError):
             return False
 
     @classmethod
@@ -762,8 +766,9 @@ class GHCNDaily(_GHCNBase):
         inventory_file = os.path.join(cache_dir, "ghcnd-inventory.txt")
 
         if not os.path.isfile(inventory_file):
-            fs = s3fs.S3FileSystem(anon=True)
-            fs.get(f"s3://{cls._S3_BUCKET}/ghcnd-inventory.txt", inventory_file)
+            store = obstore_store_from_url(f"s3://{cls._S3_BUCKET}")
+            data = obs.get(store, "ghcnd-inventory.txt").bytes()
+            pathlib.Path(inventory_file).write_bytes(data)
 
         return pd.read_fwf(
             inventory_file,
@@ -919,12 +924,11 @@ class GHCNHourly(_GHCNBase):
         stations_file = os.path.join(cache_dir, "ghcnh-station-list.csv")
 
         if not os.path.isfile(stations_file):
-            fs = fsspec.filesystem("https")
-            fs.get(
-                "https://www.ncei.noaa.gov/oa/global-historical-climatology-network/"
-                "hourly/doc/ghcnh-station-list.csv",
-                stations_file,
+            store = obstore_store_from_url(
+                "https://www.ncei.noaa.gov/oa/global-historical-climatology-network"
             )
+            data = obs.get(store, "hourly/doc/ghcnh-station-list.csv").bytes()
+            pathlib.Path(stations_file).write_bytes(data)
 
         # Normalize to the daily list's column names (ID/LAT/LON/... used by
         # get_stations_bbox); ICAO and ISO_CODE are kept as-is.
@@ -958,19 +962,11 @@ class GHCNHourly(_GHCNBase):
             async_workers,
             retries,
         )
-        self.fs: fsspec.AbstractFileSystem | None = None
+        self.store: ObjectStore | None = None
 
     async def _async_init(self) -> None:
-        """Async initialization of filesystem.
-
-        Note
-        ----
-        Async fsspec expects initialization inside the execution loop.
-        """
-        # skip_instance_cache ensures each GHCNh instance owns its session.
-        self.fs = fsspec.filesystem(
-            "https", asynchronous=True, skip_instance_cache=True
-        )
+        """Async initialization of the obstore HTTP store"""
+        self.store = obstore_store_from_url(self.BASE_URL)
 
     async def fetch(
         self,
@@ -995,7 +991,7 @@ class GHCNHourly(_GHCNBase):
         pd.DataFrame
             GHCNh data frame
         """
-        if self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
@@ -1007,41 +1003,40 @@ class GHCNHourly(_GHCNBase):
             if v not in GHCNHourlyLexicon.VOCAB:
                 raise KeyError(f"variable id {v} not found in GHCNHourly lexicon")
 
-        async with managed_session(self.fs):
-            # Build unique (station, year) pairs, covering all years touched by
-            # the tolerance window so cross-year windows (e.g. Jan 1 - 72h)
-            # don't silently drop observations from the previous year.
-            station_year_pairs = sorted(
-                {
-                    (s, yr)
-                    for s in self.stations
-                    for dt in time
-                    for yr in range(
-                        (dt + self._tolerance_lower).year,
-                        (dt + self._tolerance_upper).year + 1,
-                    )
-                }
-            )
-
-            coros = [
-                async_retry(
-                    self._fetch_station_year,
-                    station_id,
-                    year,
-                    retries=self._retries,
-                    backoff=1.0,
-                    task_timeout=60.0,
-                    exceptions=(OSError, IOError, TimeoutError, ConnectionError),
+        # Build unique (station, year) pairs, covering all years touched by
+        # the tolerance window so cross-year windows (e.g. Jan 1 - 72h)
+        # don't silently drop observations from the previous year.
+        station_year_pairs = sorted(
+            {
+                (s, yr)
+                for s in self.stations
+                for dt in time
+                for yr in range(
+                    (dt + self._tolerance_lower).year,
+                    (dt + self._tolerance_upper).year + 1,
                 )
-                for station_id, year in station_year_pairs
-            ]
+            }
+        )
 
-            station_year_dfs = await gather_with_concurrency(
-                coros,
-                max_workers=self._async_workers,
-                desc="Fetching NOAA GHCNh data",
-                verbose=(not self._verbose),
+        coros = [
+            async_retry(
+                self._fetch_station_year,
+                station_id,
+                year,
+                retries=self._retries,
+                backoff=1.0,
+                task_timeout=60.0,
+                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
+            for station_id, year in station_year_pairs
+        ]
+
+        station_year_dfs = await gather_with_concurrency(
+            coros,
+            max_workers=self._async_workers,
+            desc="Fetching NOAA GHCNh data",
+            verbose=(not self._verbose),
+        )
 
         # Map results back to (station, year)
         partition_map: dict[tuple[str, int], pd.DataFrame] = {
@@ -1098,8 +1093,8 @@ class GHCNHourly(_GHCNBase):
         pd.DataFrame
             Parsed parquet with a datetime DATE column, or empty DataFrame on 404
         """
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
 
         url = (
             f"{self.BASE_URL}/by-year/{year}/parquet/GHCNh_{station_id}_{year}.parquet"
@@ -1111,7 +1106,8 @@ class GHCNHourly(_GHCNBase):
             df = pd.read_parquet(parquet_path)
         else:
             try:
-                data = await self.fs._cat_file(url)
+                key = url.removeprefix(self.BASE_URL + "/")
+                data = await obstore_read_range(self.store, key)
                 buf = io.BytesIO(data)
                 available = pq.read_schema(buf).names
                 buf.seek(0)
