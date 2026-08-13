@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pathlib
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -1202,7 +1202,9 @@ def compile_dataframe(
         when ``decode_task`` raises.  If ``None`` the error is logged and the
         task is skipped.
     """
-    frames: list[pd.DataFrame] = []
+    # Accumulate Arrow tables rather than DataFrames: avoids holding all frames
+    # plus the pd.concat output simultaneously (memory doubles at the concat).
+    tables: list[pa.Table] = []
     n_tasks = len(tasks)
     compile_t0 = time.perf_counter()
     for idx, task in enumerate(tasks, start=1):
@@ -1232,18 +1234,17 @@ def compile_dataframe(
             f"[{source_id}] decode {idx}/{n_tasks} done : "
             f"{short_uri} ({len(df):,} rows) in {elapsed:.1f}s"
         )
-        df.attrs["source"] = source_id
-        frames.append(df)
+        tables.append(pa.Table.from_pandas(df, schema=schema, preserve_index=False))
 
     logger.info(
-        f"[{source_id}] compile finished: {len(frames)} non-empty "
+        f"[{source_id}] compile finished: {len(tables)} non-empty "
         f"frames, total {time.perf_counter() - compile_t0:.1f}s"
     )
 
-    if not frames:
+    if not tables:
         result = empty_dataframe(schema)
     else:
-        result = pd.concat(frames, ignore_index=True)
+        result = _table_to_dataframe(pa.concat_tables(tables).combine_chunks())
         result = result[[name for name in schema.names if name in result.columns]]
     result.attrs["source"] = source_id
     return result
@@ -1592,13 +1593,21 @@ def _decode_message_batch(
     return rows, failures
 
 
-def _table_to_dataframe(table: pa.Table) -> pd.DataFrame:
-    def types_mapper(data_type: pa.DataType) -> pd.ArrowDtype | None:
-        if pa.types.is_unsigned_integer(data_type):
-            return pd.ArrowDtype(data_type)
-        return None
+_DICT_STRING_COLUMNS = frozenset({"satellite", "variable", "class"})
+_DICT_STRING_TYPE = pa.dictionary(pa.int8(), pa.utf8())
 
-    return table.to_pandas(types_mapper=types_mapper)
+
+def _table_to_dataframe(table: pa.Table) -> pd.DataFrame:
+    # Dictionary-encode low-cardinality string columns before converting so
+    # pandas receives pd.ArrowDtype(dictionary(...)) instead of object dtype.
+    schema = table.schema
+    for col in _DICT_STRING_COLUMNS:
+        if col in schema.names and pa.types.is_string(schema.field(col).type):
+            idx = schema.get_field_index(col)
+            schema = schema.set(idx, schema.field(col).with_type(_DICT_STRING_TYPE))
+    if schema is not table.schema:
+        table = table.cast(schema)
+    return table.to_pandas(types_mapper=pd.ArrowDtype)
 
 
 def _rows_to_dataframe(rows: list[dict[str, Any]]) -> pd.DataFrame:
@@ -2077,6 +2086,68 @@ def _decode_ir_message_batch(
     return NCEP_MICROWAVE_OUTPUT_SCHEMA.empty_table(), failures
 
 
+def _decode_ir_sounder_chunks(
+    path: str,
+    sensor: str,
+    channels: frozenset[int] | None,
+    datetime_min: datetime,
+    datetime_max: datetime,
+    satellites: tuple[str, ...] | None = None,
+    decode_workers: int = 8,
+) -> Iterator[pa.Table]:
+    """Yield one Arrow table per completed decode batch for ``path``.
+
+    Lets callers pipeline decode and downstream work (e.g. concat across
+    cycles) without waiting for all batches to finish.  Raises
+    ``_NCEPIRSounderDecodeError`` after the last yield if any messages failed.
+    """
+    if sensor not in _IR_OBS_DESCRIPTOR:
+        raise ValueError(
+            f"unsupported IR sensor {sensor!r}; valid: {sorted(_IR_OBS_DESCRIPTOR)}"
+        )
+
+    decode_workers = max(1, decode_workers)
+    file_data = pathlib.Path(path).read_bytes()
+    table_b, table_d, messages = _parse_prepbufr_messages(file_data, silence_noise=True)
+    if not table_b or not table_d:
+        raise ValueError(f"Embedded NCEP BUFR tables missing from {path}")
+
+    sat_filter = frozenset(satellites) if satellites is not None else None
+    indexed_messages = list(enumerate(msg for msg, _ in messages))
+    batches = [
+        indexed_messages[i : i + _DECODE_BATCH_SIZE]
+        for i in range(0, len(indexed_messages), _DECODE_BATCH_SIZE)
+    ]
+    arguments = [
+        (sensor, batch, channels, datetime_min, datetime_max, sat_filter)
+        for batch in batches
+    ]
+
+    failures = 0
+    if decode_workers > 1 and len(batches) > 1:
+        with ProcessPoolExecutor(
+            max_workers=min(decode_workers, len(batches)),
+            initializer=_init_decode_worker,
+            initargs=(table_b, table_d),
+        ) as pool:
+            for batch_table, batch_failures in pool.map(
+                _decode_ir_message_batch, arguments
+            ):
+                if batch_table.num_rows:
+                    yield batch_table
+                failures += batch_failures
+    else:
+        _init_decode_worker(table_b, table_d)
+        for argument in arguments:
+            batch_table, batch_failures = _decode_ir_message_batch(argument)
+            if batch_table.num_rows:
+                yield batch_table
+            failures += batch_failures
+
+    if failures:
+        raise _NCEPIRSounderDecodeError(path, failures, len(messages))
+
+
 def decode_ir_sounder(
     path: str,
     sensor: str,
@@ -2103,63 +2174,16 @@ def decode_ir_sounder(
     decode_workers : int
         Number of parallel decode worker processes.
     """
-    if sensor not in _IR_OBS_DESCRIPTOR:
-        raise ValueError(
-            f"unsupported IR sensor {sensor!r}; valid: {sorted(_IR_OBS_DESCRIPTOR)}"
-        )
-
-    decode_workers = max(1, decode_workers)
-    file_data = pathlib.Path(path).read_bytes()
-    table_b, table_d, messages = _parse_prepbufr_messages(file_data, silence_noise=True)
-    if not table_b or not table_d:
-        raise ValueError(f"Embedded NCEP BUFR tables missing from {path}")
-
-    sat_filter = frozenset(satellites) if satellites is not None else None
-    indexed_messages = list(enumerate(msg for msg, _ in messages))
-    batches = [
-        indexed_messages[i : i + _DECODE_BATCH_SIZE]
-        for i in range(0, len(indexed_messages), _DECODE_BATCH_SIZE)
-    ]
-    arguments = [
-        (sensor, batch, channels, datetime_min, datetime_max, sat_filter)
-        for batch in batches
-    ]
-
     started = time.perf_counter()
-    # Accumulate Arrow tables rather than per-row dicts: the parent holds
-    # columnar buffers (~50 B/row) instead of dict rows (~550 B/row), and
-    # never holds the dict, Arrow, and pandas representations simultaneously
-    tables: list[pa.Table] = []
-    failures = 0
-    if decode_workers > 1 and len(batches) > 1:
-        with ProcessPoolExecutor(
-            max_workers=min(decode_workers, len(batches)),
-            initializer=_init_decode_worker,
-            initargs=(table_b, table_d),
-        ) as pool:
-            for batch_table, batch_failures in pool.map(
-                _decode_ir_message_batch, arguments
-            ):
-                if batch_table.num_rows:
-                    tables.append(batch_table)
-                failures += batch_failures
-    else:
-        _init_decode_worker(table_b, table_d)
-        for argument in arguments:
-            batch_table, batch_failures = _decode_ir_message_batch(argument)
-            if batch_table.num_rows:
-                tables.append(batch_table)
-            failures += batch_failures
-
-    if failures:
-        # Same strict completeness contract as decode_microwave: a partial
-        # decode must not silently return a truncated observation set
-        raise _NCEPIRSounderDecodeError(path, failures, len(messages))
+    tables = list(
+        _decode_ir_sounder_chunks(
+            path, sensor, channels, datetime_min, datetime_max, satellites, decode_workers
+        )
+    )
     if tables:
         result_table = pa.concat_tables(tables).combine_chunks()
     else:
         result_table = NCEP_MICROWAVE_OUTPUT_SCHEMA.empty_table()
-    del tables
     logger.debug(
         f"Decoded {result_table.num_rows:,} {sensor} IR rows in "
         f"{time.perf_counter() - started:.1f}s"
