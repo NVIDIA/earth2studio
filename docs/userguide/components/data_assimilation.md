@@ -20,7 +20,7 @@ The full requirements for a standard data assimilation model are defined explici
 `earth2studio/models/da/base.py`.
 
 ```python
---8<-- "earth2studio/models/da/base.py:28:171"
+--8<-- "earth2studio/models/da/base.py:assimilation-model-interface"
 ```
 
 !!! note

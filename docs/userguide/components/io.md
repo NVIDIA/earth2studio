@@ -23,7 +23,7 @@ The full requirements for a standard IO backend are defined explicitly in the
 `earth2studio/io/base.py`.
 
 ```python
---8<-- "earth2studio/io/base.py:24:64"
+--8<-- "earth2studio/io/base.py:io-backend-interface"
 ```
 
 !!! note
@@ -47,7 +47,7 @@ additional utilities such as `__contains__`, `__getitem__`, `__len__`, and `__it
 Refer to the implementation in `earth2studio.io.ZarrBackend`:
 
 ```python
---8<-- "earth2studio/io/zarr.py:55:126"
+--8<-- "earth2studio/io/zarr.py:zarr-backend-read"
 ```
 
 Common backends include `earth2studio.io.ZarrBackend`,

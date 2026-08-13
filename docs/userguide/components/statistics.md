@@ -20,7 +20,7 @@ Statistics API only specifies a `__call__` method that matches similar methods
 across the package.
 
 ```python
---8<-- "earth2studio/statistics/base.py:24:64"
+--8<-- "earth2studio/statistics/base.py:statistic-interface"
 ```
 
 The base API hints at, and inspection of the `earth2studio.statistics.moments`
@@ -47,7 +47,7 @@ inputs. Otherwise, the API and requirements are similar to the statistics requir
 ### Metrics Interface
 
 ```python
---8<-- "earth2studio/statistics/base.py:67:115"
+--8<-- "earth2studio/statistics/base.py:metric-interface"
 ```
 
 ## Contributing Statistics and Metrics

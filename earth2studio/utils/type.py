@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# --8<-- [start:type-aliases]
 from collections import OrderedDict
 from datetime import timedelta
 
@@ -34,3 +35,4 @@ TimeTolerance = (
     | tuple[timedelta, timedelta]
     | tuple[np.timedelta64, np.timedelta64]
 )
+# --8<-- [end:type-aliases]

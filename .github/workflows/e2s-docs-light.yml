@@ -35,7 +35,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.4
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.5
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
   DOC_PUBLIC_BUILD: "false"
   DOCS_PAGES_BRANCH: gh-pages

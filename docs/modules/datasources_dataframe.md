@@ -1,6 +1,8 @@
 <!-- markdownlint-disable MD013 -->
 
-# [`earth2studio.data`][earth2studio.data]: DataFrame Sources
+# DataFrame Sources
+
+`earth2studio.data`
 
 Data sources that provide tabular data as DataFrames.
 

@@ -1,6 +1,8 @@
 <!-- markdownlint-disable MD013 -->
 
-# [`earth2studio.models.da`][earth2studio.models.da]: Data Assimilation
+# Data Assimilation
+
+`earth2studio.models.da`
 
 Data assimilation models are a class of models that integrate observational data into
 model states or grids. These models can ingest both sparse observations (via

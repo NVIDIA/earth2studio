@@ -77,7 +77,7 @@ hide:
           </div>
           <div class="e2s-install-line">
             <span>$</span><code>uv pip install &quot;earth2studio[fcn]&quot;</code>
-            <button type="button" class="e2s-copy-button e2s-home-button" data-e2s-copy-command='uv pip install "earth2studio[fcn]"' aria-label="Copy install command">Copy</button>
+            <button type="button" class="e2s-copy-button e2s-home-button" data-e2s-copy-command='uv pip install "earth2studio[fcn]"' aria-label="Copy install command"></button>
           </div>
         </div>
         <div class="e2s-hero__panel" aria-label="Forecast quickstart code example">
@@ -284,10 +284,18 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
     </div>
     <div class="e2s-agent-layout">
       <div class="e2s-agent-terminal e2s-reveal">
-        <span><b>$</b> npx skills add NVIDIA/skills --skill earth2studio-install</span>
-        <span><b>$</b> npx skills add NVIDIA/skills --skill earth2studio-discover</span>
-        <span><b>$</b> npx skills add NVIDIA/skills --skill earth2studio-data-fetch</span>
-        <span><b>$</b> npx skills add NVIDIA/skills --skill earth2studio-deterministic-forecast</span>
+        <div class="e2s-agent-terminal__bar" aria-hidden="true">
+          <span class="e2s-terminal__dot"></span>
+          <span class="e2s-terminal__dot"></span>
+          <span class="e2s-terminal__dot"></span>
+          <strong>skills.sh</strong>
+        </div>
+        <div class="e2s-agent-terminal__body">
+          <span><b>$</b> npx skills add NVIDIA/skills --skill earth2studio-install</span>
+          <span><b>$</b> npx skills add NVIDIA/skills --skill earth2studio-discover</span>
+          <span><b>$</b> npx skills add NVIDIA/skills --skill earth2studio-data-fetch</span>
+          <span><b>$</b> npx skills add NVIDIA/skills --skill earth2studio-deterministic-forecast</span>
+        </div>
       </div>
       <div class="e2s-agent-grid">
         <div class="e2s-agent-card e2s-accent--cyan e2s-reveal"><strong>Discover</strong><span>Recommend data, models, IO, and docs for a workflow.</span></div>

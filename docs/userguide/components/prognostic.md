@@ -22,7 +22,7 @@ The full requirements for a standard prognostic model are defined explicitly in 
 `earth2studio/models/px/base.py`.
 
 ```python
---8<-- "earth2studio/models/px/base.py:26:118"
+--8<-- "earth2studio/models/px/base.py:prognostic-model-interface"
 ```
 
 !!! note

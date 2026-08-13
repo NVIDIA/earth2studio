@@ -1,4 +1,6 @@
-# [`earth2studio.run`][earth2studio.run]: Workflows
+# Workflows
+
+`earth2studio.run`
 
 Built in workflows designed to be a catalyst to help accelerate user defined inference
 use cases.

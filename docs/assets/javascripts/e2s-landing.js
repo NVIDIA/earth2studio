@@ -188,22 +188,22 @@
 
   function setupCopyButtons() {
     home.querySelectorAll("[data-e2s-copy-command]").forEach((button) => {
-      const label = button.textContent || "Copy";
+      const label = button.getAttribute("aria-label") || "Copy command";
       button.addEventListener("click", async () => {
         const command = button.dataset.e2sCopyCommand || "";
         if (!command) return;
 
         try {
           await writeClipboard(command);
-          button.textContent = "Copied";
+          button.setAttribute("aria-label", "Copied command");
           button.classList.add("is-copied");
         } catch {
-          button.textContent = "Failed";
+          button.setAttribute("aria-label", "Copy failed");
         }
 
         window.clearTimeout(button.e2sCopyTimer);
         button.e2sCopyTimer = window.setTimeout(() => {
-          button.textContent = label;
+          button.setAttribute("aria-label", label);
           button.classList.remove("is-copied");
         }, 1600);
       });

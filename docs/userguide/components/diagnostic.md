@@ -21,7 +21,7 @@ The full requirements for a standard diagnostic model are defined explicitly in 
 `earth2studio/models/dx/base.py`.
 
 ```python
---8<-- "earth2studio/models/dx/base.py:25:79"
+--8<-- "earth2studio/models/dx/base.py:diagnostic-model-interface"
 ```
 
 !!! note

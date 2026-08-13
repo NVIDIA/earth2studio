@@ -1,4 +1,6 @@
-# [`earth2studio.statistics`][earth2studio.statistics]: Statistics
+# Statistics
+
+`earth2studio.statistics`
 
 Various statistic and metric calculations for analysing inference data.
 

@@ -47,11 +47,11 @@ All pre-trained models in Earth2Studio implement these methods.
 For example, have a look at the FourCastNet implementations:
 
 ```python
---8<-- "earth2studio/models/px/fcn.py:218:227"
+--8<-- "earth2studio/models/px/fcn.py:fcn-default-package"
 ```
 
 ```python
---8<-- "earth2studio/models/px/fcn.py:229:246"
+--8<-- "earth2studio/models/px/fcn.py:fcn-load-model"
 ```
 
 !!! note

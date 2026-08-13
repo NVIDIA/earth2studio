@@ -77,7 +77,7 @@ The class has a `metaclass=LexiconType`, which is present in
 `earth2studio.lexicon.base` used for type checking.
 
 ```python
---8<-- "earth2studio/lexicon/gfs.py:288:315"
+--8<-- "earth2studio/lexicon/gfs.py:gfs-lexicon-class"
 ```
 
 Values of each variable is left up to the data source.
@@ -88,7 +88,7 @@ split into `UGRD` and `100 mb` which are then used with the remote Grib index fi
 fetch the correct data.
 
 ```python
---8<-- "earth2studio/data/gfs.py:303:329"
+--8<-- "earth2studio/data/gfs.py:gfs-lexicon-lookup"
 ```
 
 It is a common pattern for data source lexicons to contain a modifier function that is
@@ -98,7 +98,7 @@ GFS-supplied geo-potential height to geopotential to better align with other
 sources inside Earth2Studio.
 
 ```python
---8<-- "earth2studio/lexicon/gfs.py:288:315"
+--8<-- "earth2studio/lexicon/gfs.py:gfs-lexicon-modifier"
 ```
 
 !!! warning

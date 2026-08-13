@@ -1,4 +1,6 @@
-# [`earth2studio.perturbation`][earth2studio.perturbation]: Perturbations
+# Perturbations
+
+`earth2studio.perturbation`
 
 Perturbation methods are used for perturbing the input data they are provided, typically
 with some random noise. This is commonly done to perturb initial state fields when

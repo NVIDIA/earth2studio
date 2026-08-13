@@ -16,7 +16,7 @@ The full requirements for a perturbation method are defined explicitly in the
 `earth2studio/perturbation/base.py`.
 
 ```python
---8<-- "earth2studio/perturbation/base.py:24:48"
+--8<-- "earth2studio/perturbation/base.py:perturbation-interface"
 ```
 
 !!! note

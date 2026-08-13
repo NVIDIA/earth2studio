@@ -19,7 +19,7 @@ theme:
   language: en
   font:
     text: NVIDIA Sans
-    code: NVIDIA Sans
+    code: JetBrains Mono
   features:
   - announce.dismiss
   - navigation.tabs

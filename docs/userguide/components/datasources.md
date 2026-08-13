@@ -29,7 +29,7 @@ The full requirements for a standard diagnostic model are defined explicitly in 
 `earth2studio/models/dx/base.py`.
 
 ```python
---8<-- "earth2studio/data/base.py:27:79"
+--8<-- "earth2studio/data/base.py:data-source-interface"
 ```
 
 !!! note
@@ -96,7 +96,7 @@ For example, in the deterministic workflow `earth2studio.run.deterministic`, it 
 used to get the initial state for the provided prognostic.
 
 ```python
---8<-- "earth2studio/run.py:137:157"
+--8<-- "earth2studio/run.py:fetch-data"
 ```
 
 ### `earth2studio.data.prep_data_array`

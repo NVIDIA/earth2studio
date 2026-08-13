@@ -1,6 +1,8 @@
 <!-- markdownlint-disable MD013 -->
 
-# [`earth2studio.models.dx`][earth2studio.models.dx]: Diagnostics
+# Diagnostics
+
+`earth2studio.models.dx`
 
 Diagnostic models are a class of models that do not perform time-integration.
 These may be used to map between weather/climate variables to other quantities of

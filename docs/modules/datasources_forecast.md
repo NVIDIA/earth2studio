@@ -1,6 +1,8 @@
 <!-- markdownlint-disable MD013 -->
 
-# [`earth2studio.data`][earth2studio.data]: Forecast Sources
+# Forecast Sources
+
+`earth2studio.data`
 
 Extended data sources that allow users to download forecast data, these are not
 interchangeable with standard data sources.

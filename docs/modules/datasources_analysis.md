@@ -1,6 +1,8 @@
 <!-- markdownlint-disable MD013 -->
 
-# [`earth2studio.data`][earth2studio.data]: Data Sources
+# Data Sources
+
+`earth2studio.data`
 
 Data sources used for downloading, caching and reading different weather / climate data
 APIs into [Xarray data arrays](https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html).
@@ -11,7 +13,7 @@ Used for fetching initial conditions for inference and validation data for scori
     license. We encourage users to familiarize themselves with each and the limitations
     it may impose on their use case.
 
-## Data Sources
+## Available Data Sources
 
 <!-- e2s-autosummary
 currentmodule: earth2studio

@@ -1,6 +1,8 @@
 <!-- markdownlint-disable MD013 -->
 
-# [`earth2studio.models.px`][earth2studio.models.px]: Prognostics
+# Prognostics
+
+`earth2studio.models.px`
 
 Prognostic models are a class of models that perform time-integration.
 Thus are typically used to generate forecast predictions.

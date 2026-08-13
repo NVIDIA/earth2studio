@@ -40,7 +40,6 @@ logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
-# sphinx - deterministic start
 def deterministic(
     time: list[str] | list[datetime] | list[np.datetime64],
     nsteps: int,
@@ -83,7 +82,6 @@ def deterministic(
     IOBackend
         Output IO object
     """
-    # sphinx - deterministic end
     logger.info("Running simple workflow!")
     # Load model onto the device
     device = (
@@ -134,7 +132,7 @@ def deterministic(
                     logger.success("\nInference complete")
                     return io
 
-        # sphinx - fetch data start
+        # --8<-- [start:fetch-data]
         # Fetch data from data source and load onto device
         if hasattr(prognostic, "interp_method"):
             interp_to = prognostic_ic
@@ -154,7 +152,7 @@ def deterministic(
         )
 
         logger.success(f"Fetched data from {data.__class__.__name__}")
-        # sphinx - fetch data end
+        # --8<-- [end:fetch-data]
 
         # Map lat and lon if needed
         x, coords = map_coords(x, coords, prognostic.input_coords())
@@ -192,7 +190,6 @@ def deterministic(
     return io
 
 
-# sphinx - diagnostic start
 def diagnostic(
     time: list[str] | list[datetime] | list[np.datetime64],
     nsteps: int,
@@ -238,7 +235,6 @@ def diagnostic(
     IOBackend
         Output IO object
     """
-    # sphinx - diagnostic end
     logger.info("Running diagnostic workflow!")
     device = (
         device
@@ -345,7 +341,6 @@ def diagnostic(
     return io
 
 
-# sphinx - ensemble start
 def ensemble(
     time: list[str] | list[datetime] | list[np.datetime64],
     nsteps: int,
@@ -396,7 +391,6 @@ def ensemble(
     IOBackend
         Output IO object
     """
-    # sphinx - ensemble end
     logger.info("Running ensemble inference!")
 
     device = (

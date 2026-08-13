@@ -39,7 +39,7 @@ On top of requiring type hints, the following guidelines should be used:
     used when applicable.
 
 ```python
---8<-- "earth2studio/utils/type.py:17:36"
+--8<-- "earth2studio/utils/type.py:type-aliases"
 ```
 
 - Earth2Studio is Python 3.10+, thus type hinting using generic objects should be used
