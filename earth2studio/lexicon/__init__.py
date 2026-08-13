@@ -21,16 +21,24 @@ from .cbottle import CBottleLexicon
 from .cds import CDSLexicon
 from .cfs import CFSFluxLexicon, CFSLexicon
 from .cmip6 import CMIP6Lexicon
+from .cosmo import CosmoLexicon
+from .dynamical import DynamicalLexicon
+from .earthmover import (
+    EarthMoverERA5Lexicon,
+    EarthMoverIFSInitialConditionLexicon,
+    EarthMoverIFSLexicon,
+)
 from .ecmwf import AIFSLexicon, IFSLexicon
 from .gdas import GDASObsConvLexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
-from .ghcn import GHCNLexicon
+from .ghcn import GHCNDailyLexicon, GHCNHourlyLexicon
 from .goes import GOESLexicon
 from .goes_glm import GOESGLMLexicon
 from .himawari_ahi import HimawariAHILexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .ibtracs import IBTrACSLexicon
+from .iem import IEM_ASOSLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSATMSLexicon, JPSSCrISLexicon, JPSSLexicon
 from .meteosat import MeteosatFCILexicon
@@ -43,7 +51,8 @@ from .metop import (
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
 from .nclimgrid import NClimGridLexicon
-from .nnja import NNJAObsConvLexicon
+from .nnja import NNJAObsConvLexicon, NNJAObsSatLexicon
+from .opera import OPERALexicon
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFSLexicon,
     PlanetaryComputerGOESLexicon,

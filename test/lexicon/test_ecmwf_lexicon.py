@@ -18,10 +18,14 @@ import pytest
 import torch
 
 from earth2studio.lexicon import AIFSLexicon, IFSLexicon
+from earth2studio.lexicon.ecmwf import (
+    AIFS_ACCUMULATION_HOURS,
+    IFS_ACCUMULATION_HOURS,
+)
 
 
 @pytest.mark.parametrize(
-    "variable", [["t2m"], ["u10m", "v200"], ["msl", "z500", "q700"]]
+    "variable", [["t2m"], ["u10m", "v200"], ["msl", "z500", "q700"], ["sf06", "ro06"]]
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_ifs_lexicon(variable, device):
@@ -35,7 +39,7 @@ def test_ifs_lexicon(variable, device):
 
 
 @pytest.mark.parametrize(
-    "variable", [["t2m"], ["u10m", "v200"], ["hcc", "z500", "q700"]]
+    "variable", [["t2m"], ["u10m", "v200"], ["hcc", "z500", "q700"], ["sf06", "ro06"]]
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs_lexicon(variable, device):
@@ -46,3 +50,21 @@ def test_aifs_lexicon(variable, device):
         assert isinstance(label, str)
         assert input.shape == output.shape
         assert input.device == output.device
+
+
+def test_ecmwf_accumulation_aliases():
+    expected = {
+        "cp06": 6,
+        "ro06": 6,
+        "sf06": 6,
+        "ssrd06": 6,
+        "strd06": 6,
+        "tp06": 6,
+    }
+
+    assert IFS_ACCUMULATION_HOURS == expected
+    assert AIFS_ACCUMULATION_HOURS == expected
+    assert IFSLexicon.VOCAB["ro06"] == "ro::sfc::"
+    assert IFSLexicon.VOCAB["sf06"] == "sf::sfc::"
+    assert AIFSLexicon.VOCAB["ro06"] == "rowe::sfc::"
+    assert AIFSLexicon.VOCAB["sf06"] == "sf::sfc::"

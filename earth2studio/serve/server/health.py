@@ -66,8 +66,11 @@ def _pgrep(pattern: str, *, exact: bool = False) -> list[int]:
     """Return PIDs matching the pattern via pgrep."""
     cmd = ["pgrep", "-x" if exact else "-f", pattern]
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=5  # noqa: S603
+        result = subprocess.run(  # noqa: S603
+            cmd,  # noqa: S603
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0 and result.stdout.strip():
             return [

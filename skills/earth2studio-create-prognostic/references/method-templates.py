@@ -56,7 +56,8 @@ def input_coords_template(self) -> CoordSystem:
     2. time - np.empty(0), filled at runtime
     3. lead_time - starts at 0h, incremented each step
     4. variable - model input variables from E2STUDIO_VOCAB
-    5. lat - latitude array, 90 to -90 (north to south)
+    5. lat - latitude array, 90 to -90 (north to south). Keep this
+       public convention even when the source checkpoint expects south-to-north.
     6. lon - longitude array, 0 to 360
 
     Returns
@@ -74,6 +75,7 @@ def input_coords_template(self) -> CoordSystem:
             # 0.25° global: 721 x 1440
             # 0.5° global: 361 x 720
             # 1° global: 181 x 360
+            # Public Earth2Studio convention is north-to-south latitude.
             "lat": np.linspace(90, -90, 721, endpoint=True),
             "lon": np.linspace(0, 360, 1440, endpoint=False),
         }
@@ -174,8 +176,14 @@ def call_template(
         Output tensor and coordinates one time step ahead.
     """
     target_input_coords = self.input_coords()
-    handshake_coords(coords, target_input_coords, "variable")
+    handshake_dim(coords, "lead_time", 2)
     handshake_dim(coords, "variable", 3)
+    handshake_dim(coords, "lat", 4)
+    handshake_dim(coords, "lon", 5)
+    handshake_coords(coords, target_input_coords, "lead_time")
+    handshake_coords(coords, target_input_coords, "variable")
+    handshake_coords(coords, target_input_coords, "lat")
+    handshake_coords(coords, target_input_coords, "lon")
 
     device = self.device_buffer.device
     x = x.to(device)
@@ -194,6 +202,10 @@ def call_template(
     # Pattern 3: Model expects dict with named tensors
     # x_model = {"surface": x[..., :4, :, :], "pressure": x[..., 4:, :, :]}
 
+    # If the source model expects a different latitude order, flip internally only.
+    # Example for south-to-north model cores with public north-to-south coords:
+    # x_model = torch.flip(x_model, dims=(-2,))
+
     # Normalize (if model requires)
     # x_model = (x_model - self.center) / self.scale
 
@@ -203,6 +215,9 @@ def call_template(
 
     # Denormalize (if model requires)
     # y_model = y_model * self.scale + self.center
+
+    # Flip model output latitude back to public Earth2Studio order if needed.
+    # y_model = torch.flip(y_model, dims=(-2,))
 
     # Reshape back to E2S format
     # output = y_model.view(x.shape[0], x.shape[1], x.shape[2], -1, x.shape[4], x.shape[5])

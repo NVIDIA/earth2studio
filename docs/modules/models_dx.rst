@@ -40,6 +40,7 @@ etc.
       CBottleSR
       CBottleTCGuidance
       CorrDiffCMIP6
+      CorrDiffCosmoEra5
       CorrDiffTaiwan
       ClimateNet
       DerivedRH
@@ -48,11 +49,13 @@ etc.
       DerivedTCWV
       DerivedVPD
       DerivedWS
+      DLESyMv0_ISCCP_ERA5Precip
       OrbitGlobalPrecip
       PrecipitationAFNO
       PrecipitationAFNOv2
       SolarRadiationAFNO1H
       SolarRadiationAFNO6H
+      StormScopeDxNSRDB
       TCTrackerWuDuan
       TCTrackerVitart
       WindgustAFNO

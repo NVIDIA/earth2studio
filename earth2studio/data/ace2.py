@@ -183,11 +183,7 @@ class ACE2ERA5Data:
             if "time" in da.dims and "lat" in da.dims and "lon" in da.dims:
                 da = da.transpose("time", "lat", "lon")
             elif "lat" in da.dims and "lon" in da.dims:
-                da = (
-                    da.expand_dims("time")
-                    .assign_coords(time=time_list)
-                    .transpose("time", "lat", "lon")
-                )
+                da = da.expand_dims(time=time_list).transpose("time", "lat", "lon")
             elif "time" in da.dims and self._mode == "forcing":
                 # CO2 is time-only
                 da = da.expand_dims({"lat": self.lat, "lon": self.lon})
@@ -257,7 +253,7 @@ class ACE2ERA5Data:
     @property
     def cache(self) -> str:
         """Get the appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "ACE2ERA5")
+        cache_location = os.path.join(datasource_cache_root(), "ace2era5_data")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_ACE2ERA5")
+            cache_location = os.path.join(cache_location, "tmp_ace2era5_data")
         return cache_location

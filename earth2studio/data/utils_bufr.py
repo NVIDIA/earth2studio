@@ -37,11 +37,15 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
 )
 
+# Shared optional-dependency key for pybufrkit. NCEP conventional sources decode
+# through this module, so their public classes check this key.
+BUFR_DEPENDENCY_KEY = "bufr"
+
 try:
     from pybufrkit.decoder import Decoder as BufrDecoder
     from pybufrkit.tables import TableGroupCacheManager
 except ImportError:
-    OptionalDependencyFailure("data")
+    OptionalDependencyFailure("data", BUFR_DEPENDENCY_KEY)
     BufrDecoder = None  # type: ignore[assignment,misc]
     TableGroupCacheManager = None  # type: ignore[assignment,misc]
 
@@ -67,6 +71,9 @@ OBS_TOB = 12245  # Temperature observation (DEG C)
 OBS_QOB = 13245  # Specific humidity (MG/KG)
 OBS_UOB = 11003  # U-wind component (M/S)
 OBS_VOB = 11004  # V-wind component (M/S)
+OBS_HRDR = 4218  # Profile-level time minus cycle time (hours)
+OBS_XDR = 6241  # Profile-level longitude (degrees east)
+OBS_YDR = 5241  # Profile-level latitude (degrees north)
 
 # Quality mark descriptors
 OBS_PQM = 7246  # Pressure quality mark
@@ -97,6 +104,9 @@ OBSERVATION_DESCR_IDS: set[int] = {
     OBS_UOB,
     OBS_VOB,
     OBS_WQM,
+    OBS_HRDR,
+    OBS_XDR,
+    OBS_YDR,
 }
 
 # Lexicon mnemonic -> descriptor ID for non-wind observation fields

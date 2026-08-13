@@ -6,7 +6,7 @@
 # ============================================================================
 
 defaults:
-    - model: dlwp
+    - model: ucast
     - _self_
     - optional campaign: null   # e.g. campaign=fcn3_2024_full
 
@@ -36,6 +36,10 @@ start_times:
 #   src.pipelines.forecast.DiagnosticPipeline   — diagnostic-only (e.g. CorrDiff)
 #   src.pipelines.dlesym.DLESyMPipeline         — coupled Earth-system forecast
 #   src.pipelines.stormscope.StormScopePipeline — coupled GOES/MRMS nowcasting
+#   src.pipelines.assimilation.AssimilationPipeline
+#       — DA analysis scored against reanalysis (e.g. HealDA)
+#   src.pipelines.assimilation.AssimilationForecastPipeline
+#       — DA-initialized forecast (e.g. HealDA + FCN3)
 # Custom pipelines: point at your own subclass of src.pipelines.Pipeline.
 pipeline: src.pipelines.forecast.ForecastPipeline
 
@@ -120,9 +124,28 @@ output:
         - z500
     overwrite: true
     thread_writers: 4   # 0 = synchronous writes
+    # time/lead_time/ensemble must keep chunk size 1 with async_zarr: they are
+    # written one slice per step, and a larger chunk would let concurrent writes
+    # read-modify-write the same object. Use shard_coords to cut file count.
     chunks:
         time: 1
         lead_time: 1
+
+    # --- IO backend ---------------------------------------------------------
+    # async_zarr : AsyncZarrBackend (default), owns its writer threads and
+    #              supports Zarr v3 sharding.
+    # zarr       : ZarrBackend, fully synchronous.
+    io_backend: async_zarr
+
+    # --- sharding (async_zarr only) -----------------------------------------
+    # Sharding packs many chunks into one storage object, cutting file count
+    # without changing the chunk layout readers see.
+    # Only lead_time is safe to shard on a multi-rank run
+    shard_coords: {}          # e.g. {lead_time: 8}
+    # Host memory per rank is roughly
+    #   max_inflight_shards * 4 * prod(shard_shape) * itemsize
+    # plus thread_writers in-flight copies of one write each
+    max_inflight_shards: 4
 
 # ---------------------------------------------------------------------------
 # Pre-download settings (used by predownload.py, consulted by score.py)
@@ -147,6 +170,12 @@ predownload:
         enabled: false
         source: null             # null = merge into data.zarr using data_source
                                  # set explicitly for a separate verification.zarr
+    # DA pipelines only: cache observation DataFrames to
+    # <output.path>/obs_<name>.parquet (one file per analysis time).
+    # main.py automatically prefers these stores over the live obs
+    # sources when present.  Set enabled=false to always fetch live.
+    observations:
+        enabled: true
 
 # ---------------------------------------------------------------------------
 # Scoring — compare predictions against verification data

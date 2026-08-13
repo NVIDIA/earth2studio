@@ -297,13 +297,8 @@ def test_netcdf4_file(mode: str, device: str, tmp_path: str) -> None:
     nc.close()
 
     # Check to see if write mode overwrites netCDF
-    if mode == "w":
-        nc = NetCDF4Backend(tmp_path / "test.nc", backend_kwargs={"mode": mode})
-        nc.add_array(total_coords, array_name, data=dummy)
-    else:
-        with pytest.raises(RuntimeError):
-            nc = NetCDF4Backend(tmp_path / "test.nc", backend_kwargs={"mode": mode})
-            nc.add_array(total_coords, array_name, data=dummy)
+    nc = NetCDF4Backend(tmp_path / "test.nc", backend_kwargs={"mode": mode})
+    nc.add_array(total_coords, array_name, data=dummy)
     nc.close()
 
 
@@ -394,12 +389,12 @@ def test_netcdf4_exceptions(
         ["dummy_1"],
         data=[dummy],
     )
-    with pytest.raises(RuntimeError):
-        nc.add_array(
-            total_coords,
-            ["dummy_1"],
-            data=[dummy],
-        )
+    nc.add_array(
+        total_coords,
+        ["dummy_1"],
+        data=[dummy + 1.0],
+    )
+    assert np.allclose(nc["dummy_1"][:], dummy.cpu().numpy())
 
     # Try to write with bad coords
     bad_coords = {"ensemble": np.arange(0)} | total_coords

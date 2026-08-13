@@ -426,7 +426,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Rear hook for first predicted step
             coords_out = coords.copy()
-            coords_out["lead_time"] = coords["lead_time"][-1]
+            coords_out["lead_time"] = coords["lead_time"][-1:]
             x[:, :, 1:], coords_out = self.rear_hook(x[:, :, 1:], coords_out)
 
             yield x[:, :, 1:], coords_out

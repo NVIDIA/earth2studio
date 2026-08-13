@@ -36,8 +36,18 @@ Used for fetching initial conditions for inference and validation data for scori
       data.CDS
       data.CMIP6
       data.CMIP6MultiRealm
+      data.DynamicalAIFS
+      data.DynamicalAIFS_ENS
+      data.DynamicalGFS
+      data.DynamicalGEFS
+      data.DynamicalHRRR
+      data.DynamicalIFS_ENS
+      data.DynamicalMRMS
+      data.EarthMoverBrightBandIFS
+      data.EarthMoverERA5
       data.GFS
       data.GOES
+      data.GOESGLMGrid
       data.HimawariAHI
       data.HRRR
       data.IFS
@@ -47,6 +57,7 @@ Used for fetching initial conditions for inference and validation data for scori
       data.MeteosatFCI
       data.NClimGridDaily
       data.NCAR_ERA5
+      data.OPERA
       data.PlanetaryComputerECMWFOpenDataIFS
       data.PlanetaryComputerGOES
       data.PlanetaryComputerMODISFire

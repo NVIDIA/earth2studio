@@ -11,12 +11,13 @@ conflicts and bloat.
 ## Base Dependencies
 
 The base installation provides core functionality that is focused on the relative
-ecosystem surrounding the following four packages:
+ecosystem surrounding the following five packages:
 
 - `torch`: Deep learning framework
 - `xarray`: Multi-dimensional (N-D) labeled arrays and datasets
 - `zarr`: Array storage format
 - `fsspec`: Filesystem interfaces
+- `obstore`: Rust-based object storage client (S3/GCS/Azure) backing the Zarr data sources
 
 With these base dependencies, most IO methods, data sources, perturbation methods, and
 utilities should be functional. However, specific features can require additional

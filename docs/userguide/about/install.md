@@ -31,7 +31,7 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.13
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.17.0"
 ```
 
 :::{dropdown} uv Install
@@ -224,7 +224,28 @@ uv add earth2studio --extra atlas
 ::::
 :::::
 :::::{tab-item} Aurora
-Notes: The Aurora model relies on the [microsoft aurora](https://github.com/microsoft/aurora)
+Notes: The Aurora model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
+package for inference.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[aurora]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra aurora
+```
+
+:::
+::::
+:::::
+:::::{tab-item} Aurora v1.5
+Notes: The Aurora v1.5 model relies on the [Microsoft Aurora](https://github.com/microsoft/aurora)
 package for inference.
 
 ::::{tab-set}
@@ -373,13 +394,16 @@ uv add earth2studio --extra fuxi
 ::::
 :::::
 :::::{tab-item} GraphCast
-Notes: The GraphCast models (operational and small) require additional dependencies for JAX and Haiku.
+Notes: The GraphCast models (operational and small) require additional dependencies
+for JAX and Haiku. The GraphCast package must be installed from the Google DeepMind
+repository.
 
 ::::{tab-set}
 :::{tab-item} pip
 
 ```bash
-pip install earth2studio[graphcast]
+pip install "graphcast @ git+https://github.com/google-deepmind/graphcast.git@7077d40a36db6541e3ed72ccaed1c0d202fa6014"
+pip install "earth2studio[graphcast]"
 ```
 
 :::
@@ -454,6 +478,26 @@ uv add earth2studio --extra stormcast
 :::
 ::::
 :::::
+:::::{tab-item} StormCast-CONUS
+::::{tab-set}
+:::{tab-item} pip
+Notes: The StormCast-CONUS model depends on [natten](https://github.com/SHI-Labs/NATTEN),
+which can take a long time to compile.
+
+```bash
+pip install earth2studio[stormcast-conus]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra stormcast-conus
+```
+
+:::
+::::
+:::::
 :::::{tab-item} StormScope
 Notes: The StormScope model depends on [natten](https://github.com/SHI-Labs/NATTEN),
 which can take a long time to compile. [Earth2Grid](https://github.com/NVlabs/earth2grid)
@@ -472,6 +516,28 @@ pip install earth2studio[stormscope]
 
 ```bash
 uv add earth2studio --extra stormscope
+```
+
+:::
+::::
+:::::
+:::::{tab-item} UCast
+Notes: The UCast model does not require additional Python packages beyond the
+base Earth2Studio install. Install the model extra anyway so environments can
+select the UCast dependency group consistently.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[ucast]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra ucast
 ```
 
 :::
@@ -567,6 +633,30 @@ uv add earth2studio --extra corrdiff
 :::
 ::::
 :::::
+:::::{tab-item} CorrDiff COSMO-ERA5
+Notes: Additional dependencies for the `CorrDiffCosmoEra5` model. This model needs
+the RoPE / NATTEN attention backend from `nvidia-physicsnemo`, which is not on PyPI
+yet, so physicsnemo must be installed from a pinned git commit. The `uv` path picks
+this up automatically from `[tool.uv.sources]`; the `pip` path installs it explicitly.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@ced75d93d014f70bb691372788eee2d201171c12"
+pip install earth2studio[cosmo]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra cosmo
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Cyclone Trackers
 Notes: Additional dependencies for cyclone tracking models `TCTrackerVitart` and `TCTrackerWuDuan`.
 
@@ -598,8 +688,7 @@ entries in the pipeline configuration must reference the full path to the
 Docker container, the binaries are copied to `/usr/local/bin` and are therefore
 available on the `PATH`; in that case only the executable names are needed
 (e.g. `DetectNodes ...`). Examples for both commands are provided in the
-docstring of the `TempestExtremes` class and in the
-[TC tracking recipe](../../recipes/tc_tracking/README.md).
+docstring of the `TempestExtremes` class and in the TC tracking recipe.
 
 :::
 ::::
@@ -907,14 +996,14 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.13
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.17.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.13
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.17.0"
 ```
 
 (pytorch_container_environment)=
@@ -937,7 +1026,7 @@ docker run -it -t nvcr.io/nvidia/pytorch:26.04-py3
     libeccodes-tools libeccodes-dev
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.17.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -950,7 +1039,7 @@ do with pip, for example:
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.17.0"
 ```
 
 :::
@@ -979,7 +1068,7 @@ package tooling.
 conda create -n earth2studio python=3.13
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.15.0"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.17.0"
 ```
 
 # System Recommendations
@@ -1003,7 +1092,7 @@ without complications.
 The recommended hardware for the majority of models supported in Earth2Studio is:
 
 | GPU | GPU Memory (GB) | Precision | # of GPUs | Disk Space (GB) |
-|-----|-----------------|-----------|-----------|-----------------|
+| --- | --------------- | --------- | --------- | --------------- |
 | [NVIDIA GPU](https://developer.nvidia.com/cuda-gpus) with compute capability ≥ 8.9 | ≥40 | FP32 | 1 | 128 |
 
 This includes cards such as:
@@ -1032,5 +1121,3 @@ this overrides `EARTH2STUDIO_CACHE` for data source caching operations.
     set, this overrides `EARTH2STUDIO_CACHE` for model checkpoint caching operations.
 - `EARTH2STUDIO_PACKAGE_TIMEOUT`: The max number of seconds for a download operation of
 a model package file from a remote store such as NGC, Huggingface or S3.
-- `EARTH2STUDIO_DISABLE_MSC`: Can be used to disable use of the [multi-storage client](https://github.com/NVIDIA/multi-storage-client)
-for relevant data sources.

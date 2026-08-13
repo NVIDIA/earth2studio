@@ -7,12 +7,161 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.16.0a0] - xxxx-xx-xx
+## [0.18.0a0] - 2026-08-xx
+
+### Added
+
+- Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
+- Added Zarr v3 sharding support to `AsyncZarrBackend`
+- Added a working `add_array` plus `__contains__`, `__getitem__`, `__iter__`,
+  `__len__`, `store` and `coords` to `AsyncZarrBackend`, matching `ZarrBackend`, and
+  `output.io_backend` to the eval recipe to select between them (`async_zarr` is the
+  new default)
+- Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
+  `NNJAObsSat`, returned as brightness temperature (K) with per-channel
+  wavenumbers alongside the existing microwave sensors
+
+### Changed
+
+- Updated StormCast SDA example to use the `GHCNHourly` data source.
+- `AsyncZarrBackend` now throttles on in flight writes rather than submitted writes, and
+  waits for whichever write completes first rather than the oldest.
+- Migrated GOES data source from s3fs to obstore; hour-directory listings are
+  now async and memoized, so same-hour timestamps share one LIST request
+  (~30% faster)
+- Migrated GOES GLM data source from s3fs to obstore; listings of complete
+  hours are memoized per instance while the current hour is always re-listed
+- Migrated Himawari AHI data source from s3fs to obstore with memoized
+  minute-directory listings (scans older than an hour)
+- Migrated MRMS data source from s3fs to obstore, with memoized day-directory
+  listings and threaded, header-based grid decoding
+- Migrated NClimGridDaily data source from s3fs to obstore; monthly NetCDF
+  files are now downloaded once into the cache and shared across all
+  (day, variable) slices instead of being streamed per slice over fsspec
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed `CorrDiffCosmoEra5` loading files from the wrong resolution when cache names
+  collided. Cache names now include the resolution.
+- Fixed `OPERA` data source returning negative precipitation values (`-99.0 mm/h`
+  for `tprate`, `-0.099 m` for `tp01`) for pixels where the radar detected no rain.
+  Undetect pixels for RATE and ACRR quantities are now filled with `0.0` instead
+  of the reflectivity sentinel `-99.0 dBZ`.
+- Fixed `GHCNHourly` station discovery to use the published GHCNh station
+  list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
+- Fixed `AIFS2` and `AIFS2ENS` assigning time-dependent forcing values to the wrong
+  samples when processing multiple batches and initialization times.
+- Fixed `AsyncZarrBackend` discarding exceptions raised by non-blocking writes. A write
+  future that had already completed was never resulted, so its error was swallowed
+- Fixed `AsyncZarrBackend` bugs covering non-blocking write safety, tensor aliasing,
+  metadata visibility, coordinate parsing, and shard buffer allocation.
+
+### Security
+
+- Added `zizmor` static security auditing of GitHub Actions workflows (pre-commit
+  hook, `make zizmor` lint step, and a code scanning workflow)
+
+### Dependencies
+
+- Added `obspec>=0.1` core dependency; the shared obstore helpers are typed
+  against its vendor-neutral store protocols
+
+## [0.17.0] - 2026-07-30
+
+### Added
+
+- Added GHCN hourly data source (`GHCNHourly`), superseding the deprecated ISD source
+- Added EarthMover ERA5 0.25 degree reanalysis data source
+- Added EarthMover IFS 0.1 degree data source and forecast source hosted by BrightBand
+- Added `async_workers` and `retries` parameters to GFS / GFS_FX, HRRR / HRRR_FX,
+  GEFS_FX / GEFS_FX_721x1440, CFS_FX / CFS_FX_Flux and NCAR_ERA5 data sources
+- Added shared obstore byte-range helpers (`obstore_store_from_url`,
+  `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
+- Added dynamical.org analysis and forecast data sources, reading anonymous Icechunk
+  repositories: `DynamicalAIFS`, `DynamicalAIFS_ENS`, `DynamicalGFS`, `DynamicalGEFS`,
+  `DynamicalHRRR`, `DynamicalMRMS`, `DynamicalGFS_FX`, `DynamicalGEFS_FX`,
+  `DynamicalHRRR_FX`, `DynamicalICON_EU_FX`, `DynamicalIFS_ENS`,
+  `DynamicalIFS_ENS_FX`,
+  `DynamicalAIFS_FX` and `DynamicalAIFSENS_FX`.
+- Added Aurora v1.5 deterministic and ensemble model wrapper (`Aurora1p5`, `Aurora1p5Ensemble`)
+- Added StormCast CONUS prognostic model (`StormCastCONUS`)
+- Added `DataReplay` for replaying `DataSource` and `ForecastSource` data through the
+  prognostic iterator interface.
+- Added NNJA satellite observation data frame source (`NNJAObsSat`)
+- Added StormScope NSRDB solar irradiance (GHI) estimation model (`StormScopeDxNSRDB`)
+- Added COSMO-REA downscaling diagnostic model (`CorrDiffCosmoEra5`) for diffusion
+  downscaling of ERA5 to COSMO-REA6 (6 km) and COSMO-REA2 (2.2 km).
+
+### Changed
+
+- Renamed `GHCNLexicon` to `GHCNDailyLexicon` for consistency with the new hourly lexicon
+- Updated MeteosatFCI reader and lexicon to include all channels.
+- Updated StormScope model package to use improved higher resolution checkpoints. Model
+  now defaults to using 3 km and 10 minute spatiotemporal resolution, and includes
+  predictions for GOES GLM Lightning density.
+- Migrated GFS / GFS_FX data sources from s3fs to obstore for index and byte-range
+  GRIB fetches; downloads now use bounded concurrency with retry on transient errors
+- Migrated the remaining GRIB byte-range data sources (HRRR / HRRR_FX, GEFS_FX /
+  GEFS_FX_721x1440, CFS_FX / CFS_FX_Flux, NCAR_ERA5) from s3fs/gcsfs to obstore with
+  bounded concurrency and retry on transient errors
+- Migrated HTTP-backed GRIB sources (GFS `ncep`, HRRR `nomads`, CFS `nomads`) to
+  obstore `HTTPStore` against the NOMADS HTTPS endpoint (GFS `ncep` previously used
+  FTP); no fsspec fallbacks remain in the GRIB byte-range sources
+- Refactored UFS observation sources (`UFSObsConv`, `UFSObsSat`) onto the shared
+  obstore byte-range helpers
+- Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
+  the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
+  fsspec
+- UFS observation sources (`UFSObsConv`, `UFSObsSat`) now tolerate missing diag files
+  by warning and skipping instead of erroring
+- Updated the OPERA data source to represent undetect values as `-99.0`, while
+  retaining `NaN` for no-data values.
+- NNJA Obs data source now accepts any time / tolerance rather than 6-hour strides
+- Renamed `NomadsGDASObsConv` `max_workers` parameter to `async_workers` for
+  consistency with other observation data sources
+
+### Fixed
+
+- Fixed `PrecipitationAFNOv2` and `WindgustAFNO` passing latitude and longitude in
+  swapped order to `cos_zenith_angle`, which produced an incorrect solar-zenith-angle
+  input channel.
+- Fixed incorrect interpolation values at the lower grid edge when an output
+  coordinate matched the first input coordinate.
+- Corrected the `PrecipitationAFNOv2` docstring: the model predicts precipitation
+  accumulated over the following six hours `[t, t+6h]`, not the prior six hours.
+- Fixed `DerivedRH` mixed-phase saturation blend clipping the liquid-water fraction
+  ratio to 1.2 instead of 1.0 before squaring, which let the effective weight reach
+  1.44 and inflated relative humidity above freezing.
+- Changed ISD schema `source` type to string since the field is alphanumeric. Enforced
+  `float32` dtypes for `lat`, `lon`, `elev`, and `observation`.
+- Fixed NNJA observation sources blocking the shared fsspec IO loop with
+  CPU-bound PrepBUFR decode work, which stalled concurrent fetches from other
+  data sources.
+- Fixed ACE2 distributed inference failures caused by nondeterministic variable ordering
+  across MPI ranks.
+- Improved ACE2ERA5 inference performance by caching yearly forcing values
+- Fixed ACE2ERA5 forcing data retrieval for static variables requested across
+  multiple times.
+- Added CF-convention scale/offset when retrieving JPSS data.
+
+### Dependencies
+
+- Removed `multi-storage-client` from the `data` optional dependency group,
+  succeeded by `obstore`
+- Added `icechunk>=2.0.0` to the `data` optional dependency group (Python ≥3.12 only)
+
+## [0.16.0] - 2026-06-29
 
 ### Added
 
 - Added AIFS 2.0 prognostic model (`AIFS2`) with wave and 10 hPa pressure level support
 - Added AIFS 2.0 ensemble prognostic model (`AIFS2ENS`) with stochastic noise injection
+- Added U-CAST prognostic model (`UCast`) with 1.5-degree global ERA5
+  forecasting support
 - Added wave variables to IFS data source for AIFS2 support
 - Added NCEP CFSv2 operational forecast data sources for the pressure-level
   `pgbf` and surface-flux `flxf` products (`CFS_FX`, `CFS_FX_Flux`), backed by
@@ -22,25 +171,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through 2011-03-27 with cycles every 5 days, served from the NCEI HTTPS
   archive
 - Added IBTrACS tropical cyclone track DataFrame source (`IBTrACS`)
+- Added checkpoint/session utilities and restart support for deterministic,
+  diagnostic, and ensemble inference workflows
+- Added EUMETNET OPERA European weather radar composite DataSource for DBZH
+  reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
+- Added support for cumulative variables in ARCO data source
+- Added DLESyM-v0-ISCCP-ERA5 climate model
 
 ### Changed
 
+- UFS GSI observation sources (`UFSObsConv`, `UFSObsSat`) now fetch from S3 via native
+  `obstore` instead of `s3fs` to avoid the Python-GIL bottleneck that caps fsspec's
+  concurrent S3 read throughput (~22% faster obs fetch, ~20% HealDA e2e on B200; output unchanged).
+- Renamed AIFS runoff and snowfall variables to `ro06` and `sf06` and added six-hour
+  accumulated IFS/AIFS data aliases.
 - Automatic test skipping for missing optional dependencies via
   `pytest_ignore_collect` hook in `test/conftest.py`
-
-### Deprecated
-
-### Removed
 
 ### Fixed
 
 - Fixed ARCO data source `ARCO_TIME_STOP` fallback to 2025-12-31,
   reflecting the most recent available data in the bucket
-
-### Security
+- Fixed `ZarrBackend` chunk metadata reload to skip coordinate arrays when reopening Zarr stores.
 
 ### Dependencies
 
+- Added `obstore>=0.8` for fetching UFS GSI observation data from S3.
 - Removed `aifs` and `aifsens` from the `[all]` extra due to dependency conflicts with
   `aifs2` (incompatible anemoi-models versions).
 

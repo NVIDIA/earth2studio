@@ -1,383 +1,101 @@
 # Validation Guide for Prognostic Model Wrappers
 
-This guide covers Steps 10-12: reference comparison, PR submission, and code review.
+This guide covers reference comparison, sanity plots, PR text, and PR review
+comments for prognostic model wrappers.
 
-## Step 10 — Reference Comparison & Validation
+## Step 10 - Reference Comparison and Validation
 
-Create three scripts in the repo root (do NOT commit):
+Create validation scripts in the repo root and do not commit them:
 
-### 10a. Vanilla Reference Script
+1. `reference_<model>_vanilla.py` - runs the third-party/original inference path without Earth2Studio imports.
+2. `reference_<model>_e2s.py` - runs the Earth2Studio wrapper on matched inputs.
+3. `reference_<model>_compare.py` - computes numerical agreement between vanilla and E2S outputs.
+4. `reference_<model>_sanity.py` or equivalent - generates visual sanity-check plots from realistic inputs.
 
-Create `reference_<model>_vanilla.py`:
+The vanilla and E2S scripts must use the same initial time, variables, grid,
+lead times, stochastic seeds, and deterministic settings whenever the model
+supports them. If the original implementation uses a different public latitude
+or tensor order, convert internally for comparison but keep Earth2Studio public
+coordinates in 90 to -90 latitude order.
 
-```python
-"""Vanilla reference inference for <ModelName> (no Earth2Studio).
-
-Runs inference using only third-party packages to establish
-ground truth outputs for comparison.
-
-This script is for validation only — do NOT commit to the repo.
-"""
-
-import numpy as np
-import torch
-
-# ============================================================
-# PART 1: Load the reference model (adapt from original repo)
-# ============================================================
-# TODO: Fill in the model loading code from the reference repo
-# Example:
-# from <package> import <Model>
-# model = <Model>.from_pretrained("<checkpoint>")
-# model = model.to("cuda").eval()
-
-# ============================================================
-# PART 2: Prepare input data
-# ============================================================
-torch.manual_seed(42)
-np.random.seed(42)
-
-# TODO: Define input shape matching reference model expectations
-# input_shape = (batch, channel, lat, lon)
-# x = torch.randn(input_shape, device="cuda", dtype=torch.float32)
-
-# ============================================================
-# PART 3: Run inference
-# ============================================================
-N_STEPS = 8  # Adjust based on model time step
-
-with torch.no_grad():
-    # Single-step output
-    # y_single = model(x)
-
-    # Multi-step outputs
-    outputs = []
-    current = x
-    for step in range(N_STEPS):
-        current = model(current)
-        outputs.append(current.cpu())
-
-# ============================================================
-# PART 4: Save outputs
-# ============================================================
-torch.save({
-    "input": x.cpu(),
-    "single_step": y_single.cpu(),
-    "multi_step": outputs,
-    "n_steps": N_STEPS,
-}, "ref_<model>_vanilla_outputs.pt")
-
-print(f"Saved vanilla reference outputs ({N_STEPS} steps)")
-```
-
-### 10b. Earth2Studio Reference Script
-
-Create `reference_<model>_e2s.py`:
-
-```python
-"""Earth2Studio reference inference for <ModelName>.
-
-Runs inference using the E2S wrapper for comparison against
-vanilla reference.
-
-This script is for validation only — do NOT commit to the repo.
-"""
-
-import numpy as np
-import torch
-
-from earth2studio.models.px import ModelName
-
-# ============================================================
-# PART 1: Load the E2S model
-# ============================================================
-model = ModelName.load_model(ModelName.load_default_package())
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model = model.to(device)
-
-# ============================================================
-# PART 2: Prepare input data (same seed as vanilla)
-# ============================================================
-torch.manual_seed(42)
-np.random.seed(42)
-
-input_coords = model.input_coords()
-shape = tuple(max(len(v), 1) for v in input_coords.values())
-x = torch.randn(shape, device=device, dtype=torch.float32)
-
-# ============================================================
-# PART 3: Run inference
-# ============================================================
-N_STEPS = 8
-
-with torch.no_grad():
-    # Single-step output
-    y_single, out_coords = model(x, input_coords)
-
-    # Multi-step via create_iterator
-    iterator = model.create_iterator(x, input_coords)
-    step0_x, step0_coords = next(iterator)  # Initial condition
-
-    outputs = []
-    for step in range(N_STEPS):
-        y_step, c_step = next(iterator)
-        outputs.append(y_step.cpu())
-
-# ============================================================
-# PART 4: Save outputs
-# ============================================================
-torch.save({
-    "input": x.cpu(),
-    "single_step": y_single.cpu(),
-    "multi_step": outputs,
-    "n_steps": N_STEPS,
-}, "ref_<model>_e2s_outputs.pt")
-
-print(f"Saved E2S reference outputs ({N_STEPS} steps)")
-```
-
-### 10c. Comparison Script
-
-Create `reference_<model>_compare.py`:
-
-```python
-"""Compare vanilla vs E2S outputs for <ModelName>."""
-
-import torch
-
-vanilla = torch.load("ref_<model>_vanilla_outputs.pt", weights_only=False)
-e2s = torch.load("ref_<model>_e2s_outputs.pt", weights_only=False)
-
-def compare(ref, test, name):
-    diff = (ref - test).abs()
-    print(f"{name}:")
-    print(f"  Max abs diff: {diff.max().item():.2e}")
-    print(f"  Mean abs diff: {diff.mean().item():.2e}")
-    corr = torch.corrcoef(torch.stack([ref.flatten(), test.flatten()]))[0, 1]
-    print(f"  Correlation: {corr.item():.8f}")
-    return diff.max().item(), corr.item()
-
-# Single step
-print("=" * 60)
-print("SINGLE-STEP")
-print("=" * 60)
-compare(vanilla["single_step"], e2s["single_step"], "Single step")
-
-# Multi-step
-print("\n" + "=" * 60)
-print(f"MULTI-STEP ({vanilla['n_steps']} steps)")
-print("=" * 60)
-for i in range(vanilla["n_steps"]):
-    compare(vanilla["multi_step"][i], e2s["multi_step"][i], f"Step {i+1}")
-```
-
-### 10d. Run Scripts
+Run the scripts with `uv run`:
 
 ```bash
 uv run python reference_<model>_vanilla.py
 uv run python reference_<model>_e2s.py
 uv run python reference_<model>_compare.py
+uv run python reference_<model>_sanity.py
 ```
 
-### 10e. Acceptance Criteria
+Do not commit validation scripts, generated `.pt` files, NetCDF files, plots,
+or image outputs. Keep them local review artifacts.
 
-- Single-step max absolute difference < 1e-4
-- Multi-step correlation > 0.9999
-- No NaN/Inf values
+## Acceptance Criteria
 
----
+- Single-step max absolute difference is below the model-appropriate tolerance.
+- Multi-step correlation remains above the model-appropriate tolerance, usually `0.9999` or better for deterministic comparisons.
+- Outputs have no NaN/Inf values except documented masked fields.
+- Visual sanity plots look physically plausible and use the Earth2Studio public coordinate convention.
 
-## Step 11 — Branch, Commit & Open PR
+When exact agreement is impossible because of stochastic sampling, interpolation,
+non-deterministic kernels, or mixed precision, explain the tolerance source in
+the PR comment and report reproducible seeds/settings.
 
-### 11a. Create Branch
+## PR Body
+
+Use `pr-body-template.md`. Keep the structured sections from the template:
+
+- Description
+- Model details
+- Dependencies added
+- Reference comparison
+- Validation
+- Checklist
+
+Do not collapse the PR body into a one-line summary. Do not include machine
+names, hostnames, absolute filesystem paths, cache paths, device inventory, or
+image upload links. The PR body should say that plots are available in the PR
+comment as placeholders for manual upload.
+
+## PR Validation Comment
+
+Use `pr-comment-template.md`. The comment should include:
+
+- `## Reference Comparison Validation`
+- Model and comparison date
+- Sanitized environment label only, such as `GPU validation run`
+- Results summary table
+- Key findings
+- Reference plot placeholders, including multi-step vanilla-vs-Earth2Studio comparison plots
+- Full review-safe validation scripts inside expandable details blocks
+
+Each script must be placed in a fenced `python` code block under its own `<details>` / `<summary>` section. Do not replace the scripts with summaries.
+
+The comparison script should preserve the scalar numerical comparison and also include plotting code for the multi-step comparison tensors. The generated comparison plots should place Earth2Studio output on the top row, vanilla reference output on the middle row, and relative error on the bottom row across multiple forecast lead times. Use an explicit seed for stochastic or ensemble-style reference paths and state the denominator convention for relative error, such as `max(abs(vanilla), 1e-6)`.
+
+Do not upload images from the automation and do not paste `<img ...>` links.
+Use TODO placeholders so the PR author can upload plots manually in the browser.
+Do not include absolute paths, hostnames, machine names, cache directories, or
+machine-identifying details.
+
+## Branch, Commit, and PR
+
+Before opening or updating the PR, verify that new prognostic models have a
+`pyproject.toml` optional dependency extra, even if empty, that the `all` extra
+includes it, that install docs include model notes plus both pip and uv commands,
+and that the model is listed in `docs/modules/models_px.rst` and `CHANGELOG.md`.
+Stage only implementation, tests, docs, changelog, dependency metadata, and skill
+updates that belong in the branch. Exclude validation scripts and outputs.
 
 ```bash
-git checkout -b feat/prognostic-model-<name>
+git add earth2studio/models/px/<filename>.py         earth2studio/models/px/__init__.py         test/models/px/test_<filename>.py         pyproject.toml         CHANGELOG.md         docs/modules/models_px.rst         docs/userguide/about/install.md
 ```
 
-### 11b. Stage Files
+Create the PR with the body template and then post the validation comment from
+`pr-comment-template.md`.
 
-```bash
-git add earth2studio/models/px/<filename>.py \
-        earth2studio/models/px/__init__.py \
-        test/models/px/test_<filename>.py \
-        pyproject.toml \
-        CHANGELOG.md \
-        docs/modules/models_px.rst \
-        docs/userguide/about/install.md
-```
+## Code Review Follow-up
 
-Do NOT add: reference scripts, comparison outputs, images.
-
-### 11c. Commit
-
-```bash
-git commit -m "feat: add <ClassName> prognostic model
-
-Add <ClassName> prognostic model for <brief description>.
-Includes unit tests and documentation."
-```
-
-### 11d. Push to Fork
-
-```bash
-git push -u origin feat/prognostic-model-<name>
-```
-
-### 11e. Create PR
-
-```bash
-gh pr create \
-  --repo NVIDIA/earth2studio \
-  --base main \
-  --head <your-username>:feat/prognostic-model-<name> \
-  --title "feat: add <ClassName> prognostic model" \
-  --body-file pr-body.md
-```
-
-### PR Body Template
-
-Create `pr-body.md` with this template:
-
-```markdown
-## Description
-
-Add `ClassName` prognostic model for BRIEF_DESCRIPTION.
-
-### Model details
-
-| Property | Value |
-|---|---|
-| **Architecture** | PyTorch / ONNX / JAX |
-| **Time step** | Xh |
-| **Input variables** | N variables |
-| **Spatial resolution** | X° x Y° |
-| **Checkpoint source** | NGC / HuggingFace / S3 |
-| **Reference** | [Paper title](PAPER_URL) |
-| **GitHub** | [repo/name](REPO_URL) |
-
-### License information
-
-| Component | License | Notes |
-|---|---|---|
-| **Model weights** | LICENSE_NAME (e.g., CC-BY-NC-4.0, Apache-2.0) | Link to license file |
-| **Model code** | LICENSE_NAME | Original repo license |
-| **Training data** | LICENSE_NAME or N/A | ERA5, etc. |
-
-> ⚠️ If model weights are non-commercial (e.g., CC-BY-NC), note this in the
-> wrapper docstring and Earth2Studio docs.
-
-### Dependencies added
-
-| Package | Version | License |
-|---|---|---|
-| `package` | `>=X.Y` | MIT / Apache-2.0 / BSD-3 |
-
-### Reference comparison
-
-**Single step:** max_abs=X.XXe-XX, corr=0.XXXXXX
-**Multi-step (8 steps):** Step 8 corr=0.XXXXXX
-
-## Checklist
-
-- [ ] Tests cover these changes
-- [ ] Documentation updated
-- [ ] CHANGELOG.md updated
-- [ ] License information verified and documented
-```
-
-### 11f. Post Reference Comparison Comment
-
-Post comparison results and script snippets as a PR comment.
-
----
-
-## Step 12 — Automated Code Review (Greptile)
-
-### 12a. Wait for Review
-
-Poll for greptile-apps[bot] review (5 min timeout):
-
-```bash
-gh api repos/NVIDIA/earth2studio/pulls/<PR>/reviews \
-  --jq '.[] | select(.user.login == "greptile-apps[bot]")'
-```
-
-### 12b. Categorize Feedback
-
-| Category | Action |
-|---|---|
-| Bug/correctness | Fix |
-| Style/convention | Fix if valid |
-| Performance | Evaluate |
-| Documentation | Fix |
-| Suggestion | User decides |
-| False positive | Dismiss |
-
-### 12c. Implement Fixes
-
-```bash
-# Make fixes
-make format && make lint
-uv run pytest test/models/px/test_<filename>.py -v
-git commit -m "fix: address code review feedback"
-git push
-```
-
-### 12d. Respond to Comments
-
-For fixed:
-```
-Fixed in <commit_sha>. <description>
-```
-
-For dismissed:
-```
-Won't fix — <justification>
-```
-
----
-
-## Sanity-Check Plot Template
-
-```python
-"""Generate sanity-check plots for <ModelName>."""
-
-import matplotlib.pyplot as plt
-import numpy as np
-import torch
-
-from earth2studio.models.px import ModelName
-from earth2studio.data import GFS
-
-# Load model
-model = ModelName.load_model(ModelName.load_default_package())
-model = model.to("cuda")
-
-# Fetch real data
-time = np.array([np.datetime64("2024-01-15T00:00")])
-gfs = GFS()
-x, coords = gfs(time, model.input_coords()["variable"])
-x = x.to("cuda")
-
-# Run 5-day forecast
-iterator = model.create_iterator(x, coords)
-outputs = []
-for i, (y, c) in enumerate(iterator):
-    outputs.append((y.cpu(), c.copy()))
-    if i >= 20:  # 5 days at 6h step
-        break
-
-# Plot t2m at day 0, 2, 5
-fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-for ax, day in zip(axes, [0, 8, 20]):
-    y, c = outputs[day]
-    t2m_idx = list(c["variable"]).index("t2m")
-    im = ax.imshow(y[0, 0, 0, t2m_idx].numpy(), cmap="RdBu_r")
-    ax.set_title(f"T2M at {c['lead_time'][0]}")
-    plt.colorbar(im, ax=ax)
-
-plt.tight_layout()
-plt.savefig("sanity_check_<model>.png", dpi=150)
-print("Saved sanity_check_<model>.png")
-```
+After the PR is open, inspect review and bot feedback. Fix correctness,
+coordinate, dependency, documentation, and test issues. For each follow-up,
+rerun focused tests and update the validation comment only when results change.

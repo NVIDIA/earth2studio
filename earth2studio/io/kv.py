@@ -21,6 +21,7 @@ from typing import Any
 import numpy as np
 import torch
 import xarray
+from loguru import logger
 
 from earth2studio.utils.coords import convert_multidim_to_singledim
 from earth2studio.utils.type import CoordSystem
@@ -123,7 +124,8 @@ class KVBackend:
 
         for name, di in zip(array_name, data):
             if name in self.root:
-                raise AssertionError(f"Warning! {name} is already in KV Store.")
+                logger.warning("{} is already in KV Store. Skipping add_array.", name)
+                continue
 
             self.dims[name] = list(adjusted_coords)
 

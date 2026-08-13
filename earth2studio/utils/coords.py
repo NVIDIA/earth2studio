@@ -240,11 +240,9 @@ def map_coords(
 
             if key in ["lat", "lon"] and len(inc.shape) > 1 or len(outc.shape) > 1:
                 # Guard against 2D lat/lon grids (curvilinear case)
-                raise ValueError(
-                    f"Coordinate dim {key} in input or mapped coords is \
+                raise ValueError(f"Coordinate dim {key} in input or mapped coords is \
                         two-dimensional; please use fetch_data or \
-                        prep_data_array to regrid/interpolate first."
-                )
+                        prep_data_array to regrid/interpolate first.")
 
             # Roll condition
             first_element = outc[0]

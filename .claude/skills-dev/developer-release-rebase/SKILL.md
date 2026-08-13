@@ -97,13 +97,14 @@ If the branch is already rebased, skip this and proceed.
 ## Step 3 — Update CHANGELOG.md
 
 Read `CHANGELOG.md` and insert a new blank section **above** the most recent
-version entry. Use `xxxx-xx-xx` as the date placeholder — never fill in today's
-date for the new development version.
+version entry. Use `YYYY-MM-xx` as the date placeholder where `YYYY-MM` is the
+month after the released version's date (e.g., if releasing `0.17.0` on
+`2026-07-30`, the next dev section gets `2026-08-xx`).
 
 The new section must look exactly like this (substituting the version number):
 
 ```markdown
-## [X.(Y+1).0a0] - xxxx-xx-xx
+## [X.(Y+1).0a0] - YYYY-MM-xx
 
 ### Added
 
@@ -221,18 +222,24 @@ proceeding.
 
 ## Step 9 — Update Skill Versions
 
-Update the `version` field in every skill's `SKILL.md` frontmatter to match the
-new released version **without** the alpha/beta/rc suffix.
-
-1. Glob for all `skills/*/SKILL.md` files (covers `skills/`,
-   `.opencode/skills/`, and `.claude/skills/` — they are hard-linked).
-2. For each file, replace the current `version:` value with `X.(Y+1).0`
-   (the clean release version, e.g. `0.16.0` — no `a0`, `b1`, or `rcN`).
-3. Show a summary of the changes to the user.
+**Skip this step.** Skill versions are managed separately and should NOT
+be updated during the release rebase process.
 
 ---
 
-## Step 10 — Commit and Push
+## Step 10 — Update GitHub Issue Templates
+
+Update the suggested version placeholder in the bug report template to
+reference the new released version.
+
+1. Open `.github/ISSUE_TEMPLATE/bug_report.yml`.
+2. Replace the `placeholder:` value (e.g., `"example: 0.14.0"`) with
+   `"example: X.Y.0"` (the new released version).
+3. Show the diff to the user for review.
+
+---
+
+## Step 11 — Commit and Push
 
 Stage only the expected files and commit:
 
@@ -244,6 +251,7 @@ git add README.md
 git add docs/_static/switcher.json
 git add docs/userguide/about/install.md
 git add skills/
+git add .github/
 git commit -m "Update version to X.(Y+1).0a0"
 ```
 

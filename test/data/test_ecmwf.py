@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import pathlib
 import shutil
 from datetime import datetime, timedelta
@@ -22,6 +23,35 @@ import numpy as np
 import pytest
 
 from earth2studio.data import AIFS_ENS_FX, AIFS_FX, IFS, IFS_ENS, IFS_ENS_FX, IFS_FX
+
+
+def test_accumulation_alias_tasks_use_previous_lead_time():
+    ds = object.__new__(AIFS_FX)
+    time = [datetime(2025, 12, 31, 0)]
+    lead_time = [timedelta(hours=12)]
+
+    tasks = asyncio.run(ds._create_tasks(time, lead_time, ["sf06", "ro06", "t2m"]))
+
+    assert tasks[0].variable == "sf"
+    assert tasks[0].lead_time == timedelta(hours=12)
+    assert tasks[0].previous_lead_time == timedelta(hours=6)
+    assert tasks[1].variable == "rowe"
+    assert tasks[1].previous_lead_time == timedelta(hours=6)
+    assert tasks[2].variable == "2t"
+    assert tasks[2].previous_lead_time is None
+
+
+def test_accumulation_alias_tasks_reject_short_lead_time():
+    ds = object.__new__(IFS_FX)
+
+    with pytest.raises(ValueError, match="too short"):
+        asyncio.run(
+            ds._create_tasks(
+                [datetime(2025, 12, 31, 0)],
+                [timedelta(hours=0)],
+                ["sf06"],
+            )
+        )
 
 
 def now6h():

@@ -21,6 +21,7 @@ from typing import Any
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
 
 from earth2studio.utils.coords import convert_multidim_to_singledim
 from earth2studio.utils.type import CoordSystem
@@ -141,7 +142,10 @@ class XarrayBackend:
 
         for name, di in zip(array_name, data):
             if name in self.root:
-                raise AssertionError(f"Warning! {name} is already in xarray Dataset.")
+                logger.warning(
+                    "{} is already in xarray Dataset. Skipping add_array.", name
+                )
+                continue
 
             if di is not None:
                 self.root[name] = xr.DataArray(

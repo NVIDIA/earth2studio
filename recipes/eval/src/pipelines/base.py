@@ -48,12 +48,12 @@ import numpy as np
 import torch
 from loguru import logger
 from omegaconf import DictConfig
-from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data import DataSource
 from earth2studio.utils.coords import CoordSystem, map_coords
 from src.data import CompositeSource, PredownloadedSource
+from src.distributed import get_rank
 from src.output import OutputManager, build_output_coords
 from src.regrid import Regridder
 from src.work import WorkItem, write_marker
@@ -150,6 +150,50 @@ class PredownloadStore:
     spatial_ref: CoordSystem
     role: str = "data"
     extra_coords: dict[str, np.ndarray] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class PredownloadFrameStore:
+    """Declarative spec for a DataFrame store that ``predownload.py`` populates.
+
+    The tabular twin of :class:`PredownloadStore`, used for observation
+    inputs of data-assimilation pipelines (``DataFrameSource`` protocol
+    rather than gridded ``DataSource``).  ``predownload.py`` fetches one
+    DataFrame per timestamp via
+    :func:`earth2studio.data.fetch_dataframe` and writes it as a parquet
+    file under ``<output.path>/<name>.parquet/`` (one file per time,
+    named by :func:`src.data.frame_filename`).  At inference time
+    :class:`~src.data.PredownloadedFrameSource` serves the store in place
+    of the live source.
+
+    Parameters
+    ----------
+    name : str
+        Logical store name.  Controls the on-disk location
+        (``<output.path>/<name>.parquet``) and the progress-marker
+        namespace.  DA pipelines use ``"obs_<slot>"`` (e.g.
+        ``"obs_conv"``, ``"obs_sat"``).
+    source : object
+        Live ``DataFrameSource`` to fetch from.
+    times : list[np.datetime64]
+        Analysis times to fetch.  Each becomes the ``request_time`` of
+        one fetch — sources with a ``time_tolerance`` window expand it
+        internally, so the stored frame holds the full observation
+        window for that analysis time.
+    variables : list[str]
+        Variable names to request (the schema's ``variable`` entry).
+    fields : list[str]
+        DataFrame columns to request (the schema's keys).
+    role : str
+        Informational tag shown in logs.  Defaults to ``"observation"``.
+    """
+
+    name: str
+    source: object
+    times: list[np.datetime64]
+    variables: list[str]
+    fields: list[str]
+    role: str = "observation"
 
 
 # ======================================================================
@@ -367,6 +411,26 @@ class Pipeline(ABC):
         """
         return []
 
+    def predownload_frame_stores(self, cfg: DictConfig) -> list[PredownloadFrameStore]:
+        """Declare DataFrame stores that ``predownload.py`` should populate.
+
+        The tabular counterpart of :meth:`predownload_stores`, for
+        pipelines whose inputs include ``DataFrameSource`` observations
+        (the DA pipelines).  Default implementation returns an empty
+        list.
+
+        Parameters
+        ----------
+        cfg : DictConfig
+            Full Hydra config.
+
+        Returns
+        -------
+        list[PredownloadFrameStore]
+            One entry per parquet store to populate.
+        """
+        return []
+
     def verification_zarr_paths(self, cfg: DictConfig) -> list[str]:
         """Return local zarr paths that together provide verification data.
 
@@ -569,9 +633,8 @@ class Pipeline(ABC):
         if self._output_regridder is not None:
             self._output_regridder = self._output_regridder.to(device)
 
-        if not DistributedManager.is_initialized():
-            DistributedManager.initialize()
-        rank = DistributedManager().rank
+        # Rank only gates tqdm output below.
+        rank = get_rank()
 
         # None is only passed when needs_data_source=False, in which case
         # the subclass's run_item ignores the argument.

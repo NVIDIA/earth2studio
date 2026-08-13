@@ -28,15 +28,18 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-import s3fs
+import xarray as xr
 from loguru import logger
 
 from earth2studio.data.utils import (
+    AsyncListableStore,
     _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
-    managed_session,
+    obstore_list_prefix,
+    obstore_read_range,
+    obstore_store_from_url,
     prep_data_inputs,
 )
 from earth2studio.lexicon import GOESGLMLexicon
@@ -242,21 +245,23 @@ class GOESGLM:
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
 
-        self.fs: s3fs.S3FileSystem | None = None
+        # One obstore store per satellite bucket, built lazily. Unlike async
+        # fsspec filesystems, obstore stores are event-loop independent, so
+        # they can safely be reused across repeated fetch calls (e.g. one per
+        # 5-min bin from ``GOESGLMGrid``).
+        self.stores: dict[str, AsyncListableStore] = {}
+        # Per-bucket memoized S3 hour-directory listings (bucket -> prefix ->
+        # keys). Only complete (past) hours are cached so a long-lived
+        # instance polling near-real-time data still sees newly arriving files.
+        self._hour_listing_cache: dict[str, dict[str, list[str]]] = {}
 
-    async def _async_init(self) -> None:
-        """Async initialization of the anonymous S3 filesystem.
-
-        Note
-        ----
-        Async fsspec expects initialization inside the execution loop.
-        """
-        self.fs = s3fs.S3FileSystem(
-            anon=True,
-            client_kwargs={},
-            asynchronous=True,
-            skip_instance_cache=True,
-        )
+    def _store_for_bucket(self, bucket: str) -> AsyncListableStore:
+        """Return (building if needed) the obstore store for an S3 bucket"""
+        if bucket not in self.stores:
+            self.stores[bucket] = obstore_store_from_url(
+                f"s3://{bucket}", max_pool_connections=self._async_workers
+            )
+        return self.stores[bucket]
 
     def __call__(
         self,
@@ -317,9 +322,6 @@ class GOESGLM:
         pd.DataFrame
             Event-level lightning observations.
         """
-        if self.fs is None:
-            await self._async_init()
-
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
         for v in variable_list:
@@ -339,24 +341,23 @@ class GOESGLM:
             f"files across {len(time_list)} requested times"
         )
 
-        async with managed_session(self.fs):
-            coros = [
-                async_retry(
-                    self._fetch_remote_file,
-                    uri,
-                    retries=self._retries,
-                    backoff=1.0,
-                    task_timeout=120.0,
-                    exceptions=(OSError, IOError, TimeoutError, ConnectionError),
-                )
-                for uri in unique_uris
-            ]
-            await gather_with_concurrency(
-                coros,
-                max_workers=self._async_workers,
-                desc="Fetching GLM L2 LCFA files",
-                verbose=(not self._verbose),
+        coros = [
+            async_retry(
+                self._fetch_remote_file,
+                uri,
+                retries=self._retries,
+                backoff=1.0,
+                task_timeout=120.0,
+                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
+            for uri in unique_uris
+        ]
+        await gather_with_concurrency(
+            coros,
+            max_workers=self._async_workers,
+            desc="Fetching GLM L2 LCFA files",
+            verbose=(not self._verbose),
+        )
 
         return self._compile_dataframe(files, time_list, variable_list, schema)
 
@@ -364,11 +365,14 @@ class GOESGLM:
         """List GLM L2 LCFA keys whose file-start times fall in any
         requested ``[t-tol, t+tol]`` window.
 
-        Hourly S3 prefixes are listed once each (deduplicated) and the
-        per-file start timestamps are parsed from the LCFA filename
-        convention.
+        Hourly S3 prefixes are listed once each (deduplicated within the
+        call) and the per-file start timestamps are parsed from the LCFA
+        filename convention. Listings of complete (past) hours are memoized
+        on the instance, so repeated fetches over the same hour (e.g. one
+        per 5-min bin from ``GOESGLMGrid``) issue a single LIST request; the
+        still-filling current hour is always re-listed.
         """
-        prefix_jobs: dict[tuple[str, str], None] = {}
+        prefix_jobs: dict[tuple[str, str], datetime] = {}
         windows: list[tuple[datetime, datetime, str]] = []
         for t in time_list:
             tmin = t + self._tolerance_lower
@@ -377,20 +381,25 @@ class GOESGLM:
             windows.append((tmin, tmax, sat))
             hr = (tmin - _GLM_FILE_DURATION).replace(minute=0, second=0, microsecond=0)
             while hr <= tmax:
-                prefix_jobs[(sat, self._hour_prefix(sat, hr))] = None
+                prefix_jobs.setdefault((sat, self._hour_prefix(sat, hr)), hr)
                 hr += timedelta(hours=1)
 
-        async def _list_one(sat: str, prefix: str) -> list[tuple[str, str]]:
-            try:
-                keys = await self.fs._ls(  # type: ignore[union-attr]
-                    f"{_BUCKETS[sat]}/{prefix}", detail=False
-                )
-            except FileNotFoundError:
-                return []
-            return [(sat, k) for k in keys if k.endswith(".nc")]
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        async def _list_one(
+            sat: str, prefix: str, hr: datetime
+        ) -> list[tuple[str, str]]:
+            bucket = _BUCKETS[sat]
+            paths = await obstore_list_prefix(
+                self._store_for_bucket(bucket),
+                prefix,
+                cache=self._hour_listing_cache.setdefault(bucket, {}),
+                cacheable=hr + timedelta(hours=1) <= now,
+            )
+            return [(sat, f"{bucket}/{p}") for p in paths if p.endswith(".nc")]
 
         listings = await gather_with_concurrency(
-            [_list_one(sat, prefix) for (sat, prefix) in prefix_jobs],
+            [_list_one(sat, prefix, hr) for (sat, prefix), hr in prefix_jobs.items()],
             max_workers=self._async_workers,
             desc="Listing GLM L2 LCFA prefixes",
             verbose=(not self._verbose),
@@ -431,13 +440,16 @@ class GOESGLM:
 
     async def _fetch_remote_file(self, uri: str) -> None:
         """Download one GLM NetCDF file into the cache directory."""
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
         cache_path = self._cache_path(uri)
         if pathlib.Path(cache_path).is_file():
             return
+        bucket, key = uri.removeprefix("s3://").split("/", 1)
+        store = self._store_for_bucket(bucket)
         try:
-            data = await self.fs._cat_file(uri)
+            data = await obstore_read_range(store, key)
+        # obstore_read_range translates obstore's NotFoundError into
+        # FileNotFoundError; catch it here (before async_retry's OSError
+        # retry loop sees it) so a missing file warns and skips
         except FileNotFoundError:
             logger.warning(f"GLM file {uri} not found, skipping")
             return
@@ -721,3 +733,231 @@ def _normalize_lat_lon_bbox(
                 f"into two boxes. Got {lat_lon_bbox}."
             )
     return (lat_min, lon_min, lat_max, lon_max)
+
+
+@check_optional_dependencies()
+class GOESGLMGrid:
+    """Gridded GOES GLM (Geostationary Lightning Mapper) lightning product for StormScope.
+
+    Wraps :py:class:`GOESGLM` (a per-event LCFA source) and accumulates events
+    into a regular **0.1-degree** lat/lon grid via 5-minute binning and 2D
+    histogramming, matching the GLM grid the StormScope MRMS+GLM nowcast model
+    was trained on.
+
+    Available variables:
+
+    - ``glm_density``        : raw event count per cell (unweighted, matching training).
+    - ``glm_energy_density`` : summed event energy (J) per cell.
+
+    Counts are not mean/std normalized; the StormScope model applies ``log1p``
+    internally. This source emits raw counts/sums on the 0.1-degree grid; the
+    model bilinearly regrids to its own native grid.
+
+    Parameters
+    ----------
+    satellite : str, optional
+        GOES platform selector passed to :py:class:`GOESGLM` (``"east"`` default).
+    cache : bool, optional
+        Cache downloaded NetCDFs, by default True.
+    verbose : bool, optional
+        Show progress, by default True.
+    async_timeout : int, optional
+        Total timeout in seconds for each fetch operation, by default 600.
+    async_workers : int, optional
+        Maximum number of concurrent S3 fetch tasks, by default 24.
+    retries : int, optional
+        Number of retry attempts per failed fetch task, by default 3.
+
+    Note
+    ----
+    Grid geometry (must match training): regular 0.1-degree grid over
+    lat ``[20, 55]`` / lon ``[-130, -60]`` (350 x 700 cells), with cell centres at
+    ``edge + 0.5 * resolution``. Output longitudes are returned in the Earth2Studio
+    ``[0, 360)`` convention. The accumulation window is fixed at 5 minutes,
+    bin-start labeled (the training cadence); do not substitute a 10-minute window.
+
+    Badges
+    ------
+    region:na dataclass:observation product:sat
+    """
+
+    # Accumulation window (minutes), bin-start labeled. Fixed to match training.
+    BIN_MINUTES = 5
+    # Regular 0.1-degree CONUS grid (degrees, [-180, 180) longitude internally).
+    _RES = 0.1
+    _LAT_MIN, _LAT_MAX = 20.0, 55.0
+    _LON_MIN, _LON_MAX = -130.0, -60.0
+    # CONUS parse-time bounding box (lat_min, lon_min, lat_max, lon_max).
+    _CONUS_BBOX = (24.5, -125.0, 49.5, -66.0)
+    # E2S variable -> underlying GOESGLM event variable.
+    _VARIABLE_MAP = {"glm_density": "flashc", "glm_energy_density": "flashe"}
+
+    def __init__(
+        self,
+        satellite: str = "east",
+        cache: bool = True,
+        verbose: bool = True,
+        async_timeout: int = 600,
+        async_workers: int = 24,
+        retries: int = 3,
+    ) -> None:
+        self._events = GOESGLM(
+            satellite=satellite,
+            lat_lon_bbox=self._CONUS_BBOX,
+            time_tolerance=(
+                np.timedelta64(0, "m"),
+                np.timedelta64(self.BIN_MINUTES, "m"),
+            ),
+            cache=cache,
+            verbose=verbose,
+            async_timeout=async_timeout,
+            async_workers=async_workers,
+            retries=retries,
+        )
+
+        # Bin edges and centres. arange end padded by a small epsilon so the final
+        # edge is included; centres sit at edge + 0.5 * resolution.
+        self._lat_edges = np.arange(self._LAT_MIN, self._LAT_MAX + 1e-9, self._RES)
+        self._lon_edges = np.arange(self._LON_MIN, self._LON_MAX + 1e-9, self._RES)
+        self._lat_centres = 0.5 * (self._lat_edges[:-1] + self._lat_edges[1:])
+        lon_centres = 0.5 * (self._lon_edges[:-1] + self._lon_edges[1:])
+        # Return longitudes in the Earth2Studio [0, 360) convention.
+        self._lon_centres = (lon_centres + 360.0) % 360.0
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Fetch the gridded GLM product for the requested times and variables.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            5-minute-aligned timestamps (UTC). Each labels a ``[t, t+5min)`` bin.
+        variable : str | list[str] | VariableArray
+            One or more of ``"glm_density"`` / ``"glm_energy_density"``.
+
+        Returns
+        -------
+        xr.DataArray
+            Array with dims ``[time, variable, lat, lon]`` on the 0.1-degree grid.
+        """
+        time_list, variable_list = prep_data_inputs(time, variable)
+        for v in variable_list:
+            if v not in self._VARIABLE_MAP:
+                raise KeyError(
+                    f"Variable id {v!r} not supported by GOESGLMGrid. "
+                    f"Available: {list(self._VARIABLE_MAP)}"
+                )
+
+        ny, nx = self._lat_centres.size, self._lon_centres.size
+        out = np.zeros((len(time_list), len(variable_list), ny, nx), dtype=np.float32)
+
+        underlying = sorted({self._VARIABLE_MAP[v] for v in variable_list})
+        # Fetch all requested times in a single GOESGLM call so that S3 session
+        # setup, prefix listing, and file downloads are amortised across the
+        # entire sliding window rather than paying per-timestep.
+        bin_delta = np.timedelta64(self.BIN_MINUTES, "m")
+        df_all = self._events(time_list, underlying)
+        for ti, t in enumerate(time_list):
+            t_ts = pd.Timestamp(t)
+            t_end = pd.Timestamp(t + bin_delta)
+            df = df_all[(df_all["time"] >= t_ts) & (df_all["time"] < t_end)]
+            for vi, v in enumerate(variable_list):
+                uvar = self._VARIABLE_MAP[v]
+                sub = df[df["variable"] == uvar]
+                if len(sub) == 0:
+                    continue
+                # Events use [0, 360) longitude; convert to the grid's [-180, 180).
+                ev_lon = ((sub["lon"].to_numpy() + 180.0) % 360.0) - 180.0
+                hist, _, _ = np.histogram2d(
+                    sub["lat"].to_numpy(),
+                    ev_lon,
+                    bins=[self._lat_edges, self._lon_edges],
+                    weights=sub["observation"].to_numpy(),
+                )
+                out[ti, vi] = hist.astype(np.float32)
+
+        return xr.DataArray(
+            data=out,
+            dims=["time", "variable", "lat", "lon"],
+            coords={
+                "time": np.asarray(time_list, dtype="datetime64[ns]"),
+                "variable": np.asarray(variable_list),
+                "lat": self._lat_centres,
+                "lon": self._lon_centres,
+            },
+        )
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to fetch the gridded GLM product.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            5-minute-aligned timestamps (UTC). Each labels a ``[t, t+5min)`` bin.
+        variable : str | list[str] | VariableArray
+            One or more of ``"glm_density"`` / ``"glm_energy_density"``.
+
+        Returns
+        -------
+        xr.DataArray
+            Array with dims ``[time, variable, lat, lon]`` on the 0.1-degree grid.
+        """
+        time_list, variable_list = prep_data_inputs(time, variable)
+        for v in variable_list:
+            if v not in self._VARIABLE_MAP:
+                raise KeyError(
+                    f"Variable id {v!r} not supported by GOESGLMGrid. "
+                    f"Available: {list(self._VARIABLE_MAP)}"
+                )
+
+        ny, nx = self._lat_centres.size, self._lon_centres.size
+        out = np.zeros((len(time_list), len(variable_list), ny, nx), dtype=np.float32)
+
+        underlying = sorted({self._VARIABLE_MAP[v] for v in variable_list})
+        bin_delta = np.timedelta64(self.BIN_MINUTES, "m")
+        df_all = await self._events.fetch(time_list, underlying)
+        for ti, t in enumerate(time_list):
+            t_ts = pd.Timestamp(t)
+            t_end = pd.Timestamp(t + bin_delta)
+            df = df_all[(df_all["time"] >= t_ts) & (df_all["time"] < t_end)]
+            for vi, v in enumerate(variable_list):
+                uvar = self._VARIABLE_MAP[v]
+                sub = df[df["variable"] == uvar]
+                if len(sub) == 0:
+                    continue
+                ev_lon = ((sub["lon"].to_numpy() + 180.0) % 360.0) - 180.0
+                hist, _, _ = np.histogram2d(
+                    sub["lat"].to_numpy(),
+                    ev_lon,
+                    bins=[self._lat_edges, self._lon_edges],
+                    weights=sub["observation"].to_numpy(),
+                )
+                out[ti, vi] = hist.astype(np.float32)
+
+        return xr.DataArray(
+            data=out,
+            dims=["time", "variable", "lat", "lon"],
+            coords={
+                "time": np.asarray(time_list, dtype="datetime64[ns]"),
+                "variable": np.asarray(variable_list),
+                "lat": self._lat_centres,
+                "lon": self._lon_centres,
+            },
+        )
+
+    @property
+    def lat(self) -> np.ndarray:
+        """1D array of grid-cell-centre latitudes."""
+        return self._lat_centres
+
+    @property
+    def lon(self) -> np.ndarray:
+        """1D array of grid-cell-centre longitudes ([0, 360) convention)."""
+        return self._lon_centres

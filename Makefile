@@ -19,6 +19,7 @@ setup-ci:
 	uv sync --extra aifs2
 	uv sync --extra aifs2ens
 	uv sync --extra aifsens
+	uv sync --extra stormcast-conus
 
 .PHONY: format
 format:
@@ -43,6 +44,10 @@ lint:
 	uv run pre-commit run pyupgrade -a --show-diff-on-failure
 	uv run pre-commit run ruff -a
 	uv run pre-commit run mypy -a
+
+.PHONY: zizmor
+zizmor:
+	uv run pre-commit run zizmor -a
 
 .PHONY: license
 license:

@@ -193,6 +193,11 @@ Tell the user the absolute path to the plot and ask them to visually confirm:
 
 ## Branch, Commit and Open PR
 
+> **⚠️ Human-supervised steps only.** All git push and PR creation commands
+> below require explicit user approval before execution. Present the planned
+> commands to the user and wait for confirmation. These operations are
+> irreversible and may expose code publicly.
+
 ### Create branch and commit
 
 ```bash
@@ -216,12 +221,18 @@ Do NOT add sanity-check script or images.
 
 ### Push to fork
 
+**Requires user confirmation.** Present the push command and target remote
+to the user before executing.
+
 ```bash
 git remote -v  # identify fork remote
 git push -u <fork-remote> feat/data-source-<name>
 ```
 
 ### Open PR (fork → NVIDIA/earth2studio)
+
+**Requires user confirmation.** Present the full PR create command and body
+to the user before executing.
 
 ```bash
 gh pr create \
@@ -263,7 +274,9 @@ Add `<ClassName>` <source_type> for <brief description>.
 
 ### Dependencies added
 
-<!-- If no new dependencies, write: "No new dependencies required. Uses existing `<pkg1>` and `<pkg2>`." -->
+If no new dependencies were added, write: "No new dependencies required. Uses existing `<pkg1>` and `<pkg2>`."
+
+Otherwise, fill in this table:
 
 | Package | Version | License | License URL | Reason |
 |---|---|---|---|---|
@@ -303,6 +316,10 @@ gh pr comment <PR_NUMBER> --repo NVIDIA/earth2studio --body "..."
 
 ## Automated Code Review (Greptile)
 
+> **User-supervised.** Never autonomously dismiss or respond to code review
+> comments. Present all feedback to the user and only act on user-confirmed
+> decisions.
+
 ### Wait for review
 
 Poll every 30s for up to 5 minutes:
@@ -330,7 +347,8 @@ done
 ### Present to user
 
 Show summary table with file, line, category, summary, and proposed action.
-Ask user to confirm which comments to address.
+**Ask user to confirm which comments to address and which to dismiss.**
+Do NOT dismiss any comments without explicit user approval.
 
 ### Implement fixes
 
@@ -341,19 +359,23 @@ Ask user to confirm which comments to address.
 
 ### Respond to comments
 
-**Fixed:**
+**Only respond after user has approved the action for each comment.**
+
+**Fixed (user approved):**
 ```bash
 gh api repos/NVIDIA/earth2studio/pulls/<PR_NUMBER>/comments/<COMMENT_ID>/replies \
   -f body="Fixed in <commit_sha>. <description>"
 ```
 
-**Dismissed:**
+**Dismissed (user approved dismissal with justification):**
 ```bash
 gh api repos/NVIDIA/earth2studio/pulls/<PR_NUMBER>/comments/<COMMENT_ID>/replies \
-  -f body="Won't fix — <justification>"
+  -f body="Won't fix — <user-provided justification>"
 ```
 
 ### Push and report
+
+**Requires user confirmation before pushing.**
 
 ```bash
 git push origin <branch>

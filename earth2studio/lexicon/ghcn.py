@@ -21,7 +21,7 @@ import numpy as np
 from .base import LexiconType
 
 
-class GHCNLexicon(metaclass=LexiconType):
+class GHCNDailyLexicon(metaclass=LexiconType):
     """NOAA's Global Historical Climatology Network Daily (GHCN-D) lexicon.
 
     This lexicon provides variable mappings for GHCN-Daily observation types.
@@ -119,3 +119,72 @@ class GHCNLexicon(metaclass=LexiconType):
                 return x
 
         return element, mod
+
+
+class GHCNHourlyLexicon(metaclass=LexiconType):
+    """NOAA's Global Historical Climatology Network Hourly (GHCNh) product lexicon.
+
+    GHCNh is served as per-station parquet files with pre-parsed float columns
+    (e.g. ``temperature``, ``wind_speed``).
+
+    ``VOCAB`` maps each Earth2Studio variable to the corresponding GHCNh parquet
+    column name, or ``None`` for variables derived from multiple columns
+    (``u10m``, ``v10m``, ``tcc``).
+
+    Note
+    ----
+    Additional resources:
+
+    - https://www.ncei.noaa.gov/products/global-historical-climatology-network-hourly
+    - https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/
+    """
+
+    # Maps e2s variable name → GHCNh parquet column name (None = derived).
+    VOCAB: dict[str, str | None] = {
+        "t2m": "temperature",
+        "d2m": "dew_point_temperature",
+        "ws10m": "wind_speed",
+        "fg10m": "wind_gust",
+        "tp": "precipitation",
+        "u10m": None,  # derived: wind_speed + wind_direction
+        "v10m": None,  # derived: wind_speed + wind_direction
+        "tcc": None,  # derived: sky_cover_layer_* columns
+    }
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str | None, Callable]:
+        """Get item from GHCNh vocabulary.
+
+        Parameters
+        ----------
+        val : str
+            Earth2Studio variable id.
+
+        Returns
+        -------
+        tuple[str | None, Callable]
+            - GHCNh parquet column name, or ``None`` for derived variables.
+            - Modifier function converting the raw column value to Earth2Studio
+              standard units.
+        """
+        col = cls.VOCAB[val]  # raises KeyError for unknown variables
+
+        if val in ("t2m", "d2m"):
+
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Convert °C to K."""
+                return x + 273.15
+
+        elif val == "tp":
+
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Convert mm to m."""
+                return x / 1000.0
+
+        else:
+
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Already in Earth2Studio units (m/s or fraction)."""
+                return x
+
+        return col, mod

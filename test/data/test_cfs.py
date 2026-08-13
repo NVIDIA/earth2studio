@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import hashlib
 import pathlib
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
@@ -253,6 +255,13 @@ def test_cfs_index_parser_vector_records(tmp_path):
     assert u_len == v_len == (147274 - 96515)
     assert (u_submsg, v_submsg) == (1, 2)
 
+    # Last record gets the None "read to end of file" sentinel.
+    tmp_key = next(k for k in table if "TMP::500 mb" in k)
+    tmp_offset, tmp_length, tmp_submsg = table[tmp_key]
+    assert tmp_offset == 147274
+    assert tmp_length is None
+    assert tmp_submsg == 1
+
 
 # ----------------------------------------------------------------------
 # Mock end-to-end (no network, exercises __call__ path)
@@ -287,8 +296,8 @@ def test_cfs_call_mock(tmp_path, monkeypatch):
             return_value=fake_grid,
         ),
     ):
-        # Bypass real fs by stubbing it to a truthy sentinel.
-        ds.fs = object()  # type: ignore[assignment]
+        # Bypass real store by stubbing it to a truthy sentinel.
+        ds.store = object()  # type: ignore[assignment]
         data = ds(_TEST_CYCLE, timedelta(hours=6), ["msl", "z500"])
 
     assert data.shape == (1, 1, 2, 181, 360)
@@ -296,6 +305,85 @@ def test_cfs_call_mock(tmp_path, monkeypatch):
     # same mock grid, so msl matches the grid and z500 = grid * 9.81.
     np.testing.assert_allclose(data.sel(variable="msl").values[0, 0], fake_grid)
     np.testing.assert_allclose(data.sel(variable="z500").values[0, 0], fake_grid * 9.81)
+
+
+@pytest.mark.timeout(15)
+def test_cfs_nomads_call_mock(tmp_path, monkeypatch):
+    """Exercise the NOMADS-source __call__ path (obstore HTTP store) with
+    mocked index + grib decode."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    fake_index = {"1::PRMSL::mean sea level": (0, 65300, 1)}
+    fake_grid = np.full((181, 360), 101325.0, dtype=np.float32)
+
+    async def _fake_fetch_index(uri):
+        return fake_index
+
+    async def _fake_fetch_remote_file(*args, **kwargs):
+        return str(tmp_path / "ignored.grb2")
+
+    # Recent 6-hour cycle inside the NOMADS rolling window.
+    now = datetime.now()
+    recent_cycle = datetime(now.year, now.month, now.day) - timedelta(days=1)
+
+    ds = CFS_FX(member=1, source="nomads", cache=True)
+
+    with (
+        patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
+        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
+        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
+        patch("earth2studio.data.cfs._decode_cfs_grib", return_value=fake_grid),
+    ):
+        # Bypass real store by stubbing it to a truthy sentinel.
+        ds.store = object()  # type: ignore[assignment]
+        data = ds(recent_cycle, timedelta(hours=6), ["msl"])
+
+    assert data.shape == (1, 1, 1, 181, 360)
+    np.testing.assert_allclose(data.sel(variable="msl").values[0, 0], fake_grid)
+
+
+@pytest.mark.timeout(15)
+def test_cfs_flux_call_mock(tmp_path, monkeypatch):
+    """Exercise the CFS_FX_Flux __call__ path using mocked index + decode."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    fake_index = {
+        "1::TMP::2 m above ground": (0, 65300, 1),
+        "2.1::UGRD::10 m above ground": (65300, 50759, 1),
+        "2.2::VGRD::10 m above ground": (65300, 50759, 2),
+    }
+    # flxf product lives on the T126 Gaussian grid (190 x 384).
+    fake_grid = np.full((190, 384), 288.0, dtype=np.float32)
+
+    async def _fake_fetch_index(uri):
+        return fake_index
+
+    async def _fake_fetch_remote_file(*args, **kwargs):
+        return str(tmp_path / "ignored.grb2")
+
+    ds = CFS_FX_Flux(member=1, source="aws", cache=True)
+
+    with (
+        patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
+        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
+        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
+        patch(
+            "earth2studio.data.cfs._decode_cfs_grib",
+            return_value=fake_grid,
+        ),
+    ):
+        # Bypass real store by stubbing it to a truthy sentinel.
+        ds.store = object()  # type: ignore[assignment]
+        data = ds(
+            _TEST_CYCLE,
+            [timedelta(hours=0), timedelta(hours=6)],
+            ["t2m", "u10m"],
+        )
+
+    assert data.shape == (1, 2, 2, 190, 384)
+    for j in range(2):
+        np.testing.assert_allclose(data.sel(variable="t2m").values[0, j], fake_grid)
+        np.testing.assert_allclose(data.sel(variable="u10m").values[0, j], fake_grid)
 
 
 @pytest.mark.timeout(15)
@@ -322,12 +410,65 @@ def test_cfs_missing_variable_returns_nan(tmp_path, monkeypatch):
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
         patch("earth2studio.data.cfs._decode_cfs_grib", return_value=fake_grid),
     ):
-        ds.fs = object()  # type: ignore[assignment]
+        ds.store = object()  # type: ignore[assignment]
         data = ds(_TEST_CYCLE, timedelta(hours=6), ["msl", "z500"])
 
     np.testing.assert_allclose(data.sel(variable="msl").values[0, 0], fake_grid)
     # Skipped variable surfaces as all-NaN.
     assert np.isnan(data.sel(variable="z500").values).all()
+
+
+@pytest.mark.timeout(10)
+def test_cfs_fetch_remote_file_obstore_routing(tmp_path, monkeypatch):
+    # The obstore path must strip the bucket prefix to a store-relative key
+    # while hashing the ORIGINAL bucket-prefixed path (+ byte offset) for the
+    # cache file name, so pre-migration warm caches remain valid. Negative
+    # byte lengths (last idx record) map to None (read to end of object).
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    ds = CFS_FX(source="aws", cache=True)
+    ds.store = object()  # type: ignore[assignment]
+
+    path = (
+        "noaa-cfs-pds/cfs.20240601/00/6hrly_grib_01/pgbf2024060106.01.2024060100.grb2"
+    )
+    expected_key = "cfs.20240601/00/6hrly_grib_01/pgbf2024060106.01.2024060100.grb2"
+    expected_cache_key = hashlib.sha256((path + "123").encode()).hexdigest()
+
+    mock_fetch = AsyncMock(return_value="local-file")
+    with patch("earth2studio.data.cfs.obstore_fetch_to_cache", mock_fetch):
+        out = asyncio.run(ds._fetch_remote_file(path, byte_offset=123, byte_length=456))
+        assert out == "local-file"
+        args, kwargs = mock_fetch.call_args
+        assert args[1] == expected_key
+        assert kwargs["byte_offset"] == 123
+        assert kwargs["byte_length"] == 456
+        assert kwargs["cache_key"] == expected_cache_key
+
+        # Negative sentinel -> read to end of file.
+        asyncio.run(ds._fetch_remote_file(path, byte_offset=123, byte_length=-1))
+        assert mock_fetch.call_args.kwargs["byte_length"] is None
+
+    # NOMADS: full HTTPS URL is hashed for the cache key while the key is the
+    # host-relative path (store is rooted at the NOMADS host).
+    ds_nomads = CFS_FX(source="nomads", cache=True)
+    ds_nomads.store = object()  # type: ignore[assignment]
+    url = (
+        "https://nomads.ncep.noaa.gov/pub/data/nccf/com/cfs/prod/"
+        "cfs.20240601/00/6hrly_grib_01/pgbf2024060106.01.2024060100.grb2"
+    )
+    expected_key = (
+        "pub/data/nccf/com/cfs/prod/"
+        "cfs.20240601/00/6hrly_grib_01/pgbf2024060106.01.2024060100.grb2"
+    )
+    expected_cache_key = hashlib.sha256((url + "0").encode()).hexdigest()
+
+    mock_fetch = AsyncMock(return_value="local-file")
+    with patch("earth2studio.data.cfs.obstore_fetch_to_cache", mock_fetch):
+        out = asyncio.run(ds_nomads._fetch_remote_file(url))
+    assert out == "local-file"
+    args, kwargs = mock_fetch.call_args
+    assert args[1] == expected_key
+    assert kwargs["cache_key"] == expected_cache_key
 
 
 # ----------------------------------------------------------------------

@@ -99,6 +99,8 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         4 fields embedding location information (cos(lat), sin(lat), cos(lon), sin(lon))
     """
 
+    freq: str  # Class variable to be defined by subclasses
+
     def __init__(
         self,
         core_model: torch.nn.Module,

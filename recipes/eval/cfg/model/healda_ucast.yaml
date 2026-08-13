@@ -1,0 +1,35 @@
+# HealDA-initialized UCast forecast — the DA analysis becomes the forecast IC.
+#
+# The UCast sibling of healda_dlwp: UCast is a 12-hour-step, 1.5-degree (240×121)
+# history model (inputs at t-12h and t), so each IC assembles TWO HealDA analyses.
+# `output_resolution: [121, 240]` produces exactly UCast's native grid.
+#
+# HealDA covers most of UCast's 83 input variables (ERA5 pressure-level and surface
+# fields), but does NOT produce sst or vertical velocity (w).  Those are filled from
+# the predownloaded data.zarr fill store; predownload.py narrows data.zarr to exactly
+# that fill set.  `fill_missing_variables: true` enables this fallback (pure-DA ICs
+# would require false).
+#
+# Obs are predownloaded to obs_*.parquet stores (see cfg/model/healda.yaml for the
+# cache rationale).
+da:
+    architecture: earth2studio.models.da.HealDA
+    load_args:
+        lat_lon: true
+        output_resolution: [121, 240]
+    obs_sources:
+        conv:
+            _target_: earth2studio.data.UFSObsConv
+            time_tolerance_hours: [-21, 3]
+            cache: false
+        sat:
+            _target_: earth2studio.data.UFSObsSat
+            time_tolerance_hours: [-21, 3]
+            cache: false
+
+forecast:
+    architecture: earth2studio.models.px.UCast
+    # Omit package_path to use the default HuggingFace checkpoint.
+    # package_path: /path/to/custom/checkpoint
+
+fill_missing_variables: true

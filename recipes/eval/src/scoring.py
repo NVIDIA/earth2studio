@@ -37,13 +37,13 @@ import torch
 import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
-from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data import DataSource
 from earth2studio.statistics.weights import lat_weight
 from earth2studio.utils.coords import CoordSystem
 
+from .distributed import get_rank
 from .output import OutputManager
 from .work import write_scoring_marker
 
@@ -352,7 +352,21 @@ def load_verification_chunk(
         ``(lead_time, variable, <spatial...>)``.
     """
     valid_times = time + lead_times
-    da = source(list(valid_times), list(variables))
+    try:
+        da = source(list(valid_times), list(variables))
+    except KeyError as exc:
+        # The verification source (often a CompositeSource globbed over the
+        # predownloaded data_*.zarr stores) has no channel for a requested
+        # scoring variable — e.g. glm_density when data_glm.zarr is absent
+        # (interrupted predownload, or a pre-PR output dir).  Surface the
+        # scoring context rather than a bare CompositeSource KeyError.
+        raise KeyError(
+            f"Scoring requested variables {list(variables)} but the "
+            f"verification source could not supply all of them ({exc}). "
+            "Ensure predownload completed (e.g. data_glm.zarr exists for "
+            "glm_density), or drop the missing variable(s) from "
+            "cfg.scoring.variables / the campaign outputs."
+        ) from exc
 
     # da has dims (time, variable, <spatial...>); reorder consistently.
     spatial_dims = [d for d in da.dims if d not in {"time", "variable"}]
@@ -692,7 +706,8 @@ def run_scoring(
     else:
         valid_ranges = {}
 
-    rank = DistributedManager().rank
+    # Rank only gates tqdm output below.
+    rank = get_rank()
 
     for time in tqdm(my_times, desc="Scoring", disable=rank != 0):
         # Accumulate chunk results per metric.

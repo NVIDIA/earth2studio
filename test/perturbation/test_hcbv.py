@@ -189,8 +189,6 @@ def test_hem_centered_bred(
 def test_hem_centered_bred_batching(steps, device):
     time = datetime.datetime(year=1971, month=6, day=1, hour=6)
     variable = ["u10m"]
-    seeding_perturbation_method = Gaussian()
-
     # Domain coordinates
     dc = OrderedDict(
         [
@@ -224,11 +222,10 @@ def test_hem_centered_bred_batching(steps, device):
         ]
     )
     coords.update(dc)
-    torch.manual_seed(42)
     prtb = HemisphericCentredBredVector(
         model=model,
         data=data_source,
-        seeding_perturbation_method=seeding_perturbation_method,
+        seeding_perturbation_method=Gaussian(seed=42),
         noise_amplitude=1.0,
         integration_steps=steps,
     )
@@ -239,11 +236,10 @@ def test_hem_centered_bred_batching(steps, device):
 
     # Test that two repeat odd runs is equal to a single even
     # Should be invariant to x input, this uses a data source
-    torch.manual_seed(42)
     prtb = HemisphericCentredBredVector(
         model=model,
         data=data_source,
-        seeding_perturbation_method=seeding_perturbation_method,
+        seeding_perturbation_method=Gaussian(seed=42),
         noise_amplitude=1.0,
         integration_steps=steps,
     )
@@ -251,11 +247,10 @@ def test_hem_centered_bred_batching(steps, device):
     xout1a, coords = prtb(x, coords)
     xout1b, coords = prtb(x2, coords)
 
-    torch.manual_seed(42)
     prtb = HemisphericCentredBredVector(
         model=model,
         data=data_source,
-        seeding_perturbation_method=seeding_perturbation_method,
+        seeding_perturbation_method=Gaussian(seed=42),
         noise_amplitude=1.0,
         integration_steps=steps,
     )

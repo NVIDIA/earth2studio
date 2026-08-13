@@ -28,8 +28,59 @@ from earth2studio.data import JPSS_CRIS
 from earth2studio.data.jpss_cris import (
     _CRIS_GSI_SENSOR_CHAN,
     _CRIS_WAVENUMBER,
+    _CrISAsyncTask,
     _hamming_apodize,
+    _iet_to_utc,
+    _nominal_cris_scan_angle,
 )
+
+
+# ---------------------------------------------------------------------------
+# Unit tests for IET time conversion
+# ---------------------------------------------------------------------------
+def test_cris_time_anchor_converts_iet_and_preserves_microseconds():
+    anchor_utc = np.datetime64("2025-01-01T00:00:02.983975", "us")
+    anchor_iet = 2_114_380_839_983_975
+    iet = np.asarray([anchor_iet, anchor_iet + 1_234_567], dtype=np.int64)
+    epoch = np.datetime64("1958-01-01T00:00:00", "us")
+    naive = epoch + iet.astype("timedelta64[us]")
+
+    actual = _iet_to_utc(iet, anchor_utc, anchor_iet)
+
+    np.testing.assert_array_equal(
+        actual,
+        np.asarray(
+            ["2025-01-01T00:00:02.983975", "2025-01-01T00:00:04.218542"],
+            dtype="datetime64[us]",
+        ),
+    )
+    np.testing.assert_array_equal(
+        naive - actual,
+        np.asarray([np.timedelta64(37, "s"), np.timedelta64(37, "s")]),
+    )
+
+
+def test_nominal_cris_scan_angle_includes_detector_twist():
+    field_of_regard = np.asarray([1, 1, 1, 15, 16, 30, 30, 30])
+    field_of_view = np.asarray([1, 5, 9, 5, 5, 1, 5, 9])
+
+    actual = _nominal_cris_scan_angle(field_of_regard, field_of_view)
+
+    np.testing.assert_allclose(
+        actual,
+        [
+            -49.883005511,
+            -48.330000000,
+            -46.776993824,
+            -1.666600000,
+            1.666500000,
+            48.420163631,
+            48.329900000,
+            48.239624960,
+        ],
+        rtol=0,
+        atol=4e-6,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -167,11 +218,30 @@ def _make_mock_hdf5_pair(sdr_path, geo_path, n_scan=2, n_for=30, n_fov=9, seed=4
     # 2024-06-01 12:00:00 UTC in IET microseconds:
     base_dt = datetime(2024, 6, 1, 12, 0, 0)
     iet_epoch = datetime(1958, 1, 1)
-    base_iet = int((base_dt - iet_epoch).total_seconds() * 1_000_000)
+    # TAI is 37 seconds ahead of UTC; retain a non-millisecond source fraction.
+    base_iet = (
+        int((base_dt - iet_epoch).total_seconds() * 1_000_000) + 37_000_000 + 983_975
+    )
     # Offset by seed so each granule gets distinct times/coords
     time_offset = (seed - 42) * 32_000_000  # ~32s apart per seed step
 
+    beginning_utc = base_dt + timedelta(microseconds=time_offset + 983_975)
+
     with h5py.File(geo_path, "w") as f:
+        product = f.create_group("Data_Products/CrIS-SDR-GEO")
+        granule = product.create_dataset(
+            "CrIS-SDR-GEO_Gran_0", data=np.zeros(28, dtype=np.uint8)
+        )
+        granule.attrs["Beginning_Date"] = np.asarray(
+            [[beginning_utc.strftime("%Y%m%d").encode()]], dtype="S9"
+        )
+        granule.attrs["Beginning_Time"] = np.asarray(
+            [[beginning_utc.strftime("%H%M%S.%fZ").encode()]], dtype="S15"
+        )
+        granule.attrs["N_Beginning_Time_IET"] = np.asarray(
+            [[base_iet + time_offset]], dtype=np.uint64
+        )
+
         grp = f.create_group("All_Data/CrIS-SDR-GEO_All")
         lat_base = 30.0 + (seed - 42) * 5.0  # shift lat per granule
         grp.create_dataset(
@@ -217,6 +287,179 @@ def _make_mock_hdf5_pair(sdr_path, geo_path, n_scan=2, n_for=30, n_fov=9, seed=4
         grp.create_dataset("FORTime", data=for_time)
 
 
+@pytest.fixture
+def cris_metadata_hdf5_pair(tmp_path):
+    """Small CrIS pair with a spatial collision and one invalid footprint."""
+    n_scan, n_for, n_fov = 2, 3, 2
+    sdr_file = tmp_path / "SCRIF_j01_metadata.h5"
+    geo_file = tmp_path / "GCRSO_j01_metadata.h5"
+    _make_mock_hdf5_pair(
+        str(sdr_file), str(geo_file), n_scan=n_scan, n_for=n_for, n_fov=n_fov
+    )
+
+    with h5py.File(geo_file, "r+") as geo:
+        group = geo["All_Data/CrIS-SDR-GEO_All"]
+        # Same FOR time and exact same location, but a different source FOV.
+        group["Latitude"][0, 0, 1] = group["Latitude"][0, 0, 0]
+        group["Longitude"][0, 0, 1] = group["Longitude"][0, 0, 0]
+        # Exercise identity propagation through the spatial validity filter.
+        group["Latitude"][0, 1, 1] = np.float32(-999.0)
+
+    task = _CrISAsyncTask(
+        sdr_uri=str(sdr_file),
+        geo_uri=str(geo_file),
+        datetime_min=datetime(2024, 6, 1, 11, 0),
+        datetime_max=datetime(2024, 6, 1, 13, 0),
+        satellite="n20",
+        variable="crisfsr",
+        modifier=lambda x: x,
+    )
+    expected_identity = [
+        (scan_line, field_of_regard, field_of_view)
+        for scan_line in range(1, n_scan + 1)
+        for field_of_regard in range(1, n_for + 1)
+        for field_of_view in range(1, n_fov + 1)
+        if (scan_line, field_of_regard, field_of_view) != (1, 2, 2)
+    ]
+    return sdr_file, geo_file, task, expected_identity
+
+
+def test_jpss_cris_decoded_footprint_identity(cris_metadata_hdf5_pair):
+    """Source scan/FOR/FOV positions survive filtering in source order."""
+    sdr_file, geo_file, task, expected_identity = cris_metadata_hdf5_pair
+    ds = JPSS_CRIS(satellites=["n20"], sensor_indices=[1579, 1, 714], verbose=False)
+
+    decoded = ds._decode_hdf5(str(sdr_file), str(geo_file), task)
+
+    assert decoded is not None
+    actual_identity = list(
+        zip(
+            decoded.scan_line.tolist(),
+            decoded.field_of_regard.tolist(),
+            decoded.field_of_view.tolist(),
+            strict=True,
+        )
+    )
+    assert actual_identity == expected_identity
+    assert decoded.brightness_temperature.shape == (len(expected_identity), 3)
+    assert not hasattr(decoded, "radiance")
+
+
+@pytest.mark.parametrize("apodize", [True, False])
+def test_jpss_cris_projection_is_source_ordered(cris_metadata_hdf5_pair, apodize):
+    """Projection order and values are stable on both spectral paths."""
+    sdr_file, geo_file, task, _ = cris_metadata_hdf5_pair
+    full_ds = JPSS_CRIS(satellites=["n20"], apodize=apodize, verbose=False)
+    projected_ds = JPSS_CRIS(
+        satellites=["n20"],
+        apodize=apodize,
+        sensor_indices=[1579, 1, 714],
+        verbose=False,
+    )
+
+    full = full_ds._decode_hdf5(str(sdr_file), str(geo_file), task)
+    projected = projected_ds._decode_hdf5(str(sdr_file), str(geo_file), task)
+
+    assert full is not None
+    assert projected is not None
+    positions, sensor_indices, wavenumbers = projected_ds._channel_projection()
+    np.testing.assert_array_equal(sensor_indices, [1, 714, 1579])
+    np.testing.assert_allclose(wavenumbers, [650.0, 1210.0, 2155.0])
+    np.testing.assert_array_equal(
+        projected.brightness_temperature,
+        full.brightness_temperature[:, positions],
+    )
+
+
+def test_jpss_cris_long_metadata_and_identity_dedup(cris_metadata_hdf5_pair):
+    """Long expansion keeps identity and derives scan angle independently."""
+    _, _, task, expected_identity = cris_metadata_hdf5_pair
+    ds = JPSS_CRIS(satellites=["n20"], sensor_indices=[1579, 1, 714], verbose=False)
+
+    with patch.object(JPSS_CRIS, "_cache_path", lambda self, uri: uri):
+        # Duplicate tasks must collapse, while collocated source FOVs remain distinct.
+        df = ds._compile_dataframe([task, task], ds.SCHEMA)
+
+    assert len(df) == len(expected_identity) * 3
+    assert str(df["time"].dtype) == "datetime64[ns]"
+    np.testing.assert_array_equal(
+        df["time"].to_numpy()[:3],
+        np.full(
+            3,
+            np.datetime64("2024-06-01T12:00:00.983975000", "ns"),
+            dtype="datetime64[ns]",
+        ),
+    )
+    assert (df["satellite_za"] == np.float32(25.0)).all()
+    actual_identity = list(
+        df[["scan_line", "field_of_regard", "field_of_view"]]
+        .drop_duplicates()
+        .itertuples(index=False, name=None)
+    )
+    assert actual_identity == expected_identity
+    footprint_rows = df[df["sensor_index"] == 1]
+    np.testing.assert_allclose(
+        footprint_rows["scan_angle"],
+        _nominal_cris_scan_angle(
+            footprint_rows["field_of_regard"], footprint_rows["field_of_view"]
+        ),
+        rtol=0,
+        atol=0,
+    )
+    assert not np.array_equal(
+        footprint_rows["scan_angle"].to_numpy(),
+        footprint_rows["satellite_za"].to_numpy(),
+    )
+    np.testing.assert_array_equal(
+        df["sensor_index"].to_numpy().reshape(-1, 3),
+        np.tile([1, 714, 1579], (len(expected_identity), 1)),
+    )
+
+    collocated = df[
+        (df["scan_line"] == 1)
+        & (df["field_of_regard"] == 1)
+        & (df["sensor_index"] == 1)
+    ]
+    assert len(collocated) == 2
+    assert collocated["lat"].nunique() == 1
+    assert collocated["lon"].nunique() == 1
+
+
+def test_jpss_cris_dedup_identity_includes_source_granule(
+    cris_metadata_hdf5_pair, tmp_path
+):
+    """Granule-local scan/FOR/FOV coordinates do not alias across files."""
+    sdr_file, geo_file, task, expected_identity = cris_metadata_hdf5_pair
+    second_sdr = tmp_path / "SCRIF_j01_metadata_copy.h5"
+    second_geo = tmp_path / "GCRSO_j01_metadata_copy.h5"
+    shutil.copy2(sdr_file, second_sdr)
+    shutil.copy2(geo_file, second_geo)
+    second_task = _CrISAsyncTask(
+        sdr_uri=str(second_sdr),
+        geo_uri=str(second_geo),
+        datetime_min=task.datetime_min,
+        datetime_max=task.datetime_max,
+        satellite=task.satellite,
+        variable=task.variable,
+        modifier=task.modifier,
+    )
+    ds = JPSS_CRIS(satellites=["n20"], sensor_indices=[1], verbose=False)
+
+    with patch.object(JPSS_CRIS, "_cache_path", lambda self, uri: uri):
+        df = ds._compile_dataframe([task, second_task], ds.SCHEMA)
+
+    assert len(df) == len(expected_identity) * 2
+
+
+@pytest.mark.parametrize(
+    "sensor_indices",
+    [[], [1, 1], [0], [2212], [True], [1.5]],
+)
+def test_jpss_cris_rejects_invalid_projection(sensor_indices):
+    with pytest.raises(ValueError, match="sensor_indices"):
+        JPSS_CRIS(sensor_indices=sensor_indices)
+
+
 # ---------------------------------------------------------------------------
 # Network / slow tests
 # ---------------------------------------------------------------------------
@@ -258,24 +501,15 @@ def test_jpss_cris_fetch(time, variable):
         assert (df["observation"] < 400).all()  # < 400 K
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
 def test_jpss_cris_schema_fields():
-    ds = JPSS_CRIS(
-        satellites=["n20"],
-        time_tolerance=timedelta(seconds=30),
-        cache=False,
-        verbose=False,
-    )
-    time = datetime(2025, 1, 1, 0)
+    ds = JPSS_CRIS(satellites=["n20"], cache=False, verbose=False)
 
-    df_full = ds(time, ["crisfsr"], fields=None)
-    assert list(df_full.columns) == ds.SCHEMA.names
+    assert ds.resolve_fields(None).equals(ds.SCHEMA, check_metadata=True)
+    for field in ("scan_line", "field_of_regard", "field_of_view"):
+        assert field in ds.SCHEMA.names
 
     subset_fields = ["time", "lat", "lon", "observation", "variable"]
-    df_subset = ds(time, ["crisfsr"], fields=subset_fields)
-    assert list(df_subset.columns) == subset_fields
+    assert ds.resolve_fields(subset_fields).names == subset_fields
 
 
 @pytest.mark.slow
@@ -340,6 +574,10 @@ def test_jpss_cris_call_mock(tmp_path):
     assert not df.empty
     assert list(df.columns) == ds.SCHEMA.names
     assert set(df["variable"].unique()) == {"crisfsr"}
+    assert str(df["time"].dtype) == "datetime64[ns]"
+    assert df["time"].to_numpy()[0] == np.datetime64(
+        "2024-06-01T12:00:00.983975000", "ns"
+    )
     # Apodized: contiguous sensor_chan 1..2211 (no guard channel sentinels)
     assert df["sensor_index"].between(1, 2211).all()
     expected_rows = n_scan * n_for * n_fov * n_channels_apod

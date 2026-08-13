@@ -31,7 +31,7 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
-from src.regrid import NearestNeighborRegridder, RegriddedSource
+from src.regrid import BilinearRegridder, NearestNeighborRegridder, RegriddedSource
 
 # ---------------------------------------------------------------------------
 # Small helper: build a source / target grid pair whose nearest-neighbor
@@ -182,6 +182,122 @@ class TestNearestNeighborRegridderDataArray:
         assert out.dims == ("time", "y", "x")
         assert out.shape == (2, 4, 5)
         np.testing.assert_allclose(out.values, data)
+
+
+# ---------------------------------------------------------------------------
+# BilinearRegridder
+# ---------------------------------------------------------------------------
+
+
+class TestBilinearRegridder:
+    """Bilinear regridder used for StormScope's GLM (glm_density) channel."""
+
+    def test_target_coords_default_dim_names(self):
+        src_lat, src_lon = _regular_grid(4, 5)
+        regridder = BilinearRegridder(
+            source_lats=src_lat,
+            source_lons=src_lon,
+            target_lats=src_lat,
+            target_lons=src_lon,
+            target_y=np.arange(4),
+            target_x=np.arange(5),
+        )
+        coords = regridder.target_coords()
+        assert list(coords.keys()) == ["y", "x"]
+        np.testing.assert_array_equal(coords["y"], np.arange(4))
+        np.testing.assert_array_equal(coords["x"], np.arange(5))
+
+    def test_identity_mapping_preserves_values(self):
+        """Source grid == target grid → bilinear map reproduces the field."""
+        src_lat, src_lon = _regular_grid(4, 5)
+        regridder = BilinearRegridder(
+            source_lats=src_lat,
+            source_lons=src_lon,
+            target_lats=src_lat,
+            target_lons=src_lon,
+            target_y=np.arange(4),
+            target_x=np.arange(5),
+        )
+        values = torch.arange(4 * 5, dtype=torch.float32).reshape(4, 5)
+        out = regridder.apply(values, spatial_dims=("lat", "lon"))
+        assert out.shape == (4, 5)
+        torch.testing.assert_close(out, values)
+
+    def test_accepts_1d_source_vectors(self):
+        """GOESGLMGrid exposes 1D lat/lon vectors — they must be promoted."""
+        lats_1d = np.linspace(30.0, 31.5, 4, dtype=np.float32)
+        lons_1d = np.linspace(260.0, 262.0, 5, dtype=np.float32)
+        tgt_lat, tgt_lon = np.meshgrid(lats_1d, lons_1d, indexing="ij")
+        regridder = BilinearRegridder(
+            source_lats=lats_1d,
+            source_lons=lons_1d,
+            target_lats=tgt_lat,
+            target_lons=tgt_lon,
+            target_y=np.arange(4),
+            target_x=np.arange(5),
+        )
+        values = torch.arange(4 * 5, dtype=torch.float32).reshape(4, 5)
+        out = regridder.apply(values, spatial_dims=("lat", "lon"))
+        assert out.shape == (4, 5)
+        torch.testing.assert_close(out, values)
+
+    def test_out_of_range_target_filled_with_zero(self):
+        """Targets outside the source grid get the fill value (0), not NaN —
+        matching StormScopeMRMS.interpolate_glm."""
+        src_lat, src_lon = _regular_grid(4, 5, lat0=30.0, lon0=260.0, d=0.5)
+        # One target pixel sits far outside the source convex hull.
+        tgt_lat = np.array([[30.0, 30.5], [30.5, 80.0]], dtype=np.float32)
+        tgt_lon = np.array([[260.0, 260.5], [260.5, 200.0]], dtype=np.float32)
+        regridder = BilinearRegridder(
+            source_lats=src_lat,
+            source_lons=src_lon,
+            target_lats=tgt_lat,
+            target_lons=tgt_lon,
+            target_y=np.arange(2),
+            target_x=np.arange(2),
+        )
+        values = torch.ones(4, 5, dtype=torch.float32)
+        out = regridder.apply(values, spatial_dims=("lat", "lon"))
+        assert out[1, 1] == 0.0, "far-away target should be zero-filled"
+        assert not torch.isnan(out).any()
+
+    def test_rejects_non_pair_spatial_dims(self):
+        src_lat, src_lon = _regular_grid(4, 5)
+        regridder = BilinearRegridder(
+            source_lats=src_lat,
+            source_lons=src_lon,
+            target_lats=src_lat,
+            target_lons=src_lon,
+            target_y=np.arange(4),
+            target_x=np.arange(5),
+        )
+        with pytest.raises(ValueError, match="exactly two trailing spatial dims"):
+            regridder.apply(torch.zeros(4, 5), spatial_dims=("lat",))
+
+    def test_apply_dataarray_swaps_spatial_dim_names(self):
+        src_lat, src_lon = _regular_grid(4, 5)
+        regridder = BilinearRegridder(
+            source_lats=src_lat,
+            source_lons=src_lon,
+            target_lats=src_lat,
+            target_lons=src_lon,
+            target_y=np.arange(4),
+            target_x=np.arange(5),
+        )
+        data = np.arange(2 * 4 * 5, dtype=np.float32).reshape(2, 4, 5)
+        da = xr.DataArray(
+            data,
+            dims=("time", "lat", "lon"),
+            coords={
+                "time": np.array(["2023-01-01", "2023-01-02"], dtype="datetime64[ns]"),
+                "lat": np.arange(4),
+                "lon": np.arange(5),
+            },
+        )
+        out = regridder.apply_dataarray(da)
+        assert out.dims == ("time", "y", "x")
+        assert out.shape == (2, 4, 5)
+        np.testing.assert_allclose(out.values, data, rtol=1e-5)
 
 
 # ---------------------------------------------------------------------------
