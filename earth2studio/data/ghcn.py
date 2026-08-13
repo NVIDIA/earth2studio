@@ -22,6 +22,7 @@ import pathlib
 import shutil
 import uuid
 from abc import abstractmethod
+from collections.abc import Callable
 from datetime import datetime
 
 import numpy as np
@@ -506,29 +507,42 @@ class GHCNDaily(_GHCNBase):
         if self._station_meta is None:
             self._station_meta = self.get_station_metadata()
 
-        # Build unique (year, product) pairs needed. Tolerance windows can
-        # span year boundaries, so enumerate every year in [tmin, tmax].
-        year_product_pairs: set[tuple[int, str]] = set()
-        for dt in time:
-            tmin = dt + self._tolerance_lower
-            tmax = dt + self._tolerance_upper
-            for product in products:
-                for yr in range(tmin.year, tmax.year + 1):
-                    year_product_pairs.add((yr, product))
+        # Fetch parquet partitions in parallel. For modest station counts the
+        # by_station layout is used: one small file per (station, element)
+        # covering the station's full history, instead of the global by_year
+        # partitions (~100 MB per year/element regardless of station count).
+        # Large station lists fall back to by_year, where the request count is
+        # bounded by years x elements rather than stations x elements.
+        pair_list: list[tuple[int | str, str]]
+        if len(set(self.stations)) <= self._BY_STATION_MAX_STATIONS:
+            pair_list = sorted(
+                (s, p) for s in set(self.stations) for p in products
+            )
+            fetcher: Callable = self._fetch_station_element
+        else:
+            # Tolerance windows can span year boundaries, so enumerate every
+            # year in [tmin, tmax].
+            year_product_pairs: set[tuple[int | str, str]] = set()
+            for dt in time:
+                tmin = dt + self._tolerance_lower
+                tmax = dt + self._tolerance_upper
+                for product in products:
+                    for yr in range(tmin.year, tmax.year + 1):
+                        year_product_pairs.add((yr, product))
+            pair_list = sorted(year_product_pairs)
+            fetcher = self._fetch_year_element
 
-        # Fetch all required parquet partitions in parallel
-        pair_list = sorted(year_product_pairs)
         coros = [
             async_retry(
-                self._fetch_year_element,
-                year,
+                fetcher,
+                partition_key,
                 product,
                 retries=self._retries,
                 backoff=1.0,
                 task_timeout=60.0,
                 exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
-            for year, product in pair_list
+            for partition_key, product in pair_list
         ]
 
         partition_dfs = await gather_with_concurrency(
@@ -538,11 +552,12 @@ class GHCNDaily(_GHCNBase):
             verbose=(not self._verbose),
         )
 
-        # Index partitions by (year, product)
-        partition_map: dict[tuple[int, str], pd.DataFrame] = {
-            (year, product): df
-            for (year, product), df in zip(pair_list, partition_dfs)
-        }
+        # Group fetched partitions by product; the date/station masks below
+        # select the requested window from each partition regardless of
+        # whether it is a station history or a year slice.
+        product_frames: dict[str, list[pd.DataFrame]] = {p: [] for p in products}
+        for (_, product), pdf in zip(pair_list, partition_dfs):
+            product_frames[product].append(pdf)
 
         # Build reverse map: product code -> E2Studio variable name
         product_to_var: dict[str, str] = {}
@@ -562,10 +577,7 @@ class GHCNDaily(_GHCNBase):
             date_max = tmax.strftime("%Y%m%d")
 
             for product in products:
-                # Walk every year the tolerance window touches so cross-year
-                # windows (e.g. Dec 31 +/- 1 day) don't drop data.
-                for yr in range(tmin.year, tmax.year + 1):
-                    df = partition_map.get((yr, product))
+                for df in product_frames[product]:
                     if df is None or df.empty:
                         continue
 
@@ -631,6 +643,73 @@ class GHCNDaily(_GHCNBase):
         result.attrs["source"] = self.SOURCE_ID
 
         return result
+
+    # Above this many unique stations, fetching per-station files would issue
+    # more requests than downloading the global by_year partitions.
+    _BY_STATION_MAX_STATIONS = 500
+
+    async def _fetch_station_element(self, station: str, element: str) -> pd.DataFrame:
+        """Fetch a single station/element history file from the GHCN S3 bucket.
+
+        The ``parquet/by_station`` layout stores one small parquet file
+        (~50-100 KB) per (station, element) covering the station's entire
+        period of record, so the download volume scales with the number of
+        stations requested rather than the size of the global network.
+
+        Parameters
+        ----------
+        station : str
+            GHCN station ID (e.g. USW00013722)
+        element : str
+            GHCN element code (e.g. TMAX, PRCP)
+
+        Returns
+        -------
+        pd.DataFrame
+            Station history with columns ID, DATE, DATA_VALUE, Q_FLAG
+        """
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
+
+        s3_path = (
+            f"{self._S3_BUCKET}/parquet/by_station/"
+            f"STATION={station}/ELEMENT={element}/"
+        )
+        cache_hash = hashlib.sha256(s3_path.encode()).hexdigest()
+        parquet_path = os.path.join(self.cache, f"{cache_hash}.parquet")
+
+        if self._cache and os.path.isfile(parquet_path):
+            return await asyncio.to_thread(pd.read_parquet, parquet_path)
+
+        try:
+            # Station partitions receive new observations, so listings are
+            # not memoized across requests.
+            prefix = f"parquet/by_station/STATION={station}/ELEMENT={element}/"
+            files = await obstore_list_prefix(self.store, prefix, cacheable=False)
+            frames: list[pd.DataFrame] = []
+            for file_path in files:
+                if not file_path.endswith(".parquet"):
+                    continue
+                data = await obstore_read_range(self.store, file_path)
+                table = pq.read_table(
+                    io.BytesIO(data),
+                    columns=["ID", "DATE", "DATA_VALUE", "Q_FLAG"],
+                )
+                frames.append(table.to_pandas())
+
+            if not frames:
+                return pd.DataFrame()
+
+            df = pd.concat(frames, ignore_index=True)
+            await asyncio.to_thread(df.to_parquet, parquet_path, index=False)
+        except (FileNotFoundError, OSError, pa.ArrowInvalid):
+            if self._verbose:
+                logger.warning(
+                    f"GHCN data not found for STATION={station}, ELEMENT={element}"
+                )
+            return pd.DataFrame()
+
+        return df
 
     async def _fetch_year_element(self, year: int, element: str) -> pd.DataFrame:
         """Fetch a single year/element partition from the GHCN S3 bucket.

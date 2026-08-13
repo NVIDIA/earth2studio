@@ -26,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hours are memoized per instance while the current hour is always re-listed
 - Migrated Himawari AHI data source from s3fs to obstore with memoized
   minute-directory listings (scans older than an hour)
+- Migrated GHCNDaily and GHCNHourly data sources from s3fs/fsspec to obstore;
+  by_year partition listings of past years are memoized per instance
+- GHCNDaily now fetches per-station parquet files (`parquet/by_station`) for
+  requests up to 500 unique stations instead of downloading global by_year
+  partitions (~25x faster for station-scale requests); larger station lists
+  still use the by_year layout. The by_station layout also carries elements
+  (e.g. TAVG) that are incomplete in the by_year partitions, so station
+  queries now return observations the previous path silently missed
 
 ### Deprecated
 
