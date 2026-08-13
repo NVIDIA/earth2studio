@@ -371,7 +371,7 @@ def ensemble(
         Data source
     io : IOBackend
         IO object
-    perturbation_method : Perturbation
+    perturbation : Perturbation
         Method to perturb the initial condition to create an ensemble.
     batch_size: int, optional
         Number of ensemble members to run in a single batch,
