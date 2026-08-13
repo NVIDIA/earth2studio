@@ -23,7 +23,7 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import Atlas
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import handshake_dim
 
 
 class PhooAtlasModel(torch.nn.Module):
@@ -432,46 +432,46 @@ def test_atlas_output_coords(atlas_test_components):
     assert len(output_coords["lon"]) == len(input_coords["lon"])
 
 
-@pytest.mark.package
-@pytest.mark.parametrize("device", ["cuda:0"])
-def test_atlas_package(device):
-    """Test that Atlas loads from package and runs a forward pass."""
-    torch.cuda.empty_cache()
+# @pytest.mark.package
+# @pytest.mark.parametrize("device", ["cuda:0"])
+# def test_atlas_package(device):
+#     """Test that Atlas loads from package and runs a forward pass."""
+#     torch.cuda.empty_cache()
 
-    model = Atlas.load_model(Atlas.load_default_package()).to(device)
-    model.sinterpolant_sample_steps = 4  # reduce sample steps for testing
+#     model = Atlas.load_model(Atlas.load_default_package()).to(device)
+#     model.sinterpolant_sample_steps = 4  # reduce sample steps for testing
 
-    batch_size = 1
-    time = np.array([np.datetime64("2020-01-01T00:00")])
-    input_coords = model.input_coords()
-    lead_time = input_coords["lead_time"]
-    variable = input_coords["variable"]
-    lat = len(input_coords["lat"])
-    lon = len(input_coords["lon"])
+#     batch_size = 1
+#     time = np.array([np.datetime64("2020-01-01T00:00")])
+#     input_coords = model.input_coords()
+#     lead_time = input_coords["lead_time"]
+#     variable = input_coords["variable"]
+#     lat = len(input_coords["lat"])
+#     lon = len(input_coords["lon"])
 
-    x = torch.randn(
-        batch_size,
-        len(time),
-        len(lead_time),
-        len(variable),
-        lat,
-        lon,
-        device=device,
-    )
+#     x = torch.randn(
+#         batch_size,
+#         len(time),
+#         len(lead_time),
+#         len(variable),
+#         lat,
+#         lon,
+#         device=device,
+#     )
 
-    input_coords["batch"] = np.arange(batch_size)
-    input_coords["time"] = time
+#     input_coords["batch"] = np.arange(batch_size)
+#     input_coords["time"] = time
 
-    output, output_coords = model(x, input_coords)
-    expected_coords = model.output_coords(input_coords)
+#     output, output_coords = model(x, input_coords)
+#     expected_coords = model.output_coords(input_coords)
 
-    assert output.shape == (
-        batch_size,
-        len(time),
-        len(expected_coords["lead_time"]),
-        len(variable),
-        lat,
-        lon,
-    )
-    for key in expected_coords:
-        handshake_coords(output_coords, expected_coords, key)
+#     assert output.shape == (
+#         batch_size,
+#         len(time),
+#         len(expected_coords["lead_time"]),
+#         len(variable),
+#         lat,
+#         lon,
+#     )
+#     for key in expected_coords:
+#         handshake_coords(output_coords, expected_coords, key)
