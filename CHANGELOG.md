@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `__len__`, `store` and `coords` to `AsyncZarrBackend`, matching `ZarrBackend`, and
   `output.io_backend` to the eval recipe to select between them (`async_zarr` is the
   new default)
+- Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
+  `NNJAObsSat`, returned as brightness temperature (K) with per-channel
+  wavenumbers alongside the existing microwave sensors
 
 ### Changed
 
