@@ -21,6 +21,7 @@ import hashlib
 import os
 import pathlib
 import shutil
+import threading
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -58,6 +59,12 @@ try:
 except ImportError:
     OptionalDependencyFailure("data")
     eccodes = None  # type: ignore[assignment]
+
+# eccodes keeps global state in its underlying C library and is NOT
+# thread-safe.  Decoding runs in worker threads (via asyncio.to_thread) so
+# it can overlap with in-flight downloads, but this lock serializes the
+# actual eccodes decode calls: only one BUFR file is decoded at a time.
+_ECCODES_LOCK = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -507,18 +514,48 @@ class JPSS_ATMS:
         # Discover and download BUFR files within tolerance windows
         tasks = await self._create_tasks(time_list, variable_list)
 
-        # Deduplicate by S3 URI
-        uri_set = {t.s3_uri for t in tasks}
-        fetch_jobs = [self._fetch_remote_file(uri) for uri in uri_set]
+        # Deduplicate decode work: multiple tasks can reference the same
+        # file when tolerance windows overlap.  The URI already encodes
+        # bucket (satellite) and file; the variable is included in the key
+        # for safety since _decode_bufr uses task.bufr_key/modifier/variable.
+        decode_tasks: dict[tuple[str, str], _ATMSAsyncTask] = {}
+        for task in tasks:
+            decode_tasks.setdefault((task.s3_uri, task.variable), task)
+
+        # Pipeline: decode each file (in a worker thread, serialized by
+        # _ECCODES_LOCK) as soon as its download lands, while other
+        # downloads continue in flight.
+        decoded: dict[tuple[str, str], pd.DataFrame] = {}
+
+        async def _fetch_and_decode(key: tuple[str, str], task: _ATMSAsyncTask) -> None:
+            await self._fetch_remote_file(task.s3_uri)
+            local_path = self._cache_path(task.s3_uri)
+            if not pathlib.Path(local_path).is_file():
+                # Missing-file warning is emitted per task in
+                # _compile_dataframe
+                return
+
+            def _decode() -> pd.DataFrame:
+                # eccodes has global state and is not thread-safe: hold the
+                # lock for the whole decode so only one file decodes at a
+                # time (still overlapping with network I/O).
+                with _ECCODES_LOCK:
+                    return self._decode_bufr(local_path, task)
+
+            try:
+                decoded[key] = await asyncio.to_thread(_decode)
+            except Exception:
+                logger.warning(f"Failed to decode {task.s3_uri}", exc_info=True)
+
         await gather_with_concurrency(
-            fetch_jobs,
+            [_fetch_and_decode(key, task) for key, task in decode_tasks.items()],
             max_workers=self._max_workers,
             desc="Fetching ATMS BUFR files",
             verbose=(not self._verbose),
         )
 
-        # Decode and compile
-        df = self._compile_dataframe(tasks, schema)
+        # Compile the decoded frames in task order
+        df = self._compile_dataframe(tasks, schema, decoded)
         return df
 
     # ------------------------------------------------------------------
@@ -636,8 +673,14 @@ class JPSS_ATMS:
         self,
         tasks: list[_ATMSAsyncTask],
         schema: pa.Schema,
+        decoded: dict[tuple[str, str], pd.DataFrame],
     ) -> pd.DataFrame:
-        """Decode cached BUFR files and assemble the output DataFrame."""
+        """Assemble the output DataFrame from pre-decoded per-file frames.
+
+        ``decoded`` maps ``(s3_uri, variable)`` to the DataFrame decoded from
+        that file; entries are absent when the decode failed (already warned
+        during the fetch/decode pipeline).
+        """
         frames: list[pd.DataFrame] = []
 
         for task in tasks:
@@ -646,13 +689,9 @@ class JPSS_ATMS:
                 logger.warning(f"Cached file missing for {task.s3_uri}")
                 continue
 
-            try:
-                df = self._decode_bufr(local_path, task)
-            except Exception:
-                logger.warning(f"Failed to decode {task.s3_uri}", exc_info=True)
-                continue
-
-            if df.empty:
+            df = decoded.get((task.s3_uri, task.variable))
+            if df is None or df.empty:
+                # None: decode failed (warning already emitted); skip
                 continue
 
             # Filter by time tolerance window
@@ -668,9 +707,10 @@ class JPSS_ATMS:
 
         # When multiple requested times have overlapping tolerance windows
         # the same BUFR file may appear in more than one task.  Downloads
-        # are already deduplicated via ``uri_set``, but the decode path
-        # runs once per task, so identical observations can end up in
-        # ``frames`` twice.  Drop exact duplicates to prevent this.
+        # and decodes are deduplicated by (uri, variable), but each task
+        # still contributes its own window-filtered slice of the shared
+        # frame, so identical observations can end up in ``frames`` twice.
+        # Drop exact duplicates to prevent this.
         dedup_cols = [
             c
             for c in (

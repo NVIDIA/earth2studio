@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   time; decoded output is bit-identical to the previous implementation
 - JPSS VIIRS HDF5 decode now runs in worker threads (serialized by an HDF5
   lock) so decoding no longer blocks concurrent granule downloads
+- JPSS ATMS now decodes each BUFR file as soon as its download completes
+  (pipelined with in-flight downloads, one decode per unique file) instead
+  of decoding after all downloads finish
 
 ### Deprecated
 
