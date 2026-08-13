@@ -417,14 +417,23 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return torch.addcmul(self.means, x, self.stds, out=x if in_place else None)
 
     def normalize(self, x: torch.Tensor, in_place: bool = False) -> torch.Tensor:
-        """Normalise ``x`` to zero mean, unit variance."""
+        """Normalise physical radiances ``x`` to zero mean, unit variance.
+
+        Opposite of ``denormalize``.
+        """
         x = self.physical_to_raw(x, in_place=in_place)
         x = self.raw_to_normalized(x, in_place=True)
         x.masked_fill_(self.off_earth_mask_tensor, 0)
         return x
 
     def denormalize(self, x: torch.Tensor, in_place: bool = False) -> torch.Tensor:
-        """Denormalise ``x`` back to physical units."""
+        """Denormalise model output ``x`` to physical units.
+
+        The model is trained on raw uint16 values from FCI normalized to zero mean
+        and unit variance. To get from model outputs to physical values, we first
+        convert the outputs to the scale of the raw data, then convert the raw values
+        to physical radiances.
+        """
         x = self.normalized_to_raw(x, in_place=in_place)
         x = self.raw_to_physical(x, in_place=True)
         x.masked_fill_(self.off_earth_mask_tensor, torch.nan)
