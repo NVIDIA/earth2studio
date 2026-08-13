@@ -17,40 +17,20 @@
 
 set -Eeuo pipefail
 
-uv_python="${UV_PYTHON:-3.13.13}"
 docs_jobs="${DOCS_JOBS:-1}"
+uv_docs=(uv run --locked --extra all --group docs)
 log_dir="${DOCS_EXAMPLE_LOG_DIR:-docs/_build/example-logs}"
 main_log="${log_dir}/docs-full.log"
-
-# Keep the warmed uv package cache, but drop isolated gallery harness envs.
-prune_gallery_harness_envs() {
-    if [[ -z "${UV_CACHE_DIR:-}" ]]; then
-        return
-    fi
-
-    local environments_dir
-    environments_dir="$(realpath -m "${UV_CACHE_DIR}/environments-v2")"
-    if [[ -d "${environments_dir}" && "${environments_dir}" == */environments-v2 ]]; then
-        find "${environments_dir}" \
-            -mindepth 1 \
-            -maxdepth 1 \
-            -type d \
-            -name 'harness-*' \
-            -print \
-            -exec rm -rf -- {} +
-    fi
-}
 
 mkdir -p "${log_dir}"
 exec > >(tee -a "${main_log}") 2>&1
 
 echo "Full docs-full log: ${main_log}"
 
-# Prepare the docs environment and generated metadata pages.
-uv sync --python "${uv_python}" --locked --extra all --group docs
-uv run python docs/generate_api.py
-uv run python docs/generate_catalog.py
-uv run python docs/generate_install_options.py
+# Generate metadata pages used by the docs build.
+"${uv_docs[@]}" python docs/generate_api.py
+"${uv_docs[@]}" python docs/generate_catalog.py
+"${uv_docs[@]}" python docs/generate_install_options.py
 
 # Rebuild examples from source, section by section, so stale examples are refreshed.
 rm -rf docs/examples examples/outputs
@@ -59,18 +39,17 @@ mapfile -t sections < <(find examples -mindepth 1 -maxdepth 1 -type d -name "[0-
 for section in "${sections[@]}"; do
     selector="${section#examples/}"
     echo "::group::Build docs examples: ${selector}"
-    if ! uv run e2s-gallery build "${selector}" --execute stale --jobs "${docs_jobs}"; then
+    if ! "${uv_docs[@]}" e2s-gallery build "${selector}" --execute stale --jobs "${docs_jobs}"; then
         echo "::endgroup::"
         exit 1
     fi
     echo "::endgroup::"
-    prune_gallery_harness_envs
 done
 
 # Render the final gallery index and build the MkDocs/Zensical site.
-uv run e2s-gallery render
+"${uv_docs[@]}" e2s-gallery render
 
 rm -rf docs/_build/html
-E2S_GALLERY_EXECUTE=never uv run zensical build --clean
+E2S_GALLERY_EXECUTE=never "${uv_docs[@]}" zensical build --clean
 mkdir -p docs/_build
 rsync -a --delete site/ docs/_build/html/
