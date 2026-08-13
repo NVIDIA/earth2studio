@@ -415,7 +415,7 @@ class OPERA:
                 max_workers=self._async_workers,
                 task_timeout=120.0,
                 desc="Fetching OPERA data",
-                verbose=(not self._verbose),
+                verbose=self._verbose,
             )
 
         # Validate that all variables have the same grid shape.
