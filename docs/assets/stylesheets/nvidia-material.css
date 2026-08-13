@@ -279,6 +279,8 @@ body .md-grid {
 .md-header .md-search__button:hover::after,
 .md-header .md-search__button:focus::after,
 .md-header .md-search__button:active::after {
+  top: 50% !important;
+  transform: translateY(-50%);
   color: var(--e2s-header-muted) !important;
   -webkit-text-fill-color: var(--e2s-header-muted) !important;
   background: var(--e2s-header-kbd-bg) !important;

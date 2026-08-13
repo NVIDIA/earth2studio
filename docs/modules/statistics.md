@@ -4,8 +4,6 @@
 
 Various statistic and metric calculations for analysing inference data.
 
-## Statistics 1
-
 <!-- e2s-autosummary
 currentmodule: earth2studio
 template: statistics
@@ -28,7 +26,7 @@ earth2studio.statistics.std
 earth2studio.statistics.variance
 {% endautosummary %}
 
-## Statistics 2
+## Utilities
 
 <!-- e2s-autosummary
 currentmodule: earth2studio
