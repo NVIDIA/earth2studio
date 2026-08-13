@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hours are memoized per instance while the current hour is always re-listed
 - Migrated Himawari AHI data source from s3fs to obstore with memoized
   minute-directory listings (scans older than an hour)
+- Migrated MRMS data source from s3fs to obstore, with memoized day-directory
+  listings and threaded, header-based grid decoding
+- Migrated NClimGridDaily data source from s3fs to obstore; monthly NetCDF
+  files are now downloaded once into the cache and shared across all
+  (day, variable) slices instead of being streamed per slice over fsspec
 
 ### Deprecated
 
