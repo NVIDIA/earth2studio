@@ -5551,9 +5551,9 @@ wheels = [
 
 [[package]]
 name = "natten"
-version = "0.21.6"
+version = "0.21.7"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/06/2f/e10aa0edfa2e203fc649a4a52ed9e946decc16824f4740cf61d85a7f9a88/natten-0.21.6.tar.gz", hash = "sha256:c26871225fa533f8a9433ccd4496e3c4dcf6d0e0da369a2f6b547d4321a25dc1", size = 2863866, upload-time = "2026-04-14T18:15:50.885Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/10/98fa5bc8e20937c757b5dbb2e7e949af38bc46aa92da804b0ceb07c90a86/natten-0.21.7.tar.gz", hash = "sha256:8417236b74db079b2d23899ec8f77514fb2dc73d4bbd6b346a45b6967fc05ffb", size = 2864595, upload-time = "2026-07-26T18:06:15.348Z" }
 
 [[package]]
 name = "nest-asyncio"
