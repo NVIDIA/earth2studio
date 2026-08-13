@@ -1,10 +1,8 @@
-# [`earth2studio`][earth2studio]: Utilities
-
-## [`earth2studio.utils`][earth2studio.utils]: Coordinates
-
-A collection of utilities to manipulate and check coordinate systems dictionaries.
+# Utilities
 
 ## Coordinate Utilities
+
+A collection of utilities to manipulate and check coordinate systems dictionaries.
 
 <!-- e2s-autosummary
 currentmodule: earth2studio

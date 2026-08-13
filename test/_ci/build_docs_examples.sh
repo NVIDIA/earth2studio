@@ -21,10 +21,13 @@ uv_python="${UV_PYTHON:-3.13.13}"
 docs_jobs="${DOCS_JOBS:-1}"
 log_dir="${DOCS_EXAMPLE_LOG_DIR:-docs/_build/example-logs}"
 main_log="${log_dir}/docs-full.log"
-export UV_CACHE_DIR="${UV_CACHE_DIR:-/opt/uv-cache}"
 
 # Keep the warmed uv package cache, but drop isolated gallery harness envs.
 prune_gallery_harness_envs() {
+    if [[ -z "${UV_CACHE_DIR:-}" ]]; then
+        return
+    fi
+
     local environments_dir
     environments_dir="$(realpath -m "${UV_CACHE_DIR}/environments-v2")"
     if [[ -d "${environments_dir}" && "${environments_dir}" == */environments-v2 ]]; then
