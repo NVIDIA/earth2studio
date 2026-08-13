@@ -503,7 +503,6 @@ class GHCNDaily(_GHCNBase):
             except KeyError:
                 raise KeyError(f"variable id {v} not found in GHCNDaily lexicon")
 
-
         if self._station_meta is None:
             self._station_meta = self.get_station_metadata()
 
@@ -515,9 +514,7 @@ class GHCNDaily(_GHCNBase):
         # bounded by years x elements rather than stations x elements.
         pair_list: list[tuple[int | str, str]]
         if len(set(self.stations)) <= self._BY_STATION_MAX_STATIONS:
-            pair_list = sorted(
-                (s, p) for s in set(self.stations) for p in products
-            )
+            pair_list = sorted((s, p) for s in set(self.stations) for p in products)
             fetcher: Callable = self._fetch_station_element
         else:
             # Tolerance windows can span year boundaries, so enumerate every
@@ -584,9 +581,7 @@ class GHCNDaily(_GHCNBase):
                     # Filter to requested stations
                     mask = df["ID"].isin(station_set)
                     # Filter by date range (DATE is string YYYYMMDD)
-                    mask = (
-                        mask & (df["DATE"] >= date_min) & (df["DATE"] <= date_max)
-                    )
+                    mask = mask & (df["DATE"] >= date_min) & (df["DATE"] <= date_max)
                     # Filter by quality flag: None/NaN means passed all QC
                     mask = mask & df["Q_FLAG"].isna()
 

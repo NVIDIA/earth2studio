@@ -208,8 +208,7 @@ class TestGHCNHourlyMock:
         # dir=0 (wind from north) → u=0, v=-10
         ds = self._ds()
         self._mock_read(
-            ds,
-            _build_mock_parquet_bytes(wind_speed=10.0, wind_direction="000")
+            ds, _build_mock_parquet_bytes(wind_speed=10.0, wind_direction="000")
         )
 
         result = ds(datetime(2024, 1, 1, 12), ["u10m", "v10m"])
