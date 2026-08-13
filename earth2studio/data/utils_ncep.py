@@ -2176,7 +2176,13 @@ def decode_ir_sounder(
     started = time.perf_counter()
     tables = list(
         _decode_ir_sounder_chunks(
-            path, sensor, channels, datetime_min, datetime_max, satellites, decode_workers
+            path,
+            sensor,
+            channels,
+            datetime_min,
+            datetime_max,
+            satellites,
+            decode_workers,
         )
     )
     if tables:
