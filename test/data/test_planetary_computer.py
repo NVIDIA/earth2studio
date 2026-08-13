@@ -312,13 +312,11 @@ def test_planetary_computer_ifs_index_entry_matches() -> None:
 @pytest.mark.xfail()
 @pytest.mark.timeout(240)
 def test_planetary_computer_ifs_ranged_benchmark() -> None:
-    """Benchmark GRIB index byte-range fetches against whole-file downloads.
-
-    The ranged path resolves per-message byte ranges from the item's GRIB
-    index sidecar and must produce values identical to extracting the same
-    variables from the whole downloaded file, while transferring only the
-    requested messages (a few MB instead of ~120 MB per analysis file).
-    """
+    # Benchmark GRIB index byte-range fetches against whole-file downloads.
+    # The ranged path resolves per-message byte ranges from the item's GRIB
+    # index sidecar and must produce values identical to extracting the same
+    # variables from the whole downloaded file, while transferring only the
+    # requested messages (a few MB instead of ~120 MB per analysis file).
     variables = ["t2m", "u10m", "z500", "q850", "stl1"]
     time_ = datetime(2025, 7, 28)
 

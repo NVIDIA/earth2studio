@@ -30,6 +30,7 @@ from urllib.parse import urlparse
 
 import netCDF4
 import numpy as np
+import obstore as obs
 import pygrib
 import xarray as xr
 from loguru import logger
@@ -39,6 +40,7 @@ from earth2studio.data import GOES
 from earth2studio.data.utils import (
     _sync_async,
     async_retry,
+    atomic_write_bytes,
     datasource_cache_root,
     obstore_fetch_to_cache,
     obstore_read_range,
@@ -60,7 +62,9 @@ from earth2studio.utils.type import TimeArray, VariableArray
 
 try:
     import rioxarray
-    from obstore.auth.planetary_computer import PlanetaryComputerCredentialProvider
+    from obstore.auth.planetary_computer import (
+        PlanetaryComputerAsyncCredentialProvider,
+    )
     from obstore.store import AzureStore
     from pystac import Item
     from pystac_client import Client
@@ -69,7 +73,7 @@ except ImportError:
     Client = None
     rioxarray = None
     AzureStore = None
-    PlanetaryComputerCredentialProvider = None
+    PlanetaryComputerAsyncCredentialProvider = None
     Item = TypeVar("Item")  # type: ignore
 
 
@@ -152,7 +156,7 @@ class _PlanetaryComputerData:
     -----
     Assets are read from Azure Blob Storage with obstore, using short-lived SAS
     tokens fetched (and renewed) automatically by obstore's
-    :class:`~obstore.auth.planetary_computer.PlanetaryComputerCredentialProvider`.
+    :class:`~obstore.auth.planetary_computer.PlanetaryComputerAsyncCredentialProvider`.
     More information on the Microsoft Planetary Computer is available at
     https://planetarycomputer.microsoft.com/.
     """
@@ -472,7 +476,9 @@ class _PlanetaryComputerData:
         """Return (creating if needed) the obstore store for a blob container."""
         store_key = (account_name, container_name)
         if store_key not in self._stores:
-            credential_provider = PlanetaryComputerCredentialProvider(
+            # The async (aiohttp) provider keeps SAS fetches/renewals from
+            # blocking the concurrent download tasks
+            credential_provider = PlanetaryComputerAsyncCredentialProvider(
                 account_name=account_name, container_name=container_name
             )
             self._stores[store_key] = AzureStore(
@@ -503,11 +509,24 @@ class _PlanetaryComputerData:
                     plan,
                     retries=self._max_retries,
                     backoff=1.0,
-                    exceptions=(OSError, TimeoutError, ConnectionError),
+                    # Bound each attempt so a stalled transfer cannot consume
+                    # the whole async_timeout budget without retrying
+                    task_timeout=300.0,
+                    # obstore errors subclass Exception via BaseError, not
+                    # OSError, so they must be listed to be retried at all
+                    exceptions=(
+                        OSError,
+                        TimeoutError,
+                        ConnectionError,
+                        obs.exceptions.BaseError,
+                    ),
+                    no_retry=(FileNotFoundError, obs.exceptions.NotFoundError),
                 )
+            except FileNotFoundError:
+                # Permanent: the object or GRIB index entry does not exist;
+                # keep the informative message instead of wrapping it
+                raise
             except Exception as error:
-                # Clean up partial downloads so future retries start cleanly.
-                plan.local_path.unlink(missing_ok=True)
                 raise RuntimeError(
                     f"Failed to download asset {plan.unsigned_href}"
                 ) from error
@@ -626,7 +645,7 @@ class PlanetaryComputerOISST(_PlanetaryComputerData):
     max_workers : int, optional
         Upper bound on concurrent download and processing tasks, by default 24
     request_timeout : int, optional
-        Timeout (seconds) applied to individual HTTP requests, by default 60
+        Connect timeout (seconds) applied to individual HTTP requests, by default 60
     max_retries : int, optional
         Maximum retry attempts for transient network failures, by default 4
     async_timeout : int, optional
@@ -715,7 +734,7 @@ class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
     max_workers : int, optional
         Upper bound on concurrent download and processing tasks, by default 24
     request_timeout : int, optional
-        Timeout (seconds) applied to individual HTTP requests, by default 60
+        Connect timeout (seconds) applied to individual HTTP requests, by default 60
     max_retries : int, optional
         Maximum retry attempts for transient network failures, by default 4
     async_timeout : int, optional
@@ -818,7 +837,7 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
     max_workers : int, optional
         Upper bound on concurrent download and processing tasks, by default 24
     request_timeout : int, optional
-        Timeout (seconds) applied to individual HTTP requests, by default 60
+        Connect timeout (seconds) applied to individual HTTP requests, by default 60
     max_retries : int, optional
         Maximum retry attempts for transient network failures, by default 4
     async_timeout : int, optional
@@ -992,7 +1011,7 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
     max_workers : int, optional
         Upper bound on concurrent download and processing tasks, by default 24
     request_timeout : int, optional
-        Timeout (seconds) applied to individual HTTP requests, by default 60
+        Connect timeout (seconds) applied to individual HTTP requests, by default 60
     max_retries : int, optional
         Maximum retry attempts for transient network failures, by default 4
     async_timeout : int, optional
@@ -1116,19 +1135,28 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
             ends=[end for _, end in sorted_ranges],
         )
         data = b"".join(bytes(buffer) for buffer in buffers)
-        await asyncio.to_thread(plan.local_path.write_bytes, data)
+        await asyncio.to_thread(atomic_write_bytes, plan.local_path, data)
+
+    # Maps GRIB index level types to the pygrib typeOfLevel used at extraction
+    PYGRIB_LEVEL_TYPES = {"pl": "isobaricInhPa", "sol": "soilLayer"}
 
     @staticmethod
-    def _index_entry_matches(entry: dict, dataset_key: str) -> bool:
-        """Check whether a GRIB index entry serves a lexicon dataset key."""
+    def _parse_dataset_key(dataset_key: str) -> tuple[str, str, str | None]:
+        """Split a lexicon dataset key into (param, GRIB index levtype, level)."""
         var, plev, lay = dataset_key.split("::")
-        if entry.get("param") != var:
-            return False
         if plev:
-            return entry.get("levtype") == "pl" and str(entry.get("levelist")) == plev
+            return var, "pl", plev
         if lay:
-            return entry.get("levtype") == "sol" and str(entry.get("levelist")) == lay
-        return entry.get("levtype") == "sfc"
+            return var, "sol", lay
+        return var, "sfc", None
+
+    @classmethod
+    def _index_entry_matches(cls, entry: dict, dataset_key: str) -> bool:
+        """Check whether a GRIB index entry serves a lexicon dataset key."""
+        var, levtype, level = cls._parse_dataset_key(dataset_key)
+        if entry.get("param") != var or entry.get("levtype") != levtype:
+            return False
+        return level is None or str(entry.get("levelist")) == level
 
     def extract_variable_numpy(
         self,
@@ -1149,14 +1177,11 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
         numpy.ndarray
             Array shaped ``(721, 1440)``.
         """
-        var, plev, lay = spec.dataset_key.split("::")
+        var, levtype, level = self._parse_dataset_key(spec.dataset_key)
         gsel: dict[str, Any] = {"shortName": var}
-        if plev:
-            gsel["typeOfLevel"] = "isobaricInhPa"
-            gsel["level"] = float(plev)
-        if lay:
-            gsel["typeOfLevel"] = "soilLayer"
-            gsel["level"] = float(lay)
+        if level is not None:
+            gsel["typeOfLevel"] = self.PYGRIB_LEVEL_TYPES[levtype]
+            gsel["level"] = float(level)
         try:
             grbidx = pygrib.index(str(plan.local_path), *list(gsel))
         except Exception as e:
@@ -1215,7 +1240,7 @@ class PlanetaryComputerGOES(_PlanetaryComputerData):
     max_workers : int, optional
         Upper bound on concurrent download and processing tasks, by default 24
     request_timeout : int, optional
-        Timeout (seconds) applied to individual HTTP requests, by default 60
+        Connect timeout (seconds) applied to individual HTTP requests, by default 60
     max_retries : int, optional
         Maximum retry attempts for transient network failures, by default 4
     async_timeout : int, optional
