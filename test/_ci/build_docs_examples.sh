@@ -23,6 +23,7 @@ log_dir="${DOCS_EXAMPLE_LOG_DIR:-docs/_build/example-logs}"
 main_log="${log_dir}/docs-full.log"
 export UV_CACHE_DIR="${UV_CACHE_DIR:-/opt/uv-cache}"
 
+# Keep the warmed uv package cache, but drop isolated gallery harness envs.
 prune_gallery_harness_envs() {
     local environments_dir
     environments_dir="$(realpath -m "${UV_CACHE_DIR}/environments-v2")"
@@ -42,11 +43,13 @@ exec > >(tee -a "${main_log}") 2>&1
 
 echo "Full docs-full log: ${main_log}"
 
+# Prepare the docs environment and generated metadata pages.
 uv sync --python "${uv_python}" --locked --extra all --group docs
 uv run python docs/generate_api.py
 uv run python docs/generate_catalog.py
 uv run python docs/generate_install_options.py
 
+# Rebuild examples from source, section by section, so stale examples are refreshed.
 rm -rf docs/examples examples/outputs
 
 mapfile -t sections < <(find examples -mindepth 1 -maxdepth 1 -type d -name "[0-9]*" | sort)
@@ -61,6 +64,7 @@ for section in "${sections[@]}"; do
     prune_gallery_harness_envs
 done
 
+# Render the final gallery index and build the MkDocs/Zensical site.
 uv run e2s-gallery render
 
 rm -rf docs/_build/html
