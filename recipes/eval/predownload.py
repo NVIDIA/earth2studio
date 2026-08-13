@@ -117,6 +117,9 @@ def _download_store(
         store_name=f"{store.name}.zarr",
         overwrite=overwrite,
         resume=not overwrite,
+        # A single lead_time per store, so sharding buys nothing and each
+        # per-timestep flush would write an incomplete shard
+        shard_coords={},
     ) as mgr:
         mgr.validate_output_store(store_coords, store.variables)
         _download_to_store(store=store, output_mgr=mgr, cfg=cfg, dist=dist)
