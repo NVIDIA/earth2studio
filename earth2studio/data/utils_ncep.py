@@ -1202,9 +1202,7 @@ def compile_dataframe(
         when ``decode_task`` raises.  If ``None`` the error is logged and the
         task is skipped.
     """
-    # Accumulate Arrow tables rather than DataFrames: avoids holding all frames
-    # plus the pd.concat output simultaneously (memory doubles at the concat).
-    tables: list[pa.Table] = []
+    frames: list[pd.DataFrame] = []
     n_tasks = len(tasks)
     compile_t0 = time.perf_counter()
     for idx, task in enumerate(tasks, start=1):
@@ -1234,17 +1232,18 @@ def compile_dataframe(
             f"[{source_id}] decode {idx}/{n_tasks} done : "
             f"{short_uri} ({len(df):,} rows) in {elapsed:.1f}s"
         )
-        tables.append(pa.Table.from_pandas(df, schema=schema, preserve_index=False))
+        df.attrs["source"] = source_id
+        frames.append(df)
 
     logger.info(
-        f"[{source_id}] compile finished: {len(tables)} non-empty "
+        f"[{source_id}] compile finished: {len(frames)} non-empty "
         f"frames, total {time.perf_counter() - compile_t0:.1f}s"
     )
 
-    if not tables:
+    if not frames:
         result = empty_dataframe(schema)
     else:
-        result = _table_to_dataframe(pa.concat_tables(tables).combine_chunks())
+        result = pd.concat(frames, ignore_index=True)
         result = result[[name for name in schema.names if name in result.columns]]
     result.attrs["source"] = source_id
     return result
