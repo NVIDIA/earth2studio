@@ -23,9 +23,9 @@ concepts, not the code.
 - Connectors as the sole path between components, matching by a field
   dictionary's standard names rather than model vocabularies.
 - Mediators for cadence-bridging reductions.
-- A driver executing an ordered run sequence on a shared clock with
-  per-component alarms — which is exactly what a 6 h atmosphere and a 48 h
-  ocean need to coexist.
+- A driver executing an ordered run sequence on a shared clock, each
+  component gated by its own declared timestep (slot alignment) — which is
+  exactly what a 6 h atmosphere and a 48 h ocean need to coexist.
 - The "data component" move (prescribed forcing is just another component) and
   the "split a monolithic executable into gridded components" move
   ([`dlesym_split.py`](../dlesym_split.py) is the latter, applied to DLESyM).
@@ -145,7 +145,8 @@ The three prior-art patterns this package factors out:
   `TrailingAverageCoupler` bake exchange policy into data loading; changing
   the coupling means changing the datapipe, and two-way interaction is out of
   reach. nvcoupler keeps both as one-line configurations (`time_policy=
-  "constant"`, `TrailingAverageMediator`) on a two-way-capable substrate.
+  "constant"`; `Connector(window=, reduce=)` or `TrailingAverageMediator`)
+  on a two-way-capable substrate.
 - **Model-internal** — `earth2studio/models/px/dlesym.py` hard-codes the
   atmos↔ocean exchange inside `__call__`; swapping the ocean for observations
   means forking the model. `split_dlesym` re-exposes the halves as components.
@@ -156,7 +157,7 @@ The three prior-art patterns this package factors out:
 
 ## Verification story
 
-The code ships with 146 passing tests (`test/nvcoupler/`; a 147th — the
+The code ships with 152 passing tests (`test/nvcoupler/`; a 153rd — the
 real-weights gate below — is collected but skipped), built on a deliberate
 strategy:
 

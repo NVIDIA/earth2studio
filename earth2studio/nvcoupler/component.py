@@ -24,12 +24,15 @@ advertise -> realize(clock) -> initialize(x, coords) -> run(time)* -> finalize.
 The critical seam is the :class:`ImportAdapter`: real models receive coupled
 fields in different call shapes (state-variable overwrite, conditioning
 kwarg, extra input tensor), so the adapter — not the component — owns the
-model invocation.
+model invocation. The adapter receives everything about the step bundled in
+an :class:`Exchange`.
 """
 
 import abc
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
+from dataclasses import field as dc_field
 from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
@@ -50,29 +53,8 @@ NextInputFn = Callable[
 
 
 # ---------------------------------------------------------------------------
-# Import adapters
+# Exchange and import adapters
 # ---------------------------------------------------------------------------
-@runtime_checkable
-class ImportAdapter(Protocol):
-    """Runs one model step with the import State injected.
-
-    The adapter owns the model call because coupled models disagree on how
-    forcing arrives: DLESyM/PhysicsNeMo expect an extra input tensor,
-    StormScope expects a conditioning kwarg, and prescribed-forcing setups
-    overwrite state variables. Implementations must be autograd-safe (no
-    in-place mutation of tensors that may carry grad).
-    """
-
-    def __call__(
-        self,
-        model: Any,
-        x: torch.Tensor,
-        coords: CoordSystem,
-        imports: State,
-        std_to_raw: Mapping[str, str],
-    ) -> tuple[torch.Tensor, CoordSystem]: ...
-
-
 def _broadcast_to_slice(data: torch.Tensor, slice_shape: torch.Size) -> torch.Tensor:
     """Left-pad `data` with singleton dims and expand to `slice_shape`."""
     if data.ndim > len(slice_shape):
@@ -84,47 +66,80 @@ def _broadcast_to_slice(data: torch.Tensor, slice_shape: torch.Size) -> torch.Te
     return data.expand(slice_shape)
 
 
-class VariableOverwriteAdapter:
-    """Default adapter: overwrite matching variable slices in x, then call
-    ``model(x, coords)``.
+def _stacking_order(field_order: list[str] | None, imports: State, who: str) -> list[str]:
+    """Resolve the channel order for stacking imported fields.
 
-    Suits toys and prescribed-forcing-as-state setups where imported fields
-    are also state variables of the model (e.g. an atmosphere carrying sst
-    as an input channel). Injection composes a cloned tensor via index_copy_
-    on the clone, which keeps the autograd graph intact.
+    Models are channel-order-sensitive; silently stacking in alphabetical
+    order would feed permuted inputs that run fine and predict garbage. With
+    more than one import the order must therefore be explicit.
+    """
+    if field_order is not None:
+        missing = [n for n in field_order if n not in imports]
+        if missing:
+            raise CouplingError(
+                f"{who}: field_order names {missing} are not in the "
+                f"import state (present: {sorted(imports)})"
+            )
+        return list(field_order)
+    if len(imports) > 1:
+        raise CouplingError(
+            f"{who}: {len(imports)} imported fields but no field_order= "
+            "given — the model's channel order cannot be inferred. Pass "
+            f"field_order=[...] with an explicit ordering of {sorted(imports)}"
+        )
+    return list(imports)
+
+
+@dataclass(frozen=True)
+class Exchange:
+    """Everything an :class:`ImportAdapter` needs for one coupled model step.
+
+    Attributes
+    ----------
+    x : torch.Tensor
+        The component's current model state tensor.
+    coords : CoordSystem
+        Coordinates of ``x``.
+    imports : State
+        The imported Fields available this step (already subset to the
+        component's advertised imports).
+    std_to_raw : Mapping[str, str]
+        Standard field name -> this model's raw variable name.
+    time : np.datetime64 | None
+        The valid time the step advances to.
+
+    The two accessors cover the common delivery shapes: :meth:`inject` for
+    state-variable overwrite and :meth:`stacked` for channel-stacked forcing
+    tensors. Both are pure torch and autograd-safe.
     """
 
-    def __call__(
-        self,
-        model: Any,
-        x: torch.Tensor,
-        coords: CoordSystem,
-        imports: State,
-        std_to_raw: Mapping[str, str],
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        x = self.inject(x, coords, imports, std_to_raw)
-        return model(x, coords)
+    x: torch.Tensor
+    coords: CoordSystem
+    imports: State
+    std_to_raw: Mapping[str, str] = dc_field(default_factory=dict)
+    time: np.datetime64 | None = None
 
-    @staticmethod
-    def inject(
-        x: torch.Tensor,
-        coords: CoordSystem,
-        imports: State,
-        std_to_raw: Mapping[str, str],
-    ) -> torch.Tensor:
+    def inject(self) -> torch.Tensor:
+        """Return ``x`` with each imported field overwritten into its matching
+        variable slice (resolved through ``std_to_raw``).
+
+        The overwrite composes a cloned tensor via index_copy_ on the clone,
+        which keeps the autograd graph intact.
+        """
+        x, imports = self.x, self.imports
         if not imports:
             return x
-        if "variable" not in coords:
+        if "variable" not in self.coords:
             raise CouplingError(
-                "VariableOverwriteAdapter requires a 'variable' dim in the "
-                "model state coords; use ConditioningKwargAdapter or "
-                "ExtraTensorAdapter for models without one"
+                "Exchange.inject requires a 'variable' dim in the model state "
+                "coords; use ConditioningKwargAdapter or ExtraTensorAdapter "
+                "for models without one"
             )
-        var_axis = list(coords).index("variable")
-        variables = coords["variable"]
+        var_axis = list(self.coords).index("variable")
+        variables = self.coords["variable"]
         x = x.clone()
         for std_name, field in imports.items():
-            raw = std_to_raw.get(std_name, std_name)
+            raw = self.std_to_raw.get(std_name, std_name)
             pos = np.flatnonzero(variables == raw)
             if pos.size == 0:
                 raise CouplingError(
@@ -139,31 +154,49 @@ class VariableOverwriteAdapter:
             x.index_copy_(var_axis, index, data.to(dtype=x.dtype, device=x.device))
         return x
 
+    def stacked(
+        self, field_order: list[str] | None = None, *, who: str = "Exchange.stacked"
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Stack the imported fields into one tensor with a leading
+        'variable' dim.
 
-def _stacking_order(
-    field_order: list[str] | None, imports: State, adapter: str
-) -> list[str]:
-    """Resolve the channel order for stacking imported fields.
+        ``field_order`` fixes the channel order; with more than one import it
+        is required (see :func:`_stacking_order`). ``who`` names the caller in
+        error messages.
+        """
+        names = _stacking_order(field_order, self.imports, who)
+        return self.imports.as_tensor(names)
 
-    Models are channel-order-sensitive; silently stacking in alphabetical
-    order would feed permuted inputs that run fine and predict garbage. With
-    more than one import the order must therefore be explicit.
+
+@runtime_checkable
+class ImportAdapter(Protocol):
+    """Runs one model step with the import State injected.
+
+    The adapter owns the model call because coupled models disagree on how
+    forcing arrives: DLESyM/PhysicsNeMo expect an extra input tensor,
+    StormScope expects a conditioning kwarg, and prescribed-forcing setups
+    overwrite state variables. Implementations must be autograd-safe (no
+    in-place mutation of tensors that may carry grad).
     """
-    if field_order is not None:
-        missing = [n for n in field_order if n not in imports]
-        if missing:
-            raise CouplingError(
-                f"{adapter}: field_order names {missing} are not in the "
-                f"import state (present: {sorted(imports)})"
-            )
-        return list(field_order)
-    if len(imports) > 1:
-        raise CouplingError(
-            f"{adapter}: {len(imports)} imported fields but no field_order= "
-            "given — the model's channel order cannot be inferred. Pass "
-            f"field_order=[...] with an explicit ordering of {sorted(imports)}"
-        )
-    return list(imports)
+
+    def __call__(
+        self, model: Any, exchange: Exchange
+    ) -> tuple[torch.Tensor, CoordSystem]: ...
+
+
+class VariableOverwriteAdapter:
+    """Default adapter: overwrite matching variable slices in x, then call
+    ``model(x, coords)``.
+
+    Suits toys and prescribed-forcing-as-state setups where imported fields
+    are also state variables of the model (e.g. an atmosphere carrying sst
+    as an input channel). See :meth:`Exchange.inject`.
+    """
+
+    def __call__(
+        self, model: Any, exchange: Exchange
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        return model(exchange.inject(), exchange.coords)
 
 
 class ConditioningKwargAdapter:
@@ -182,19 +215,15 @@ class ConditioningKwargAdapter:
         self.method = method
 
     def __call__(
-        self,
-        model: Any,
-        x: torch.Tensor,
-        coords: CoordSystem,
-        imports: State,
-        std_to_raw: Mapping[str, str],
+        self, model: Any, exchange: Exchange
     ) -> tuple[torch.Tensor, CoordSystem]:
-        names = _stacking_order(self.field_order, imports, type(self).__name__)
-        conditioning, conditioning_coords = imports.as_tensor(names)
+        conditioning, conditioning_coords = exchange.stacked(
+            self.field_order, who=type(self).__name__
+        )
         fn = getattr(model, self.method)
         return fn(
-            x,
-            coords,
+            exchange.x,
+            exchange.coords,
             conditioning=conditioning,
             conditioning_coords=conditioning_coords,
         )
@@ -210,18 +239,12 @@ class ExtraTensorAdapter:
         self.kwarg = kwarg
 
     def __call__(
-        self,
-        model: Any,
-        x: torch.Tensor,
-        coords: CoordSystem,
-        imports: State,
-        std_to_raw: Mapping[str, str],
+        self, model: Any, exchange: Exchange
     ) -> tuple[torch.Tensor, CoordSystem]:
-        names = _stacking_order(self.field_order, imports, type(self).__name__)
-        coupling, _ = imports.as_tensor(names)
+        coupling, _ = exchange.stacked(self.field_order, who=type(self).__name__)
         if self.kwarg is not None:
-            return model(x, coords, **{self.kwarg: coupling})
-        return model(x, coords, coupling)
+            return model(exchange.x, exchange.coords, **{self.kwarg: coupling})
+        return model(exchange.x, exchange.coords, coupling)
 
 
 # ---------------------------------------------------------------------------
@@ -308,6 +331,15 @@ class Component(abc.ABC):
             .astype(np.int64)
         )
         return elapsed >= 0 and elapsed % self.timestep.astype(np.int64) == 0
+
+    def _exchange(
+        self, x: torch.Tensor, coords: CoordSystem, time: np.datetime64
+    ) -> Exchange:
+        """Bundle the current step's state and imports for an ImportAdapter."""
+        imports = self.import_state.subset(
+            [n for n in self.import_names if n in self.import_state]
+        )
+        return Exchange(x, coords, imports, self.resolve_std_to_raw(coords), time)
 
     def grid_coords(self) -> CoordSystem | None:
         """Spatial coordinates of this component's grid (None = no grid of
@@ -402,15 +434,8 @@ class CallableComponent(Component):
     def run(self, time: np.datetime64) -> None:
         if self._x is None:
             raise CouplingError(f"Component {self.name!r} not initialized")
-        imports = self.import_state.subset(
-            [n for n in self.import_names if n in self.import_state]
-        )
         y, ycoords = self.import_adapter(
-            self.fn,
-            self._x,
-            self._coords,
-            imports,
-            self.resolve_std_to_raw(self._coords),
+            self.fn, self._exchange(self._x, self._coords, time)
         )
         self._x, self._coords = y, OrderedDict(ycoords)
         self.publish(y, ycoords, valid_time=time)
@@ -495,15 +520,8 @@ class PrognosticComponent(Component):
     def run(self, time: np.datetime64) -> None:
         if self._x is None:
             raise CouplingError(f"Component {self.name!r} not initialized")
-        imports = self.import_state.subset(
-            [n for n in self.import_names if n in self.import_state]
-        )
         y, ycoords = self.import_adapter(
-            self.model,
-            self._x,
-            self._coords,
-            imports,
-            self.resolve_std_to_raw(self._coords),
+            self.model, self._exchange(self._x, self._coords, time)
         )
         self._x, self._coords = self.next_input(self._x, self._coords, y, ycoords)
         self.publish(y, ycoords, valid_time=time)

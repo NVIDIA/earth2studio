@@ -82,7 +82,7 @@ Rejected:
   `SequenceError` — only `ValueError`s are wrapped with the line number.
 - Negative intervals parse (`"-6h"`) but fail validation: `is_multiple`
   requires a positive interval, so `validate()` raises `CadenceError`, and
-  `Alarm`/`Clock` reject non-positive intervals at construction.
+  `Clock` rejects a non-positive `dt` at construction.
 
 ### Formal semantics
 
@@ -108,7 +108,11 @@ execution rule, exactly as implemented by `Driver._execute_time`:
      mask fill → regrid) into `dst.import_state`. If `src` has not yet
      produced a matched field, this raises
      `CouplingError("... has not produced <field> yet — check the run
-     sequence ordering")`.
+     sequence ordering")`. A *windowed* connector (`window=`/`reduce=`)
+     behaves differently: each execute folds the source export into its
+     running reduction, and it delivers the derived field only at times
+     aligned to its window — mid-window executes leave the destination's
+     import untouched.
    - `MediateAction(m, phase)`: calls `m.run(t)`, i.e. the mediator's
      `compute(t)`, which turns its accumulated samples into exported derived
      fields. (Accumulation itself is not an action — it happens as a side
@@ -196,7 +200,7 @@ and are never serialized).
 | `components` | yes | mapping `name -> {class, kwargs}` | `class` is a dotted import path to a module-level class or factory; it is imported and called as `factory(**kwargs)`. |
 | `dictionary` | no | list of entry mappings | Only `FieldEntry` items **absent from or differing from** `DEFAULT_DICTIONARY`. Each has `standard_name`, `canonical_units`, `description`, `aliases` (list), and optional `cell_method: {base, method, window}`. |
 | `aliases` | no | mapping `alias -> standard_name` | Alias additions relative to the default dictionary (see below). |
-| `connectors` | no | list of `{src, dst, time_policy, fill, fields?}` | Non-default connector settings. `fields` appears only when the connector was built with an explicit list; `time_policy` defaults to `"constant"` and `fill` to `"none"` on load. |
+| `connectors` | no | list of `{src, dst, time_policy, fill, fields?}` | Non-default connector settings. `fields` appears only when the connector was built with an explicit list; `time_policy` defaults to `"constant"` and `fill` to `"none"` on load. Windowed connectors do **not** round-trip: `window=`/`reduce=` are not serialized (see below). |
 
 `from_yaml` raises `CouplingError` when the document is not a mapping, when
 any of `clock`/`sequence`/`components` is missing, when a component spec lacks
@@ -305,10 +309,15 @@ datasets = rebuilt.run()                        # identical to driver.run()
    load paths (e.g. `{load: 'earth2studio.models.px.Persistence'}`) are
    explicitly out of scope for v1.
 
-Also not serialized, honestly stated: connector `regridder=` callables (a
-rebuilt connector falls back to the auto lat/lon path — HEALPix/curvilinear
-systems need Python construction), `io=` backends, `collect`, and
-`allow_unfed_imports`. Custom `Connector` subclasses lose their type: only
+Also not serialized, honestly stated: connector `window=`/`reduce=` — a
+windowed connector is *silently* written out as a plain one and the rebuilt
+system will usually fail connector matching at `initialize()` (the base
+export no longer intersects the derived import), so windowed systems must be
+built in Python (or expressed as an `AccumulationMediator`, which does
+round-trip); connector `regridder=` callables (a rebuilt connector falls back
+to the auto lat/lon path — HEALPix/curvilinear systems need Python
+construction); `io=` backends; `collect`; and `allow_unfed_imports`. Custom
+`Connector` subclasses lose their type: only
 `src`/`dst`/`fields`/`time_policy`/`fill` round-trip.
 
 ### The aliases delta mechanism

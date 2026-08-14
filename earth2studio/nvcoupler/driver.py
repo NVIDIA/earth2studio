@@ -16,7 +16,11 @@
 
 """Driver: owns the clock and executes the run sequence (NUOPC_Driver analog).
 
-The lifecycle mirrors NUOPC: construct with components + sequence + clock,
+Declare the coupling graph — components plus connections — and the schedule
+follows: with no sequence given the Driver derives the canonical run
+sequence from the graph (:func:`~.sequence.derive_sequence`). A hand-written
+sequence (RunSequence object or DSL text) is the override for schedules the
+graph cannot express. The lifecycle mirrors NUOPC: construct, then
 ``initialize(ics)`` (advertise -> connector matching -> realize -> component
 initialize), then ``run()`` / ``steps()`` for inference or ``rollout(n)``
 for a gradient-carrying advance. Coupling order is entirely the run
@@ -48,6 +52,7 @@ from .sequence import (
     MediateAction,
     RunAction,
     RunSequence,
+    derive_sequence,
     parse_run_sequence,
 )
 
@@ -55,20 +60,38 @@ MEMORY_WARN_BYTES = 4e9
 
 
 class Driver:
-    """Executes a coupled system.
+    """Executes a coupled system declared as components + connections.
+
+    The declarative form needs no run sequence — the schedule is derived
+    from the coupling graph::
+
+        Driver(
+            {"atmos": atmos, "ocean": ocean},
+            clock=Clock("2024-01-01", "2024-01-05", "6h"),
+            connectors=[("ocean", "atmos"), ("atmos", "ocean")],
+        )
+
+    Bare ``(src, dst)`` name tuples become default Connectors; pass Connector
+    instances for regridding/time-policy/window options. Passing a sequence
+    (RunSequence object or DSL text) overrides the derived schedule — the
+    escape hatch for sequential coupling or hand-tuned action order.
 
     Parameters
     ----------
     components : dict[str, Component]
         All participants, mediators included; keys must match the names used
         in the run sequence.
-    sequence : RunSequence | str
-        Run sequence object or DSL text.
+    sequence : RunSequence | str, optional
+        Run sequence object or DSL text. None (default) derives the
+        canonical sequence from components + connectors via
+        :func:`~.sequence.derive_sequence`.
     clock : Clock
         Coupling clock; dt must divide every component timestep.
-    connectors : list[Connector], optional
-        Pre-built connectors. Any ConnectAction without a matching (src, dst)
-        pair gets a default ``Connector(src, dst)`` built automatically.
+    connectors : list[Connector | tuple[str, str]], optional
+        The coupling graph's edges: Connector instances or bare (src, dst)
+        name tuples (auto-built into default Connectors). With an explicit
+        sequence, any ConnectAction without a matching (src, dst) pair still
+        gets a default ``Connector(src, dst)`` built at initialize.
     collect : bool
         Keep per-ring export fields in memory for ``to_xarray()``
         (default True; disable for long runs writing to real IO). Recorded
@@ -85,28 +108,56 @@ class Driver:
         leading ``time`` dimension covering the component's ring times
         including t0; the driver streams a write after the initial-condition
         seed and after every component run. Independent of ``collect``.
+
+    Attributes
+    ----------
+    sequence_derived : bool
+        True when the run sequence was derived from the coupling graph
+        rather than passed in.
     """
 
     def __init__(
         self,
         components: dict[str, Component],
-        sequence: RunSequence | str,
-        clock: Clock,
-        connectors: list[Connector] | None = None,
+        sequence: RunSequence | str | None = None,
+        clock: Clock | None = None,
+        connectors: "list[Connector | tuple[str, str]] | None" = None,
         collect: bool = True,
         io: "dict[str, IOBackend] | None" = None,
         allow_unfed_imports: bool = False,
     ):
+        if clock is None:
+            raise CouplingError(
+                "Driver needs a clock — Driver(components, sequence, clock) "
+                "or Driver(components, clock=Clock(start, stop, dt), "
+                "connectors=[...])"
+            )
         self.components = dict(components)
-        self.sequence = (
-            parse_run_sequence(sequence) if isinstance(sequence, str) else sequence
-        )
         self.clock = clock
         self.collect = collect
         self.allow_unfed_imports = allow_unfed_imports
         self._connectors: dict[tuple[str, str], Connector] = {}
-        for conn in connectors or []:
-            self._connectors[(conn.src.name, conn.dst.name)] = conn
+        for item in connectors or []:
+            if not isinstance(item, Connector):
+                src, dst = item
+                unknown = [n for n in (src, dst) if n not in self.components]
+                if unknown:
+                    raise CouplingError(
+                        f"Connection ({src!r}, {dst!r}): {unknown} are not "
+                        f"component names; known components: "
+                        f"{sorted(self.components)}"
+                    )
+                item = Connector(self.components[src], self.components[dst])
+            self._connectors[(item.src.name, item.dst.name)] = item
+        self.sequence_derived = sequence is None
+        if sequence is None:
+            self.sequence = derive_sequence(
+                self.components, self._connectors.values()
+            )
+        else:
+            self.sequence = (
+                parse_run_sequence(sequence) if isinstance(sequence, str) else sequence
+            )
         # per-component record of (time, {std_name: Field}) for to_xarray
         self._records: dict[str, list[tuple[np.datetime64, dict[str, Field]]]] = {
             name: [] for name in self.components
@@ -409,8 +460,7 @@ class Driver:
         self.clock.reset()
         self._records = {name: [] for name in self.components}
         for conn in self._connectors.values():
-            conn._history.clear()
-            conn.last_transfer.clear()
+            conn.reset()
         self._io_ready.clear()
         self._initialized = False
 

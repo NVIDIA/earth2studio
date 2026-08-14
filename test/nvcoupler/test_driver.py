@@ -88,6 +88,62 @@ def make_driver(dsl=LAGGED_DSL, gain_atmos=1.0, gain_ocean=1.0, stop=T96):
     return driver
 
 
+def make_declarative_driver(stop=T96):
+    """The same trio declared as a coupling graph — no sequence given."""
+    components = {
+        "atmos": fake_atmos(),
+        "ocean": fake_ocean(),
+        "med": TrailingAverageMediator("med", ["geopotential_at_1000hpa_48h_mean"]),
+    }
+    driver = Driver(
+        components,
+        clock=Clock(T0, stop, "6h"),
+        connectors=[("atmos", "med"), ("ocean", "atmos"), ("med", "ocean")],
+    )
+    driver.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
+    return driver
+
+
+def test_declarative_driver_derives_the_canonical_sequence():
+    driver = make_declarative_driver()
+    assert driver.sequence_derived
+    from earth2studio.nvcoupler.sequence import parse_run_sequence
+
+    assert str(driver.sequence) == str(parse_run_sequence(LAGGED_DSL))
+
+
+def test_declarative_driver_matches_hand_computed_values():
+    driver = make_declarative_driver()
+    driver.run()
+    z = driver.components["atmos"].export_state["geopotential_at_1000hpa"]
+    assert torch.allclose(z.data, torch.full(ATMOS_GRID, 19.2336), atol=1e-4)
+    sst = driver.components["ocean"].export_state["sea_surface_temperature"]
+    assert torch.allclose(sst.data, torch.full((16, 32), 2.180147), atol=1e-6)
+    zmean = driver.components["med"].export_state[
+        "geopotential_at_1000hpa_48h_mean"
+    ]
+    assert torch.allclose(zmean.data, torch.full(ATMOS_GRID, 13.8147), atol=1e-4)
+
+
+def test_explicit_sequence_marks_driver_not_derived():
+    driver = make_driver()
+    assert not driver.sequence_derived
+
+
+def test_declarative_unknown_connection_name_raises():
+    with pytest.raises(CouplingError, match="atmso"):
+        Driver(
+            {"atmos": fake_atmos()},
+            clock=Clock(T0, "2024-01-02", "6h"),
+            connectors=[("atmso", "atmos")],
+        )
+
+
+def test_driver_without_clock_raises():
+    with pytest.raises(CouplingError, match="clock"):
+        Driver({"atmos": fake_atmos()})
+
+
 def test_cadence_and_hand_computed_values():
     driver = make_driver()
     driver.run()

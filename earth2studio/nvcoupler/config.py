@@ -21,14 +21,19 @@ files, :func:`to_yaml` / :func:`from_yaml` round-trip an nvcoupler Driver
 through a small YAML schema::
 
     clock:      {start, stop, dt}
-    sequence: |                       # run-sequence DSL, verbatim
+    sequence: |                       # hand-written run-sequence DSL, verbatim
       @6h
         ...
     dictionary: [...]                 # only non-default FieldEntry items
     aliases: {alias: standard_name}   # add_alias() additions vs the default
     components:
       <name>: {class: <import.path>, kwargs: {...}}
-    connectors: [{src, dst, fields, time_policy, fill}]
+    connectors: [{src, dst, fields, time_policy, fill, window, reduce}]
+
+Systems whose sequence was derived from the coupling graph (``Driver``
+built without a sequence) serialize it as ``sequence: {derived: true,
+text: |...}`` — the text is informational; :func:`from_yaml` re-derives the
+sequence from components + connectors, which reproduces it exactly.
 
 Only import-path-constructible components round-trip in v1: the ``class``
 key must name a module-level class or factory callable that rebuilds the
@@ -203,7 +208,11 @@ def to_yaml(driver: Driver, path: str | os.PathLike | None = None) -> str:
         "stop": str(np.datetime_as_string(driver.clock.stop, unit="s")),
         "dt": fmt_timedelta(driver.clock.dt),
     }
-    doc["sequence"] = str(driver.sequence)
+    doc["sequence"] = (
+        {"derived": True, "text": str(driver.sequence)}
+        if driver.sequence_derived
+        else str(driver.sequence)
+    )
     entries = _custom_entries(driver.components)
     if entries:
         doc["dictionary"] = entries
@@ -223,6 +232,9 @@ def to_yaml(driver: Driver, path: str | os.PathLike | None = None) -> str:
         }
         if conn._fields is not None:
             item["fields"] = list(conn._fields)
+        if conn.window is not None:
+            item["window"] = fmt_timedelta(conn.window)
+            item["reduce"] = conn.reduce
         connectors.append(item)
     if connectors:
         doc["connectors"] = connectors
@@ -316,6 +328,18 @@ def from_yaml(path_or_str: str | os.PathLike) -> Driver:
     clock_cfg = doc["clock"]
     clock = Clock(clock_cfg["start"], clock_cfg["stop"], clock_cfg["dt"])
 
+    seq_cfg = doc["sequence"]
+    if isinstance(seq_cfg, dict):
+        if not seq_cfg.get("derived"):
+            raise CouplingError(
+                "YAML 'sequence' must be run-sequence DSL text, or "
+                "{derived: true, text: ...} for a graph-derived sequence; "
+                f"got {seq_cfg!r}"
+            )
+        sequence = None  # re-derived from components + connectors
+    else:
+        sequence = seq_cfg
+
     dictionary = None
     if doc.get("dictionary"):
         dictionary = _build_dictionary(doc["dictionary"])
@@ -366,12 +390,14 @@ def from_yaml(path_or_str: str | os.PathLike) -> Driver:
                 fields=item.get("fields"),
                 time_policy=item.get("time_policy", "constant"),
                 fill=item.get("fill", "none"),
+                window=item.get("window"),
+                reduce=item.get("reduce"),
             )
         )
 
     return Driver(
         components,
-        doc["sequence"],
+        sequence,
         clock,
         connectors=connectors or None,
     )
