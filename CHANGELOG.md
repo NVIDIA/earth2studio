@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hours are memoized per instance while the current hour is always re-listed
 - Migrated Himawari AHI data source from s3fs to obstore with memoized
   minute-directory listings (scans older than an hour)
+- Migrated ISD, IBTrACS, CFS reforecast, and OPERA data sources from
+  fsspec/s3fs to obstore
+- CFS reforecast grib decoding now resolves all requested variables in a
+  single pass over the file's messages instead of one `pygrib.select` scan
+  per variable (~20x faster for full-lexicon requests)
+- Consolidated the four identical per-source grib decode helpers
+  (`_decode_gfs_grib`, `_decode_hrrr_grib`, `_decode_gefs_grib`,
+  `_decode_cfs_grib`) into a shared `decode_grib_message` helper in
+  `earth2studio.data.utils`
 - Migrated MRMS data source from s3fs to obstore, with memoized day-directory
   listings and threaded, header-based grid decoding
 - Migrated NClimGridDaily data source from s3fs to obstore; monthly NetCDF
@@ -45,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `CFS_Reforecast_FX` and `CFS_Reforecast_FX_Flux` pointing at the retired
+  NCEI archive path; the reforecast archive moved to
+  `https://www.ncei.noaa.gov/oa/prod-cfs-reforecast` with renamed product subdirs
 - Fixed `CorrDiffCosmoEra5` loading files from the wrong resolution when cache names
   collided. Cache names now include the resolution.
 - Fixed `OPERA` data source returning negative precipitation values (`-99.0 mm/h`
