@@ -39,9 +39,10 @@ filter:
   mode: or
   order: fixed
   toggle: 'true'
+  labels: label
   hidden: product
 -->
-<!-- mkdocs-badges:filter region:global region:na region:eu region:as region:au region:af region:sa dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu mode=or order=fixed toggle=true hidden="product" -->
+<!-- mkdocs-badges:filter region:global region:na region:eu region:as region:au region:af region:sa dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu mode=or order=fixed toggle=true labels=label hidden="product" -->
 {% autosummary %}
 earth2studio.data.AIFS_FX
 earth2studio.data.CAMS_FX
