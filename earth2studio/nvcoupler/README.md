@@ -206,6 +206,23 @@ the field, and the concrete fix: `UnknownFieldError`, `UnmatchedImportError`,
 - `Driver` IO is in-memory xarray (`collect=True`); direct `IOBackend`
   streaming is planned alongside the `couple()` auto-wiring layer.
 
+## Documentation
+
+Detailed docs live in [`docs/`](docs/) (every code snippet in them is executed
+against the toy components before inclusion):
+
+- [Concepts](docs/concepts.md) — Field/State semantics, exchange contracts,
+  adapters, the connector pipeline, coupling semantics
+- [User guide](docs/user_guide.md) — task recipes from quickstart to coupled
+  fine-tuning, each with its most likely gotcha
+- [DSL & YAML reference](docs/dsl_and_yaml_reference.md) — run-sequence grammar,
+  validation rules, full YAML schema
+- [API reference](docs/api_reference.md) — exact signatures for every public export
+- [Errors & troubleshooting](docs/errors_and_troubleshooting.md) — every
+  exception with greppable messages, causes, and fixes; silent-failure guide
+- [Design & roadmap](docs/design_and_roadmap.md) — decisions with alternatives,
+  the verification story, honest limitations, v2 plans
+
 ## Examples
 
 See `examples/09_nvcoupler/`:
