@@ -18,8 +18,9 @@ observed SST means a rewrite.
 
 nvcoupler factors coupling out of the models. Independent **Components**
 exchange **Fields** by standard name through **Connectors** (regridding,
-masking, time policies) and **Mediators** (windowed reductions), scheduled by
-a **Driver** executing a NUOPC-style **run sequence** on a shared **Clock**.
+masking, time policies, windowed reductions) and **Mediators** (multi-source
+windowed reductions), scheduled by a **Driver** executing a NUOPC-style
+**run sequence** on a shared **Clock**.
 Swapping a modeled ocean for prescribed observations becomes a one-line
 change; a coupling-order experiment becomes a one-line DSL edit.
 
@@ -29,7 +30,7 @@ change; a coupling-order experiment becomes a one-line DSL edit.
 |---------------------|--------------------------|-----------------|
 | ESMF_Field / State  | `Field`, `State`         | `field.py`      |
 | Field dictionary    | `FieldDictionary`        | `dictionary.py` |
-| ESMF Clock / Alarm  | `Clock`, `Alarm`         | `clock.py`      |
+| ESMF Clock          | `Clock`                  | `clock.py`      |
 | NUOPC_Model         | `Component` subclasses   | `component.py`  |
 | NUOPC_Connector     | `Connector`              | `connector.py`  |
 | NUOPC_Mediator      | `Mediator` subclasses    | `mediator.py`   |
@@ -109,14 +110,25 @@ imports (or an explicit `fields=[...]`). Each transfer runs a pipeline:
    (`face` dim) and curvilinear sources need a user `regridder=` callable
    (build one with `earth2grid` as `models/px/dlesym.py` does).
 
+Setting `window=` and `reduce=` together makes a **windowed connector** — the
+preferred path for simple fast→slow windowed coupling: each execute folds the
+source export into a running reduction (`mean`/`sum`/`max`/`min`), and on
+window boundaries the reduced field is delivered under the *derived* standard
+name the destination's dictionary declares via a matching
+`CellMethod(base, method, window)` entry. No mediator, no extra slot actions.
+
 ### Mediator
 
-`AccumulationMediator("med", ["geopotential_at_1000hpa_48h_mean"])` reads the
-CellMethod off each derived field: it imports the base field, accumulates a
-**running** reduction (mean/sum/max/min — O(1) memory in window length) on
-every connector delivery, and exports the reduced field when its alarm rings.
-`TrailingAverageMediator` is the mean-only restriction matching DLESyM's
-ocean forcing exactly. Duplicate deliveries (same `valid_time`) are ignored.
+The multi-source, general form of the same accumulator core windowed
+connectors use. `AccumulationMediator("med",
+["geopotential_at_1000hpa_48h_mean"])` reads the CellMethod off each derived
+field: it imports the base field, accumulates a **running** reduction
+(mean/sum/max/min — O(1) memory in window length) on every connector
+delivery, and exports the reduced field when its `med.compute` action runs in
+the slow slot. `TrailingAverageMediator` is the mean-only restriction
+matching DLESyM's ocean forcing exactly. Duplicate deliveries (same
+`valid_time`) are ignored. For one source feeding one destination, prefer
+`Connector(..., window=, reduce=)`.
 
 ### Vertical coordinates
 

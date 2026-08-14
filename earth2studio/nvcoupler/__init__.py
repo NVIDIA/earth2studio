@@ -30,6 +30,7 @@ from .component import (
     ConditioningKwargAdapter,
     DataComponent,
     DiagnosticComponent,
+    Exchange,
     ExtraTensorAdapter,
     ImportAdapter,
     PrognosticComponent,
@@ -68,6 +69,7 @@ from .sequence import (
     RunAction,
     RunSequence,
     Slot,
+    derive_sequence,
     parse_run_sequence,
 )
 from .vertical import HybridLevels, PressureLevels
@@ -90,6 +92,7 @@ __all__ = [
     "ConditioningKwargAdapter",
     "Connector",
     "Driver",
+    "Exchange",
     "ExtraTensorAdapter",
     "HybridLevels",
     "ImportAdapter",
@@ -104,6 +107,7 @@ __all__ = [
     "RunAction",
     "RunSequence",
     "Slot",
+    "derive_sequence",
     "parse_run_sequence",
     "DEFAULT_DICTIONARY",
     "CellMethod",

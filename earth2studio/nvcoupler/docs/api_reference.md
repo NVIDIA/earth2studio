@@ -113,16 +113,6 @@ surface/pressure-level variables plus the built-in derived window fields).
 
 ## clock
 
-### `Alarm`
-
-```python
-Alarm(interval: DeltaLike, offset: DeltaLike | None = None)
-```
-
-Rings when `(time - start - offset)` is a non-negative whole multiple of
-`interval`; non-positive intervals raise `ValueError`. Method:
-`is_ringing(time: np.datetime64, start: np.datetime64) -> bool`.
-
 ### `Clock`
 
 ```python
@@ -337,6 +327,8 @@ Connector(
     time_policy: Literal["constant", "linear"] = "constant",
     fill: Literal["none", "zero", "nearest"] = "none",
     regridder: Regridder | None = None,
+    window: DeltaLike | None = None,
+    reduce: Literal["mean", "sum", "max", "min"] | None = None,
 )
 ```
 
@@ -348,11 +340,26 @@ is empty). `match() -> list[str]` also unit-checks every field
 (`UnitsMismatchError`). `execute(time: np.datetime64) -> None` performs the
 transfer (raises `CouplingError` if the source has not produced a field yet);
 `last_transfer: dict[str, Field]` holds the most recent delivery (see
-`Driver.probe`). `time_policy="linear"` extrapolates from the two most recent
-exports and falls back to constant (with one warning) for fields carrying a
-`lead_time`/`window` dim. Auto-regrid requires regular 1D lat/lon source
-grids; identical grids pass through as identity; differing HEALPix `face`
-grids require `regridder=` (`IncompatibleFieldError`).
+`Driver.probe`); `reset()` clears per-run exchange state (history, running
+reduction, probes). `time_policy="linear"` extrapolates from the two most
+recent exports and falls back to constant (with one warning) for fields
+carrying a `lead_time`/`window` dim. Auto-regrid requires regular 1D lat/lon
+source grids; identical grids pass through as identity; differing HEALPix
+`face` grids require `regridder=` (`IncompatibleFieldError`).
+
+`window`/`reduce` must be set together (`CouplingError` otherwise) and make
+this a **windowed connector**: each `execute` folds the source exports into a
+trailing running reduction, and delivery happens only at execute times
+aligned to `window`. Matching pairs each source export `base` with a
+destination import whose dictionary entry carries
+`CellMethod(base, reduce, window)` — the delivered Field carries that
+*derived* standard name; no matching derived import raises `CouplingError`
+(the coupler never invents names), and `match()` returns base names plus
+derived names. The window origin is the `valid_time` of the first execute's
+source field (the clock start under lagged coupling). Mid-window the
+destination's previous import is untouched; `time_policy` does not apply on
+the windowed path. This is the preferred replacement for a single-source
+`AccumulationMediator`.
 
 ## vertical
 
@@ -410,7 +417,10 @@ timestep unless `window=` overrides it (`CouplingError` when fields disagree
 on windows and no override is given). Duplicate deliveries with the same
 `valid_time` are ignored; `compute` with zero samples raises `CouplingError`.
 After each compute, `samples_last_window: dict[str, int]` reports the counts
-and the accumulators reset.
+and the accumulators reset. For one source feeding one destination, prefer
+the windowed connector (`Connector(..., window=, reduce=)`), which shares the
+same accumulator core; mediators are the multi-source / custom-reduction
+generalization.
 
 ### `TrailingAverageMediator`
 
@@ -598,7 +608,7 @@ and remedies.
 | Exception | Bases | Raised when |
 |---|---|---|
 | `CouplingError` | `Exception` | Base class; also raised directly for generic misconfiguration (missing ICs, unproduced exports, bad `yaml_spec`, ...) |
-| `UnknownFieldError(name, candidates)` | `CouplingError, KeyError` | A name is not a registered standard name or alias (did-you-mean suggestions) |
+| `UnknownFieldError(name, candidates)` | `CouplingError` | A name is not a registered standard name or alias (did-you-mean suggestions) |
 | `UnmatchedImportError(component, field, available_exports)` | `CouplingError` | An advertised import that nothing exports/delivers |
 | `UnitsMismatchError(field, src, src_units, dst, dst_units)` | `CouplingError` | Matched fields disagree on (normalized) units |
 | `IncompatibleFieldError` | `CouplingError` | A connector cannot reconcile matched fields (grid layout, mask fill, missing regridder) |

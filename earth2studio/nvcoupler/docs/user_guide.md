@@ -283,6 +283,58 @@ regrids the source grid onto each destination.
 
 Derived (time-reduced) fields are first-class dictionary entries carrying a
 `CellMethod` — machine-readable "I am `method` of `base` over `window`".
+Two consumers turn that declaration into a running windowed reduction: the
+**windowed connector** (the short form, preferred for one source feeding one
+destination) and the **AccumulationMediator** (the general form for multiple
+sources or custom reductions). Both share the same accumulator core and
+produce identical numbers.
+
+### The short form: a windowed connector
+
+Set `window=` and `reduce=` on the connector itself; it accumulates the
+source export every step and delivers the *derived* field (matched through
+the destination's `CellMethod` entry) on each window boundary — no mediator,
+no `med.compute` action, no extra slot lines:
+
+```python
+from earth2studio.nvcoupler import Clock, Connector, Driver
+from earth2studio.nvcoupler.testing import atmos_ic, fake_atmos, fake_ocean, ocean_ic
+
+atmos, ocean = fake_atmos(), fake_ocean()   # ocean imports the 48h mean
+conn = Connector(atmos, ocean, window="48h", reduce="mean")
+
+DSL_WINDOWED = """
+@6h
+  atmos -> ocean       # windowed: accumulates every step, delivers each 48h
+  ocean -> atmos
+  atmos
+@48h
+  ocean
+@
+"""
+driver = Driver(
+    {"atmos": atmos, "ocean": ocean},
+    DSL_WINDOWED,
+    Clock("2024-01-01", "2024-01-05", "6h"),
+    connectors=[conn],
+)
+driver.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
+driver.run()
+# probes carry the DERIVED name, delivered on the ocean grid
+z48 = conn.last_transfer["geopotential_at_1000hpa_48h_mean"]
+assert z48.data.shape == (16, 32)
+```
+
+The destination must import a dictionary entry whose `CellMethod` is
+`(base=the source export, method=reduce, window=window)`; a plain import
+raises `CouplingError: ... register a FieldEntry(...)` — the coupler never
+invents names. Mid-window the destination's previous import stands; the
+first delivery lands one window after t0 (the window origin is the
+`valid_time` of the first execute's source field, i.e. the clock start under
+lagged coupling). `time_policy` does not apply on the windowed path.
+
+### The general form: an AccumulationMediator
+
 Register the entry, and an `AccumulationMediator` knows what to import,
 which reduction to run, and its cadence:
 
@@ -316,11 +368,15 @@ assert med.import_names == ["geopotential_at_1000hpa"]
 
 Wire it like any component: `atmos -> med` in the fast slot accumulates every
 delivery (running mean/sum/max/min, O(1) memory in window length), and
-`med.compute` in the slow slot exports the reduced field. Several derived
-fields can reduce the same base import in one mediator, but with mixed
-windows you must pass `window=` explicitly or split them across mediators.
-Deliveries carrying an already-seen `valid_time` are ignored, never
-double-counted.
+`med.compute` in the slow slot exports the reduced field. Reach for the
+mediator rather than a windowed connector when several sources feed one
+reduction, when one reduced field fans out to several destinations, or when
+the reduction needs custom code (subclass `Mediator` — also the v1 home for
+unit conversions). Several derived fields can reduce the same base import in
+one mediator, but with mixed windows you must pass `window=` explicitly or
+split them across mediators. Deliveries carrying an already-seen `valid_time`
+are ignored, never double-counted — in mediators and windowed connectors
+alike.
 
 The impact-chain pattern stacks a `DiagnosticComponent` downstream: mediators
 turn fast fields into a 48 h precip sum and a 24 h t2m max, a diagnostic
@@ -331,9 +387,9 @@ so registered diagnostics wire up with just a name, the model, and a cadence.
 See [example 03](../../../examples/09_nvcoupler/03_impact_chain.py) for the
 full chain.
 
-**Gotcha:** if the mediator's alarm rings before any sample arrived you get
-`CouplingError: no samples of ... accumulated before compute` — the connector
-feeding the mediator must sit in a *faster* slot than the compute.
+**Gotcha:** if the mediator's `med.compute` runs before any sample arrived
+you get `CouplingError: no samples of ... accumulated before compute` — the
+connector feeding the mediator must sit in a *faster* slot than the compute.
 
 ## Vertical coupling
 
@@ -614,8 +670,9 @@ rebuilt.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
 What cannot round-trip: components wrapping closures or live model objects
 without a `yaml_spec` (`to_yaml` raises with the fix), custom `regridder=`
 callables and custom ImportAdapter instances (connector `fields`/policies
-serialize; callables do not), and model checkpoints referenced by load paths
-(out of scope for v1). Initial conditions are never serialized — a config
+serialize; callables do not), windowed connectors — `window=`/`reduce=` are
+silently dropped by `to_yaml`, so windowed systems must be built in Python —
+and model checkpoints referenced by load paths (out of scope for v1). Initial conditions are never serialized — a config
 describes the system, not its state. Full schema in the
 [DSL and YAML reference](dsl_and_yaml_reference.md).
 
