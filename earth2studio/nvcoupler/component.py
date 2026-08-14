@@ -17,7 +17,7 @@
 """Components: the NUOPC_Model analog wrapping steppable things.
 
 A Component owns an internal model state, an import State (fields other
-components provide) and an export State (fields it offers), and an Alarm
+components provide) and an export State (fields it offers), and a timestep
 defining its cadence. The Driver calls the NUOPC-style phases:
 advertise -> realize(clock) -> initialize(x, coords) -> run(time)* -> finalize.
 
@@ -37,7 +37,7 @@ import torch
 
 from earth2studio.utils.type import CoordSystem
 
-from .clock import Alarm, Clock, DeltaLike, as_datetime, as_timedelta, is_multiple
+from .clock import Clock, DeltaLike, as_datetime, as_timedelta, is_multiple
 from .dictionary import DEFAULT_DICTIONARY, FieldDictionary
 from .errors import CadenceError, CouplingError
 from .field import State
@@ -266,7 +266,6 @@ class Component(abc.ABC):
         self.export_vertical: dict[str, Any] = dict(export_vertical or {})
         self.import_state = State(f"{name}.imports")
         self.export_state = State(f"{name}.exports")
-        self.alarm: Alarm | None = None
         self.clock: Clock | None = None
         self.run_count = 0
 
@@ -279,7 +278,6 @@ class Component(abc.ABC):
             raise CadenceError(
                 f"Component {self.name!r} timestep", str(self.timestep), str(clock.dt)
             )
-        self.alarm = Alarm(self.timestep)
         self.clock = clock
 
     @abc.abstractmethod
@@ -296,9 +294,20 @@ class Component(abc.ABC):
 
     # -- helpers ---------------------------------------------------------------
     def should_run(self, time: np.datetime64) -> bool:
-        if self.alarm is None or self.clock is None:
+        """True when `time` falls on this component's cadence.
+
+        Cadence gating lives in the Driver's slot alignment; this helper is a
+        temporary shim kept only for test_prognostic_real.py — delete it once
+        that test drops the call.
+        """
+        if self.clock is None:
             raise CouplingError(f"Component {self.name!r} not realized")
-        return self.alarm.is_ringing(time, self.clock.start)
+        elapsed = (
+            (as_datetime(time) - self.clock.start)
+            .astype("timedelta64[ns]")
+            .astype(np.int64)
+        )
+        return elapsed >= 0 and elapsed % self.timestep.astype(np.int64) == 0
 
     def grid_coords(self) -> CoordSystem | None:
         """Spatial coordinates of this component's grid (None = no grid of
