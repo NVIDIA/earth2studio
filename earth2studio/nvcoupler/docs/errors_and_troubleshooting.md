@@ -51,9 +51,9 @@ which registers the alias for you. Lookups are case-sensitive.
 A component advertises an import that nothing delivers. Two distinct raise
 sites with the same message shape:
 
-1. **`couple()` auto-wiring** (`api._synthesize_mediators`): no component
-   exports the imported field, and it is not a derived (CellMethod) entry
-   whose base field someone exports.
+1. **`couple()` auto-wiring** (`api.couple`): no component exports the
+   imported field, and it is not a derived (CellMethod) entry whose base
+   field someone exports.
 2. **`Driver._check_unfed_imports` at `initialize()`**: components *do*
    export the field, but no connector in *your* run sequence delivers it —
    you forgot a `src -> dst` line. Without this check the component would
@@ -70,10 +70,12 @@ geopotential_at_1000hpa_48h_mean. Add an alias, a Mediator producing the
 derived field, or a DataComponent supplying it from a data source.
 ```
 
-Fixes, in order of likelihood: add the missing `ocean -> atmos` line to the
-run sequence; add an alias so the exporter's name resolves to the same
-standard name; register a CellMethod entry (so `couple()` can synthesize a
-mediator) or add one explicitly; supply the field from a `DataComponent`.
+Fixes, in order of likelihood: add the missing `(src, dst)` connection (or
+`src -> dst` sequence line); add an alias so the exporter's name resolves to
+the same standard name; register a CellMethod entry (so `couple()` can
+synthesize a windowed connector) or build a windowed
+`Connector(window=, reduce=)`/mediator explicitly; supply the field from a
+`DataComponent`.
 Deliberately unfed imports are opt-in via
 `Driver(..., allow_unfed_imports=True)`, which downgrades case 2 to a
 warning (grep `no connector in the run sequence delivers it`).
@@ -185,9 +187,9 @@ pass a string like '6h' or '2D', or a np.timedelta64`.
 
 ## AmbiguousCouplingError
 
-Only `couple()` raises this (`api._synthesize_mediators`), in two spots: an
-imported field is exported by more than one component, or a derived field's
-*base* has multiple exporters.
+Only `couple()` raises this (`api.couple`), in two spots: an imported field
+is exported by more than one component, or a derived field's *base* has
+multiple exporters.
 
 ```text
 Import 'sea_surface_temperature' of component 'atmos' is exported by
@@ -203,6 +205,19 @@ same field.
 ## SequenceError
 
 The run sequence references unknown names or is malformed. Raise sites:
+
+`derive_sequence()` (fires at `Driver` construction when no sequence is
+passed, and inside `couple()`):
+
+- `Coupling graph references unknown connection source 'atmso'. Did you
+  mean: 'atmos'? ...` — a connector endpoint is not a component name.
+- `Sequential coupling cycle among components [...] at cadence 6h:
+  connections [...] require each destination to see state its source
+  produces in the same step, so no run order exists. Mark one edge lagged
+  (e.g. lagged={...}) or pass an explicit run sequence` — only reachable
+  with `derive_sequence(lagged=<set>)`; the default `lagged="all"` cannot
+  cycle.
+- `Cannot derive a run sequence from an empty component dict`.
 
 `RunSequence.validate()` (fires inside `Driver.initialize`):
 
@@ -230,6 +245,12 @@ The complete set, grouped:
 
 **Driver lifecycle** (`driver.py`):
 
+- `Driver needs a clock — Driver(components, sequence, clock) or
+  Driver(components, clock=Clock(start, stop, dt), connectors=[...])` —
+  `clock` is keyword-optional in the signature but always required.
+- `Connection ('atmso', 'ocean'): ['atmso'] are not component names; known
+  components: [...]` — a bare `(src, dst)` connector tuple names an unknown
+  component.
 - `Component 'atmos' needs an initial condition — pass ics={'atmos': (x,
   coords)}` — every `requires_ic` component (Prognostic, Callable) needs an
   ics entry; mediators, DataComponents, and DiagnosticComponents do not.
@@ -267,9 +288,9 @@ The complete set, grouped:
   with that exact method and window (a window mismatch, e.g. 24h vs the
   entry's 48h, fails the same way); the coupler never invents derived names.
 
-**Import adapters** (`component.py`):
+**Import adapters / Exchange** (`component.py`):
 
-- `VariableOverwriteAdapter requires a 'variable' dim in the model state
+- `Exchange.inject requires a 'variable' dim in the model state
   coords; use ConditioningKwargAdapter or ExtraTensorAdapter ...`.
 - `Imported field 'air_temperature_2m' (model name '...') is not a state
   variable of the model (variables: [...]). If the model takes forcing as a
@@ -279,6 +300,34 @@ The complete set, grouped:
   [troubleshooting](#forgotten-field_order) below.
 - `... field_order names [...] are not in the import state (present: ...)`.
 - `Imported field with shape ... has more dims than the model state slice`.
+
+**Pull-pattern coupling** (`pull.py`):
+
+- `Pull-coupled model requested variable 'msl', but the import state holds
+  ['air_temperature_2m', 'eastward_wind_10m'] (raw-name map: {}). Add the
+  field to the component's imports and wire a connector delivering it before
+  the model runs.` — the model's internal `fetch_data` asked the
+  `StateDataSource` for a variable resolving to nothing in the import State
+  (not a held standard name, not in the raw-name map, and no dictionary alias
+  naming a held field). Fix as it says: add the standard name to `imports=`
+  and wire a connector delivering it — plus a `variable_aliases`/dictionary
+  entry when the model's raw name is unknown.
+- `Pull for 'eastward_wind_10m' at ['2024-01-01T06:00:00.000000000'] but the
+  served field is valid at 2024-01-01 — check the run-sequence ordering (the
+  connector must run before the pulling component in the same slot)` — only
+  with `strict_time=True`: the model pulled a time that does not match the
+  served field's `valid_time`, i.e. stale forcing. Classic cause: lagged
+  ordering (the connect placed before the source's run); make it sequential —
+  source run, then connect, then the pulling component, in one slot.
+- `PullAdapter: model 'NoPull' has no attribute 'conditioning_data_source' —
+  this adapter is for models that fetch forcing from a settable data source
+  (e.g. StormCast's conditioning_data_source). For models taking conditioning
+  as an argument use ConditioningKwargAdapter.` — no settable data-source
+  attribute under the configured name. Pass `PullAdapter(attribute="...")`
+  if it lives elsewhere, or use `ConditioningKwargAdapter` /
+  `ExtraTensorAdapter` for argument-style conditioning.
+- `StateDataSource serves (lat, lon) fields; got dims [...]` — the delivered
+  fields are not exchange-shaped `(lat, lon)`.
 
 **Component phases** (`component.py`):
 
@@ -323,7 +372,9 @@ component — a dict {'class': ..., 'kwargs': {...}} ...`; `from_yaml` raises
 for missing top-level keys (`YAML config is missing required keys`), bad
 import paths (`Cannot import module ...`, `... has no attribute ...`),
 malformed component specs, connector endpoints that are not configured
-components, and wraps any constructor failure as
+components, a `sequence` mapping without `derived: true` (`YAML 'sequence'
+must be run-sequence DSL text, or {derived: true, text: ...} for a
+graph-derived sequence`), and wraps any constructor failure as
 `Component 'x': <class>(**kwargs) failed: ...`.
 
 **DLESyM split** (`dlesym_split.py`): layout/window checks on the real-model

@@ -11,8 +11,10 @@ at [errors and troubleshooting](errors_and_troubleshooting.md).
 
 ## Quickstart: couple two components in ten lines
 
-`couple()` auto-wires components by standard name, synthesizes any mediator a
-derived import needs, and returns a ready-to-initialize `Driver`:
+`couple()` auto-wires components by standard name, bridges any cadence gap a
+derived import needs (a windowed connector, or a mediator when the pair also
+carries a plain transfer), derives the run sequence from the coupling graph,
+and returns a ready-to-initialize `Driver`:
 
 ```python
 import earth2studio.nvcoupler as nvc
@@ -29,11 +31,13 @@ print(datasets["atmos"]["geopotential_at_1000hpa"].shape)   # (17, 32, 64)
 
 `describe()` prints a terraform-plan-style summary: one table row per
 component (type, cadence, imports, exports), one per connector (fields, time
-policy, fill, lagged/sequential mode, slot), then the generated run sequence.
+policy, fill, lagged/sequential mode, slot), then the derived run sequence.
 Here the ocean imports `geopotential_at_1000hpa_48h_mean` — a derived field
-nobody exports — so `couple()` synthesized an `AccumulationMediator`
-(`med_z1000-48H`) between the 6 h and 48 h cadences. `run()` executes to the
-clock's stop time under `torch.inference_mode()` and returns one
+nobody exports — so `couple()` synthesized a **windowed connector**
+(`Connector(atmos, ocean, window="48h", reduce="mean")`) that reduces the
+atmosphere's z1000 across the 6 h → 48 h cadence gap; its `match()` lists
+both the consumed base name and the delivered derived name. `run()` executes
+to the clock's stop time under `torch.inference_mode()` and returns one
 `xarray.Dataset` per component; the time axis is each component's own ring
 times including t0, so atmos has 17 rows and the 48 h ocean has 3.
 
@@ -43,11 +47,33 @@ precedes the runs in its slot, so each destination sees the source's
 the next section. The full walkthrough is
 [example 01](../../../examples/09_nvcoupler/01_coupled_toy_workflow.py).
 
-## Hand-built systems: Driver + DSL for ordering control
+## Hand-built systems: declarative Driver, DSL for ordering control
 
-When the coupling *order* is the experiment, skip `couple()` and write the
-run sequence yourself. Coupling semantics are pure ordering: a `src -> dst`
-line before `dst`'s run in the same slot is lagged; after it, sequential.
+`couple()` is a thin layer over the `Driver`'s own declarative form —
+components plus connections, no run sequence. Build it yourself when you
+need connector options (regridder, fill, window) or explicit control over
+which components participate; the schedule is still derived from the graph:
+
+```python
+from earth2studio.nvcoupler import Clock, Connector, Driver
+from earth2studio.nvcoupler.testing import atmos_ic, fake_atmos, fake_ocean, ocean_ic
+
+atmos, ocean = fake_atmos(), fake_ocean()
+driver = Driver(
+    {"atmos": atmos, "ocean": ocean},
+    clock=Clock("2024-01-01", "2024-01-05", "6h"),
+    connectors=[
+        ("ocean", "atmos"),   # bare tuple -> default Connector
+        Connector(atmos, ocean, window="48h", reduce="mean"),
+    ],
+)
+assert driver.sequence_derived
+```
+
+When the coupling *order* is the experiment, pass the run sequence yourself
+(`sequence=` as DSL text or a `RunSequence`). Coupling semantics are pure
+ordering: a `src -> dst` line before `src`'s run in the same slot is lagged;
+after it, sequential.
 
 ```python
 import numpy as np
@@ -181,10 +207,11 @@ forcing arrives:
 | a state variable you overwrite before stepping | `VariableOverwriteAdapter` (default) | `model(x, coords)` after injecting import slices |
 | a conditioning kwarg (StormScope) | `ConditioningKwargAdapter` | `model.call_with_conditioning(x, coords, conditioning=..., conditioning_coords=...)` |
 | an extra positional/keyword tensor (DLESyM, PhysicsNeMo 4-tensor) | `ExtraTensorAdapter` | `model(x, coords, coupling)` or `model(x, coords, **{kwarg: coupling})` |
+| its own internal `fetch_data` from a settable data source (StormCast) | `PullAdapter` | installs a `StateDataSource` on `model.conditioning_data_source`, then `model(x, coords)` — inference-only |
 
 The default only works when every imported field is *also* a variable of the
 model state (`"variable"` must be in the state coords); otherwise it raises
-with a pointer to the other two adapters. **Gotcha:** with more than one
+with a pointer to the other adapters. **Gotcha:** with more than one
 import, `ConditioningKwargAdapter` and `ExtraTensorAdapter` require
 `field_order=[...]` — channel order cannot be inferred, and stacking
 alphabetically would run fine and predict garbage, so the framework refuses
@@ -209,6 +236,141 @@ worked real-model example.
 with the exact `ics={...}` line to add. Mediators, `DataComponent`, and
 `DiagnosticComponent` set `requires_ic = False` and can be initialized with
 no arguments.
+
+## Coupling a pull-pattern model (StormCast-style)
+
+Some models take no forcing argument at all: they *pull* it, calling
+`fetch_data(self.conditioning_data_source, ...)` inside their own
+`__call__`. `PullAdapter` couples them without wrapping or modifying the
+model — before each step it installs a `StateDataSource` (an in-memory
+DataSource serving the component's import State) on the model's
+`conditioning_data_source` attribute, so the model's unmodified production
+fetch path receives this step's coupled forcing. Because the data crosses
+`fetch_data`'s xarray/numpy boundary, pull-coupled components are
+**inference-only**.
+
+```python
+from collections import OrderedDict
+
+import numpy as np
+import torch
+
+from earth2studio.data.utils import fetch_data
+from earth2studio.nvcoupler import (
+    DEFAULT_DICTIONARY,
+    CallableComponent,
+    Clock,
+    Connector,
+    Driver,
+    FieldDictionary,
+    FieldEntry,
+    PrognosticComponent,
+    PullAdapter,
+)
+from earth2studio.nvcoupler.testing import grid_coords
+
+GRID = (8, 16)
+T0 = np.datetime64("2024-01-01")
+
+
+class PullModel:
+    """StormCast-shaped: no forcing argument — pulls u10m/t2m through the
+    REAL fetch_data inside __call__, from a settable data-source attribute."""
+
+    conditioning_data_source = None   # the injection point
+
+    def input_coords(self):
+        return OrderedDict(
+            {
+                "time": np.empty(0),
+                "lead_time": np.array([np.timedelta64(0, "h")]),
+                "variable": np.array(["refc"]),
+                **grid_coords(*GRID),
+            }
+        )
+
+    def output_coords(self, input_coords):
+        out = OrderedDict({k: v.copy() for k, v in input_coords.items()})
+        out["lead_time"] = input_coords["lead_time"] + np.timedelta64(1, "h")
+        return out
+
+    def __call__(self, x, coords):
+        cond, _ = fetch_data(                 # the production fetch path
+            self.conditioning_data_source,
+            time=np.atleast_1d(coords["time"]),
+            variable=np.array(["u10m", "t2m"]),
+        )
+        return (
+            x + 1.0 + cond[0, 0, 0].mean() + 0.1 * cond[0, 0, 1].mean(),
+            self.output_coords(coords),
+        )
+
+
+d = FieldDictionary(DEFAULT_DICTIONARY)
+d.register(FieldEntry("radar_reflectivity", "dBZ", aliases=frozenset({"refc"})))
+
+def global_step(x, coords):     # u10m grows 1 m/s per step; t2m constant
+    return torch.stack([x[0] + 1.0, x[1]]), coords
+
+glob = CallableComponent(
+    "global", global_step, timestep="1h",
+    exports=["eastward_wind_10m", "air_temperature_2m"],
+)
+stormcast = PrognosticComponent(
+    "stormcast", PullModel(),
+    imports=["eastward_wind_10m", "air_temperature_2m"],
+    exports=["radar_reflectivity"],
+    import_adapter=PullAdapter(),
+    variable_aliases={"refc": "radar_reflectivity"},
+    dictionary=d,
+)
+driver = Driver(
+    {"global": glob, "stormcast": stormcast},
+    sequence="""
+    @1h
+      global
+      global -> stormcast    # sequential: stormcast pulls FRESH forcing
+      stormcast
+    @
+    """,
+    clock=Clock(T0, "2024-01-01T03:00", "1h"),
+    connectors=[Connector(glob, stormcast)],
+)
+ic_sc = PullModel().input_coords()
+ic_sc["time"] = np.array([T0])
+driver.initialize(
+    {
+        "global": (
+            torch.stack([torch.full(GRID, 2.0), torch.full(GRID, 280.0)]),
+            OrderedDict({"variable": np.array(["u10m", "t2m"]), **grid_coords(*GRID)}),
+        ),
+        "stormcast": (torch.zeros(1, 1, 1, *GRID), ic_sc),
+    }
+)
+driver.run()
+# hour k pulls the CURRENT u = 2 + k: refc increments 32, 33, 34
+refc = stormcast.export_state["radar_reflectivity"]
+assert torch.allclose(refc.data, torch.full(GRID, 32.0 + 33.0 + 34.0))
+```
+
+The model's raw conditioning names (`u10m`, `t2m`) resolve against the import
+State through the component's aliases and the dictionary, so the shim answers
+them without any extra mapping. This is exactly the shape of earth2studio's
+`serve/server/example_workflows/stormcast_conus_workflow.py`, which today
+stages the full conditioning forecast to temp files and replays it through an
+`InferenceOutputSource` — with `PullAdapter` the same masquerade happens live,
+per step, with no staging. See
+[example 06](../../../examples/09_nvcoupler/06_pull_conditioning.py)
+(pull-pattern conditioning, StormCast-style) in `examples/09_nvcoupler/` for
+the full walkthrough.
+
+**Gotcha:** the served source is a snapshot of whatever the connector last
+delivered — under the default *lagged* ordering (connect before the source's
+run) the model pulls **stale** forcing from the previous step. Use an
+explicit sequential DSL as above (`global`, then `global -> stormcast`, then
+`stormcast` in one slot) so each pull sees fresh forcing;
+`PullAdapter(strict_time=True)` turns a misalignment into a
+`CouplingError` instead of a silent stale read.
 
 ## Prescribed forcing: DataComponent
 
@@ -631,9 +793,11 @@ real training step.
 ## YAML round-trip
 
 `to_yaml(driver)` / `from_yaml(text_or_path)` serialize the clock, the run
-sequence verbatim, non-default dictionary entries and aliases, component
-specs, and connector settings (`src`, `dst`, `fields`, `time_policy`,
-`fill`). What round-trips:
+sequence (hand-written sequences verbatim as DSL text; derived sequences as
+`sequence: {derived: true, text: ...}`, re-derived deterministically on
+load), non-default dictionary entries and aliases, component specs, and
+connector settings (`src`, `dst`, `fields`, `time_policy`, `fill`, and
+`window`/`reduce` for windowed connectors). What round-trips:
 
 - `AccumulationMediator` / `TrailingAverageMediator`: automatically (name,
   fields, window).
@@ -670,9 +834,8 @@ rebuilt.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
 What cannot round-trip: components wrapping closures or live model objects
 without a `yaml_spec` (`to_yaml` raises with the fix), custom `regridder=`
 callables and custom ImportAdapter instances (connector `fields`/policies
-serialize; callables do not), windowed connectors — `window=`/`reduce=` are
-silently dropped by `to_yaml`, so windowed systems must be built in Python —
-and model checkpoints referenced by load paths (out of scope for v1). Initial conditions are never serialized — a config
+serialize; callables do not), and model checkpoints referenced by load paths
+(out of scope for v1). Initial conditions are never serialized — a config
 describes the system, not its state. Full schema in the
 [DSL and YAML reference](dsl_and_yaml_reference.md).
 

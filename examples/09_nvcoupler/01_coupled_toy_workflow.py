@@ -23,14 +23,16 @@ The core nvcoupler workflow on synthetic components.
 
 This example builds the smallest complete coupled system: a fast "atmosphere"
 (6 h step, 32x64 grid) and a slow "ocean" (48 h step, 16x32 grid) exchanging
-fields through a trailing-average mediator, exactly the cadence structure of
-DLESyM. Every number below is hand-computable.
+fields through two connectors — one of them a windowed (trailing 48 h mean)
+reduction — exactly the cadence structure of DLESyM. The system is declared
+as components plus connections; the run sequence is derived from the coupling
+graph. Every number below is hand-computable.
 
 In this example you will learn:
 
 - How to declare components with imports/exports by standard name
-- How the run-sequence DSL schedules runs and exchanges
-- How the Driver validates and executes the coupled loop
+- How to declare the coupling graph and let the Driver derive the schedule
+- How a windowed connector (window=, reduce=) bridges a cadence gap
 - How to inspect exchanges (probe) and collect results as xarray
 """
 
@@ -47,7 +49,7 @@ In this example you will learn:
 # The toy components live in ``earth2studio.nvcoupler.testing``. The
 # atmosphere steps ``z1000 += 1 + 0.1 * sst`` and imports SST; the ocean
 # steps ``sst += 0.01 * z48m`` and imports the trailing 48 h mean of z1000.
-# Grids differ, so the connector regrids automatically.
+# Grids differ, so the connectors regrid automatically.
 
 import os
 
@@ -58,47 +60,62 @@ from earth2studio.nvcoupler.testing import atmos_ic, fake_atmos, fake_ocean, oce
 
 atmos = fake_atmos()  # 6h step,  exports geopotential_at_1000hpa, imports SST
 ocean = fake_ocean()  # 48h step, exports sea_surface_temperature
-med = nvc.TrailingAverageMediator("med", ["geopotential_at_1000hpa_48h_mean"])
 
 print(atmos)
 print(ocean)
-print(med)
 
 # %%
-# The Run Sequence
-# ----------------
-# NUOPC-style: one slot per cadence, actions in order. Placing
-# ``ocean -> atmos`` *before* ``atmos`` makes the coupling lagged — the
-# atmosphere always sees the ocean's most recent completed state.
+# Declare the Coupling Graph
+# --------------------------
+# Two edges. The SST hand-off is a plain connector — a bare ``(src, dst)``
+# tuple builds the default. The z1000 hand-off is a *windowed* connector:
+# ``window="48h", reduce="mean"`` folds the atmosphere's export into a
+# running mean every step and delivers it as the derived field
+# ``geopotential_at_1000hpa_48h_mean`` (declared by a CellMethod entry in the
+# ocean's dictionary) on each 48 h boundary. No mediator needed for a
+# single-source reduction.
 
-SEQUENCE = """
-@6h
-  atmos -> med          # accumulate z1000 into the mediator
-  ocean -> atmos        # lagged SST forcing
-  atmos
-@48h
-  med.compute           # reduce the 48h window
-  med -> ocean          # hand the mean to the ocean
-  ocean
-@
-"""
+connectors = [
+    ("ocean", "atmos"),  # lagged SST forcing
+    nvc.Connector(atmos, ocean, window="48h", reduce="mean"),
+]
+
+# %%
+# Build the Driver — No Run Sequence Required
+# -------------------------------------------
+# With no ``sequence=`` the Driver derives the canonical (lagged) schedule
+# from the coupling graph: one slot per cadence, connects before runs.
+# ``describe()`` shows the whole plan — components, connectors, and the
+# derived sequence — before anything runs. (An explicit run-sequence DSL
+# remains the escape hatch when the *ordering* is the experiment; see
+# example 02.)
+
+driver = nvc.Driver(
+    {"atmos": atmos, "ocean": ocean},
+    clock=nvc.Clock("2024-01-01", "2024-01-05", "6h"),
+    connectors=connectors,
+)
+print(driver.describe())
 
 # %%
 # Execute the Coupled Loop
 # ------------------------
 # The Driver validates everything at initialize (names, cadences, field
 # matching, units) and then runs 96 hours: 16 atmosphere steps, 2 ocean
-# steps, 2 mediator reductions.
+# steps, 2 window deliveries. We iterate with ``steps()`` to also capture
+# each 48 h mean as the windowed connector delivers it.
 
-driver = nvc.Driver(
-    {"atmos": atmos, "ocean": ocean, "med": med},
-    sequence=SEQUENCE,
-    clock=nvc.Clock("2024-01-01", "2024-01-05", "6h"),
-)
 driver.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
-datasets = driver.run()  # dict[str, xr.Dataset] (in-memory collection)
 
-print(f"atmos ran {atmos.run_count}x, ocean {ocean.run_count}x, med {med.run_count}x")
+z48_means, seen = [], set()
+for time, states in driver.steps():
+    f = driver.probe("atmos->ocean").get("geopotential_at_1000hpa_48h_mean")
+    if f is not None and f.valid_time not in seen:
+        seen.add(f.valid_time)
+        z48_means.append(float(f.data.mean()))
+datasets = driver.to_xarray()  # dict[str, xr.Dataset] (in-memory collection)
+
+print(f"atmos ran {atmos.run_count}x, ocean {ocean.run_count}x")
 
 # %%
 # Inspect the Results
@@ -107,9 +124,10 @@ print(f"atmos ran {atmos.run_count}x, ocean {ocean.run_count}x, med {med.run_cou
 # 48h mean is 4.2, giving sst=2.042; z then grows 1.2042/step to
 # z(96h)=19.2336, and sst(96h)=2.180147.
 
+import numpy as np
+
 z = datasets["atmos"]["geopotential_at_1000hpa"]
 sst = datasets["ocean"]["sea_surface_temperature"]
-zmean = datasets["med"]["geopotential_at_1000hpa_48h_mean"]
 
 print("\ntime series (area means):")
 print(f"{'time':>20} {'z1000':>10} {'sst':>10}")
@@ -119,7 +137,14 @@ for t in z.time.values:
     if t in sst.time.values:
         row += f" {float(sst.sel(time=t).mean()):>10.6f}"
     print(row)
-print(f"\n48h means from the mediator: {zmean.mean(('lat', 'lon')).values}")
+print(f"\n48h means delivered by the windowed connector: {z48_means}")
+
+if not np.isclose(float(z.values[-1].mean()), 19.2336, atol=1e-4):
+    raise ValueError("z1000(96h) does not match the hand-computed value")
+if not np.isclose(float(sst.values[-1].mean()), 2.180147, atol=1e-6):
+    raise ValueError("sst(96h) does not match the hand-computed value")
+if not np.allclose(z48_means, [4.2, 13.8147], atol=1e-4):
+    raise ValueError("48h means do not match the hand-computed values")
 
 # %%
 # Plot the Coupled Time Series
@@ -149,8 +174,26 @@ plt.savefig("outputs/01_coupled_toy_timeseries.jpg")
 # -----------------
 # Every connector remembers the last fields it moved — useful when a coupled
 # run misbehaves and you need to see what actually crossed the interface.
+# The windowed connector's probe carries the *derived* standard name.
 
-transfer = driver.probe("ocean->atmos")
-f = transfer["sea_surface_temperature"]
+f = driver.probe("ocean->atmos")["sea_surface_temperature"]
 print(f"last ocean->atmos transfer: {f}")
 print(f"regridded to the atmos grid: {tuple(f.data.shape)}")
+z48 = driver.probe("atmos->ocean")["geopotential_at_1000hpa_48h_mean"]
+print(f"last atmos->ocean transfer: {z48}")
+
+# %%
+# One-Call Auto-Wiring
+# --------------------
+# ``couple()`` goes one step further: it discovers both edges (including the
+# windowed one, from the ocean's derived import) by matching standard names,
+# so the whole system above is:
+
+driver2 = nvc.couple(
+    fake_atmos(), fake_ocean(), start="2024-01-01", stop="2024-01-05"
+)
+driver2.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
+z96 = float(
+    driver2.run()["atmos"]["geopotential_at_1000hpa"].values[-1].mean()
+)
+print(f"couple() reproduces z1000(96h) = {z96:.4f}")

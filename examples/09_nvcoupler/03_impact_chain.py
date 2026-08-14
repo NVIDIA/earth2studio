@@ -16,22 +16,26 @@
 
 # %%
 """
-Weather-to-Impact Chains with Accumulation Mediators
-====================================================
+Weather-to-Impact Chains with Windowed Reductions
+=================================================
 
 Feeding an impact model with accumulated weather quantities.
 
 Impact models (flood, crop, energy, fire) rarely want instantaneous fields —
-they want precipitation *sums*, temperature *maxima*, degree days. The
-AccumulationMediator produces exactly these, declared through CF-style
-cell-method entries in the field dictionary, and any Python function can be
-the impact model via CallableComponent (it does not need to be ML).
+they want precipitation *sums*, temperature *maxima*, degree days. Derived
+fields are declared through CF-style cell-method entries in the field
+dictionary, and nvcoupler offers two mechanisms to produce them: a **windowed
+connector** (``window=``, ``reduce=``) when one source feeds one destination,
+and an **AccumulationMediator** for terminal or multi-source reductions. Any
+Python function can be the impact model via CallableComponent (it does not
+need to be ML).
 
 In this example you will learn:
 
 - How to register derived fields with a CellMethod (no suffix parsing)
-- How sum and max reductions accumulate on the fast cadence
-- How a downstream impact component consumes the derived fields
+- How a windowed connector reduces a fast field for a slow consumer
+- When an AccumulationMediator is still the right tool
+- How the run sequence is derived from the coupling graph
 """
 
 # /// script
@@ -73,17 +77,14 @@ weather = nvc.CallableComponent(
 # Derived Fields via CellMethod
 # -----------------------------
 # ``total_precipitation_48h_sum`` and ``air_temperature_2m_24h_max`` ship in
-# the default dictionary; here is what registering one looks like. The
-# mediator reads the base field, reduction, and window off the entry —
-# nothing is inferred from name strings.
+# the default dictionary. Windowed connectors and mediators alike read the
+# base field, reduction, and window off the entry — nothing is inferred from
+# name strings.
 
 from earth2studio.nvcoupler.dictionary import DEFAULT_DICTIONARY
 
 entry = DEFAULT_DICTIONARY.resolve("total_precipitation_48h_sum")
 print(f"{entry.standard_name}: {entry.cell_method}")
-
-precip_sum = nvc.AccumulationMediator("psum", ["total_precipitation_48h_sum"])
-t2m_max = nvc.AccumulationMediator("tmax", ["air_temperature_2m_24h_max"])
 
 # %%
 # A (Non-ML) Impact Model
@@ -115,24 +116,31 @@ flood = nvc.CallableComponent(
 )
 
 # %%
-# Wire and Run the Chain
-# ----------------------
-# weather (6h) feeds both mediators every step; the flood model runs on the
-# 48 h cadence after the precip sum lands; the t2m max reduces every 24 h.
+# Wire the Chain
+# --------------
+# The precip sum has one source and one destination, so it is a **windowed
+# connector** — no mediator, no extra component. The 24 h t2m max is a
+# *terminal* product (nothing imports it), so it needs an
+# **AccumulationMediator**: mediators are components with export states that
+# land in the collected output. The run sequence is derived from the graph —
+# weather feeds both reductions every 6 h, the max reduces every 24 h, the
+# flood model runs every 48 h on the freshly delivered sum.
 
-SEQUENCE = """
-@6h
-  weather -> psum
-  weather -> tmax
-  weather
-@24h
-  tmax.compute
-@48h
-  psum.compute
-  psum -> flood
-  flood
-@
-"""
+t2m_max = nvc.AccumulationMediator("tmax", ["air_temperature_2m_24h_max"])
+
+driver = nvc.Driver(
+    {"weather": weather, "tmax": t2m_max, "flood": flood},
+    clock=nvc.Clock("2024-01-01", "2024-01-05", "6h"),
+    connectors=[
+        nvc.Connector(weather, flood, window="48h", reduce="sum"),
+        ("weather", "tmax"),
+    ],
+)
+print(driver.describe())
+
+# %%
+# Run It
+# ------
 
 ic_weather = (
     torch.stack([torch.full(GRID, 1.0), torch.full(GRID, 280.0)]),
@@ -143,11 +151,6 @@ ic_flood = (
     OrderedDict({"variable": np.array(["findex", "p48"]), **grid_coords(*GRID)}),
 )
 
-driver = nvc.Driver(
-    {"weather": weather, "psum": precip_sum, "tmax": t2m_max, "flood": flood},
-    sequence=SEQUENCE,
-    clock=nvc.Clock("2024-01-01", "2024-01-05", "6h"),
-)
 # Note: initialize logs warnings that tmax's and flood's exports have no
 # consumer — correct here, they are the chain's terminal outputs.
 driver.initialize({"weather": ic_weather, "flood": ic_flood})
@@ -159,13 +162,15 @@ ds = driver.run()
 # 8 samples of 1.0 kg m-2 per 48 h window -> sum 8.0 -> flood index 0.8.
 # t2m rises 1 K/step; the max over each 24 h window is the last sample.
 
-psum_series = ds["psum"]["total_precipitation_48h_sum"].mean(("lat", "lon")).values
+p48 = driver.probe("weather->flood")["total_precipitation_48h_sum"]
 tmax_series = ds["tmax"]["air_temperature_2m_24h_max"].mean(("lat", "lon")).values
 flood_series = ds["flood"]["flood_risk_index"].mean(("lat", "lon")).values
 
-print(f"48h precip sums:   {psum_series}")
-print(f"24h t2m maxima:    {tmax_series}")
-print(f"flood risk index:  {flood_series}")
-if not np.allclose(psum_series, 8.0) or not np.allclose(flood_series[1:], 0.8):
+print(f"last 48h precip sum:  {float(p48.data.mean())}")
+print(f"24h t2m maxima:       {tmax_series}")
+print(f"flood risk index:     {flood_series}")
+if not np.isclose(float(p48.data.mean()), 8.0) or not np.allclose(
+    flood_series[1:], 0.8
+):
     raise ValueError("impact chain did not reproduce the analytic values")
 print("\nimpact chain produced the analytic values ✓")
