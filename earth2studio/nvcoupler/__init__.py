@@ -23,7 +23,7 @@ sequence. See earth2studio/nvcoupler/driver.py for the entry point.
 """
 
 from .api import couple, coupled, describe, describe_html
-from .clock import Alarm, Clock
+from .clock import Clock
 from .component import (
     CallableComponent,
     Component,
@@ -73,7 +73,6 @@ from .sequence import (
 from .vertical import HybridLevels, PressureLevels
 
 __all__ = [
-    "Alarm",
     "Clock",
     "CallableComponent",
     "DataComponent",

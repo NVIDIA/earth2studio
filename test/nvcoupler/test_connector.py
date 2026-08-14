@@ -400,6 +400,153 @@ def test_differing_face_grids_without_regridder_raise():
         Connector(src, dst).execute(T0)
 
 
+# ---------------------------------------------------------------------------
+# Windowed reductions (window= / reduce=): the connector-level mediator path
+# ---------------------------------------------------------------------------
+H6 = np.timedelta64(6, "h")
+
+WINDOWED_DSL = """
+@6h
+  atmos -> ocean
+  ocean -> atmos
+  atmos
+@48h
+  ocean
+@
+"""
+
+
+def test_windowed_connector_replaces_mediator_end_to_end():
+    """Acceptance: the canonical toy system WITHOUT a mediator — the windowed
+    connector in the fast slot reproduces test_driver.py's hand-computed
+    numbers exactly (first-window mean 4.2, z96 = 19.2336, sst = 2.180147)."""
+    from earth2studio.nvcoupler.driver import Driver
+
+    atmos, ocean = fake_atmos(), fake_ocean()
+    conn = Connector(atmos, ocean, window="48h", reduce="mean")
+    driver = Driver(
+        {"atmos": atmos, "ocean": ocean},
+        WINDOWED_DSL,
+        Clock(T0, "2024-01-05", "6h"),
+        connectors=[conn],
+    )
+    driver.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
+    for time, _ in driver.steps():
+        if time == T0 + np.timedelta64(48, "h"):
+            # first window delivered: mean of z(0..42h) on the OCEAN grid
+            z48 = ocean.import_state["geopotential_at_1000hpa_48h_mean"]
+            assert z48.data.shape == (16, 32)
+            assert torch.allclose(z48.data, torch.full((16, 32), 4.2), atol=1e-5)
+    assert atmos.run_count == 16 and ocean.run_count == 2
+    z = atmos.export_state["geopotential_at_1000hpa"]
+    assert torch.allclose(z.data, torch.full((32, 64), 19.2336), atol=1e-4)
+    sst = ocean.export_state["sea_surface_temperature"]
+    assert torch.allclose(sst.data, torch.full((16, 32), 2.180147), atol=1e-6)
+    # probes carry the DERIVED name
+    assert "geopotential_at_1000hpa_48h_mean" in conn.last_transfer
+
+
+def _drive_windowed(conn, atmos, hours=48, executes_per_step=1):
+    """Manually drive the fast side: connector (lagged) then atmos, each 6h."""
+    for h in range(6, hours + 1, 6):
+        for _ in range(executes_per_step):
+            conn.execute(T0 + np.timedelta64(h, "h"))
+        atmos.run(T0 + np.timedelta64(h, "h"))
+
+
+def test_windowed_delivery_only_on_boundaries():
+    atmos, ocean, _ = _realized_pair()
+    conn = Connector(atmos, ocean, window="48h", reduce="mean")
+    assert conn.match() == [
+        "geopotential_at_1000hpa",
+        "geopotential_at_1000hpa_48h_mean",
+    ]
+    _drive_windowed(conn, atmos, hours=42)
+    # mid-window: nothing delivered, destination import untouched
+    assert "geopotential_at_1000hpa_48h_mean" not in ocean.import_state
+    assert conn.last_transfer == {}
+    conn.execute(T0 + np.timedelta64(48, "h"))  # boundary (origin = t0 lineage)
+    z48 = ocean.import_state["geopotential_at_1000hpa_48h_mean"]
+    # atmos held at sst=2 (never fed): z(t) = 1.2*t/6h, mean(z(0..42h)) = 4.2
+    assert torch.allclose(z48.data, torch.full((16, 32), 4.2), atol=1e-5)
+    assert z48.valid_time == T0 + np.timedelta64(48, "h")
+    assert z48.source == "atmos"
+
+
+def test_windowed_duplicate_valid_time_not_double_counted():
+    atmos, ocean, _ = _realized_pair()
+    conn = Connector(atmos, ocean, window="48h", reduce="mean")
+    # execute the connector twice per step: same source valid_time, one sample
+    _drive_windowed(conn, atmos, hours=42, executes_per_step=2)
+    conn.execute(T0 + np.timedelta64(48, "h"))
+    z48 = ocean.import_state["geopotential_at_1000hpa_48h_mean"]
+    assert torch.allclose(z48.data, torch.full((16, 32), 4.2), atol=1e-5)
+
+
+def test_windowed_max_reduction():
+    from earth2studio.nvcoupler.field import Field
+    from earth2studio.nvcoupler.testing import grid_coords
+
+    def step(x, coords):
+        return x, coords
+
+    met = CallableComponent("met", step, "6h", exports=["air_temperature_2m"])
+    impact = CallableComponent(
+        "impact", step, "24h", imports=["air_temperature_2m_24h_max"]
+    )
+    clock = Clock(T0, "2024-01-02", "6h")
+    met.realize(clock)
+    impact.realize(clock)
+    coords = OrderedDict({"variable": np.array(["t2m"]), **grid_coords(4, 8)})
+    met.initialize(torch.full((1, 4, 8), 280.0), coords)
+    impact.initialize(torch.zeros(1, 4, 8), coords)
+    conn = Connector(met, impact, window="24h", reduce="max")
+    for i, v in enumerate([280.0, 295.0, 290.0, 285.0]):
+        met.export_state.add(
+            Field(
+                torch.full((4, 8), v),
+                grid_coords(4, 8),
+                "air_temperature_2m",
+                "K",
+                valid_time=T0 + i * H6,
+                source="met",
+            )
+        )
+        conn.execute(T0 + (i + 1) * H6)
+    tmax = impact.import_state["air_temperature_2m_24h_max"]
+    assert torch.allclose(tmax.data, torch.full((4, 8), 295.0))
+
+
+def test_window_and_reduce_must_come_together():
+    atmos, ocean, _ = _realized_pair()
+    with pytest.raises(CouplingError, match="set together"):
+        Connector(atmos, ocean, window="48h")
+    with pytest.raises(CouplingError, match="set together"):
+        Connector(atmos, ocean, reduce="mean")
+    with pytest.raises(CouplingError, match="unsupported reduce"):
+        Connector(atmos, ocean, window="48h", reduce="median")
+
+
+def test_windowed_without_derived_import_raises():
+    atmos, ocean, _ = _realized_pair()
+    # atmos imports plain sst — no CellMethod entry derives it, no invention
+    with pytest.raises(CouplingError, match="register a FieldEntry"):
+        Connector(ocean, atmos, window="48h", reduce="mean").match()
+    # window mismatch (24h vs the 48h the entry declares) must not match
+    with pytest.raises(CouplingError, match="register a FieldEntry"):
+        Connector(atmos, ocean, window="24h", reduce="mean").match()
+
+
+def test_connector_reset_clears_windowed_state():
+    atmos, ocean, _ = _realized_pair()
+    conn = Connector(atmos, ocean, window="48h", reduce="mean")
+    _drive_windowed(conn, atmos, hours=48)
+    assert conn.last_transfer
+    conn.reset()
+    assert conn.last_transfer == {} and conn._origin is None
+    assert "geopotential_at_1000hpa" not in conn._reduction
+
+
 def test_user_regridder_on_differing_face_grids():
     """Regression: a user-supplied regridder= must work for non-latlon
     (face, height, width) grids and rebuild coords from the destination."""

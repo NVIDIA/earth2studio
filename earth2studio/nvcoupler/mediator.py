@@ -38,8 +38,63 @@ from .dictionary import CellMethod
 from .errors import CouplingError
 from .field import Field, State
 
-# Wire in the same valid_time twice (e.g. two connectors or a re-executed
-# slot) and the second arrival is ignored rather than double-counted.
+
+class _RunningReduction:
+    """Running windowed reduction shared by Mediator and windowed Connector.
+
+    One accumulator tensor per key regardless of window length; mean divides
+    by the sample count at emit time. Wire in the same valid_time twice
+    (e.g. two connectors or a re-executed slot) and the second arrival is
+    ignored rather than double-counted. Pure torch ops, so gradients flow
+    through mean and sum (max/min propagate to the extremal sample).
+    """
+
+    def __init__(self) -> None:
+        self._acc: dict[str, torch.Tensor] = {}
+        self._count: dict[str, int] = {}
+        self._coords: dict[str, OrderedDict] = {}
+        self._last_time: dict[str, np.datetime64] = {}
+
+    def add(self, key: str, field: Field, method: str) -> None:
+        """Fold one field into the running reduction under `key`."""
+        if field.valid_time is not None and self._last_time.get(key) == (
+            field.valid_time
+        ):
+            return  # duplicate arrival for the same time
+        self._last_time[key] = field.valid_time
+        if key not in self._acc:
+            self._acc[key] = field.data
+            self._count[key] = 1
+        else:
+            acc = self._acc[key]
+            if method in ("mean", "sum"):
+                self._acc[key] = acc + field.data
+            elif method == "max":
+                self._acc[key] = torch.maximum(acc, field.data)
+            else:  # min
+                self._acc[key] = torch.minimum(acc, field.data)
+            self._count[key] += 1
+        self._coords[key] = OrderedDict(field.coords)
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._acc
+
+    def counts(self) -> dict[str, int]:
+        """Samples folded in per key since the last reset."""
+        return dict(self._count)
+
+    def emit(self, key: str, method: str) -> tuple[torch.Tensor, OrderedDict]:
+        """Reduced (data, coords) for `key`; mean divides by the count."""
+        data = self._acc[key]
+        if method == "mean":
+            data = data / self._count[key]
+        return data, self._coords[key]
+
+    def reset(self) -> None:
+        self._acc.clear()
+        self._count.clear()
+        self._coords.clear()
+        self._last_time.clear()
 
 
 class _AccumulatingState(State):
@@ -136,60 +191,34 @@ class AccumulationMediator(Mediator):
         self._base_to_derived: dict[str, list[str]] = {}
         for derived, cm in methods.items():
             self._base_to_derived.setdefault(cm.base, []).append(derived)
-        self._acc: dict[str, torch.Tensor] = {}
-        self._count: dict[str, int] = {}
-        self._coords: dict[str, OrderedDict] = {}
-        self._last_time: dict[str, np.datetime64] = {}
+        self._reduction = _RunningReduction()
 
     def accumulate(self, field: Field) -> None:
         for derived in self._base_to_derived.get(field.standard_name, ()):
-            if (
-                field.valid_time is not None
-                and self._last_time.get(derived) == field.valid_time
-            ):
-                continue  # duplicate arrival for the same time
-            self._last_time[derived] = field.valid_time
-            method = self.methods[derived].method
-            if derived not in self._acc:
-                self._acc[derived] = field.data
-                self._count[derived] = 1
-            else:
-                acc = self._acc[derived]
-                if method in ("mean", "sum"):
-                    self._acc[derived] = acc + field.data
-                elif method == "max":
-                    self._acc[derived] = torch.maximum(acc, field.data)
-                else:  # min
-                    self._acc[derived] = torch.minimum(acc, field.data)
-                self._count[derived] += 1
-            self._coords[derived] = OrderedDict(field.coords)
+            self._reduction.add(derived, field, self.methods[derived].method)
 
     def compute(self, time: np.datetime64) -> None:
         for derived, cm in self.methods.items():
-            if derived not in self._acc:
+            if derived not in self._reduction:
                 raise CouplingError(
                     f"Mediator {self.name!r}: no samples of {cm.base!r} "
                     f"accumulated before compute at {time} — is a connector "
                     "feeding this mediator in a faster slot?"
                 )
-            data = self._acc[derived]
-            if cm.method == "mean":
-                data = data / self._count[derived]
+            data, coords = self._reduction.emit(derived, cm.method)
             entry = self.dictionary.resolve(derived)
             self.export_state.add(
                 Field(
                     data=data,
-                    coords=self._coords[derived],
+                    coords=coords,
                     standard_name=derived,
                     units=entry.canonical_units,
                     valid_time=time,
                     source=self.name,
                 )
             )
-        self.samples_last_window = dict(self._count)
-        self._acc.clear()
-        self._count.clear()
-        self._last_time.clear()
+        self.samples_last_window = self._reduction.counts()
+        self._reduction.reset()
 
 
 class TrailingAverageMediator(AccumulationMediator):
