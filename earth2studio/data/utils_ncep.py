@@ -2186,7 +2186,7 @@ def decode_ir_sounder(
         )
     )
     if tables:
-        result_table = pa.concat_tables(tables).combine_chunks()
+        result_table = pa.concat_tables(tables)
     else:
         result_table = NCEP_MICROWAVE_OUTPUT_SCHEMA.empty_table()
     logger.debug(
