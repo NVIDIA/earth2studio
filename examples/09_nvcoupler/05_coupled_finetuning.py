@@ -24,7 +24,7 @@ Backpropagating a coupled-rollout loss into both components.
 Separately-trained emulators drift when coupled: each was trained against
 truth forcing, not against the other model's imperfect output. The remedy is
 coupled fine-tuning — optimizing both models jointly on coupled rollouts.
-nvcoupler's exchange path (regrid gathers, mediator reductions, functional
+nvcoupler's exchange path (regrid gathers, windowed reductions, functional
 import injection) is autograd-clean end to end, and ``driver.rollout()``
 keeps the graph, so a loss on one component's final state reaches the
 parameters of every component upstream through the exchanges.
@@ -58,34 +58,22 @@ import torch
 import earth2studio.nvcoupler as nvc
 from earth2studio.nvcoupler.testing import atmos_ic, fake_atmos, fake_ocean, ocean_ic
 
-SEQUENCE = """
-@6h
-  atmos -> med
-  ocean -> atmos
-  atmos
-@48h
-  med.compute
-  med -> ocean
-  ocean
-@
-"""
-
 gain_atmos = torch.tensor(1.0, requires_grad=True)
 gain_ocean = torch.tensor(1.0, requires_grad=True)
 
 
 def coupled_forecast() -> torch.Tensor:
-    """One 96 h coupled rollout; returns the final mean z1000 (graph kept)."""
-    driver = nvc.Driver(
-        {
-            "atmos": fake_atmos(gain=gain_atmos),
-            "ocean": fake_ocean(gain=gain_ocean),
-            "med": nvc.TrailingAverageMediator(
-                "med", ["geopotential_at_1000hpa_48h_mean"]
-            ),
-        },
-        sequence=SEQUENCE,
-        clock=nvc.Clock("2024-01-01", "2024-01-05", "6h"),
+    """One 96 h coupled rollout; returns the final mean z1000 (graph kept).
+
+    couple() auto-wires the two components: lagged SST forcing one way, a
+    windowed (trailing 48 h mean) connector the other — the running
+    reduction is differentiable like every other exchange stage.
+    """
+    driver = nvc.couple(
+        fake_atmos(gain=gain_atmos),
+        fake_ocean(gain=gain_ocean),
+        start="2024-01-01",
+        stop="2024-01-05",
         collect=False,
     )
     driver.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
@@ -98,8 +86,8 @@ def coupled_forecast() -> torch.Tensor:
 # ---------------------------
 # With gains at 1.0 the forecast lands at 19.2336 (see example 01). A loss on
 # the atmosphere's final state produces nonzero gradients for BOTH gains —
-# the ocean's only route to the loss is through two connectors and the
-# mediator.
+# the ocean's only route to the loss is through the two connectors (one of
+# them a windowed reduction).
 
 with torch.enable_grad():
     z96 = coupled_forecast()

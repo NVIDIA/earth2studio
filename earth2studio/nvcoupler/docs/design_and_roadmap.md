@@ -87,8 +87,11 @@ configuration error, not a silent multiply (see
 
 Alternative: a `mode="lagged"` flag on connectors. Rejected in favor of the
 NUOPC convention that a runSeq *is* the coupling semantics: a connect before
-the destination's run delivers the source's previous state (lagged), after it
-the fresh state (sequential). One mechanism, zero redundant configuration to
+the source's run delivers the source's previous state (lagged), after it
+the fresh state (sequential). Derived sequences make the canonical lagged
+shape the default without giving up the mechanism — `derive_sequence`'s
+`lagged=` parameter only chooses where each connect is *placed*, never adds
+a second mechanism. One mechanism, zero redundant configuration to
 disagree with itself, and a coupling-order experiment is a one-line DSL edit
 ([example 02](../../../examples/09_nvcoupler/02_lagged_vs_sequential.py)).
 `describe()` derives and displays the mode per connect so the ordering is
@@ -99,9 +102,10 @@ never implicit knowledge.
 Alternative: infer "48 h mean of z1000" by parsing the suffix of
 `geopotential_at_1000hpa_48h_mean`. Rejected — name-grammar coupling is how
 lexicons rot. A derived field is a first-class `FieldEntry` carrying
-`CellMethod(base, method, window)`, which is what lets both
-`AccumulationMediator` and `couple()`'s mediator synthesis operate on data,
-not regexes ([concepts](concepts.md#cellmethod-derived-fields-as-first-class-dictionary-entries)).
+`CellMethod(base, method, window)`, which is what lets windowed
+`Connector`s, `AccumulationMediator`, and `couple()`'s windowed-connector
+synthesis operate on data, not regexes
+([concepts](concepts.md#cellmethod-derived-fields-as-first-class-dictionary-entries)).
 
 ### Pure-torch exchange for training readiness
 
@@ -157,7 +161,7 @@ The three prior-art patterns this package factors out:
 
 ## Verification story
 
-The code ships with 152 passing tests (`test/nvcoupler/`; a 153rd — the
+The code ships with 176 passing tests (`test/nvcoupler/`; a 177th — the
 real-weights gate below — is collected but skipped), built on a deliberate
 strategy:
 

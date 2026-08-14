@@ -84,6 +84,13 @@ different call shapes, so the adapter owns the model invocation:
 | `VariableOverwriteAdapter` (default) | overwrite state-variable slices, `model(x, coords)` | prescribed forcing as a state channel |
 | `ConditioningKwargAdapter` | `model.call_with_conditioning(x, coords, conditioning=...)` | StormScope |
 | `ExtraTensorAdapter` | `model(x, coords, coupling)` | DLESyM / PhysicsNeMo 4-tensor |
+| `PullAdapter` | installs a `StateDataSource` shim on `model.conditioning_data_source`, then `model(x, coords)` | StormCast |
+
+The pull pattern covers models that *fetch* their forcing internally rather
+than accepting it as an argument — the shim answers the model's own
+`fetch_data` calls from the import State; because that path crosses xarray/
+numpy, pull-coupled components are inference-only (no autograd through the
+exchange).
 
 Models that manage a sliding input window internally take a
 `next_input(prev_x, prev_coords, out, out_coords)` hook; the default handles
@@ -148,11 +155,32 @@ The connector interpolates linearly in log-pressure (differentiable), pulling
 `VerticalMismatchError` with a concrete fix when it can't. Models that encode
 levels in variable names (`z500`, `t850`) never touch this machinery.
 
-### Run sequence & Driver
+### Driver & run sequence
 
-The DSL mirrors NUOPC's runSeq. **Coupling semantics are pure ordering**: a
-connect placed before the destination's run in the same slot is lagged
-(NUOPC-explicit) coupling; placed after, sequential.
+A system is declared as **components plus connections**; the Driver derives
+the canonical (lagged) run sequence from the coupling graph:
+
+```python
+driver = nvc.Driver(
+    {"atmos": atmos, "ocean": ocean},
+    clock=nvc.Clock("2024-01-01", "2024-03-01", "6h"),
+    connectors=[
+        ("ocean", "atmos"),                                # default Connector
+        nvc.Connector(atmos, ocean, window="48h", reduce="mean"),
+    ],
+)
+driver.initialize({"atmos": (x_a, coords_a), "ocean": (x_o, coords_o)})
+
+datasets = driver.run()                   # dict[str, xr.Dataset]
+for time, states in driver.steps():       # or notebook-style iteration
+    ...
+driver.probe("ocean->atmos")              # last exchanged fields
+```
+
+When the *ordering* is the experiment, pass an explicit run sequence — a DSL
+mirroring NUOPC's runSeq. **Coupling semantics are pure ordering**: a connect
+placed before the source's run in the same slot is lagged (NUOPC-explicit)
+coupling; placed after, sequential.
 
 ```
 @6h
@@ -166,19 +194,9 @@ connect placed before the destination's run in the same slot is lagged
 @
 ```
 
-```python
-driver = nvc.Driver(
-    {"atmos": atmos, "ocean": ocean, "med": med},
-    sequence=dsl_text,                    # or a RunSequence object
-    clock=nvc.Clock("2024-01-01", "2024-03-01", "6h"),
-)
-driver.initialize({"atmos": (x_a, coords_a), "ocean": (x_o, coords_o)})
-
-datasets = driver.run()                   # dict[str, xr.Dataset]
-for time, states in driver.steps():       # or notebook-style iteration
-    ...
-driver.probe("ocean->atmos")              # last exchanged fields
-```
+`nvc.couple(*components, start=, stop=)` goes one step further and discovers
+the connections themselves by matching standard names (windowed connectors
+included, from CellMethod entries).
 
 Validation is front-loaded: unknown names (with did-you-mean suggestions),
 cadence misalignment, unmatched imports, unit mismatches, and unconsumed
@@ -215,8 +233,8 @@ the field, and the concrete fix: `UnknownFieldError`, `UnmatchedImportError`,
 - HEALPix / curvilinear source grids need a user-supplied `regridder=`.
 - Units are checked, not converted (no pint); convert in a Mediator.
 - No checkpoint/restart, coupled ensembles, or concurrent slot execution.
-- `Driver` IO is in-memory xarray (`collect=True`); direct `IOBackend`
-  streaming is planned alongside the `couple()` auto-wiring layer.
+- `Driver` IO is in-memory xarray (`collect=True`) plus per-component
+  `IOBackend` streaming (`io=`); `couple()` does not yet configure IO.
 
 ## Documentation
 
@@ -239,11 +257,17 @@ against the toy components before inclusion):
 
 See `examples/09_nvcoupler/`:
 
-1. `01_coupled_toy_workflow.py` — the full atmos⇄ocean loop on synthetic components
+1. `01_coupled_toy_workflow.py` — the full atmos⇄ocean loop, declared as a
+   coupling graph with a windowed connector
 2. `02_lagged_vs_sequential.py` — coupling order as a one-line experiment
-3. `03_impact_chain.py` — precip-sum / t2m-max mediators feeding an impact index
+3. `03_impact_chain.py` — windowed precip-sum connector + t2m-max mediator
+   feeding an impact index
 4. `04_vertical_chemistry.py` — hybrid→pressure coupling with auto ps dependency
 5. `05_coupled_finetuning.py` — gradients across the exchange + a training step
+6. `06_pull_conditioning.py` — pull-pattern conditioning (StormCast-style):
+   a `PullAdapter` serving live coupled forcing to a model's internal fetch
+6. `06_pull_conditioning.py` — pull-pattern coupling (StormCast-style) via
+   `PullAdapter`
 
 Tests (`test/nvcoupler/`) double as executable specification, including a
 fully hand-computed 96 h coupled run in `test_driver.py`.
