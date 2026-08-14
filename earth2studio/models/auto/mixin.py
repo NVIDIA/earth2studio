@@ -44,9 +44,6 @@ class AutoModelMixin:
         ----------
         package: Package
             Model package, file system, to fetch assets
-        **kwargs : Any
-            Additional model-specific keyword arguments (forwarded from
-            :meth:`from_pretrained`)
         """
         raise NotImplementedError("Load model function not implemented")
 

@@ -129,8 +129,8 @@ def _points_in_grid_footprint(
     The rotated grid has curved edges in latitude/longitude, so its rectangular
     bounds include some points outside the actual grid. This checks whether each
     point lies inside the polygon formed by the boundary-cell centers. Points within
-    about half a cell of the outer edge may therefore be excluded. The European
-    grids do not cross the antimeridian.
+    about half a cell of the outer edge may therefore be excluded. Assumes the
+    footprint does not cross the antimeridian (true for the European domains).
 
     Parameters
     ----------

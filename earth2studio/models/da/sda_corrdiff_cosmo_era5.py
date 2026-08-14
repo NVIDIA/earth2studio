@@ -29,6 +29,7 @@ import xarray as xr
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.da.base import AssimilationModel
 from earth2studio.models.da.utils import (
+    dfseries_to_torch,
     filter_time_range,
     validate_observation_fields,
 )
@@ -214,10 +215,11 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         self.amp = amp
         self.seed = 0
 
-        # Place observations on the model's denoise grid (halo-inclusive; this is the
-        # cropped sub-domain after set_domain, not the full footprint), where DPS is
-        # applied; the returned output is halo-trimmed to model.output_coords. Use 3D
-        # points on the unit sphere for nearest-cell lookup so longitude wrap-around
+        # Place observations on the model's current denoise grid -- the grid the
+        # denoiser runs on, including any halo/patch-padding cells (a cropped sub-domain
+        # if set_domain was used, else the full footprint). DPS is applied here; the
+        # returned output is halo-trimmed (when applicable) to model.output_coords. Use
+        # 3D points on the unit sphere for nearest-cell lookup so longitude wrap-around
         # is handled.
         self._lat_np = model.lat_output_grid.detach().cpu().numpy()
         self._lon_np = model.lon_output_grid.detach().cpu().numpy()
@@ -389,13 +391,18 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         tf = filter_time_range(obs, request_time, self._tolerance, time_column="time")
         if len(tf) == 0:
             return y, mask, std_y
-        if hasattr(tf, "to_pandas"):
-            tf = tf.to_pandas()
 
-        obs_lat = tf["lat"].values.astype(np.float64)
-        obs_lon = tf["lon"].values.astype(np.float64)
-        obs_var = tf["variable"].values.astype(str)
-        obs_val = tf["observation"].values.astype(np.float32)
+        # lat/lon/variable must be host arrays for the (CPU) KDTree lookup and the
+        # string comparison below; the observation values go straight to the device
+        # (zero-copy from cudf via dfseries_to_torch).
+        obs_lat = tf["lat"].to_numpy().astype(np.float64)
+        obs_lon = tf["lon"].to_numpy().astype(np.float64)
+        obs_var = tf["variable"].to_numpy().astype(str)
+        # fillna keeps the cudf dlpack path null-safe (nulls -> NaN, then dropped by
+        # the on-device isfinite filter below); a no-op for float pandas values.
+        obs_val_t = dfseries_to_torch(
+            tf["observation"].fillna(float("nan")), dtype=torch.float32, device=device
+        )
 
         # Nearest denoise-grid cell (3D chord distance) + in-domain/finite masks.
         finite_coordinates = np.isfinite(obs_lat) & np.isfinite(obs_lon)
@@ -405,7 +412,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         )
         dist, flat = self._grid_tree.query(oxyz)
         ci, cj = np.unravel_index(flat, (hm, wm))
-        keep = finite_coordinates & (dist <= self._obs_max_dist) & np.isfinite(obs_val)
+        keep = finite_coordinates & (dist <= self._obs_max_dist)
 
         cen = self.model.out_center
         sca = self.model.out_scale
@@ -418,18 +425,23 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             s = sca[0, k, 0, 0].item()
             if not np.isfinite(s) or s == 0:
                 continue
-            yv = torch.as_tensor(
-                (obs_val[sel] - c) / s, device=device, dtype=torch.float32
-            )
+            sel_t = torch.as_tensor(sel, device=device)
+            yv = (obs_val_t[sel_t] - c) / s
             yi = torch.as_tensor(ci[sel], device=device, dtype=torch.long)
             xi = torch.as_tensor(cj[sel], device=device, dtype=torch.long)
             flat_idx = yi * wm + xi
+            # Drop non-finite observation values on-device (no host round-trip);
+            # cells left with no finite obs stay unobserved via cnt == 0 below.
+            finite = torch.isfinite(yv)
+            yv = yv[finite]
+            flat_idx = flat_idx[finite]
             acc = torch.zeros(hm * wm, device=device)
             cnt = torch.zeros_like(acc)
             acc.scatter_add_(0, flat_idx, yv)
             cnt.scatter_add_(0, flat_idx, torch.ones_like(yv))
             occ = cnt > 0
-            y[0, k] = torch.where(occ, acc / cnt, acc).view(hm, wm)
+            # Empty cells have cnt == 0; clamp to 1 so we never divide by zero.
+            y[0, k] = torch.where(occ, acc / cnt.clamp(min=1), acc).view(hm, wm)
             mask[0, k] = occ.float().view(hm, wm)
             # Store the normalized observation uncertainty at observed cells.
             # Elsewhere, unit uncertainty keeps the guidance denominator finite
@@ -807,6 +819,6 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         CorrDiffCosmoEra5SDA
             This model, moved in place (returned for chaining).
         """
-        self.model = self.model.to(device)
+        # self.model is a registered submodule and is moved recursively by super().to.
         super().to(device)
         return self

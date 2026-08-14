@@ -45,10 +45,6 @@ In this example you will learn:
 - Compare both fields to held-out stations (prior vs analysis RMSE)
 
 .. note::
-   The model package is hosted on Hugging Face
-   (``hf://nvidia/corrdiff-cosmo-era5``) and fetched by ``load_default_package()``.
-
-.. note::
    The default ~206 x 206-cell sub-domain completed in a few minutes and used about
    5 GB of GPU memory in one test run (bf16). Set ``DOMAIN = None`` for the full domain;
    its time and memory requirements were not validated.
@@ -72,6 +68,8 @@ In this example you will learn:
 # %%
 # Configuration
 # -------------
+
+# %%
 import os
 from datetime import datetime, timedelta
 
@@ -108,66 +106,14 @@ PROJ = ccrs.RotatedPole(pole_longitude=-170.0, pole_latitude=40.0)  # from rea2 
 os.makedirs("outputs", exist_ok=True)
 
 
-def geo_axes(ax, labels=True, left=True):
-    """Add coastlines + (optionally labeled) gridlines to a cartopy GeoAxes.
-
-    ``left=False`` drops the latitude (left) labels -- used on the inner panels of a
-    shared-latitude row so only the leftmost panel is labelled.
-    """
-    ax.coastlines(resolution="50m", linewidth=0.6, color="0.3")
-    # x_inline/y_inline=False keeps lon/lat labels on the axis edges (below / left)
-    # rather than inline inside the rotated-pole map; don't rotate them to the grid.
-    gl = ax.gridlines(
-        crs=DATA,
-        draw_labels=labels,
-        x_inline=False,
-        y_inline=False,
-        linewidth=0.3,
-        color="0.5",
-        alpha=0.5,
-    )
-    if labels:
-        gl.top_labels = gl.right_labels = False
-        gl.left_labels = left
-        gl.rotate_labels = False
-
-
-def to_numpy(da):
-    """Analysis data as NumPy. On CUDA the analysis is CuPy-backed (same-device
-    contract), so use ``.data`` + ``.get()`` rather than ``.values`` (which would
-    force an implicit -- disallowed -- CuPy->NumPy conversion)."""
-    arr = da.data
-    return arr.get() if hasattr(arr, "get") else np.asarray(arr)
-
-
-def regrid_to_input(x_src, src_coords, dvars, dlat, dlon):
-    """Subset to the downscaler's ERA5 variables and bilinearly regrid a global
-    regular lat/lon field onto its regional grid. Returns [n_var, n_lat, n_lon]."""
-    svars = list(src_coords["variable"])
-    slat = np.asarray(src_coords["lat"]).astype(float)
-    slon = np.asarray(src_coords["lon"]).astype(float)
-    field = x_src.reshape(-1, len(svars), len(slat), len(slon))[0].float().cpu().numpy()
-    field = field[[svars.index(v) for v in dvars]]  # select the ERA5 channels
-    if slat[0] > slat[-1]:  # ensure ascending latitude
-        slat, field = slat[::-1], field[:, ::-1, :]
-    field_w = np.concatenate([field, field[:, :, 0:1]], axis=-1)  # lon wrap column
-    slon_w = np.concatenate([slon, [slon[0] + 360.0]])
-    lon2d, lat2d = np.meshgrid(dlon % 360.0, dlat)
-    pts = np.stack([lat2d.ravel(), lon2d.ravel()], axis=-1)
-    out = np.empty((len(dvars), len(dlat), len(dlon)), np.float32)
-    for c in range(len(dvars)):
-        out[c] = RegularGridInterpolator(
-            (slat, slon_w), field_w[c], bounds_error=False, fill_value=None
-        )(pts).reshape(len(dlat), len(dlon))
-    return out
-
-
 # %%
 # Load the assimilation model
 # ---------------------------
 # ``CorrDiffCosmoEra5SDA`` wraps a diffusion-mode ``CorrDiffCosmoEra5`` downscaler.
 # ``assimilate_variables`` is required and must be identity-transform, unit-scale
 # output channels -- here the 10 m wind, which matches the station reports' height.
+
+# %%
 from earth2studio.data import ARCO, GHCNHourly, fetch_data
 from earth2studio.models.da import CorrDiffCosmoEra5SDA
 
@@ -194,6 +140,31 @@ sda.seed = 0  # reproducible ensemble
 # downscaler's regional input grid. The result is an ``xr.DataArray`` with dims
 # ``(time, variable, lat, lon)`` -- the same driving state the downscaler
 # conditions on; the ``time`` coord also drives its day/night (solar) input.
+
+
+# %%
+def regrid_to_input(x_src, src_coords, dvars, dlat, dlon):
+    """Subset to the downscaler's ERA5 variables and bilinearly regrid a global
+    regular lat/lon field onto its regional grid. Returns [n_var, n_lat, n_lon]."""
+    svars = list(src_coords["variable"])
+    slat = np.asarray(src_coords["lat"]).astype(float)
+    slon = np.asarray(src_coords["lon"]).astype(float)
+    field = x_src.reshape(-1, len(svars), len(slat), len(slon))[0].float().cpu().numpy()
+    field = field[[svars.index(v) for v in dvars]]  # select the ERA5 channels
+    if slat[0] > slat[-1]:  # ensure ascending latitude
+        slat, field = slat[::-1], field[:, ::-1, :]
+    field_w = np.concatenate([field, field[:, :, 0:1]], axis=-1)  # lon wrap column
+    slon_w = np.concatenate([slon, [slon[0] + 360.0]])
+    lon2d, lat2d = np.meshgrid(dlon % 360.0, dlat)
+    pts = np.stack([lat2d.ravel(), lon2d.ravel()], axis=-1)
+    out = np.empty((len(dvars), len(dlat), len(dlon)), np.float32)
+    for c in range(len(dvars)):
+        out[c] = RegularGridInterpolator(
+            (slat, slon_w), field_w[c], bounds_error=False, fill_value=None
+        )(pts).reshape(len(dlat), len(dlon))
+    return out
+
+
 ic = sda.init_coords()[0]
 dvars = list(ic["variable"])
 dlat, dlon = np.asarray(ic["lat"]), np.asarray(ic["lon"])
@@ -221,6 +192,8 @@ x_da = xr.DataArray(
 # report both wind components. Then split the stations into an assimilated set and
 # a held-out set so the observation-guided analysis can be compared at sites that
 # were never assimilated.
+
+# %%
 glat = sda.model.lat_output_numpy
 glon = sda.model.lon_output_numpy
 bbox = (float(glat.min()), float(glon.min()), float(glat.max()), float(glon.max()))
@@ -266,6 +239,17 @@ print(
 # Run the downscaler twice on the same ERA5 state: once with no observations (the
 # prior, ``obs=None``) and once with the observations selected for assimilation.
 # Both return an ensemble with dims ``(time, sample, variable, y, x)``.
+
+
+# %%
+def to_numpy(da):
+    """Analysis data as NumPy. On CUDA the analysis is CuPy-backed (same-device
+    contract), so use ``.data`` + ``.get()`` rather than ``.values`` (which would
+    force an implicit -- disallowed -- CuPy->NumPy conversion)."""
+    arr = da.data
+    return arr.get() if hasattr(arr, "get") else np.asarray(arr)
+
+
 post = sda(x_da, assimilation_obs)  # analysis (observation-guided)
 free = sda(x_da)  # prior (free, no-obs downscaling)
 
@@ -277,10 +261,16 @@ output_lat = np.asarray(post["lat"])
 output_lon = np.asarray(post["lon"])
 
 post_np, free_np = to_numpy(post), to_numpy(free)  # [time, sample, variable, y, x]
+
+# %%
+# One posterior draw
+# ------------------
 # One posterior draw (ENSEMBLE_SIZE = 1): the map shows that analysis' wind speed and
 # the RMSE below uses its u/v components. The ``.mean(0)`` over ``sample`` is a no-op
 # here; with ENSEMBLE_SIZE > 1 it yields the mean per-member speed (map) and the mean
 # components (RMSE) -- averaging speeds, not components, avoids direction cancellation.
+
+# %%
 ws_post = np.hypot(post_np[0, :, u_index], post_np[0, :, v_index]).mean(0)
 ws_free = np.hypot(free_np[0, :, u_index], free_np[0, :, v_index]).mean(0)
 analysis_u = post_np[0, :, u_index].mean(0)
@@ -301,6 +291,7 @@ print(
 # skill claim, and a single time/split/ensemble does not guarantee improvement.
 
 
+# %%
 def vector_rmse_at(df, u_field, v_field):
     """Vector 10 m wind RMSE (m/s) vs obs at each station's nearest output cell.
     Components are paired by ``station`` (not lat/lon) to avoid cross-pairing."""
@@ -337,6 +328,31 @@ print(
 # increment the observations add (analysis - prior), with per-held-out-station error-
 # change markers (up = error reduced, down = error increased, marker area proportional
 # to |error change|).
+
+
+# %%
+def geo_axes(ax, labels=True, left=True):
+    """Add coastlines + (optionally labeled) gridlines to a cartopy GeoAxes.
+
+    ``left=False`` drops the latitude (left) labels -- used on the inner panels of a
+    shared-latitude row so only the leftmost panel is labelled.
+    """
+    ax.coastlines(resolution="50m", linewidth=0.6, color="0.3")
+    # x_inline/y_inline=False keeps lon/lat labels on the axis edges (below / left)
+    # rather than inline inside the rotated-pole map; don't rotate them to the grid.
+    gl = ax.gridlines(
+        crs=DATA,
+        draw_labels=labels,
+        x_inline=False,
+        y_inline=False,
+        linewidth=0.3,
+        color="0.5",
+        alpha=0.5,
+    )
+    if labels:
+        gl.top_labels = gl.right_labels = False
+        gl.left_labels = left
+        gl.rotate_labels = False
 
 
 def station_locations(df):
