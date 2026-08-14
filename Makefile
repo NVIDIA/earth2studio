@@ -86,10 +86,9 @@ docs:
 	uv run python docs/generate_catalog.py
 	uv run python docs/generate_install_options.py
 	uv run python docs/generate_gallery.py
-	rm -rf docs/_build/html
 	E2S_GALLERY_EXECUTE=never uv run zensical build --clean
-	mkdir -p docs/_build
-	rsync -a --delete site/ docs/_build/html/
+	rm -rf site/__pycache__ site/_build/html
+	find site -maxdepth 1 -type f -name "*.py" -delete
 
 .PHONY: docs-full
 docs-full:
@@ -117,10 +116,9 @@ docs-build-version:
 	uv run python docs/generate_catalog.py
 	uv run python docs/generate_install_options.py
 	uv run python docs/generate_gallery.py
-	rm -rf docs/_build/html
 	DOC_VERSION=$(DOC_VERSION) E2S_GALLERY_EXECUTE=never uv run zensical build --clean
-	mkdir -p docs/_build
-	rsync -a --delete site/ docs/_build/html/
+	rm -rf site/__pycache__ site/_build/html
+	find site -maxdepth 1 -type f -name "*.py" -delete
 
 .PHONY: docs-deploy-version
 docs-deploy-version:

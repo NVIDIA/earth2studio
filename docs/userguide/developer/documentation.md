@@ -10,8 +10,8 @@ main areas:
    public methods are documented.
 
 2. Examples are rendered with `earth2studio-gallery`, which executes percent-format
-   Python examples with `uv run --script` and then renders the retained results into a
-   MkDocs Material gallery.
+   Python examples in the project documentation environment and then renders the
+   retained results into a MkDocs Material gallery.
 
 3. API landing pages are Markdown files in `docs/modules/` with autosummary
    blocks read by `docs/generate_api.py`. Model and data-source badges are rendered
@@ -131,7 +131,13 @@ To execute and refresh a single example before serving the site, pass a gallery 
 make docs-dev FILENAME=01_getting_started/01_deterministic_workflow.py
 ```
 
-Build files are written to `docs/_build/html`.
+Build files are written to `site/`.
+
+The empty `docs/.nojekyll` file is intentionally kept in the MkDocs `docs_dir`.
+MkDocs copies it to the root of the built site, which tells GitHub Pages to serve
+asset directories such as `_static/` and `examples/_assets/` without Jekyll
+filtering. Keep this as a source file rather than adding a custom copy step to the
+docs build pipeline.
 
 ## Versioning
 

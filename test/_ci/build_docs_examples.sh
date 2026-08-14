@@ -49,7 +49,6 @@ done
 # Render the final gallery index and build the MkDocs/Zensical site.
 "${uv_docs[@]}" e2s-gallery render
 
-rm -rf docs/_build/html
 E2S_GALLERY_EXECUTE=never "${uv_docs[@]}" zensical build --clean
-mkdir -p docs/_build
-rsync -a --delete site/ docs/_build/html/
+rm -rf site/__pycache__ site/_build/html
+find site -maxdepth 1 -type f -name "*.py" -delete
