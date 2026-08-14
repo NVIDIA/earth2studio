@@ -140,6 +140,7 @@ jobs:
           fi
 
 
+          # Keep GitHub Pages from hiding underscore-prefixed gallery asset folders.
           git fetch origin "${DOCS_PAGES_BRANCH}" --depth=1
           pages_worktree="$(mktemp -d)"
           cleanup_pages_worktree() {
