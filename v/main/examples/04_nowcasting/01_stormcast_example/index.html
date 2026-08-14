@@ -1,0 +1,4769 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source deep-learning framework for exploring, building and deploying AI weather and climate workflows.">
+      
+      
+      
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/examples/04_nowcasting/01_stormcast_example/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../_static/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Running StormCast-CONUS Inference - Earth2Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=NVIDIA+Sans:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"NVIDIA Sans";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/nvidia-material.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/earth2studio-gallery.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/mkdocs-badges.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#running-stormcast-conus-inference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+        <aside class="md-banner">
+          <div class="md-banner__inner md-grid md-typeset">
+            
+              <button class="md-banner__button md-icon" aria-label="Don't show this again">
+                
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            
+            
+  <div class="e2s-announcement" role="status">
+  <span class="e2s-announcement__icon" aria-hidden="true">🚧</span>
+  <span>
+    <strong>Pardon the dust.</strong>
+    We are working to actively improve the Earth2Studio docs page. Apologies for any inconvenience.
+  </span>
+</div>
+
+          </div>
+          
+            <script>var el=document.querySelector("[data-md-component=announce]");if(el){var content=el.querySelector(".md-typeset");__md_hash(content.innerHTML)===__md_get("__announce")&&(el.hidden=!0)}</script>
+          
+        </aside>
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Earth2Studio" class="md-header__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Earth2Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Running StormCast-CONUS Inference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../userguide/about/install/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../modules/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../blog/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Blog
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Recipes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Earth2Studio" class="md-nav__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    Earth2Studio
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/catalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Catalog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/components/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Components
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core Components
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/prognostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/data_assimilation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/datasources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/advanced/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Usage
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/checkpointing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/batch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Dimension
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/auto/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AutoModels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/lexicon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lexicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/notes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Knowledge Base
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/notes/surface_pressure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Surface Pressure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/developer/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/dependency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Style
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/support/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Support
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/support/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/support/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../modules/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_px/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_dx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_da/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_forecast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Forecast Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_dataframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DataFrame Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/utils_all/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../blog/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Blog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Posts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Posts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/2026/08/06/mkdocs-material-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MkDocs Material Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/archive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/categories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/categories/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Archive
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/archive/2026/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/category/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#set-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set Up
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execute-the-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execute the Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#post-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Post Processing
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="running-stormcast-conus-inference">Running StormCast-CONUS Inference<a class="headerlink" href="#running-stormcast-conus-inference" title="Permanent link">&para;</a></h1>
+<p>Basic StormCast-CONUS inference workflow for the full Continental United States.</p>
+<p>This example demonstrates how to run a single-member forecast using
+StormCast-CONUS, a generative convection-allowing model at 3 km resolution over
+the full CONUS HRRR domain. For details about the model see</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2408.10958">arxiv.org/abs/2408.10958</a></li>
+</ul>
+<p>In this example you will learn:</p>
+<ul>
+<li>How to instantiate StormCast-CONUS from a model package</li>
+<li>Creating an HRRR initial-condition data source and a GFS forecast conditioning source</li>
+<li>Running a deterministic forecast with <a href="../../../modules/generated/workflows/1/run_deterministic/#earth2studio.run.deterministic"><code>earth2studio.run.deterministic</code></a></li>
+<li>Post-processing and plotting composite reflectivity and 2-m temperature</li>
+</ul>
+<h2 id="set-up">Set Up<a class="headerlink" href="#set-up" title="Permanent link">&para;</a></h2>
+<p>StormCast-CONUS requires a low-resolution global conditioning source. We use
+<a href="../../../modules/generated/data/forecast/data_GFS_FX/#earth2studio.data.GFS_FX"><code>earth2studio.data.GFS_FX</code></a> (the default), which provides GFS forecast
+fields interpolated to the HRRR grid. An analysis source such as
+<a href="../../../modules/generated/data/analysis/data_ARCO/#earth2studio.data.ARCO"><code>earth2studio.data.ARCO</code></a> can also be used.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">load_dotenv</span><span class="p">()</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">HRRR</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrBackend</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">StormCastCONUS</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="c1"># Load the model from the default package</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">package</span> <span class="o">=</span> <span class="n">StormCastCONUS</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="c1"># By default, the model uses GFS_FX as the conditioning data source</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="c1"># Thus we do not need to explicitly specify the conditioning data source</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">model</span> <span class="o">=</span> <span class="n">StormCastCONUS</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="c1"># Create the HRRR initial-condition data source</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="n">data</span> <span class="o">=</span> <span class="n">HRRR</span><span class="p">()</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="c1"># Create the IO handler, store in memory</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>393 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
+    PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
+    Python  3.10.19 (you have 3.13.13)
+  Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
+  Memory-efficient attention, SwiGLU, sparse and more won't be available.
+  Set XFORMERS_MORE_DETAILS=1 for more details
+CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature
+
+Downloading config.json: 0%|          | 0.00/37.0 [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 37.0/37.0 [00:00&lt;00:00, 231B/s]
+Downloading config.json: 100%|██████████| 37.0/37.0 [00:00&lt;00:00, 228B/s]
+
+Downloading model.yaml: 0%|          | 0.00/122 [00:00&lt;?, ?B/s]
+Downloading model.yaml: 100%|██████████| 122/122 [00:00&lt;00:00, 560B/s]
+Downloading model.yaml: 100%|██████████| 122/122 [00:00&lt;00:00, 554B/s]
+
+Downloading StormCastCONUS-high.mdlus: 0%|          | 0.00/0.99G [00:00&lt;?, ?B/s]
+Downloading StormCastCONUS-high.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;02:09, 8.12MB/s]
+Downloading StormCastCONUS-high.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;01:02, 16.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 3%|▎         | 30.0M/0.99G [00:01&lt;00:46, 22.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 4%|▍         | 40.0M/0.99G [00:02&lt;00:42, 24.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 5%|▍         | 50.0M/0.99G [00:02&lt;00:34, 29.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:28, 35.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 7%|▋         | 70.0M/0.99G [00:02&lt;00:29, 33.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 8%|▊         | 80.0M/0.99G [00:03&lt;00:25, 38.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 9%|▉         | 90.0M/0.99G [00:03&lt;00:24, 39.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 10%|▉         | 100M/0.99G [00:03&lt;00:22, 41.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 11%|█         | 110M/0.99G [00:03&lt;00:23, 40.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 12%|█▏        | 120M/0.99G [00:04&lt;00:22, 41.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 13%|█▎        | 130M/0.99G [00:04&lt;00:22, 40.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 14%|█▍        | 140M/0.99G [00:04&lt;00:19, 46.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 15%|█▍        | 150M/0.99G [00:04&lt;00:20, 45.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 16%|█▌        | 160M/0.99G [00:04&lt;00:17, 51.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 17%|█▋        | 170M/0.99G [00:05&lt;00:17, 52.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 18%|█▊        | 180M/0.99G [00:05&lt;00:15, 54.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 19%|█▊        | 190M/0.99G [00:05&lt;00:17, 49.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 20%|█▉        | 200M/0.99G [00:05&lt;00:18, 45.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 21%|██        | 210M/0.99G [00:05&lt;00:17, 47.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 22%|██▏       | 220M/0.99G [00:06&lt;00:16, 50.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 23%|██▎       | 230M/0.99G [00:06&lt;00:15, 52.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 24%|██▎       | 240M/0.99G [00:06&lt;00:14, 56.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 25%|██▍       | 250M/0.99G [00:06&lt;00:14, 54.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 26%|██▌       | 260M/0.99G [00:07&lt;00:17, 44.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 27%|██▋       | 270M/0.99G [00:07&lt;00:16, 46.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 28%|██▊       | 280M/0.99G [00:07&lt;00:15, 48.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 29%|██▊       | 290M/0.99G [00:07&lt;00:15, 49.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 30%|██▉       | 300M/0.99G [00:07&lt;00:16, 45.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 31%|███       | 310M/0.99G [00:08&lt;00:16, 44.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 32%|███▏      | 320M/0.99G [00:08&lt;00:20, 36.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 33%|███▎      | 330M/0.99G [00:08&lt;00:19, 36.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 34%|███▎      | 340M/0.99G [00:09&lt;00:18, 37.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 35%|███▍      | 350M/0.99G [00:09&lt;00:16, 41.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 36%|███▌      | 360M/0.99G [00:09&lt;00:18, 36.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 37%|███▋      | 370M/0.99G [00:09&lt;00:18, 36.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 37%|███▋      | 380M/0.99G [00:10&lt;00:15, 42.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 38%|███▊      | 390M/0.99G [00:10&lt;00:16, 40.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 39%|███▉      | 400M/0.99G [00:10&lt;00:13, 47.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 40%|████      | 410M/0.99G [00:10&lt;00:14, 44.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 41%|████▏     | 420M/0.99G [00:11&lt;00:14, 41.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 42%|████▏     | 430M/0.99G [00:11&lt;00:12, 48.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 43%|████▎     | 440M/0.99G [00:11&lt;00:13, 44.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 44%|████▍     | 450M/0.99G [00:11&lt;00:16, 36.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 45%|████▌     | 460M/0.99G [00:12&lt;00:13, 41.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 46%|████▋     | 470M/0.99G [00:12&lt;00:12, 45.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 47%|████▋     | 480M/0.99G [00:12&lt;00:11, 50.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 48%|████▊     | 490M/0.99G [00:12&lt;00:11, 46.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 49%|████▉     | 500M/0.99G [00:12&lt;00:11, 48.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 50%|█████     | 510M/0.99G [00:13&lt;00:11, 44.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 51%|█████▏    | 520M/0.99G [00:13&lt;00:13, 38.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 52%|█████▏    | 530M/0.99G [00:13&lt;00:13, 38.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 53%|█████▎    | 540M/0.99G [00:13&lt;00:12, 40.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 54%|█████▍    | 550M/0.99G [00:14&lt;00:10, 47.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 55%|█████▌    | 560M/0.99G [00:14&lt;00:10, 46.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 56%|█████▌    | 570M/0.99G [00:14&lt;00:13, 35.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 57%|█████▋    | 580M/0.99G [00:15&lt;00:15, 30.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 58%|█████▊    | 590M/0.99G [00:15&lt;00:13, 33.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 59%|█████▉    | 600M/0.99G [00:15&lt;00:11, 37.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 60%|██████    | 610M/0.99G [00:15&lt;00:10, 38.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 61%|██████    | 620M/0.99G [00:16&lt;00:12, 34.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 62%|██████▏   | 630M/0.99G [00:16&lt;00:10, 36.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 63%|██████▎   | 640M/0.99G [00:17&lt;00:14, 27.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 64%|██████▍   | 650M/0.99G [00:17&lt;00:12, 31.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 65%|██████▌   | 660M/0.99G [00:17&lt;00:10, 34.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 66%|██████▌   | 670M/0.99G [00:17&lt;00:09, 37.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 67%|██████▋   | 680M/0.99G [00:18&lt;00:09, 38.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 68%|██████▊   | 690M/0.99G [00:18&lt;00:08, 40.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 69%|██████▉   | 700M/0.99G [00:18&lt;00:07, 42.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 70%|███████   | 710M/0.99G [00:19&lt;00:09, 33.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 71%|███████   | 720M/0.99G [00:19&lt;00:08, 38.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 72%|███████▏  | 730M/0.99G [00:19&lt;00:08, 36.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 73%|███████▎  | 740M/0.99G [00:19&lt;00:07, 37.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 74%|███████▍  | 750M/0.99G [00:20&lt;00:06, 41.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 75%|███████▍  | 760M/0.99G [00:20&lt;00:06, 41.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 76%|███████▌  | 770M/0.99G [00:20&lt;00:06, 40.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 77%|███████▋  | 780M/0.99G [00:20&lt;00:05, 41.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 78%|███████▊  | 790M/0.99G [00:21&lt;00:05, 42.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 79%|███████▉  | 800M/0.99G [00:21&lt;00:05, 38.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 80%|███████▉  | 810M/0.99G [00:21&lt;00:05, 40.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 81%|████████  | 820M/0.99G [00:21&lt;00:04, 44.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 82%|████████▏ | 830M/0.99G [00:21&lt;00:03, 48.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 83%|████████▎ | 840M/0.99G [00:22&lt;00:03, 47.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 84%|████████▍ | 850M/0.99G [00:22&lt;00:03, 50.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 85%|████████▍ | 860M/0.99G [00:22&lt;00:02, 55.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 86%|████████▌ | 870M/0.99G [00:22&lt;00:02, 55.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 87%|████████▋ | 880M/0.99G [00:23&lt;00:03, 39.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 89%|████████▉ | 900M/0.99G [00:23&lt;00:02, 46.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 90%|████████▉ | 910M/0.99G [00:23&lt;00:02, 50.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 91%|█████████ | 920M/0.99G [00:23&lt;00:01, 50.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 92%|█████████▏| 930M/0.99G [00:23&lt;00:01, 54.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 93%|█████████▎| 940M/0.99G [00:24&lt;00:01, 49.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 94%|█████████▎| 950M/0.99G [00:24&lt;00:01, 48.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 95%|█████████▍| 960M/0.99G [00:24&lt;00:01, 40.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 96%|█████████▌| 970M/0.99G [00:25&lt;00:01, 39.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 97%|█████████▋| 980M/0.99G [00:25&lt;00:00, 38.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 98%|█████████▊| 990M/0.99G [00:25&lt;00:00, 42.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 99%|█████████▊| 0.98G/0.99G [00:26&lt;00:00, 35.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 100%|█████████▉| 0.99G/0.99G [00:26&lt;00:00, 41.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 100%|██████████| 0.99G/0.99G [00:26&lt;00:00, 40.4MB/s]
+
+Downloading StormCastCONUS-pz-low.mdlus: 0%|          | 0.00/0.99G [00:00&lt;?, ?B/s]
+Downloading StormCastCONUS-pz-low.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;02:01, 8.65MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;01:00, 17.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 3%|▎         | 30.0M/0.99G [00:01&lt;00:38, 26.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 4%|▍         | 40.0M/0.99G [00:01&lt;00:29, 34.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 5%|▍         | 50.0M/0.99G [00:01&lt;00:24, 40.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:24, 40.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 7%|▋         | 70.0M/0.99G [00:02&lt;00:25, 39.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 8%|▊         | 80.0M/0.99G [00:02&lt;00:22, 43.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 9%|▉         | 90.0M/0.99G [00:02&lt;00:19, 49.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 10%|▉         | 100M/0.99G [00:02&lt;00:17, 53.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 11%|█         | 110M/0.99G [00:03&lt;00:15, 60.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 12%|█▏        | 120M/0.99G [00:03&lt;00:15, 60.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 13%|█▎        | 130M/0.99G [00:03&lt;00:19, 48.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 14%|█▍        | 140M/0.99G [00:03&lt;00:16, 57.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 15%|█▍        | 150M/0.99G [00:04&lt;00:23, 38.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 16%|█▌        | 160M/0.99G [00:04&lt;00:18, 48.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 18%|█▊        | 180M/0.99G [00:04&lt;00:12, 67.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 19%|█▊        | 190M/0.99G [00:04&lt;00:12, 69.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 20%|█▉        | 200M/0.99G [00:04&lt;00:16, 53.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 21%|██        | 210M/0.99G [00:05&lt;00:15, 55.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 22%|██▏       | 220M/0.99G [00:05&lt;00:13, 63.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 23%|██▎       | 230M/0.99G [00:05&lt;00:13, 61.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 25%|██▍       | 250M/0.99G [00:05&lt;00:10, 76.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 26%|██▌       | 260M/0.99G [00:05&lt;00:14, 55.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 28%|██▊       | 280M/0.99G [00:06&lt;00:12, 60.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 30%|██▉       | 300M/0.99G [00:06&lt;00:11, 66.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 31%|███       | 310M/0.99G [00:06&lt;00:14, 49.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 32%|███▏      | 320M/0.99G [00:06&lt;00:13, 53.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 34%|███▎      | 340M/0.99G [00:07&lt;00:09, 70.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 36%|███▌      | 360M/0.99G [00:07&lt;00:14, 47.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 37%|███▋      | 380M/0.99G [00:07&lt;00:11, 60.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 38%|███▊      | 390M/0.99G [00:08&lt;00:10, 59.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 40%|████      | 410M/0.99G [00:08&lt;00:10, 61.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 41%|████▏     | 420M/0.99G [00:08&lt;00:09, 62.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 43%|████▎     | 440M/0.99G [00:08&lt;00:08, 69.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 44%|████▍     | 450M/0.99G [00:09&lt;00:09, 60.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 45%|████▌     | 460M/0.99G [00:09&lt;00:09, 59.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 46%|████▋     | 470M/0.99G [00:09&lt;00:10, 55.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 48%|████▊     | 490M/0.99G [00:09&lt;00:09, 56.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 49%|████▉     | 500M/0.99G [00:10&lt;00:09, 58.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 50%|█████     | 510M/0.99G [00:10&lt;00:10, 51.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 51%|█████▏    | 520M/0.99G [00:10&lt;00:09, 52.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 52%|█████▏    | 530M/0.99G [00:10&lt;00:11, 45.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 53%|█████▎    | 540M/0.99G [00:10&lt;00:09, 51.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 54%|█████▍    | 550M/0.99G [00:11&lt;00:11, 43.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 55%|█████▌    | 560M/0.99G [00:11&lt;00:12, 37.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 56%|█████▌    | 570M/0.99G [00:11&lt;00:12, 38.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 57%|█████▋    | 580M/0.99G [00:12&lt;00:11, 38.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 59%|█████▉    | 600M/0.99G [00:12&lt;00:08, 53.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 61%|██████    | 620M/0.99G [00:12&lt;00:06, 62.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 62%|██████▏   | 630M/0.99G [00:12&lt;00:06, 61.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 63%|██████▎   | 640M/0.99G [00:13&lt;00:06, 57.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 64%|██████▍   | 650M/0.99G [00:13&lt;00:06, 56.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 65%|██████▌   | 660M/0.99G [00:13&lt;00:05, 62.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 67%|██████▋   | 680M/0.99G [00:13&lt;00:04, 75.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 69%|██████▉   | 700M/0.99G [00:13&lt;00:04, 78.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 70%|███████   | 710M/0.99G [00:14&lt;00:04, 68.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 72%|███████▏  | 730M/0.99G [00:14&lt;00:05, 55.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 73%|███████▎  | 740M/0.99G [00:14&lt;00:04, 60.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 75%|███████▍  | 760M/0.99G [00:14&lt;00:03, 71.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 76%|███████▌  | 770M/0.99G [00:15&lt;00:03, 64.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 78%|███████▊  | 790M/0.99G [00:15&lt;00:03, 70.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 80%|███████▉  | 810M/0.99G [00:15&lt;00:02, 82.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 82%|████████▏ | 830M/0.99G [00:15&lt;00:02, 82.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 83%|████████▎ | 840M/0.99G [00:16&lt;00:02, 69.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 84%|████████▍ | 850M/0.99G [00:16&lt;00:02, 70.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 86%|████████▌ | 870M/0.99G [00:16&lt;00:02, 69.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 87%|████████▋ | 880M/0.99G [00:16&lt;00:01, 74.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 88%|████████▊ | 890M/0.99G [00:16&lt;00:02, 64.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 89%|████████▉ | 900M/0.99G [00:17&lt;00:02, 53.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 90%|████████▉ | 910M/0.99G [00:17&lt;00:01, 59.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 91%|█████████ | 920M/0.99G [00:17&lt;00:01, 51.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 92%|█████████▏| 930M/0.99G [00:17&lt;00:01, 60.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 93%|█████████▎| 940M/0.99G [00:17&lt;00:01, 49.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 94%|█████████▎| 950M/0.99G [00:18&lt;00:01, 47.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 95%|█████████▍| 960M/0.99G [00:18&lt;00:01, 44.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 96%|█████████▌| 970M/0.99G [00:18&lt;00:00, 49.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 97%|█████████▋| 980M/0.99G [00:18&lt;00:00, 50.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 99%|█████████▊| 0.98G/0.99G [00:19&lt;00:00, 62.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 100%|█████████▉| 0.99G/0.99G [00:19&lt;00:00, 66.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 100%|██████████| 0.99G/0.99G [00:19&lt;00:00, 55.2MB/s]
+
+Downloading StormCastCONUS-tq-low.mdlus: 0%|          | 0.00/0.99G [00:00&lt;?, ?B/s]
+Downloading StormCastCONUS-tq-low.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;01:57, 8.95MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;01:03, 16.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 3%|▎         | 30.0M/0.99G [00:01&lt;00:41, 25.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 4%|▍         | 40.0M/0.99G [00:01&lt;00:35, 29.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 5%|▍         | 50.0M/0.99G [00:02&lt;00:32, 31.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:28, 34.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 7%|▋         | 70.0M/0.99G [00:02&lt;00:28, 34.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 8%|▊         | 80.0M/0.99G [00:02&lt;00:25, 38.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 9%|▉         | 90.0M/0.99G [00:03&lt;00:22, 43.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 10%|▉         | 100M/0.99G [00:03&lt;00:19, 50.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 11%|█         | 110M/0.99G [00:03&lt;00:16, 55.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 12%|█▏        | 120M/0.99G [00:03&lt;00:15, 60.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 13%|█▎        | 130M/0.99G [00:03&lt;00:17, 52.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 14%|█▍        | 140M/0.99G [00:03&lt;00:15, 60.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 15%|█▍        | 150M/0.99G [00:04&lt;00:19, 45.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 16%|█▌        | 160M/0.99G [00:04&lt;00:18, 48.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 17%|█▋        | 170M/0.99G [00:04&lt;00:17, 51.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 18%|█▊        | 180M/0.99G [00:04&lt;00:16, 53.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 19%|█▊        | 190M/0.99G [00:05&lt;00:18, 45.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 20%|█▉        | 200M/0.99G [00:05&lt;00:21, 40.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 21%|██        | 210M/0.99G [00:05&lt;00:19, 42.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 22%|██▏       | 220M/0.99G [00:05&lt;00:21, 39.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 23%|██▎       | 230M/0.99G [00:06&lt;00:18, 45.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 24%|██▎       | 240M/0.99G [00:06&lt;00:15, 52.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 25%|██▍       | 250M/0.99G [00:06&lt;00:15, 51.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 26%|██▌       | 260M/0.99G [00:06&lt;00:19, 40.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 27%|██▋       | 270M/0.99G [00:06&lt;00:16, 48.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 28%|██▊       | 280M/0.99G [00:07&lt;00:16, 46.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 29%|██▊       | 290M/0.99G [00:07&lt;00:14, 52.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 30%|██▉       | 300M/0.99G [00:07&lt;00:12, 57.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 31%|███       | 310M/0.99G [00:07&lt;00:13, 53.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 32%|███▏      | 320M/0.99G [00:08&lt;00:16, 45.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 33%|███▎      | 330M/0.99G [00:08&lt;00:16, 44.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 34%|███▎      | 340M/0.99G [00:08&lt;00:17, 39.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 35%|███▍      | 350M/0.99G [00:08&lt;00:15, 44.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 36%|███▌      | 360M/0.99G [00:08&lt;00:14, 48.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 37%|███▋      | 370M/0.99G [00:09&lt;00:13, 51.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 37%|███▋      | 380M/0.99G [00:09&lt;00:12, 53.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 38%|███▊      | 390M/0.99G [00:09&lt;00:14, 44.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 39%|███▉      | 400M/0.99G [00:09&lt;00:13, 47.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 40%|████      | 410M/0.99G [00:09&lt;00:12, 51.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 41%|████▏     | 420M/0.99G [00:10&lt;00:11, 55.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 42%|████▏     | 430M/0.99G [00:10&lt;00:10, 56.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 43%|████▎     | 440M/0.99G [00:10&lt;00:10, 57.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 44%|████▍     | 450M/0.99G [00:10&lt;00:12, 48.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 45%|████▌     | 460M/0.99G [00:10&lt;00:10, 55.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 46%|████▋     | 470M/0.99G [00:11&lt;00:09, 57.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 47%|████▋     | 480M/0.99G [00:11&lt;00:09, 60.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 48%|████▊     | 490M/0.99G [00:11&lt;00:08, 66.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 49%|████▉     | 500M/0.99G [00:11&lt;00:07, 69.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 50%|█████     | 510M/0.99G [00:11&lt;00:08, 61.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 51%|█████▏    | 520M/0.99G [00:11&lt;00:10, 51.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 52%|█████▏    | 530M/0.99G [00:12&lt;00:09, 55.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 53%|█████▎    | 540M/0.99G [00:12&lt;00:08, 58.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 54%|█████▍    | 550M/0.99G [00:12&lt;00:08, 56.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 55%|█████▌    | 560M/0.99G [00:12&lt;00:08, 54.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 56%|█████▌    | 570M/0.99G [00:12&lt;00:09, 49.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 57%|█████▋    | 580M/0.99G [00:13&lt;00:11, 38.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 58%|█████▊    | 590M/0.99G [00:13&lt;00:10, 42.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 59%|█████▉    | 600M/0.99G [00:13&lt;00:08, 48.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 60%|██████    | 610M/0.99G [00:13&lt;00:07, 54.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 61%|██████    | 620M/0.99G [00:13&lt;00:06, 60.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 62%|██████▏   | 630M/0.99G [00:14&lt;00:06, 63.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 63%|██████▎   | 640M/0.99G [00:14&lt;00:07, 49.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 64%|██████▍   | 650M/0.99G [00:14&lt;00:07, 50.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 65%|██████▌   | 660M/0.99G [00:14&lt;00:06, 55.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 66%|██████▌   | 670M/0.99G [00:14&lt;00:06, 55.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 67%|██████▋   | 680M/0.99G [00:15&lt;00:06, 57.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 68%|██████▊   | 690M/0.99G [00:15&lt;00:05, 65.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 69%|██████▉   | 700M/0.99G [00:15&lt;00:04, 70.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 70%|███████   | 710M/0.99G [00:15&lt;00:05, 55.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 72%|███████▏  | 730M/0.99G [00:15&lt;00:04, 69.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 73%|███████▎  | 740M/0.99G [00:16&lt;00:04, 63.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 74%|███████▍  | 750M/0.99G [00:16&lt;00:03, 70.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 75%|███████▍  | 760M/0.99G [00:16&lt;00:03, 67.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 76%|███████▌  | 770M/0.99G [00:16&lt;00:05, 50.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 78%|███████▊  | 790M/0.99G [00:17&lt;00:04, 53.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 79%|███████▉  | 800M/0.99G [00:17&lt;00:03, 57.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 80%|███████▉  | 810M/0.99G [00:17&lt;00:03, 58.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 82%|████████▏ | 830M/0.99G [00:17&lt;00:03, 60.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 83%|████████▎ | 840M/0.99G [00:17&lt;00:03, 55.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 84%|████████▍ | 850M/0.99G [00:18&lt;00:03, 52.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 86%|████████▌ | 870M/0.99G [00:18&lt;00:02, 55.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 88%|████████▊ | 890M/0.99G [00:18&lt;00:01, 66.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 89%|████████▉ | 900M/0.99G [00:19&lt;00:02, 49.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 91%|█████████ | 920M/0.99G [00:19&lt;00:01, 53.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 92%|█████████▏| 930M/0.99G [00:19&lt;00:01, 58.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 93%|█████████▎| 940M/0.99G [00:19&lt;00:01, 48.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 94%|█████████▎| 950M/0.99G [00:20&lt;00:01, 46.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 95%|█████████▍| 960M/0.99G [00:20&lt;00:01, 43.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 96%|█████████▌| 970M/0.99G [00:20&lt;00:00, 48.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 97%|█████████▋| 980M/0.99G [00:20&lt;00:00, 42.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 98%|█████████▊| 990M/0.99G [00:21&lt;00:00, 47.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 99%|█████████▊| 0.98G/0.99G [00:21&lt;00:00, 49.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 100%|█████████▉| 0.99G/0.99G [00:21&lt;00:00, 51.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 100%|██████████| 0.99G/0.99G [00:21&lt;00:00, 49.4MB/s]
+
+Downloading StormCastCONUS-uv-low.mdlus: 0%|          | 0.00/0.99G [00:00&lt;?, ?B/s]
+Downloading StormCastCONUS-uv-low.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;01:56, 8.99MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;00:56, 18.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 3%|▎         | 30.0M/0.99G [00:01&lt;00:38, 26.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 4%|▍         | 40.0M/0.99G [00:01&lt;00:29, 34.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 5%|▍         | 50.0M/0.99G [00:01&lt;00:25, 39.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:21, 45.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 7%|▋         | 70.0M/0.99G [00:02&lt;00:24, 40.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 8%|▊         | 80.0M/0.99G [00:02&lt;00:20, 48.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 9%|▉         | 90.0M/0.99G [00:02&lt;00:21, 45.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 10%|▉         | 100M/0.99G [00:02&lt;00:22, 43.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 11%|█         | 110M/0.99G [00:03&lt;00:18, 51.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 12%|█▏        | 120M/0.99G [00:03&lt;00:17, 54.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 13%|█▎        | 130M/0.99G [00:03&lt;00:17, 54.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 15%|█▍        | 150M/0.99G [00:03&lt;00:13, 68.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 17%|█▋        | 170M/0.99G [00:03&lt;00:11, 79.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 19%|█▊        | 190M/0.99G [00:04&lt;00:09, 90.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 20%|█▉        | 200M/0.99G [00:04&lt;00:11, 75.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 21%|██        | 210M/0.99G [00:04&lt;00:11, 75.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 23%|██▎       | 230M/0.99G [00:04&lt;00:12, 67.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 25%|██▍       | 250M/0.99G [00:04&lt;00:10, 79.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 26%|██▌       | 260M/0.99G [00:05&lt;00:12, 63.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 27%|██▋       | 270M/0.99G [00:05&lt;00:12, 63.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 28%|██▊       | 280M/0.99G [00:05&lt;00:11, 64.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 29%|██▊       | 290M/0.99G [00:05&lt;00:11, 64.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 30%|██▉       | 300M/0.99G [00:05&lt;00:11, 66.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 31%|███       | 310M/0.99G [00:06&lt;00:11, 64.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 32%|███▏      | 320M/0.99G [00:06&lt;00:10, 68.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 34%|███▎      | 340M/0.99G [00:06&lt;00:08, 86.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 36%|███▌      | 360M/0.99G [00:07&lt;00:15, 44.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 37%|███▋      | 370M/0.99G [00:07&lt;00:17, 38.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 38%|███▊      | 390M/0.99G [00:07&lt;00:14, 46.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 39%|███▉      | 400M/0.99G [00:08&lt;00:12, 52.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 40%|████      | 410M/0.99G [00:08&lt;00:11, 56.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 41%|████▏     | 420M/0.99G [00:08&lt;00:10, 59.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 43%|████▎     | 440M/0.99G [00:08&lt;00:08, 68.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 44%|████▍     | 450M/0.99G [00:08&lt;00:10, 56.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 45%|████▌     | 460M/0.99G [00:08&lt;00:09, 62.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 47%|████▋     | 480M/0.99G [00:09&lt;00:07, 78.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 48%|████▊     | 490M/0.99G [00:09&lt;00:08, 67.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 50%|█████     | 510M/0.99G [00:09&lt;00:07, 74.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 51%|█████▏    | 520M/0.99G [00:09&lt;00:08, 58.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 52%|█████▏    | 530M/0.99G [00:10&lt;00:08, 58.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 53%|█████▎    | 540M/0.99G [00:10&lt;00:07, 63.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 55%|█████▌    | 560M/0.99G [00:10&lt;00:06, 73.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 56%|█████▌    | 570M/0.99G [00:10&lt;00:07, 58.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 57%|█████▋    | 580M/0.99G [00:11&lt;00:09, 48.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 59%|█████▉    | 600M/0.99G [00:11&lt;00:07, 59.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 61%|██████    | 620M/0.99G [00:11&lt;00:06, 66.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 62%|██████▏   | 630M/0.99G [00:11&lt;00:06, 62.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 63%|██████▎   | 640M/0.99G [00:12&lt;00:07, 54.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 64%|██████▍   | 650M/0.99G [00:12&lt;00:06, 60.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 65%|██████▌   | 660M/0.99G [00:12&lt;00:05, 65.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 66%|██████▌   | 670M/0.99G [00:12&lt;00:05, 70.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 67%|██████▋   | 680M/0.99G [00:12&lt;00:05, 66.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 68%|██████▊   | 690M/0.99G [00:12&lt;00:04, 69.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 69%|██████▉   | 700M/0.99G [00:13&lt;00:06, 49.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 70%|███████   | 710M/0.99G [00:13&lt;00:06, 46.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 71%|███████   | 720M/0.99G [00:13&lt;00:05, 52.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 72%|███████▏  | 730M/0.99G [00:13&lt;00:05, 59.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 73%|███████▎  | 740M/0.99G [00:13&lt;00:05, 53.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 74%|███████▍  | 750M/0.99G [00:13&lt;00:04, 61.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 75%|███████▍  | 760M/0.99G [00:14&lt;00:03, 67.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 76%|███████▌  | 770M/0.99G [00:14&lt;00:04, 56.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 77%|███████▋  | 780M/0.99G [00:14&lt;00:04, 61.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 78%|███████▊  | 790M/0.99G [00:14&lt;00:04, 53.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 79%|███████▉  | 800M/0.99G [00:14&lt;00:03, 58.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 80%|███████▉  | 810M/0.99G [00:15&lt;00:03, 54.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 81%|████████  | 820M/0.99G [00:15&lt;00:03, 56.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 82%|████████▏ | 830M/0.99G [00:15&lt;00:03, 63.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 83%|████████▎ | 840M/0.99G [00:15&lt;00:03, 52.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 84%|████████▍ | 850M/0.99G [00:15&lt;00:03, 51.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 85%|████████▍ | 860M/0.99G [00:16&lt;00:04, 38.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 87%|████████▋ | 880M/0.99G [00:16&lt;00:02, 57.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 88%|████████▊ | 890M/0.99G [00:16&lt;00:02, 56.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 89%|████████▉ | 900M/0.99G [00:16&lt;00:02, 48.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 91%|█████████ | 920M/0.99G [00:17&lt;00:01, 57.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 92%|█████████▏| 930M/0.99G [00:17&lt;00:01, 58.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 93%|█████████▎| 940M/0.99G [00:17&lt;00:01, 52.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 94%|█████████▎| 950M/0.99G [00:17&lt;00:01, 47.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 95%|█████████▍| 960M/0.99G [00:18&lt;00:01, 43.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 96%|█████████▌| 970M/0.99G [00:18&lt;00:00, 47.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 97%|█████████▋| 980M/0.99G [00:18&lt;00:00, 46.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 98%|█████████▊| 990M/0.99G [00:18&lt;00:00, 47.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 99%|█████████▊| 0.98G/0.99G [00:19&lt;00:00, 40.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 100%|█████████▉| 0.99G/0.99G [00:19&lt;00:00, 45.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 100%|██████████| 0.99G/0.99G [00:19&lt;00:00, 54.8MB/s]
+
+Downloading metadata.nc: 0%|          | 0.00/8.56M [00:00&lt;?, ?B/s]
+Downloading metadata.nc: 100%|██████████| 8.56M/8.56M [00:00&lt;00:00, 9.62MB/s]
+Downloading metadata.nc: 100%|██████████| 8.56M/8.56M [00:00&lt;00:00, 9.55MB/s]</code></pre></details>
+
+<h2 id="execute-the-workflow">Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Permanent link">&para;</a></h2>
+<p>With all components initialized, running the workflow is a single line of Python code.
+We save only <code>t2m</code> and <code>refc</code> to keep memory usage manageable; the full model
+state has 99 channels on the 1024 × 1792 CONUS grid.</p>
+<p>For the forecast we will predict 4 hours ahead.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">earth2studio.run</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">run</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">nsteps</span> <span class="o">=</span> <span class="mi">4</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">today</span><span class="p">()</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">date</span> <span class="o">=</span> <span class="n">today</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">deterministic</span><span class="p">(</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="p">[</span><span class="n">date</span><span class="p">],</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">nsteps</span><span class="p">,</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">model</span><span class="p">,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">data</span><span class="p">,</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">io</span><span class="p">,</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">output_coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;refc&quot;</span><span class="p">])},</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="p">)</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1410 lines</small></summary><pre><code>2026-08-14 04:08:41.370 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+2026-08-14 04:08:41.370 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.983 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 135201969-1045329
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.984 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 50932972-1115807
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.984 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 13790487-2218858
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.984 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 149413496-1018871
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.984 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 65082090-1072289
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.985 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 27649776-2219290
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.985 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 177731062-992290
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.985 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 79436418-1041309
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.986 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 41499644-2219523
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.987 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 205222336-953090
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.988 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 93811608-1018710
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.988 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 55407449-2219641
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.989 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 268164926-824746
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.989 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 108713886-1003840
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.990 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 69654110-2220923
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.991 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 322696785-687975
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.991 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 123488382-995018
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.992 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 83960001-2221241
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.993 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 375856900-626494
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.993 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 137792591-990914
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.994 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 98291978-2223603
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.994 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 7581875-1669099
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.995 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 151921970-983592
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.996 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 113117132-2202608
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.996 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 21447264-1622545
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.997 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 180156160-955840
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.998 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 127694019-2197414
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:42.998 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 35342427-1603437
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.001 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 207537566-920072
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.002 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 141927190-2165513
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.002 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 49332620-1600352
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.003 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 270654034-854726
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.004 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 169921760-2362030
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.005 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 63466631-1615459
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.005 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 324590664-840757
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.008 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 197696038-2287896
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.010 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 77822241-1614177
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.010 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 377914917-859452
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.011 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 261948682-2211211
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.013 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 92197996-1613612
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.014 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 10403486-1115930
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.015 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 0-467699
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.016 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 107086828-1627058
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.016 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 24237085-1136024
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.017 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 121874916-1613466
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.017 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 38099486-1124091
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.019 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 136247298-1545293
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.019 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 52048779-1103102
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.020 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 38146230-1259912
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.020 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 150432367-1489603
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.021 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 66154379-1084345
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.022 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 178723352-1432808
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.022 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 80477727-1073475
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.023 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 206175426-1362140
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.024 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 94830318-1066871
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.024 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 268989672-1664362
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.025 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 109717726-1061055
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.025 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 323384760-1205904
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.026 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 124483400-1049668
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.027 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 376483394-1431523
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.028 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 138783505-1038941
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.028 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 4131290-2282667
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.029 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 152905562-1023736
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.030 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 17942001-2365354
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:08:43.450 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 181112000-990494
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+Fetching HRRR data:   1%|          | 1/99 [00:00&lt;00:45,  2.14it/s]
+
+2026-08-14 04:08:43.560 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 31831939-2384242
+
+Fetching HRRR data:   1%|          | 1/99 [00:00&lt;00:45,  2.14it/s]
+Fetching HRRR data:   2%|▏         | 2/99 [00:00&lt;00:25,  3.84it/s]
+
+2026-08-14 04:08:43.567 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 208457638-951060
+
+Fetching HRRR data:   2%|▏         | 2/99 [00:00&lt;00:25,  3.84it/s]
+
+2026-08-14 04:08:43.726 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 45820143-2402358
+
+Fetching HRRR data:   2%|▏         | 2/99 [00:00&lt;00:25,  3.84it/s]
+Fetching HRRR data:   4%|▍         | 4/99 [00:00&lt;00:14,  6.77it/s]
+
+2026-08-14 04:08:43.777 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 271508760-866282
+
+Fetching HRRR data:   4%|▍         | 4/99 [00:00&lt;00:14,  6.77it/s]
+
+2026-08-14 04:08:43.919 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 59940970-2425842
+
+Fetching HRRR data:   4%|▍         | 4/99 [00:00&lt;00:14,  6.77it/s]
+
+2026-08-14 04:08:43.920 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 325431421-866942
+
+Fetching HRRR data:   4%|▍         | 4/99 [00:00&lt;00:14,  6.77it/s]
+Fetching HRRR data:   6%|▌         | 6/99 [00:00&lt;00:11,  7.85it/s]
+
+2026-08-14 04:08:43.938 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 74280246-2447782
+
+Fetching HRRR data:   6%|▌         | 6/99 [00:00&lt;00:11,  7.85it/s]
+
+2026-08-14 04:08:44.044 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 378774369-875773
+
+Fetching HRRR data:   6%|▌         | 6/99 [00:01&lt;00:11,  7.85it/s]
+Fetching HRRR data:   9%|▉         | 9/99 [00:01&lt;00:08, 10.75it/s]
+
+2026-08-14 04:08:44.115 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 88640525-2467039
+
+Fetching HRRR data:   9%|▉         | 9/99 [00:01&lt;00:08, 10.75it/s]
+
+2026-08-14 04:08:44.331 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 48302215-2381615
+
+Fetching HRRR data:   9%|▉         | 9/99 [00:01&lt;00:08, 10.75it/s]
+
+2026-08-14 04:08:44.333 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 6413957-1167918
+
+Fetching HRRR data:   9%|▉         | 9/99 [00:01&lt;00:08, 10.75it/s]
+Fetching HRRR data:  11%|█         | 11/99 [00:01&lt;00:11,  7.80it/s]
+
+2026-08-14 04:08:44.632 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 103521167-2480636
+
+Fetching HRRR data:  11%|█         | 11/99 [00:01&lt;00:11,  7.80it/s]
+
+2026-08-14 04:08:44.634 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 20307355-1139909
+
+Fetching HRRR data:  11%|█         | 11/99 [00:01&lt;00:11,  7.80it/s]
+
+2026-08-14 04:08:44.636 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 118309737-2494266
+
+Fetching HRRR data:  11%|█         | 11/99 [00:01&lt;00:11,  7.80it/s]
+
+2026-08-14 04:08:44.644 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 34216181-1126246
+
+Fetching HRRR data:  11%|█         | 11/99 [00:01&lt;00:11,  7.80it/s]
+Fetching HRRR data:  13%|█▎        | 13/99 [00:01&lt;00:13,  6.50it/s]
+
+2026-08-14 04:08:45.057 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 132699458-2502511
+
+Fetching HRRR data:  13%|█▎        | 13/99 [00:02&lt;00:13,  6.50it/s]
+
+2026-08-14 04:08:45.060 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 48222501-1110119
+
+Fetching HRRR data:  13%|█▎        | 13/99 [00:02&lt;00:13,  6.50it/s]
+
+2026-08-14 04:08:45.106 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 146912501-2500995
+
+Fetching HRRR data:  13%|█▎        | 13/99 [00:02&lt;00:13,  6.50it/s]
+
+2026-08-14 04:08:45.108 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 62366812-1099819
+
+Fetching HRRR data:  13%|█▎        | 13/99 [00:02&lt;00:13,  6.50it/s]
+Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+
+2026-08-14 04:08:45.944 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 45920600-2381615
+
+Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+
+2026-08-14 04:08:45.947 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 175247719-2483343
+
+Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+
+2026-08-14 04:08:45.976 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 76728028-1094213
+
+Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+
+2026-08-14 04:08:45.979 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 202774918-2447418
+
+Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+
+2026-08-14 04:08:45.980 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 0-2220705
+
+Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+
+2026-08-14 04:08:45.982 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 91107564-1090432
+
+Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+
+2026-08-14 04:08:45.984 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 26935195-632639
+
+Fetching HRRR data:  17%|█▋        | 17/99 [00:03&lt;00:12,  6.67it/s]
+Fetching HRRR data:  21%|██        | 21/99 [00:03&lt;00:12,  6.13it/s]
+
+2026-08-14 04:08:46.260 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 265962204-2202722
+
+Fetching HRRR data:  21%|██        | 21/99 [00:03&lt;00:12,  6.13it/s]
+
+2026-08-14 04:08:46.629 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 106001803-1085025
+
+Fetching HRRR data:  21%|██        | 21/99 [00:03&lt;00:12,  6.13it/s]
+
+2026-08-14 04:08:46.637 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 9250974-1152512
+
+Fetching HRRR data:  21%|██        | 21/99 [00:03&lt;00:12,  6.13it/s]
+
+2026-08-14 04:08:46.654 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 320817004-1879781
+
+Fetching HRRR data:  21%|██        | 21/99 [00:03&lt;00:12,  6.13it/s]
+
+2026-08-14 04:08:46.698 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 120804003-1070913
+
+Fetching HRRR data:  21%|██        | 21/99 [00:03&lt;00:12,  6.13it/s]
+Fetching HRRR data:  28%|██▊       | 28/99 [00:03&lt;00:08,  8.81it/s]
+
+2026-08-14 04:08:46.701 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 23069809-1167276
+
+Fetching HRRR data:  28%|██▊       | 28/99 [00:03&lt;00:08,  8.81it/s]
+
+2026-08-14 04:08:46.710 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 374339571-1517329
+
+Fetching HRRR data:  28%|██▊       | 28/99 [00:03&lt;00:08,  8.81it/s]
+
+2026-08-14 04:08:46.711 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 36945864-1153622
+
+Fetching HRRR data:  28%|██▊       | 28/99 [00:03&lt;00:08,  8.81it/s]
+Fetching HRRR data:  33%|███▎      | 33/99 [00:04&lt;00:07,  9.40it/s]
+Fetching HRRR data:  43%|████▎     | 43/99 [00:04&lt;00:05, 11.18it/s]
+Fetching HRRR data:  54%|█████▎    | 53/99 [00:05&lt;00:02, 15.53it/s]
+Fetching HRRR data:  81%|████████  | 80/99 [00:05&lt;00:00, 29.83it/s]
+Fetching HRRR data:  85%|████████▍ | 84/99 [00:05&lt;00:00, 25.29it/s]
+Fetching HRRR data:  88%|████████▊ | 87/99 [00:06&lt;00:00, 25.04it/s]
+Fetching HRRR data: 100%|██████████| 99/99 [00:06&lt;00:00, 16.35it/s]
+2026-08-14 04:08:49.516 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from HRRR
+2026-08-14 04:08:49.518 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
+
+
+Running inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.141 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 268999401-942222
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.142 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 401400217-1253275
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.143 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 440519174-1239252
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.144 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 214751794-614693
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.145 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 343702083-1277807
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.146 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 412119443-835750
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.147 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 410017707-1000587
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.148 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 264357714-1329937
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.149 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 0-877772
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.150 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 340625650-910571
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.151 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 210839722-1099225
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.152 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 404549017-973715
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.153 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 261560567-816574
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.154 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 347406513-961004
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.155 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 208050218-742944
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.156 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 426050835-949182
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.157 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 268064827-934574
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.158 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 399492597-870150
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.159 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 214149163-602631
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.160 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 341536221-857899
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.161 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 420451013-511409
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.162 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 405522732-961741
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.163 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 262377141-735970
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.164 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 425074612-976223
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.165 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 348367517-969817
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:08:50.166 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 208793162-752522
+
+
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:12,  1.98it/s]
+Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:06,  3.55it/s]
+Fetching GFS data:  15%|█▌        | 4/26 [00:00&lt;00:04,  5.29it/s]
+Fetching GFS data:  23%|██▎       | 6/26 [00:01&lt;00:02,  6.81it/s]
+Fetching GFS data:  35%|███▍      | 9/26 [00:01&lt;00:01, 10.57it/s]
+Fetching GFS data:  54%|█████▍    | 14/26 [00:01&lt;00:00, 16.11it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 18.01it/s]
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.209 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 214480515-602275
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.210 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 341049501-910349
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.211 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 424314884-972083
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.212 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 405042931-957316
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.213 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 400923181-1252301
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.214 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 348781440-968731
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.215 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 211175597-1098574
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.216 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 419698980-511008
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.217 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 269553783-937457
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.219 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 344129572-1278539
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.220 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 440031495-1238557
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.221 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 208393098-738936
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.222 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 264914388-1330185
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.224 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 411364581-836114
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.224 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 262937999-736167
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.226 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 209132034-752325
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.227 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 0-877229
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.228 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 215082790-614587
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.229 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 409260842-999880
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.230 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 404070238-972693
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.231 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 341959850-858533
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.232 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 399013098-869970
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.233 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 347825954-955486
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.235 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 262121659-816340
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.236 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 268619738-934045
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:11.237 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 425286967-948947
+
+
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:09,  2.55it/s]
+Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:07,  3.00it/s]
+Fetching GFS data:  12%|█▏        | 3/26 [00:00&lt;00:05,  4.24it/s]
+Fetching GFS data:  23%|██▎       | 6/26 [00:01&lt;00:04,  4.86it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 17.87it/s]
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.280 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 440443597-1238207
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.281 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 214656096-601941
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.282 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 411663348-836083
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.283 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 344635592-1281826
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.284 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 262707708-816252
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.285 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 0-876544
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.286 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 342460066-858939
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.287 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 404365754-972026
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.288 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 208452433-738112
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.289 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 349288916-971576
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.290 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 211231818-1098463
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.291 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 399304929-869725
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.292 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 409556510-999840
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.294 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 341549857-910209
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.295 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 265504141-1330785
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.296 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 424614630-971443
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.297 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 348333517-955399
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.298 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 401217162-1253105
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.299 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 269208389-933892
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.300 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 215258037-614436
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.301 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 270142281-941047
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.302 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 425586073-952442
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.303 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 209190545-752298
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.304 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 405337780-960841
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.306 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 419999216-511842
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:32.307 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 263523960-735627
+
+
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:09,  2.61it/s]
+Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:06,  3.76it/s]
+Fetching GFS data:  12%|█▏        | 3/26 [00:00&lt;00:04,  5.02it/s]
+Fetching GFS data:  19%|█▉        | 5/26 [00:01&lt;00:03,  5.37it/s]
+Fetching GFS data:  65%|██████▌   | 17/26 [00:01&lt;00:00, 23.65it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 21.06it/s]
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.108 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 442400374-1238246
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.109 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 344047945-858660
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.111 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 407028455-960891
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.112 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 426299636-971034
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.112 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 216737358-614105
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.114 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 403035900-1124463
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.114 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 350878960-966814
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.115 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 209817710-737778
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.116 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 210555488-751608
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.117 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 0-876770
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.118 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 271771552-937313
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.119 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 264342875-814792
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.120 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 270837441-934111
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.121 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 216135874-601484
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.122 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 267134955-1330477
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.123 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 427270670-948325
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.124 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 421688150-510535
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.125 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 265157667-736434
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.126 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 346225903-1281586
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.127 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 349924395-954565
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.129 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 406056666-971789
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.130 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 343137943-910002
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.131 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 413354777-836340
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.132 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 411247373-1000138
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.133 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 401126203-868928
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+2026-08-14 04:09:53.134 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 212593009-1219077
+
+
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:11,  2.24it/s]
+Fetching GFS data:  12%|█▏        | 3/26 [00:00&lt;00:04,  5.31it/s]
+Fetching GFS data:  19%|█▉        | 5/26 [00:00&lt;00:02,  7.59it/s]
+Fetching GFS data:  31%|███       | 8/26 [00:01&lt;00:01,  9.60it/s]
+Fetching GFS data:  38%|███▊      | 10/26 [00:01&lt;00:01,  9.55it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 20.24it/s]
+
+
+Running inference: 100%|██████████| 5/5 [01:24&lt;00:00, 19.17s/it]
+Running inference: 100%|██████████| 5/5 [01:24&lt;00:00, 16.84s/it]
+2026-08-14 04:10:13.727 | SUCCESS  | earth2studio.run:deterministic:189 - 
+Inference complete
+/
+├── hrrr_x (1792,) float64
+├── hrrr_y (1024,) float64
+├── lead_time (5,) timedelta64[h]
+├── refc (1, 5, 1024, 1792) float32
+├── t2m (1, 5, 1024, 1792) float32
+└── time (1,) datetime64[ns]</code></pre></details>
+
+<h2 id="post-processing">Post Processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
+<p>The last step is to post-process and visualise the results. We use Cartopy with the
+HRRR Lambert Conformal projection to plot the CONUS domain. Both composite
+reflectivity and 2-m temperature are shown at the final lead time.</p>
+<p>Notice that the Zarr IO function has additional APIs to interact with the stored data.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">forecast</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">date</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">step</span> <span class="o">=</span> <span class="n">nsteps</span>  <span class="c1"># lead time in hours (1 h time step)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># HRRR Lambert Conformal projection</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">projection</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">LambertConformal</span><span class="p">(</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">central_longitude</span><span class="o">=</span><span class="mf">262.5</span><span class="p">,</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">central_latitude</span><span class="o">=</span><span class="mf">38.5</span><span class="p">,</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">standard_parallels</span><span class="o">=</span><span class="p">(</span><span class="mf">38.5</span><span class="p">,</span> <span class="mf">38.5</span><span class="p">),</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">globe</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">Globe</span><span class="p">(</span><span class="n">semimajor_axis</span><span class="o">=</span><span class="mi">6371229</span><span class="p">,</span> <span class="n">semiminor_axis</span><span class="o">=</span><span class="mi">6371229</span><span class="p">),</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="p">)</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="k">def</span><span class="w"> </span><span class="nf">plot_field</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">cmap</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Plot a 2-D field on the HRRR Lambert Conformal grid.&quot;&quot;&quot;</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>    <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>        <span class="n">model</span><span class="o">.</span><span class="n">lon</span><span class="p">,</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>        <span class="n">model</span><span class="o">.</span><span class="n">lat</span><span class="p">,</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>        <span class="n">data</span><span class="p">,</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>        <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>        <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>        <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>        <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>    <span class="p">)</span>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>    <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.04</span><span class="p">)</span>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>    <span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>    <span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">()</span>
+<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>    <span class="n">ax</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span>
+<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>        <span class="n">cartopy</span><span class="o">.</span><span class="n">feature</span><span class="o">.</span><span class="n">STATES</span><span class="o">.</span><span class="n">with_scale</span><span class="p">(</span><span class="s2">&quot;50m&quot;</span><span class="p">),</span>
+<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>        <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>        <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>        <span class="n">zorder</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>    <span class="p">)</span>
+<a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>
+<a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a>
+<a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a><span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a><span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+<a id="__codelineno-2-42" name="__codelineno-2-42" href="#__codelineno-2-42"></a>    <span class="n">nrows</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">projection</span><span class="p">},</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+<a id="__codelineno-2-43" name="__codelineno-2-43" href="#__codelineno-2-43"></a><span class="p">)</span>
+<a id="__codelineno-2-44" name="__codelineno-2-44" href="#__codelineno-2-44"></a>
+<a id="__codelineno-2-45" name="__codelineno-2-45" href="#__codelineno-2-45"></a><span class="c1"># Composite reflectivity — mask sub-zero values which are not physically meaningful</span>
+<a id="__codelineno-2-46" name="__codelineno-2-46" href="#__codelineno-2-46"></a><span class="n">refc</span> <span class="o">=</span> <span class="n">io</span><span class="p">[</span><span class="s2">&quot;refc&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">]</span>
+<a id="__codelineno-2-47" name="__codelineno-2-47" href="#__codelineno-2-47"></a><span class="n">plot_field</span><span class="p">(</span>
+<a id="__codelineno-2-48" name="__codelineno-2-48" href="#__codelineno-2-48"></a>    <span class="n">ax1</span><span class="p">,</span>
+<a id="__codelineno-2-49" name="__codelineno-2-49" href="#__codelineno-2-49"></a>    <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">refc</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">refc</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">),</span>
+<a id="__codelineno-2-50" name="__codelineno-2-50" href="#__codelineno-2-50"></a>    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2"> - Reflectivity (dBZ) - Lead time: </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">h&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-51" name="__codelineno-2-51" href="#__codelineno-2-51"></a>    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;gist_ncar&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-52" name="__codelineno-2-52" href="#__codelineno-2-52"></a>    <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-2-53" name="__codelineno-2-53" href="#__codelineno-2-53"></a>    <span class="n">vmax</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+<a id="__codelineno-2-54" name="__codelineno-2-54" href="#__codelineno-2-54"></a><span class="p">)</span>
+<a id="__codelineno-2-55" name="__codelineno-2-55" href="#__codelineno-2-55"></a>
+<a id="__codelineno-2-56" name="__codelineno-2-56" href="#__codelineno-2-56"></a><span class="c1"># 2-m temperature</span>
+<a id="__codelineno-2-57" name="__codelineno-2-57" href="#__codelineno-2-57"></a><span class="n">plot_field</span><span class="p">(</span>
+<a id="__codelineno-2-58" name="__codelineno-2-58" href="#__codelineno-2-58"></a>    <span class="n">ax2</span><span class="p">,</span>
+<a id="__codelineno-2-59" name="__codelineno-2-59" href="#__codelineno-2-59"></a>    <span class="n">io</span><span class="p">[</span><span class="s2">&quot;t2m&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">],</span>
+<a id="__codelineno-2-60" name="__codelineno-2-60" href="#__codelineno-2-60"></a>    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2"> - 2m Temperature (K) - Lead time: </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">h&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-61" name="__codelineno-2-61" href="#__codelineno-2-61"></a>    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;Spectral_r&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-62" name="__codelineno-2-62" href="#__codelineno-2-62"></a><span class="p">)</span>
+<a id="__codelineno-2-63" name="__codelineno-2-63" href="#__codelineno-2-63"></a>
+<a id="__codelineno-2-64" name="__codelineno-2-64" href="#__codelineno-2-64"></a><span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<a id="__codelineno-2-65" name="__codelineno-2-65" href="#__codelineno-2-65"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;outputs/04_</span><span class="si">{</span><span class="n">date</span><span class="si">}</span><span class="s2">_refc_t2m.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p><img alt="Output from Running StormCast-CONUS Inference" class="e2sg-output-image" loading="lazy" src="../../_assets/04_nowcasting-01_stormcast_example/001-cell-6.webp" /></p>
+<hr />
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/04_nowcasting-01_stormcast_example/01_stormcast_example.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/04_nowcasting-01_stormcast_example/01_stormcast_example.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 232.6s</span></div>
+
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>3m 53s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/NVIDIA/earth2studio" target="_blank" rel="noopener" title="Earth2Studio on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["announce.dismiss", "navigation.tabs", "navigation.tabs.sticky", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-landing.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-install-selector.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-catalog.js"></script>
+      
+        <script src="../../../assets/javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../../../assets/javascripts/mkdocs-badges-data.js"></script>
+      
+        <script src="../../../assets/javascripts/mkdocs-badges.js"></script>
+      
+    
+  </body>
+</html>

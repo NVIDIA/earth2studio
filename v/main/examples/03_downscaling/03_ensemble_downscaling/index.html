@@ -1,0 +1,3938 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source deep-learning framework for exploring, building and deploying AI weather and climate workflows.">
+      
+      
+      
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/examples/03_downscaling/03_ensemble_downscaling/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../_static/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Ensemble Forecasting with Downscaling - Earth2Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=NVIDIA+Sans:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"NVIDIA Sans";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/nvidia-material.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/earth2studio-gallery.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/mkdocs-badges.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#ensemble-forecasting-with-downscaling" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+        <aside class="md-banner">
+          <div class="md-banner__inner md-grid md-typeset">
+            
+              <button class="md-banner__button md-icon" aria-label="Don't show this again">
+                
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            
+            
+  <div class="e2s-announcement" role="status">
+  <span class="e2s-announcement__icon" aria-hidden="true">🚧</span>
+  <span>
+    <strong>Pardon the dust.</strong>
+    We are working to actively improve the Earth2Studio docs page. Apologies for any inconvenience.
+  </span>
+</div>
+
+          </div>
+          
+            <script>var el=document.querySelector("[data-md-component=announce]");if(el){var content=el.querySelector(".md-typeset");__md_hash(content.innerHTML)===__md_get("__announce")&&(el.hidden=!0)}</script>
+          
+        </aside>
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Earth2Studio" class="md-header__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Earth2Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Ensemble Forecasting with Downscaling
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../userguide/about/install/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../modules/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../blog/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Blog
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Recipes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Earth2Studio" class="md-nav__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    Earth2Studio
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/catalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Catalog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/components/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Components
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core Components
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/prognostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/data_assimilation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/datasources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/advanced/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Usage
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/checkpointing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/batch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Dimension
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/auto/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AutoModels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/lexicon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lexicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/notes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Knowledge Base
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/notes/surface_pressure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Surface Pressure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/developer/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/dependency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Style
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/support/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Support
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/support/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/support/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../modules/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_px/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_dx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_da/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_forecast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Forecast Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_dataframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DataFrame Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/utils_all/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../blog/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Blog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Posts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Posts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/2026/08/06/mkdocs-material-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MkDocs Material Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/archive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/categories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/categories/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Archive
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/archive/2026/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/category/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#creating-an-ensemble-downscaling-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating an Ensemble Downscaling Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#set-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set Up
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#post-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Post-processing
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="ensemble-forecasting-with-downscaling">Ensemble Forecasting with Downscaling<a class="headerlink" href="#ensemble-forecasting-with-downscaling" title="Permanent link">&para;</a></h1>
+<p>Custom ensembling workflow with generative downscaling using CorrDiff.</p>
+<p>This example demonstrates an ensemble forecasting pipeline that runs a
+prognostic model ensemble and applies CorrDiff generative downscaling to each
+step and member. While this example uses SFNO for the prognostic model, the
+pipeline is model-agnostic and can be reused with other prognostic models that
+follow the Earth2Studio interfaces.</p>
+<p>In this example you will learn:</p>
+<ul>
+<li>How to create an ensemble forecast pipeline with CorrDiff downscaling</li>
+<li>Saving output ensemble data to a Zarr store</li>
+<li>Post-process results</li>
+</ul>
+<h2 id="creating-an-ensemble-downscaling-workflow">Creating an Ensemble Downscaling Workflow<a class="headerlink" href="#creating-an-ensemble-downscaling-workflow" title="Permanent link">&para;</a></h2>
+<p>To create our own ensemble forecasting with downscaling workflow, we will use the
+built-in ensemble workflow <a href="../../../modules/generated/workflows/1/run_ensemble/#earth2studio.run.ensemble"><code>earth2studio.run.ensemble</code></a> as the reference to
+start with. For this to work we need to update how the output coordinates are
+calculated for the IO object, as well as add the CorrDiff model's forward call
+into the forecast loop.</p>
+<p>As in previous examples, we use dependency injection to define the signature of the
+pipeline method.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">ceil</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">fetch_data</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">IOBackend</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.dx</span><span class="w"> </span><span class="kn">import</span> <span class="n">CorrDiff</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.perturbation</span><span class="w"> </span><span class="kn">import</span> <span class="n">Perturbation</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_coords</span><span class="p">,</span> <span class="n">split_coords</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.time</span><span class="w"> </span><span class="kn">import</span> <span class="n">to_time_array</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="k">def</span><span class="w"> </span><span class="nf">corrdiff_on_hens_ensemble</span><span class="p">(</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">],</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    <span class="n">nsteps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="n">nensemble</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="n">nsamples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="n">prognostic</span><span class="p">:</span> <span class="n">PrognosticModel</span><span class="p">,</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="n">corrdiff</span><span class="p">:</span> <span class="n">CorrDiff</span><span class="p">,</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    <span class="n">data</span><span class="p">:</span> <span class="n">DataSource</span><span class="p">,</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    <span class="n">io</span><span class="p">:</span> <span class="n">IOBackend</span><span class="p">,</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    <span class="n">perturbation</span><span class="p">:</span> <span class="n">Perturbation</span><span class="p">,</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IOBackend</span><span class="p">:</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Ensemble CorrDiff pipeline</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a><span class="sd">    time : list[str] | list[datetime] | list[np.datetime64]</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="sd">        Forecast start times</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="sd">    nsteps : int</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="sd">        Number of forecast steps for prognostic model to take</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="sd">    nensemble : int</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a><span class="sd">        Number of forecast ensemble members</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a><span class="sd">    nsamples : int</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a><span class="sd">        Number of samples from CorrDiff model to generate</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a><span class="sd">    prognostic : PrognosticModel</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a><span class="sd">        Prognostic model</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a><span class="sd">    corrdiff : CorrDiff</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a><span class="sd">        CorrDiff model</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a><span class="sd">    data : DataSource</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a><span class="sd">        Data source</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a><span class="sd">    io : IOBackend</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a><span class="sd">        IO Backend</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a><span class="sd">    perturbation : Perturbation</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a><span class="sd">        Perturbation method</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a><span class="sd">    batch_size : int | None, optional</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a><span class="sd">        Ensemble batch size during forecasting. If None, uses nensemble; default None</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a>    <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a>    <span class="n">prognostic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a>    <span class="n">corrdiff</span> <span class="o">=</span> <span class="n">corrdiff</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a>    <span class="n">corrdiff</span><span class="o">.</span><span class="n">number_of_samples</span> <span class="o">=</span> <span class="n">nsamples</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>
+<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>    <span class="c1"># Fetch initial data for the ensemble</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>    <span class="n">prognostic_ic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>    <span class="n">time</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>    <span class="n">x0</span><span class="p">,</span> <span class="n">coords0</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>        <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>        <span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>        <span class="n">variable</span><span class="o">=</span><span class="n">prognostic_ic</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a>        <span class="n">lead_time</span><span class="o">=</span><span class="n">prognostic_ic</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75" href="#__codelineno-0-75"></a>        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76" href="#__codelineno-0-76"></a>        <span class="n">interp_to</span><span class="o">=</span><span class="n">prognostic_ic</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">prognostic</span><span class="p">,</span> <span class="s2">&quot;interp_method&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77" href="#__codelineno-0-77"></a>        <span class="n">interp_method</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">prognostic</span><span class="p">,</span> <span class="s2">&quot;interp_method&quot;</span><span class="p">,</span> <span class="s2">&quot;nearest&quot;</span><span class="p">),</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78" href="#__codelineno-0-78"></a>    <span class="p">)</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79" href="#__codelineno-0-79"></a>
+<a id="__codelineno-0-80" name="__codelineno-0-80" href="#__codelineno-0-80"></a>    <span class="c1"># Prepare CorrDiff output coordinates for IO backend</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81" href="#__codelineno-0-81"></a>    <span class="n">total_coords</span> <span class="o">=</span> <span class="n">corrdiff</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">corrdiff</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82" href="#__codelineno-0-82"></a>    <span class="k">if</span> <span class="s2">&quot;batch&quot;</span> <span class="ow">in</span> <span class="n">total_coords</span><span class="p">:</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83" href="#__codelineno-0-83"></a>        <span class="k">del</span> <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84" href="#__codelineno-0-84"></a>    <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85" href="#__codelineno-0-85"></a>    <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86" href="#__codelineno-0-86"></a>        <span class="p">[</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87" href="#__codelineno-0-87"></a>            <span class="n">prognostic</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">i</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88" href="#__codelineno-0-88"></a>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89" href="#__codelineno-0-89"></a>        <span class="p">]</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90" href="#__codelineno-0-90"></a>    <span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91" href="#__codelineno-0-91"></a>    <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;ensemble&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nensemble</span><span class="p">)</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92" href="#__codelineno-0-92"></a>    <span class="n">total_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93" href="#__codelineno-0-93"></a>    <span class="n">total_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94" href="#__codelineno-0-94"></a>    <span class="n">total_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;ensemble&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95" href="#__codelineno-0-95"></a>    <span class="n">variables_to_save</span> <span class="o">=</span> <span class="n">total_coords</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96" href="#__codelineno-0-96"></a>    <span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span><span class="n">total_coords</span><span class="p">,</span> <span class="n">variables_to_save</span><span class="p">)</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97" href="#__codelineno-0-97"></a>
+<a id="__codelineno-0-98" name="__codelineno-0-98" href="#__codelineno-0-98"></a>    <span class="c1"># Determine batch size and number of batches</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99" href="#__codelineno-0-99"></a>    <span class="n">batch_size</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">nensemble</span><span class="p">,</span> <span class="n">batch_size</span> <span class="ow">or</span> <span class="n">nensemble</span><span class="p">)</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100" href="#__codelineno-0-100"></a>    <span class="n">number_of_batches</span> <span class="o">=</span> <span class="n">ceil</span><span class="p">(</span><span class="n">nensemble</span> <span class="o">/</span> <span class="n">batch_size</span><span class="p">)</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101" href="#__codelineno-0-101"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102" href="#__codelineno-0-102"></a>        <span class="sa">f</span><span class="s2">&quot;Starting </span><span class="si">{</span><span class="n">nensemble</span><span class="si">}</span><span class="s2"> member ensemble inference with </span><span class="si">{</span><span class="n">number_of_batches</span><span class="si">}</span><span class="s2"> batches.&quot;</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103" href="#__codelineno-0-103"></a>    <span class="p">)</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104" href="#__codelineno-0-104"></a>
+<a id="__codelineno-0-105" name="__codelineno-0-105" href="#__codelineno-0-105"></a>    <span class="c1"># Main ensemble loop</span>
+<a id="__codelineno-0-106" name="__codelineno-0-106" href="#__codelineno-0-106"></a>    <span class="k">for</span> <span class="n">batch_id</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107" href="#__codelineno-0-107"></a>        <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nensemble</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">),</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108" href="#__codelineno-0-108"></a>        <span class="n">total</span><span class="o">=</span><span class="n">number_of_batches</span><span class="p">,</span>
+<a id="__codelineno-0-109" name="__codelineno-0-109" href="#__codelineno-0-109"></a>        <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Ensemble Batches&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110" href="#__codelineno-0-110"></a>    <span class="p">):</span>
+<a id="__codelineno-0-111" name="__codelineno-0-111" href="#__codelineno-0-111"></a>        <span class="n">mini_batch_size</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nensemble</span> <span class="o">-</span> <span class="n">batch_id</span><span class="p">)</span>
+<a id="__codelineno-0-112" name="__codelineno-0-112" href="#__codelineno-0-112"></a>        <span class="n">x</span> <span class="o">=</span> <span class="n">x0</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<a id="__codelineno-0-113" name="__codelineno-0-113" href="#__codelineno-0-113"></a>        <span class="c1"># Set up coordinates for this batch</span>
+<a id="__codelineno-0-114" name="__codelineno-0-114" href="#__codelineno-0-114"></a>        <span class="n">coords</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-115" name="__codelineno-0-115" href="#__codelineno-0-115"></a>            <span class="s2">&quot;ensemble&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">batch_id</span><span class="p">,</span> <span class="n">batch_id</span> <span class="o">+</span> <span class="n">mini_batch_size</span><span class="p">),</span>
+<a id="__codelineno-0-116" name="__codelineno-0-116" href="#__codelineno-0-116"></a>            <span class="o">**</span><span class="n">coords0</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+<a id="__codelineno-0-117" name="__codelineno-0-117" href="#__codelineno-0-117"></a>        <span class="p">}</span>
+<a id="__codelineno-0-118" name="__codelineno-0-118" href="#__codelineno-0-118"></a>        <span class="c1"># Repeat initial condition for each ensemble member in the batch</span>
+<a id="__codelineno-0-119" name="__codelineno-0-119" href="#__codelineno-0-119"></a>        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">mini_batch_size</span><span class="p">,</span> <span class="o">*</span><span class="p">([</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span><span class="p">))</span>
+<a id="__codelineno-0-120" name="__codelineno-0-120" href="#__codelineno-0-120"></a>        <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">prognostic_ic</span><span class="p">)</span>
+<a id="__codelineno-0-121" name="__codelineno-0-121" href="#__codelineno-0-121"></a>        <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">perturbation</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+<a id="__codelineno-0-122" name="__codelineno-0-122" href="#__codelineno-0-122"></a>        <span class="n">model</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+<a id="__codelineno-0-123" name="__codelineno-0-123" href="#__codelineno-0-123"></a>
+<a id="__codelineno-0-124" name="__codelineno-0-124" href="#__codelineno-0-124"></a>        <span class="k">with</span> <span class="n">tqdm</span><span class="p">(</span>
+<a id="__codelineno-0-125" name="__codelineno-0-125" href="#__codelineno-0-125"></a>            <span class="n">total</span><span class="o">=</span><span class="n">nsteps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-0-126" name="__codelineno-0-126" href="#__codelineno-0-126"></a>            <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Batch </span><span class="si">{</span><span class="n">batch_id</span><span class="si">}</span><span class="s2"> inference&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-127" name="__codelineno-0-127" href="#__codelineno-0-127"></a>            <span class="n">position</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-0-128" name="__codelineno-0-128" href="#__codelineno-0-128"></a>            <span class="n">leave</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-129" name="__codelineno-0-129" href="#__codelineno-0-129"></a>        <span class="p">)</span> <span class="k">as</span> <span class="n">pbar</span><span class="p">:</span>
+<a id="__codelineno-0-130" name="__codelineno-0-130" href="#__codelineno-0-130"></a>            <span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+<a id="__codelineno-0-131" name="__codelineno-0-131" href="#__codelineno-0-131"></a>                <span class="c1"># Map prognostic outputs to CorrDiff inputs if needed</span>
+<a id="__codelineno-0-132" name="__codelineno-0-132" href="#__codelineno-0-132"></a>                <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">corrdiff</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133" href="#__codelineno-0-133"></a>                <span class="c1"># CorrDiff workflow: generate and write CorrDiff outputs</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134" href="#__codelineno-0-134"></a>                <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">corrdiff</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+<a id="__codelineno-0-135" name="__codelineno-0-135" href="#__codelineno-0-135"></a>                <span class="n">io</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="o">*</span><span class="n">split_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">))</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136" href="#__codelineno-0-136"></a>                <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-137" name="__codelineno-0-137" href="#__codelineno-0-137"></a>                <span class="k">if</span> <span class="n">step</span> <span class="o">==</span> <span class="n">nsteps</span><span class="p">:</span>
+<a id="__codelineno-0-138" name="__codelineno-0-138" href="#__codelineno-0-138"></a>                    <span class="k">break</span>
+<a id="__codelineno-0-139" name="__codelineno-0-139" href="#__codelineno-0-139"></a>
+<a id="__codelineno-0-140" name="__codelineno-0-140" href="#__codelineno-0-140"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="s2">&quot;Inference complete&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-141" name="__codelineno-0-141" href="#__codelineno-0-141"></a>    <span class="k">return</span> <span class="n">io</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
+    PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
+    Python  3.10.19 (you have 3.13.13)
+  Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
+  Memory-efficient attention, SwiGLU, sparse and more won't be available.
+  Set XFORMERS_MORE_DETAILS=1 for more details
+CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature</code></pre></details>
+
+<h2 id="set-up">Set Up<a class="headerlink" href="#set-up" title="Permanent link">&para;</a></h2>
+<p>With the inference pipeline function defined, next let's create the required
+components as usual. We need the following:</p>
+<ul>
+<li>Prognostic Model: Use the built in SFNO model <a href="../../../modules/generated/models/px/SFNO/#earth2studio.models.px.SFNO"><code>earth2studio.models.px.SFNO</code></a>.</li>
+<li>CorrDiff Model: Use the built in CorrDiff Taiwan model <a href="../../../modules/generated/models/dx/CorrDiffTaiwan/#earth2studio.models.dx.CorrDiffTaiwan"><code>earth2studio.models.dx.CorrDiffTaiwan</code></a>.</li>
+<li>Datasource: Pull data from the GFS data api <a href="../../../modules/generated/data/analysis/data_GFS/#earth2studio.data.GFS"><code>earth2studio.data.GFS</code></a>.</li>
+<li>IO Backend: Let's save the outputs into a Zarr store <a href="../../../modules/generated/io/1/io_ZarrBackend/#earth2studio.io.ZarrBackend"><code>earth2studio.io.ZarrBackend</code></a>.</li>
+</ul>
+<p>For the prognostic checkpoint, we will use a HENS checkpoint conveniently stored
+on <a href="https://huggingface.co/datasets/maheshankur10/hens/tree/main/earth2mip_prod_registry">HuggingFace</a>.
+Refer to the previous examples for more information about loading these models.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">GFS</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrBackend</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">Package</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.dx</span><span class="w"> </span><span class="kn">import</span> <span class="n">CorrDiffTaiwan</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">SFNO</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.perturbation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">CorrelatedSphericalGaussian</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">HemisphericCentredBredVector</span><span class="p">,</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">)</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="c1"># Create data source</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">data</span> <span class="o">=</span> <span class="n">GFS</span><span class="p">()</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="c1"># Load prognostic model</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">hens_package</span> <span class="o">=</span> <span class="n">Package</span><span class="p">(</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="s2">&quot;hf://datasets/maheshankur10/hens/earth2mip_prod_registry/sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed103&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;hens_1&quot;</span><span class="p">),</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>        <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="p">},</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="p">)</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="n">model</span> <span class="o">=</span> <span class="n">SFNO</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">hens_package</span><span class="p">)</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="c1"># Set up perturbation method</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="n">noise_amplification</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="n">index_z500</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;z500&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="n">noise_amplification</span><span class="p">[</span><span class="n">index_z500</span><span class="p">]</span> <span class="o">=</span> <span class="mf">39.27</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="n">noise_amplification</span> <span class="o">=</span> <span class="n">noise_amplification</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="n">seed_perturbation</span> <span class="o">=</span> <span class="n">CorrelatedSphericalGaussian</span><span class="p">(</span><span class="n">noise_amplitude</span><span class="o">=</span><span class="n">noise_amplification</span><span class="p">)</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="n">perturbation</span> <span class="o">=</span> <span class="n">HemisphericCentredBredVector</span><span class="p">(</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>    <span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">seed_perturbation</span><span class="p">,</span> <span class="n">noise_amplitude</span><span class="o">=</span><span class="n">noise_amplification</span>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="p">)</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="c1"># Load the CorrDiffTaiwan model</span>
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="n">corrdiff</span> <span class="o">=</span> <span class="n">CorrDiffTaiwan</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">CorrDiffTaiwan</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">())</span>
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="c1"># Set up IO backend</span>
+<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">(</span>
+<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>    <span class="n">file_name</span><span class="o">=</span><span class="s2">&quot;outputs/18_ensemble_corrdiff.zarr&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>    <span class="n">chunks</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ensemble&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;sample&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>    <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;overwrite&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>698 lines</small></summary><pre><code>Downloading config.json: 0%|          | 0.00/22.4k [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 22.4k/22.4k [00:00&lt;00:00, 137kB/s]
+Downloading config.json: 100%|██████████| 22.4k/22.4k [00:00&lt;00:00, 134kB/s]
+
+Downloading global_means.npy: 0%|          | 0.00/720 [00:00&lt;?, ?B/s]
+Downloading global_means.npy: 100%|██████████| 720/720 [00:00&lt;00:00, 1.14kB/s]
+Downloading global_means.npy: 100%|██████████| 720/720 [00:00&lt;00:00, 1.13kB/s]
+
+Downloading global_stds.npy: 0%|          | 0.00/720 [00:00&lt;?, ?B/s]
+Downloading global_stds.npy: 100%|██████████| 720/720 [00:00&lt;00:00, 1.65kB/s]
+Downloading global_stds.npy: 100%|██████████| 720/720 [00:00&lt;00:00, 1.64kB/s]
+
+Downloading orography.nc: 0%|          | 0.00/2.50M [00:00&lt;?, ?B/s]
+Downloading orography.nc: 100%|██████████| 2.50M/2.50M [00:00&lt;00:00, 6.08MB/s]
+Downloading orography.nc: 100%|██████████| 2.50M/2.50M [00:00&lt;00:00, 5.98MB/s]
+
+Downloading land_mask.nc: 0%|          | 0.00/748k [00:00&lt;?, ?B/s]
+Downloading land_mask.nc: 100%|██████████| 748k/748k [00:00&lt;00:00, 2.12MB/s]
+Downloading land_mask.nc: 100%|██████████| 748k/748k [00:00&lt;00:00, 2.09MB/s]
+
+Downloading best_ckpt_mp0.tar: 0%|          | 0.00/8.31G [00:00&lt;?, ?B/s]
+Downloading best_ckpt_mp0.tar: 0%|          | 10.0M/8.31G [00:01&lt;18:21, 8.09MB/s]
+Downloading best_ckpt_mp0.tar: 0%|          | 20.0M/8.31G [00:01&lt;10:38, 13.9MB/s]
+Downloading best_ckpt_mp0.tar: 0%|          | 30.0M/8.31G [00:02&lt;08:12, 18.1MB/s]
+Downloading best_ckpt_mp0.tar: 0%|          | 40.0M/8.31G [00:02&lt;06:47, 21.8MB/s]
+Downloading best_ckpt_mp0.tar: 1%|          | 50.0M/8.31G [00:02&lt;06:04, 24.4MB/s]
+Downloading best_ckpt_mp0.tar: 1%|          | 60.0M/8.31G [00:02&lt;05:08, 28.7MB/s]
+Downloading best_ckpt_mp0.tar: 1%|          | 70.0M/8.31G [00:03&lt;05:49, 25.3MB/s]
+Downloading best_ckpt_mp0.tar: 1%|          | 80.0M/8.31G [00:03&lt;04:57, 29.7MB/s]
+Downloading best_ckpt_mp0.tar: 1%|          | 90.0M/8.31G [00:04&lt;04:55, 29.9MB/s]
+Downloading best_ckpt_mp0.tar: 1%|          | 100M/8.31G [00:04&lt;04:41, 31.3MB/s] 
+Downloading best_ckpt_mp0.tar: 1%|▏         | 110M/8.31G [00:04&lt;05:54, 24.8MB/s]
+Downloading best_ckpt_mp0.tar: 1%|▏         | 120M/8.31G [00:05&lt;07:07, 20.6MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 130M/8.31G [00:06&lt;07:19, 20.0MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 140M/8.31G [00:06&lt;07:58, 18.3MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 150M/8.31G [00:07&lt;06:45, 21.6MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 160M/8.31G [00:07&lt;06:22, 22.9MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 170M/8.31G [00:07&lt;05:48, 25.1MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 180M/8.31G [00:08&lt;05:33, 26.2MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 190M/8.31G [00:08&lt;04:47, 30.3MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 200M/8.31G [00:09&lt;06:05, 23.9MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 210M/8.31G [00:09&lt;06:57, 20.8MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 220M/8.31G [00:10&lt;06:26, 22.5MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 230M/8.31G [00:10&lt;05:54, 24.5MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 240M/8.31G [00:10&lt;06:02, 23.9MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 250M/8.31G [00:11&lt;05:57, 24.2MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 260M/8.31G [00:11&lt;05:58, 24.2MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 270M/8.31G [00:12&lt;05:17, 27.2MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 280M/8.31G [00:12&lt;05:17, 27.2MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 290M/8.31G [00:12&lt;05:10, 27.7MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▎         | 300M/8.31G [00:13&lt;05:01, 28.5MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▎         | 310M/8.31G [00:13&lt;05:00, 28.6MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 320M/8.31G [00:13&lt;04:49, 29.7MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 330M/8.31G [00:14&lt;04:35, 31.1MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 340M/8.31G [00:14&lt;04:56, 28.8MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 350M/8.31G [00:15&lt;05:18, 26.8MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 360M/8.31G [00:15&lt;04:59, 28.5MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 370M/8.31G [00:15&lt;04:45, 29.9MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 380M/8.31G [00:16&lt;04:36, 30.8MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▍         | 390M/8.31G [00:16&lt;04:50, 29.3MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▍         | 400M/8.31G [00:16&lt;04:56, 28.7MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▍         | 410M/8.31G [00:17&lt;04:41, 30.1MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▍         | 420M/8.31G [00:17&lt;04:31, 31.2MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▌         | 430M/8.31G [00:17&lt;04:29, 31.5MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▌         | 440M/8.31G [00:17&lt;04:01, 35.0MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▌         | 450M/8.31G [00:18&lt;04:48, 29.3MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▌         | 460M/8.31G [00:18&lt;04:15, 33.0MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▌         | 470M/8.31G [00:18&lt;03:50, 36.5MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▌         | 480M/8.31G [00:19&lt;03:28, 40.5MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▌         | 490M/8.31G [00:19&lt;03:39, 38.4MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▌         | 500M/8.31G [00:19&lt;03:05, 45.3MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▌         | 510M/8.31G [00:19&lt;03:06, 44.9MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▌         | 520M/8.31G [00:20&lt;03:51, 36.1MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▌         | 530M/8.31G [00:20&lt;03:33, 39.1MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▋         | 540M/8.31G [00:20&lt;03:39, 38.1MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▋         | 550M/8.31G [00:20&lt;03:35, 38.7MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 560M/8.31G [00:21&lt;03:17, 42.2MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 570M/8.31G [00:21&lt;03:28, 39.9MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 580M/8.31G [00:22&lt;04:54, 28.2MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 590M/8.31G [00:22&lt;04:35, 30.1MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 600M/8.31G [00:22&lt;04:43, 29.3MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 610M/8.31G [00:22&lt;04:13, 32.7MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 620M/8.31G [00:23&lt;03:58, 34.6MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 630M/8.31G [00:23&lt;04:04, 33.8MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 640M/8.31G [00:23&lt;04:28, 30.7MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 650M/8.31G [00:24&lt;04:21, 31.6MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 660M/8.31G [00:24&lt;03:55, 35.0MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 670M/8.31G [00:24&lt;04:07, 33.2MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 680M/8.31G [00:25&lt;03:42, 36.9MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 690M/8.31G [00:25&lt;03:32, 38.6MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 700M/8.31G [00:25&lt;03:41, 37.0MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 710M/8.31G [00:26&lt;04:48, 28.4MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 720M/8.31G [00:26&lt;04:11, 32.5MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▊         | 730M/8.31G [00:26&lt;04:27, 30.4MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▊         | 740M/8.31G [00:27&lt;04:26, 30.6MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 750M/8.31G [00:27&lt;05:42, 23.8MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 760M/8.31G [00:28&lt;05:01, 27.0MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 770M/8.31G [00:28&lt;05:59, 22.5MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 780M/8.31G [00:29&lt;05:23, 25.1MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 790M/8.31G [00:29&lt;05:02, 26.7MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 800M/8.31G [00:29&lt;04:57, 27.2MB/s]
+Downloading best_ckpt_mp0.tar: 10%|▉         | 820M/8.31G [00:30&lt;03:32, 37.9MB/s]
+Downloading best_ckpt_mp0.tar: 10%|▉         | 830M/8.31G [00:30&lt;03:24, 39.3MB/s]
+Downloading best_ckpt_mp0.tar: 10%|▉         | 840M/8.31G [00:30&lt;03:34, 37.5MB/s]
+Downloading best_ckpt_mp0.tar: 10%|▉         | 850M/8.31G [00:30&lt;03:38, 36.8MB/s]
+Downloading best_ckpt_mp0.tar: 10%|█         | 860M/8.31G [00:31&lt;03:33, 37.5MB/s]
+Downloading best_ckpt_mp0.tar: 10%|█         | 870M/8.31G [00:31&lt;03:36, 36.9MB/s]
+Downloading best_ckpt_mp0.tar: 10%|█         | 880M/8.31G [00:31&lt;03:30, 38.0MB/s]
+Downloading best_ckpt_mp0.tar: 10%|█         | 890M/8.31G [00:31&lt;03:34, 37.3MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█         | 900M/8.31G [00:32&lt;04:37, 28.8MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█         | 910M/8.31G [00:32&lt;04:20, 30.6MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█         | 920M/8.31G [00:33&lt;03:48, 34.8MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█         | 930M/8.31G [00:33&lt;03:41, 35.8MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█         | 940M/8.31G [00:33&lt;03:30, 37.8MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█         | 950M/8.31G [00:33&lt;03:39, 36.1MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█▏        | 960M/8.31G [00:34&lt;04:06, 32.1MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█▏        | 970M/8.31G [00:34&lt;04:04, 32.3MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 980M/8.31G [00:34&lt;03:30, 37.5MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 990M/8.31G [00:34&lt;02:56, 44.7MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 0.98G/8.31G [00:35&lt;03:06, 42.2MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 0.99G/8.31G [00:35&lt;02:55, 44.7MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 1.00G/8.31G [00:35&lt;02:40, 48.9MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 1.01G/8.31G [00:35&lt;03:26, 38.0MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 1.02G/8.31G [00:36&lt;03:08, 41.5MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 1.03G/8.31G [00:36&lt;03:06, 41.9MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 1.04G/8.31G [00:36&lt;03:04, 42.3MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 1.04G/8.31G [00:36&lt;02:39, 49.0MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 1.05G/8.31G [00:37&lt;02:42, 47.9MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 1.06G/8.31G [00:37&lt;03:33, 36.5MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 1.07G/8.31G [00:37&lt;03:26, 37.6MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 1.08G/8.31G [00:37&lt;03:14, 39.8MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 1.09G/8.31G [00:38&lt;02:57, 43.7MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 1.10G/8.31G [00:38&lt;02:45, 46.7MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 1.11G/8.31G [00:38&lt;02:38, 48.9MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▎        | 1.12G/8.31G [00:38&lt;02:34, 49.9MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▎        | 1.13G/8.31G [00:39&lt;03:07, 41.1MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 1.14G/8.31G [00:39&lt;02:49, 45.4MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 1.15G/8.31G [00:39&lt;02:39, 48.3MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 1.16G/8.31G [00:39&lt;02:24, 53.2MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 1.17G/8.31G [00:39&lt;02:03, 62.1MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 1.18G/8.31G [00:39&lt;02:13, 57.5MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 1.19G/8.31G [00:40&lt;03:14, 39.3MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 1.20G/8.31G [00:40&lt;03:26, 37.0MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▍        | 1.21G/8.31G [00:40&lt;02:59, 42.5MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▍        | 1.22G/8.31G [00:41&lt;03:05, 41.0MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▍        | 1.23G/8.31G [00:41&lt;02:59, 42.4MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▍        | 1.24G/8.31G [00:41&lt;03:01, 41.8MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▌        | 1.25G/8.31G [00:41&lt;03:21, 37.5MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▌        | 1.26G/8.31G [00:42&lt;03:39, 34.5MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▌        | 1.27G/8.31G [00:42&lt;03:39, 34.5MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▌        | 1.28G/8.31G [00:42&lt;03:15, 38.6MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.29G/8.31G [00:43&lt;03:05, 40.6MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.30G/8.31G [00:43&lt;03:09, 39.7MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.31G/8.31G [00:43&lt;02:57, 42.2MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.32G/8.31G [00:43&lt;03:20, 37.5MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.33G/8.31G [00:44&lt;03:11, 39.2MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.34G/8.31G [00:44&lt;02:54, 42.9MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.35G/8.31G [00:44&lt;02:53, 43.2MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▋        | 1.36G/8.31G [00:44&lt;02:54, 42.7MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▋        | 1.37G/8.31G [00:45&lt;02:39, 46.7MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.38G/8.31G [00:45&lt;03:04, 40.3MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.39G/8.31G [00:45&lt;03:00, 41.1MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.40G/8.31G [00:45&lt;03:05, 39.9MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.41G/8.31G [00:46&lt;03:03, 40.3MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.42G/8.31G [00:46&lt;02:56, 41.8MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.43G/8.31G [00:46&lt;03:32, 34.7MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.45G/8.31G [00:47&lt;02:41, 45.5MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.46G/8.31G [00:47&lt;03:15, 37.7MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.46G/8.31G [00:47&lt;02:53, 42.3MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.47G/8.31G [00:47&lt;02:35, 47.1MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.48G/8.31G [00:47&lt;02:24, 50.7MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.49G/8.31G [00:48&lt;02:33, 47.6MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.50G/8.31G [00:48&lt;02:54, 41.8MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.51G/8.31G [00:48&lt;02:34, 47.3MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.52G/8.31G [00:49&lt;02:49, 42.9MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.53G/8.31G [00:49&lt;03:27, 35.0MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▊        | 1.55G/8.31G [00:49&lt;02:21, 51.4MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.56G/8.31G [00:50&lt;02:52, 42.0MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.57G/8.31G [00:50&lt;02:46, 43.3MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.58G/8.31G [00:50&lt;02:49, 42.5MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.59G/8.31G [00:50&lt;02:31, 47.6MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.60G/8.31G [00:50&lt;02:46, 43.2MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.61G/8.31G [00:51&lt;02:43, 43.9MB/s]
+Downloading best_ckpt_mp0.tar: 20%|█▉        | 1.62G/8.31G [00:51&lt;02:46, 43.0MB/s]
+Downloading best_ckpt_mp0.tar: 20%|█▉        | 1.63G/8.31G [00:51&lt;03:36, 33.1MB/s]
+Downloading best_ckpt_mp0.tar: 20%|█▉        | 1.64G/8.31G [00:52&lt;03:21, 35.6MB/s]
+Downloading best_ckpt_mp0.tar: 20%|█▉        | 1.65G/8.31G [00:52&lt;03:54, 30.5MB/s]
+Downloading best_ckpt_mp0.tar: 20%|█▉        | 1.66G/8.31G [00:52&lt;03:40, 32.3MB/s]
+Downloading best_ckpt_mp0.tar: 20%|██        | 1.67G/8.31G [00:53&lt;03:28, 34.1MB/s]
+Downloading best_ckpt_mp0.tar: 20%|██        | 1.68G/8.31G [00:53&lt;03:29, 34.0MB/s]
+Downloading best_ckpt_mp0.tar: 20%|██        | 1.69G/8.31G [00:53&lt;03:44, 31.6MB/s]
+Downloading best_ckpt_mp0.tar: 20%|██        | 1.70G/8.31G [00:54&lt;03:19, 35.5MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.71G/8.31G [00:54&lt;03:00, 39.3MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.72G/8.31G [00:54&lt;03:02, 38.7MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.73G/8.31G [00:54&lt;03:05, 38.0MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.74G/8.31G [00:55&lt;02:41, 43.7MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.75G/8.31G [00:55&lt;02:49, 41.6MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.76G/8.31G [00:55&lt;03:36, 32.5MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██▏       | 1.77G/8.31G [00:56&lt;03:26, 34.0MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██▏       | 1.78G/8.31G [00:56&lt;03:08, 37.3MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.79G/8.31G [00:56&lt;02:54, 40.2MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.80G/8.31G [00:56&lt;02:51, 40.8MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.81G/8.31G [00:57&lt;02:58, 39.2MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.82G/8.31G [00:57&lt;03:13, 36.1MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.83G/8.31G [00:57&lt;03:31, 33.0MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.84G/8.31G [00:58&lt;03:18, 34.9MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.85G/8.31G [00:58&lt;03:50, 30.1MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.86G/8.31G [00:58&lt;04:05, 28.2MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.87G/8.31G [00:59&lt;03:52, 29.8MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.88G/8.31G [00:59&lt;05:05, 22.6MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.88G/8.31G [01:00&lt;04:05, 28.1MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.89G/8.31G [01:00&lt;04:02, 28.4MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.90G/8.31G [01:00&lt;04:17, 26.7MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.91G/8.31G [01:01&lt;03:43, 30.8MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.92G/8.31G [01:01&lt;03:38, 31.4MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.93G/8.31G [01:01&lt;03:34, 31.9MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.94G/8.31G [01:02&lt;05:03, 22.5MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▎       | 1.95G/8.31G [01:02&lt;04:54, 23.2MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▎       | 1.96G/8.31G [01:03&lt;03:56, 28.9MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▎       | 1.97G/8.31G [01:03&lt;03:31, 32.2MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▍       | 1.98G/8.31G [01:03&lt;03:37, 31.2MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▍       | 1.99G/8.31G [01:04&lt;03:29, 32.3MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▍       | 2.00G/8.31G [01:04&lt;04:41, 24.0MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▍       | 2.01G/8.31G [01:04&lt;03:41, 30.5MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▍       | 2.03G/8.31G [01:05&lt;02:43, 41.2MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▍       | 2.04G/8.31G [01:05&lt;02:45, 40.6MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▍       | 2.05G/8.31G [01:05&lt;02:45, 40.6MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▍       | 2.06G/8.31G [01:05&lt;02:40, 41.8MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▍       | 2.07G/8.31G [01:06&lt;03:01, 37.0MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▌       | 2.08G/8.31G [01:06&lt;02:39, 41.8MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▌       | 2.09G/8.31G [01:06&lt;02:36, 42.7MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▌       | 2.10G/8.31G [01:06&lt;02:32, 43.6MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▌       | 2.11G/8.31G [01:07&lt;02:21, 47.0MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 2.12G/8.31G [01:07&lt;02:19, 47.5MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 2.13G/8.31G [01:07&lt;03:03, 36.2MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 2.14G/8.31G [01:08&lt;03:01, 36.5MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 2.15G/8.31G [01:08&lt;03:08, 35.0MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 2.16G/8.31G [01:08&lt;02:57, 37.2MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 2.17G/8.31G [01:08&lt;02:55, 37.5MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 2.18G/8.31G [01:09&lt;03:14, 33.8MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▋       | 2.19G/8.31G [01:09&lt;04:03, 27.0MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▋       | 2.20G/8.31G [01:10&lt;04:44, 23.1MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 2.21G/8.31G [01:10&lt;04:15, 25.6MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 2.22G/8.31G [01:10&lt;03:40, 29.7MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 2.23G/8.31G [01:11&lt;03:23, 32.1MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 2.24G/8.31G [01:11&lt;03:09, 34.4MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 2.25G/8.31G [01:11&lt;03:00, 36.0MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 2.26G/8.31G [01:12&lt;03:39, 29.6MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 2.27G/8.31G [01:12&lt;03:11, 33.9MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 2.28G/8.31G [01:12&lt;03:03, 35.4MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 2.29G/8.31G [01:13&lt;03:12, 33.7MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 2.29G/8.31G [01:13&lt;02:59, 36.0MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 2.30G/8.31G [01:13&lt;02:51, 37.6MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 2.31G/8.31G [01:14&lt;03:33, 30.1MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 2.32G/8.31G [01:14&lt;03:08, 34.0MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 2.33G/8.31G [01:14&lt;03:21, 31.8MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 2.34G/8.31G [01:15&lt;03:31, 30.3MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 2.35G/8.31G [01:15&lt;03:37, 29.5MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 2.36G/8.31G [01:15&lt;03:43, 28.6MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▊       | 2.37G/8.31G [01:15&lt;03:11, 33.3MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▊       | 2.38G/8.31G [01:16&lt;03:57, 26.8MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 2.39G/8.31G [01:16&lt;03:37, 29.2MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 2.40G/8.31G [01:17&lt;03:54, 27.1MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 2.41G/8.31G [01:17&lt;03:03, 34.5MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 2.42G/8.31G [01:17&lt;03:01, 34.8MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 2.43G/8.31G [01:18&lt;03:14, 32.4MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 2.44G/8.31G [01:18&lt;03:42, 28.4MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 2.45G/8.31G [01:18&lt;03:18, 31.7MB/s]
+Downloading best_ckpt_mp0.tar: 30%|██▉       | 2.46G/8.31G [01:19&lt;02:55, 35.7MB/s]
+Downloading best_ckpt_mp0.tar: 30%|██▉       | 2.47G/8.31G [01:19&lt;02:44, 38.0MB/s]
+Downloading best_ckpt_mp0.tar: 30%|██▉       | 2.48G/8.31G [01:19&lt;02:24, 43.2MB/s]
+Downloading best_ckpt_mp0.tar: 30%|██▉       | 2.49G/8.31G [01:19&lt;02:27, 42.2MB/s]
+Downloading best_ckpt_mp0.tar: 30%|███       | 2.50G/8.31G [01:20&lt;02:54, 35.7MB/s]
+Downloading best_ckpt_mp0.tar: 30%|███       | 2.51G/8.31G [01:20&lt;02:42, 38.2MB/s]
+Downloading best_ckpt_mp0.tar: 30%|███       | 2.52G/8.31G [01:20&lt;02:42, 38.3MB/s]
+Downloading best_ckpt_mp0.tar: 30%|███       | 2.53G/8.31G [01:20&lt;02:30, 41.2MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███       | 2.54G/8.31G [01:21&lt;02:33, 40.5MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███       | 2.55G/8.31G [01:21&lt;02:32, 40.5MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███       | 2.56G/8.31G [01:21&lt;02:24, 42.8MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███       | 2.57G/8.31G [01:21&lt;02:58, 34.6MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███       | 2.58G/8.31G [01:22&lt;02:34, 39.7MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███       | 2.59G/8.31G [01:22&lt;02:12, 46.4MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███▏      | 2.60G/8.31G [01:22&lt;02:15, 45.4MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███▏      | 2.61G/8.31G [01:22&lt;02:13, 45.8MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███▏      | 2.62G/8.31G [01:22&lt;02:13, 45.8MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.63G/8.31G [01:23&lt;02:27, 41.3MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.64G/8.31G [01:23&lt;02:19, 43.7MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.65G/8.31G [01:23&lt;02:17, 44.1MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.66G/8.31G [01:23&lt;02:20, 43.2MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.67G/8.31G [01:24&lt;02:14, 45.2MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.68G/8.31G [01:24&lt;02:27, 40.9MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.69G/8.31G [01:25&lt;03:19, 30.2MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.70G/8.31G [01:25&lt;03:07, 32.1MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.71G/8.31G [01:25&lt;03:20, 30.1MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.71G/8.31G [01:26&lt;03:16, 30.6MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.72G/8.31G [01:26&lt;03:04, 32.4MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.73G/8.31G [01:26&lt;02:55, 34.2MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.74G/8.31G [01:26&lt;02:55, 34.0MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.75G/8.31G [01:27&lt;03:11, 31.2MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.76G/8.31G [01:27&lt;02:39, 37.4MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.77G/8.31G [01:27&lt;02:46, 35.8MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.78G/8.31G [01:28&lt;02:59, 33.1MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▎      | 2.79G/8.31G [01:28&lt;02:38, 37.4MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▎      | 2.80G/8.31G [01:28&lt;02:53, 34.1MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.81G/8.31G [01:29&lt;03:07, 31.4MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.82G/8.31G [01:29&lt;02:50, 34.6MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.83G/8.31G [01:29&lt;02:37, 37.4MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.84G/8.31G [01:29&lt;02:23, 40.9MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.85G/8.31G [01:29&lt;02:15, 43.3MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.86G/8.31G [01:30&lt;02:00, 48.5MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▍      | 2.87G/8.31G [01:30&lt;01:55, 50.7MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▍      | 2.88G/8.31G [01:30&lt;02:11, 44.4MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▍      | 2.89G/8.31G [01:30&lt;02:01, 47.8MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▍      | 2.90G/8.31G [01:30&lt;01:47, 53.8MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▌      | 2.91G/8.31G [01:31&lt;01:36, 60.3MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▌      | 2.93G/8.31G [01:31&lt;01:23, 69.6MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▌      | 2.94G/8.31G [01:31&lt;01:28, 65.4MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.96G/8.31G [01:31&lt;01:14, 77.5MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.98G/8.31G [01:31&lt;01:11, 80.1MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.99G/8.31G [01:32&lt;01:09, 82.2MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▌      | 3.00G/8.31G [01:32&lt;01:40, 56.7MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▌      | 3.01G/8.31G [01:32&lt;01:33, 61.2MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▋      | 3.02G/8.31G [01:32&lt;01:42, 55.4MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 3.04G/8.31G [01:33&lt;01:19, 71.1MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 3.05G/8.31G [01:33&lt;01:16, 73.9MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 3.06G/8.31G [01:33&lt;01:38, 57.3MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 3.07G/8.31G [01:33&lt;01:46, 52.8MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 3.09G/8.31G [01:34&lt;01:38, 57.2MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 3.10G/8.31G [01:34&lt;01:35, 58.5MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 3.12G/8.31G [01:34&lt;01:22, 67.5MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 3.12G/8.31G [01:34&lt;01:29, 62.2MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 3.13G/8.31G [01:34&lt;01:23, 66.2MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 3.14G/8.31G [01:34&lt;01:22, 67.4MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 3.16G/8.31G [01:35&lt;01:10, 78.6MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 3.17G/8.31G [01:35&lt;01:07, 81.9MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 3.18G/8.31G [01:35&lt;01:17, 71.1MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 3.19G/8.31G [01:35&lt;01:37, 56.3MB/s]
+Downloading best_ckpt_mp0.tar: 39%|███▊      | 3.21G/8.31G [01:35&lt;01:14, 73.6MB/s]
+Downloading best_ckpt_mp0.tar: 39%|███▉      | 3.23G/8.31G [01:36&lt;01:01, 88.1MB/s]
+Downloading best_ckpt_mp0.tar: 39%|███▉      | 3.25G/8.31G [01:36&lt;01:21, 66.2MB/s]
+Downloading best_ckpt_mp0.tar: 39%|███▉      | 3.27G/8.31G [01:36&lt;01:14, 72.8MB/s]
+Downloading best_ckpt_mp0.tar: 40%|███▉      | 3.29G/8.31G [01:37&lt;01:22, 65.4MB/s]
+Downloading best_ckpt_mp0.tar: 40%|███▉      | 3.30G/8.31G [01:37&lt;01:21, 65.6MB/s]
+Downloading best_ckpt_mp0.tar: 40%|███▉      | 3.31G/8.31G [01:37&lt;01:37, 55.1MB/s]
+Downloading best_ckpt_mp0.tar: 40%|████      | 3.33G/8.31G [01:37&lt;01:30, 59.1MB/s]
+Downloading best_ckpt_mp0.tar: 40%|████      | 3.35G/8.31G [01:38&lt;01:13, 72.1MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████      | 3.37G/8.31G [01:38&lt;01:03, 84.1MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████      | 3.38G/8.31G [01:38&lt;01:09, 76.2MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████      | 3.40G/8.31G [01:38&lt;01:04, 82.3MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████      | 3.41G/8.31G [01:38&lt;01:02, 83.7MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████      | 3.42G/8.31G [01:38&lt;01:00, 87.4MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████▏     | 3.44G/8.31G [01:39&lt;01:06, 78.7MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 3.46G/8.31G [01:39&lt;01:05, 79.6MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 3.48G/8.31G [01:39&lt;01:04, 80.8MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 3.49G/8.31G [01:39&lt;01:20, 64.4MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 3.51G/8.31G [01:40&lt;01:05, 78.5MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 3.53G/8.31G [01:40&lt;00:57, 89.7MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 3.54G/8.31G [01:40&lt;01:03, 81.0MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 3.55G/8.31G [01:40&lt;01:11, 71.2MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 3.56G/8.31G [01:41&lt;01:20, 62.9MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 3.58G/8.31G [01:41&lt;01:23, 60.5MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 3.60G/8.31G [01:41&lt;01:24, 59.6MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 3.61G/8.31G [01:41&lt;01:20, 62.4MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▎     | 3.62G/8.31G [01:42&lt;01:31, 55.1MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▎     | 3.63G/8.31G [01:42&lt;01:21, 61.4MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 3.64G/8.31G [01:42&lt;01:17, 64.3MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 3.65G/8.31G [01:42&lt;01:27, 57.2MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 3.66G/8.31G [01:42&lt;01:36, 51.7MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 3.67G/8.31G [01:43&lt;01:33, 53.5MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 3.68G/8.31G [01:43&lt;01:50, 44.9MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 3.69G/8.31G [01:43&lt;01:57, 42.0MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▍     | 3.70G/8.31G [01:43&lt;01:43, 47.8MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▍     | 3.71G/8.31G [01:44&lt;01:46, 46.5MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▍     | 3.72G/8.31G [01:44&lt;01:53, 43.4MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▍     | 3.73G/8.31G [01:44&lt;01:39, 49.3MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▌     | 3.75G/8.31G [01:45&lt;01:39, 49.2MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▌     | 3.76G/8.31G [01:45&lt;01:26, 56.6MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▌     | 3.77G/8.31G [01:45&lt;01:29, 54.4MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▌     | 3.79G/8.31G [01:45&lt;01:29, 54.1MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▌     | 3.81G/8.31G [01:45&lt;01:13, 65.8MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▌     | 3.82G/8.31G [01:46&lt;01:14, 64.5MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▌     | 3.84G/8.31G [01:46&lt;01:02, 77.2MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▋     | 3.85G/8.31G [01:46&lt;01:10, 67.9MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.87G/8.31G [01:46&lt;00:58, 81.9MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.88G/8.31G [01:46&lt;01:06, 71.9MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.90G/8.31G [01:47&lt;00:54, 86.3MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.92G/8.31G [01:47&lt;00:48, 97.3MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.93G/8.31G [01:47&lt;00:50, 93.2MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.94G/8.31G [01:47&lt;01:01, 76.5MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.95G/8.31G [01:47&lt;00:58, 79.4MB/s]
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.96G/8.31G [01:47&lt;00:49, 93.7MB/s]
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.98G/8.31G [01:48&lt;00:44, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 4.00G/8.31G [01:48&lt;00:53, 86.1MB/s]
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 4.02G/8.31G [01:48&lt;00:50, 91.1MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▊     | 4.03G/8.31G [01:48&lt;00:51, 89.6MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▉     | 4.05G/8.31G [01:48&lt;00:48, 93.5MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▉     | 4.06G/8.31G [01:49&lt;00:59, 76.2MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▉     | 4.08G/8.31G [01:49&lt;00:52, 86.6MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▉     | 4.10G/8.31G [01:49&lt;00:49, 90.5MB/s]
+Downloading best_ckpt_mp0.tar: 50%|████▉     | 4.12G/8.31G [01:49&lt;00:47, 95.3MB/s]
+Downloading best_ckpt_mp0.tar: 50%|████▉     | 4.13G/8.31G [01:49&lt;00:59, 75.0MB/s]
+Downloading best_ckpt_mp0.tar: 50%|████▉     | 4.14G/8.31G [01:50&lt;01:08, 65.3MB/s]
+Downloading best_ckpt_mp0.tar: 50%|█████     | 4.16G/8.31G [01:50&lt;01:11, 62.6MB/s]
+Downloading best_ckpt_mp0.tar: 50%|█████     | 4.18G/8.31G [01:50&lt;01:11, 61.9MB/s]
+Downloading best_ckpt_mp0.tar: 50%|█████     | 4.19G/8.31G [01:51&lt;01:12, 61.1MB/s]
+Downloading best_ckpt_mp0.tar: 51%|█████     | 4.21G/8.31G [01:51&lt;01:13, 59.7MB/s]
+Downloading best_ckpt_mp0.tar: 51%|█████     | 4.23G/8.31G [01:51&lt;00:59, 73.1MB/s]
+Downloading best_ckpt_mp0.tar: 51%|█████     | 4.25G/8.31G [01:51&lt;00:55, 79.2MB/s]
+Downloading best_ckpt_mp0.tar: 51%|█████▏    | 4.27G/8.31G [01:52&lt;00:51, 85.1MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 4.29G/8.31G [01:52&lt;00:57, 74.5MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 4.31G/8.31G [01:52&lt;01:04, 67.1MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 4.32G/8.31G [01:52&lt;01:06, 64.3MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 4.34G/8.31G [01:53&lt;00:55, 76.4MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 4.35G/8.31G [01:53&lt;01:08, 61.8MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 4.36G/8.31G [01:53&lt;01:02, 67.7MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 4.37G/8.31G [01:53&lt;01:16, 55.7MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 4.38G/8.31G [01:54&lt;01:23, 50.5MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 4.39G/8.31G [01:54&lt;01:05, 64.3MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 4.41G/8.31G [01:54&lt;01:00, 69.1MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 4.43G/8.31G [01:54&lt;00:59, 70.2MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 4.44G/8.31G [01:55&lt;01:05, 63.6MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▎    | 4.45G/8.31G [01:55&lt;01:18, 53.0MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▍    | 4.47G/8.31G [01:55&lt;01:16, 53.9MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▍    | 4.49G/8.31G [01:55&lt;01:00, 67.2MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▍    | 4.50G/8.31G [01:56&lt;01:08, 59.3MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▍    | 4.52G/8.31G [01:56&lt;01:00, 67.4MB/s]
+Downloading best_ckpt_mp0.tar: 55%|█████▍    | 4.54G/8.31G [01:56&lt;00:54, 73.9MB/s]
+Downloading best_ckpt_mp0.tar: 55%|█████▍    | 4.56G/8.31G [01:56&lt;00:49, 82.0MB/s]
+Downloading best_ckpt_mp0.tar: 55%|█████▌    | 4.58G/8.31G [01:57&lt;00:44, 90.5MB/s]
+Downloading best_ckpt_mp0.tar: 55%|█████▌    | 4.60G/8.31G [01:57&lt;00:39, 99.9MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▌    | 4.62G/8.31G [01:57&lt;00:37, 106MB/s] 
+Downloading best_ckpt_mp0.tar: 56%|█████▌    | 4.64G/8.31G [01:57&lt;00:46, 85.1MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▌    | 4.65G/8.31G [01:58&lt;00:53, 72.8MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▌    | 4.67G/8.31G [01:58&lt;00:46, 83.5MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▋    | 4.69G/8.31G [01:58&lt;00:48, 80.7MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 4.71G/8.31G [01:58&lt;00:49, 78.5MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 4.73G/8.31G [01:59&lt;00:49, 77.3MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 4.75G/8.31G [01:59&lt;00:44, 86.3MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 4.76G/8.31G [01:59&lt;00:46, 82.9MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 4.77G/8.31G [01:59&lt;01:01, 61.7MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 4.79G/8.31G [02:00&lt;01:00, 62.2MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 4.80G/8.31G [02:00&lt;00:50, 74.8MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 4.81G/8.31G [02:00&lt;00:49, 75.2MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 4.82G/8.31G [02:00&lt;01:01, 60.6MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 4.84G/8.31G [02:00&lt;00:49, 74.5MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▊    | 4.86G/8.31G [02:00&lt;00:43, 84.5MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▉    | 4.88G/8.31G [02:01&lt;00:40, 91.9MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▉    | 4.90G/8.31G [02:01&lt;00:37, 97.3MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▉    | 4.92G/8.31G [02:01&lt;00:35, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 59%|█████▉    | 4.94G/8.31G [02:01&lt;00:34, 105MB/s]
+Downloading best_ckpt_mp0.tar: 60%|█████▉    | 4.96G/8.31G [02:02&lt;00:39, 91.6MB/s]
+Downloading best_ckpt_mp0.tar: 60%|█████▉    | 4.97G/8.31G [02:02&lt;00:39, 91.9MB/s]
+Downloading best_ckpt_mp0.tar: 60%|██████    | 4.99G/8.31G [02:02&lt;00:35, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 60%|██████    | 5.01G/8.31G [02:02&lt;00:43, 80.8MB/s]
+Downloading best_ckpt_mp0.tar: 60%|██████    | 5.02G/8.31G [02:02&lt;00:41, 84.3MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 5.04G/8.31G [02:03&lt;00:44, 79.7MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 5.05G/8.31G [02:03&lt;00:41, 83.6MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 5.06G/8.31G [02:03&lt;00:43, 80.9MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 5.07G/8.31G [02:03&lt;00:52, 66.8MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 5.08G/8.31G [02:03&lt;01:06, 52.4MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████▏   | 5.10G/8.31G [02:04&lt;01:00, 56.8MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 5.12G/8.31G [02:04&lt;00:49, 69.0MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 5.13G/8.31G [02:04&lt;00:55, 61.1MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 5.15G/8.31G [02:04&lt;00:44, 76.8MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 5.16G/8.31G [02:04&lt;00:41, 81.0MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 5.18G/8.31G [02:05&lt;00:40, 83.7MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 5.19G/8.31G [02:05&lt;00:46, 71.8MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 5.21G/8.31G [02:05&lt;00:39, 84.5MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 5.22G/8.31G [02:05&lt;00:34, 95.5MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 5.24G/8.31G [02:05&lt;00:35, 92.1MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 5.25G/8.31G [02:06&lt;00:42, 76.4MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 5.27G/8.31G [02:06&lt;00:37, 86.2MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▎   | 5.28G/8.31G [02:06&lt;00:39, 82.1MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 5.30G/8.31G [02:06&lt;00:33, 94.9MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 5.31G/8.31G [02:07&lt;00:58, 55.2MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 5.33G/8.31G [02:07&lt;00:48, 65.7MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 5.35G/8.31G [02:07&lt;00:43, 72.4MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▍   | 5.36G/8.31G [02:07&lt;00:41, 76.3MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▍   | 5.37G/8.31G [02:07&lt;00:45, 70.0MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▍   | 5.39G/8.31G [02:08&lt;00:45, 69.0MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▍   | 5.40G/8.31G [02:08&lt;00:42, 74.3MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▌   | 5.41G/8.31G [02:08&lt;00:40, 76.3MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▌   | 5.43G/8.31G [02:08&lt;00:36, 84.7MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▌   | 5.44G/8.31G [02:08&lt;00:41, 74.7MB/s]
+Downloading best_ckpt_mp0.tar: 66%|██████▌   | 5.46G/8.31G [02:09&lt;00:47, 65.0MB/s]
+Downloading best_ckpt_mp0.tar: 66%|██████▌   | 5.47G/8.31G [02:09&lt;01:18, 38.8MB/s]
+Downloading best_ckpt_mp0.tar: 66%|██████▌   | 5.48G/8.31G [02:10&lt;01:23, 36.5MB/s]
+Downloading best_ckpt_mp0.tar: 66%|██████▌   | 5.49G/8.31G [02:10&lt;01:12, 41.8MB/s]
+Downloading best_ckpt_mp0.tar: 66%|██████▌   | 5.50G/8.31G [02:10&lt;01:03, 47.4MB/s]
+Downloading best_ckpt_mp0.tar: 66%|██████▋   | 5.52G/8.31G [02:10&lt;01:01, 48.6MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 5.54G/8.31G [02:11&lt;00:46, 64.2MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 5.56G/8.31G [02:11&lt;00:37, 79.3MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 5.57G/8.31G [02:11&lt;00:36, 80.0MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 5.58G/8.31G [02:11&lt;00:34, 84.2MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 5.60G/8.31G [02:11&lt;00:30, 96.4MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 5.62G/8.31G [02:11&lt;00:27, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 5.63G/8.31G [02:12&lt;00:29, 98.7MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 5.64G/8.31G [02:12&lt;00:36, 78.8MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 5.66G/8.31G [02:12&lt;00:35, 79.3MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 5.68G/8.31G [02:13&lt;00:43, 64.4MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▊   | 5.70G/8.31G [02:13&lt;00:40, 69.1MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▉   | 5.72G/8.31G [02:13&lt;00:36, 76.4MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▉   | 5.74G/8.31G [02:13&lt;00:32, 83.6MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▉   | 5.75G/8.31G [02:14&lt;00:41, 66.0MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▉   | 5.77G/8.31G [02:14&lt;00:48, 56.3MB/s]
+Downloading best_ckpt_mp0.tar: 70%|██████▉   | 5.78G/8.31G [02:14&lt;00:50, 54.1MB/s]
+Downloading best_ckpt_mp0.tar: 70%|██████▉   | 5.80G/8.31G [02:14&lt;00:43, 62.4MB/s]
+Downloading best_ckpt_mp0.tar: 70%|██████▉   | 5.81G/8.31G [02:15&lt;00:48, 54.9MB/s]
+Downloading best_ckpt_mp0.tar: 70%|███████   | 5.83G/8.31G [02:15&lt;00:39, 67.5MB/s]
+Downloading best_ckpt_mp0.tar: 70%|███████   | 5.85G/8.31G [02:15&lt;00:32, 80.7MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████   | 5.87G/8.31G [02:15&lt;00:28, 92.3MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████   | 5.88G/8.31G [02:15&lt;00:34, 75.8MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████   | 5.89G/8.31G [02:16&lt;00:35, 72.7MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████   | 5.91G/8.31G [02:16&lt;00:31, 82.2MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████▏  | 5.93G/8.31G [02:16&lt;00:27, 93.8MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████▏  | 5.94G/8.31G [02:16&lt;00:28, 90.0MB/s]
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 5.96G/8.31G [02:16&lt;00:24, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 5.98G/8.31G [02:16&lt;00:23, 107MB/s]
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 6.00G/8.31G [02:17&lt;00:27, 91.9MB/s]
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 6.02G/8.31G [02:17&lt;00:26, 91.9MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 6.04G/8.31G [02:17&lt;00:26, 92.8MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 6.05G/8.31G [02:17&lt;00:25, 95.7MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 6.06G/8.31G [02:18&lt;00:34, 70.8MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 6.08G/8.31G [02:18&lt;00:30, 77.7MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 6.10G/8.31G [02:18&lt;00:27, 86.8MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▎  | 6.11G/8.31G [02:18&lt;00:28, 84.0MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▎  | 6.12G/8.31G [02:19&lt;00:32, 71.9MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▍  | 6.14G/8.31G [02:19&lt;00:27, 85.4MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▍  | 6.16G/8.31G [02:19&lt;00:27, 83.6MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▍  | 6.18G/8.31G [02:19&lt;00:24, 94.4MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▍  | 6.19G/8.31G [02:19&lt;00:33, 67.4MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▍  | 6.21G/8.31G [02:20&lt;00:27, 82.0MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▍  | 6.22G/8.31G [02:20&lt;00:30, 74.7MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▌  | 6.24G/8.31G [02:20&lt;00:28, 78.6MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▌  | 6.25G/8.31G [02:20&lt;00:32, 69.0MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▌  | 6.27G/8.31G [02:21&lt;00:29, 74.9MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▌  | 6.29G/8.31G [02:21&lt;00:27, 78.3MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▌  | 6.30G/8.31G [02:21&lt;00:31, 69.3MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▌  | 6.31G/8.31G [02:21&lt;00:32, 65.9MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▌  | 6.32G/8.31G [02:21&lt;00:29, 72.2MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▌  | 6.33G/8.31G [02:21&lt;00:28, 75.0MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▋  | 6.35G/8.31G [02:22&lt;00:23, 89.2MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 6.37G/8.31G [02:22&lt;00:20, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 6.38G/8.31G [02:22&lt;00:20, 102MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 6.40G/8.31G [02:22&lt;00:19, 107MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 6.42G/8.31G [02:22&lt;00:20, 98.8MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 6.43G/8.31G [02:22&lt;00:20, 98.2MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 6.44G/8.31G [02:23&lt;00:24, 82.7MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 6.46G/8.31G [02:23&lt;00:23, 86.1MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 6.46G/8.31G [02:23&lt;00:22, 88.9MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 6.47G/8.31G [02:23&lt;00:31, 62.4MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 6.49G/8.31G [02:23&lt;00:24, 80.0MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 6.50G/8.31G [02:24&lt;00:27, 69.3MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▊  | 6.52G/8.31G [02:24&lt;00:24, 77.9MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▊  | 6.53G/8.31G [02:24&lt;00:25, 75.1MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▉  | 6.55G/8.31G [02:24&lt;00:25, 74.2MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▉  | 6.56G/8.31G [02:24&lt;00:27, 68.3MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▉  | 6.58G/8.31G [02:25&lt;00:25, 72.2MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▉  | 6.60G/8.31G [02:25&lt;00:22, 80.4MB/s]
+Downloading best_ckpt_mp0.tar: 80%|███████▉  | 6.61G/8.31G [02:25&lt;00:22, 80.6MB/s]
+Downloading best_ckpt_mp0.tar: 80%|███████▉  | 6.62G/8.31G [02:25&lt;00:23, 78.2MB/s]
+Downloading best_ckpt_mp0.tar: 80%|███████▉  | 6.64G/8.31G [02:25&lt;00:21, 81.9MB/s]
+Downloading best_ckpt_mp0.tar: 80%|████████  | 6.66G/8.31G [02:26&lt;00:19, 89.7MB/s]
+Downloading best_ckpt_mp0.tar: 80%|████████  | 6.67G/8.31G [02:26&lt;00:19, 91.1MB/s]
+Downloading best_ckpt_mp0.tar: 80%|████████  | 6.68G/8.31G [02:26&lt;00:24, 70.7MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████  | 6.69G/8.31G [02:26&lt;00:27, 63.5MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████  | 6.71G/8.31G [02:26&lt;00:25, 68.4MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████  | 6.72G/8.31G [02:27&lt;00:23, 73.7MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████  | 6.73G/8.31G [02:27&lt;00:21, 77.4MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████  | 6.74G/8.31G [02:27&lt;00:20, 80.7MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████  | 6.75G/8.31G [02:27&lt;00:21, 76.3MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████▏ | 6.77G/8.31G [02:27&lt;00:22, 75.0MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 6.79G/8.31G [02:27&lt;00:19, 83.0MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 6.81G/8.31G [02:28&lt;00:19, 83.7MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 6.82G/8.31G [02:28&lt;00:21, 74.8MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 6.83G/8.31G [02:28&lt;00:22, 71.3MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 6.85G/8.31G [02:28&lt;00:18, 86.0MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 6.87G/8.31G [02:29&lt;00:18, 82.3MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 6.88G/8.31G [02:29&lt;00:20, 75.0MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 6.89G/8.31G [02:29&lt;00:17, 87.2MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 6.91G/8.31G [02:29&lt;00:15, 95.5MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 6.92G/8.31G [02:29&lt;00:16, 90.8MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 6.93G/8.31G [02:29&lt;00:18, 78.4MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▎ | 6.95G/8.31G [02:30&lt;00:16, 87.7MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▍ | 6.97G/8.31G [02:30&lt;00:18, 79.2MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▍ | 6.99G/8.31G [02:30&lt;00:16, 84.6MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▍ | 7.00G/8.31G [02:30&lt;00:17, 80.0MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▍ | 7.02G/8.31G [02:30&lt;00:14, 92.9MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▍ | 7.03G/8.31G [02:31&lt;00:14, 91.9MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▍ | 7.05G/8.31G [02:31&lt;00:13, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 85%|████████▍ | 7.06G/8.31G [02:31&lt;00:14, 90.4MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▌ | 7.08G/8.31G [02:31&lt;00:14, 88.1MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▌ | 7.10G/8.31G [02:31&lt;00:14, 88.3MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▌ | 7.12G/8.31G [02:32&lt;00:15, 84.8MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▌ | 7.13G/8.31G [02:32&lt;00:16, 78.5MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▌ | 7.14G/8.31G [02:32&lt;00:15, 79.7MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▌ | 7.15G/8.31G [02:32&lt;00:16, 73.8MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▌ | 7.16G/8.31G [02:32&lt;00:18, 67.2MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▋ | 7.17G/8.31G [02:32&lt;00:17, 69.8MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▋ | 7.18G/8.31G [02:33&lt;00:16, 72.1MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 7.19G/8.31G [02:33&lt;00:27, 43.4MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 7.20G/8.31G [02:33&lt;00:27, 43.9MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 7.21G/8.31G [02:34&lt;00:27, 43.8MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 7.22G/8.31G [02:34&lt;00:25, 45.7MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 7.23G/8.31G [02:34&lt;00:24, 47.2MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 7.24G/8.31G [02:34&lt;00:23, 49.8MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 7.25G/8.31G [02:34&lt;00:25, 43.9MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 7.26G/8.31G [02:35&lt;00:22, 49.8MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 7.27G/8.31G [02:35&lt;00:21, 52.2MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 7.28G/8.31G [02:35&lt;00:22, 50.3MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 7.29G/8.31G [02:35&lt;00:20, 52.5MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 7.29G/8.31G [02:35&lt;00:20, 53.6MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 7.30G/8.31G [02:36&lt;00:21, 50.3MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 7.31G/8.31G [02:36&lt;00:25, 41.9MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 7.32G/8.31G [02:36&lt;00:26, 39.5MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 7.33G/8.31G [02:37&lt;00:26, 39.7MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 7.34G/8.31G [02:37&lt;00:27, 37.2MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 7.35G/8.31G [02:37&lt;00:26, 38.2MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▊ | 7.36G/8.31G [02:37&lt;00:23, 42.7MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▊ | 7.37G/8.31G [02:38&lt;00:25, 38.7MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 7.38G/8.31G [02:38&lt;00:22, 45.0MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 7.39G/8.31G [02:38&lt;00:20, 49.1MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 7.40G/8.31G [02:38&lt;00:21, 46.2MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 7.41G/8.31G [02:38&lt;00:19, 49.5MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 7.42G/8.31G [02:39&lt;00:19, 49.2MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 7.43G/8.31G [02:39&lt;00:17, 55.1MB/s]
+Downloading best_ckpt_mp0.tar: 90%|████████▉ | 7.44G/8.31G [02:39&lt;00:19, 48.9MB/s]
+Downloading best_ckpt_mp0.tar: 90%|████████▉ | 7.45G/8.31G [02:39&lt;00:18, 49.1MB/s]
+Downloading best_ckpt_mp0.tar: 90%|████████▉ | 7.46G/8.31G [02:39&lt;00:19, 45.6MB/s]
+Downloading best_ckpt_mp0.tar: 90%|████████▉ | 7.47G/8.31G [02:40&lt;00:19, 45.9MB/s]
+Downloading best_ckpt_mp0.tar: 90%|█████████ | 7.48G/8.31G [02:40&lt;00:19, 44.6MB/s]
+Downloading best_ckpt_mp0.tar: 90%|█████████ | 7.49G/8.31G [02:40&lt;00:20, 42.2MB/s]
+Downloading best_ckpt_mp0.tar: 90%|█████████ | 7.50G/8.31G [02:41&lt;00:24, 35.4MB/s]
+Downloading best_ckpt_mp0.tar: 90%|█████████ | 7.51G/8.31G [02:41&lt;00:21, 39.0MB/s]
+Downloading best_ckpt_mp0.tar: 90%|█████████ | 7.52G/8.31G [02:41&lt;00:18, 44.9MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 7.53G/8.31G [02:41&lt;00:16, 51.4MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 7.54G/8.31G [02:41&lt;00:19, 42.6MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 7.55G/8.31G [02:42&lt;00:17, 45.7MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 7.56G/8.31G [02:42&lt;00:21, 38.4MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 7.57G/8.31G [02:42&lt;00:18, 43.7MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 7.58G/8.31G [02:42&lt;00:15, 50.1MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████▏| 7.59G/8.31G [02:42&lt;00:13, 56.4MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████▏| 7.60G/8.31G [02:43&lt;00:13, 57.8MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 7.61G/8.31G [02:43&lt;00:12, 60.3MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 7.62G/8.31G [02:43&lt;00:11, 66.5MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 7.63G/8.31G [02:43&lt;00:13, 54.5MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 7.64G/8.31G [02:43&lt;00:12, 58.8MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 7.65G/8.31G [02:44&lt;00:12, 59.1MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 7.66G/8.31G [02:44&lt;00:10, 66.0MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 7.67G/8.31G [02:44&lt;00:10, 65.1MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 7.68G/8.31G [02:44&lt;00:11, 60.0MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 7.69G/8.31G [02:44&lt;00:12, 53.0MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 7.70G/8.31G [02:44&lt;00:10, 61.9MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 7.71G/8.31G [02:45&lt;00:10, 60.4MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 7.71G/8.31G [02:45&lt;00:10, 62.6MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 7.72G/8.31G [02:45&lt;00:11, 52.6MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 7.73G/8.31G [02:45&lt;00:11, 55.1MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 7.74G/8.31G [02:45&lt;00:09, 61.9MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 7.75G/8.31G [02:46&lt;00:11, 53.5MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 7.76G/8.31G [02:46&lt;00:09, 58.6MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▎| 7.77G/8.31G [02:46&lt;00:09, 59.2MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▎| 7.78G/8.31G [02:46&lt;00:10, 54.5MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 7.79G/8.31G [02:46&lt;00:10, 53.7MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 7.80G/8.31G [02:46&lt;00:10, 54.3MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 7.81G/8.31G [02:47&lt;00:11, 47.6MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 7.82G/8.31G [02:47&lt;00:09, 54.1MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 7.83G/8.31G [02:47&lt;00:09, 56.8MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 7.85G/8.31G [02:47&lt;00:07, 62.9MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▍| 7.86G/8.31G [02:47&lt;00:07, 67.7MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▍| 7.87G/8.31G [02:48&lt;00:08, 58.2MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▍| 7.89G/8.31G [02:48&lt;00:06, 71.8MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▌| 7.91G/8.31G [02:48&lt;00:05, 76.1MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▌| 7.93G/8.31G [02:48&lt;00:04, 81.9MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▌| 7.94G/8.31G [02:49&lt;00:05, 70.3MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▌| 7.96G/8.31G [02:49&lt;00:04, 80.3MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▌| 7.97G/8.31G [02:49&lt;00:04, 73.5MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▌| 7.99G/8.31G [02:49&lt;00:04, 77.7MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▋| 8.00G/8.31G [02:49&lt;00:05, 65.8MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▋| 8.02G/8.31G [02:50&lt;00:04, 76.2MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 8.04G/8.31G [02:50&lt;00:03, 76.9MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 8.06G/8.31G [02:50&lt;00:03, 85.3MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 8.07G/8.31G [02:50&lt;00:03, 76.3MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 8.08G/8.31G [02:51&lt;00:03, 62.8MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 8.10G/8.31G [02:51&lt;00:03, 72.4MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 8.12G/8.31G [02:51&lt;00:02, 83.3MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 8.12G/8.31G [02:51&lt;00:02, 68.5MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 8.14G/8.31G [02:52&lt;00:02, 64.4MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 8.16G/8.31G [02:52&lt;00:02, 75.0MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 8.17G/8.31G [02:52&lt;00:02, 68.4MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 8.18G/8.31G [02:52&lt;00:02, 59.8MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▊| 8.20G/8.31G [02:52&lt;00:01, 71.5MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▉| 8.22G/8.31G [02:53&lt;00:01, 75.8MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▉| 8.24G/8.31G [02:53&lt;00:00, 89.2MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▉| 8.25G/8.31G [02:53&lt;00:00, 80.9MB/s]
+Downloading best_ckpt_mp0.tar: 100%|█████████▉| 8.27G/8.31G [02:53&lt;00:00, 94.5MB/s]
+Downloading best_ckpt_mp0.tar: 100%|█████████▉| 8.28G/8.31G [02:53&lt;00:00, 93.1MB/s]
+Downloading best_ckpt_mp0.tar: 100%|█████████▉| 8.30G/8.31G [02:53&lt;00:00, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 100%|██████████| 8.31G/8.31G [02:54&lt;00:00, 51.1MB/s]</code></pre></details>
+
+<h2 id="run">Run<a class="headerlink" href="#run" title="Permanent link">&para;</a></h2>
+<p>Execute the pipeline. For this example, we use the period of Typhoon Doksuri which
+has a track over the Taiwan region.
+<a href="https://en.wikipedia.org/wiki/Typhoon_Doksuri">en.wikipedia.org/wiki/Typhoon_Doksuri</a></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">start_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">corrdiff_on_hens_ensemble</span><span class="p">(</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">time</span><span class="o">=</span><span class="p">[</span><span class="n">start_date</span><span class="p">],</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">nsteps</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">nensemble</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">nsamples</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">prognostic</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">corrdiff</span><span class="o">=</span><span class="n">corrdiff</span><span class="p">,</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">io</span><span class="o">=</span><span class="n">io</span><span class="p">,</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">perturbation</span><span class="o">=</span><span class="n">perturbation</span><span class="p">,</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">batch_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>113 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/74 [00:00&lt;?, ?it/s]
+Fetching GFS data:   1%|▏         | 1/74 [00:00&lt;00:36,  2.00it/s]
+Fetching GFS data:   3%|▎         | 2/74 [00:00&lt;00:20,  3.57it/s]
+Fetching GFS data:   4%|▍         | 3/74 [00:00&lt;00:15,  4.49it/s]
+Fetching GFS data:   5%|▌         | 4/74 [00:00&lt;00:13,  5.01it/s]
+Fetching GFS data:   9%|▉         | 7/74 [00:01&lt;00:07,  8.76it/s]
+Fetching GFS data:  12%|█▏        | 9/74 [00:01&lt;00:06, 10.54it/s]
+Fetching GFS data:  15%|█▍        | 11/74 [00:01&lt;00:05, 10.50it/s]
+Fetching GFS data:  19%|█▉        | 14/74 [00:01&lt;00:04, 12.56it/s]
+Fetching GFS data:  26%|██▌       | 19/74 [00:02&lt;00:07,  7.13it/s]
+Fetching GFS data:  31%|███       | 23/74 [00:02&lt;00:05,  9.17it/s]
+Fetching GFS data:  53%|█████▎    | 39/74 [00:03&lt;00:01, 20.21it/s]
+Fetching GFS data:  88%|████████▊ | 65/74 [00:03&lt;00:00, 45.34it/s]
+Fetching GFS data: 100%|██████████| 74/74 [00:03&lt;00:00, 22.40it/s]
+2026-08-14 04:03:44.482 | INFO     | __main__:corrdiff_on_hens_ensemble:101 - Starting 2 member ensemble inference with 2 batches.
+
+Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+Fetching GFS data:   0%|          | 0/296 [00:00&lt;?, ?it/s]
+
+Fetching GFS data:   0%|          | 1/296 [00:00&lt;02:38,  1.86it/s]
+
+Fetching GFS data:   6%|▌         | 17/296 [00:00&lt;00:08, 33.77it/s]
+
+Fetching GFS data:   8%|▊         | 25/296 [00:00&lt;00:07, 36.76it/s]
+
+Fetching GFS data:  11%|█         | 32/296 [00:01&lt;00:11, 22.41it/s]
+
+Fetching GFS data:  12%|█▎        | 37/296 [00:01&lt;00:11, 23.21it/s]
+
+Fetching GFS data:  14%|█▍        | 42/296 [00:02&lt;00:16, 15.18it/s]
+
+Fetching GFS data:  17%|█▋        | 50/296 [00:02&lt;00:16, 14.82it/s]
+
+Fetching GFS data:  21%|██        | 61/296 [00:03&lt;00:11, 20.94it/s]
+
+Fetching GFS data:  25%|██▍       | 73/296 [00:03&lt;00:07, 28.05it/s]
+
+Fetching GFS data:  30%|███       | 90/296 [00:03&lt;00:05, 37.74it/s]
+
+Fetching GFS data:  32%|███▏      | 96/296 [00:03&lt;00:05, 36.48it/s]
+
+Fetching GFS data:  37%|███▋      | 109/296 [00:03&lt;00:04, 42.41it/s]
+
+Fetching GFS data:  39%|███▉      | 115/296 [00:04&lt;00:04, 40.90it/s]
+
+Fetching GFS data:  42%|████▏     | 123/296 [00:04&lt;00:04, 36.64it/s]
+
+Fetching GFS data:  44%|████▍     | 130/296 [00:04&lt;00:05, 32.77it/s]
+
+Fetching GFS data:  46%|████▌     | 135/296 [00:05&lt;00:06, 24.02it/s]
+
+Fetching GFS data:  49%|████▉     | 146/296 [00:05&lt;00:05, 25.73it/s]
+
+Fetching GFS data:  53%|█████▎    | 156/296 [00:05&lt;00:04, 29.44it/s]
+
+Fetching GFS data:  58%|█████▊    | 171/296 [00:06&lt;00:03, 33.69it/s]
+
+Fetching GFS data:  61%|██████    | 181/296 [00:06&lt;00:02, 39.66it/s]
+
+Fetching GFS data:  64%|██████▍   | 190/296 [00:06&lt;00:02, 38.26it/s]
+
+Fetching GFS data:  67%|██████▋   | 197/296 [00:06&lt;00:02, 34.69it/s]
+
+Fetching GFS data:  71%|███████   | 210/296 [00:07&lt;00:02, 35.56it/s]
+
+Fetching GFS data:  74%|███████▎  | 218/296 [00:07&lt;00:02, 34.00it/s]
+
+Fetching GFS data:  75%|███████▌  | 222/296 [00:07&lt;00:02, 28.92it/s]
+
+Fetching GFS data:  79%|███████▉  | 235/296 [00:07&lt;00:01, 33.54it/s]
+
+Fetching GFS data:  86%|████████▌ | 255/296 [00:08&lt;00:00, 43.54it/s]
+
+Fetching GFS data:  88%|████████▊ | 261/296 [00:08&lt;00:00, 42.69it/s]
+
+Fetching GFS data:  92%|█████████▏| 273/296 [00:08&lt;00:00, 49.14it/s]
+
+Fetching GFS data:  96%|█████████▌| 284/296 [00:08&lt;00:00, 55.62it/s]
+Fetching GFS data: 100%|██████████| 296/296 [00:08&lt;00:00, 34.12it/s]
+
+
+Batch 0 inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+Batch 0 inference:  20%|██        | 1/5 [00:02&lt;00:11,  2.82s/it]
+
+Batch 0 inference:  40%|████      | 2/5 [00:04&lt;00:06,  2.15s/it]
+
+Batch 0 inference:  60%|██████    | 3/5 [00:06&lt;00:03,  1.96s/it]
+
+Batch 0 inference:  80%|████████  | 4/5 [00:07&lt;00:01,  1.86s/it]
+
+Batch 0 inference: 100%|██████████| 5/5 [00:09&lt;00:00,  1.81s/it]
+
+
+Ensemble Batches:  50%|█████     | 1/2 [00:24&lt;00:24, 24.83s/it]
+
+Batch 1 inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+Batch 1 inference:  20%|██        | 1/5 [00:01&lt;00:05,  1.40s/it]
+
+Batch 1 inference:  40%|████      | 2/5 [00:03&lt;00:04,  1.59s/it]
+
+Batch 1 inference:  60%|██████    | 3/5 [00:04&lt;00:03,  1.64s/it]
+
+Batch 1 inference:  80%|████████  | 4/5 [00:06&lt;00:01,  1.67s/it]
+
+Batch 1 inference: 100%|██████████| 5/5 [00:08&lt;00:00,  1.68s/it]
+
+
+Ensemble Batches: 100%|██████████| 2/2 [00:33&lt;00:00, 15.07s/it]
+Ensemble Batches: 100%|██████████| 2/2 [00:33&lt;00:00, 16.53s/it]
+2026-08-14 04:04:17.553 | SUCCESS  | __main__:corrdiff_on_hens_ensemble:140 - Inference complete</code></pre></details>
+
+<h2 id="post-processing">Post-processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
+<p>Plot the mean and standard deviation of 10m wind speed magnitude for a sequence of
+lead times.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_zarr</span><span class="p">(</span><span class="s2">&quot;outputs/18_ensemble_corrdiff.zarr&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">lead_time</span> <span class="o">=</span> <span class="mi">4</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">ds</span><span class="p">[</span><span class="s2">&quot;u10m&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;v10m&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">mean_field</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ensemble&quot;</span><span class="p">,</span> <span class="s2">&quot;sample&quot;</span><span class="p">])</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">std_field</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ensemble&quot;</span><span class="p">,</span> <span class="s2">&quot;sample&quot;</span><span class="p">])</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="mi">2</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">()}</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p">)</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">lead_time</span><span class="p">):</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="n">p1</span> <span class="o">=</span> <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">contourf</span><span class="p">(</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>        <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>        <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>        <span class="n">mean_field</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">lead_time</span><span class="o">=</span><span class="n">i</span><span class="p">),</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>        <span class="n">levels</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>        <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>        <span class="n">vmax</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>        <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>        <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;nipy_spectral&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>    <span class="p">)</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>    <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>    <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;lead_time=</span><span class="si">{</span><span class="mi">6</span><span class="o">*</span><span class="n">i</span><span class="si">}</span><span class="s2">hr&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>    <span class="n">p2</span> <span class="o">=</span> <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">contourf</span><span class="p">(</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>        <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>        <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a>        <span class="n">std_field</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">lead_time</span><span class="o">=</span><span class="n">i</span><span class="p">),</span>
+<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>        <span class="n">levels</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a>        <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a>        <span class="n">vmax</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>        <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>        <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;magma&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a>    <span class="p">)</span>
+<a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>    <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+<a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a>
+<a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;wind speed mean&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">p2</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;wind speed std&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a><span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+<a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a>    <span class="sa">f</span><span class="s2">&quot;Start date: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">datetime_as_string</span><span class="p">(</span><span class="n">ds</span><span class="p">[</span><span class="s1">&#39;time&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">unit</span><span class="o">=</span><span class="s1">&#39;h&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span>
+<a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a><span class="p">)</span>
+<a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a>
+<a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a><span class="c1"># Leave room for suptitle</span>
+<a id="__codelineno-3-47" name="__codelineno-3-47" href="#__codelineno-3-47"></a><span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">(</span><span class="n">rect</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">])</span>
+<a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/18_ensemble_corrdiff_w10m.jpg&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-49" name="__codelineno-3-49" href="#__codelineno-3-49"></a><span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<p><img alt="Output from Ensemble Forecasting with Downscaling" class="e2sg-output-image" loading="lazy" src="../../_assets/03_downscaling-03_ensemble_downscaling/001-cell-8.jpg" /></p>
+<hr />
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/03_downscaling-03_ensemble_downscaling/03_ensemble_downscaling.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/03_downscaling-03_ensemble_downscaling/03_ensemble_downscaling.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 281.3s</span></div>
+
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>4m 41s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/NVIDIA/earth2studio" target="_blank" rel="noopener" title="Earth2Studio on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["announce.dismiss", "navigation.tabs", "navigation.tabs.sticky", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-landing.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-install-selector.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-catalog.js"></script>
+      
+        <script src="../../../assets/javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../../../assets/javascripts/mkdocs-badges-data.js"></script>
+      
+        <script src="../../../assets/javascripts/mkdocs-badges.js"></script>
+      
+    
+  </body>
+</html>

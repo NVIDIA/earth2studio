@@ -1,0 +1,3516 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source deep-learning framework for exploring, building and deploying AI weather and climate workflows.">
+      
+      
+      
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/examples/05_data_assimilation/02_healda/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../_static/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>HealDA Global Data Assimilation - Earth2Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=NVIDIA+Sans:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"NVIDIA Sans";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/nvidia-material.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/earth2studio-gallery.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/mkdocs-badges.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#healda-global-data-assimilation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+        <aside class="md-banner">
+          <div class="md-banner__inner md-grid md-typeset">
+            
+              <button class="md-banner__button md-icon" aria-label="Don't show this again">
+                
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            
+            
+  <div class="e2s-announcement" role="status">
+  <span class="e2s-announcement__icon" aria-hidden="true">🚧</span>
+  <span>
+    <strong>Pardon the dust.</strong>
+    We are working to actively improve the Earth2Studio docs page. Apologies for any inconvenience.
+  </span>
+</div>
+
+          </div>
+          
+            <script>var el=document.querySelector("[data-md-component=announce]");if(el){var content=el.querySelector(".md-typeset");__md_hash(content.innerHTML)===__md_get("__announce")&&(el.hidden=!0)}</script>
+          
+        </aside>
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Earth2Studio" class="md-header__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Earth2Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              HealDA Global Data Assimilation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../userguide/about/install/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../modules/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../blog/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Blog
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Recipes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Earth2Studio" class="md-nav__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    Earth2Studio
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/catalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Catalog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/components/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Components
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core Components
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/prognostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/data_assimilation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/datasources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/advanced/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Usage
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/checkpointing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/batch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Dimension
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/auto/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AutoModels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/lexicon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lexicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/notes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Knowledge Base
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/notes/surface_pressure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Surface Pressure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/developer/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/dependency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Style
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/support/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Support
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/support/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/support/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../modules/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_px/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_dx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_da/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_forecast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Forecast Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_dataframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DataFrame Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/utils_all/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../blog/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Blog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Posts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Posts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/2026/08/06/mkdocs-material-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MkDocs Material Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/archive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/categories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/categories/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Archive
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/archive/2026/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/category/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#set-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set Up
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fetch-observations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fetch Observations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observation-locations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation Locations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#post-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Post Processing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#healda-vs-era5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HealDA vs ERA5
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="healda-global-data-assimilation">HealDA Global Data Assimilation<a class="headerlink" href="#healda-global-data-assimilation" title="Permanent link">&para;</a></h1>
+<p>Producing a global weather analysis from satellite and in-situ observations.</p>
+<p>This example demonstrates how to use the HealDA data assimilation model to produce
+a global weather analysis on a HEALPix grid from sparse in-situ (conventional) and
+satellite radiance observations sourced from the NOAA UFS replay archive.
+Three runs are compared: conventional observations only, satellite observations only,
+and both combined to illustrate the impact of each observation type.</p>
+<p>In this example you will learn:</p>
+<ul>
+<li>How to load and initialise the HealDA data assimilation model</li>
+<li>Fetching UFS conventional and satellite observation DataFrames</li>
+<li>Running the model with different observation combinations</li>
+<li>Comparing the assimilated global fields against ERA5 data</li>
+</ul>
+<h2 id="set-up">Set Up<a class="headerlink" href="#set-up" title="Permanent link">&para;</a></h2>
+<p>This example requires the following components:</p>
+<ul>
+<li>Assimilation Model: HealDA <a href="../../../modules/generated/models/da/HealDA/#earth2studio.models.da.HealDA"><code>earth2studio.models.da.HealDA</code></a>.</li>
+<li>Datasource (conv): UFS conventional observations
+  <a href="../../../modules/generated/data/dataframe/data_UFSObsConv/#earth2studio.data.UFSObsConv"><code>earth2studio.data.UFSObsConv</code></a>.</li>
+<li>Datasource (sat): UFS satellite observations
+  <a href="../../../modules/generated/data/dataframe/data_UFSObsSat/#earth2studio.data.UFSObsSat"><code>earth2studio.data.UFSObsSat</code></a>.</li>
+</ul>
+<p>HealDA is a stateless neural-network-based data assimilation model that ingests
+conventional (radiosonde, surface station, GPS-RO, etc.) and satellite radiance
+observations and produces a single global weather analysis on a HEALPix level-6
+grid.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">timedelta</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">NCAR_ERA5</span><span class="p">,</span> <span class="n">UFSObsConv</span><span class="p">,</span> <span class="n">UFSObsSat</span><span class="p">,</span> <span class="n">fetch_dataframe</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.da</span><span class="w"> </span><span class="kn">import</span> <span class="n">HealDA</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="c1"># Load the default model package (downloads checkpoint from HuggingFace)</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="c1"># Setting lat_lon=True regrids the native HEALPix output to a regular lat-lon grid.</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="n">package</span> <span class="o">=</span> <span class="n">HealDA</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">model</span> <span class="o">=</span> <span class="n">HealDA</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">lat_lon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>148 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+
+Downloading config.json: 0%|          | 0.00/25.0 [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 25.0/25.0 [00:00&lt;00:00, 98.4B/s]
+Downloading config.json: 100%|██████████| 25.0/25.0 [00:00&lt;00:00, 97.5B/s]
+
+Downloading healda_ufs_era5.mdlus: 0%|          | 0.00/1.22G [00:00&lt;?, ?B/s]
+Downloading healda_ufs_era5.mdlus: 1%|          | 10.0M/1.22G [00:01&lt;02:37, 8.26MB/s]
+Downloading healda_ufs_era5.mdlus: 2%|▏         | 20.0M/1.22G [00:01&lt;01:16, 16.9MB/s]
+Downloading healda_ufs_era5.mdlus: 2%|▏         | 30.0M/1.22G [00:01&lt;00:48, 26.1MB/s]
+Downloading healda_ufs_era5.mdlus: 3%|▎         | 40.0M/1.22G [00:01&lt;00:38, 33.3MB/s]
+Downloading healda_ufs_era5.mdlus: 4%|▍         | 50.0M/1.22G [00:01&lt;00:30, 41.2MB/s]
+Downloading healda_ufs_era5.mdlus: 5%|▍         | 60.0M/1.22G [00:02&lt;00:26, 47.2MB/s]
+Downloading healda_ufs_era5.mdlus: 6%|▌         | 70.0M/1.22G [00:02&lt;00:28, 43.2MB/s]
+Downloading healda_ufs_era5.mdlus: 6%|▋         | 80.0M/1.22G [00:02&lt;00:23, 52.8MB/s]
+Downloading healda_ufs_era5.mdlus: 7%|▋         | 90.0M/1.22G [00:02&lt;00:20, 58.6MB/s]
+Downloading healda_ufs_era5.mdlus: 8%|▊         | 100M/1.22G [00:02&lt;00:24, 50.1MB/s] 
+Downloading healda_ufs_era5.mdlus: 10%|▉         | 120M/1.22G [00:03&lt;00:18, 64.3MB/s]
+Downloading healda_ufs_era5.mdlus: 10%|█         | 130M/1.22G [00:03&lt;00:18, 62.7MB/s]
+Downloading healda_ufs_era5.mdlus: 11%|█         | 140M/1.22G [00:03&lt;00:17, 67.2MB/s]
+Downloading healda_ufs_era5.mdlus: 12%|█▏        | 150M/1.22G [00:03&lt;00:16, 68.1MB/s]
+Downloading healda_ufs_era5.mdlus: 13%|█▎        | 160M/1.22G [00:03&lt;00:15, 73.1MB/s]
+Downloading healda_ufs_era5.mdlus: 14%|█▎        | 170M/1.22G [00:03&lt;00:16, 69.6MB/s]
+Downloading healda_ufs_era5.mdlus: 14%|█▍        | 180M/1.22G [00:03&lt;00:16, 67.6MB/s]
+Downloading healda_ufs_era5.mdlus: 15%|█▌        | 190M/1.22G [00:04&lt;00:16, 68.5MB/s]
+Downloading healda_ufs_era5.mdlus: 16%|█▌        | 200M/1.22G [00:04&lt;00:18, 59.7MB/s]
+Downloading healda_ufs_era5.mdlus: 17%|█▋        | 210M/1.22G [00:04&lt;00:20, 52.4MB/s]
+Downloading healda_ufs_era5.mdlus: 18%|█▊        | 220M/1.22G [00:04&lt;00:18, 59.5MB/s]
+Downloading healda_ufs_era5.mdlus: 18%|█▊        | 230M/1.22G [00:04&lt;00:17, 62.4MB/s]
+Downloading healda_ufs_era5.mdlus: 19%|█▉        | 240M/1.22G [00:05&lt;00:15, 67.5MB/s]
+Downloading healda_ufs_era5.mdlus: 20%|██        | 250M/1.22G [00:05&lt;00:14, 74.3MB/s]
+Downloading healda_ufs_era5.mdlus: 21%|██        | 260M/1.22G [00:05&lt;00:15, 65.8MB/s]
+Downloading healda_ufs_era5.mdlus: 22%|██▏       | 270M/1.22G [00:05&lt;00:15, 65.7MB/s]
+Downloading healda_ufs_era5.mdlus: 22%|██▏       | 280M/1.22G [00:05&lt;00:16, 60.4MB/s]
+Downloading healda_ufs_era5.mdlus: 23%|██▎       | 290M/1.22G [00:05&lt;00:15, 64.0MB/s]
+Downloading healda_ufs_era5.mdlus: 24%|██▍       | 300M/1.22G [00:06&lt;00:20, 48.6MB/s]
+Downloading healda_ufs_era5.mdlus: 25%|██▍       | 310M/1.22G [00:06&lt;00:18, 53.4MB/s]
+Downloading healda_ufs_era5.mdlus: 26%|██▌       | 320M/1.22G [00:06&lt;00:21, 46.1MB/s]
+Downloading healda_ufs_era5.mdlus: 26%|██▋       | 330M/1.22G [00:06&lt;00:20, 47.5MB/s]
+Downloading healda_ufs_era5.mdlus: 27%|██▋       | 340M/1.22G [00:07&lt;00:20, 46.0MB/s]
+Downloading healda_ufs_era5.mdlus: 28%|██▊       | 350M/1.22G [00:07&lt;00:21, 43.7MB/s]
+Downloading healda_ufs_era5.mdlus: 29%|██▉       | 360M/1.22G [00:07&lt;00:19, 48.0MB/s]
+Downloading healda_ufs_era5.mdlus: 30%|██▉       | 370M/1.22G [00:07&lt;00:17, 53.4MB/s]
+Downloading healda_ufs_era5.mdlus: 30%|███       | 380M/1.22G [00:07&lt;00:16, 56.6MB/s]
+Downloading healda_ufs_era5.mdlus: 31%|███       | 390M/1.22G [00:08&lt;00:17, 50.1MB/s]
+Downloading healda_ufs_era5.mdlus: 32%|███▏      | 400M/1.22G [00:08&lt;00:18, 48.3MB/s]
+Downloading healda_ufs_era5.mdlus: 33%|███▎      | 410M/1.22G [00:08&lt;00:17, 50.4MB/s]
+Downloading healda_ufs_era5.mdlus: 34%|███▎      | 420M/1.22G [00:08&lt;00:17, 48.4MB/s]
+Downloading healda_ufs_era5.mdlus: 34%|███▍      | 430M/1.22G [00:08&lt;00:17, 48.5MB/s]
+Downloading healda_ufs_era5.mdlus: 35%|███▌      | 440M/1.22G [00:09&lt;00:18, 44.9MB/s]
+Downloading healda_ufs_era5.mdlus: 36%|███▌      | 450M/1.22G [00:09&lt;00:21, 38.8MB/s]
+Downloading healda_ufs_era5.mdlus: 37%|███▋      | 460M/1.22G [00:09&lt;00:20, 39.9MB/s]
+Downloading healda_ufs_era5.mdlus: 38%|███▊      | 470M/1.22G [00:09&lt;00:17, 46.2MB/s]
+Downloading healda_ufs_era5.mdlus: 38%|███▊      | 480M/1.22G [00:10&lt;00:16, 47.6MB/s]
+Downloading healda_ufs_era5.mdlus: 39%|███▉      | 490M/1.22G [00:10&lt;00:15, 52.8MB/s]
+Downloading healda_ufs_era5.mdlus: 40%|████      | 500M/1.22G [00:10&lt;00:14, 52.8MB/s]
+Downloading healda_ufs_era5.mdlus: 41%|████      | 510M/1.22G [00:10&lt;00:13, 57.6MB/s]
+Downloading healda_ufs_era5.mdlus: 42%|████▏     | 520M/1.22G [00:10&lt;00:14, 51.0MB/s]
+Downloading healda_ufs_era5.mdlus: 42%|████▏     | 530M/1.22G [00:11&lt;00:12, 58.6MB/s]
+Downloading healda_ufs_era5.mdlus: 43%|████▎     | 540M/1.22G [00:11&lt;00:11, 67.5MB/s]
+Downloading healda_ufs_era5.mdlus: 44%|████▍     | 550M/1.22G [00:11&lt;00:13, 52.6MB/s]
+Downloading healda_ufs_era5.mdlus: 45%|████▍     | 560M/1.22G [00:11&lt;00:12, 57.2MB/s]
+Downloading healda_ufs_era5.mdlus: 46%|████▋     | 580M/1.22G [00:12&lt;00:15, 46.1MB/s]
+Downloading healda_ufs_era5.mdlus: 47%|████▋     | 590M/1.22G [00:12&lt;00:13, 52.8MB/s]
+Downloading healda_ufs_era5.mdlus: 48%|████▊     | 600M/1.22G [00:13&lt;00:22, 30.7MB/s]
+Downloading healda_ufs_era5.mdlus: 50%|████▉     | 620M/1.22G [00:13&lt;00:22, 29.4MB/s]
+Downloading healda_ufs_era5.mdlus: 50%|█████     | 630M/1.22G [00:13&lt;00:19, 33.2MB/s]
+Downloading healda_ufs_era5.mdlus: 51%|█████▏    | 640M/1.22G [00:14&lt;00:18, 33.9MB/s]
+Downloading healda_ufs_era5.mdlus: 52%|█████▏    | 650M/1.22G [00:14&lt;00:15, 40.5MB/s]
+Downloading healda_ufs_era5.mdlus: 53%|█████▎    | 660M/1.22G [00:14&lt;00:13, 47.0MB/s]
+Downloading healda_ufs_era5.mdlus: 54%|█████▎    | 670M/1.22G [00:14&lt;00:11, 52.8MB/s]
+Downloading healda_ufs_era5.mdlus: 54%|█████▍    | 680M/1.22G [00:14&lt;00:11, 51.7MB/s]
+Downloading healda_ufs_era5.mdlus: 55%|█████▌    | 690M/1.22G [00:14&lt;00:10, 55.1MB/s]
+Downloading healda_ufs_era5.mdlus: 56%|█████▌    | 700M/1.22G [00:15&lt;00:10, 55.7MB/s]
+Downloading healda_ufs_era5.mdlus: 57%|█████▋    | 710M/1.22G [00:15&lt;00:11, 49.5MB/s]
+Downloading healda_ufs_era5.mdlus: 58%|█████▊    | 720M/1.22G [00:15&lt;00:10, 54.8MB/s]
+Downloading healda_ufs_era5.mdlus: 58%|█████▊    | 730M/1.22G [00:15&lt;00:09, 60.1MB/s]
+Downloading healda_ufs_era5.mdlus: 59%|█████▉    | 740M/1.22G [00:15&lt;00:08, 60.5MB/s]
+Downloading healda_ufs_era5.mdlus: 61%|██████    | 760M/1.22G [00:16&lt;00:06, 75.8MB/s]
+Downloading healda_ufs_era5.mdlus: 62%|██████▏   | 770M/1.22G [00:16&lt;00:08, 60.3MB/s]
+Downloading healda_ufs_era5.mdlus: 63%|██████▎   | 790M/1.22G [00:16&lt;00:06, 71.3MB/s]
+Downloading healda_ufs_era5.mdlus: 64%|██████▍   | 800M/1.22G [00:16&lt;00:08, 55.8MB/s]
+Downloading healda_ufs_era5.mdlus: 65%|██████▍   | 810M/1.22G [00:17&lt;00:07, 60.1MB/s]
+Downloading healda_ufs_era5.mdlus: 66%|██████▌   | 820M/1.22G [00:17&lt;00:06, 66.7MB/s]
+Downloading healda_ufs_era5.mdlus: 66%|██████▋   | 830M/1.22G [00:17&lt;00:06, 68.3MB/s]
+Downloading healda_ufs_era5.mdlus: 67%|██████▋   | 840M/1.22G [00:17&lt;00:06, 61.5MB/s]
+Downloading healda_ufs_era5.mdlus: 68%|██████▊   | 850M/1.22G [00:17&lt;00:06, 67.7MB/s]
+Downloading healda_ufs_era5.mdlus: 69%|██████▉   | 860M/1.22G [00:17&lt;00:05, 72.1MB/s]
+Downloading healda_ufs_era5.mdlus: 70%|██████▉   | 870M/1.22G [00:17&lt;00:05, 79.1MB/s]
+Downloading healda_ufs_era5.mdlus: 70%|███████   | 880M/1.22G [00:17&lt;00:04, 82.1MB/s]
+Downloading healda_ufs_era5.mdlus: 71%|███████▏  | 890M/1.22G [00:18&lt;00:04, 87.4MB/s]
+Downloading healda_ufs_era5.mdlus: 72%|███████▏  | 900M/1.22G [00:18&lt;00:04, 80.5MB/s]
+Downloading healda_ufs_era5.mdlus: 74%|███████▎  | 920M/1.22G [00:18&lt;00:03, 86.2MB/s]
+Downloading healda_ufs_era5.mdlus: 75%|███████▌  | 940M/1.22G [00:18&lt;00:03, 85.9MB/s]
+Downloading healda_ufs_era5.mdlus: 76%|███████▌  | 950M/1.22G [00:18&lt;00:03, 87.6MB/s]
+Downloading healda_ufs_era5.mdlus: 77%|███████▋  | 960M/1.22G [00:19&lt;00:04, 66.5MB/s]
+Downloading healda_ufs_era5.mdlus: 78%|███████▊  | 970M/1.22G [00:19&lt;00:04, 71.6MB/s]
+Downloading healda_ufs_era5.mdlus: 79%|███████▊  | 980M/1.22G [00:19&lt;00:03, 75.9MB/s]
+Downloading healda_ufs_era5.mdlus: 79%|███████▉  | 990M/1.22G [00:19&lt;00:03, 81.3MB/s]
+Downloading healda_ufs_era5.mdlus: 80%|████████  | 0.98G/1.22G [00:19&lt;00:03, 74.5MB/s]
+Downloading healda_ufs_era5.mdlus: 82%|████████▏ | 1.00G/1.22G [00:19&lt;00:03, 77.6MB/s]
+Downloading healda_ufs_era5.mdlus: 83%|████████▎ | 1.01G/1.22G [00:20&lt;00:03, 66.3MB/s]
+Downloading healda_ufs_era5.mdlus: 83%|████████▎ | 1.02G/1.22G [00:20&lt;00:03, 69.5MB/s]
+Downloading healda_ufs_era5.mdlus: 84%|████████▍ | 1.03G/1.22G [00:20&lt;00:03, 55.3MB/s]
+Downloading healda_ufs_era5.mdlus: 85%|████████▍ | 1.04G/1.22G [00:20&lt;00:04, 45.6MB/s]
+Downloading healda_ufs_era5.mdlus: 86%|████████▌ | 1.04G/1.22G [00:20&lt;00:03, 53.4MB/s]
+Downloading healda_ufs_era5.mdlus: 87%|████████▋ | 1.05G/1.22G [00:21&lt;00:03, 50.4MB/s]
+Downloading healda_ufs_era5.mdlus: 87%|████████▋ | 1.06G/1.22G [00:21&lt;00:03, 43.0MB/s]
+Downloading healda_ufs_era5.mdlus: 88%|████████▊ | 1.07G/1.22G [00:21&lt;00:03, 51.5MB/s]
+Downloading healda_ufs_era5.mdlus: 89%|████████▉ | 1.08G/1.22G [00:21&lt;00:02, 59.9MB/s]
+Downloading healda_ufs_era5.mdlus: 91%|█████████ | 1.10G/1.22G [00:21&lt;00:01, 70.6MB/s]
+Downloading healda_ufs_era5.mdlus: 92%|█████████▏| 1.12G/1.22G [00:22&lt;00:01, 79.0MB/s]
+Downloading healda_ufs_era5.mdlus: 93%|█████████▎| 1.13G/1.22G [00:22&lt;00:01, 71.1MB/s]
+Downloading healda_ufs_era5.mdlus: 94%|█████████▎| 1.14G/1.22G [00:22&lt;00:01, 73.0MB/s]
+Downloading healda_ufs_era5.mdlus: 95%|█████████▌| 1.16G/1.22G [00:22&lt;00:00, 84.5MB/s]
+Downloading healda_ufs_era5.mdlus: 97%|█████████▋| 1.18G/1.22G [00:22&lt;00:00, 94.0MB/s]
+Downloading healda_ufs_era5.mdlus: 98%|█████████▊| 1.19G/1.22G [00:23&lt;00:00, 76.0MB/s]
+Downloading healda_ufs_era5.mdlus: 99%|█████████▉| 1.21G/1.22G [00:23&lt;00:00, 86.1MB/s]
+Downloading healda_ufs_era5.mdlus: 100%|██████████| 1.22G/1.22G [00:23&lt;00:00, 56.0MB/s]
+
+Downloading condition_hpx6_padxy.npy: 0%|          | 0.00/384k [00:00&lt;?, ?B/s]
+Downloading condition_hpx6_padxy.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 656kB/s]
+Downloading condition_hpx6_padxy.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 652kB/s]
+
+Downloading atms_normalizations.csv: 0%|          | 0.00/2.78k [00:00&lt;?, ?B/s]
+Downloading atms_normalizations.csv: 100%|██████████| 2.78k/2.78k [00:00&lt;00:00, 5.86kB/s]
+Downloading atms_normalizations.csv: 100%|██████████| 2.78k/2.78k [00:00&lt;00:00, 5.83kB/s]
+
+Downloading mhs_normalizations.csv: 0%|          | 0.00/1.28k [00:00&lt;?, ?B/s]
+Downloading mhs_normalizations.csv: 100%|██████████| 1.28k/1.28k [00:00&lt;00:00, 5.55kB/s]
+Downloading mhs_normalizations.csv: 100%|██████████| 1.28k/1.28k [00:00&lt;00:00, 5.49kB/s]
+
+Downloading amsua_normalizations.csv: 0%|          | 0.00/4.67k [00:00&lt;?, ?B/s]
+Downloading amsua_normalizations.csv: 100%|██████████| 4.67k/4.67k [00:00&lt;00:00, 19.6kB/s]
+Downloading amsua_normalizations.csv: 100%|██████████| 4.67k/4.67k [00:00&lt;00:00, 19.4kB/s]
+
+Downloading amsub_normalizations.csv: 0%|          | 0.00/675 [00:00&lt;?, ?B/s]
+Downloading amsub_normalizations.csv: 100%|██████████| 675/675 [00:00&lt;00:00, 2.64kB/s]
+Downloading amsub_normalizations.csv: 100%|██████████| 675/675 [00:00&lt;00:00, 2.61kB/s]
+
+Downloading conv_normalizations.csv: 0%|          | 0.00/632 [00:00&lt;?, ?B/s]
+Downloading conv_normalizations.csv: 100%|██████████| 632/632 [00:00&lt;00:00, 2.01kB/s]
+Downloading conv_normalizations.csv: 100%|██████████| 632/632 [00:00&lt;00:00, 1.99kB/s]
+
+Downloading era5_13_levels_stats.csv: 0%|          | 0.00/3.36k [00:00&lt;?, ?B/s]
+Downloading era5_13_levels_stats.csv: 100%|██████████| 3.36k/3.36k [00:00&lt;00:00, 13.0kB/s]
+Downloading era5_13_levels_stats.csv: 100%|██████████| 3.36k/3.36k [00:00&lt;00:00, 12.8kB/s]</code></pre></details>
+
+<h2 id="fetch-observations">Fetch Observations<a class="headerlink" href="#fetch-observations" title="Permanent link">&para;</a></h2>
+<p>Pull conventional and satellite observation DataFrames for the analysis time.
+The UFS data sources return pandas DataFrames that match the schemas expected by
+<code>HealDA.input_coords</code>.  We use
+<code>earth2studio.data.fetch_dataframe</code> which attaches <code>request_time</code>
+metadata required by the model.  The time_tolerance parameter defines a time
+window around the analysis time so that observations will be retrieved for.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">analysis_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">&quot;2024-01-01T00:00&quot;</span><span class="p">)])</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">conv_source</span> <span class="o">=</span> <span class="n">UFSObsConv</span><span class="p">(</span><span class="n">time_tolerance</span><span class="o">=</span><span class="p">(</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=-</span><span class="mi">21</span><span class="p">),</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">3</span><span class="p">)))</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">conv_schema</span><span class="p">,</span> <span class="n">sat_schema</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">conv_df</span> <span class="o">=</span> <span class="n">fetch_dataframe</span><span class="p">(</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">conv_source</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">time</span><span class="o">=</span><span class="n">analysis_time</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">conv_schema</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]),</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">fields</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">conv_schema</span><span class="o">.</span><span class="n">keys</span><span class="p">())),</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">conv_df</span><span class="p">)</span><span class="si">}</span><span class="s2"> conventional observations&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">sat_source</span> <span class="o">=</span> <span class="n">UFSObsSat</span><span class="p">(</span><span class="n">time_tolerance</span><span class="o">=</span><span class="p">(</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=-</span><span class="mi">21</span><span class="p">),</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">3</span><span class="p">)))</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">sat_df</span> <span class="o">=</span> <span class="n">fetch_dataframe</span><span class="p">(</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">sat_source</span><span class="p">,</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">time</span><span class="o">=</span><span class="n">analysis_time</span><span class="p">,</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">sat_schema</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]),</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">fields</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">sat_schema</span><span class="o">.</span><span class="n">keys</span><span class="p">())),</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="p">)</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">sat_df</span><span class="p">)</span><span class="si">}</span><span class="s2"> satellite observations&quot;</span><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>221 lines</small></summary><pre><code>Fetching GSI files:   0%|          | 0/25 [00:00&lt;?, ?it/s]
+Fetching GSI files:   4%|▍         | 1/25 [00:00&lt;00:19,  1.23it/s]
+Fetching GSI files:  28%|██▊       | 7/25 [00:00&lt;00:01,  9.19it/s]
+Fetching GSI files:  48%|████▊     | 12/25 [00:01&lt;00:00, 14.61it/s]
+Fetching GSI files:  64%|██████▍   | 16/25 [00:01&lt;00:00, 18.73it/s]
+Fetching GSI files:  80%|████████  | 20/25 [00:01&lt;00:00, 22.29it/s]
+Fetching GSI files:  96%|█████████▌| 24/25 [00:01&lt;00:00, 18.85it/s]
+Fetching GSI files: 100%|██████████| 25/25 [00:01&lt;00:00, 12.88it/s]
+2026-08-14 04:34:02.405 | INFO     | __main__:&lt;module&gt;:11 - Fetched 8515112 conventional observations
+
+Fetching GSI files:   0%|          | 0/90 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:34:02.761 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n16_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:   0%|          | 0/90 [00:00&lt;?, ?it/s]
+
+2026-08-14 04:34:02.762 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_metop-a_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:   0%|          | 0/90 [00:00&lt;?, ?it/s]
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.763 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_n18_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.769 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_n18_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.771 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n17_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.771 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n17_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.772 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n17_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.779 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n16_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.796 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_n18_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.802 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_n18_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.812 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n17_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.814 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_metop-a_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.814 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n15_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.819 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n15_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.819 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_metop-a_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.820 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n17_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.821 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_metop-a_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.822 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n17_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.827 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n17_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.829 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n15_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.829 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_metop-a_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.831 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_metop-a_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.835 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_metop-a_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.836 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n16_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.840 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n16_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.842 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n16_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.844 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_n18_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.845 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n15_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.846 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n15_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.849 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n16_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.852 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n16_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.854 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_metop-a_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.858 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n16_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.858 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_metop-a_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.859 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n16_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.862 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n17_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+
+2026-08-14 04:34:02.862 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n17_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:27,  3.22it/s]
+Fetching GSI files:  40%|████      | 36/90 [00:00&lt;00:00, 112.16it/s]
+
+2026-08-14 04:34:02.866 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n17_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:  40%|████      | 36/90 [00:00&lt;00:00, 112.16it/s]
+
+2026-08-14 04:34:02.866 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_metop-a_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:  40%|████      | 36/90 [00:00&lt;00:00, 112.16it/s]
+
+2026-08-14 04:34:02.869 | WARNING  | earth2studio.data.ufs:_handle_missing_file:196 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n16_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:  40%|████      | 36/90 [00:00&lt;00:00, 112.16it/s]
+Fetching GSI files:  63%|██████▎   | 57/90 [00:02&lt;00:01, 20.09it/s] 
+Fetching GSI files:  77%|███████▋  | 69/90 [00:03&lt;00:01, 18.72it/s]
+Fetching GSI files:  86%|████████▌ | 77/90 [00:03&lt;00:00, 17.85it/s]
+Fetching GSI files:  92%|█████████▏| 83/90 [00:04&lt;00:00, 13.92it/s]
+Fetching GSI files:  97%|█████████▋| 87/90 [00:07&lt;00:00,  6.51it/s]
+Fetching GSI files: 100%|██████████| 90/90 [00:08&lt;00:00,  5.26it/s]
+Fetching GSI files: 100%|██████████| 90/90 [00:08&lt;00:00, 10.70it/s]
+2026-08-14 04:34:12.990 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_metop-a_ges.2023123100_control.nc4
+2026-08-14 04:34:12.991 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_metop-a_ges.2023123106_control.nc4
+2026-08-14 04:34:12.991 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_metop-a_ges.2023123112_control.nc4
+2026-08-14 04:34:12.991 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_metop-a_ges.2023123118_control.nc4
+2026-08-14 04:34:12.991 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_metop-a_ges.2024010100_control.nc4
+2026-08-14 04:34:14.365 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_n18_ges.2023123100_control.nc4
+2026-08-14 04:34:14.366 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_n18_ges.2023123106_control.nc4
+2026-08-14 04:34:14.366 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_n18_ges.2023123112_control.nc4
+2026-08-14 04:34:14.366 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_n18_ges.2023123118_control.nc4
+2026-08-14 04:34:14.366 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_n18_ges.2024010100_control.nc4
+2026-08-14 04:34:15.039 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_metop-a_ges.2023123100_control.nc4
+2026-08-14 04:34:15.040 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_metop-a_ges.2023123106_control.nc4
+2026-08-14 04:34:15.040 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_metop-a_ges.2023123112_control.nc4
+2026-08-14 04:34:15.040 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_metop-a_ges.2023123118_control.nc4
+2026-08-14 04:34:15.040 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_metop-a_ges.2024010100_control.nc4
+2026-08-14 04:34:17.332 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n16_ges.2023123100_control.nc4
+2026-08-14 04:34:17.332 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n16_ges.2023123106_control.nc4
+2026-08-14 04:34:17.332 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n16_ges.2023123112_control.nc4
+2026-08-14 04:34:17.332 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n16_ges.2023123118_control.nc4
+2026-08-14 04:34:17.333 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n16_ges.2024010100_control.nc4
+2026-08-14 04:34:17.333 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n17_ges.2023123100_control.nc4
+2026-08-14 04:34:17.333 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n17_ges.2023123106_control.nc4
+2026-08-14 04:34:17.333 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n17_ges.2023123112_control.nc4
+2026-08-14 04:34:17.333 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n17_ges.2023123118_control.nc4
+2026-08-14 04:34:17.333 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n17_ges.2024010100_control.nc4
+2026-08-14 04:34:18.922 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n15_ges.2023123100_control.nc4
+2026-08-14 04:34:18.923 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n15_ges.2023123106_control.nc4
+2026-08-14 04:34:18.923 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n15_ges.2023123112_control.nc4
+2026-08-14 04:34:18.923 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n15_ges.2023123118_control.nc4
+2026-08-14 04:34:18.923 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n15_ges.2024010100_control.nc4
+2026-08-14 04:34:18.923 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n16_ges.2023123100_control.nc4
+2026-08-14 04:34:18.923 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n16_ges.2023123106_control.nc4
+2026-08-14 04:34:18.924 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n16_ges.2023123112_control.nc4
+2026-08-14 04:34:18.924 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n16_ges.2023123118_control.nc4
+2026-08-14 04:34:18.924 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n16_ges.2024010100_control.nc4
+2026-08-14 04:34:18.924 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n17_ges.2023123100_control.nc4
+2026-08-14 04:34:18.924 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n17_ges.2023123106_control.nc4
+2026-08-14 04:34:18.924 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n17_ges.2023123112_control.nc4
+2026-08-14 04:34:18.924 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n17_ges.2023123118_control.nc4
+2026-08-14 04:34:18.925 | WARNING  | earth2studio.data.ufs:_compile_dataframe:223 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n17_ges.2024010100_control.nc4
+2026-08-14 04:34:19.085 | INFO     | __main__:&lt;module&gt;:20 - Fetched 4378286 satellite observations</code></pre></details>
+
+<h2 id="observation-locations">Observation Locations<a class="headerlink" href="#observation-locations" title="Permanent link">&para;</a></h2>
+<p>Plot the spatial distribution of conventional and satellite observations to
+visualise their coverage before running the assimilation. There are 12-14 million
+observations typically for the model's 24-hour time window.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">Robinson</span><span class="p">()},</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">)</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># Conventional observations</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">ax</span><span class="o">.</span><span class="n">set_global</span><span class="p">()</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>    <span class="n">conv_df</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[::</span><span class="mi">10</span><span class="p">],</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>    <span class="n">conv_df</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[::</span><span class="mi">10</span><span class="p">],</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>    <span class="n">s</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>    <span class="n">c</span><span class="o">=</span><span class="s2">&quot;tab:blue&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="p">)</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Conventional obs (n=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">conv_df</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="c1"># Satellite observations</span>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="n">ax</span><span class="o">.</span><span class="n">set_global</span><span class="p">()</span>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>    <span class="n">sat_df</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[::</span><span class="mi">10</span><span class="p">],</span>
+<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>    <span class="n">sat_df</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[::</span><span class="mi">10</span><span class="p">],</span>
+<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>    <span class="n">s</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>    <span class="n">c</span><span class="o">=</span><span class="s2">&quot;tab:orange&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+<a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a><span class="p">)</span>
+<a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Satellite obs (n=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">sat_df</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
+<a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a><span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+<a id="__codelineno-2-42" name="__codelineno-2-42" href="#__codelineno-2-42"></a>    <span class="sa">f</span><span class="s2">&quot;Observation Locations </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">analysis_time</span><span class="p">[</span><span class="mi">0</span><span class="p">])[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2"> UTC&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-43" name="__codelineno-2-43" href="#__codelineno-2-43"></a>    <span class="n">fontsize</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+<a id="__codelineno-2-44" name="__codelineno-2-44" href="#__codelineno-2-44"></a><span class="p">)</span>
+<a id="__codelineno-2-45" name="__codelineno-2-45" href="#__codelineno-2-45"></a><span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<a id="__codelineno-2-46" name="__codelineno-2-46" href="#__codelineno-2-46"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/22_healda_obs_locations.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+</code></pre></div>
+<p><img alt="Output from HealDA Global Data Assimilation" class="e2sg-output-image" loading="lazy" src="../../_assets/05_data_assimilation-02_healda/001-cell-6.webp" /></p>
+<p>DA models can be called directly for stateless inference or via
+<code>create_generator</code> for stateful (iterative)
+assimilation workflows.  Here we use the direct call API to invoke the model.</p>
+<p>HealDA is designed to work with the (-21, 3) hour observation window from the UFS
+replay archive using both conventional and satellite observations. However, the DA
+model interface is flexible enough to accept different time windows and observation
+sources. Below we test three configurations - conventional only, satellite only, and
+proper combined - to illustrate the impact each observation type has on the analysis.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">result_both</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">conv_obs</span><span class="o">=</span><span class="n">conv_df</span><span class="p">,</span> <span class="n">sat_obs</span><span class="o">=</span><span class="n">sat_df</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Combined analysis shape: </span><span class="si">{</span><span class="n">result_both</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre><code>2026-08-14 04:34:33.803 | INFO     | __main__:&lt;module&gt;:3 - Combined analysis shape: (1, 74, 181, 360)</code></pre></details>
+
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">result_sat</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">sat_obs</span><span class="o">=</span><span class="n">sat_df</span><span class="p">)</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sat-only analysis shape: </span><span class="si">{</span><span class="n">result_sat</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre><code>2026-08-14 04:34:37.094 | INFO     | __main__:&lt;module&gt;:3 - Sat-only analysis shape: (1, 74, 181, 360)</code></pre></details>
+
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">result_conv</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">conv_obs</span><span class="o">=</span><span class="n">conv_df</span><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Conv-only analysis shape: </span><span class="si">{</span><span class="n">result_conv</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre><code>2026-08-14 04:34:41.281 | INFO     | __main__:&lt;module&gt;:3 - Conv-only analysis shape: (1, 74, 181, 360)</code></pre></details>
+
+<h2 id="post-processing">Post Processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
+<p>Because we loaded the model with <code>lat_lon=True</code> the output is already on a
+regular equiangular lat-lon grid, so no manual regridding is needed.
+Compare the three runs for surface temperature (t2m) and geopotential 500 hPa
+(z500). Each row shows a different observation configuration.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">plot_vars</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;z500&quot;</span><span class="p">]</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">titles</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Conv + Sat&quot;</span><span class="p">,</span> <span class="s2">&quot;Sat only&quot;</span><span class="p">,</span> <span class="s2">&quot;Conv only&quot;</span><span class="p">]</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">result_both</span><span class="p">,</span> <span class="n">result_sat</span><span class="p">,</span> <span class="n">result_conv</span><span class="p">]</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">projection</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">Robinson</span><span class="p">()</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">),</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="nb">len</span><span class="p">(</span><span class="n">plot_vars</span><span class="p">),</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">projection</span><span class="p">},</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="p">)</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="n">fig</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">wspace</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">hspace</span><span class="o">=</span><span class="mf">0.08</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="n">lat</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="n">lon</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="n">cmaps</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Spectral_r&quot;</span><span class="p">,</span> <span class="s2">&quot;PRGn&quot;</span><span class="p">]</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_numpy</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;CuPy / Numpy helper function&quot;&quot;&quot;</span>
+<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a>    <span class="k">return</span> <span class="n">arr</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="s2">&quot;get&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">arr</span>
+<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a>
+<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a>
+<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">da</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">titles</span><span class="p">,</span> <span class="n">results</span><span class="p">)):</span>
+<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a>    <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">var</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">plot_vars</span><span class="p">):</span>
+<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a>        <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span>
+<a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a>        <span class="n">field</span> <span class="o">=</span> <span class="n">to_numpy</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a>        <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+<a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a>            <span class="n">lon</span><span class="p">,</span>
+<a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a>            <span class="n">lat</span><span class="p">,</span>
+<a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a>            <span class="n">field</span><span class="p">,</span>
+<a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a>            <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+<a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a>            <span class="n">cmap</span><span class="o">=</span><span class="n">cmaps</span><span class="p">[</span><span class="n">col</span><span class="p">],</span>
+<a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a>        <span class="p">)</span>
+<a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a>        <span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a>        <span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a>        <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
+<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a>        <span class="k">if</span> <span class="n">row</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-6-40" name="__codelineno-6-40" href="#__codelineno-6-40"></a>            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+<a id="__codelineno-6-41" name="__codelineno-6-41" href="#__codelineno-6-41"></a>        <span class="k">if</span> <span class="n">col</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-6-42" name="__codelineno-6-42" href="#__codelineno-6-42"></a>            <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+<a id="__codelineno-6-43" name="__codelineno-6-43" href="#__codelineno-6-43"></a>                <span class="o">-</span><span class="mf">0.05</span><span class="p">,</span>
+<a id="__codelineno-6-44" name="__codelineno-6-44" href="#__codelineno-6-44"></a>                <span class="mf">0.5</span><span class="p">,</span>
+<a id="__codelineno-6-45" name="__codelineno-6-45" href="#__codelineno-6-45"></a>                <span class="n">title</span><span class="p">,</span>
+<a id="__codelineno-6-46" name="__codelineno-6-46" href="#__codelineno-6-46"></a>                <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-6-47" name="__codelineno-6-47" href="#__codelineno-6-47"></a>                <span class="n">va</span><span class="o">=</span><span class="s2">&quot;bottom&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-48" name="__codelineno-6-48" href="#__codelineno-6-48"></a>                <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-49" name="__codelineno-6-49" href="#__codelineno-6-49"></a>                <span class="n">rotation</span><span class="o">=</span><span class="s2">&quot;vertical&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-50" name="__codelineno-6-50" href="#__codelineno-6-50"></a>                <span class="n">rotation_mode</span><span class="o">=</span><span class="s2">&quot;anchor&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-51" name="__codelineno-6-51" href="#__codelineno-6-51"></a>                <span class="n">transform</span><span class="o">=</span><span class="n">ax</span><span class="o">.</span><span class="n">transAxes</span><span class="p">,</span>
+<a id="__codelineno-6-52" name="__codelineno-6-52" href="#__codelineno-6-52"></a>            <span class="p">)</span>
+<a id="__codelineno-6-53" name="__codelineno-6-53" href="#__codelineno-6-53"></a>
+<a id="__codelineno-6-54" name="__codelineno-6-54" href="#__codelineno-6-54"></a><span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;HealDA Analysis </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">analysis_time</span><span class="p">[</span><span class="mi">0</span><span class="p">])[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2"> UTC&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">18</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.97</span><span class="p">)</span>
+<a id="__codelineno-6-55" name="__codelineno-6-55" href="#__codelineno-6-55"></a><span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<a id="__codelineno-6-56" name="__codelineno-6-56" href="#__codelineno-6-56"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/22_healda_analysis.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+</code></pre></div>
+<p><img alt="Output from HealDA Global Data Assimilation" class="e2sg-output-image" loading="lazy" src="../../_assets/05_data_assimilation-02_healda/003-cell-12.webp" /></p>
+<h2 id="healda-vs-era5">HealDA vs ERA5<a class="headerlink" href="#healda-vs-era5" title="Permanent link">&para;</a></h2>
+<p>Next fetch ERA5 reanalysis at 0.25° resolution from the NCAR archive to compare
+against the assimilated fields. HealDA outputs standard Earth2Studio variable
+names so we can query ERA5 with the same identifiers. We expect the runs that
+are missing an observation source to show larger errors, while the combined run
+yields the most accurate global prediction.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">era5_ds</span> <span class="o">=</span> <span class="n">NCAR_ERA5</span><span class="p">()</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">era5_da</span> <span class="o">=</span> <span class="n">era5_ds</span><span class="p">(</span><span class="n">analysis_time</span><span class="p">,</span> <span class="n">plot_vars</span><span class="p">)</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">era5_interp</span> <span class="o">=</span> <span class="n">era5_da</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">lat</span><span class="o">=</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="o">=</span><span class="n">lon</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre><code>Fetching NCAR ERA5 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Fetching NCAR ERA5 data:  50%|█████     | 1/2 [00:06&lt;00:06,  6.73s/it]
+Fetching NCAR ERA5 data: 100%|██████████| 2/2 [00:06&lt;00:00,  3.40s/it]</code></pre></details>
+
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">diff_titles</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Conv+Sat - ERA5&quot;</span><span class="p">,</span> <span class="s2">&quot;Sat - ERA5&quot;</span><span class="p">,</span> <span class="s2">&quot;Conv - ERA5&quot;</span><span class="p">]</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">diff_results</span> <span class="o">=</span> <span class="p">[</span><span class="n">result_both</span><span class="p">,</span> <span class="n">result_sat</span><span class="p">,</span> <span class="n">result_conv</span><span class="p">]</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">for</span> <span class="n">title</span><span class="p">,</span> <span class="n">da_pred</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">diff_titles</span><span class="p">,</span> <span class="n">diff_results</span><span class="p">):</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">plot_vars</span><span class="p">:</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="n">field_pred</span> <span class="o">=</span> <span class="n">to_numpy</span><span class="p">(</span><span class="n">da_pred</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="n">field_era5</span> <span class="o">=</span> <span class="n">to_numpy</span><span class="p">(</span><span class="n">era5_interp</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="n">mae</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">field_pred</span> <span class="o">-</span> <span class="n">field_era5</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2"> MAE: </span><span class="si">{</span><span class="n">mae</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>6 lines</small></summary><pre><code>2026-08-14 04:35:15.611 | INFO     | __main__:&lt;module&gt;:8 - Conv+Sat - ERA5 | t2m MAE: 0.7984
+2026-08-14 04:35:15.613 | INFO     | __main__:&lt;module&gt;:8 - Conv+Sat - ERA5 | z500 MAE: 51.1487
+2026-08-14 04:35:15.615 | INFO     | __main__:&lt;module&gt;:8 - Sat - ERA5 | t2m MAE: 0.8496
+2026-08-14 04:35:15.616 | INFO     | __main__:&lt;module&gt;:8 - Sat - ERA5 | z500 MAE: 164.9191
+2026-08-14 04:35:15.617 | INFO     | __main__:&lt;module&gt;:8 - Conv - ERA5 | t2m MAE: 4.3319
+2026-08-14 04:35:15.618 | INFO     | __main__:&lt;module&gt;:8 - Conv - ERA5 | z500 MAE: 570.9412</code></pre></details>
+
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">diff_ranges</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;t2m&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="s2">&quot;z500&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">)}</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="nb">len</span><span class="p">(</span><span class="n">diff_results</span><span class="p">),</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="nb">len</span><span class="p">(</span><span class="n">plot_vars</span><span class="p">),</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">projection</span><span class="p">},</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="p">)</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="n">fig</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">wspace</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">hspace</span><span class="o">=</span><span class="mf">0.08</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">da_pred</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">diff_titles</span><span class="p">,</span> <span class="n">diff_results</span><span class="p">)):</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>    <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">var</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">plot_vars</span><span class="p">):</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>        <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>        <span class="n">field_pred</span> <span class="o">=</span> <span class="n">to_numpy</span><span class="p">(</span><span class="n">da_pred</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>        <span class="n">field_era5</span> <span class="o">=</span> <span class="n">to_numpy</span><span class="p">(</span><span class="n">era5_interp</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>        <span class="n">diff</span> <span class="o">=</span> <span class="n">field_pred</span> <span class="o">-</span> <span class="n">field_era5</span>
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>        <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>            <span class="n">lon</span><span class="p">,</span>
+<a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>            <span class="n">lat</span><span class="p">,</span>
+<a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a>            <span class="n">diff</span><span class="p">,</span>
+<a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>            <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+<a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a>            <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a>            <span class="n">vmin</span><span class="o">=</span><span class="n">diff_ranges</span><span class="p">[</span><span class="n">var</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+<a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a>            <span class="n">vmax</span><span class="o">=</span><span class="n">diff_ranges</span><span class="p">[</span><span class="n">var</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
+<a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a>        <span class="p">)</span>
+<a id="__codelineno-9-27" name="__codelineno-9-27" href="#__codelineno-9-27"></a>        <span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a>        <span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-9-29" name="__codelineno-9-29" href="#__codelineno-9-29"></a>        <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
+<a id="__codelineno-9-30" name="__codelineno-9-30" href="#__codelineno-9-30"></a>        <span class="k">if</span> <span class="n">row</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-9-31" name="__codelineno-9-31" href="#__codelineno-9-31"></a>            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+<a id="__codelineno-9-32" name="__codelineno-9-32" href="#__codelineno-9-32"></a>        <span class="k">if</span> <span class="n">col</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-9-33" name="__codelineno-9-33" href="#__codelineno-9-33"></a>            <span class="n">bbox</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_position</span><span class="p">()</span>
+<a id="__codelineno-9-34" name="__codelineno-9-34" href="#__codelineno-9-34"></a>            <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+<a id="__codelineno-9-35" name="__codelineno-9-35" href="#__codelineno-9-35"></a>                <span class="o">-</span><span class="mf">0.05</span><span class="p">,</span>
+<a id="__codelineno-9-36" name="__codelineno-9-36" href="#__codelineno-9-36"></a>                <span class="mf">0.5</span><span class="p">,</span>
+<a id="__codelineno-9-37" name="__codelineno-9-37" href="#__codelineno-9-37"></a>                <span class="n">title</span><span class="p">,</span>
+<a id="__codelineno-9-38" name="__codelineno-9-38" href="#__codelineno-9-38"></a>                <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-9-39" name="__codelineno-9-39" href="#__codelineno-9-39"></a>                <span class="n">va</span><span class="o">=</span><span class="s2">&quot;bottom&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-40" name="__codelineno-9-40" href="#__codelineno-9-40"></a>                <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-41" name="__codelineno-9-41" href="#__codelineno-9-41"></a>                <span class="n">rotation</span><span class="o">=</span><span class="s2">&quot;vertical&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-42" name="__codelineno-9-42" href="#__codelineno-9-42"></a>                <span class="n">rotation_mode</span><span class="o">=</span><span class="s2">&quot;anchor&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-43" name="__codelineno-9-43" href="#__codelineno-9-43"></a>                <span class="n">transform</span><span class="o">=</span><span class="n">ax</span><span class="o">.</span><span class="n">transAxes</span><span class="p">,</span>
+<a id="__codelineno-9-44" name="__codelineno-9-44" href="#__codelineno-9-44"></a>            <span class="p">)</span>
+<a id="__codelineno-9-45" name="__codelineno-9-45" href="#__codelineno-9-45"></a>
+<a id="__codelineno-9-46" name="__codelineno-9-46" href="#__codelineno-9-46"></a><span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+<a id="__codelineno-9-47" name="__codelineno-9-47" href="#__codelineno-9-47"></a>    <span class="sa">f</span><span class="s2">&quot;HealDA Analysis Error </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">analysis_time</span><span class="p">[</span><span class="mi">0</span><span class="p">])[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2"> UTC&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-48" name="__codelineno-9-48" href="#__codelineno-9-48"></a>    <span class="n">fontsize</span><span class="o">=</span><span class="mi">18</span><span class="p">,</span>
+<a id="__codelineno-9-49" name="__codelineno-9-49" href="#__codelineno-9-49"></a>    <span class="n">y</span><span class="o">=</span><span class="mf">0.97</span><span class="p">,</span>
+<a id="__codelineno-9-50" name="__codelineno-9-50" href="#__codelineno-9-50"></a><span class="p">)</span>
+<a id="__codelineno-9-51" name="__codelineno-9-51" href="#__codelineno-9-51"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/22_healda_differences.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p><img alt="Output from HealDA Global Data Assimilation" class="e2sg-output-image" loading="lazy" src="../../_assets/05_data_assimilation-02_healda/005-cell-16.webp" /></p>
+<hr />
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/05_data_assimilation-02_healda/02_healda.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/05_data_assimilation-02_healda/02_healda.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 153.5s</span></div>
+
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>2m 34s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/NVIDIA/earth2studio" target="_blank" rel="noopener" title="Earth2Studio on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["announce.dismiss", "navigation.tabs", "navigation.tabs.sticky", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-landing.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-install-selector.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-catalog.js"></script>
+      
+        <script src="../../../assets/javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../../../assets/javascripts/mkdocs-badges-data.js"></script>
+      
+        <script src="../../../assets/javascripts/mkdocs-badges.js"></script>
+      
+    
+  </body>
+</html>

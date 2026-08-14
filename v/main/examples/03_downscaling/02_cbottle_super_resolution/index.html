@@ -1,0 +1,3438 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source deep-learning framework for exploring, building and deploying AI weather and climate workflows.">
+      
+      
+      
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/examples/03_downscaling/02_cbottle_super_resolution/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../_static/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>CBottle Super Resolution - Earth2Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=NVIDIA+Sans:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"NVIDIA Sans";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/nvidia-material.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/earth2studio-gallery.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/mkdocs-badges.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#cbottle-super-resolution" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+        <aside class="md-banner">
+          <div class="md-banner__inner md-grid md-typeset">
+            
+              <button class="md-banner__button md-icon" aria-label="Don't show this again">
+                
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            
+            
+  <div class="e2s-announcement" role="status">
+  <span class="e2s-announcement__icon" aria-hidden="true">🚧</span>
+  <span>
+    <strong>Pardon the dust.</strong>
+    We are working to actively improve the Earth2Studio docs page. Apologies for any inconvenience.
+  </span>
+</div>
+
+          </div>
+          
+            <script>var el=document.querySelector("[data-md-component=announce]");if(el){var content=el.querySelector(".md-typeset");__md_hash(content.innerHTML)===__md_get("__announce")&&(el.hidden=!0)}</script>
+          
+        </aside>
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Earth2Studio" class="md-header__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Earth2Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              CBottle Super Resolution
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../userguide/about/install/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../modules/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../blog/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Blog
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Recipes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Earth2Studio" class="md-nav__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    Earth2Studio
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/catalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Catalog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/components/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Components
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core Components
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/prognostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/data_assimilation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/datasources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/advanced/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Usage
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/checkpointing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/batch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Dimension
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/auto/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AutoModels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/lexicon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lexicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/notes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Knowledge Base
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/notes/surface_pressure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Surface Pressure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/developer/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/dependency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Style
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/support/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Support
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/support/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/support/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../modules/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_px/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_dx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_da/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_forecast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Forecast Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_dataframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DataFrame Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/utils_all/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../blog/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Blog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Posts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Posts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/2026/08/06/mkdocs-material-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MkDocs Material Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/archive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/categories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/categories/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Archive
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/archive/2026/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/category/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#set-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set Up
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#super-resolution-on-synthetic-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Super Resolution on Synthetic Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#super-resolution-on-era5-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Super Resolution on ERA5 Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#post-processing-cbottle-super-resolution-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Post Processing CBottle Super Resolution Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="cbottle-super-resolution">CBottle Super Resolution<a class="headerlink" href="#cbottle-super-resolution" title="Permanent link">&para;</a></h1>
+<p>Climate in a Bottle (cBottle) super resolution workflows for global weather.</p>
+<p>This example will demonstrate the cBottle diffusion model for super resolution of global
+weather data. The CBottleSR model takes low-resolution climate data and generates
+high-resolution outputs using a diffusion-based approach.</p>
+<p>For more information on cBottle see:</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2505.06474v1">arxiv.org/abs/2505.06474v1</a></li>
+</ul>
+<p>In this example you will learn:</p>
+<ul>
+<li>Performing super resolution on synthetic data from the cBottle data source</li>
+<li>Performing super resolution on ERA5 data after infilling with cBottle</li>
+<li>Post-processing and visualizing super-resolution results</li>
+</ul>
+<h2 id="set-up">Set Up<a class="headerlink" href="#set-up" title="Permanent link">&para;</a></h2>
+<p>For this example we will use the cBottle data source, infill diagnostic, and the
+CBottleSR super resolution model. The workflow demonstrates two approaches:</p>
+<ol>
+<li>Super resolution on synthetic data generated by cBottle3D</li>
+<li>Super resolution on real ERA5 data after variable infilling</li>
+</ol>
+<p>We need the following components:</p>
+<ul>
+<li>Datasource: Generate data from the CBottle3D data api <a href="../../../modules/generated/data/analysis/data_CBottle3D/#earth2studio.data.CBottle3D"><code>earth2studio.data.CBottle3D</code></a>.</li>
+<li>Datasource: Pull data from the WeatherBench2 data api <a href="../../../modules/generated/data/analysis/data_WB2ERA5/#earth2studio.data.WB2ERA5"><code>earth2studio.data.WB2ERA5</code></a>.</li>
+<li>Diagnostic Model: Use the built in CBottle Infill Model <a href="../../../modules/generated/models/dx/CBottleInfill/#earth2studio.models.dx.CBottleInfill"><code>earth2studio.models.dx.CBottleInfill</code></a>.</li>
+<li>Super Resolution Model: Use the CBottleSR super resolution model <a href="../../../modules/generated/models/dx/CBottleSR/#earth2studio.models.dx.CBottleSR"><code>earth2studio.models.dx.CBottleSR</code></a>.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">WB2ERA5</span><span class="p">,</span> <span class="n">CBottle3D</span><span class="p">,</span> <span class="n">fetch_data</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.dx</span><span class="w"> </span><span class="kn">import</span> <span class="n">CBottleInfill</span><span class="p">,</span> <span class="n">CBottleSR</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># Get the device</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="c1"># Load the cBottle data source</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">package</span> <span class="o">=</span> <span class="n">CBottle3D</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">cbottle_ds</span> <span class="o">=</span> <span class="n">CBottle3D</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="c1"># Load the super resolution model</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">super_resolution_window</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="o">-</span><span class="mi">120</span><span class="p">,</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="mi">50</span><span class="p">,</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="o">-</span><span class="mi">40</span><span class="p">,</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="p">)</span>  <span class="c1"># (lat south, lon west, lat north, lon east)</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="n">package</span> <span class="o">=</span> <span class="n">CBottleSR</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="n">cbottle_sr</span> <span class="o">=</span> <span class="n">CBottleSR</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="n">package</span><span class="p">,</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="n">output_resolution</span><span class="o">=</span><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">),</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="n">super_resolution_window</span><span class="o">=</span><span class="n">super_resolution_window</span><span class="p">,</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    <span class="n">distilled_model</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="p">)</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="c1"># Load the infill model</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="n">input_variables</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;u10m&quot;</span><span class="p">,</span> <span class="s2">&quot;v10m&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="n">package</span> <span class="o">=</span> <span class="n">CBottleInfill</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="n">cbottle_infill</span> <span class="o">=</span> <span class="n">CBottleInfill</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>    <span class="n">package</span><span class="p">,</span> <span class="n">input_variables</span><span class="o">=</span><span class="n">input_variables</span><span class="p">,</span> <span class="n">sampler_steps</span><span class="o">=</span><span class="mi">18</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="p">)</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="c1"># Load the ERA5 data source</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="n">era5_ds</span> <span class="o">=</span> <span class="n">WB2ERA5</span><span class="p">()</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>387 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
+    PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
+    Python  3.10.19 (you have 3.13.13)
+  Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
+  Memory-efficient attention, SwiGLU, sparse and more won't be available.
+  Set XFORMERS_MORE_DETAILS=1 for more details
+CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature
+
+Downloading training-state-000512000.checkpoint: 0%|          | 0.00/568M [00:00&lt;?, ?B/s]
+Downloading training-state-000512000.checkpoint: 2%|▏         | 10.0M/568M [00:01&lt;01:14, 7.90MB/s]
+Downloading training-state-000512000.checkpoint: 4%|▎         | 20.0M/568M [00:01&lt;00:35, 16.3MB/s]
+Downloading training-state-000512000.checkpoint: 5%|▌         | 30.0M/568M [00:01&lt;00:25, 22.5MB/s]
+Downloading training-state-000512000.checkpoint: 7%|▋         | 40.0M/568M [00:01&lt;00:19, 28.4MB/s]
+Downloading training-state-000512000.checkpoint: 9%|▉         | 50.0M/568M [00:02&lt;00:16, 33.4MB/s]
+Downloading training-state-000512000.checkpoint: 11%|█         | 60.0M/568M [00:02&lt;00:13, 38.8MB/s]
+Downloading training-state-000512000.checkpoint: 12%|█▏        | 70.0M/568M [00:02&lt;00:11, 43.7MB/s]
+Downloading training-state-000512000.checkpoint: 16%|█▌        | 90.0M/568M [00:02&lt;00:08, 62.2MB/s]
+Downloading training-state-000512000.checkpoint: 18%|█▊        | 100M/568M [00:02&lt;00:07, 68.6MB/s] 
+Downloading training-state-000512000.checkpoint: 19%|█▉        | 110M/568M [00:02&lt;00:07, 68.1MB/s]
+Downloading training-state-000512000.checkpoint: 21%|██        | 120M/568M [00:03&lt;00:08, 53.6MB/s]
+Downloading training-state-000512000.checkpoint: 23%|██▎       | 130M/568M [00:03&lt;00:09, 48.0MB/s]
+Downloading training-state-000512000.checkpoint: 25%|██▍       | 140M/568M [00:03&lt;00:08, 50.0MB/s]
+Downloading training-state-000512000.checkpoint: 26%|██▋       | 150M/568M [00:03&lt;00:08, 52.0MB/s]
+Downloading training-state-000512000.checkpoint: 28%|██▊       | 160M/568M [00:04&lt;00:07, 60.4MB/s]
+Downloading training-state-000512000.checkpoint: 30%|██▉       | 170M/568M [00:04&lt;00:07, 53.0MB/s]
+Downloading training-state-000512000.checkpoint: 32%|███▏      | 180M/568M [00:04&lt;00:07, 57.9MB/s]
+Downloading training-state-000512000.checkpoint: 33%|███▎      | 190M/568M [00:04&lt;00:06, 62.3MB/s]
+Downloading training-state-000512000.checkpoint: 35%|███▌      | 200M/568M [00:04&lt;00:07, 49.8MB/s]
+Downloading training-state-000512000.checkpoint: 37%|███▋      | 210M/568M [00:05&lt;00:07, 53.1MB/s]
+Downloading training-state-000512000.checkpoint: 39%|███▊      | 220M/568M [00:05&lt;00:06, 54.7MB/s]
+Downloading training-state-000512000.checkpoint: 41%|████      | 230M/568M [00:05&lt;00:07, 47.3MB/s]
+Downloading training-state-000512000.checkpoint: 42%|████▏     | 240M/568M [00:05&lt;00:06, 55.5MB/s]
+Downloading training-state-000512000.checkpoint: 44%|████▍     | 250M/568M [00:05&lt;00:06, 54.5MB/s]
+Downloading training-state-000512000.checkpoint: 46%|████▌     | 260M/568M [00:06&lt;00:08, 39.7MB/s]
+Downloading training-state-000512000.checkpoint: 48%|████▊     | 270M/568M [00:06&lt;00:06, 45.1MB/s]
+Downloading training-state-000512000.checkpoint: 49%|████▉     | 280M/568M [00:06&lt;00:06, 46.7MB/s]
+Downloading training-state-000512000.checkpoint: 51%|█████     | 290M/568M [00:06&lt;00:06, 48.1MB/s]
+Downloading training-state-000512000.checkpoint: 53%|█████▎    | 300M/568M [00:07&lt;00:05, 51.0MB/s]
+Downloading training-state-000512000.checkpoint: 55%|█████▍    | 310M/568M [00:07&lt;00:04, 56.1MB/s]
+Downloading training-state-000512000.checkpoint: 56%|█████▋    | 320M/568M [00:07&lt;00:05, 49.2MB/s]
+Downloading training-state-000512000.checkpoint: 58%|█████▊    | 330M/568M [00:07&lt;00:04, 54.1MB/s]
+Downloading training-state-000512000.checkpoint: 60%|█████▉    | 340M/568M [00:07&lt;00:04, 53.8MB/s]
+Downloading training-state-000512000.checkpoint: 62%|██████▏   | 350M/568M [00:07&lt;00:03, 57.4MB/s]
+Downloading training-state-000512000.checkpoint: 63%|██████▎   | 360M/568M [00:08&lt;00:04, 51.6MB/s]
+Downloading training-state-000512000.checkpoint: 65%|██████▌   | 370M/568M [00:08&lt;00:04, 47.6MB/s]
+Downloading training-state-000512000.checkpoint: 67%|██████▋   | 380M/568M [00:08&lt;00:04, 48.1MB/s]
+Downloading training-state-000512000.checkpoint: 69%|██████▊   | 390M/568M [00:09&lt;00:04, 38.8MB/s]
+Downloading training-state-000512000.checkpoint: 70%|███████   | 400M/568M [00:09&lt;00:04, 42.2MB/s]
+Downloading training-state-000512000.checkpoint: 72%|███████▏  | 410M/568M [00:09&lt;00:03, 44.6MB/s]
+Downloading training-state-000512000.checkpoint: 74%|███████▍  | 420M/568M [00:09&lt;00:03, 43.7MB/s]
+Downloading training-state-000512000.checkpoint: 76%|███████▌  | 430M/568M [00:09&lt;00:02, 50.6MB/s]
+Downloading training-state-000512000.checkpoint: 77%|███████▋  | 440M/568M [00:10&lt;00:02, 49.5MB/s]
+Downloading training-state-000512000.checkpoint: 79%|███████▉  | 450M/568M [00:10&lt;00:02, 42.7MB/s]
+Downloading training-state-000512000.checkpoint: 81%|████████  | 460M/568M [00:10&lt;00:02, 43.4MB/s]
+Downloading training-state-000512000.checkpoint: 83%|████████▎ | 470M/568M [00:10&lt;00:02, 42.4MB/s]
+Downloading training-state-000512000.checkpoint: 85%|████████▍ | 480M/568M [00:11&lt;00:02, 41.9MB/s]
+Downloading training-state-000512000.checkpoint: 86%|████████▋ | 490M/568M [00:11&lt;00:01, 47.9MB/s]
+Downloading training-state-000512000.checkpoint: 88%|████████▊ | 500M/568M [00:11&lt;00:01, 55.4MB/s]
+Downloading training-state-000512000.checkpoint: 90%|████████▉ | 510M/568M [00:11&lt;00:01, 59.2MB/s]
+Downloading training-state-000512000.checkpoint: 93%|█████████▎| 530M/568M [00:11&lt;00:00, 75.6MB/s]
+Downloading training-state-000512000.checkpoint: 97%|█████████▋| 550M/568M [00:11&lt;00:00, 88.2MB/s]
+Downloading training-state-000512000.checkpoint: 100%|██████████| 568M/568M [00:12&lt;00:00, 99.7MB/s]
+Downloading training-state-000512000.checkpoint: 100%|██████████| 568M/568M [00:12&lt;00:00, 49.4MB/s]
+
+Downloading training-state-002048000.checkpoint: 0%|          | 0.00/568M [00:00&lt;?, ?B/s]
+Downloading training-state-002048000.checkpoint: 2%|▏         | 10.0M/568M [00:01&lt;01:06, 8.77MB/s]
+Downloading training-state-002048000.checkpoint: 5%|▌         | 30.0M/568M [00:01&lt;00:20, 27.8MB/s]
+Downloading training-state-002048000.checkpoint: 9%|▉         | 50.0M/568M [00:01&lt;00:11, 45.6MB/s]
+Downloading training-state-002048000.checkpoint: 12%|█▏        | 70.0M/568M [00:01&lt;00:08, 61.5MB/s]
+Downloading training-state-002048000.checkpoint: 16%|█▌        | 90.0M/568M [00:02&lt;00:08, 61.7MB/s]
+Downloading training-state-002048000.checkpoint: 18%|█▊        | 100M/568M [00:02&lt;00:07, 65.1MB/s] 
+Downloading training-state-002048000.checkpoint: 21%|██        | 120M/568M [00:02&lt;00:06, 73.5MB/s]
+Downloading training-state-002048000.checkpoint: 23%|██▎       | 130M/568M [00:02&lt;00:07, 63.7MB/s]
+Downloading training-state-002048000.checkpoint: 25%|██▍       | 140M/568M [00:02&lt;00:07, 60.5MB/s]
+Downloading training-state-002048000.checkpoint: 26%|██▋       | 150M/568M [00:03&lt;00:08, 52.8MB/s]
+Downloading training-state-002048000.checkpoint: 28%|██▊       | 160M/568M [00:03&lt;00:07, 54.2MB/s]
+Downloading training-state-002048000.checkpoint: 30%|██▉       | 170M/568M [00:03&lt;00:11, 36.4MB/s]
+Downloading training-state-002048000.checkpoint: 33%|███▎      | 190M/568M [00:04&lt;00:07, 52.2MB/s]
+Downloading training-state-002048000.checkpoint: 35%|███▌      | 200M/568M [00:04&lt;00:06, 58.2MB/s]
+Downloading training-state-002048000.checkpoint: 37%|███▋      | 210M/568M [00:04&lt;00:05, 64.8MB/s]
+Downloading training-state-002048000.checkpoint: 39%|███▊      | 220M/568M [00:04&lt;00:05, 68.7MB/s]
+Downloading training-state-002048000.checkpoint: 41%|████      | 230M/568M [00:04&lt;00:05, 63.8MB/s]
+Downloading training-state-002048000.checkpoint: 42%|████▏     | 240M/568M [00:04&lt;00:05, 66.7MB/s]
+Downloading training-state-002048000.checkpoint: 44%|████▍     | 250M/568M [00:04&lt;00:05, 63.7MB/s]
+Downloading training-state-002048000.checkpoint: 46%|████▌     | 260M/568M [00:05&lt;00:05, 54.2MB/s]
+Downloading training-state-002048000.checkpoint: 48%|████▊     | 270M/568M [00:05&lt;00:05, 53.5MB/s]
+Downloading training-state-002048000.checkpoint: 49%|████▉     | 280M/568M [00:05&lt;00:05, 55.8MB/s]
+Downloading training-state-002048000.checkpoint: 51%|█████     | 290M/568M [00:05&lt;00:04, 61.6MB/s]
+Downloading training-state-002048000.checkpoint: 53%|█████▎    | 300M/568M [00:05&lt;00:04, 64.5MB/s]
+Downloading training-state-002048000.checkpoint: 55%|█████▍    | 310M/568M [00:05&lt;00:04, 63.7MB/s]
+Downloading training-state-002048000.checkpoint: 56%|█████▋    | 320M/568M [00:06&lt;00:05, 47.4MB/s]
+Downloading training-state-002048000.checkpoint: 58%|█████▊    | 330M/568M [00:06&lt;00:05, 49.3MB/s]
+Downloading training-state-002048000.checkpoint: 60%|█████▉    | 340M/568M [00:06&lt;00:04, 50.3MB/s]
+Downloading training-state-002048000.checkpoint: 62%|██████▏   | 350M/568M [00:06&lt;00:04, 52.8MB/s]
+Downloading training-state-002048000.checkpoint: 63%|██████▎   | 360M/568M [00:07&lt;00:03, 60.1MB/s]
+Downloading training-state-002048000.checkpoint: 67%|██████▋   | 380M/568M [00:07&lt;00:02, 77.9MB/s]
+Downloading training-state-002048000.checkpoint: 69%|██████▊   | 390M/568M [00:07&lt;00:03, 60.4MB/s]
+Downloading training-state-002048000.checkpoint: 70%|███████   | 400M/568M [00:07&lt;00:02, 66.4MB/s]
+Downloading training-state-002048000.checkpoint: 72%|███████▏  | 410M/568M [00:07&lt;00:03, 54.8MB/s]
+Downloading training-state-002048000.checkpoint: 74%|███████▍  | 420M/568M [00:08&lt;00:03, 49.3MB/s]
+Downloading training-state-002048000.checkpoint: 76%|███████▌  | 430M/568M [00:08&lt;00:02, 55.9MB/s]
+Downloading training-state-002048000.checkpoint: 77%|███████▋  | 440M/568M [00:08&lt;00:02, 50.5MB/s]
+Downloading training-state-002048000.checkpoint: 79%|███████▉  | 450M/568M [00:08&lt;00:02, 43.8MB/s]
+Downloading training-state-002048000.checkpoint: 81%|████████  | 460M/568M [00:08&lt;00:02, 51.7MB/s]
+Downloading training-state-002048000.checkpoint: 83%|████████▎ | 470M/568M [00:09&lt;00:01, 57.2MB/s]
+Downloading training-state-002048000.checkpoint: 85%|████████▍ | 480M/568M [00:09&lt;00:01, 61.9MB/s]
+Downloading training-state-002048000.checkpoint: 86%|████████▋ | 490M/568M [00:09&lt;00:01, 64.1MB/s]
+Downloading training-state-002048000.checkpoint: 88%|████████▊ | 500M/568M [00:09&lt;00:01, 63.7MB/s]
+Downloading training-state-002048000.checkpoint: 90%|████████▉ | 510M/568M [00:09&lt;00:00, 62.7MB/s]
+Downloading training-state-002048000.checkpoint: 92%|█████████▏| 520M/568M [00:10&lt;00:01, 45.9MB/s]
+Downloading training-state-002048000.checkpoint: 93%|█████████▎| 530M/568M [00:10&lt;00:00, 41.8MB/s]
+Downloading training-state-002048000.checkpoint: 95%|█████████▌| 540M/568M [00:10&lt;00:00, 36.8MB/s]
+Downloading training-state-002048000.checkpoint: 97%|█████████▋| 550M/568M [00:11&lt;00:00, 28.7MB/s]
+Downloading training-state-002048000.checkpoint: 99%|█████████▊| 560M/568M [00:11&lt;00:00, 24.5MB/s]
+Downloading training-state-002048000.checkpoint: 100%|██████████| 568M/568M [00:12&lt;00:00, 28.4MB/s]
+Downloading training-state-002048000.checkpoint: 100%|██████████| 568M/568M [00:12&lt;00:00, 49.3MB/s]
+
+Downloading training-state-009856000.checkpoint: 0%|          | 0.00/1.66G [00:00&lt;?, ?B/s]
+Downloading training-state-009856000.checkpoint: 1%|          | 10.0M/1.66G [00:01&lt;03:03, 9.69MB/s]
+Downloading training-state-009856000.checkpoint: 1%|          | 20.0M/1.66G [00:01&lt;01:27, 20.2MB/s]
+Downloading training-state-009856000.checkpoint: 2%|▏         | 30.0M/1.66G [00:01&lt;00:55, 31.7MB/s]
+Downloading training-state-009856000.checkpoint: 2%|▏         | 40.0M/1.66G [00:01&lt;00:40, 42.7MB/s]
+Downloading training-state-009856000.checkpoint: 4%|▎         | 60.0M/1.66G [00:01&lt;00:27, 63.1MB/s]
+Downloading training-state-009856000.checkpoint: 4%|▍         | 70.0M/1.66G [00:01&lt;00:27, 63.4MB/s]
+Downloading training-state-009856000.checkpoint: 5%|▍         | 80.0M/1.66G [00:01&lt;00:23, 71.3MB/s]
+Downloading training-state-009856000.checkpoint: 5%|▌         | 90.0M/1.66G [00:01&lt;00:22, 76.8MB/s]
+Downloading training-state-009856000.checkpoint: 6%|▋         | 110M/1.66G [00:02&lt;00:24, 68.4MB/s] 
+Downloading training-state-009856000.checkpoint: 8%|▊         | 130M/1.66G [00:02&lt;00:21, 75.4MB/s]
+Downloading training-state-009856000.checkpoint: 9%|▉         | 150M/1.66G [00:02&lt;00:19, 82.5MB/s]
+Downloading training-state-009856000.checkpoint: 10%|▉         | 170M/1.66G [00:02&lt;00:18, 88.0MB/s]
+Downloading training-state-009856000.checkpoint: 11%|█         | 180M/1.66G [00:03&lt;00:17, 89.3MB/s]
+Downloading training-state-009856000.checkpoint: 12%|█▏        | 200M/1.66G [00:03&lt;00:19, 81.9MB/s]
+Downloading training-state-009856000.checkpoint: 12%|█▏        | 210M/1.66G [00:03&lt;00:18, 85.6MB/s]
+Downloading training-state-009856000.checkpoint: 13%|█▎        | 220M/1.66G [00:03&lt;00:17, 87.0MB/s]
+Downloading training-state-009856000.checkpoint: 13%|█▎        | 230M/1.66G [00:03&lt;00:17, 90.7MB/s]
+Downloading training-state-009856000.checkpoint: 14%|█▍        | 240M/1.66G [00:03&lt;00:16, 92.1MB/s]
+Downloading training-state-009856000.checkpoint: 15%|█▍        | 250M/1.66G [00:03&lt;00:16, 95.1MB/s]
+Downloading training-state-009856000.checkpoint: 15%|█▌        | 260M/1.66G [00:04&lt;00:18, 82.7MB/s]
+Downloading training-state-009856000.checkpoint: 16%|█▋        | 280M/1.66G [00:04&lt;00:15, 96.9MB/s]
+Downloading training-state-009856000.checkpoint: 18%|█▊        | 300M/1.66G [00:04&lt;00:13, 106MB/s] 
+Downloading training-state-009856000.checkpoint: 19%|█▉        | 320M/1.66G [00:04&lt;00:16, 89.0MB/s]
+Downloading training-state-009856000.checkpoint: 20%|█▉        | 340M/1.66G [00:05&lt;00:17, 80.9MB/s]
+Downloading training-state-009856000.checkpoint: 21%|██        | 350M/1.66G [00:05&lt;00:18, 78.5MB/s]
+Downloading training-state-009856000.checkpoint: 21%|██        | 360M/1.66G [00:05&lt;00:19, 73.9MB/s]
+Downloading training-state-009856000.checkpoint: 22%|██▏       | 370M/1.66G [00:05&lt;00:17, 78.4MB/s]
+Downloading training-state-009856000.checkpoint: 23%|██▎       | 390M/1.66G [00:05&lt;00:19, 70.1MB/s]
+Downloading training-state-009856000.checkpoint: 24%|██▍       | 410M/1.66G [00:06&lt;00:17, 79.6MB/s]
+Downloading training-state-009856000.checkpoint: 25%|██▌       | 430M/1.66G [00:06&lt;00:17, 76.1MB/s]
+Downloading training-state-009856000.checkpoint: 26%|██▋       | 450M/1.66G [00:06&lt;00:17, 73.7MB/s]
+Downloading training-state-009856000.checkpoint: 28%|██▊       | 470M/1.66G [00:06&lt;00:16, 77.3MB/s]
+Downloading training-state-009856000.checkpoint: 29%|██▉       | 490M/1.66G [00:07&lt;00:15, 79.7MB/s]
+Downloading training-state-009856000.checkpoint: 29%|██▉       | 500M/1.66G [00:07&lt;00:16, 78.8MB/s]
+Downloading training-state-009856000.checkpoint: 30%|██▉       | 510M/1.66G [00:07&lt;00:15, 80.5MB/s]
+Downloading training-state-009856000.checkpoint: 31%|███       | 520M/1.66G [00:07&lt;00:18, 67.4MB/s]
+Downloading training-state-009856000.checkpoint: 32%|███▏      | 540M/1.66G [00:07&lt;00:17, 70.0MB/s]
+Downloading training-state-009856000.checkpoint: 32%|███▏      | 550M/1.66G [00:08&lt;00:16, 74.3MB/s]
+Downloading training-state-009856000.checkpoint: 33%|███▎      | 560M/1.66G [00:08&lt;00:17, 68.5MB/s]
+Downloading training-state-009856000.checkpoint: 33%|███▎      | 570M/1.66G [00:08&lt;00:16, 69.9MB/s]
+Downloading training-state-009856000.checkpoint: 34%|███▍      | 580M/1.66G [00:08&lt;00:18, 64.2MB/s]
+Downloading training-state-009856000.checkpoint: 35%|███▍      | 590M/1.66G [00:08&lt;00:16, 71.3MB/s]
+Downloading training-state-009856000.checkpoint: 35%|███▌      | 600M/1.66G [00:08&lt;00:15, 75.2MB/s]
+Downloading training-state-009856000.checkpoint: 36%|███▌      | 610M/1.66G [00:08&lt;00:14, 77.0MB/s]
+Downloading training-state-009856000.checkpoint: 36%|███▋      | 620M/1.66G [00:09&lt;00:15, 74.2MB/s]
+Downloading training-state-009856000.checkpoint: 37%|███▋      | 630M/1.66G [00:09&lt;00:14, 80.2MB/s]
+Downloading training-state-009856000.checkpoint: 38%|███▊      | 640M/1.66G [00:09&lt;00:16, 68.6MB/s]
+Downloading training-state-009856000.checkpoint: 38%|███▊      | 650M/1.66G [00:09&lt;00:14, 75.8MB/s]
+Downloading training-state-009856000.checkpoint: 39%|███▊      | 660M/1.66G [00:09&lt;00:14, 77.3MB/s]
+Downloading training-state-009856000.checkpoint: 40%|███▉      | 680M/1.66G [00:09&lt;00:12, 86.7MB/s]
+Downloading training-state-009856000.checkpoint: 40%|████      | 690M/1.66G [00:09&lt;00:12, 88.4MB/s]
+Downloading training-state-009856000.checkpoint: 41%|████      | 700M/1.66G [00:10&lt;00:13, 78.1MB/s]
+Downloading training-state-009856000.checkpoint: 42%|████▏     | 710M/1.66G [00:10&lt;00:15, 66.0MB/s]
+Downloading training-state-009856000.checkpoint: 42%|████▏     | 720M/1.66G [00:10&lt;00:14, 73.5MB/s]
+Downloading training-state-009856000.checkpoint: 43%|████▎     | 740M/1.66G [00:10&lt;00:11, 84.6MB/s]
+Downloading training-state-009856000.checkpoint: 45%|████▍     | 760M/1.66G [00:10&lt;00:10, 94.1MB/s]
+Downloading training-state-009856000.checkpoint: 45%|████▌     | 770M/1.66G [00:10&lt;00:11, 82.9MB/s]
+Downloading training-state-009856000.checkpoint: 46%|████▋     | 790M/1.66G [00:11&lt;00:10, 93.7MB/s]
+Downloading training-state-009856000.checkpoint: 48%|████▊     | 810M/1.66G [00:11&lt;00:09, 102MB/s] 
+Downloading training-state-009856000.checkpoint: 49%|████▊     | 830M/1.66G [00:11&lt;00:08, 108MB/s]
+Downloading training-state-009856000.checkpoint: 50%|████▉     | 850M/1.66G [00:11&lt;00:08, 102MB/s]
+Downloading training-state-009856000.checkpoint: 51%|█████     | 870M/1.66G [00:11&lt;00:08, 106MB/s]
+Downloading training-state-009856000.checkpoint: 52%|█████▏    | 890M/1.66G [00:12&lt;00:07, 110MB/s]
+Downloading training-state-009856000.checkpoint: 53%|█████▎    | 910M/1.66G [00:12&lt;00:08, 99.2MB/s]
+Downloading training-state-009856000.checkpoint: 55%|█████▍    | 930M/1.66G [00:12&lt;00:07, 104MB/s] 
+Downloading training-state-009856000.checkpoint: 56%|█████▌    | 950M/1.66G [00:12&lt;00:07, 109MB/s]
+Downloading training-state-009856000.checkpoint: 57%|█████▋    | 970M/1.66G [00:12&lt;00:08, 92.3MB/s]
+Downloading training-state-009856000.checkpoint: 58%|█████▊    | 980M/1.66G [00:13&lt;00:11, 64.5MB/s]
+Downloading training-state-009856000.checkpoint: 58%|█████▊    | 990M/1.66G [00:13&lt;00:11, 63.1MB/s]
+Downloading training-state-009856000.checkpoint: 59%|█████▊    | 0.98G/1.66G [00:13&lt;00:11, 63.9MB/s]
+Downloading training-state-009856000.checkpoint: 59%|█████▉    | 0.99G/1.66G [00:13&lt;00:10, 69.4MB/s]
+Downloading training-state-009856000.checkpoint: 60%|█████▉    | 1.00G/1.66G [00:14&lt;00:11, 63.0MB/s]
+Downloading training-state-009856000.checkpoint: 60%|██████    | 1.01G/1.66G [00:14&lt;00:15, 46.8MB/s]
+Downloading training-state-009856000.checkpoint: 62%|██████▏   | 1.03G/1.66G [00:14&lt;00:10, 63.9MB/s]
+Downloading training-state-009856000.checkpoint: 63%|██████▎   | 1.04G/1.66G [00:14&lt;00:08, 77.9MB/s]
+Downloading training-state-009856000.checkpoint: 64%|██████▍   | 1.06G/1.66G [00:14&lt;00:07, 89.5MB/s]
+Downloading training-state-009856000.checkpoint: 65%|██████▌   | 1.08G/1.66G [00:15&lt;00:06, 98.4MB/s]
+Downloading training-state-009856000.checkpoint: 66%|██████▋   | 1.10G/1.66G [00:15&lt;00:05, 107MB/s] 
+Downloading training-state-009856000.checkpoint: 67%|██████▋   | 1.12G/1.66G [00:15&lt;00:05, 109MB/s]
+Downloading training-state-009856000.checkpoint: 69%|██████▊   | 1.14G/1.66G [00:15&lt;00:07, 77.1MB/s]
+Downloading training-state-009856000.checkpoint: 70%|██████▉   | 1.16G/1.66G [00:16&lt;00:06, 86.0MB/s]
+Downloading training-state-009856000.checkpoint: 71%|███████   | 1.18G/1.66G [00:16&lt;00:05, 89.3MB/s]
+Downloading training-state-009856000.checkpoint: 72%|███████▏  | 1.19G/1.66G [00:16&lt;00:06, 80.9MB/s]
+Downloading training-state-009856000.checkpoint: 73%|███████▎  | 1.21G/1.66G [00:16&lt;00:06, 79.6MB/s]
+Downloading training-state-009856000.checkpoint: 74%|███████▍  | 1.23G/1.66G [00:16&lt;00:05, 83.9MB/s]
+Downloading training-state-009856000.checkpoint: 75%|███████▍  | 1.24G/1.66G [00:17&lt;00:05, 85.5MB/s]
+Downloading training-state-009856000.checkpoint: 75%|███████▌  | 1.25G/1.66G [00:17&lt;00:06, 71.7MB/s]
+Downloading training-state-009856000.checkpoint: 76%|███████▌  | 1.26G/1.66G [00:17&lt;00:05, 77.3MB/s]
+Downloading training-state-009856000.checkpoint: 77%|███████▋  | 1.28G/1.66G [00:17&lt;00:04, 89.4MB/s]
+Downloading training-state-009856000.checkpoint: 78%|███████▊  | 1.30G/1.66G [00:17&lt;00:04, 96.7MB/s]
+Downloading training-state-009856000.checkpoint: 79%|███████▊  | 1.31G/1.66G [00:17&lt;00:03, 96.5MB/s]
+Downloading training-state-009856000.checkpoint: 79%|███████▉  | 1.32G/1.66G [00:18&lt;00:05, 65.3MB/s]
+Downloading training-state-009856000.checkpoint: 80%|████████  | 1.34G/1.66G [00:18&lt;00:05, 60.3MB/s]
+Downloading training-state-009856000.checkpoint: 81%|████████  | 1.35G/1.66G [00:18&lt;00:05, 59.7MB/s]
+Downloading training-state-009856000.checkpoint: 82%|████████▏ | 1.37G/1.66G [00:19&lt;00:04, 69.9MB/s]
+Downloading training-state-009856000.checkpoint: 83%|████████▎ | 1.38G/1.66G [00:19&lt;00:04, 67.2MB/s]
+Downloading training-state-009856000.checkpoint: 84%|████████▍ | 1.40G/1.66G [00:19&lt;00:03, 75.6MB/s]
+Downloading training-state-009856000.checkpoint: 85%|████████▌ | 1.42G/1.66G [00:19&lt;00:03, 70.1MB/s]
+Downloading training-state-009856000.checkpoint: 86%|████████▋ | 1.44G/1.66G [00:20&lt;00:03, 73.8MB/s]
+Downloading training-state-009856000.checkpoint: 87%|████████▋ | 1.46G/1.66G [00:20&lt;00:02, 84.6MB/s]
+Downloading training-state-009856000.checkpoint: 89%|████████▊ | 1.47G/1.66G [00:20&lt;00:02, 92.3MB/s]
+Downloading training-state-009856000.checkpoint: 90%|████████▉ | 1.49G/1.66G [00:20&lt;00:01, 101MB/s] 
+Downloading training-state-009856000.checkpoint: 91%|█████████ | 1.51G/1.66G [00:20&lt;00:01, 105MB/s]
+Downloading training-state-009856000.checkpoint: 92%|█████████▏| 1.53G/1.66G [00:20&lt;00:01, 104MB/s]
+Downloading training-state-009856000.checkpoint: 93%|█████████▎| 1.55G/1.66G [00:21&lt;00:01, 63.0MB/s]
+Downloading training-state-009856000.checkpoint: 94%|█████████▍| 1.56G/1.66G [00:21&lt;00:01, 60.1MB/s]
+Downloading training-state-009856000.checkpoint: 94%|█████████▍| 1.57G/1.66G [00:21&lt;00:01, 62.4MB/s]
+Downloading training-state-009856000.checkpoint: 95%|█████████▌| 1.58G/1.66G [00:22&lt;00:01, 56.7MB/s]
+Downloading training-state-009856000.checkpoint: 96%|█████████▌| 1.59G/1.66G [00:22&lt;00:01, 44.3MB/s]
+Downloading training-state-009856000.checkpoint: 96%|█████████▋| 1.60G/1.66G [00:22&lt;00:01, 39.8MB/s]
+Downloading training-state-009856000.checkpoint: 97%|█████████▋| 1.62G/1.66G [00:23&lt;00:00, 49.3MB/s]
+Downloading training-state-009856000.checkpoint: 98%|█████████▊| 1.63G/1.66G [00:23&lt;00:00, 43.4MB/s]
+Downloading training-state-009856000.checkpoint: 99%|█████████▉| 1.65G/1.66G [00:23&lt;00:00, 51.3MB/s]
+Downloading training-state-009856000.checkpoint: 100%|█████████▉| 1.66G/1.66G [00:24&lt;00:00, 49.6MB/s]
+Downloading training-state-009856000.checkpoint: 100%|██████████| 1.66G/1.66G [00:24&lt;00:00, 74.1MB/s]
+
+Downloading config.json: 0%|          | 0.00/25.0 [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 25.0/25.0 [00:00&lt;00:00, 115B/s]
+Downloading config.json: 100%|██████████| 25.0/25.0 [00:00&lt;00:00, 114B/s]
+
+Downloading amip_midmonth_sst.nc: 0%|          | 0.00/454M [00:00&lt;?, ?B/s]
+Downloading amip_midmonth_sst.nc: 2%|▏         | 10.0M/454M [00:01&lt;00:57, 8.05MB/s]
+Downloading amip_midmonth_sst.nc: 4%|▍         | 20.0M/454M [00:01&lt;00:26, 17.2MB/s]
+Downloading amip_midmonth_sst.nc: 7%|▋         | 30.0M/454M [00:01&lt;00:17, 25.8MB/s]
+Downloading amip_midmonth_sst.nc: 9%|▉         | 40.0M/454M [00:01&lt;00:12, 35.2MB/s]
+Downloading amip_midmonth_sst.nc: 11%|█         | 50.0M/454M [00:01&lt;00:09, 43.4MB/s]
+Downloading amip_midmonth_sst.nc: 13%|█▎        | 60.0M/454M [00:02&lt;00:08, 51.0MB/s]
+Downloading amip_midmonth_sst.nc: 15%|█▌        | 70.0M/454M [00:02&lt;00:08, 48.4MB/s]
+Downloading amip_midmonth_sst.nc: 20%|█▉        | 90.0M/454M [00:02&lt;00:05, 69.4MB/s]
+Downloading amip_midmonth_sst.nc: 24%|██▍       | 110M/454M [00:02&lt;00:04, 85.7MB/s] 
+Downloading amip_midmonth_sst.nc: 29%|██▊       | 130M/454M [00:02&lt;00:03, 101MB/s] 
+Downloading amip_midmonth_sst.nc: 33%|███▎      | 150M/454M [00:02&lt;00:02, 109MB/s]
+Downloading amip_midmonth_sst.nc: 37%|███▋      | 170M/454M [00:03&lt;00:02, 109MB/s]
+Downloading amip_midmonth_sst.nc: 42%|████▏     | 190M/454M [00:03&lt;00:02, 115MB/s]
+Downloading amip_midmonth_sst.nc: 46%|████▌     | 210M/454M [00:03&lt;00:02, 100MB/s]
+Downloading amip_midmonth_sst.nc: 51%|█████     | 230M/454M [00:03&lt;00:02, 100MB/s]
+Downloading amip_midmonth_sst.nc: 55%|█████▌    | 250M/454M [00:03&lt;00:01, 108MB/s]
+Downloading amip_midmonth_sst.nc: 59%|█████▉    | 270M/454M [00:04&lt;00:01, 98.0MB/s]
+Downloading amip_midmonth_sst.nc: 64%|██████▍   | 290M/454M [00:04&lt;00:01, 104MB/s] 
+Downloading amip_midmonth_sst.nc: 68%|██████▊   | 310M/454M [00:04&lt;00:01, 109MB/s]
+Downloading amip_midmonth_sst.nc: 73%|███████▎  | 330M/454M [00:04&lt;00:01, 102MB/s]
+Downloading amip_midmonth_sst.nc: 77%|███████▋  | 350M/454M [00:04&lt;00:01, 103MB/s]
+Downloading amip_midmonth_sst.nc: 81%|████████▏ | 370M/454M [00:05&lt;00:00, 107MB/s]
+Downloading amip_midmonth_sst.nc: 86%|████████▌ | 390M/454M [00:05&lt;00:00, 84.6MB/s]
+Downloading amip_midmonth_sst.nc: 88%|████████▊ | 400M/454M [00:05&lt;00:00, 79.7MB/s]
+Downloading amip_midmonth_sst.nc: 92%|█████████▏| 420M/454M [00:05&lt;00:00, 90.0MB/s]
+Downloading amip_midmonth_sst.nc: 97%|█████████▋| 440M/454M [00:05&lt;00:00, 99.0MB/s]
+Downloading amip_midmonth_sst.nc: 100%|██████████| 454M/454M [00:06&lt;00:00, 105MB/s]
+Downloading amip_midmonth_sst.nc: 100%|██████████| 454M/454M [00:06&lt;00:00, 78.3MB/s]
+
+Downloading cBottle-SR-Distill.zip: 0%|          | 0.00/1.23G [00:00&lt;?, ?B/s]
+Downloading cBottle-SR-Distill.zip: 1%|          | 10.0M/1.23G [00:01&lt;02:19, 9.37MB/s]
+Downloading cBottle-SR-Distill.zip: 2%|▏         | 20.0M/1.23G [00:01&lt;01:09, 18.8MB/s]
+Downloading cBottle-SR-Distill.zip: 2%|▏         | 30.0M/1.23G [00:01&lt;00:45, 28.1MB/s]
+Downloading cBottle-SR-Distill.zip: 3%|▎         | 40.0M/1.23G [00:01&lt;00:35, 36.3MB/s]
+Downloading cBottle-SR-Distill.zip: 4%|▍         | 50.0M/1.23G [00:01&lt;00:34, 37.0MB/s]
+Downloading cBottle-SR-Distill.zip: 5%|▍         | 60.0M/1.23G [00:02&lt;00:30, 41.0MB/s]
+Downloading cBottle-SR-Distill.zip: 6%|▌         | 70.0M/1.23G [00:02&lt;00:31, 39.8MB/s]
+Downloading cBottle-SR-Distill.zip: 7%|▋         | 90.0M/1.23G [00:02&lt;00:22, 55.3MB/s]
+Downloading cBottle-SR-Distill.zip: 9%|▊         | 110M/1.23G [00:02&lt;00:18, 63.7MB/s] 
+Downloading cBottle-SR-Distill.zip: 10%|█         | 130M/1.23G [00:03&lt;00:19, 61.7MB/s]
+Downloading cBottle-SR-Distill.zip: 11%|█         | 140M/1.23G [00:03&lt;00:17, 66.7MB/s]
+Downloading cBottle-SR-Distill.zip: 12%|█▏        | 150M/1.23G [00:03&lt;00:17, 68.5MB/s]
+Downloading cBottle-SR-Distill.zip: 13%|█▎        | 170M/1.23G [00:03&lt;00:13, 83.4MB/s]
+Downloading cBottle-SR-Distill.zip: 14%|█▍        | 180M/1.23G [00:03&lt;00:15, 72.5MB/s]
+Downloading cBottle-SR-Distill.zip: 15%|█▌        | 190M/1.23G [00:03&lt;00:14, 77.8MB/s]
+Downloading cBottle-SR-Distill.zip: 16%|█▌        | 200M/1.23G [00:04&lt;00:18, 60.3MB/s]
+Downloading cBottle-SR-Distill.zip: 17%|█▋        | 210M/1.23G [00:04&lt;00:16, 66.5MB/s]
+Downloading cBottle-SR-Distill.zip: 17%|█▋        | 220M/1.23G [00:04&lt;00:15, 72.3MB/s]
+Downloading cBottle-SR-Distill.zip: 18%|█▊        | 230M/1.23G [00:04&lt;00:13, 78.5MB/s]
+Downloading cBottle-SR-Distill.zip: 19%|█▉        | 240M/1.23G [00:04&lt;00:15, 68.6MB/s]
+Downloading cBottle-SR-Distill.zip: 21%|██        | 260M/1.23G [00:05&lt;00:17, 59.8MB/s]
+Downloading cBottle-SR-Distill.zip: 22%|██▏       | 280M/1.23G [00:05&lt;00:17, 59.9MB/s]
+Downloading cBottle-SR-Distill.zip: 23%|██▎       | 290M/1.23G [00:05&lt;00:15, 64.5MB/s]
+Downloading cBottle-SR-Distill.zip: 24%|██▍       | 300M/1.23G [00:05&lt;00:15, 65.1MB/s]
+Downloading cBottle-SR-Distill.zip: 25%|██▍       | 310M/1.23G [00:05&lt;00:14, 68.5MB/s]
+Downloading cBottle-SR-Distill.zip: 25%|██▌       | 320M/1.23G [00:06&lt;00:18, 54.1MB/s]
+Downloading cBottle-SR-Distill.zip: 26%|██▌       | 330M/1.23G [00:06&lt;00:17, 55.9MB/s]
+Downloading cBottle-SR-Distill.zip: 27%|██▋       | 340M/1.23G [00:06&lt;00:16, 58.8MB/s]
+Downloading cBottle-SR-Distill.zip: 28%|██▊       | 350M/1.23G [00:06&lt;00:16, 59.1MB/s]
+Downloading cBottle-SR-Distill.zip: 29%|██▊       | 360M/1.23G [00:06&lt;00:15, 62.6MB/s]
+Downloading cBottle-SR-Distill.zip: 29%|██▉       | 370M/1.23G [00:07&lt;00:14, 63.4MB/s]
+Downloading cBottle-SR-Distill.zip: 30%|███       | 380M/1.23G [00:07&lt;00:14, 65.9MB/s]
+Downloading cBottle-SR-Distill.zip: 31%|███       | 390M/1.23G [00:07&lt;00:17, 53.3MB/s]
+Downloading cBottle-SR-Distill.zip: 33%|███▎      | 410M/1.23G [00:07&lt;00:14, 60.6MB/s]
+Downloading cBottle-SR-Distill.zip: 33%|███▎      | 420M/1.23G [00:07&lt;00:14, 61.8MB/s]
+Downloading cBottle-SR-Distill.zip: 34%|███▍      | 430M/1.23G [00:08&lt;00:15, 55.2MB/s]
+Downloading cBottle-SR-Distill.zip: 35%|███▍      | 440M/1.23G [00:08&lt;00:14, 60.1MB/s]
+Downloading cBottle-SR-Distill.zip: 36%|███▌      | 450M/1.23G [00:08&lt;00:22, 38.4MB/s]
+Downloading cBottle-SR-Distill.zip: 37%|███▋      | 470M/1.23G [00:09&lt;00:15, 52.3MB/s]
+Downloading cBottle-SR-Distill.zip: 38%|███▊      | 480M/1.23G [00:09&lt;00:13, 58.5MB/s]
+Downloading cBottle-SR-Distill.zip: 39%|███▉      | 490M/1.23G [00:09&lt;00:16, 48.1MB/s]
+Downloading cBottle-SR-Distill.zip: 40%|████      | 510M/1.23G [00:09&lt;00:11, 66.8MB/s]
+Downloading cBottle-SR-Distill.zip: 42%|████▏     | 530M/1.23G [00:09&lt;00:10, 75.6MB/s]
+Downloading cBottle-SR-Distill.zip: 43%|████▎     | 540M/1.23G [00:09&lt;00:10, 73.9MB/s]
+Downloading cBottle-SR-Distill.zip: 44%|████▎     | 550M/1.23G [00:10&lt;00:10, 74.0MB/s]
+Downloading cBottle-SR-Distill.zip: 44%|████▍     | 560M/1.23G [00:10&lt;00:10, 72.9MB/s]
+Downloading cBottle-SR-Distill.zip: 45%|████▌     | 570M/1.23G [00:10&lt;00:09, 74.1MB/s]
+Downloading cBottle-SR-Distill.zip: 46%|████▌     | 580M/1.23G [00:10&lt;00:12, 58.3MB/s]
+Downloading cBottle-SR-Distill.zip: 47%|████▋     | 590M/1.23G [00:10&lt;00:11, 60.1MB/s]
+Downloading cBottle-SR-Distill.zip: 48%|████▊     | 600M/1.23G [00:11&lt;00:12, 57.4MB/s]
+Downloading cBottle-SR-Distill.zip: 48%|████▊     | 610M/1.23G [00:11&lt;00:10, 63.6MB/s]
+Downloading cBottle-SR-Distill.zip: 49%|████▉     | 620M/1.23G [00:11&lt;00:10, 63.0MB/s]
+Downloading cBottle-SR-Distill.zip: 50%|████▉     | 630M/1.23G [00:11&lt;00:09, 68.7MB/s]
+Downloading cBottle-SR-Distill.zip: 51%|█████     | 640M/1.23G [00:11&lt;00:11, 57.7MB/s]
+Downloading cBottle-SR-Distill.zip: 52%|█████▏    | 650M/1.23G [00:11&lt;00:10, 60.0MB/s]
+Downloading cBottle-SR-Distill.zip: 52%|█████▏    | 660M/1.23G [00:12&lt;00:10, 60.6MB/s]
+Downloading cBottle-SR-Distill.zip: 53%|█████▎    | 670M/1.23G [00:12&lt;00:09, 63.4MB/s]
+Downloading cBottle-SR-Distill.zip: 54%|█████▍    | 680M/1.23G [00:12&lt;00:09, 63.4MB/s]
+Downloading cBottle-SR-Distill.zip: 55%|█████▍    | 690M/1.23G [00:12&lt;00:09, 64.5MB/s]
+Downloading cBottle-SR-Distill.zip: 56%|█████▌    | 700M/1.23G [00:12&lt;00:08, 72.5MB/s]
+Downloading cBottle-SR-Distill.zip: 56%|█████▋    | 710M/1.23G [00:12&lt;00:10, 55.7MB/s]
+Downloading cBottle-SR-Distill.zip: 57%|█████▋    | 720M/1.23G [00:13&lt;00:09, 62.4MB/s]
+Downloading cBottle-SR-Distill.zip: 58%|█████▊    | 730M/1.23G [00:13&lt;00:09, 57.5MB/s]
+Downloading cBottle-SR-Distill.zip: 59%|█████▊    | 740M/1.23G [00:13&lt;00:09, 56.2MB/s]
+Downloading cBottle-SR-Distill.zip: 59%|█████▉    | 750M/1.23G [00:13&lt;00:09, 57.2MB/s]
+Downloading cBottle-SR-Distill.zip: 60%|██████    | 760M/1.23G [00:13&lt;00:09, 56.1MB/s]
+Downloading cBottle-SR-Distill.zip: 61%|██████    | 770M/1.23G [00:14&lt;00:11, 43.5MB/s]
+Downloading cBottle-SR-Distill.zip: 62%|██████▏   | 780M/1.23G [00:14&lt;00:10, 48.4MB/s]
+Downloading cBottle-SR-Distill.zip: 63%|██████▎   | 790M/1.23G [00:14&lt;00:09, 54.2MB/s]
+Downloading cBottle-SR-Distill.zip: 63%|██████▎   | 800M/1.23G [00:14&lt;00:08, 56.8MB/s]
+Downloading cBottle-SR-Distill.zip: 64%|██████▍   | 810M/1.23G [00:14&lt;00:08, 58.1MB/s]
+Downloading cBottle-SR-Distill.zip: 65%|██████▌   | 820M/1.23G [00:15&lt;00:08, 53.9MB/s]
+Downloading cBottle-SR-Distill.zip: 66%|██████▌   | 830M/1.23G [00:15&lt;00:08, 55.7MB/s]
+Downloading cBottle-SR-Distill.zip: 67%|██████▋   | 840M/1.23G [00:15&lt;00:10, 43.4MB/s]
+Downloading cBottle-SR-Distill.zip: 67%|██████▋   | 850M/1.23G [00:15&lt;00:09, 46.6MB/s]
+Downloading cBottle-SR-Distill.zip: 68%|██████▊   | 860M/1.23G [00:15&lt;00:08, 48.0MB/s]
+Downloading cBottle-SR-Distill.zip: 69%|██████▉   | 870M/1.23G [00:16&lt;00:08, 47.3MB/s]
+Downloading cBottle-SR-Distill.zip: 70%|██████▉   | 880M/1.23G [00:16&lt;00:07, 54.0MB/s]
+Downloading cBottle-SR-Distill.zip: 71%|███████   | 890M/1.23G [00:16&lt;00:06, 58.6MB/s]
+Downloading cBottle-SR-Distill.zip: 71%|███████▏  | 900M/1.23G [00:16&lt;00:07, 49.7MB/s]
+Downloading cBottle-SR-Distill.zip: 72%|███████▏  | 910M/1.23G [00:16&lt;00:06, 52.7MB/s]
+Downloading cBottle-SR-Distill.zip: 73%|███████▎  | 920M/1.23G [00:17&lt;00:06, 55.5MB/s]
+Downloading cBottle-SR-Distill.zip: 74%|███████▍  | 930M/1.23G [00:17&lt;00:05, 60.0MB/s]
+Downloading cBottle-SR-Distill.zip: 75%|███████▍  | 940M/1.23G [00:17&lt;00:05, 62.5MB/s]
+Downloading cBottle-SR-Distill.zip: 75%|███████▌  | 950M/1.23G [00:17&lt;00:05, 62.9MB/s]
+Downloading cBottle-SR-Distill.zip: 76%|███████▌  | 960M/1.23G [00:17&lt;00:05, 53.1MB/s]
+Downloading cBottle-SR-Distill.zip: 77%|███████▋  | 970M/1.23G [00:17&lt;00:05, 55.9MB/s]
+Downloading cBottle-SR-Distill.zip: 78%|███████▊  | 980M/1.23G [00:18&lt;00:05, 54.7MB/s]
+Downloading cBottle-SR-Distill.zip: 79%|███████▊  | 990M/1.23G [00:18&lt;00:05, 55.8MB/s]
+Downloading cBottle-SR-Distill.zip: 79%|███████▉  | 0.98G/1.23G [00:18&lt;00:05, 51.5MB/s]
+Downloading cBottle-SR-Distill.zip: 80%|████████  | 0.99G/1.23G [00:18&lt;00:04, 53.7MB/s]
+Downloading cBottle-SR-Distill.zip: 81%|████████  | 1.00G/1.23G [00:18&lt;00:04, 57.1MB/s]
+Downloading cBottle-SR-Distill.zip: 82%|████████▏ | 1.01G/1.23G [00:19&lt;00:04, 51.1MB/s]
+Downloading cBottle-SR-Distill.zip: 83%|████████▎ | 1.02G/1.23G [00:19&lt;00:04, 56.1MB/s]
+Downloading cBottle-SR-Distill.zip: 83%|████████▎ | 1.03G/1.23G [00:19&lt;00:03, 57.3MB/s]
+Downloading cBottle-SR-Distill.zip: 84%|████████▍ | 1.04G/1.23G [00:19&lt;00:03, 61.3MB/s]
+Downloading cBottle-SR-Distill.zip: 85%|████████▍ | 1.04G/1.23G [00:19&lt;00:03, 63.0MB/s]
+Downloading cBottle-SR-Distill.zip: 86%|████████▌ | 1.05G/1.23G [00:19&lt;00:03, 62.7MB/s]
+Downloading cBottle-SR-Distill.zip: 86%|████████▋ | 1.06G/1.23G [00:20&lt;00:03, 53.8MB/s]
+Downloading cBottle-SR-Distill.zip: 87%|████████▋ | 1.07G/1.23G [00:20&lt;00:02, 59.8MB/s]
+Downloading cBottle-SR-Distill.zip: 88%|████████▊ | 1.08G/1.23G [00:20&lt;00:03, 50.5MB/s]
+Downloading cBottle-SR-Distill.zip: 89%|████████▉ | 1.09G/1.23G [00:20&lt;00:02, 56.5MB/s]
+Downloading cBottle-SR-Distill.zip: 90%|████████▉ | 1.10G/1.23G [00:20&lt;00:02, 60.3MB/s]
+Downloading cBottle-SR-Distill.zip: 90%|█████████ | 1.11G/1.23G [00:21&lt;00:01, 68.8MB/s]
+Downloading cBottle-SR-Distill.zip: 91%|█████████ | 1.12G/1.23G [00:21&lt;00:01, 75.5MB/s]
+Downloading cBottle-SR-Distill.zip: 92%|█████████▏| 1.13G/1.23G [00:21&lt;00:01, 60.9MB/s]
+Downloading cBottle-SR-Distill.zip: 93%|█████████▎| 1.14G/1.23G [00:21&lt;00:01, 65.2MB/s]
+Downloading cBottle-SR-Distill.zip: 94%|█████████▎| 1.15G/1.23G [00:21&lt;00:01, 72.9MB/s]
+Downloading cBottle-SR-Distill.zip: 94%|█████████▍| 1.16G/1.23G [00:21&lt;00:00, 74.6MB/s]
+Downloading cBottle-SR-Distill.zip: 95%|█████████▌| 1.17G/1.23G [00:21&lt;00:00, 79.9MB/s]
+Downloading cBottle-SR-Distill.zip: 97%|█████████▋| 1.19G/1.23G [00:22&lt;00:00, 70.3MB/s]
+Downloading cBottle-SR-Distill.zip: 98%|█████████▊| 1.20G/1.23G [00:22&lt;00:00, 70.1MB/s]
+Downloading cBottle-SR-Distill.zip: 98%|█████████▊| 1.21G/1.23G [00:22&lt;00:00, 66.2MB/s]
+Downloading cBottle-SR-Distill.zip: 99%|█████████▉| 1.22G/1.23G [00:22&lt;00:00, 62.4MB/s]
+Downloading cBottle-SR-Distill.zip: 100%|█████████▉| 1.23G/1.23G [00:22&lt;00:00, 64.6MB/s]
+Downloading cBottle-SR-Distill.zip: 100%|██████████| 1.23G/1.23G [00:22&lt;00:00, 57.7MB/s]</code></pre></details>
+
+<h2 id="super-resolution-on-synthetic-data">Super Resolution on Synthetic Data<a class="headerlink" href="#super-resolution-on-synthetic-data" title="Permanent link">&para;</a></h2>
+<p>First, let's generate synthetic climate data using the cBottle3D data source
+and then perform super resolution on it. This demonstrates the full cBottle
+pipeline from data generation to super-resolution enhancement.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_coords</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)],</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="c1"># Generate some samples from cBottle</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">cbottle_ds</span> <span class="o">=</span> <span class="n">cbottle_ds</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">synth_x</span><span class="p">,</span> <span class="n">synth_coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">cbottle_ds</span><span class="p">,</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">times</span><span class="p">,</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">cbottle_sr</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="p">)</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="k">del</span> <span class="n">cbottle_ds</span>  <span class="c1"># Clean up data source model to free GPU memory</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="c1"># Perform super resolution on synthetic data</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">cbottle_sr</span> <span class="o">=</span> <span class="n">cbottle_sr</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="n">synth_x</span><span class="p">,</span> <span class="n">synth_coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">synth_x</span><span class="p">,</span> <span class="n">synth_coords</span><span class="p">,</span> <span class="n">cbottle_sr</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="n">sr_synth_x</span><span class="p">,</span> <span class="n">sr_synth_coords</span> <span class="o">=</span> <span class="n">cbottle_sr</span><span class="p">(</span><span class="n">synth_x</span><span class="p">,</span> <span class="n">synth_coords</span><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre><code>Generating cBottle Data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Generating cBottle Data: 100%|██████████| 1/1 [00:05&lt;00:00,  5.01s/it]
+Generating cBottle Data: 100%|██████████| 1/1 [00:05&lt;00:00,  5.01s/it]</code></pre></details>
+
+<h2 id="super-resolution-on-era5-data">Super Resolution on ERA5 Data<a class="headerlink" href="#super-resolution-on-era5-data" title="Permanent link">&para;</a></h2>
+<p>Next, we'll demonstrate super resolution on real ERA5 data. Since ERA5 doesn't
+contain all the variables needed by CBottleSR, we first use the CBottleInfill
+model to predict the missing variables, then perform super resolution.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Get the ERA5 data (only u10m and v10m available)</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">era5_x</span><span class="p">,</span> <span class="n">era5_coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">era5_ds</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">times</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">input_variables</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># Perform infilling to get all required variables</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">cbottle_infill</span> <span class="o">=</span> <span class="n">cbottle_infill</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">infill_x</span><span class="p">,</span> <span class="n">infill_coords</span> <span class="o">=</span> <span class="n">cbottle_infill</span><span class="p">(</span><span class="n">era5_x</span><span class="p">,</span> <span class="n">era5_coords</span><span class="p">)</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="k">del</span> <span class="n">cbottle_infill</span>  <span class="c1"># Clean up infill model to free GPU memory</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="c1"># Select the required variables and reshape for super resolution</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">infill_x</span><span class="p">,</span> <span class="n">infill_coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">infill_x</span><span class="p">,</span> <span class="n">infill_coords</span><span class="p">,</span> <span class="n">cbottle_sr</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">sr_infill_x</span><span class="p">,</span> <span class="n">sr_infill_coords</span> <span class="o">=</span> <span class="n">cbottle_sr</span><span class="p">(</span><span class="n">infill_x</span><span class="p">,</span> <span class="n">infill_coords</span><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Fetching WB2 data:  50%|█████     | 1/2 [00:00&lt;00:00,  5.56it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00,  5.51it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00,  5.52it/s]</code></pre></details>
+
+<h2 id="post-processing-cbottle-super-resolution-data">Post Processing CBottle Super Resolution Data<a class="headerlink" href="#post-processing-cbottle-super-resolution-data" title="Permanent link">&para;</a></h2>
+<p>Let's visualize the super resolution results to compare the synthetic data
+approach with the ERA5 infilling approach. We'll plot the total cloud liquid
+water (tclw) variable as an example.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># Create projection focused on a region of interest (North Atlantic/Europe)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">projection</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">()</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="mi">24</span><span class="p">))</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># Plot synthetic data</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">ax0</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="n">projection</span><span class="p">)</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">extent</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">+</span> <span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="p">]</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">ax0</span><span class="o">.</span><span class="n">set_extent</span><span class="p">(</span><span class="n">extent</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">())</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="n">c</span> <span class="o">=</span> <span class="n">ax0</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>    <span class="n">synth_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    <span class="n">synth_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>    <span class="n">synth_x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>  <span class="c1"># u10m (variable index 3)</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>    <span class="n">vmin</span><span class="o">=-</span><span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>    <span class="n">vmax</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="p">)</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax0</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;u10m (m/s)&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="n">ax0</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a><span class="n">ax0</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">draw_labels</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="n">ax0</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Synthetic Data (cBottle3D, low resolution)&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>
+<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a><span class="c1"># Plot the synthetic super resolution data</span>
+<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a><span class="n">ax1</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="n">projection</span><span class="p">)</span>
+<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a><span class="n">ax1</span><span class="o">.</span><span class="n">set_extent</span><span class="p">(</span><span class="n">extent</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">())</span>
+<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a><span class="n">c</span> <span class="o">=</span> <span class="n">ax1</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a>    <span class="n">sr_synth_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>    <span class="n">sr_synth_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a>    <span class="n">sr_synth_x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>  <span class="c1"># u10m (variable index 3)</span>
+<a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a>    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+<a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a>    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a>    <span class="n">vmin</span><span class="o">=-</span><span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a>    <span class="n">vmax</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a><span class="p">)</span>
+<a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a><span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax1</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;u10m (m/s)&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a><span class="n">ax1</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+<a id="__codelineno-3-47" name="__codelineno-3-47" href="#__codelineno-3-47"></a><span class="n">ax1</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">draw_labels</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a><span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Synthetic Data Super Resolution (cBottle3D → CBottleSR)&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-49" name="__codelineno-3-49" href="#__codelineno-3-49"></a>
+<a id="__codelineno-3-50" name="__codelineno-3-50" href="#__codelineno-3-50"></a><span class="c1"># Plot the ERA5 data</span>
+<a id="__codelineno-3-51" name="__codelineno-3-51" href="#__codelineno-3-51"></a><span class="n">ax2</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="n">projection</span><span class="p">)</span>
+<a id="__codelineno-3-52" name="__codelineno-3-52" href="#__codelineno-3-52"></a><span class="n">ax2</span><span class="o">.</span><span class="n">set_extent</span><span class="p">(</span><span class="n">extent</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">())</span>
+<a id="__codelineno-3-53" name="__codelineno-3-53" href="#__codelineno-3-53"></a><span class="n">c</span> <span class="o">=</span> <span class="n">ax2</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+<a id="__codelineno-3-54" name="__codelineno-3-54" href="#__codelineno-3-54"></a>    <span class="n">era5_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-55" name="__codelineno-3-55" href="#__codelineno-3-55"></a>    <span class="n">era5_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-56" name="__codelineno-3-56" href="#__codelineno-3-56"></a>    <span class="n">era5_x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>  <span class="c1"># u10m (variable index 0)</span>
+<a id="__codelineno-3-57" name="__codelineno-3-57" href="#__codelineno-3-57"></a>    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+<a id="__codelineno-3-58" name="__codelineno-3-58" href="#__codelineno-3-58"></a>    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-59" name="__codelineno-3-59" href="#__codelineno-3-59"></a>    <span class="n">vmin</span><span class="o">=-</span><span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-3-60" name="__codelineno-3-60" href="#__codelineno-3-60"></a>    <span class="n">vmax</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-3-61" name="__codelineno-3-61" href="#__codelineno-3-61"></a><span class="p">)</span>
+<a id="__codelineno-3-62" name="__codelineno-3-62" href="#__codelineno-3-62"></a><span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax2</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;u10m (m/s)&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-63" name="__codelineno-3-63" href="#__codelineno-3-63"></a><span class="n">ax2</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+<a id="__codelineno-3-64" name="__codelineno-3-64" href="#__codelineno-3-64"></a><span class="n">ax2</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">draw_labels</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-3-65" name="__codelineno-3-65" href="#__codelineno-3-65"></a><span class="n">ax2</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;ERA5 Data (low resolution)&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-66" name="__codelineno-3-66" href="#__codelineno-3-66"></a>
+<a id="__codelineno-3-67" name="__codelineno-3-67" href="#__codelineno-3-67"></a><span class="c1"># Plot the ERA5 infilled super resolution data</span>
+<a id="__codelineno-3-68" name="__codelineno-3-68" href="#__codelineno-3-68"></a><span class="n">ax3</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="n">projection</span><span class="p">)</span>
+<a id="__codelineno-3-69" name="__codelineno-3-69" href="#__codelineno-3-69"></a><span class="n">ax3</span><span class="o">.</span><span class="n">set_extent</span><span class="p">(</span><span class="n">extent</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">())</span>
+<a id="__codelineno-3-70" name="__codelineno-3-70" href="#__codelineno-3-70"></a><span class="n">c</span> <span class="o">=</span> <span class="n">ax3</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+<a id="__codelineno-3-71" name="__codelineno-3-71" href="#__codelineno-3-71"></a>    <span class="n">sr_infill_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-72" name="__codelineno-3-72" href="#__codelineno-3-72"></a>    <span class="n">sr_infill_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-73" name="__codelineno-3-73" href="#__codelineno-3-73"></a>    <span class="n">sr_infill_x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>  <span class="c1"># u10m (variable index 3)</span>
+<a id="__codelineno-3-74" name="__codelineno-3-74" href="#__codelineno-3-74"></a>    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+<a id="__codelineno-3-75" name="__codelineno-3-75" href="#__codelineno-3-75"></a>    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-76" name="__codelineno-3-76" href="#__codelineno-3-76"></a>    <span class="n">vmin</span><span class="o">=-</span><span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-3-77" name="__codelineno-3-77" href="#__codelineno-3-77"></a>    <span class="n">vmax</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-3-78" name="__codelineno-3-78" href="#__codelineno-3-78"></a><span class="p">)</span>
+<a id="__codelineno-3-79" name="__codelineno-3-79" href="#__codelineno-3-79"></a><span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax3</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;u10m (m/s)&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-80" name="__codelineno-3-80" href="#__codelineno-3-80"></a><span class="n">ax3</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+<a id="__codelineno-3-81" name="__codelineno-3-81" href="#__codelineno-3-81"></a><span class="n">ax3</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">draw_labels</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-3-82" name="__codelineno-3-82" href="#__codelineno-3-82"></a><span class="n">ax3</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;ERA5 Infilled Super Resolution (ERA5 → CBottleInfill → CBottleSR)&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-83" name="__codelineno-3-83" href="#__codelineno-3-83"></a>
+<a id="__codelineno-3-84" name="__codelineno-3-84" href="#__codelineno-3-84"></a><span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<a id="__codelineno-3-85" name="__codelineno-3-85" href="#__codelineno-3-85"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/16_cbottle_super_resolution.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p><img alt="Output from CBottle Super Resolution" class="e2sg-output-image" loading="lazy" src="../../_assets/03_downscaling-02_cbottle_super_resolution/001-cell-9.webp" /></p>
+<hr />
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/03_downscaling-02_cbottle_super_resolution/02_cbottle_super_resolution.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/03_downscaling-02_cbottle_super_resolution/02_cbottle_super_resolution.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 166.9s</span></div>
+
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>2m 47s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/NVIDIA/earth2studio" target="_blank" rel="noopener" title="Earth2Studio on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["announce.dismiss", "navigation.tabs", "navigation.tabs.sticky", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-landing.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-install-selector.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-catalog.js"></script>
+      
+        <script src="../../../assets/javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../../../assets/javascripts/mkdocs-badges-data.js"></script>
+      
+        <script src="../../../assets/javascripts/mkdocs-badges.js"></script>
+      
+    
+  </body>
+</html>
