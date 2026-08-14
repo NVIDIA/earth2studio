@@ -25,6 +25,7 @@ from earth2studio.nvcoupler.sequence import (
     RunAction,
     RunSequence,
     Slot,
+    derive_sequence,
     parse_run_sequence,
 )
 from earth2studio.nvcoupler.testing import fake_atmos, fake_ocean
@@ -159,3 +160,90 @@ def test_helpers():
     seq = parse_run_sequence(DSL)
     assert seq.components_run() == {"atmos", "ocean", "med"}
     assert ConnectAction("ocean", "atmos") in seq.connections()
+
+
+# -- derive_sequence: the schedule implied by the coupling graph -----------------
+TRIO_EDGES = [("atmos", "med"), ("ocean", "atmos"), ("med", "ocean")]
+
+
+def test_derive_matches_hand_written_dsl_exactly():
+    """Acceptance: the derived sequence for the classic toy trio equals the
+    hand-written canonical DSL, string for string."""
+    derived = derive_sequence(_components(), TRIO_EDGES)
+    assert str(derived) == str(parse_run_sequence(DSL))
+    derived.validate(_components(), "6h")
+
+
+def test_derive_edge_declaration_order_is_irrelevant():
+    a = derive_sequence(_components(), TRIO_EDGES)
+    b = derive_sequence(_components(), list(reversed(TRIO_EDGES)))
+    assert str(a) == str(b)
+
+
+def test_derive_accepts_connector_objects():
+    from earth2studio.nvcoupler.connector import Connector
+
+    comps = _components()
+    conns = [
+        Connector(comps["atmos"], comps["med"]),
+        Connector(comps["ocean"], comps["atmos"]),
+        Connector(comps["med"], comps["ocean"]),
+    ]
+    assert str(derive_sequence(comps, conns)) == str(parse_run_sequence(DSL))
+
+
+def test_derive_sequential_edges_reorder_runs():
+    """Non-lagged (sequential) connects land after their source's run; the
+    trio with a sequential ocean->atmos edge reproduces test_driver.py's
+    hand-written 'sequential' DSL."""
+    seq = derive_sequence(_components(), TRIO_EDGES, lagged={("atmos", "med")})
+    expected = parse_run_sequence(
+        "@6h\n  atmos -> med\n  atmos\n"
+        "@48h\n  med.compute\n  med -> ocean\n  ocean\n  ocean -> atmos\n@"
+    )
+    assert str(seq) == str(expected)
+
+
+def test_derive_same_cadence_sequential_dependency_order():
+    a, b = fake_atmos(), fake_atmos()
+    b.name = "atmos2"
+    comps = {"atmos": a, "atmos2": b}
+    seq = derive_sequence(comps, [("atmos2", "atmos")], lagged=set())
+    assert [str(x) for s in seq.slots for x in s.actions] == [
+        "atmos2",
+        "atmos2 -> atmos",
+        "atmos",
+    ]
+
+
+def test_derive_sequential_cycle_raises():
+    a, b = fake_atmos(), fake_atmos()
+    b.name = "atmos2"
+    comps = {"atmos": a, "atmos2": b}
+    with pytest.raises(SequenceError, match="lagged"):
+        derive_sequence(
+            comps, [("atmos", "atmos2"), ("atmos2", "atmos")], lagged=set()
+        )
+    # marking one edge lagged breaks the cycle
+    seq = derive_sequence(
+        comps,
+        [("atmos", "atmos2"), ("atmos2", "atmos")],
+        lagged={("atmos2", "atmos")},
+    )
+    assert [str(x) for s in seq.slots for x in s.actions] == [
+        "atmos2 -> atmos",
+        "atmos",
+        "atmos -> atmos2",
+        "atmos2",
+    ]
+
+
+def test_derive_unknown_name_raises_with_suggestion():
+    with pytest.raises(SequenceError, match="atmos"):
+        derive_sequence(_components(), [("atmoss", "ocean")])
+
+
+def test_derive_no_connections_runs_everything():
+    comps = {"atmos": fake_atmos(), "ocean": fake_ocean()}
+    seq = derive_sequence(comps, [])
+    assert str(seq) == "@6h\n  atmos\n@48h\n  ocean\n@"

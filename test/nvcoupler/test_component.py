@@ -22,10 +22,11 @@ import torch
 
 from earth2studio.nvcoupler.clock import Clock
 from earth2studio.nvcoupler.component import (
+    CallableComponent,
     ConditioningKwargAdapter,
+    Exchange,
     ExtraTensorAdapter,
     PrognosticComponent,
-    VariableOverwriteAdapter,
 )
 from earth2studio.nvcoupler.errors import CadenceError, CouplingError
 from earth2studio.nvcoupler.field import Field, State
@@ -52,22 +53,20 @@ def _sst_import(value=3.0, nlat=32, nlon=64):
     )
 
 
-class TestVariableOverwriteAdapter:
+class TestExchangeInject:
     def test_inject_overwrites_slice(self):
         x, coords = atmos_ic(z0=0.0, sst0=2.0)
-        out = VariableOverwriteAdapter.inject(
-            x, coords, _sst_import(5.0), {"sea_surface_temperature": "sst"}
-        )
+        ex = Exchange(x, coords, _sst_import(5.0), {"sea_surface_temperature": "sst"})
+        out = ex.inject()
         assert torch.all(out[1] == 5.0)  # sst slice overwritten
         assert torch.all(out[0] == 0.0)  # z1000 untouched
         assert torch.all(x[1] == 2.0)  # original not mutated
 
     def test_missing_variable_raises(self):
         x, coords = atmos_ic()
+        ex = Exchange(x, coords, _sst_import(), {"sea_surface_temperature": "nope"})
         with pytest.raises(CouplingError, match="not a state variable"):
-            VariableOverwriteAdapter.inject(
-                x, coords, _sst_import(), {"sea_surface_temperature": "nope"}
-            )
+            ex.inject()
 
     def test_gradient_flows_through_injection(self):
         x, coords = atmos_ic()
@@ -76,10 +75,8 @@ class TestVariableOverwriteAdapter:
             "imports",
             [Field(sst, grid_coords(32, 64), "sea_surface_temperature", "K")],
         )
-        out = VariableOverwriteAdapter.inject(
-            x, coords, imports, {"sea_surface_temperature": "sst"}
-        )
-        out.sum().backward()
+        ex = Exchange(x, coords, imports, {"sea_surface_temperature": "sst"})
+        ex.inject().sum().backward()
         assert sst.grad is not None and torch.all(sst.grad == 1.0)
 
 
@@ -97,7 +94,7 @@ class TestOtherAdapters:
 
         x, coords = atmos_ic()
         adapter = ConditioningKwargAdapter()
-        adapter(Model(), x, coords, _sst_import(7.0), {})
+        adapter(Model(), Exchange(x, coords, _sst_import(7.0)))
         assert torch.all(captured["conditioning"] == 7.0)
         assert list(captured["coords"]) == ["variable", "lat", "lon"]
 
@@ -109,7 +106,7 @@ class TestOtherAdapters:
             return x, coords
 
         x, coords = atmos_ic()
-        ExtraTensorAdapter()(model, x, coords, _sst_import(9.0), {})
+        ExtraTensorAdapter()(model, Exchange(x, coords, _sst_import(9.0)))
         assert torch.all(captured["coupling"] == 9.0)
 
     def test_multiple_imports_require_explicit_field_order(self):
@@ -131,9 +128,10 @@ class TestOtherAdapters:
             ],
         )
         x, coords = atmos_ic()
+        exchange = Exchange(x, coords, imports)
         model = lambda x, coords, coupling: (x, coords)  # noqa: E731
         with pytest.raises(CouplingError, match="field_order"):
-            ExtraTensorAdapter()(model, x, coords, imports, {})
+            ExtraTensorAdapter()(model, exchange)
         # explicit order works, and is honored (not alphabetical)
         captured = {}
 
@@ -143,11 +141,48 @@ class TestOtherAdapters:
 
         ExtraTensorAdapter(
             field_order=["sea_surface_temperature", "air_temperature_2m"]
-        )(capture, x, coords, imports, {})
+        )(capture, exchange)
         assert captured["coupling"].shape[0] == 2
         # unknown name in field_order is rejected
         with pytest.raises(CouplingError, match="not in the"):
-            ExtraTensorAdapter(field_order=["nope"])(model, x, coords, imports, {})
+            ExtraTensorAdapter(field_order=["nope"])(model, exchange)
+
+
+class TestCustomAdapter:
+    def test_custom_adapter_receives_exchange(self):
+        """The user-facing pattern: any callable (model, exchange) ->
+        (x, coords) plugs in as import_adapter=."""
+        seen = {}
+
+        def scaled_overwrite(model, exchange: Exchange):
+            seen["time"] = exchange.time
+            seen["std_to_raw"] = dict(exchange.std_to_raw)
+            return model(0.5 * exchange.inject(), exchange.coords)
+
+        def step(x, coords):
+            z1000, sst = x[0], x[1]
+            return torch.stack([z1000 + 1.0 + 0.1 * sst, sst]), coords
+
+        atmos = CallableComponent(
+            "atmos",
+            step,
+            timestep="6h",
+            imports=["sea_surface_temperature"],
+            exports=["geopotential_at_1000hpa"],
+            import_adapter=scaled_overwrite,
+        )
+        clock = Clock("2024-01-01", "2024-01-02", "6h")
+        atmos.realize(clock)
+        atmos.initialize(*atmos_ic(z0=0.0, sst0=2.0))
+        atmos.import_state.add(_sst_import(10.0)["sea_surface_temperature"])
+        t1 = clock.advance()
+        atmos.run(t1)
+        # inject() overwrote sst=10, adapter halved the state: z = 0.5*0 + 1
+        # + 0.1 * (0.5*10) = 1.5
+        z = atmos.export_state["geopotential_at_1000hpa"]
+        assert torch.allclose(z.data, torch.full((32, 64), 1.5))
+        assert seen["time"] == t1
+        assert seen["std_to_raw"]["sea_surface_temperature"] == "sst"
 
 
 class TestCallableComponent:

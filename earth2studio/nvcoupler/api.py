@@ -17,11 +17,13 @@
 """User-facing API: auto-wiring, one-call runs, and plan inspection.
 
 The NUOPC analogy stops at the door here — NUOPC makes you write the runSeq;
-:func:`couple` writes it for you. Matching is by field-dictionary standard
-name: every advertised import is paired with its unique exporter, derived
-fields (entries carrying a :class:`~.dictionary.CellMethod`) get an
-:class:`~.mediator.AccumulationMediator` synthesized between cadences, and
-the run sequence is laid out slot-by-slot in the canonical lagged shape.
+:func:`couple` declares the coupling graph and lets the Driver derive it.
+Matching is by field-dictionary standard name: every advertised import is
+paired with its unique exporter, derived fields (entries carrying a
+:class:`~.dictionary.CellMethod`) become windowed connectors reducing the
+base field across the cadence gap (an :class:`~.mediator.AccumulationMediator`
+is synthesized only when the pair already carries a plain transfer), and the
+run sequence follows from the graph (:func:`~.sequence.derive_sequence`).
 :func:`describe` renders the resulting plan (terraform-plan style) before a
 single tensor moves, and :func:`coupled` is the notebook one-liner from
 initial conditions to xarray Datasets.
@@ -37,15 +39,8 @@ from .component import Component
 from .connector import Connector
 from .driver import Driver
 from .errors import AmbiguousCouplingError, UnmatchedImportError
-from .mediator import AccumulationMediator, Mediator
-from .sequence import (
-    Action,
-    ConnectAction,
-    MediateAction,
-    RunAction,
-    RunSequence,
-    Slot,
-)
+from .mediator import AccumulationMediator
+from .sequence import ConnectAction, MediateAction, RunAction
 
 __all__ = ["couple", "coupled", "describe", "describe_html"]
 
@@ -67,123 +62,6 @@ def _gcd_timestep(components: SequenceABC[Component]) -> np.timedelta64:
     return np.timedelta64(int(math.gcd(*(int(n) for n in ns))), "ns")
 
 
-def _synthesize_mediators(
-    components: list[Component],
-) -> tuple[list[Mediator], list[tuple[str, str]]]:
-    """Create AccumulationMediators for derived imports nobody exports.
-
-    Returns the new mediators plus the extra (src, dst) connections wiring
-    each base-field exporter into its mediator and each mediator into the
-    importer.
-    """
-    mediators: dict[str, Mediator] = {}  # derived std name -> mediator
-    connections: list[tuple[str, str]] = []
-    exports_by_comp = {c.name: list(c.export_names) for c in components}
-
-    for comp in components:
-        for imp in comp.import_names:
-            exporters = [
-                c.name
-                for c in components
-                if c.name != comp.name and imp in c.export_names
-            ]
-            if len(exporters) > 1:
-                raise AmbiguousCouplingError(imp, comp.name, exporters)
-            if len(exporters) == 1:
-                continue
-            # zero exporters: a derived field with a CellMethod can be
-            # produced by a synthesized mediator, if someone exports the base
-            entry = comp.dictionary.resolve(imp)
-            cell_method = entry.cell_method
-            base_exporters = (
-                [
-                    c
-                    for c in components
-                    if cell_method is not None and cell_method.base in c.export_names
-                ]
-                if cell_method is not None
-                else []
-            )
-            if cell_method is None or not base_exporters:
-                raise UnmatchedImportError(comp.name, imp, exports_by_comp)
-            if len(base_exporters) > 1:
-                raise AmbiguousCouplingError(
-                    cell_method.base, comp.name, [c.name for c in base_exporters]
-                )
-            if imp not in mediators:
-                med = AccumulationMediator(
-                    f"med_{_short_name(comp, imp)}",
-                    [imp],
-                    dictionary=comp.dictionary,
-                )
-                mediators[imp] = med
-                connections.append((base_exporters[0].name, med.name))
-            connections.append((mediators[imp].name, comp.name))
-    return list(mediators.values()), connections
-
-
-def _build_sequence(
-    components: list[Component],
-    connections: list[tuple[str, str]],
-) -> RunSequence:
-    """Lay out the canonical lagged run sequence.
-
-    One slot per distinct cadence, fast to slow. A connection runs at the
-    faster of its endpoints' cadences; within a slot the order is: plain
-    connects (lagged: destinations see the sources' previous exports), then
-    each mediator's compute followed by its outgoing connects, then the
-    component runs.
-    """
-    by_name = {c.name: c for c in components}
-    order = {c.name: i for i, c in enumerate(components)}
-    cadences = sorted(
-        {c.timestep for c in components},
-        key=lambda ts: ts.astype("timedelta64[ns]").astype(np.int64),
-    )
-
-    def cadence_of(name: str) -> np.timedelta64:
-        return by_name[name].timestep
-
-    slots: list[Slot] = []
-    for interval in cadences:
-        actions: list[Action] = []
-        # 1. lagged connects: sources are not mediators (mediator exports
-        #    only exist after compute), delivered at the faster endpoint
-        for src, dst in connections:
-            if isinstance(by_name[src], Mediator):
-                continue
-            if min(cadence_of(src), cadence_of(dst)) == interval:
-                actions.append(ConnectAction(src, dst))
-        # 2. mediators of this cadence: compute, then deliver
-        for comp in components:
-            if isinstance(comp, Mediator) and comp.timestep == interval:
-                actions.append(MediateAction(comp.name))
-                actions.extend(
-                    ConnectAction(src, dst)
-                    for src, dst in connections
-                    if src == comp.name
-                )
-        # 3. component runs of this cadence
-        actions.extend(
-            RunAction(comp.name)
-            for comp in components
-            if not isinstance(comp, Mediator) and comp.timestep == interval
-        )
-        if actions:
-            slots.append(Slot(interval, actions))
-    # deterministic connect order inside stage 1: source order as given
-    for slot in slots:
-        split = len(slot.actions)
-        for i, a in enumerate(slot.actions):
-            if not isinstance(a, ConnectAction):
-                split = i
-                break
-        lagged = slot.actions[:split]
-        lagged.sort(key=lambda a: (order[a.src], order[a.dst]))
-        slot.actions = lagged + slot.actions[split:]
-    return RunSequence(slots)
-
-
 def couple(
     *components: Component,
     start: TimeLike,
@@ -194,11 +72,14 @@ def couple(
 ) -> Driver:
     """Auto-wire components into a ready-to-initialize :class:`Driver`.
 
-    Every advertised import is matched to its exporter by standard name;
-    derived imports (dictionary entries with a CellMethod) whose base field
-    is exported get an AccumulationMediator synthesized between the two
-    cadences. The generated run sequence uses lagged (NUOPC-explicit)
-    coupling: connects precede the runs of each slot.
+    Every advertised import is matched to its exporter by standard name.
+    Derived imports (dictionary entries with a CellMethod) whose base field
+    is exported become windowed connectors — the base exporter's fields are
+    reduced across the cadence gap on the connector itself. Only when the
+    (src, dst) pair already carries a plain transfer is an
+    AccumulationMediator synthesized instead. The run sequence is derived
+    from this graph in the canonical lagged (NUOPC-explicit) shape: connects
+    precede the runs of each slot.
 
     Parameters
     ----------
@@ -219,27 +100,69 @@ def couple(
         Not yet initialized — call ``driver.initialize(ics)``.
     """
     comps = list(components)
-    mediators, med_connections = _synthesize_mediators(comps)
-    comps.extend(mediators)
-    by_name = {c.name: c for c in comps}
+    prebuilt = {(c.src.name, c.dst.name): c for c in connectors or []}
+    exports_by_comp = {c.name: list(c.export_names) for c in comps}
 
-    # direct (unique-exporter) connections
-    connections: list[tuple[str, str]] = []
+    def exporter_of(field: str, importer: Component) -> Component | None:
+        found = [
+            c for c in comps if c.name != importer.name and field in c.export_names
+        ]
+        if len(found) > 1:
+            raise AmbiguousCouplingError(
+                field, importer.name, [c.name for c in found]
+            )
+        return found[0] if found else None
+
+    # pass 1: direct (unique-exporter) connections
+    wired: dict[tuple[str, str], Connector] = {}
+    derived: list[tuple[Component, str]] = []  # (importer, derived std name)
     for comp in comps:
         for imp in comp.import_names:
-            for c in comps:
-                if c.name != comp.name and imp in c.export_names:
-                    if (c.name, comp.name) not in connections:
-                        connections.append((c.name, comp.name))
-    for pair in med_connections:
-        if pair not in connections:
-            connections.append(pair)
+            src = exporter_of(imp, comp)
+            if src is None:
+                derived.append((comp, imp))
+            elif (src.name, comp.name) not in wired:
+                key = (src.name, comp.name)
+                wired[key] = prebuilt.pop(key, None) or Connector(src, comp)
+
+    # pass 2: derived imports — reduce a base field across the cadence gap
+    for comp, imp in derived:
+        cm = comp.dictionary.resolve(imp).cell_method
+        src = exporter_of(cm.base, comp) if cm is not None else None
+        if src is None:
+            raise UnmatchedImportError(comp.name, imp, exports_by_comp)
+        key = (src.name, comp.name)
+        pre = prebuilt.pop(key, None)
+        if pre is not None and pre.window is not None:
+            wired[key] = pre  # user already declared the windowed transfer
+        elif key in wired or pre is not None:
+            # the pair already carries a plain transfer, which a windowed
+            # connector cannot share — a mediator is genuinely needed
+            if pre is not None:
+                wired[key] = pre
+            med = AccumulationMediator(
+                f"med_{_short_name(comp, imp)}", [imp], dictionary=comp.dictionary
+            )
+            comps.append(med)
+            wired[(src.name, med.name)] = Connector(src, med)
+            wired[(med.name, comp.name)] = Connector(med, comp)
+        else:
+            wired[key] = Connector(
+                src, comp, fields=[cm.base], window=cm.window, reduce=cm.method
+            )
+
+    # extra user wiring for pairs the import matching did not discover
+    for key, conn in prebuilt.items():
+        wired.setdefault(key, conn)
 
     if dt is None:
         dt = _gcd_timestep(comps)
-    sequence = _build_sequence(comps, connections)
-    clock = Clock(start, stop, dt)
-    return Driver(by_name, sequence, clock, connectors=connectors, collect=collect)
+    return Driver(
+        {c.name: c for c in comps},
+        clock=Clock(start, stop, dt),
+        connectors=list(wired.values()),
+        collect=collect,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -320,19 +243,23 @@ def _table(headers: list[str], rows: list[list[str]]) -> list[str]:
 
 
 def _connector_rows(driver: Driver) -> list[dict]:
-    """One row per ConnectAction: fields, policies, and coupling mode derived
-    from the action's position relative to the destination's run/mediate."""
+    """One row per ConnectAction: fields, policies, and coupling mode.
+
+    Mode is per exchange: does the destination consume state the source
+    produced in this same slot iteration (sequential — the connect follows
+    the source's run/compute in its slot) or earlier (lagged)?
+    """
     rows = []
     prebuilt = {
         (c.src.name, c.dst.name): c for c in driver._connectors.values()
     }
     for slot in driver.sequence.slots:
-        dst_ran: set[str] = set()
+        produced: set[str] = set()  # components that ran earlier in this slot
         for action in slot.actions:
             if isinstance(action, RunAction):
-                dst_ran.add(action.component)
+                produced.add(action.component)
             elif isinstance(action, MediateAction):
-                dst_ran.add(action.mediator)
+                produced.add(action.mediator)
             elif isinstance(action, ConnectAction):
                 conn = prebuilt.get((action.src, action.dst))
                 if conn is not None:
@@ -345,15 +272,7 @@ def _connector_rows(driver: Driver) -> list[dict]:
                     imports, _ = dst.advertise()
                     fields = [n for n in imports if n in exports]
                     time_policy, fill = "constant", "none"
-                dst_runs_here = any(
-                    (isinstance(a, RunAction) and a.component == action.dst)
-                    or (isinstance(a, MediateAction) and a.mediator == action.dst)
-                    for a in slot.actions
-                )
-                if not dst_runs_here:
-                    mode = "lagged"
-                else:
-                    mode = "sequential" if action.dst in dst_ran else "lagged"
+                mode = "sequential" if action.src in produced else "lagged"
                 rows.append(
                     {
                         "name": f"{action.src} -> {action.dst}",

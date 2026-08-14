@@ -18,7 +18,7 @@
 
 The NUOPC_Mediator analog. A Mediator sits between components of different
 cadence, accumulating fast-component fields as they arrive (every connector
-transfer into it) and, when its alarm rings, exporting a windowed reduction
+transfer into it) and, when its compute action runs, exporting a windowed reduction
 — the trailing 48 h mean an ocean model was trained on, a precipitation sum
 a flood model needs, a temperature max for impact indices.
 
@@ -114,7 +114,7 @@ class Mediator(Component):
 
     Subclasses implement :meth:`accumulate` (called on every field arriving
     in the import state) and :meth:`compute` (called when the mediator's
-    alarm rings; must populate ``export_state``).
+    compute action runs in its slot; must populate ``export_state``).
     """
 
     requires_ic = False  # mediators need no initial condition

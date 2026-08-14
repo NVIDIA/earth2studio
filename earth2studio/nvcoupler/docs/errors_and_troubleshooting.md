@@ -11,7 +11,7 @@ the failure modes that are warnings or silent by design. Recipes for doing
 things right the first time are in the [user guide](user_guide.md); the
 class-by-class API is in the [API reference](api_reference.md).
 
-The hierarchy: `UnknownFieldError` (also a `KeyError`),
+The hierarchy: `UnknownFieldError`,
 `UnmatchedImportError`, `UnitsMismatchError`, `IncompatibleFieldError`,
 `VerticalMismatchError`, `CadenceError`, `AmbiguousCouplingError`, and
 `SequenceError` all subclass `CouplingError`; a number of checks raise plain
@@ -179,7 +179,7 @@ Fix: pick a driver dt that divides every component timestep (their GCD —
 what `couple()` does by default), put each component's `RunAction` in the
 slot matching its exact timestep, and make `stop - start` a whole number of
 dt steps. Related `ValueError`s: `Clock dt must be positive`, `Clock stop ...
-must be after start`, `Alarm interval must be positive`, and — from
+must be after start`, and — from
 `as_timedelta` — `Bare number 6 is ambiguous as a timedelta (hours? steps?) —
 pass a string like '6h' or '2D', or a np.timedelta64`.
 
@@ -252,6 +252,20 @@ The complete set, grouped:
   'geopotential_at_1000hpa_48h_mean' yet — check the run sequence ordering`
   — a connect scheduled before its source ever ran/computed (classic:
   `med -> ocean` placed before `med.compute`).
+
+**Windowed connectors** (`connector.py`):
+
+- `Connector atmos->ocean: window= and reduce= must be set together — a
+  windowed reduction needs both the window length and the reduction method`
+  — one of the two was passed alone.
+- `... unsupported reduce='median'; choose 'mean', 'sum', 'max' or 'min'`.
+- `Connector ocean->atmos: window='2D'/reduce='mean' is set but 'atmos'
+  imports no derived field for [...] — register a
+  FieldEntry(cell_method=CellMethod(base, 'mean', window='2D')) in the
+  destination's dictionary and add its standard name to 'atmos''s imports`
+  — the destination has no dictionary entry deriving from the source export
+  with that exact method and window (a window mismatch, e.g. 24h vs the
+  entry's 48h, fails the same way); the coupler never invents derived names.
 
 **Import adapters** (`component.py`):
 

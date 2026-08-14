@@ -228,6 +228,72 @@ def test_connectors_round_trip():
     assert conn._fields == ["geopotential_at_1000hpa"]
 
 
+def make_tagged_declarative_driver():
+    """The toy system declared as a graph (derived sequence, windowed
+    connector for the 48 h mean) with yaml_spec-tagged components."""
+    from earth2studio.nvcoupler.api import couple
+
+    atmos = fake_atmos(gain=1.0)
+    atmos.yaml_spec = {
+        "class": "earth2studio.nvcoupler.testing.fake_atmos",
+        "kwargs": {"gain": 1.0, "timestep": "6h"},
+    }
+    ocean = fake_ocean(gain=1.0)
+    ocean.yaml_spec = {
+        "class": "earth2studio.nvcoupler.testing.fake_ocean",
+        "kwargs": {"gain": 1.0, "timestep": "48h"},
+    }
+    return couple(atmos, ocean, start=T0, stop=T96)
+
+
+def test_derived_sequence_round_trip():
+    driver = make_tagged_declarative_driver()
+    assert driver.sequence_derived
+    text = to_yaml(driver)
+    doc = yaml.safe_load(text)
+    # derived sequences serialize with the flag plus the (informational) text
+    assert doc["sequence"]["derived"] is True
+    assert doc["sequence"]["text"] == str(driver.sequence)
+    # the windowed connector carries its reduction options
+    conn_doc = next(
+        c for c in doc["connectors"] if (c["src"], c["dst"]) == ("atmos", "ocean")
+    )
+    assert as_timedelta(conn_doc["window"]) == np.timedelta64(48, "h")
+    assert conn_doc["reduce"] == "mean"
+
+    rebuilt = from_yaml(text)
+    assert rebuilt.sequence_derived  # re-derived, not replayed
+    assert str(rebuilt.sequence) == str(driver.sequence)
+    conn = rebuilt._connectors[("atmos", "ocean")]
+    assert conn.window == np.timedelta64(48, "h").astype("timedelta64[ns]")
+    assert conn.reduce == "mean"
+
+    ds_a = run_all(driver)
+    ds_b = run_all(rebuilt)
+    for comp in ("atmos", "ocean"):
+        for var in ds_a[comp].data_vars:
+            assert np.array_equal(ds_a[comp][var].values, ds_b[comp][var].values)
+    assert np.allclose(
+        ds_b["atmos"]["geopotential_at_1000hpa"].values[-1], 19.2336, atol=1e-4
+    )
+    assert np.allclose(
+        ds_b["ocean"]["sea_surface_temperature"].values[-1], 2.180147, atol=1e-4
+    )
+
+
+def test_explicit_sequence_still_serializes_as_text():
+    doc = yaml.safe_load(to_yaml(make_tagged_driver()))
+    assert isinstance(doc["sequence"], str)
+    assert "@6h" in doc["sequence"]
+
+
+def test_bad_sequence_mapping_raises():
+    text = to_yaml(make_tagged_declarative_driver())
+    bad = text.replace("derived: true", "derived: false")
+    with pytest.raises(CouplingError, match="derived"):
+        from_yaml(bad)
+
+
 def test_helpful_error_on_bad_import_path():
     text = to_yaml(make_tagged_driver()).replace(
         "earth2studio.nvcoupler.testing.fake_atmos", "no.such.module.fake"

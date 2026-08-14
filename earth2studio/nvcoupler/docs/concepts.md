@@ -156,11 +156,15 @@ dictionary entry carrying a machine-readable `CellMethod(base, method, window)`
 with `method` in `mean | sum | max | min` — the declaration "I am *method* of
 *base* over *window*". No suffix string-parsing anywhere.
 
-Two consumers read it:
+Three consumers read it:
 
+- **Windowed `Connector`s** — `Connector(src, dst, window=..., reduce=...)`
+  pairs each source export `base` with a destination import whose entry
+  carries `CellMethod(base, reduce, window)` and delivers under that derived
+  name (see [the connector pipeline](#the-connector-pipeline)).
 - **`AccumulationMediator`** — constructed with the *derived* names, it
   resolves each entry, takes the base field as its import, the method as its
-  running reduction, and the (common) window as its alarm interval unless
+  running reduction, and the (common) window as its timestep unless
   `window=` overrides it. A derived name without a `cell_method` raises.
 - **`couple()`** — when a component imports a derived field nobody exports,
   auto-wiring checks the entry's cell method: if some unique component exports
@@ -180,15 +184,17 @@ med.export_names   # ['total_precipitation_48h_sum']
 med.timestep       # 48 hours (from the cell method's window)
 ```
 
-## Clock, Alarm, and the cadence model
+## Clock and the cadence model
 
 Three intervals coexist and must nest:
 
 1. **Driver dt** — the `Clock`'s step, the finest granularity at which
    anything can happen.
-2. **Component timesteps** — each component's own cadence, realized as an
-   `Alarm(timestep)`; the component runs only on driver steps where its alarm
-   rings.
+2. **Component timesteps** — each component declares its own cadence as a
+   plain `timestep`; the Driver runs it only in run-sequence slots whose
+   interval equals that timestep, and those slots execute only on clock
+   steps aligned with it (slot alignment). There is no per-component alarm
+   object and no offset mechanism — cadence is purely timestep alignment.
 3. **Slot intervals** — each run-sequence `@interval` slot executes on driver
    steps aligned with it.
 
@@ -205,10 +211,12 @@ The validation rules, all raising `CadenceError` at construction or
   `SequenceError`.
 
 ```python
+import numpy as np
+
 clock = nvc.Clock("2024-01-01", "2024-01-03", "6h")
 clock.n_steps                       # 8
-alarm = nvc.Alarm("48h")
-[alarm.is_ringing(t, clock.start) for t in clock.times()]
+timestep = np.timedelta64(48, "h")  # a 48 h component on this 6 h clock
+[(t - clock.start) % timestep == np.timedelta64(0) for t in clock.times()]
 # [True, False, False, False, False, False, False, False, True]
 
 nvc.Clock("2024-01-01", "2024-01-02", "7h")   # raises CadenceError (24 h span, 7 h dt)
@@ -216,10 +224,10 @@ nvc.Clock("2024-01-01", "2024-01-02", "7h")   # raises CadenceError (24 h span, 
 
 Iterating a Clock yields times *after* start: the initial condition lives at
 `start` (the caller's step 0), and the first yielded time is `start + dt` —
-mirroring `earth2studio.run` where the iterator's 0th output is the IC. An
-alarm rings when `(time - start - offset)` is a non-negative whole multiple of
-its interval, so every alarm rings at t0; that is why `initialize` seeds
-export states there.
+mirroring `earth2studio.run` where the iterator's 0th output is the IC. Every
+timestep is trivially aligned at `start` itself (elapsed time zero), but no
+slot executes there — the driver only runs actions at times strictly after
+`start`; that is why `initialize` seeds export states at t0.
 
 Clocks are **one-shot**. Running past `stop` raises, and calling
 `run()`/`steps()`/`rollout()` on an exhausted driver raises a `CouplingError`
@@ -235,8 +243,8 @@ Every component walks the NUOPC phases, driven by the Driver:
 1. **`advertise()`** — return the import and export standard-name lists
    (declared at construction; names are resolved through the dictionary, so
    aliases work).
-2. **`realize(clock)`** — validate cadence against the driver dt and create
-   the component's Alarm.
+2. **`realize(clock)`** — validate the component's timestep against the
+   driver dt and attach the shared clock.
 3. **`initialize(x, coords)`** — set internal state from an initial condition
    and *seed the export state at `clock.start`*, so lagged coupling has data
    at t0.
@@ -400,12 +408,52 @@ reduction happens there.
 After the pipeline the field lands in `dst.import_state`, and a copy of the
 reference is kept in `connector.last_transfer` for `driver.probe("src->dst")`.
 
+### Windowed connectors: window= and reduce=
+
+Setting `window=` and `reduce=` **together** (either alone raises
+`CouplingError`) turns the connector into a windowed reduction — the
+preferred path for simple fast→slow coupling that needs "the trailing 48 h
+mean" rather than the instantaneous field. The semantics:
+
+- **Matching is by CellMethod, not name intersection.** Each source export
+  `base` is paired with a destination import whose dictionary entry carries
+  `CellMethod(base, reduce, window)`, and the delivered Field carries that
+  *derived* standard name (`geopotential_at_1000hpa` in,
+  `geopotential_at_1000hpa_48h_mean` out). A missing derived import raises —
+  the coupler never invents names. `match()` returns both the consumed base
+  names and the delivered derived names.
+- **Every `execute` folds the source export into a running reduction**
+  (`"mean" | "sum" | "max" | "min"`; one accumulator per field, duplicate
+  `valid_time`s ignored) — the same accumulator core the mediators use.
+- **Delivery happens only at execute times aligned to `window`**; mid-window
+  the destination's previous import stands untouched. The alignment origin is
+  the `valid_time` of the first execute's source field — under lagged
+  coupling (connector before the source's run in the slot) that is the clock
+  start, so the first delivery lands exactly one window after t0, with no
+  driver hook.
+- `time_policy` does not apply on the windowed path; the spatial pipeline
+  (vertical → fill → regrid) still runs on each delivery.
+
+```python
+from earth2studio.nvcoupler.testing import fake_atmos, fake_ocean
+
+conn = nvc.Connector(fake_atmos(), fake_ocean(), window="48h", reduce="mean")
+conn.match()
+# ['geopotential_at_1000hpa', 'geopotential_at_1000hpa_48h_mean']
+```
+
+A windowed connector replaces a single-source `AccumulationMediator` plus its
+two connects and its `med.compute` slot action. Reach for a Mediator (below)
+when several sources feed one reduction or the reduction needs custom code.
+
 ## Mediators
 
-A `Mediator` sits between cadences: its import state forwards every arriving
-field to `accumulate(field)`, and when its alarm rings the driver calls
-`compute(time)` (the `med.compute` action), which must populate the export
-state.
+A `Mediator` is the multi-source, generalized form of the windowed-reduction
+machinery — it shares the same running-accumulator core as windowed
+connectors. It sits between cadences as its own participant: its import state
+forwards every arriving field to `accumulate(field)`, and when its slot runs
+the driver calls `compute(time)` (the `med.compute` action), which must
+populate the export state.
 
 `AccumulationMediator(name, [derived_names])` implements windowed reductions:
 
@@ -427,6 +475,10 @@ state.
 `TrailingAverageMediator` is the mean-only restriction — the exact semantics
 of DLESyM's ocean forcing and PhysicsNeMo's `TrailingAverageCoupler`; non-mean
 fields raise at construction.
+
+When one source feeds one destination, prefer the
+[windowed connector](#windowed-connectors-window-and-reduce) — it produces
+the same numbers from the same accumulator core with fewer moving parts.
 
 ## Coupling semantics: ordering is the coupling mode
 

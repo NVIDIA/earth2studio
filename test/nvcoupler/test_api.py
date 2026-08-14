@@ -16,9 +16,9 @@
 
 """Tests for the UX layer: couple() auto-wiring, coupled(), describe().
 
-The auto-wired toy system must reproduce, action for action, the hand-built
-lagged DSL of test_driver.py, so the same hand-computed expectations apply:
-z(96h) = 19.2336 and sst(96h) = 2.180147.
+The auto-wired toy system must reproduce the hand-computed expectations of
+test_driver.py: z(96h) = 19.2336 and sst(96h) = 2.180147 — with the derived
+import carried by a windowed connector instead of a mediator.
 """
 
 import numpy as np
@@ -46,33 +46,30 @@ T0 = "2024-01-01"
 T96 = "2024-01-05"
 
 
-def test_couple_matches_hand_built_dsl():
-    # No mediator passed: couple() must synthesize one from the CellMethod of
-    # geopotential_at_1000hpa_48h_mean, which fake_ocean imports.
+def test_couple_synthesizes_windowed_connector():
+    # No mediator: couple() carries the derived import on a windowed
+    # connector built from the CellMethod of geopotential_at_1000hpa_48h_mean.
     driver = couple(fake_atmos(), fake_ocean(), start=T0, stop=T96)
 
-    mediators = [
-        c for c in driver.components.values() if isinstance(c, AccumulationMediator)
-    ]
-    assert len(mediators) == 1
-    med = mediators[0]
-    assert med.name.startswith("med_")
-    assert med.export_names == ["geopotential_at_1000hpa_48h_mean"]
-    assert med.import_names == ["geopotential_at_1000hpa"]
+    assert not any(
+        isinstance(c, AccumulationMediator) for c in driver.components.values()
+    )
+    conn = driver._connectors[("atmos", "ocean")]
+    assert conn.window == np.timedelta64(48, "h").astype("timedelta64[ns]")
+    assert conn.reduce == "mean"
 
     # dt defaults to the GCD of 6h and 48h
     assert driver.clock.dt == np.timedelta64(6, "h").astype("timedelta64[ns]")
 
-    # sequence has the canonical lagged shape of test_driver.LAGGED_DSL
+    # sequence is derived from the graph in the canonical lagged shape
+    assert driver.sequence_derived
     expected = "\n".join(
         [
             "@6h",
-            f"  atmos -> {med.name}",
+            "  atmos -> ocean",
             "  ocean -> atmos",
             "  atmos",
             "@48h",
-            f"  {med.name}.compute",
-            f"  {med.name} -> ocean",
             "  ocean",
             "@",
         ]
@@ -85,6 +82,38 @@ def test_couple_matches_hand_built_dsl():
     assert torch.allclose(z.data, torch.full(ATMOS_GRID, 19.2336), atol=1e-4)
     sst = driver.components["ocean"].export_state["sea_surface_temperature"]
     assert torch.allclose(sst.data, torch.full(OCEAN_GRID, 2.180147), atol=1e-4)
+
+
+def test_couple_synthesizes_mediator_when_pair_also_transfers_plainly():
+    """When the (src, dst) pair already carries a plain transfer, the derived
+    import cannot share the connector — a mediator is genuinely needed."""
+
+    def step(x, coords):
+        return x, coords
+
+    greedy = CallableComponent(
+        "greedy",
+        step,
+        timestep="48h",
+        imports=["geopotential_at_1000hpa", "geopotential_at_1000hpa_48h_mean"],
+        exports=["sea_surface_temperature"],
+        variable_aliases={
+            "z1000": "geopotential_at_1000hpa",
+            "z48m": "geopotential_at_1000hpa_48h_mean",
+        },
+    )
+    driver = couple(fake_atmos(), greedy, start=T0, stop=T96)
+    mediators = [
+        c for c in driver.components.values() if isinstance(c, AccumulationMediator)
+    ]
+    assert len(mediators) == 1
+    med = mediators[0]
+    assert med.export_names == ["geopotential_at_1000hpa_48h_mean"]
+    # plain z1000 rides the direct connector; the mean goes via the mediator
+    assert ("atmos", "greedy") in driver._connectors
+    assert ("atmos", med.name) in driver._connectors
+    assert (med.name, "greedy") in driver._connectors
+    assert driver._connectors[("atmos", "greedy")].window is None
 
 
 def test_ambiguous_exports_raise():
@@ -163,6 +192,40 @@ def test_describe_pre_initialize():
     # still works after initialize
     driver.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
     assert "atmos" in describe(driver)
+
+
+def test_describe_labels_mediator_delivery_sequential():
+    """Mode is per exchange: med -> ocean follows med.compute in the same
+    slot, so ocean consumes state produced in this very iteration."""
+    from earth2studio.nvcoupler.clock import Clock
+    from earth2studio.nvcoupler.driver import Driver
+    from earth2studio.nvcoupler.mediator import TrailingAverageMediator
+
+    driver = Driver(
+        {
+            "atmos": fake_atmos(),
+            "ocean": fake_ocean(),
+            "med": TrailingAverageMediator(
+                "med", ["geopotential_at_1000hpa_48h_mean"]
+            ),
+        },
+        clock=Clock(T0, T96, "6h"),
+        connectors=[("atmos", "med"), ("ocean", "atmos"), ("med", "ocean")],
+    )
+    text = describe(driver)
+    rows = [
+        line.strip()
+        for line in text.splitlines()
+        if " -> " in line and ("lagged" in line or "sequential" in line)
+    ]
+
+    def mode_of(name: str) -> str:
+        row = next(r for r in rows if r.startswith(name))
+        return "sequential" if "sequential" in row else "lagged"
+
+    assert mode_of("atmos -> med") == "lagged"
+    assert mode_of("ocean -> atmos") == "lagged"
+    assert mode_of("med -> ocean") == "sequential"
 
 
 def test_coupled_end_to_end():
