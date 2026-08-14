@@ -66,8 +66,8 @@ CellMethod(base: str, method: Literal["mean", "sum", "max", "min"], window: np.t
 ```
 
 Machine-readable "I am `method` of `base` over `window`" tag for derived
-fields; drives `AccumulationMediator` and `couple()`'s mediator synthesis.
-Unsupported methods raise `ValueError`.
+fields; drives windowed `Connector`s, `AccumulationMediator`, and `couple()`'s
+windowed-connector synthesis. Unsupported methods raise `ValueError`.
 
 ### `FieldEntry` (frozen dataclass)
 
@@ -132,26 +132,46 @@ The module also provides (not re-exported at package level, import from
 
 ## component
 
+### `Exchange` (frozen dataclass) — one step's coupling bundle
+
+```python
+Exchange(
+    x: torch.Tensor,
+    coords: CoordSystem,
+    imports: State,
+    std_to_raw: Mapping[str, str] = {},
+    time: np.datetime64 | None = None,
+)
+```
+
+Everything an `ImportAdapter` needs for one coupled model step: the
+component's current state tensor and coords, the import `State` (already
+subset to the fields actually delivered), the standard-name →
+raw-model-variable map, and the valid time the step advances to. Two
+accessors cover the common delivery shapes, both pure torch and
+autograd-safe:
+
+- `inject() -> torch.Tensor` — returns `x` with each imported field
+  overwritten into its matching variable slice (clone + `index_copy_`,
+  autograd-intact). Requires a `"variable"` dim in the state coords and that
+  every imported field is a state variable (`CouplingError` otherwise).
+- `stacked(field_order=None, *, who="Exchange.stacked") -> tuple[torch.Tensor, CoordSystem]`
+  — stacks the imports into one tensor with a leading `"variable"` dim. With
+  more than one import, `field_order=` is mandatory (`CouplingError`).
+
 ### `ImportAdapter` (runtime-checkable `Protocol`) — the model-invocation contract
 
 ```python
 class ImportAdapter(Protocol):
     def __call__(
-        self,
-        model: Any,
-        x: torch.Tensor,
-        coords: CoordSystem,
-        imports: State,
-        std_to_raw: Mapping[str, str],
+        self, model: Any, exchange: Exchange
     ) -> tuple[torch.Tensor, CoordSystem]: ...
 ```
 
-An adapter **owns the model call**: it receives the model/step-fn, the
-component's current state tensor and coords, the import `State` (only the
-fields actually delivered), and a standard-name → raw-model-variable map, and
-must return the stepped `(x, coords)`. Implementations must be autograd-safe
-(no in-place mutation of tensors that may carry grad). Any callable matching
-this signature can be passed as `import_adapter=`.
+An adapter **owns the model call**: it receives the model/step-fn and the
+step's `Exchange` and must return the stepped `(x, coords)`. Implementations
+must be autograd-safe (no in-place mutation of tensors that may carry grad).
+Any callable matching this signature can be passed as `import_adapter=`.
 
 ### `VariableOverwriteAdapter`
 
@@ -159,11 +179,9 @@ this signature can be passed as `import_adapter=`.
 VariableOverwriteAdapter()
 ```
 
-Default adapter: overwrites matching variable slices of `x` (clone +
-`index_copy_`, autograd-intact), then calls `model(x, coords)`. Requires a
-`"variable"` dim in the state coords and that every imported field is a state
-variable (`CouplingError` otherwise). Static helper
-`inject(x, coords, imports, std_to_raw) -> torch.Tensor`.
+Default adapter: `model(exchange.inject(), exchange.coords)` — overwrite
+matching variable slices, then step (see `Exchange.inject` for the
+requirements and errors).
 
 ### `ConditioningKwargAdapter`
 
@@ -171,10 +189,10 @@ variable (`CouplingError` otherwise). Static helper
 ConditioningKwargAdapter(field_order: list[str] | None = None, method: str = "call_with_conditioning")
 ```
 
-Stacks imports and calls `model.<method>(x, coords, conditioning=...,
-conditioning_coords=...)` (StormScope pattern). With more than one import,
-`field_order=` is mandatory — channel order cannot be inferred
-(`CouplingError`).
+Stacks imports (`exchange.stacked(field_order)`) and calls
+`model.<method>(x, coords, conditioning=..., conditioning_coords=...)`
+(StormScope pattern). With more than one import, `field_order=` is mandatory
+— channel order cannot be inferred (`CouplingError`).
 
 ### `ExtraTensorAdapter`
 
@@ -185,6 +203,11 @@ ExtraTensorAdapter(field_order: list[str] | None = None, kwarg: str | None = Non
 Stacks imports and calls `model(x, coords, coupling)` positionally, or
 `model(x, coords, **{kwarg: coupling})` when `kwarg` is given (DLESyM /
 PhysicsNeMo 4-tensor pattern). Same `field_order` rule as above.
+
+### `PullAdapter` (from `pull.py` — see the [pull section](#pull) below)
+
+The fourth built-in adapter, for models that fetch forcing internally
+(StormCast-style) instead of accepting it as an argument.
 
 ### `Component` (abstract base)
 
@@ -210,8 +233,9 @@ standard names and registers them as aliases. Class attribute
 `advertise() -> tuple[list[str], list[str]]`,
 `realize(clock: Clock) -> None` (raises `CadenceError` when `timestep` is not
 a multiple of `clock.dt`), abstract `initialize(x, coords)` and
-`run(time)`, `finalize()`. Helpers: `should_run(time) -> bool`,
-`grid_coords() -> CoordSystem | None`,
+`run(time)`, `finalize()`. Helpers: `should_run(time) -> bool` (a temporary
+shim — cadence gating lives in the Driver's slot alignment; slated for
+deletion), `grid_coords() -> CoordSystem | None`,
 `resolve_std_to_raw(coords) -> dict[str, str]`,
 `publish(x, coords, valid_time) -> None` (splits a model output tensor into
 export Fields, attaching declared masks/verticals; raises `CouplingError` if
@@ -361,6 +385,60 @@ destination's previous import is untouched; `time_policy` does not apply on
 the windowed path. This is the preferred replacement for a single-source
 `AccumulationMediator`.
 
+## pull
+
+Pull-pattern coupling for models that fetch their own forcing via
+`fetch_data(self.conditioning_data_source, ...)` inside `__call__`
+(StormCast is the canonical case). The pull path crosses `fetch_data`'s
+xarray/numpy boundary, so pull-coupled components are **inference-only** —
+no autograd through the exchange.
+
+### `StateDataSource`
+
+```python
+StateDataSource(
+    state: State,
+    raw_to_std: Mapping[str, str] | None = None,
+    strict_time: bool = False,
+    dictionary: FieldDictionary | None = None,   # defaults to DEFAULT_DICTIONARY
+)
+```
+
+An in-memory object satisfying the earth2studio DataSource protocol:
+`__call__(time, variable) -> xr.DataArray` with dims
+`(time, variable, lat, lon)`, built from the State's Fields (which must be
+exchange-shaped `(lat, lon)`; other dims raise `CouplingError`). Requested
+names resolve in order: **(1)** a standard name already in the State,
+**(2)** the `raw_to_std` map (built by `PullAdapter` from the Exchange's
+`std_to_raw`, which only covers state variables), **(3)** dictionary
+fallback — a raw/alias name (e.g. `u10m`, `t2m`) is resolved to its standard
+name through `dictionary` and looked up in the State. No hit raises
+`CouplingError` naming the held fields. The source is a **snapshot view**:
+every requested time receives whatever the connector last delivered;
+`strict_time=True` raises `CouplingError` when a requested time differs from
+a served field's `valid_time`.
+
+### `PullAdapter`
+
+```python
+PullAdapter(
+    attribute: str = "conditioning_data_source",
+    strict_time: bool = False,
+    dictionary: FieldDictionary | None = None,
+)
+```
+
+`ImportAdapter` for pull-pattern models. Each call sets
+`model.<attribute>` to a fresh `StateDataSource` over `exchange.imports`
+(with `raw_to_std` inverted from `exchange.std_to_raw`, and
+`strict_time`/`dictionary` forwarded), then returns
+`model(exchange.x, exchange.coords)` unchanged — the model's own fetch
+receives this step's coupled forcing. A model without the attribute raises
+`CouplingError` pointing at `ConditioningKwargAdapter` for
+argument-style conditioning. `strict_time=False` (the default) serves the
+snapshot and lets the run sequence own cadence alignment — a sequential
+connect before the pulling component's run guarantees fresh forcing.
+
 ## vertical
 
 ### `PressureLevels` (frozen dataclass)
@@ -470,6 +548,28 @@ Parses the DSL (grammar in
 [dsl_and_yaml_reference.md](dsl_and_yaml_reference.md#grammar)); raises
 `SequenceError` with the offending line number.
 
+### `derive_sequence`
+
+```python
+derive_sequence(
+    components: dict[str, Component],
+    connectors: Iterable[Connector | tuple[str, str]] | None = None,
+    lagged: set[tuple[str, str]] | Literal["all"] = "all",
+) -> RunSequence
+```
+
+Derives the canonical run sequence from the coupling graph: one slot per
+distinct component cadence, fast to slow. Within a slot: lagged connects
+delivered at this cadence (sorted by component declaration order), then each
+mediator's compute followed by its outgoing connects, then component runs
+topologically ordered over the sequential (non-lagged) edges, each run
+followed by its outgoing sequential connects. `lagged="all"` (default) is the
+NUOPC-explicit shape; edges not in the `lagged` set are sequential, and a
+cycle of sequential edges among same-cadence components raises
+`SequenceError` telling you to mark one edge lagged. Unknown endpoint names
+raise `SequenceError` with did-you-mean suggestions. This is what
+`Driver(sequence=None)` and `couple()` call.
+
 ## driver
 
 ### `Driver`
@@ -477,21 +577,30 @@ Parses the DSL (grammar in
 ```python
 Driver(
     components: dict[str, Component],
-    sequence: RunSequence | str,
-    clock: Clock,
-    connectors: list[Connector] | None = None,
+    sequence: RunSequence | str | None = None,
+    clock: Clock | None = None,
+    connectors: list[Connector | tuple[str, str]] | None = None,
     collect: bool = True,
     io: dict[str, IOBackend] | None = None,
     allow_unfed_imports: bool = False,
 )
 ```
 
-Executes the coupled system. Keys of `components` must match the names used
-in the sequence; any `ConnectAction` without a prebuilt connector gets a
-default `Connector(src, dst)`. `io=` streams each component's exports to an
-earth2studio `IOBackend` (one array per export field, leading `time` axis over
-the component's ring times including t0; NaN-initialized), independent of
-`collect`. Unknown `io` keys raise `CouplingError`.
+Executes a coupled system declared as components + connections. With
+`sequence=None` (the default, declarative form) the schedule is derived from
+the coupling graph via `derive_sequence(components, connectors)` at
+construction; an explicit `RunSequence` or DSL string overrides it (the
+escape hatch for sequential coupling or hand-tuned action order). The
+attribute `sequence_derived: bool` records which path was taken. `clock`
+keeps its positional slot but omitting it raises an actionable
+`CouplingError`. `connectors` accepts `Connector` instances or bare
+`(src, dst)` name tuples (auto-built into default Connectors; unknown names
+raise `CouplingError`); with an explicit sequence, any `ConnectAction`
+without a prebuilt connector still gets a default `Connector(src, dst)`.
+`io=` streams each component's exports to an earth2studio `IOBackend` (one
+array per export field, leading `time` axis over the component's ring times
+including t0; NaN-initialized), independent of `collect`. Unknown `io` keys
+raise `CouplingError`.
 
 - `initialize(ics: dict[str, tuple[torch.Tensor, CoordSystem]] | None = None) -> None`
   — validates the sequence, matches connectors (units checks), rejects unfed
@@ -510,9 +619,11 @@ the component's ring times including t0; NaN-initialized), independent of
 - `rollout(n_steps: int) -> dict[str, State]` — advances `n_steps` keeping
   the autograd graph when grad is enabled (the coupled fine-tuning entry
   point); raises `CouplingError` when fewer steps remain.
-- `reset() -> None` — rewinds the clock and clears records/history;
-  `initialize(ics)` must be called again before running. Running an exhausted
-  clock raises `CouplingError`.
+- `reset() -> None` — rewinds the clock, clears records, and calls
+  `Connector.reset()` on every connector (time-policy history, probes,
+  windowed running reductions and window origins); `initialize(ics)` must be
+  called again before running. Running an exhausted clock raises
+  `CouplingError`.
 - `probe(connector: str) -> dict[str, Field]` — last exchanged fields on a
   connector addressed as `"src->dst"` (`KeyError` listing known names).
 - `to_xarray() -> dict[str, xr.Dataset]` — collected exports, one Dataset per
@@ -537,11 +648,15 @@ couple(
 
 Auto-wires components into a ready-to-initialize `Driver`: every import is
 matched to its unique exporter by standard name (`AmbiguousCouplingError` for
-several, `UnmatchedImportError` for none), derived imports whose base field
-someone exports get an `AccumulationMediator` synthesized (named
-`med_<shortest alias>`), and the generated sequence uses the canonical lagged
-layout, one slot per cadence. `dt` defaults to the GCD of the component
-timesteps. Returns an *uninitialized* driver.
+several, `UnmatchedImportError` for none). A derived import whose base field
+someone exports becomes a windowed
+`Connector(src, dst, fields=[base], window=cm.window, reduce=cm.method)`; an
+`AccumulationMediator` (named `med_<shortest alias>`) is synthesized only
+when the `(src, dst)` pair already carries a plain transfer, which a windowed
+connector cannot share. A user-prebuilt windowed connector for the pair is
+honored. The run sequence is derived from the graph (`sequence_derived=True`)
+in the canonical lagged layout, one slot per cadence. `dt` defaults to the
+GCD of the component timesteps. Returns an *uninitialized* driver.
 
 ### `coupled`
 
@@ -570,8 +685,11 @@ describe_html(driver: Driver) -> str
 
 Terraform-plan-style preview (text / self-contained Jupyter HTML) of
 components, connectors (fields, policies, lagged/sequential mode, slot), and
-the run sequence. Works before `initialize()` — only advertised names, the
-sequence, and the clock are consulted.
+the run sequence. The mode column is per exchange: `sequential` iff the
+source ran (or the mediator computed) earlier in the same slot — the
+destination consumes state produced this iteration — else `lagged`. Works
+before `initialize()` — only advertised names, the sequence, and the clock
+are consulted.
 
 ## config
 
@@ -582,6 +700,9 @@ to_yaml(driver: Driver, path: str | os.PathLike | None = None) -> str
 ```
 
 Serializes a `Driver` to YAML text (also written to `path` when given).
+Hand-written sequences serialize as plain DSL text; derived sequences as
+`sequence: {derived: true, text: <DSL>}` (the text is informational —
+`from_yaml` re-derives). Windowed connectors carry `window`/`reduce` keys.
 Raises `CouplingError` for any component that is neither an
 `AccumulationMediator` nor carries a `yaml_spec` attribute. Schema and rules
 in [dsl_and_yaml_reference.md](dsl_and_yaml_reference.md#the-yaml-schema).
@@ -595,8 +716,11 @@ from_yaml(path_or_str: str | os.PathLike) -> Driver
 Builds an **uninitialized** `Driver` from YAML text or a file path (a
 newline-free string naming an existing file is read as a path). Components
 are rebuilt by importing each `class` path and calling it with `kwargs`;
-failures raise `CouplingError` naming the path. Call
-`driver.initialize(ics)` afterwards.
+failures raise `CouplingError` naming the path. A `sequence` mapping with
+`derived: true` re-derives the schedule from components + connectors
+(deterministic, so round-trips reproduce identical runs); a mapping without
+it raises `CouplingError`. Windowed connectors are rebuilt from their
+`window`/`reduce` keys. Call `driver.initialize(ics)` afterwards.
 
 ## errors
 
@@ -708,7 +832,7 @@ import earth2studio.nvcoupler as nvc
 from earth2studio.nvcoupler.testing import atmos_ic, fake_atmos, fake_ocean, ocean_ic
 
 driver = nvc.couple(fake_atmos(), fake_ocean(), start="2024-01-01", stop="2024-01-05")
-print(driver.describe())            # plan preview, incl. the synthesized mediator
+print(driver.describe())            # plan preview, incl. the synthesized windowed connector
 driver.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
 datasets = driver.run()             # dict[str, xr.Dataset]
 ```

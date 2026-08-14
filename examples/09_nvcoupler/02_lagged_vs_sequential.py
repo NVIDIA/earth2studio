@@ -26,6 +26,9 @@ from *this* coupling step (sequential/implicit-ish) or the *previous* one
 (lagged/explicit) is an architectural decision baked deep into the coupler.
 In nvcoupler it is one line of the run sequence: a ConnectAction placed
 before the destination's RunAction in a slot is lagged; after, sequential.
+The sequence a Driver derives from the coupling graph is always the lagged
+canonical form — passing an explicit run-sequence DSL is the escape hatch
+that makes the ordering itself the experiment, as here.
 
 In this example you will learn:
 

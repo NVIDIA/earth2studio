@@ -9,8 +9,11 @@ the toy components in `earth2studio.nvcoupler.testing`.
 
 ## The run-sequence DSL
 
-The DSL mirrors NUOPC's runSeq: slots opened by `@<interval>` headers, each
-containing an ordered list of actions.
+Most systems never write a sequence: `Driver(sequence=None)` (the default)
+and `couple()` derive the canonical lagged sequence from the coupling graph
+via `derive_sequence`. The DSL is the explicit override for hand-tuned
+ordering — it mirrors NUOPC's runSeq: slots opened by `@<interval>` headers,
+each containing an ordered list of actions.
 
 ```
 @6h
@@ -133,10 +136,10 @@ state *as of the moment the connect executes*:
 
 Swapping the two flavors is a one-line reorder; see
 `examples/09_nvcoupler/02_lagged_vs_sequential.py`
-([examples README](../../../examples/09_nvcoupler/README.rst)). Note that
-`describe()` labels a connect's mode from its position relative to the
-*destination's* run in the slot (before = `lagged`, after = `sequential`),
-which agrees with the source-relative view in the canonical layouts above.
+([examples README](../../../examples/09_nvcoupler/README.rst)). `describe()`
+labels a connect's mode with exactly this source-relative rule: `sequential`
+iff the source ran (or the mediator computed) earlier in the same slot, else
+`lagged`.
 
 ### Validation
 
@@ -181,8 +184,10 @@ and units, unfed-import detection, unconsumed-export warnings) — see
 - Output is always two-space-indented actions and a final bare `@`; comments
   are not preserved (they are stripped at parse time).
 
-Because the YAML `sequence` key stores `str(driver.sequence)` verbatim, these
-guarantees are exactly what makes YAML round-trips faithful.
+For hand-written sequences the YAML `sequence` key stores
+`str(driver.sequence)` verbatim, so these guarantees are exactly what makes
+those YAML round-trips faithful. Derived sequences are stored as
+`{derived: true, text: ...}` and re-derived on load instead (see below).
 
 ## The YAML schema
 
@@ -196,11 +201,11 @@ and are never serialized).
 | Key | Required | Type | Meaning |
 |---|---|---|---|
 | `clock` | yes | mapping `{start, stop, dt}` | ISO-8601 `start`/`stop` strings, `dt` an interval string. Rebuilt as `Clock(start, stop, dt)`. |
-| `sequence` | yes | string (literal block) | The run-sequence DSL, verbatim (`str(driver.sequence)`). |
+| `sequence` | yes | string (literal block) or mapping | Hand-written sequences: the run-sequence DSL, verbatim (`str(driver.sequence)`). Derived sequences (`driver.sequence_derived`): `{derived: true, text: <DSL>}` — the `text` is informational; `from_yaml` re-derives the schedule from components + connectors (deterministic, so round-trips reproduce identical runs). A mapping without `derived: true` raises `CouplingError`. |
 | `components` | yes | mapping `name -> {class, kwargs}` | `class` is a dotted import path to a module-level class or factory; it is imported and called as `factory(**kwargs)`. |
 | `dictionary` | no | list of entry mappings | Only `FieldEntry` items **absent from or differing from** `DEFAULT_DICTIONARY`. Each has `standard_name`, `canonical_units`, `description`, `aliases` (list), and optional `cell_method: {base, method, window}`. |
 | `aliases` | no | mapping `alias -> standard_name` | Alias additions relative to the default dictionary (see below). |
-| `connectors` | no | list of `{src, dst, time_policy, fill, fields?}` | Non-default connector settings. `fields` appears only when the connector was built with an explicit list; `time_policy` defaults to `"constant"` and `fill` to `"none"` on load. Windowed connectors do **not** round-trip: `window=`/`reduce=` are not serialized (see below). |
+| `connectors` | no | list of `{src, dst, time_policy, fill, fields?, window?, reduce?}` | Connector settings. `fields` appears only when the connector was built with an explicit list; `time_policy` defaults to `"constant"` and `fill` to `"none"` on load. `window`/`reduce` appear (together) for windowed connectors and rebuild them on load. |
 
 `from_yaml` raises `CouplingError` when the document is not a mapping, when
 any of `clock`/`sequence`/`components` is missing, when a component spec lacks
@@ -285,6 +290,32 @@ rebuilt.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
 datasets = rebuilt.run()                        # identical to driver.run()
 ```
 
+### Derived sequences and windowed connectors, executed
+
+A driver built declaratively (no `sequence=`) serializes its schedule as the
+mapping form, and windowed connectors carry `window`/`reduce`; `from_yaml`
+re-derives the sequence and rebuilds the windowed connector, so the
+round-trip reproduces the run exactly (pinned in
+`test/nvcoupler/test_config.py`):
+
+```python
+atmos2, ocean2 = fake_atmos(gain=1.0), fake_ocean(gain=1.0)
+atmos2.yaml_spec, ocean2.yaml_spec = atmos.yaml_spec, ocean.yaml_spec
+declared = nvc.Driver(
+    {"atmos": atmos2, "ocean": ocean2},
+    clock=nvc.Clock("2024-01-01", "2024-01-05", "6h"),
+    connectors=[
+        ("ocean", "atmos"),
+        nvc.Connector(atmos2, ocean2, window="48h", reduce="mean"),
+    ],
+)
+text = nvc.to_yaml(declared)
+assert "derived: true" in text and "window: 2D" in text and "reduce: mean" in text
+rebuilt2 = nvc.from_yaml(text)
+assert rebuilt2.sequence_derived
+assert str(rebuilt2.sequence) == str(declared.sequence)
+```
+
 ### Serialization rules
 
 `to_yaml` decides per component, in order:
@@ -309,16 +340,11 @@ datasets = rebuilt.run()                        # identical to driver.run()
    load paths (e.g. `{load: 'earth2studio.models.px.Persistence'}`) are
    explicitly out of scope for v1.
 
-Also not serialized, honestly stated: connector `window=`/`reduce=` — a
-windowed connector is *silently* written out as a plain one and the rebuilt
-system will usually fail connector matching at `initialize()` (the base
-export no longer intersects the derived import), so windowed systems must be
-built in Python (or expressed as an `AccumulationMediator`, which does
-round-trip); connector `regridder=` callables (a rebuilt connector falls back
-to the auto lat/lon path — HEALPix/curvilinear systems need Python
-construction); `io=` backends; `collect`; and `allow_unfed_imports`. Custom
-`Connector` subclasses lose their type: only
-`src`/`dst`/`fields`/`time_policy`/`fill` round-trip.
+Not serialized, honestly stated: connector `regridder=` callables (a rebuilt
+connector falls back to the auto lat/lon path — HEALPix/curvilinear systems
+need Python construction); `io=` backends; `collect`; and
+`allow_unfed_imports`. Custom `Connector` subclasses lose their type: only
+`src`/`dst`/`fields`/`time_policy`/`fill`/`window`/`reduce` round-trip.
 
 ### The aliases delta mechanism
 

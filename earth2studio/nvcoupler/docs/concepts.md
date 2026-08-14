@@ -168,10 +168,15 @@ Three consumers read it:
   `window=` overrides it. A derived name without a `cell_method` raises.
 - **`couple()`** — when a component imports a derived field nobody exports,
   auto-wiring checks the entry's cell method: if some unique component exports
-  the *base* field, it synthesizes an `AccumulationMediator` between the two
-  cadences and wires `base-exporter -> mediator -> importer`. No cell method
-  or no base exporter raises `UnmatchedImportError`; multiple base exporters
-  raise `AmbiguousCouplingError`.
+  the *base* field, it wires a windowed
+  `Connector(base-exporter, importer, fields=[base], window=cm.window,
+  reduce=cm.method)`. Only when that `(src, dst)` pair already carries a
+  plain transfer (the importer also imports the base directly, or a second
+  derived field rides the same pair) is an `AccumulationMediator` synthesized
+  and wired `base-exporter -> mediator -> importer` instead; a user-prebuilt
+  windowed connector for the pair is honored. No cell method or no base
+  exporter raises `UnmatchedImportError`; multiple base exporters raise
+  `AmbiguousCouplingError`.
 
 ```python
 entry = nvc.DEFAULT_DICTIONARY.resolve("total_precipitation_48h_sum")
@@ -298,7 +303,7 @@ sequence like components but compute reductions rather than stepping models.
 ## ImportAdapters: who owns the model call
 
 Real models disagree on how coupled forcing arrives, so the **adapter — not
-the component — owns the model invocation**. Each of the three built-ins maps
+the component — owns the model invocation**. Each of the four built-ins maps
 to a real-world coupling pattern:
 
 | Adapter | Call shape | Real-world pattern |
@@ -306,12 +311,20 @@ to a real-world coupling pattern:
 | `VariableOverwriteAdapter` (default) | overwrite matching variable slices of `x`, then `model(x, coords)` | prescribed forcing as a state channel |
 | `ConditioningKwargAdapter` | `model.call_with_conditioning(x, coords, conditioning=..., conditioning_coords=...)` | StormScope |
 | `ExtraTensorAdapter` | `model(x, coords, coupling)` (or a named kwarg) | DLESyM / PhysicsNeMo 4-tensor |
+| `PullAdapter` | install a `StateDataSource` on `model.conditioning_data_source`, then `model(x, coords)` | StormCast |
+
+An adapter receives the model and an `Exchange` — a frozen bundle of the
+step's state tensor and coords, the delivered import `State`, the
+standard-name → raw-variable map, and the step time — and returns the stepped
+`(x, coords)`. The two `Exchange` accessors cover the common delivery shapes:
+`exchange.inject()` (variable-slice overwrite) and `exchange.stacked()`
+(channel-stacked forcing tensor).
 
 `VariableOverwriteAdapter` requires the imported field to be a state variable
-of the model (resolved through `std_to_raw` aliases); injection clones the
-state tensor and uses `index_copy_` on the clone, keeping autograd intact. It
-raises with a pointer to the other adapters when the model has no `"variable"`
-dim or the import is not a state channel.
+of the model (resolved through `std_to_raw` aliases); `Exchange.inject`
+clones the state tensor and uses `index_copy_` on the clone, keeping autograd
+intact. It raises with a pointer to the other adapters when the model has no
+`"variable"` dim or the import is not a state channel.
 
 The stacking adapters (`ConditioningKwargAdapter`, `ExtraTensorAdapter`)
 require an **explicit `field_order=[...]`** whenever more than one field is
@@ -321,7 +334,41 @@ without error and predicts garbage* — the worst failure mode in ML systems.
 With a single import the order is trivially inferable and `field_order` may be
 omitted.
 
-Adapters must be autograd-safe (no in-place mutation of tensors that may carry
+### The pull pattern: masquerade, not argument
+
+The fourth delivery shape exists because some models (StormCast is the
+canonical case) offer *no* argument to deliver forcing through: the model
+calls `fetch_data(self.conditioning_data_source, time, variables, ...)`
+inside its own `__call__`, and the only injection point it exposes is that
+settable data-source attribute. So `PullAdapter`'s job is a **masquerade
+rather than an argument**: before each step it sets the attribute to a
+`StateDataSource` — a tiny in-memory object satisfying the DataSource
+protocol that answers the model's fetches from the component's import State —
+then calls `model(x, coords)` unchanged. The model runs its unmodified
+production fetch path (fetch → interpolate → concatenate) believing it is
+reading GFS; it is reading the coupler. There is precedent for exactly this
+masquerade in earth2studio's serve workflows: `stormcast_conus_workflow.py`
+stages a full conditioning forecast to temp files and replays it through an
+`InferenceOutputSource`; the shim is the same trick minus the staging — the
+"source" is this step's live exchange.
+
+The cadence-alignment contract: a `StateDataSource` is a snapshot view —
+whatever the connector last delivered is what *every* requested time
+receives. Alignment is the run sequence's job: a **sequential** connect
+placed before the pulling component's run in the same slot
+(`global`, then `global -> stormcast`, then `stormcast`) guarantees the
+served fields are fresh at the pulled time. `strict_time=True` turns that
+contract into a check, raising when the model pulls times that do not match
+the served fields' `valid_time`.
+
+Honest limitation: the pull path runs through the model's own
+`fetch_data`/xarray machinery, so field data crosses a numpy boundary and the
+autograd graph is severed there — pull-coupled components are
+**inference-only** (no gradients through the exchange). The push-pattern
+adapters above keep autograd intact.
+
+Adapters (other than `PullAdapter`, per the boundary just described) must be
+autograd-safe (no in-place mutation of tensors that may carry
 grad); any object matching the `ImportAdapter` protocol can be passed as
 `import_adapter=`.
 
@@ -482,10 +529,13 @@ the same numbers from the same accumulator core with fewer moving parts.
 
 ## Coupling semantics: ordering is the coupling mode
 
-There is no `lagged=True` flag anywhere. Whether coupling is lagged
+There is no `lagged=True` flag on connectors. Whether coupling is lagged
 (NUOPC-explicit) or sequential is **purely the position of the connect action
-relative to the destination's run in the same slot**. The driver executes a
-slot's actions strictly in order and adds no hidden exchanges.
+relative to the source's run in the same slot**: a connect executed before
+the source runs delivers its previous export; after, the export just
+produced. The driver executes a slot's actions strictly in order and adds no
+hidden exchanges. (`derive_sequence`'s `lagged=` parameter is not a flag on
+the exchange — it just selects where the connect is placed.)
 
 A minimal pair, hand-checkable: `src` increments its `t2m` state by 1 each
 step; `dst` copies its imported `t2m` into its `d2m` export.
@@ -509,8 +559,12 @@ sequential = """
 
 After one 6 h step from `t2m = 0`: the lagged system's `d2m` is **0.0** (the
 t0 export), the sequential system's is **1.0** (the export produced in the
-same step). `couple()` always generates the lagged shape (connects precede
-runs); `describe()` labels each connect `lagged` or `sequential` in its plan
-table. Run [`examples/09_nvcoupler/02_lagged_vs_sequential.py`](../../../examples/09_nvcoupler/02_lagged_vs_sequential.py)
+same step). Derived sequences (`Driver(sequence=None)`, `couple()`,
+`derive_sequence(lagged="all")`) always generate the lagged shape — connects
+precede runs — with one exception: mediator deliveries follow their
+`med.compute` in the same slot and are therefore sequential. `describe()`
+labels each connect `lagged` or `sequential` in its plan table (sequential
+iff the source ran or computed earlier in the same slot). Run
+[`examples/09_nvcoupler/02_lagged_vs_sequential.py`](../../../examples/09_nvcoupler/02_lagged_vs_sequential.py)
 to see the divergence over a real rollout, and see the
 [DSL reference](dsl_and_yaml_reference.md) for the full grammar.
