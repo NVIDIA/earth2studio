@@ -2249,11 +2249,18 @@ body .md-grid {
   }
 
   .md-typeset .e2s-hero h1 {
-    font-size: clamp(2.1rem, 12vw, 3.1rem);
+    font-size: clamp(1.85rem, 9vw, 2.55rem);
+    line-height: 1;
   }
 
   .e2s-hero__lede {
     font-size: clamp(0.92rem, 5vw, 1.08rem);
+  }
+
+  @media screen and (max-width: 28rem) {
+    .md-typeset .e2s-hero h1 {
+      font-size: clamp(1.7rem, 8.2vw, 2.05rem);
+    }
   }
 
   .e2s-hero__separator {
