@@ -14,12 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Clock and Alarm: coupled-system time management (ESMF analogs).
+"""Clock: coupled-system time management (ESMF analog).
 
-The Driver owns one Clock stepping at the coupling interval dt; every
-Component owns an Alarm at its own cadence. A component runs only on
-driver steps where its alarm rings, which is how a 6 h atmosphere and a
-48 h ocean coexist in one loop.
+The Driver owns one Clock stepping at the coupling interval dt; each
+Component declares its own timestep, and the Driver runs a component only
+on driver steps aligned with that cadence, which is how a 6 h atmosphere
+and a 48 h ocean coexist in one loop.
 
 All times are np.datetime64 / np.timedelta64 to match earth2studio's
 TimeArray / LeadTimeArray conventions.
@@ -79,33 +79,6 @@ def is_multiple(interval: np.timedelta64, dt: np.timedelta64) -> bool:
     interval_ns = interval.astype("timedelta64[ns]").astype(np.int64)
     dt_ns = dt.astype("timedelta64[ns]").astype(np.int64)
     return dt_ns > 0 and interval_ns > 0 and interval_ns % dt_ns == 0
-
-
-class Alarm:
-    """Rings when (time - start - offset) is a whole multiple of interval.
-
-    NUOPC-alarm analog used for per-component cadences: an interval of 48 h
-    on a 6 h driver clock rings every 8th step.
-    """
-
-    def __init__(self, interval: DeltaLike, offset: DeltaLike | None = None):
-        self.interval = as_timedelta(interval)
-        self.offset = (
-            as_timedelta(offset) if offset is not None else np.timedelta64(0, "ns")
-        )
-        if self.interval <= np.timedelta64(0, "ns"):
-            raise ValueError(f"Alarm interval must be positive, got {interval!r}")
-
-    def is_ringing(self, time: np.datetime64, start: np.datetime64) -> bool:
-        elapsed = (as_datetime(time) - as_datetime(start) - self.offset).astype(
-            "timedelta64[ns]"
-        )
-        elapsed_ns = elapsed.astype(np.int64)
-        interval_ns = self.interval.astype(np.int64)
-        return elapsed_ns >= 0 and elapsed_ns % interval_ns == 0
-
-    def __repr__(self) -> str:
-        return f"Alarm(interval={self.interval}, offset={self.offset})"
 
 
 class Clock:

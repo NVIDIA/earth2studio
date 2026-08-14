@@ -17,7 +17,7 @@
 import numpy as np
 import pytest
 
-from earth2studio.nvcoupler.clock import Alarm, Clock, as_timedelta, is_multiple
+from earth2studio.nvcoupler.clock import Clock, as_timedelta, is_multiple
 from earth2studio.nvcoupler.errors import CadenceError
 
 
@@ -37,8 +37,6 @@ def test_bare_int_timedelta_rejected():
         as_timedelta(6)
     with pytest.raises(ValueError, match="np.timedelta64"):
         Clock("2024-01-01", "2024-01-02", 6)
-    with pytest.raises(ValueError, match="'6h'"):
-        Alarm(24)
 
 
 def test_clock_iteration():
@@ -61,29 +59,6 @@ def test_clock_validation():
         Clock("2024-01-01", "2024-01-02T01:00", "6h")  # span not multiple of dt
     with pytest.raises(ValueError):
         Clock("2024-01-02", "2024-01-01", "6h")  # stop before start
-
-
-def test_alarm_cadences():
-    start = np.datetime64("2024-01-01")
-    fast = Alarm("6h")
-    slow = Alarm("48h")
-    clock = Clock(start, "2024-01-05", "6h")
-    fast_rings = sum(fast.is_ringing(t, start) for t in clock)
-    clock.reset()
-    slow_rings = sum(slow.is_ringing(t, start) for t in clock)
-    assert fast_rings == 16  # every step over 96h
-    assert slow_rings == 2  # at 48h and 96h
-    # alarms also ring at t=start (step 0 / initialization)
-    assert fast.is_ringing(start, start) and slow.is_ringing(start, start)
-
-
-def test_alarm_offset():
-    start = np.datetime64("2024-01-01")
-    offset = Alarm("24h", offset="6h")
-    assert not offset.is_ringing(start, start)  # before offset
-    assert offset.is_ringing(np.datetime64("2024-01-01T06:00"), start)
-    assert offset.is_ringing(np.datetime64("2024-01-02T06:00"), start)
-    assert not offset.is_ringing(np.datetime64("2024-01-02T00:00"), start)
 
 
 def test_is_multiple():

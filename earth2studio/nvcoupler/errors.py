@@ -37,22 +37,16 @@ class CouplingError(Exception):
     """Base class for all nvcoupler configuration and runtime errors."""
 
 
-class UnknownFieldError(CouplingError, KeyError):
+class UnknownFieldError(CouplingError):
     """A name could not be resolved in the field dictionary."""
 
     def __init__(self, name: str, candidates: Iterable[str]):
-        msg = (
+        super().__init__(
             f"Field name {name!r} is not a registered standard name or alias."
             + suggest(name, candidates)
             + " Register it with FieldDictionary.register(FieldEntry(...)) or "
             "add an alias with FieldDictionary.add_alias(...)."
         )
-        # KeyError renders its arg with repr, so store the message on the
-        # CouplingError side and pass it through once
-        super().__init__(msg)
-
-    def __str__(self) -> str:  # undo KeyError's quoting of the message
-        return self.args[0]
 
 
 class UnmatchedImportError(CouplingError):

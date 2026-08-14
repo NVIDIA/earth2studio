@@ -35,7 +35,7 @@ from loguru import logger
 from earth2studio.utils.interp import latlon_interpolation_regular
 from earth2studio.utils.type import CoordSystem
 
-from .clock import as_datetime
+from .clock import DeltaLike, as_datetime, as_timedelta, fmt_timedelta
 from .component import Component
 from .errors import (
     CouplingError,
@@ -43,6 +43,7 @@ from .errors import (
     VerticalMismatchError,
 )
 from .field import _SPATIAL_DIMS, Field
+from .mediator import _RunningReduction
 from .vertical import HybridLevels, PressureLevels, interp_to_pressure
 
 Regridder = Callable[[torch.Tensor], torch.Tensor]
@@ -138,6 +139,19 @@ class Connector:
         the grids differ and the auto path cannot handle them (HEALPix
         'face' dims, curvilinear grids); identical grids — including
         identical face grids — pass through as identity without one.
+    window, reduce : optional
+        Set both to make this a *windowed* connector: each execute folds the
+        source fields into a running reduction ("mean" | "sum" | "max" |
+        "min"), and delivery happens only at execute times aligned to
+        `window`. The delivered Field carries the DERIVED standard name — the
+        destination must import a dictionary entry whose CellMethod is
+        (base=source export, method=`reduce`, window=`window`). Between
+        window boundaries the destination's previous import is untouched.
+        The window origin is the valid_time of the first execute's source
+        field (the clock start under lagged coupling, where the connector
+        runs before the source in its slot), so no driver hook is needed.
+        This replaces a single-source AccumulationMediator; `time_policy`
+        does not apply on the windowed path.
     """
 
     def __init__(
@@ -148,11 +162,29 @@ class Connector:
         time_policy: Literal["constant", "linear"] = "constant",
         fill: Literal["none", "zero", "nearest"] = "none",
         regridder: Regridder | None = None,
+        window: DeltaLike | None = None,
+        reduce: Literal["mean", "sum", "max", "min"] | None = None,
     ):
         self.src = src
         self.dst = dst
         self.time_policy = time_policy
         self.fill = fill
+        if (window is None) != (reduce is None):
+            raise CouplingError(
+                f"Connector {src.name}->{dst.name}: window= and reduce= must "
+                "be set together — a windowed reduction needs both the window "
+                "length and the reduction method"
+            )
+        if reduce is not None and reduce not in ("mean", "sum", "max", "min"):
+            raise CouplingError(
+                f"Connector {src.name}->{dst.name}: unsupported reduce="
+                f"{reduce!r}; choose 'mean', 'sum', 'max' or 'min'"
+            )
+        self.window = as_timedelta(window) if window is not None else None
+        self.reduce = reduce
+        self._reduction = _RunningReduction()
+        self._derived: dict[str, str] = {}  # src export name -> derived dst name
+        self._origin: np.datetime64 | None = None  # window alignment origin
         self._user_regridder = regridder
         self._fields = list(fields) if fields is not None else None
         self._matched: list[str] | None = None
@@ -170,10 +202,20 @@ class Connector:
 
     # -- matching --------------------------------------------------------------
     def match(self) -> list[str]:
+        """Resolve matched standard names (cached).
+
+        Plain connectors match by name intersection. Windowed connectors
+        match each source export against a destination import whose
+        CellMethod derives from it; the returned list then contains both the
+        consumed source names and the delivered derived names, so driver-side
+        bookkeeping (fed imports, consumed exports) sees the full mapping.
+        """
         if self._matched is not None:
             return self._matched
         _, src_exports = self.src.advertise()
         dst_imports, _ = self.dst.advertise()
+        if self.window is not None:
+            return self._match_windowed(src_exports, dst_imports)
         if self._fields is not None:
             missing = [
                 f for f in self._fields if f not in src_exports or f not in dst_imports
@@ -200,6 +242,47 @@ class Connector:
                 n, entry_src.canonical_units, src=self.src.name, dst=self.dst.name
             )
             del entry_dst
+        return self._matched
+
+    def _match_windowed(self, src_exports: list[str], dst_imports: list[str]) -> list[str]:
+        """Pair source exports with the destination's derived imports.
+
+        A source export `base` maps to a destination import whose dictionary
+        entry carries CellMethod(base, self.reduce, self.window); the field
+        is delivered under that derived name. No matching derived import is
+        an error — the coupler never invents names.
+        """
+        wanted = self._fields if self._fields is not None else src_exports
+        for name in dst_imports:
+            cm = self.dst.dictionary.resolve(name).cell_method
+            if (
+                cm is not None
+                and cm.method == self.reduce
+                and as_timedelta(cm.window) == self.window
+                and cm.base in wanted
+                and cm.base in src_exports
+            ):
+                self._derived[cm.base] = name
+        unmatched = [f for f in wanted if f not in self._derived]
+        if not self._derived or (self._fields is not None and unmatched):
+            w, r = fmt_timedelta(self.window), self.reduce
+            raise CouplingError(
+                f"Connector {self.name}: window={w!r}/reduce={r!r} is set but "
+                f"{self.dst.name!r} imports no derived field for "
+                f"{unmatched or src_exports} — register a "
+                f"FieldEntry(cell_method=CellMethod(base, {r!r}, window={w!r})) "
+                f"in the destination's dictionary and add its standard name to "
+                f"{self.dst.name!r}'s imports (destination imports: "
+                f"{dst_imports})"
+            )
+        for base, derived in self._derived.items():
+            self.dst.dictionary.check_units(
+                derived,
+                self.src.dictionary.resolve(base).canonical_units,
+                src=self.src.name,
+                dst=self.dst.name,
+            )
+        self._matched = list(self._derived) + list(self._derived.values())
         return self._matched
 
     # -- pipeline stages ---------------------------------------------------------
@@ -363,26 +446,86 @@ class Connector:
 
     # -- execution ----------------------------------------------------------------
     def execute(self, time: np.datetime64) -> None:
-        for name in self.match():
-            if name not in self.src.export_state:
-                raise CouplingError(
-                    f"Connector {self.name}: {self.src.name!r} has not produced "
-                    f"{name!r} yet — check the run sequence ordering"
-                )
-            field = self.src.export_state[name]
-            field = self._apply_time_policy(field, time)
-            field = self._apply_vertical(field)
-            field = self._apply_fill(field)
-            field = self._apply_regrid(field)
-            self.dst.import_state.add(field)
-            self.last_transfer[name] = field
-            logger.debug(
-                "exchange {}: {} (valid {})", self.name, name, field.valid_time
+        self.match()
+        if self.window is not None:
+            self._execute_windowed(as_datetime(time))
+            return
+        for name in self._matched:
+            field = self._apply_time_policy(self._source_field(name), time)
+            self._deliver(field)
+
+    def _source_field(self, name: str) -> Field:
+        if name not in self.src.export_state:
+            raise CouplingError(
+                f"Connector {self.name}: {self.src.name!r} has not produced "
+                f"{name!r} yet — check the run sequence ordering"
             )
+        return self.src.export_state[name]
+
+    def _deliver(self, field: Field) -> None:
+        """Run the spatial pipeline and hand the field to the destination."""
+        field = self._apply_vertical(field)
+        field = self._apply_fill(field)
+        field = self._apply_regrid(field)
+        self.dst.import_state.add(field)
+        self.last_transfer[field.standard_name] = field
+        logger.debug(
+            "exchange {}: {} (valid {})",
+            self.name,
+            field.standard_name,
+            field.valid_time,
+        )
+
+    def _execute_windowed(self, time: np.datetime64) -> None:
+        """Fold sources into the running reduction; deliver on window boundaries.
+
+        The origin for boundary alignment is the valid_time of the first
+        execute's source field — under lagged coupling (connector before the
+        source's RunAction in the slot) that is the clock start, so the first
+        delivery lands exactly one window after t0 with no driver hook.
+        """
+        for base in self._derived:
+            field = self._source_field(base)
+            if self._origin is None:
+                self._origin = (
+                    as_datetime(field.valid_time)
+                    if field.valid_time is not None
+                    else time
+                )
+            self._reduction.add(base, field, self.reduce)
+        elapsed_ns = (time - self._origin).astype("timedelta64[ns]").astype(np.int64)
+        if elapsed_ns <= 0 or elapsed_ns % self.window.astype(np.int64) != 0:
+            return  # mid-window: accumulate only, previous import stands
+        for base, derived in self._derived.items():
+            data, coords = self._reduction.emit(base, self.reduce)
+            entry = self.dst.dictionary.resolve(derived)
+            self._deliver(
+                Field(
+                    data=data,
+                    coords=coords,
+                    standard_name=derived,
+                    units=entry.canonical_units,
+                    valid_time=time,
+                    source=self.src.name,
+                )
+            )
+        self._reduction.reset()
+
+    def reset(self) -> None:
+        """Clear per-run exchange state (history, running reduction, probes)."""
+        self._history.clear()
+        self.last_transfer.clear()
+        self._reduction.reset()
+        self._origin = None
 
     def __repr__(self) -> str:
         fields = self._matched or self._fields or "auto"
+        windowed = (
+            f", window={fmt_timedelta(self.window)!r}, reduce={self.reduce!r}"
+            if self.window is not None
+            else ""
+        )
         return (
             f"Connector({self.name}, fields={fields}, "
-            f"time_policy={self.time_policy!r}, fill={self.fill!r})"
+            f"time_policy={self.time_policy!r}, fill={self.fill!r}{windowed})"
         )

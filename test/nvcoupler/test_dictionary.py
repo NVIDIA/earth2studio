@@ -42,6 +42,9 @@ def test_unknown_name_suggestions():
         DEFAULT_DICTIONARY.resolve("z1000h")
     assert "z1000" in str(err.value)
     assert "register" in str(err.value).lower()
+    # plain CouplingError, not a KeyError (no repr-quoting of the message)
+    assert not isinstance(err.value, KeyError)
+    assert not str(err.value).startswith('"')
 
 
 def test_register_and_alias():
