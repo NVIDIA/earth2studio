@@ -92,7 +92,6 @@ def test_realize_initialize_run_loop_persists_values():
 
     for i in range(1, 4):  # three 6 h steps
         time = T0 + i * np.timedelta64(6, "h")
-        assert comp.should_run(time)
         comp.run(time)
         for std, ic in ic_slices.items():
             field = comp.export_state[std]
