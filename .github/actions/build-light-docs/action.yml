@@ -74,6 +74,7 @@ runs:
       shell: bash
       env:
         EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
+        UV_LINK_MODE: symlink
       run: make docs-full
 
     - name: Upload docs artifact
