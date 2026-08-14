@@ -28,7 +28,7 @@ inputs:
     description: Stable gallery cache scope to restore and optionally update.
     default: main
   save-caches:
-    description: Whether to save updated gallery and model caches.
+    description: Whether to save the updated gallery cache.
     default: "false"
   upload-artifact:
     description: Whether to upload the built HTML artifact.
@@ -84,6 +84,21 @@ runs:
         path: site/
         if-no-files-found: error
         retention-days: ${{ inputs.artifact-retention-days }}
+
+    - name: Prune gallery work outputs
+      if: >
+        always() &&
+        inputs.save-caches == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [[ -d .e2sgallery ]]; then
+          echo "Gallery cache size before prune:"
+          du -sh .e2sgallery || true
+          find .e2sgallery/runs -path "*/work/outputs" -prune -exec rm -rf {} +
+          echo "Gallery cache size after prune:"
+          du -sh .e2sgallery || true
+        fi
 
     - name: Save gallery cache
       if: >

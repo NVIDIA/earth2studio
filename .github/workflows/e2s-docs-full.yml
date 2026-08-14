@@ -138,3 +138,23 @@ jobs:
               --message "Set default docs version to main" \
               --push
           fi
+
+
+          git fetch origin "${DOCS_PAGES_BRANCH}" --depth=1
+          pages_worktree="$(mktemp -d)"
+          cleanup_pages_worktree() {
+            git worktree remove --force "${pages_worktree}" >/dev/null 2>&1 || rm -rf "${pages_worktree}"
+          }
+          trap cleanup_pages_worktree EXIT
+
+          git worktree add --detach "${pages_worktree}" "origin/${DOCS_PAGES_BRANCH}"
+          git -C "${pages_worktree}" switch -C "${DOCS_PAGES_BRANCH}"
+          touch "${pages_worktree}/.nojekyll"
+          if ! git -C "${pages_worktree}" diff --quiet -- .nojekyll; then
+            git -C "${pages_worktree}" add .nojekyll
+            git -C "${pages_worktree}" commit -m "Disable Jekyll for docs assets"
+            git -C "${pages_worktree}" push origin "${DOCS_PAGES_BRANCH}"
+          fi
+
+          cleanup_pages_worktree
+          trap - EXIT

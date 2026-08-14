@@ -111,6 +111,48 @@ body .md-grid {
   padding-inline: 0;
 }
 
+.md-version__current {
+  border-radius: 0.35rem;
+  padding: 0.3rem 0.55rem;
+  transition:
+    background-color 125ms ease,
+    box-shadow 125ms ease;
+}
+
+.md-version:hover .md-version__current,
+.md-version:focus-within .md-version__current {
+  background-color: rgba(5, 8, 6, 0.55);
+  box-shadow: 0 0 0 0.05rem rgba(118, 185, 0, 0.24);
+}
+
+.md-version__list {
+  background:
+    linear-gradient(180deg, rgba(12, 15, 11, 0.98), rgba(5, 8, 6, 0.98));
+  border: 1px solid rgba(118, 185, 0, 0.24);
+  border-radius: 0.45rem;
+  box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.32);
+  color: var(--e2s-header-fg);
+  overflow: hidden auto;
+  padding-block: 0.2rem;
+}
+
+.md-version__item {
+  line-height: 1.65rem;
+}
+
+.md-version__link {
+  border-radius: 0.28rem;
+  color: var(--e2s-header-fg);
+  margin-inline: 0.2rem;
+  width: calc(100% - 0.4rem);
+}
+
+.md-version__link:focus,
+.md-version__link:hover {
+  background-color: rgba(118, 185, 0, 0.14);
+  color: var(--nv-green-2);
+}
+
 .md-header__button,
 .md-header__button[for],
 .md-header__button:hover,
@@ -362,7 +404,14 @@ body .md-grid {
 }
 
 .md-typeset .e2s-source-link::after {
-  content: "->";
+  width: 0.78rem;
+  height: 0.78rem;
+  background-color: currentColor;
+  content: "";
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
   transition: transform 160ms ease;
 }
 
@@ -843,8 +892,8 @@ body .md-grid {
   transform: translateX(0.16rem);
 }
 
-.e2s-install-command {
-  width: min(100%, 34rem);
+.e2s-quickstart-card {
+  --e2s-quickstart-padding-x: 0.95rem;
   margin: 0 auto;
   border: 1px solid rgba(118, 185, 0, 0.28);
   border-radius: 0.35rem;
@@ -857,6 +906,11 @@ body .md-grid {
   color: #eef8ff;
   text-align: left;
   backdrop-filter: blur(10px);
+}
+
+.e2s-install-command {
+  width: min(100%, 34rem);
+  overflow: hidden;
 }
 
 .e2s-install-tabs {
@@ -891,7 +945,7 @@ body .md-grid {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0 0.95rem;
+  padding: 0 var(--e2s-quickstart-padding-x);
 }
 
 .e2s-install-line span {
@@ -928,7 +982,9 @@ body .md-grid {
   margin-top: 0 !important;
   margin-bottom: 0 !important;
   padding-top: 0.75rem;
+  padding-right: 3.25rem;
   padding-bottom: 0.75rem;
+  position: relative;
 }
 
 .e2s-copy-button,
@@ -939,12 +995,14 @@ body .md-grid {
   display: inline-grid !important;
   place-items: center !important;
   padding: 0 !important;
-  border: 1px solid rgba(118, 185, 0, 0.32) !important;
+  border: 1px solid rgba(118, 185, 0, 0.42) !important;
   border-radius: 0.22rem !important;
-  background: transparent !important;
-  background-color: transparent !important;
-  box-shadow: none !important;
-  color: var(--nv-green-2) !important;
+  background: rgba(5, 8, 6, 0.92) !important;
+  background-color: rgba(5, 8, 6, 0.92) !important;
+  box-shadow:
+    0 0.25rem 0.85rem rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px rgba(118, 185, 0, 0.08) !important;
+  color: #76b900 !important;
   cursor: pointer;
   font-size: 0.76rem;
   line-height: 1;
@@ -958,9 +1016,11 @@ body .md-grid {
 
 .md-code__nav {
   position: absolute;
-  top: 50%;
-  right: 0.55rem;
-  transform: translateY(-50%);
+  top: 0.65rem;
+  right: 0.65rem;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none;
   background: transparent !important;
   background-color: transparent !important;
   box-shadow: none !important;
@@ -998,9 +1058,48 @@ body .md-grid {
 .md-code__button:hover,
 .md-code__button:focus,
 .md-code__button[data-md-state="done"] {
-  border-color: rgba(155, 229, 100, 0.62) !important;
-  background-color: rgba(118, 185, 0, 0.2) !important;
-  color: #fff !important;
+  border-color: rgba(118, 185, 0, 0.72) !important;
+  background-color: rgba(8, 12, 9, 0.98) !important;
+  color: #76b900 !important;
+}
+
+[data-md-color-scheme="default"] .e2s-copy-button:not(.e2s-home-button),
+[data-md-color-scheme="default"] .md-code__button {
+  border-color: rgba(118, 185, 0, 0.42) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  box-shadow:
+    0 0.22rem 0.75rem rgba(0, 0, 0, 0.12),
+    inset 0 0 0 1px rgba(118, 185, 0, 0.08) !important;
+  color: #76b900 !important;
+}
+
+[data-md-color-scheme="default"] .e2s-copy-button:not(.e2s-home-button):hover,
+[data-md-color-scheme="default"] .e2s-copy-button:not(.e2s-home-button).is-copied,
+[data-md-color-scheme="default"] .md-code__button:hover,
+[data-md-color-scheme="default"] .md-code__button:focus,
+[data-md-color-scheme="default"] .md-code__button[data-md-state="done"] {
+  border-color: rgba(118, 185, 0, 0.72) !important;
+  background-color: #f4faef !important;
+  color: #76b900 !important;
+}
+
+[data-md-color-scheme="default"] .e2s-terminal .md-code__button {
+  border-color: rgba(118, 185, 0, 0.42) !important;
+  background: rgba(5, 8, 6, 0.92) !important;
+  background-color: rgba(5, 8, 6, 0.92) !important;
+  box-shadow:
+    0 0.25rem 0.85rem rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px rgba(118, 185, 0, 0.08) !important;
+  color: #76b900 !important;
+}
+
+[data-md-color-scheme="default"] .e2s-terminal .md-code__button:hover,
+[data-md-color-scheme="default"] .e2s-terminal .md-code__button:focus,
+[data-md-color-scheme="default"] .e2s-terminal .md-code__button[data-md-state="done"] {
+  border-color: rgba(118, 185, 0, 0.72) !important;
+  background-color: rgba(8, 12, 9, 0.98) !important;
+  color: #76b900 !important;
 }
 
 .e2s-hero__actions {
@@ -1043,17 +1142,7 @@ body .md-grid {
 .e2s-terminal {
   position: relative;
   overflow: hidden;
-  padding: 2.8rem 1rem 0.95rem;
-  border: 1px solid rgba(118, 185, 0, 0.2);
-  border-radius: 0.45rem;
-  background: rgba(5, 8, 6, 0.7);
-  text-align: left;
-  box-shadow:
-    inset 0 0 0 1px rgba(118, 185, 0, 0.06),
-    0 1.2rem 4.8rem rgba(0, 0, 0, 0.48),
-    0 0 3.4rem rgba(0, 0, 0, 0.3),
-    0 0 2rem rgba(118, 185, 0, 0.08);
-  backdrop-filter: blur(9px);
+  padding: 2.8rem var(--e2s-quickstart-padding-x) 0.95rem;
 }
 
 .e2s-terminal::before {
@@ -1086,7 +1175,15 @@ body .md-grid {
 
 .e2s-terminal pre {
   margin: 0;
+  position: static !important;
   white-space: pre-wrap;
+}
+
+.e2s-terminal .md-code__nav {
+  top: 3.35rem;
+  right: var(--e2s-quickstart-padding-x);
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .e2s-terminal code {
@@ -2098,11 +2195,7 @@ body .md-grid {
   }
 
   .e2s-hero__visual {
-    min-height: 12rem;
-  }
-
-  .e2s-orbit {
-    width: min(72vw, 18rem);
+    display: none;
   }
 
   .e2s-band--fast,
@@ -2131,6 +2224,69 @@ body .md-grid {
   .e2s-band {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  .e2s-hero {
+    min-height: auto;
+    padding-top: clamp(4.8rem, 18vw, 6.2rem);
+  }
+
+  .e2s-hero__content,
+  .e2s-hero__copy,
+  .e2s-hero__quickstart,
+  .e2s-hero__panel,
+  .e2s-install-command,
+  .e2s-terminal {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: calc(100vw - 2rem);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .e2s-hero__copy {
+    text-align: center;
+  }
+
+  .md-typeset .e2s-hero h1 {
+    font-size: clamp(2.1rem, 12vw, 3.1rem);
+  }
+
+  .e2s-hero__lede {
+    font-size: clamp(0.92rem, 5vw, 1.08rem);
+  }
+
+  .e2s-hero__separator {
+    width: min(82vw, 24rem);
+  }
+
+  .e2s-install-tabs {
+    justify-content: center;
+  }
+
+  .e2s-quickstart-card {
+    --e2s-quickstart-padding-x: 0.85rem;
+  }
+
+  .e2s-install-line {
+    gap: 0.55rem;
+    padding: 0.7rem var(--e2s-quickstart-padding-x);
+  }
+
+  .e2s-install-line code,
+  .e2s-terminal code {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .e2s-terminal {
+    padding-left: var(--e2s-quickstart-padding-x);
+    padding-right: var(--e2s-quickstart-padding-x);
+  }
+
+  .e2s-terminal pre,
+  .e2s-terminal code {
+    white-space: pre-wrap;
   }
 
   .e2s-solution-grid,

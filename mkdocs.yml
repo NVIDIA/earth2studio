@@ -365,7 +365,6 @@ plugins:
     archive: true
     categories: true
 - mike:
-    deploy_prefix: v
     alias_type: redirect
 hooks:
 - docs/mkdocs_hooks.py
