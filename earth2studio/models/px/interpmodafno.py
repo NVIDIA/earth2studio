@@ -157,7 +157,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global task:medium-range product:wind product:temp product:atmos year:2024 gpu:40gb
+    region:global class:medium-range product:wind product:temp product:atmos year:2024 gpu:40gb
     provider:nvidia backend:pytorch
     """
 

@@ -653,7 +653,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global task:medium-range product:wind product:temp product:atmos product:ocean year:2026 gpu:40gb
+    region:global class:medium-range product:wind product:temp product:atmos product:ocean year:2026 gpu:40gb
     provider:nvidia backend:pytorch
     """
 

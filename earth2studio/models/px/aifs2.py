@@ -104,7 +104,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global task:medium-range product:wind product:precip product:temp product:atmos
+    region:global class:medium-range product:wind product:precip product:temp product:atmos
     product:land product:solar product:ocean year:2026 gpu:40gb
     provider:ecmwf backend:pytorch
     """

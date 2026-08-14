@@ -71,7 +71,7 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global task:medium-range product:atmos year:2021 gpu:40gb
+    region:global class:medium-range product:atmos year:2021 gpu:40gb
     provider:nvidia backend:pytorch
     """
 

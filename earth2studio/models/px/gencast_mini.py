@@ -176,7 +176,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global task:medium-range product:wind product:precip product:temp product:atmos
+    region:global class:medium-range product:wind product:precip product:temp product:atmos
     product:ocean year:2024 gpu:40gb
     provider:google backend:jax
     """

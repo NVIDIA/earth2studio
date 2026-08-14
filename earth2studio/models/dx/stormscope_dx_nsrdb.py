@@ -144,7 +144,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:na task:nowcasting product:solar year:2026 gpu:48gb
+    region:na class:nowcasting product:solar year:2026 gpu:48gb
     provider:nvidia backend:pytorch
     """
 

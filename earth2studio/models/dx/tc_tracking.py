@@ -378,7 +378,7 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
 
     Badges
     ------
-    region:global task:medium-range product:atmos year:2023
+    region:global class:medium-range product:atmos year:2023
     provider:nvidia backend:pytorch
     """
 
@@ -713,7 +713,7 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
 
     Badges
     ------
-    region:global task:medium-range product:atmos
+    region:global class:medium-range product:atmos
     provider:nvidia backend:pytorch
     """
 

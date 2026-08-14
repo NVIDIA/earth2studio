@@ -1534,7 +1534,7 @@ class StormScopeGOES(StormScopeBase):
 
     Badges
     ------
-    region:na task:nowcasting product:sat year:2026 gpu:80gb
+    region:na class:nowcasting product:sat year:2026 gpu:80gb
     provider:nvidia backend:pytorch
     """
 
@@ -1922,7 +1922,7 @@ class StormScopeMRMS(StormScopeBase):
 
     Badges
     ------
-    region:na task:nowcasting product:radar year:2026 gpu:80gb
+    region:na class:nowcasting product:radar year:2026 gpu:80gb
     provider:nvidia backend:pytorch
     """
 

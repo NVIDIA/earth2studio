@@ -149,7 +149,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global task:medium-range product:wind product:precip product:temp product:atmos year:2023
+    region:global class:medium-range product:wind product:precip product:temp product:atmos year:2023
     gpu:40gb
     provider:nvidia backend:onnx
     """

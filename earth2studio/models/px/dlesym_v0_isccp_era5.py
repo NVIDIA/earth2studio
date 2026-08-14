@@ -214,7 +214,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
     ```
     Badges
     ------
-    region:global task:climate product:wind product:temp product:atmos product:ocean year:2024
+    region:global class:climate product:wind product:temp product:atmos product:ocean year:2024
     gpu:40gb
     provider:nvidia backend:pytorch
     """
@@ -593,7 +593,7 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
     ```
     Badges
     ------
-    region:global task:climate product:wind product:temp product:atmos product:ocean year:2024
+    region:global class:climate product:wind product:temp product:atmos product:ocean year:2024
     gpu:40gb
     provider:nvidia backend:pytorch
     """

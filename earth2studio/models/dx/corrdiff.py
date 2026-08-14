@@ -147,7 +147,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global task:downscaling product:wind product:precip product:temp product:atmos
+    region:global class:downscaling product:wind product:precip product:temp product:atmos
     year:2023 gpu:80gb
     provider:nvidia backend:pytorch
     """
@@ -1294,7 +1294,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:as task:downscaling product:wind product:precip product:temp product:atmos year:2023 gpu:40gb
+    region:as class:downscaling product:wind product:precip product:temp product:atmos year:2023 gpu:40gb
     provider:nvidia backend:pytorch
     """
 

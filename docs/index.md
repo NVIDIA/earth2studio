@@ -205,7 +205,7 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
       <div class="e2s-showcase-card e2s-accent--green e2s-reveal"><strong>CorrDiff</strong><span>Diffusion downscaling workflows.</span></div>
       <div class="e2s-showcase-card e2s-accent--gold e2s-reveal"><strong>DLESyM</strong><span>Coupled Earth-system model inference.</span></div>
       <div class="e2s-showcase-card e2s-accent--cyan e2s-reveal"><strong>GraphCast</strong><span>Global graph neural weather forecasts.</span></div>
-      <div class="e2s-showcase-card e2s-accent--cyan e2s-reveal"><strong>ACE-2</strong><span>Allen Institute climate and weather model interface.</span></div>
+      <div class="e2s-showcase-card e2s-accent--cyan e2s-reveal"><strong>ACE-2</strong><span>AI2 climate and weather model interface.</span></div>
       <div class="e2s-showcase-card e2s-accent--blue e2s-reveal"><strong>Atlas</strong><span>Generative medium-range forecast workflows.</span></div>
     </div>
     <a class="e2s-more-note e2s-more-note--button e2s-home-button e2s-reveal" href="userguide/about/catalog/?tab=models">and more</a>

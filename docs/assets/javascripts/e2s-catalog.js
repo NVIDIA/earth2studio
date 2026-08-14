@@ -20,7 +20,7 @@
     data: "Data Sources",
   };
   const groupOrder = {
-    model: ["task", "provider", "backend", "region"],
+    model: ["class", "provider", "backend", "region"],
     data: ["data class", "product", "region", "gpu", "year"],
   };
   const pageSize = 10;

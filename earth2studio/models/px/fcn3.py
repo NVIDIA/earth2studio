@@ -161,7 +161,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global task:medium-range product:wind product:temp product:atmos year:2025 gpu:80gb
+    region:global class:medium-range product:wind product:temp product:atmos year:2025 gpu:80gb
     provider:nvidia backend:pytorch
     """
 

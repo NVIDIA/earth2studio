@@ -165,7 +165,7 @@ class CorrDiffCMIP6(CorrDiff):
 
     Badges
     ------
-    region:global task:downscaling task:climate product:wind product:precip product:temp
+    region:global class:downscaling class:climate product:wind product:precip product:temp
     product:atmos year:2026 gpu:80gb
     provider:nvidia backend:pytorch
     """

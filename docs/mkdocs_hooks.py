@@ -92,22 +92,6 @@ KNOWN_TYPES = {
     "important",
     "caution",
 }
-REGION_LABELS = {
-    "NA": "North America",
-    "EU": "Europe",
-    "AS": "Asia",
-    "AU": "Australia",
-    "AF": "Africa",
-    "SA": "South America",
-}
-TASK_LABELS = {
-    "nowcasting": "Nowcasting",
-    "downscaling": "Downscaling",
-    "medium-range": "Medium Range",
-    "subseasonal-seasonal": "S2S",
-    "data-assimilation": "Data Assimilation",
-    "climate": "Climate",
-}
 
 
 def on_page_markdown(markdown: str, **kwargs: object) -> str:
@@ -302,7 +286,7 @@ def _catalog_kind_group(parts: tuple[str, ...]) -> tuple[str | None, str]:
 def _catalog_filters(kind: str, badges: list[str]) -> dict[str, list[str]]:
     prefixes = (
         (
-            ("task", "task"),
+            ("class", "class"),
             ("provider", "provider"),
             ("backend", "backend"),
             ("product", "product"),
@@ -334,7 +318,7 @@ def _catalog_filters(kind: str, badges: list[str]) -> dict[str, list[str]]:
 
 def _catalog_chips(kind: str, group: str, badges: list[str]) -> list[str]:
     prefixes = (
-        ("task", "provider", "backend", "product")
+        ("class", "provider", "backend", "product")
         if kind == "model"
         else (
             "dataclass",
@@ -353,16 +337,7 @@ def _catalog_chips(kind: str, group: str, badges: list[str]) -> list[str]:
 
 def _catalog_filter_label(group: str, badge: str) -> str:
     """Return display label for a catalog filter value."""
-    if group == "region":
-        code = badge.split(":", 1)[1].upper()
-        if code in REGION_LABELS:
-            return REGION_LABELS[code]
-    if group == "task":
-        task = badge.split(":", 1)[1]
-        if task in TASK_LABELS:
-            return TASK_LABELS[task]
-    label = _badge_label(badge)
-    return label
+    return _badge_label(badge)
 
 
 def _badge_label(badge: str) -> str:
@@ -372,6 +347,9 @@ def _badge_label(badge: str) -> str:
         _mkdocs_badge_definitions(),
         _mkdocs_badge_default_color(),
     )
+    name = getattr(resolved, "name", "")
+    if name:
+        return name
     if resolved.label:
         return resolved.label
     if resolved.tooltip:
@@ -386,8 +364,8 @@ def _catalog_tone(badges: list[str], kind: str) -> str:
         ("product:solar", "solar"),
         ("product:ocean", "ocean"),
         ("product:precip", "precip"),
-        ("task:data-assimilation", "assimilation"),
-        ("task:downscaling", "downscaling"),
+        ("class:data-assimilation", "assimilation"),
+        ("class:downscaling", "downscaling"),
         ("dataclass:observation", "observation"),
         ("dataclass:reanalysis", "reanalysis"),
         ("dataclass:simulation", "simulation"),

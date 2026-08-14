@@ -121,7 +121,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global task:climate product:wind product:precip product:temp product:atmos
+    region:global class:climate product:wind product:precip product:temp product:atmos
     product:solar year:2025 gpu:40gb
     provider:nvidia backend:pytorch
     """

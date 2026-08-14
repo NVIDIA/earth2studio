@@ -362,7 +362,7 @@ class Pangu24(PanguBase):
 
     Badges
     ------
-    region:global task:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
+    region:global class:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
     provider:nvidia backend:onnx
     """
 
@@ -468,7 +468,7 @@ class Pangu6(PanguBase):
 
     Badges
     ------
-    region:global task:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
+    region:global class:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
     provider:nvidia backend:onnx
     """
 
@@ -591,7 +591,7 @@ class Pangu3(PanguBase):
 
     Badges
     ------
-    region:global task:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
+    region:global class:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
     provider:nvidia backend:onnx
     """
 

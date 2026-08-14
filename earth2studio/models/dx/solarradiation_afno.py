@@ -363,7 +363,7 @@ class SolarRadiationAFNO1H(SolarRadiationAFNO):
 
     Badges
     ------
-    region:global task:medium-range product:solar year:2024 gpu:40gb
+    region:global class:medium-range product:solar year:2024 gpu:40gb
     provider:nvidia backend:pytorch
     """
 
@@ -388,7 +388,7 @@ class SolarRadiationAFNO6H(SolarRadiationAFNO):
 
     Badges
     ------
-    region:global task:medium-range product:solar year:2024 gpu:40gb
+    region:global class:medium-range product:solar year:2024 gpu:40gb
     provider:nvidia backend:pytorch
     """
 

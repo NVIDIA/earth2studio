@@ -98,7 +98,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global task:climate product:wind product:precip product:temp
+    region:global class:climate product:wind product:precip product:temp
     product:atmos product:ocean year:2025 gpu:80gb
     provider:nvidia backend:pytorch
     """

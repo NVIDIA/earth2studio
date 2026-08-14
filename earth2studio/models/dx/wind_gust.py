@@ -89,7 +89,7 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global task:medium-range product:wind year:2024 gpu:40gb
+    region:global class:medium-range product:wind year:2024 gpu:40gb
     provider:nvidia backend:pytorch
     """
 

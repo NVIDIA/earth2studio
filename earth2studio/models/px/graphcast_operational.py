@@ -206,7 +206,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global task:medium-range product:wind product:precip product:temp product:atmos year:2022
+    region:global class:medium-range product:wind product:precip product:temp product:atmos year:2022
     gpu:40gb
     provider:google backend:jax
     """

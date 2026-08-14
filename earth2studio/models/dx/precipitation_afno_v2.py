@@ -101,7 +101,7 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global task:medium-range product:precip year:2024 gpu:40gb
+    region:global class:medium-range product:precip year:2024 gpu:40gb
     provider:nvidia backend:pytorch
     """
 
