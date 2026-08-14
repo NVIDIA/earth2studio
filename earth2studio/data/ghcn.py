@@ -372,14 +372,13 @@ class GHCNDaily(_GHCNBase):
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    # Southeast US, lat lon bounding box (lat min, lon min, lat max, lon max)
+    stations = GHCNDaily.get_stations_bbox((30, -90, 36, -80))
+    ds = GHCNDaily(stations, time_tolerance=timedelta(days=1))
+    df = ds(datetime(2024, 1, 1), ["t2m_max", "tp"])
 
-        # Southeast US, lat lon bounding box (lat min, lon min, lat max, lon max)
-        stations = GHCNDaily.get_stations_bbox((30, -90, 36, -80))
-        ds = GHCNDaily(stations, time_tolerance=timedelta(days=1))
-        df = ds(datetime(2024, 1, 1), ["t2m_max", "tp"])
-
+    ```
     Badges
     ------
     region:global dataclass:observation product:wind product:precip product:temp product:atmos product:solar product:insitu
@@ -507,7 +506,6 @@ class GHCNDaily(_GHCNBase):
                 raise KeyError(f"variable id {v} not found in GHCNDaily lexicon")
 
         async with managed_session(self.fs) as session:  # noqa: F841
-
             if self._station_meta is None:
                 self._station_meta = self.get_station_metadata()
 
@@ -737,7 +735,7 @@ class GHCNDaily(_GHCNBase):
 
         # Check if the year partition exists on S3 (using TMAX as representative)
         s3_path = (
-            f"s3://{cls._S3_BUCKET}/parquet/by_year/" f"YEAR={time.year}/ELEMENT=TMAX/"
+            f"s3://{cls._S3_BUCKET}/parquet/by_year/YEAR={time.year}/ELEMENT=TMAX/"
         )
         try:
             fs = s3fs.S3FileSystem(anon=True)
@@ -823,14 +821,13 @@ class GHCNHourly(_GHCNBase):
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    # Atlanta Hartsfield-Jackson airport
+    stations = GHCNHourly.get_stations_bbox((33, -85, 34, -84))
+    ds = GHCNHourly(stations, time_tolerance=timedelta(hours=1))
+    df = ds(datetime(2024, 1, 1, 12), ["t2m", "ws10m"])
 
-        # Atlanta Hartsfield-Jackson airport
-        stations = GHCNHourly.get_stations_bbox((33, -85, 34, -84))
-        ds = GHCNHourly(stations, time_tolerance=timedelta(hours=1))
-        df = ds(datetime(2024, 1, 1, 12), ["t2m", "ws10m"])
-
+    ```
     Badges
     ------
     region:global dataclass:observation product:wind product:precip product:temp

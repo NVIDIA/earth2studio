@@ -2056,7 +2056,8 @@ class StormScopeMRMS(StormScopeBase):
         """Bilinearly regrid a GLM field (event counts on the source 0.1-degree
         grid) onto the model grid. Points outside the GLM grid are filled with 0.
         Returns physical counts (apply no normalization here; the model applies
-        log1p internally). Requires :meth:`build_glm_interpolator` first."""
+        log1p internally). Requires :meth:`build_glm_interpolator` first.
+        """
         if self.glm_interp is None:
             raise ValueError(
                 "GLM interpolator not built; call build_glm_interpolator first."

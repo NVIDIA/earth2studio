@@ -1,0 +1,438 @@
+site_name: Earth2Studio
+site_description: Open-source deep-learning framework for exploring, building and deploying AI weather and climate workflows.
+site_url: https://nvidia.github.io/earth2studio/
+repo_name: NVIDIA/earth2studio
+repo_url: https://github.com/NVIDIA/earth2studio
+edit_uri: edit/main/docs/
+docs_dir: docs
+exclude_docs: |
+  _build/**
+  overrides/**
+site_dir: site
+strict: false
+copyright: Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
+theme:
+  name: material
+  custom_dir: docs/overrides
+  logo: _static/nvidia-logo-horiz-rgb-wht-for-screen.svg
+  favicon: _static/favicon.ico
+  language: en
+  font:
+    text: NVIDIA Sans
+    code: JetBrains Mono
+  features:
+  - announce.dismiss
+  - navigation.tabs
+  - navigation.tabs.sticky
+  - navigation.indexes
+  - navigation.top
+  - navigation.footer
+  - search.highlight
+  - search.suggest
+  - toc.follow
+  - content.code.copy
+  - content.code.annotate
+  palette:
+  - media: '(prefers-color-scheme: light)'
+    scheme: default
+    primary: black
+    accent: light green
+    toggle:
+      icon: material/brightness-7
+      name: Switch to dark mode
+  - media: '(prefers-color-scheme: dark)'
+    scheme: slate
+    primary: black
+    accent: light green
+    toggle:
+      icon: material/brightness-4
+      name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+extra_css:
+- https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css
+- assets/stylesheets/nvidia-material.css
+- assets/stylesheets/earth2studio-gallery.css
+extra_javascript:
+- assets/javascripts/e2s-landing.js
+- assets/javascripts/e2s-install-selector.js
+- assets/javascripts/e2s-catalog.js
+- assets/javascripts/mathjax.js
+- https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+extra:
+  version:
+    provider: mike
+  social:
+  - icon: fontawesome/brands/github
+    link: https://github.com/NVIDIA/earth2studio
+    name: Earth2Studio on GitHub
+markdown_extensions:
+- mkdocs_badges.zensical
+- admonition
+- attr_list
+- md_in_html
+- tables
+- toc:
+    permalink: true
+- pymdownx.arithmatex:
+    generic: true
+- pymdownx.details
+- pymdownx.emoji:
+    emoji_index: !!python/name:material.extensions.emoji.twemoji
+    emoji_generator: !!python/name:material.extensions.emoji.to_svg
+- pymdownx.magiclink:
+    hide_protocol: true
+    repo_url_shortener: true
+- pymdownx.highlight:
+    anchor_linenums: true
+- pymdownx.inlinehilite
+- pymdownx.snippets
+- pymdownx.superfences
+- pymdownx.tabbed:
+    alternate_style: true
+plugins:
+- autorefs
+- search
+- mkdocstrings:
+    enable_inventory: true
+    handlers:
+      python:
+        paths:
+        - .
+        - earth2studio/models
+        inventories:
+        - https://docs.python.org/3/objects.inv
+        - https://numpy.org/doc/stable/objects.inv
+        - https://pandas.pydata.org/docs/objects.inv
+        - https://pytorch.org/docs/stable/objects.inv
+        - https://docs.xarray.dev/en/stable/objects.inv
+        - https://filesystem-spec.readthedocs.io/en/latest/objects.inv
+        - https://developmentseed.org/obstore/latest/objects.inv
+        options:
+          allow_inspection: true
+          docstring_section_style: list
+          docstring_style: numpy
+          inherited_members: true
+          line_length: 60
+          separate_signature: true
+          show_signature_annotations: true
+          show_source: false
+          show_symbol_type_toc: true
+          signature_crossrefs: true
+          extensions:
+          - docs/griffe_extensions.py:StripBadgesSection
+          - griffe_inherited_docstrings
+- badges:
+    style: square
+    selectable_text: false
+    autosummary_root: modules/generated
+    group_labels:
+      region: Region
+      class: Class
+      dataclass: Data Class
+      year: Release
+      product: Product
+      gpu:
+        label: Rec VRAM
+        tooltip: Recommended GPU Memory
+    definitions:
+      region:global:
+        label: Global
+        icon: <i class="fa-solid fa-globe"></i>
+        color: '#0d47a1'
+        text_color: '#fff'
+      region:na:
+        label: NA
+        icon: <i class="fa-solid fa-earth-americas"></i>
+        color: '#1565c0'
+        text_color: '#fff'
+        tooltip: North America
+      region:eu:
+        label: EU
+        icon: <i class="fa-solid fa-earth-europe"></i>
+        color: '#1976d2'
+        text_color: '#fff'
+        tooltip: Europe
+      region:as:
+        label: AS
+        icon: <i class="fa-solid fa-earth-asia"></i>
+        color: '#1e88e5'
+        text_color: '#fff'
+        tooltip: Asia
+      region:au:
+        label: AU
+        icon: <i class="fa-solid fa-earth-oceania"></i>
+        color: '#42a5f5'
+        text_color: '#000'
+        tooltip: Australia
+      region:af:
+        label: AF
+        icon: <i class="fa-solid fa-earth-africa"></i>
+        color: '#64b5f6'
+        text_color: '#000'
+        tooltip: Africa
+      region:sa:
+        label: SA
+        icon: <i class="fa-solid fa-earth-americas"></i>
+        color: '#90caf9'
+        text_color: '#000'
+        tooltip: South America
+      class:nwc:
+        label: NWC
+        color: '#198754'
+        text_color: '#fff'
+        tooltip: Nowcasting
+      class:ds:
+        label: DS
+        color: '#20c997'
+        text_color: '#000'
+        tooltip: Downscaling
+      class:mrf:
+        label: MRF
+        color: '#0dcaf0'
+        text_color: '#000'
+        tooltip: Medium Range
+      class:s2s:
+        label: S2S
+        color: '#6610f2'
+        text_color: '#fff'
+        tooltip: Sub-Seasonal to Seasonal
+      class:da:
+        label: DA
+        color: '#d63384'
+        text_color: '#fff'
+        tooltip: Data Assimilation
+      class:cm:
+        label: CM
+        color: '#ccff00'
+        text_color: '#000'
+        tooltip: Climate Model
+      dataclass:analysis:
+        label: ''
+        icon: <i class="fa-solid fa-chart-line"></i>
+        color: '#0891b2'
+        text_color: '#fff'
+        tooltip: Analysis / Initial Conditions
+      dataclass:reanalysis:
+        label: ''
+        icon: <i class="fa-solid fa-rotate"></i>
+        color: '#1d4ed8'
+        text_color: '#fff'
+        tooltip: Reanalysis
+      dataclass:observation:
+        label: ''
+        icon: <i class="fa-solid fa-binoculars"></i>
+        color: '#15803d'
+        text_color: '#fff'
+        tooltip: Direct Observations
+      dataclass:simulation:
+        label: ''
+        icon: <i class="fa-solid fa-microchip"></i>
+        color: '#b451ed'
+        text_color: '#fff'
+        tooltip: Numerical / AI Simulation
+      year:2021:
+        label: '2021'
+        color: '#F2F2F2'
+        text_color: '#111'
+      year:2022:
+        label: '2022'
+        color: '#D9D9D9'
+        text_color: '#111'
+      year:2023:
+        label: '2023'
+        color: '#BDBDBD'
+        text_color: '#111'
+      year:2024:
+        label: '2024'
+        color: '#828282'
+        text_color: '#fff'
+      year:2025:
+        label: '2025'
+        color: '#4F4F4F'
+        text_color: '#fff'
+      year:2026:
+        label: '2026'
+        color: '#1A1A1A'
+        text_color: '#fff'
+      product:wind:
+        label: ''
+        icon: <i class="fa-solid fa-wind"></i>
+        color: '#4dabf7'
+        text_color: '#fff'
+        tooltip: Surface Winds
+      product:precip:
+        label: ''
+        icon: <i class="fa-solid fa-cloud-rain"></i>
+        color: '#339af0'
+        text_color: '#fff'
+        tooltip: Surface Precipitation
+      product:temp:
+        label: ''
+        icon: <i class="fa-solid fa-temperature-half"></i>
+        color: '#fd7e14'
+        text_color: '#fff'
+        tooltip: Surface Temperature
+      product:atmos:
+        label: ''
+        icon: <i class="fa-solid fa-cloud"></i>
+        color: '#74c0fc'
+        text_color: '#fff'
+        tooltip: Atmosphere
+      product:ocean:
+        label: ''
+        icon: <i class="fa-solid fa-water"></i>
+        color: '#1098ad'
+        text_color: '#fff'
+        tooltip: Ocean
+      product:land:
+        label: ''
+        icon: <i class="fa-solid fa-mound"></i>
+        color: '#a0522d'
+        text_color: '#fff'
+        tooltip: Land/Soil
+      product:veg:
+        label: ''
+        icon: <i class="fa-solid fa-seedling"></i>
+        color: '#40c057'
+        text_color: '#fff'
+        tooltip: Vegetation
+      product:solar:
+        label: ''
+        icon: <i class="fa-solid fa-sun"></i>
+        color: '#f59f00'
+        text_color: '#fff'
+        tooltip: Solar
+      product:radar:
+        label: ''
+        icon: <i class="fa-solid fa-satellite-dish"></i>
+        color: '#7048e8'
+        text_color: '#fff'
+        tooltip: Radar
+      product:sat:
+        label: ''
+        icon: <i class="fa-solid fa-satellite"></i>
+        color: '#1c7ed6'
+        text_color: '#fff'
+        tooltip: Satellite
+      product:insitu:
+        label: ''
+        icon: <i class="fa-solid fa-tower-observation"></i>
+        color: '#2f9e44'
+        text_color: '#fff'
+        tooltip: In-Situ Observations
+      gpu:96gb:
+        label: 96 GB
+        color: '#76b900'
+        text_color: '#fff'
+        tooltip: 96 GB VRAM (GH200, H200, B40, B100, B200)
+      gpu:80gb:
+        label: 80 GB
+        color: '#5aac44'
+        text_color: '#fff'
+        tooltip: 80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)
+      gpu:48gb:
+        label: 48 GB
+        color: '#4b9934'
+        text_color: '#fff'
+        tooltip: 48 GB VRAM (L40S, A100 80GB, H100, GH200, H200, B40, B100, B200)
+      gpu:40gb:
+        label: 40 GB
+        color: '#3d7a26'
+        text_color: '#fff'
+        tooltip: 40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)
+      gpu:24gb:
+        label: 24 GB
+        color: '#2d5c1e'
+        text_color: '#fff'
+        tooltip: 24 GB VRAM (A30, A100, L40S, H100, GH200, H200, B40, B100, B200)
+- earth2studio-gallery:
+    examples_dir: examples
+    output_dir: examples
+    cache_dir: .e2sgallery
+    execute: never
+    jobs: 1
+    fail_fast: true
+    optimize_images: true
+    generate_notebooks: true
+    output_open: true
+    collect_telemetry: true
+    backreferences: true
+- blog:
+    blog_dir: blog
+    post_dir: '{blog}/posts'
+    post_date_format: medium
+    archive: true
+    categories: true
+- mike:
+    deploy_prefix: v
+    alias_type: redirect
+hooks:
+- docs/mkdocs_hooks.py
+nav:
+- Home: index.md
+- User Guide:
+  - Install: userguide/about/install.md
+  - Overview: userguide/about/overview.md
+  - Catalog: userguide/about/catalog.md
+  - Core Components:
+    - userguide/components/index.md
+    - Prognostic Models: userguide/components/prognostic.md
+    - Diagnostic Models: userguide/components/diagnostic.md
+    - Data Assimilation Models: userguide/components/data_assimilation.md
+    - Data Sources: userguide/components/datasources.md
+    - Perturbations: userguide/components/perturbation.md
+    - IO Backends: userguide/components/io.md
+    - Statistics: userguide/components/statistics.md
+  - Advanced Usage:
+    - userguide/advanced/index.md
+    - Checkpointing: userguide/advanced/checkpointing.md
+    - Batch Dimension: userguide/advanced/batch.md
+    - AutoModels: userguide/advanced/auto.md
+    - Lexicon: userguide/advanced/lexicon.md
+    - Knowledge Base:
+      - userguide/notes/index.md
+      - Surface Pressure: userguide/notes/surface_pressure.md
+  - Developer Guide:
+    - userguide/developer/index.md
+    - Overview: userguide/developer/overview.md
+    - Dependencies: userguide/developer/dependency.md
+    - Style: userguide/developer/style.md
+    - Documentation: userguide/developer/documentation.md
+    - Testing: userguide/developer/testing.md
+    - Build: userguide/developer/build.md
+    - Recipes: userguide/developer/recipes.md
+    - Skills: userguide/developer/skills.md
+  - Support:
+    - userguide/support/index.md
+    - Troubleshooting: userguide/support/troubleshooting.md
+    - FAQ: userguide/support/faq.md
+- API:
+  - modules/index.md
+  - Prognostic Models: modules/models_px.md
+  - Diagnostic Models: modules/models_dx.md
+  - Data Assimilation: modules/models_da.md
+  - Data Sources: modules/datasources_analysis.md
+  - Forecast Data Sources: modules/datasources_forecast.md
+  - DataFrame Sources: modules/datasources_dataframe.md
+  - IO Backends: modules/io.md
+  - Perturbations: modules/perturbation.md
+  - Statistics: modules/statistics.md
+  - Utilities: modules/utils_all.md
+  - Workflows: modules/workflows.md
+- Examples: examples/index.md
+- Blog:
+  - Overview: blog/index.md
+  - Posts:
+    - MkDocs Material Migration: blog/posts/mkdocs-upgrade.md
+  - Archive: blog/archive.md
+  - Categories:
+    - Overview: blog/categories.md
+    - Documentation: blog/categories/documentation.md
+- Recipes: https://github.com/NVIDIA/earth2studio/tree/main/recipes
+- Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
+not_in_nav: |
+  modules/generated/**
+  examples/**
+  userguide/about/index.md
+  userguide/about/intro.md

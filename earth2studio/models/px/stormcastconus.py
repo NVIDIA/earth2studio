@@ -686,7 +686,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Iterator wrapper around :meth:`create_generator` without observation input."""
+        """Iterator wrapper around ``create_generator`` without observation input."""
         yield from self.create_generator(x, coords)
 
     def _get_conditioning(

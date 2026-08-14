@@ -130,22 +130,21 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    pkg = DLESyM.load_default_package()
+    model = DLESyM.load_model(pkg)
 
-        pkg = DLESyM.load_default_package()
-        model = DLESyM.load_model(pkg)
+    # Create iterator
+    iterator = model.create_iterator(x, coords)
 
-        # Create iterator
-        iterator = model.create_iterator(x, coords)
+    for step, (x, coords) in enumerate(iterator):
+        if step > 0:
+            # Valid atmos and ocean predictions with their respective coordinates extracted below
+            atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
+            ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)
+            ...
 
-        for step, (x, coords) in enumerate(iterator):
-            if step > 0:
-                # Valid atmos and ocean predictions with their respective coordinates extracted below
-                atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
-                ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)
-                ...
-
+    ```
     Badges
     ------
     region:global class:s2s product:wind product:temp product:atmos product:ocean year:2025
@@ -929,26 +928,25 @@ class DLESyMLatLon(DLESyM):
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    pkg = DLESyMLatLon.load_default_package()
+    model = DLESyMLatLon.load_model(pkg)
 
-        pkg = DLESyMLatLon.load_default_package()
-        model = DLESyMLatLon.load_model(pkg)
+    # x and coords are data defined on appropriate lat/lon grid
+    x, coords = fetch_data(...)
 
-        # x and coords are data defined on appropriate lat/lon grid
-        x, coords = fetch_data(...)
+    # Run model
+    x, coords = model(x, coords)
 
-        # Run model
-        x, coords = model(x, coords)
+    # Lat-lon outputs
+    atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
+    ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)
 
-        # Lat-lon outputs
-        atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
-        ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)
+    # HEALPix outputs
+    atmos_outputs_hpx, atmos_coords_hpx = model.to_hpx(atmos_outputs), model.coords_to_hpx(atmos_coords)
+    ocean_outputs_hpx, ocean_coords_hpx = model.to_hpx(ocean_outputs), model.coords_to_hpx(ocean_coords)
 
-        # HEALPix outputs
-        atmos_outputs_hpx, atmos_coords_hpx = model.to_hpx(atmos_outputs), model.coords_to_hpx(atmos_coords)
-        ocean_outputs_hpx, ocean_coords_hpx = model.to_hpx(ocean_outputs), model.coords_to_hpx(ocean_coords)
-
+    ```
     Args
     ----
     *args

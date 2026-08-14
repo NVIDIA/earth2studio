@@ -464,12 +464,11 @@ class UFSObsConv(_UFSObsBase):
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    ds = UFSObsConv(tolerance=timedelta(hours=2))
+    df = ds(datetime(2024, 1, 1, 20), ["u"])
 
-        ds = UFSObsConv(tolerance=timedelta(hours=2))
-        df = ds(datetime(2024, 1, 1, 20), ["u"])
-
+    ```
     Badges
     ------
     region:global dataclass:observation product:atmos product:insitu
@@ -612,17 +611,16 @@ class UFSObsSat(_UFSObsBase):
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    # Use all possible satellites
+    ds = UFSObsSat(tolerance=timedelta(hours=2))
+    df = ds(datetime(2024, 1, 1, 20), ["atms"])
 
-        # Use all possible satellites
-        ds = UFSObsSat(tolerance=timedelta(hours=2))
-        df = ds(datetime(2024, 1, 1, 20), ["atms"])
+    # Use specific satellite
+    ds = UFSObsSat(tolerance=timedelta(hours=2), satellites=["n20"])
+    df = ds(datetime(2024, 1, 1, 20), ["atms"])
 
-        # Use specific satellite
-        ds = UFSObsSat(tolerance=timedelta(hours=2), satellites=["n20"])
-        df = ds(datetime(2024, 1, 1, 20), ["atms"])
-
+    ```
     Badges
     ------
     region:global dataclass:observation product:atmos product:sat

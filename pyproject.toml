@@ -369,6 +369,7 @@ nvidia-physicsnemo = [
 ]
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
+earth2studio-gallery = { git = "https://github.com/NickGeneva/earth2studio-gallery.git", rev = "0429616f6ed5f660116df16e277a007bbbfa062a" }
 
 
 [exclude.uv.workspace]
@@ -401,20 +402,40 @@ dev = [
     "tox-uv>=1.29.0"
 ]
 docs = [
+    "earth2studio-gallery",
     "cartopy",
+    "griffe-inherited-docstrings>=1.1.3",
     "matplotlib",
+    "mike>=2.1.0",
+    "mkdocs>=1.6.1",
+    "mkdocs-badges @ git+https://github.com/NickGeneva/mkdocs-badges.git@e69516d5a1659081fc51af1ccb0cfa71d7f9a727",
+    "mkdocs-material>=9.6.0",
+    "mkdocstrings>=1.0.4",
+    "mkdocstrings-python>=2.0.5",
     "scipy",
-    "sphinx-design",
-    "sphinx>=6.0.0",
-    "jupytext>=1.15.0",
-    "sphinx-autodoc-typehints>=1.24.0",
-    "sphinx-gallery>=0.12.0",
-    "sphinx-togglebutton>=0.3.0",
-    "myst-parser>=0.18.0",
-    "sphinx-favicon>=1.0.1",
-    "nvidia-sphinx-theme",
-    "sphinx-badges",
+    "zensical>=0.0.53",
 ]
+
+[tool.earth2studio-gallery]
+examples_dir = "examples"
+docs_dir = "docs"
+output_dir = "docs/examples"
+cache_dir = ".e2sgallery"
+execute = "never"
+jobs = 1
+fail_fast = true
+optimize_images = true
+generate_notebooks = true
+download_button_color = "#76b900"
+output_open = true
+collect_telemetry = true
+backreferences = true
+
+[tool.earth2studio-gallery.runner]
+environment = "project"
+groups = ["docs"]
+timeout = 7200
+uv_args = ["--no-progress"]
 
 [tool.hatch.version]
 path = "earth2studio/__init__.py"

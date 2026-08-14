@@ -37,6 +37,7 @@ repos:
     - id: end-of-file-fixer
       exclude: \.sig$
     - id: check-yaml
+      exclude: ^mkdocs\.yml$
     - id: debug-statements
       exclude: ^\.claude/
     - id: name-tests-test

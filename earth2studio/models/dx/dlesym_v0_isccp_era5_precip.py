@@ -145,7 +145,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
     A ``HEALPixUNet`` diagnostic from the AtmosSci-DLESM/DLESyM repository
     that predicts 6-hourly accumulated precipitation (``tp06``) from the full
     coupled atmosphere/ocean state. It is designed to be chained off
-    :class:`~earth2studio.models.px.DLESyMv0_ISCCP_ERA5` (or its lat/lon
+    [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5] (or its lat/lon
     variant).
 
     The model takes 2 consecutive history timesteps of 10 variables (the 9
@@ -156,11 +156,11 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
     When ``use_ttr=True`` (default), the wrapper accepts ERA5 ``ttr`` in
     place of ``rlut`` and applies the same per-doy moment-matching TTR -> OLR
     transform as
-    :class:`~earth2studio.models.px.dlesym_v0_isccp_era5.DLESyMv0_ISCCP_ERA5`
+    [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.dlesym_v0_isccp_era5.DLESyMv0_ISCCP_ERA5]
     before the forward pass. This allows the diagnostic to run standalone
     from an ERA5 initial condition. When ``use_ttr=False``, supply
     pre-transformed ``rlut`` directly -- use this when chaining off
-    :class:`~earth2studio.models.px.DLESyMv0_ISCCP_ERA5` output, which is
+    [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5] output, which is
     already in OLR space.
 
     Parameters
@@ -466,7 +466,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
     ) -> torch.Tensor:
         """Build the decoder insolation tensor.
 
-        Mirrors :meth:`~earth2studio.models.px.dlesym.DLESyM._make_insolation_tensor`:
+        Mirrors [`_make_insolation_tensor`][earth2studio.models.px.dlesym.DLESyM._make_insolation_tensor]:
         outputs shape ``(B, F, LT, 1, H, W)`` aligned to the core model's
         decoder input.
         """

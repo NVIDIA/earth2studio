@@ -32,6 +32,10 @@ runs:
       shell: bash
       run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+    - name: Prepare runner temp model cache
+      shell: bash
+      run: mkdir -p "${RUNNER_TEMP}/earth2studio-models"
+
     - name: Restore testmon cache
       id: testmon-cache
       uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
@@ -44,6 +48,8 @@ runs:
 
     - name: Prepare CI directories
       shell: bash
+      env:
+        EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
       run: python3 test/_ci/prepare_ci_paths.py
 
     - name: Show GPU information
@@ -58,6 +64,7 @@ runs:
       shell: bash
       env:
         TOX_ENV: ${{ inputs.tox-env }}
+        EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
       run: make pytest-ci
 
     - name: Upload coverage data

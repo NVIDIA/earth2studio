@@ -31,26 +31,31 @@ In this example you will learn:
 
 - How to instantiate StormCast-CONUS from a model package
 - Creating an HRRR initial-condition data source and a GFS forecast conditioning source
-- Running a deterministic forecast with :py:meth:`earth2studio.run.deterministic`
+- Running a deterministic forecast with [`earth2studio.run.deterministic`][earth2studio.run.deterministic]
 - Post-processing and plotting composite reflectivity and 2-m temperature
 """
 
 # /// script
 # dependencies = [
+#   "torch==2.13.0", # Match NATTEN wheel
+#   "natten==0.21.7+torch2130cu132",
 #   "earth2studio[data,stormcast-conus] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
 #   "matplotlib",
 #   "numpy",
 # ]
+#
+# [tool.uv]
+# find-links = ["https://whl.natten.org"]
 # ///
 
 # %%
 # Set Up
 # ------
 # StormCast-CONUS requires a low-resolution global conditioning source. We use
-# :py:class:`earth2studio.data.GFS_FX` (the default), which provides GFS forecast
+# [`earth2studio.data.GFS_FX`][earth2studio.data.GFS_FX] (the default), which provides GFS forecast
 # fields interpolated to the HRRR grid. An analysis source such as
-# :py:class:`earth2studio.data.ARCO` can also be used.
+# [`earth2studio.data.ARCO`][earth2studio.data.ARCO] can also be used.
 #
 # %%
 import os

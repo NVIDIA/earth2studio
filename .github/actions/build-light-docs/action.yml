@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Build light docs
+description: Build API docs and stale/new examples using the gallery cache.
+
+inputs:
+  artifact-name:
+    description: Name of the uploaded HTML artifact.
+    default: docs-light-html
+  artifact-retention-days:
+    description: Number of days to retain the uploaded HTML artifact.
+    default: "1"
+  gallery-cache-name:
+    description: Stable gallery cache scope to restore and optionally update.
+    default: main
+  save-caches:
+    description: Whether to save updated gallery and model caches.
+    default: "false"
+  upload-artifact:
+    description: Whether to upload the built HTML artifact.
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Configure git safe directory
+      shell: bash
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+    - name: Prepare runner temp model cache
+      shell: bash
+      run: mkdir -p "${RUNNER_TEMP}/earth2studio-models"
+
+    - name: Restore gallery cache
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+      continue-on-error: true
+      with:
+        path: .e2sgallery
+        key: e2s-gallery-${{ runner.os }}-${{ inputs.gallery-cache-name }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          e2s-gallery-${{ runner.os }}-${{ inputs.gallery-cache-name }}-
+          e2s-gallery-${{ runner.os }}-main-
+          e2s-gallery-${{ runner.os }}-
+
+    - name: Prepare CI directories
+      shell: bash
+      env:
+        EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
+      run: python3 test/_ci/prepare_ci_paths.py
+
+    - name: Show GPU information
+      shell: bash
+      run: nvidia-smi
+
+    - name: Check uv lockfile
+      shell: bash
+      run: uv lock --check
+
+    - name: Build light Zensical site
+      shell: bash
+      env:
+        EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
+      run: make docs-full
+
+    - name: Upload docs artifact
+      if: inputs.upload-artifact == 'true'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: site/
+        if-no-files-found: error
+        retention-days: ${{ inputs.artifact-retention-days }}
+
+    - name: Save gallery cache
+      if: >
+        always() &&
+        inputs.save-caches == 'true'
+      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+      continue-on-error: true
+      with:
+        path: .e2sgallery
+        key: e2s-gallery-${{ runner.os }}-${{ inputs.gallery-cache-name }}-${{ github.run_id }}-${{ github.run_attempt }}

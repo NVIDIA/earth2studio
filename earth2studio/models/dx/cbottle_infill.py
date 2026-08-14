@@ -92,9 +92,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         Number of diffusion steps, by default 18
     sigma_max : float, optional
         Noise amplitude used to generate latent variables, by default 200
-    batch_size : int, optional
-        Batch size to generate time samples at, consider adjusting based on hardware
-        being used, by default 4
     seed : int | None, optional
         If set, will fix the seed of the random generator for latent variables (no
         effect), by default None

@@ -674,11 +674,11 @@ async def managed_session(fs: Any) -> Any:
 
     Example
     -------
-    .. code-block:: python
-
-        async with managed_session(self.fs) as session:
-            # fetch data here - session will be closed even on error
-            await gather_with_concurrency(coros, ...)
+    ```python
+    async with managed_session(self.fs) as session:
+        # fetch data here - session will be closed even on error
+        await gather_with_concurrency(coros, ...)
+    ```
     """
     session = None
     try:

@@ -147,12 +147,12 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
     designed and validated for multi-decadal to millennial climate
     integration (100–1000 year rollouts), as demonstrated in the original
     paper. This distinguishes it from
-    :class:`~earth2studio.models.px.DLESyM` (``DLESyM-V1-ERA5``), which was
+    [`DLESyM`][earth2studio.models.px.DLESyM] (``DLESyM-V1-ERA5``), which was
     optimised for subseasonal-to-seasonal (S2S) ensemble forecasting over
     lead times of days to weeks.
 
     The architecture is similar to
-    :class:`~earth2studio.models.px.DLESyM` -- both use
+    [`DLESyM`][earth2studio.models.px.DLESyM] -- both use
     ``physicsnemo.models.dlwp_healpix`` on a HEALPix ``nside=64``
     (≈ 1°) grid with coupled atmosphere/ocean rollout -- but the upstream
     checkpoints carry a different variable set (9 atmospheric variables
@@ -199,19 +199,19 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
     - https://github.com/AtmosSci-DLESM/DLESyM
     - https://arxiv.org/abs/2409.16247 (Cresswell-Clay et al. 2024)
 
-    See :class:`~earth2studio.models.px.dlesym.DLESyM` for details on the
+    See [`DLESyM`][earth2studio.models.px.dlesym.DLESyM] for details on the
     coupled rollout, ``retrieve_valid_atmos_outputs`` /
     ``retrieve_valid_ocean_outputs``, and the HEALPix grid layout.
 
     Example
     -------
-    .. code-block:: python
+    ```python
+    pkg = DLESyMv0_ISCCP_ERA5.load_default_package()
+    model = DLESyMv0_ISCCP_ERA5.load_model(pkg, use_ttr=True)
+    for step, (x, coords) in enumerate(model.create_iterator(x0, coords0)):
+        ...
 
-        pkg = DLESyMv0_ISCCP_ERA5.load_default_package()
-        model = DLESyMv0_ISCCP_ERA5.load_model(pkg, use_ttr=True)
-        for step, (x, coords) in enumerate(model.create_iterator(x0, coords0)):
-            ...
-
+    ```
     Badges
     ------
     region:global class:cm product:wind product:temp product:atmos product:ocean year:2024
@@ -544,9 +544,9 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
 
     Combines the DLESyMv0_ISCCP_ERA5 climate checkpoints (see
     :class:`DLESyMv0_ISCCP_ERA5`) with the lat/lon regridding interface of
-    :class:`~earth2studio.models.px.dlesym.DLESyMLatLon`. Inputs are accepted
+    [`DLESyMLatLon`][earth2studio.models.px.dlesym.DLESyMLatLon]. Inputs are accepted
     on the equiangular lat/lon grid (so any ERA5-compatible
-    :class:`~earth2studio.data.DataSource` works directly), regridded to
+    [`DataSource`][earth2studio.data.DataSource] works directly), regridded to
     HEALPix ``nside=64`` internally, and the outputs are regridded back to
     lat/lon before being returned. This is the recommended entry point for
     most users of the upstream checkpoints, including climate-timescale
@@ -559,7 +559,7 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
     subsequent rollout steps reuse the model's own OLR output, so it is only
     applied once. Derived variables (``ws10m`` from ``u10m``/``v10m`` and
     ``tau300-700`` from ``z300``/``z700``) and SST NaN-interpolation are
-    handled identically to :class:`~earth2studio.models.px.dlesym.DLESyMLatLon`.
+    handled identically to [`DLESyMLatLon`][earth2studio.models.px.dlesym.DLESyMLatLon].
 
     Parameters
     ----------
@@ -572,24 +572,24 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
     Note
     ----
     See :class:`DLESyMv0_ISCCP_ERA5` and
-    :class:`~earth2studio.models.px.dlesym.DLESyMLatLon` for details. Model
+    [`DLESyMLatLon`][earth2studio.models.px.dlesym.DLESyMLatLon] for details. Model
     hooks applied during iteration operate on the HEALPix grid, as with
-    :class:`~earth2studio.models.px.dlesym.DLESyMLatLon`.
+    [`DLESyMLatLon`][earth2studio.models.px.dlesym.DLESyMLatLon].
 
     Example
     -------
-    .. code-block:: python
+    ```python
+    pkg = DLESyMv0_ISCCP_ERA5LatLon.load_default_package()
+    model = DLESyMv0_ISCCP_ERA5LatLon.load_model(pkg, use_ttr=True)
 
-        pkg = DLESyMv0_ISCCP_ERA5LatLon.load_default_package()
-        model = DLESyMv0_ISCCP_ERA5LatLon.load_model(pkg, use_ttr=True)
+    # x, coords come straight from an ERA5 data source on the lat/lon grid
+    x, coords = fetch_data(...)
+    y, y_coords = model(x, coords)
 
-        # x, coords come straight from an ERA5 data source on the lat/lon grid
-        x, coords = fetch_data(...)
-        y, y_coords = model(x, coords)
+    atmos, atmos_coords = model.retrieve_valid_atmos_outputs(y, y_coords)
+    ocean, ocean_coords = model.retrieve_valid_ocean_outputs(y, y_coords)
 
-        atmos, atmos_coords = model.retrieve_valid_atmos_outputs(y, y_coords)
-        ocean, ocean_coords = model.retrieve_valid_ocean_outputs(y, y_coords)
-
+    ```
     Badges
     ------
     region:global class:cm product:wind product:temp product:atmos product:ocean year:2024
