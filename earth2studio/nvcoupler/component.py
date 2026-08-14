@@ -316,22 +316,6 @@ class Component(abc.ABC):
         pass
 
     # -- helpers ---------------------------------------------------------------
-    def should_run(self, time: np.datetime64) -> bool:
-        """True when `time` falls on this component's cadence.
-
-        Cadence gating lives in the Driver's slot alignment; this helper is a
-        temporary shim kept only for test_prognostic_real.py — delete it once
-        that test drops the call.
-        """
-        if self.clock is None:
-            raise CouplingError(f"Component {self.name!r} not realized")
-        elapsed = (
-            (as_datetime(time) - self.clock.start)
-            .astype("timedelta64[ns]")
-            .astype(np.int64)
-        )
-        return elapsed >= 0 and elapsed % self.timestep.astype(np.int64) == 0
-
     def _exchange(
         self, x: torch.Tensor, coords: CoordSystem, time: np.datetime64
     ) -> Exchange:

@@ -150,7 +150,7 @@ class AccumulationMediator(Mediator):
         base field to import, the reduction, and the window (= the
         mediator's timestep unless ``window`` overrides it).
     window : optional
-        Override the alarm interval; defaults to the (common) cell-method
+        Override the reduction window; defaults to the (common) cell-method
         window of `fields`.
 
     This is the generalization of PhysicsNeMo's TrailingAverageCoupler and
