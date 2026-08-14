@@ -85,21 +85,6 @@ runs:
         if-no-files-found: error
         retention-days: ${{ inputs.artifact-retention-days }}
 
-    - name: Prune gallery work outputs
-      if: >
-        always() &&
-        inputs.save-caches == 'true'
-      shell: bash
-      run: |
-        set -euo pipefail
-        if [[ -d .e2sgallery ]]; then
-          echo "Gallery cache size before prune:"
-          du -sh .e2sgallery || true
-          find .e2sgallery/runs -path "*/work/outputs" -prune -exec rm -rf {} +
-          echo "Gallery cache size after prune:"
-          du -sh .e2sgallery || true
-        fi
-
     - name: Save gallery cache
       if: >
         always() &&
