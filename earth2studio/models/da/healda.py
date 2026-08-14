@@ -178,8 +178,9 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global class:da product:wind product:temp product:atmos product:sat
+    region:global task:data-assimilation product:wind product:temp product:atmos product:sat
     product:insitu year:2026 gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(

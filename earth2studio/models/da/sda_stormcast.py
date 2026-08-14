@@ -164,8 +164,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:na class:da class:nwc product:wind product:temp product:atmos product:radar
+    region:na task:data-assimilation task:nowcasting product:wind product:temp product:atmos product:radar
     product:insitu year:2024 gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(

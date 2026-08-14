@@ -165,8 +165,9 @@ class CorrDiffCMIP6(CorrDiff):
 
     Badges
     ------
-    region:global class:ds class:cm product:wind product:precip product:temp
+    region:global task:downscaling task:climate product:wind product:precip product:temp
     product:atmos year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     # Variables that must be non-negative (clipped to min=0 during postprocessing)

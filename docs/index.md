@@ -237,19 +237,19 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
     <p class="e2s-section-kicker">Explore the API</p>
     <h2>Choose the workflow surface you need</h2>
     <div class="e2s-capability-grid">
-      <a class="e2s-capability e2s-home-button" href="modules/models_px/?badge=class%3Amrf">
+      <a class="e2s-capability e2s-home-button" href="modules/models_px/?badge=task%3Amedium-range">
         <span>Prognostic</span><strong>Medium range models</strong>
         <small>Global forecast rollouts and ensemble workflows.</small>
       </a>
-      <a class="e2s-capability e2s-home-button" href="modules/models_dx/?badge=class%3Anwc">
+      <a class="e2s-capability e2s-home-button" href="modules/models_dx/?badge=task%3Anowcasting">
         <span>Prognostic</span><strong>Nowcasting models</strong>
         <small>Rapid-update precipitation, satellite, and radar workflows.</small>
       </a>
-      <a class="e2s-capability e2s-home-button" href="modules/models_da/?badge=class%3Ada">
+      <a class="e2s-capability e2s-home-button" href="modules/models_da/?badge=task%3Adata-assimilation">
         <span>Assimilation</span><strong>Data assimilation models</strong>
         <small>Observation-informed analysis and correction workflows.</small>
       </a>
-      <a class="e2s-capability e2s-home-button" href="modules/models_px/?badge=class%3Acm&badge=class%3As2s">
+      <a class="e2s-capability e2s-home-button" href="modules/models_px/?badge=task%3Aclimate&badge=task%3Asubseasonal-seasonal">
         <span>Prognostic</span><strong>Climate models</strong>
         <small>Seasonal, climate, and coupled Earth-system models.</small>
       </a>
@@ -265,7 +265,7 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
         <span>DataFrames</span><strong>Observation data</strong>
         <small>Conventional, satellite, radar, and station datasets.</small>
       </a>
-      <a class="e2s-capability e2s-home-button" href="modules/models_dx/?badge=class%3Ads">
+      <a class="e2s-capability e2s-home-button" href="modules/models_dx/?badge=task%3Adownscaling">
         <span>Diagnostic</span><strong>Downscaling models</strong>
         <small>Super-resolution, correction, and diagnostic downscaling tools.</small>
       </a>

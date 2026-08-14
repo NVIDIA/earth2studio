@@ -26,12 +26,20 @@ badges:
 - region:au
 - region:af
 - region:sa
-- class:nwc
-- class:ds
-- class:mrf
-- class:s2s
-- class:da
-- class:cm
+- task:nowcasting
+- task:downscaling
+- task:medium-range
+- task:subseasonal-seasonal
+- task:data-assimilation
+- task:climate
+- provider:nvidia
+- provider:ecmwf
+- provider:ai2
+- provider:google
+- provider:microsoft
+- backend:pytorch
+- backend:jax
+- backend:onnx
 - product:wind
 - product:precip
 - product:temp
@@ -57,9 +65,9 @@ filter:
   mode: or
   order: fixed
   toggle: 'true'
-  hidden: product year
+  hidden: task provider backend product year
 -->
-<!-- mkdocs-badges:filter region:global region:na region:eu region:as region:au region:af region:sa class:nwc class:ds class:mrf class:s2s class:da class:cm product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu year:2021 year:2022 year:2023 year:2024 year:2025 year:2026 gpu:96gb gpu:80gb gpu:48gb gpu:40gb mode=or order=fixed toggle=true hidden="product year" -->
+<!-- mkdocs-badges:filter region:global region:na region:eu region:as region:au region:af region:sa task:nowcasting task:downscaling task:medium-range task:subseasonal-seasonal task:data-assimilation task:climate provider:nvidia provider:ecmwf provider:ai2 provider:google provider:microsoft backend:pytorch backend:jax backend:onnx product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu year:2021 year:2022 year:2023 year:2024 year:2025 year:2026 gpu:96gb gpu:80gb gpu:48gb gpu:40gb mode=or order=fixed toggle=true hidden="task provider backend product year" -->
 {% autosummary %}
 earth2studio.models.dx.CBottleInfill
 earth2studio.models.dx.CBottleSR

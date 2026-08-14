@@ -170,8 +170,9 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:mrf product:wind product:precip product:temp product:atmos year:2026
+    region:global task:medium-range product:wind product:precip product:temp product:atmos year:2026
     gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     DT = np.timedelta64(6, "h")

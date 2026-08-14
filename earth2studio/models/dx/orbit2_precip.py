@@ -211,7 +211,8 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global class:mrf product:precip year:2025 gpu:40gb
+    region:global task:medium-range product:precip year:2025 gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(

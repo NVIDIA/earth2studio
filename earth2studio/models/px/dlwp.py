@@ -90,7 +90,8 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:s2s product:temp product:atmos year:2021 gpu:40gb
+    region:global task:subseasonal-seasonal product:temp product:atmos year:2021 gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(

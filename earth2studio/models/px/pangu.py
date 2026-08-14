@@ -362,7 +362,8 @@ class Pangu24(PanguBase):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40gb
+    region:global task:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
+    provider:nvidia backend:onnx
     """
 
     def __init__(
@@ -467,7 +468,8 @@ class Pangu6(PanguBase):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40gb
+    region:global task:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
+    provider:nvidia backend:onnx
     """
 
     def __init__(
@@ -589,7 +591,8 @@ class Pangu3(PanguBase):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40gb
+    region:global task:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
+    provider:nvidia backend:onnx
     """
 
     def __init__(

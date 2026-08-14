@@ -138,8 +138,9 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:na class:nwc product:wind product:temp product:radar product:atmos year:2024
+    region:na task:nowcasting product:wind product:temp product:radar product:atmos year:2024
     gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(

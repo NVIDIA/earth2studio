@@ -213,7 +213,8 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global class:cm product:precip year:2024 gpu:40gb
+    region:global task:climate product:precip year:2024 gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(
