@@ -174,15 +174,6 @@ statistical operations and more to accelerate your pipelines.
 Access state of the art Nvidia open models for climate and weather: [Earth-2 Open Models](https://huggingface.co/collections/nvidia/earth-2).
 For training recipes for these models, see the [PhysicsNeMo repository][physicsnemo_repo_url].
 
-## Features
-
-Earth2Studio package focuses on supplying you the tools to build your own
-workflows, pipelines, APIs, or packages using modular components including:
-
-For a more complete list of features, be sure to view the [documentation][e2studio_docs_url].
-Don't see what you need?
-Great news, extension and customization are at the heart of our [design][e2studio_customization_url].
-
 ## Contributors
 
 Check out the [contributing](CONTRIBUTING.md) document for details about the technical
