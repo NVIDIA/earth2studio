@@ -2816,14 +2816,15 @@ generate different fields that are reflective of the requested time and SST stat
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="nb">print</span><span class="p">(</span><span class="n">era5_da</span><span class="p">)</span>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">cbottle_da</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>88 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching WB2 data:  50%|█████     | 1/2 [00:00&lt;00:00,  4.53it/s]
-Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00,  8.82it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>89 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Fetching WB2 data:  50%|█████     | 1/2 [00:00&lt;00:00,  2.51it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00,  3.45it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00,  3.26it/s]
 
 Generating cBottle Data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Generating cBottle Data:  50%|█████     | 1/2 [00:08&lt;00:08,  8.11s/it]
-Generating cBottle Data: 100%|██████████| 2/2 [00:12&lt;00:00,  5.81s/it]
-Generating cBottle Data: 100%|██████████| 2/2 [00:12&lt;00:00,  6.15s/it]
+Generating cBottle Data:  50%|█████     | 1/2 [00:08&lt;00:08,  8.17s/it]
+Generating cBottle Data: 100%|██████████| 2/2 [00:12&lt;00:00,  5.87s/it]
+Generating cBottle Data: 100%|██████████| 2/2 [00:12&lt;00:00,  6.21s/it]
 &lt;xarray.DataArray (time: 1, variable: 2, lat: 721, lon: 1440)&gt; Size: 17MB
 array([[[[1.01743422e+05, 1.01743422e+05, 1.01743422e+05, ...,
           1.01743422e+05, 1.01743422e+05, 1.01743422e+05],
@@ -2858,47 +2859,47 @@ Coordinates:
   * lat       (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
   * lon       (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
 &lt;xarray.DataArray (time: 5, variable: 2, lat: 721, lon: 1440)&gt; Size: 83MB
-array([[[[ 1.00216683e+05,  1.00216683e+05,  1.00216683e+05, ...,
-           1.00216683e+05,  1.00216683e+05,  1.00216683e+05],
-         [ 1.00218683e+05,  1.00218489e+05,  1.00218295e+05, ...,
-           1.00219265e+05,  1.00219071e+05,  1.00218877e+05],
-         [ 1.00220683e+05,  1.00220295e+05,  1.00219907e+05, ...,
-           1.00221847e+05,  1.00221459e+05,  1.00221071e+05],
+array([[[[ 1.00623948e+05,  1.00623948e+05,  1.00623948e+05, ...,
+           1.00623948e+05,  1.00623948e+05,  1.00623948e+05],
+         [ 1.00620226e+05,  1.00619917e+05,  1.00619607e+05, ...,
+           1.00621154e+05,  1.00620844e+05,  1.00620535e+05],
+         [ 1.00616504e+05,  1.00615885e+05,  1.00615267e+05, ...,
+           1.00618359e+05,  1.00617741e+05,  1.00617122e+05],
          ...,
-         [ 1.01248638e+05,  1.01247817e+05,  1.01246996e+05, ...,
-           1.01251102e+05,  1.01250281e+05,  1.01249459e+05],
-         [ 1.01183058e+05,  1.01182648e+05,  1.01182237e+05, ...,
-           1.01184290e+05,  1.01183879e+05,  1.01183469e+05],
-         [ 1.01117478e+05,  1.01117478e+05,  1.01117478e+05, ...,
-           1.01117478e+05,  1.01117478e+05,  1.01117478e+05]],
+         [ 1.02307615e+05,  1.02306733e+05,  1.02305852e+05, ...,
+           1.02310259e+05,  1.02309378e+05,  1.02308496e+05],
+         [ 1.02347429e+05,  1.02346989e+05,  1.02346548e+05, ...,
+           1.02348752e+05,  1.02348311e+05,  1.02347870e+05],
+         [ 1.02387244e+05,  1.02387244e+05,  1.02387244e+05, ...,
+           1.02387244e+05,  1.02387244e+05,  1.02387244e+05]],
 
-        [[ 1.01564213e+01,  1.01564213e+01,  1.01564213e+01, ...,
-           1.01564213e+01,  1.01564213e+01,  1.01564213e+01],
-         [ 9.91014792e+00,  9.91065844e+00,  9.91116896e+00, ...,
-           9.90861636e+00,  9.90912688e+00,  9.90963740e+00],
-         [ 9.66387455e+00,  9.66489559e+00,  9.66591662e+00, ...,
-           9.66081144e+00,  9.66183247e+00,  9.66285351e+00],
+        [[ 9.46729991e+00,  9.46729991e+00,  9.46729991e+00, ...,
+           9.46729991e+00,  9.46729991e+00,  9.46729991e+00],
+         [ 9.61714658e+00,  9.61828310e+00,  9.61941961e+00, ...,
+           9.61373705e+00,  9.61487356e+00,  9.61601007e+00],
+         [ 9.76699326e+00,  9.76926628e+00,  9.77153930e+00, ...,
+           9.76017419e+00,  9.76244722e+00,  9.76472024e+00],
 ...
-         [ 1.00756063e+05,  1.00756265e+05,  1.00756467e+05, ...,
-           1.00755456e+05,  1.00755658e+05,  1.00755860e+05],
-         [ 1.00728743e+05,  1.00728844e+05,  1.00728945e+05, ...,
-           1.00728440e+05,  1.00728541e+05,  1.00728642e+05],
-         [ 1.00701423e+05,  1.00701423e+05,  1.00701423e+05, ...,
-           1.00701423e+05,  1.00701423e+05,  1.00701423e+05]],
+         [ 1.00274592e+05,  1.00274616e+05,  1.00274639e+05, ...,
+           1.00274523e+05,  1.00274546e+05,  1.00274569e+05],
+         [ 1.00199840e+05,  1.00199852e+05,  1.00199864e+05, ...,
+           1.00199806e+05,  1.00199817e+05,  1.00199829e+05],
+         [ 1.00125088e+05,  1.00125088e+05,  1.00125088e+05, ...,
+           1.00125088e+05,  1.00125088e+05,  1.00125088e+05]],
 
-        [[ 4.00207880e+00,  4.00207880e+00,  4.00207880e+00, ...,
-           4.00207880e+00,  4.00207880e+00,  4.00207880e+00],
-         [ 3.72348199e+00,  3.72392492e+00,  3.72436784e+00, ...,
-           3.72215322e+00,  3.72259615e+00,  3.72303907e+00],
-         [ 3.44488519e+00,  3.44577104e+00,  3.44665688e+00, ...,
-           3.44222765e+00,  3.44311349e+00,  3.44399934e+00],
+        [[ 7.12259160e+00,  7.12259160e+00,  7.12259160e+00, ...,
+           7.12259160e+00,  7.12259160e+00,  7.12259160e+00],
+         [ 6.83096779e+00,  6.83113998e+00,  6.83131216e+00, ...,
+           6.83045124e+00,  6.83062342e+00,  6.83079561e+00],
+         [ 6.53934399e+00,  6.53968835e+00,  6.54003272e+00, ...,
+           6.53831088e+00,  6.53865525e+00,  6.53899962e+00],
          ...,
-         [ 2.61110510e+00,  2.60756732e+00,  2.60402953e+00, ...,
-           2.62171844e+00,  2.61818066e+00,  2.61464288e+00],
-         [ 2.97915545e+00,  2.97738656e+00,  2.97561767e+00, ...,
-           2.98446213e+00,  2.98269324e+00,  2.98092435e+00],
-         [ 3.34720581e+00,  3.34720581e+00,  3.34720581e+00, ...,
-           3.34720581e+00,  3.34720581e+00,  3.34720581e+00]]]])
+         [-1.49602306e+00, -1.49651969e+00, -1.49701633e+00, ...,
+          -1.49453315e+00, -1.49502978e+00, -1.49552642e+00],
+         [-1.55646671e+00, -1.55671503e+00, -1.55696335e+00, ...,
+          -1.55572176e+00, -1.55597007e+00, -1.55621839e+00],
+         [-1.61691037e+00, -1.61691037e+00, -1.61691037e+00, ...,
+          -1.61691037e+00, -1.61691037e+00, -1.61691037e+00]]]])
 Coordinates:
   * time      (time) datetime64[ns] 40B 2022-09-05 2022-09-05 ... 2022-09-05
   * variable  (variable) &lt;U4 32B 'msl' 'tcwv'
@@ -2984,8 +2985,8 @@ variables.</p>
 <a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">output_0</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
-Fetching WB2 data:  10%|█         | 1/10 [00:00&lt;00:01,  4.92it/s]
-Fetching WB2 data: 100%|██████████| 10/10 [00:00&lt;00:00, 41.85it/s]
+Fetching WB2 data:  10%|█         | 1/10 [00:00&lt;00:03,  2.41it/s]
+Fetching WB2 data: 100%|██████████| 10/10 [00:00&lt;00:00, 20.63it/s]
 torch.Size([5, 1, 45, 721, 1440])</code></pre></details>
 
 <p>Now repeat the process above but with an expanded set of variables.
@@ -3019,19 +3020,21 @@ information.</p>
 <a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="n">output_1</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 <a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="nb">print</span><span class="p">(</span><span class="n">output_1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>14 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
-Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:08,  7.24it/s]
-Fetching WB2 data:  25%|██▍       | 16/65 [00:00&lt;00:01, 41.28it/s]
-Fetching WB2 data:  32%|███▏      | 21/65 [00:00&lt;00:01, 32.16it/s]
-Fetching WB2 data:  37%|███▋      | 24/65 [00:00&lt;00:01, 30.80it/s]
-Fetching WB2 data:  48%|████▊     | 31/65 [00:00&lt;00:00, 38.79it/s]
-Fetching WB2 data:  57%|█████▋    | 37/65 [00:01&lt;00:00, 40.97it/s]
-Fetching WB2 data:  65%|██████▍   | 42/65 [00:01&lt;00:00, 42.98it/s]
-Fetching WB2 data:  72%|███████▏  | 47/65 [00:01&lt;00:00, 38.80it/s]
-Fetching WB2 data:  80%|████████  | 52/65 [00:01&lt;00:00, 39.83it/s]
-Fetching WB2 data:  88%|████████▊ | 57/65 [00:01&lt;00:00, 41.87it/s]
-Fetching WB2 data:  95%|█████████▌| 62/65 [00:01&lt;00:00, 32.86it/s]
-Fetching WB2 data: 100%|██████████| 65/65 [00:01&lt;00:00, 35.21it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>16 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:07,  8.31it/s]
+Fetching WB2 data:  25%|██▍       | 16/65 [00:00&lt;00:01, 26.35it/s]
+Fetching WB2 data:  32%|███▏      | 21/65 [00:01&lt;00:02, 17.91it/s]
+Fetching WB2 data:  37%|███▋      | 24/65 [00:01&lt;00:02, 19.33it/s]
+Fetching WB2 data:  42%|████▏     | 27/65 [00:01&lt;00:01, 19.89it/s]
+Fetching WB2 data:  55%|█████▌    | 36/65 [00:01&lt;00:00, 32.12it/s]
+Fetching WB2 data:  63%|██████▎   | 41/65 [00:01&lt;00:00, 32.30it/s]
+Fetching WB2 data:  69%|██████▉   | 45/65 [00:01&lt;00:00, 28.21it/s]
+Fetching WB2 data:  77%|███████▋  | 50/65 [00:01&lt;00:00, 28.45it/s]
+Fetching WB2 data:  83%|████████▎ | 54/65 [00:02&lt;00:00, 30.72it/s]
+Fetching WB2 data:  89%|████████▉ | 58/65 [00:02&lt;00:00, 26.53it/s]
+Fetching WB2 data:  94%|█████████▍| 61/65 [00:02&lt;00:00, 23.03it/s]
+Fetching WB2 data:  98%|█████████▊| 64/65 [00:02&lt;00:00, 21.64it/s]
+Fetching WB2 data: 100%|██████████| 65/65 [00:02&lt;00:00, 24.27it/s]
 torch.Size([5, 1, 45, 721, 1440])</code></pre></details>
 
 <h2 id="post-processing-cbottleinfill">Post Processing CBottleInfill<a class="headerlink" href="#post-processing-cbottleinfill" title="Permanent link">&para;</a></h2>
@@ -3093,13 +3096,13 @@ truth due the additional information provided.</p>
 <a id="__codelineno-5-50" name="__codelineno-5-50" href="#__codelineno-5-50"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/15_tcwv_cbottle_infill.jpg&quot;</span><span class="p">)</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching WB2 data: 100%|██████████| 1/1 [00:00&lt;00:00, 213.70it/s]</code></pre></details>
+Fetching WB2 data: 100%|██████████| 1/1 [00:00&lt;00:00, 243.25it/s]</code></pre></details>
 
 <p><img alt="Output from CBottle Data Generation and Infilling" class="e2sg-output-image" loading="lazy" src="../../_assets/07_misc-02_cbottle_generation/003-cell-13.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-02_cbottle_generation/02_cbottle_generation.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-02_cbottle_generation/02_cbottle_generation.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 113.8s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-02_cbottle_generation/02_cbottle_generation.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-02_cbottle_generation/02_cbottle_generation.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 114.5s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 54s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 55s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

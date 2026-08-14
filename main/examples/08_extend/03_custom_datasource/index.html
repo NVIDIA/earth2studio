@@ -2933,14 +2933,13 @@ consistent with when GFS provides for relative humidity.</p>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">da_custom</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>27 lines</small></summary><pre><code>Fetching ARCO data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  50%|█████     | 1/2 [00:01&lt;00:01,  1.71s/it]
-Fetching ARCO data: 100%|██████████| 2/2 [00:02&lt;00:00,  1.00s/it]
-Fetching ARCO data: 100%|██████████| 2/2 [00:02&lt;00:00,  1.11s/it]
+<details class="e2sg-output" open><summary><span>Console output</span><small>26 lines</small></summary><pre><code>Fetching ARCO data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  50%|█████     | 1/2 [00:02&lt;00:02,  2.16s/it]
+Fetching ARCO data: 100%|██████████| 2/2 [00:02&lt;00:00,  1.08s/it]
 
 Fetching GFS data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.08it/s]
-Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.08it/s]
+Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.27it/s]
+Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.27it/s]
 &lt;xarray.DataArray (time: 1, variable: 1, lat: 721, lon: 1440)&gt; Size: 8MB
 array([[[[ 28.01413468,  28.01413468,  28.01413468, ...,  28.01413468,
            28.01413468,  28.01413468],
@@ -3022,40 +3021,85 @@ we are using ARCO, we can run inference for a time quite far back in time.</p>
 <a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>
 <a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>66 lines</small></summary><pre><code>WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
+<details class="e2sg-output" open><summary><span>Console output</span><small>111 lines</small></summary><pre><code>WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
     Python  3.10.19 (you have 3.13.13)
   Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
   Memory-efficient attention, SwiGLU, sparse and more won't be available.
   Set XFORMERS_MORE_DETAILS=1 for more details
 CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature
-2026-08-14 04:57:59.066 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
-2026-08-14 04:57:59.066 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
+
+Downloading config.json: 0%|          | 0.00/22.0 [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 22.0/22.0 [00:00&lt;00:00, 140B/s]
+Downloading config.json: 100%|██████████| 22.0/22.0 [00:00&lt;00:00, 138B/s]
+
+Downloading fcn.mdlus: 0%|          | 0.00/287M [00:00&lt;?, ?B/s]
+Downloading fcn.mdlus: 3%|▎         | 10.0M/287M [00:01&lt;00:33, 8.61MB/s]
+Downloading fcn.mdlus: 7%|▋         | 20.0M/287M [00:01&lt;00:18, 14.8MB/s]
+Downloading fcn.mdlus: 10%|█         | 30.0M/287M [00:01&lt;00:13, 19.5MB/s]
+Downloading fcn.mdlus: 14%|█▍        | 40.0M/287M [00:02&lt;00:09, 26.5MB/s]
+Downloading fcn.mdlus: 17%|█▋        | 50.0M/287M [00:02&lt;00:06, 35.7MB/s]
+Downloading fcn.mdlus: 21%|██        | 60.0M/287M [00:02&lt;00:07, 33.9MB/s]
+Downloading fcn.mdlus: 24%|██▍       | 70.0M/287M [00:03&lt;00:08, 27.4MB/s]
+Downloading fcn.mdlus: 28%|██▊       | 80.0M/287M [00:03&lt;00:08, 26.4MB/s]
+Downloading fcn.mdlus: 31%|███▏      | 90.0M/287M [00:03&lt;00:07, 28.3MB/s]
+Downloading fcn.mdlus: 35%|███▍      | 100M/287M [00:04&lt;00:06, 32.4MB/s] 
+Downloading fcn.mdlus: 38%|███▊      | 110M/287M [00:04&lt;00:05, 33.8MB/s]
+Downloading fcn.mdlus: 42%|████▏     | 120M/287M [00:04&lt;00:05, 32.6MB/s]
+Downloading fcn.mdlus: 45%|████▌     | 130M/287M [00:05&lt;00:06, 26.2MB/s]
+Downloading fcn.mdlus: 49%|████▊     | 140M/287M [00:05&lt;00:06, 24.8MB/s]
+Downloading fcn.mdlus: 52%|█████▏    | 150M/287M [00:06&lt;00:05, 25.3MB/s]
+Downloading fcn.mdlus: 56%|█████▌    | 160M/287M [00:06&lt;00:04, 28.6MB/s]
+Downloading fcn.mdlus: 59%|█████▉    | 170M/287M [00:06&lt;00:03, 31.8MB/s]
+Downloading fcn.mdlus: 63%|██████▎   | 180M/287M [00:06&lt;00:03, 33.4MB/s]
+Downloading fcn.mdlus: 66%|██████▌   | 190M/287M [00:07&lt;00:03, 33.5MB/s]
+Downloading fcn.mdlus: 70%|██████▉   | 200M/287M [00:07&lt;00:03, 25.5MB/s]
+Downloading fcn.mdlus: 73%|███████▎  | 210M/287M [00:08&lt;00:03, 24.4MB/s]
+Downloading fcn.mdlus: 77%|███████▋  | 220M/287M [00:08&lt;00:02, 29.4MB/s]
+Downloading fcn.mdlus: 80%|████████  | 230M/287M [00:08&lt;00:01, 33.4MB/s]
+Downloading fcn.mdlus: 84%|████████▎ | 240M/287M [00:09&lt;00:01, 27.2MB/s]
+Downloading fcn.mdlus: 87%|████████▋ | 250M/287M [00:09&lt;00:01, 30.7MB/s]
+Downloading fcn.mdlus: 91%|█████████ | 260M/287M [00:10&lt;00:01, 25.7MB/s]
+Downloading fcn.mdlus: 94%|█████████▍| 270M/287M [00:10&lt;00:00, 24.6MB/s]
+Downloading fcn.mdlus: 97%|█████████▋| 280M/287M [00:10&lt;00:00, 25.1MB/s]
+Downloading fcn.mdlus: 100%|██████████| 287M/287M [00:11&lt;00:00, 25.0MB/s]
+Downloading fcn.mdlus: 100%|██████████| 287M/287M [00:11&lt;00:00, 26.8MB/s]
+
+Downloading global_means.npy: 0%|          | 0.00/336 [00:00&lt;?, ?B/s]
+Downloading global_means.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 683B/s]
+Downloading global_means.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 679B/s]
+
+Downloading global_stds.npy: 0%|          | 0.00/336 [00:00&lt;?, ?B/s]
+Downloading global_stds.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 736B/s]
+Downloading global_stds.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 732B/s]
+2026-08-14 18:19:18.793 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+2026-08-14 18:19:18.793 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
 
 Fetching ARCO data:   0%|          | 0/13 [00:00&lt;?, ?it/s]
-Fetching ARCO data:   8%|▊         | 1/13 [00:00&lt;00:01,  8.22it/s]
-Fetching ARCO data:  38%|███▊      | 5/13 [00:00&lt;00:00, 18.90it/s]
-Fetching ARCO data:  62%|██████▏   | 8/13 [00:00&lt;00:00, 13.70it/s]
-Fetching ARCO data:  77%|███████▋  | 10/13 [00:01&lt;00:00,  3.89it/s]
-Fetching ARCO data: 100%|██████████| 13/13 [00:02&lt;00:00,  4.58it/s]
-Fetching ARCO data: 100%|██████████| 13/13 [00:02&lt;00:00,  5.47it/s]
-2026-08-14 04:58:02.415 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from CustomDataSource
-2026-08-14 04:58:02.416 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
+Fetching ARCO data:   8%|▊         | 1/13 [00:00&lt;00:02,  5.44it/s]
+Fetching ARCO data:  54%|█████▍    | 7/13 [00:00&lt;00:00, 12.46it/s]
+Fetching ARCO data:  69%|██████▉   | 9/13 [00:01&lt;00:00,  4.41it/s]
+Fetching ARCO data:  85%|████████▍ | 11/13 [00:02&lt;00:00,  4.64it/s]
+Fetching ARCO data:  92%|█████████▏| 12/13 [00:02&lt;00:00,  3.65it/s]
+Fetching ARCO data: 100%|██████████| 13/13 [00:03&lt;00:00,  2.97it/s]
+Fetching ARCO data: 100%|██████████| 13/13 [00:03&lt;00:00,  4.00it/s]
+2026-08-14 18:19:22.867 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from CustomDataSource
+2026-08-14 18:19:22.868 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
 
 
 Running inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-Running inference:  20%|██        | 1/5 [00:01&lt;00:05,  1.29s/it]
+Running inference:  20%|██        | 1/5 [00:01&lt;00:04,  1.19s/it]
 
-Running inference:  40%|████      | 2/5 [00:02&lt;00:04,  1.39s/it]
+Running inference:  40%|████      | 2/5 [00:03&lt;00:04,  1.58s/it]
 
-Running inference:  60%|██████    | 3/5 [00:04&lt;00:02,  1.36s/it]
+Running inference:  60%|██████    | 3/5 [00:04&lt;00:03,  1.58s/it]
 
-Running inference:  80%|████████  | 4/5 [00:05&lt;00:01,  1.33s/it]
+Running inference:  80%|████████  | 4/5 [00:06&lt;00:01,  1.59s/it]
 
-Running inference: 100%|██████████| 5/5 [00:06&lt;00:00,  1.31s/it]
-Running inference: 100%|██████████| 5/5 [00:06&lt;00:00,  1.33s/it]
-2026-08-14 04:58:09.065 | SUCCESS  | earth2studio.run:deterministic:189 - 
+Running inference: 100%|██████████| 5/5 [00:07&lt;00:00,  1.59s/it]
+Running inference: 100%|██████████| 5/5 [00:07&lt;00:00,  1.56s/it]
+2026-08-14 18:19:30.688 | SUCCESS  | earth2studio.run:deterministic:189 - 
 Inference complete
 /
 ├── lat (720,) float64
@@ -3120,9 +3164,9 @@ vapor field for a few time-steps.</p>
 </code></pre></div>
 <p><img alt="Output from Extending Data Sources" class="e2sg-output-image" loading="lazy" src="../../_assets/08_extend-03_custom_datasource/003-cell-11.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-03_custom_datasource/03_custom_datasource.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-03_custom_datasource/03_custom_datasource.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 51.5s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-03_custom_datasource/03_custom_datasource.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-03_custom_datasource/03_custom_datasource.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 66.3s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>51.5 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 6s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

@@ -2978,70 +2978,68 @@ Here we will chunk the output data based on time and lead_time</p>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">christmas_five_day_ensemble</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">ds</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">pt</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">zarr_local_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>57 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:02,  2.45it/s]
-Fetching GFS data:  29%|██▊       | 2/7 [00:00&lt;00:01,  2.57it/s]
-Fetching GFS data:  71%|███████▏  | 5/7 [00:00&lt;00:00,  6.79it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:01&lt;00:00,  8.16it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:01&lt;00:00,  6.30it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>55 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:03,  1.72it/s]
+Fetching GFS data:  29%|██▊       | 2/7 [00:00&lt;00:01,  2.73it/s]
+Fetching GFS data:  71%|███████▏  | 5/7 [00:00&lt;00:00,  7.82it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00,  7.73it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  3.93it/s]
-Fetching GFS data:  71%|███████▏  | 5/7 [00:00&lt;00:00, 14.14it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00,  8.78it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00,  8.99it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.21it/s]
+Fetching GFS data:  43%|████▎     | 3/7 [00:00&lt;00:00,  7.49it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 15.20it/s]
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
-Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:18,  1.07it/s]
+Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:18,  1.11it/s]
 
-Running batch inference:  10%|▉         | 2/21 [00:02&lt;00:19,  1.02s/it]
+Running batch inference:  10%|▉         | 2/21 [00:02&lt;00:19,  1.03s/it]
 
-Running batch inference:  14%|█▍        | 3/21 [00:02&lt;00:16,  1.12it/s]
+Running batch inference:  14%|█▍        | 3/21 [00:02&lt;00:16,  1.08it/s]
 
-Running batch inference:  19%|█▉        | 4/21 [00:03&lt;00:14,  1.15it/s]
+Running batch inference:  19%|█▉        | 4/21 [00:03&lt;00:14,  1.16it/s]
 
-Running batch inference:  24%|██▍       | 5/21 [00:04&lt;00:13,  1.21it/s]
+Running batch inference:  24%|██▍       | 5/21 [00:04&lt;00:13,  1.22it/s]
 
-Running batch inference:  29%|██▊       | 6/21 [00:05&lt;00:12,  1.23it/s]
+Running batch inference:  29%|██▊       | 6/21 [00:05&lt;00:12,  1.21it/s]
 
-Running batch inference:  33%|███▎      | 7/21 [00:05&lt;00:11,  1.23it/s]
+Running batch inference:  33%|███▎      | 7/21 [00:06&lt;00:11,  1.18it/s]
 
-Running batch inference:  38%|███▊      | 8/21 [00:06&lt;00:10,  1.26it/s]
+Running batch inference:  38%|███▊      | 8/21 [00:06&lt;00:11,  1.16it/s]
 
-Running batch inference:  43%|████▎     | 9/21 [00:07&lt;00:09,  1.27it/s]
+Running batch inference:  43%|████▎     | 9/21 [00:07&lt;00:10,  1.16it/s]
 
-Running batch inference:  48%|████▊     | 10/21 [00:08&lt;00:08,  1.24it/s]
+Running batch inference:  48%|████▊     | 10/21 [00:08&lt;00:09,  1.14it/s]
 
-Running batch inference:  52%|█████▏    | 11/21 [00:09&lt;00:08,  1.22it/s]
+Running batch inference:  52%|█████▏    | 11/21 [00:09&lt;00:08,  1.15it/s]
 
-Running batch inference:  57%|█████▋    | 12/21 [00:10&lt;00:07,  1.21it/s]
+Running batch inference:  57%|█████▋    | 12/21 [00:10&lt;00:07,  1.14it/s]
 
-Running batch inference:  62%|██████▏   | 13/21 [00:10&lt;00:06,  1.22it/s]
+Running batch inference:  62%|██████▏   | 13/21 [00:11&lt;00:07,  1.14it/s]
 
-Running batch inference:  67%|██████▋   | 14/21 [00:11&lt;00:05,  1.23it/s]
+Running batch inference:  67%|██████▋   | 14/21 [00:12&lt;00:06,  1.13it/s]
 
-Running batch inference:  71%|███████▏  | 15/21 [00:12&lt;00:04,  1.27it/s]
+Running batch inference:  71%|███████▏  | 15/21 [00:13&lt;00:05,  1.14it/s]
 
-Running batch inference:  76%|███████▌  | 16/21 [00:13&lt;00:03,  1.27it/s]
+Running batch inference:  76%|███████▌  | 16/21 [00:13&lt;00:04,  1.14it/s]
 
-Running batch inference:  81%|████████  | 17/21 [00:13&lt;00:03,  1.23it/s]
+Running batch inference:  81%|████████  | 17/21 [00:14&lt;00:03,  1.13it/s]
 
-Running batch inference:  86%|████████▌ | 18/21 [00:14&lt;00:02,  1.23it/s]
+Running batch inference:  86%|████████▌ | 18/21 [00:15&lt;00:02,  1.14it/s]
 
-Running batch inference:  90%|█████████ | 19/21 [00:15&lt;00:01,  1.23it/s]
+Running batch inference:  90%|█████████ | 19/21 [00:16&lt;00:01,  1.13it/s]
 
-Running batch inference:  95%|█████████▌| 20/21 [00:16&lt;00:00,  1.27it/s]
+Running batch inference:  95%|█████████▌| 20/21 [00:17&lt;00:00,  1.14it/s]
 
-Running batch inference: 100%|██████████| 21/21 [00:17&lt;00:00,  1.29it/s]</code></pre></details>
+Running batch inference: 100%|██████████| 21/21 [00:18&lt;00:00,  1.18it/s]</code></pre></details>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Local zarr store inference time: </span><span class="si">{</span><span class="n">zarr_local_clock</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">print</span><span class="p">(</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="sa">f</span><span class="s2">&quot;Uncompressed zarr store size: </span><span class="si">{</span><span class="n">get_folder_size</span><span class="p">(</span><span class="s1">&#39;outputs/17_io_sync.zarr&#39;</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Local zarr store inference time: 19.877379417419434s
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Local zarr store inference time: 20.435580492019653s
 Uncompressed zarr store size: 1330.78 MB</code></pre></details>
 
 <h2 id="compressed-local-storage-zarr-io">Compressed Local Storage Zarr IO<a class="headerlink" href="#compressed-local-storage-zarr-io" title="Permanent link">&para;</a></h2>
@@ -3067,64 +3065,64 @@ that the output store will be 3x smaller!</p>
 <a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="n">zarr_local_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>52 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  3.91it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 26.67it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.90it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 33.57it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.10it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 27.37it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.00it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 32.88it/s]
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
-Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:19,  1.00it/s]
+Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:19,  1.03it/s]
 
 Running batch inference:  10%|▉         | 2/21 [00:02&lt;00:20,  1.07s/it]
 
-Running batch inference:  14%|█▍        | 3/21 [00:03&lt;00:20,  1.12s/it]
+Running batch inference:  14%|█▍        | 3/21 [00:03&lt;00:19,  1.08s/it]
 
-Running batch inference:  19%|█▉        | 4/21 [00:04&lt;00:19,  1.14s/it]
+Running batch inference:  19%|█▉        | 4/21 [00:04&lt;00:18,  1.10s/it]
 
-Running batch inference:  24%|██▍       | 5/21 [00:05&lt;00:18,  1.15s/it]
+Running batch inference:  24%|██▍       | 5/21 [00:05&lt;00:17,  1.10s/it]
 
-Running batch inference:  29%|██▊       | 6/21 [00:06&lt;00:17,  1.18s/it]
+Running batch inference:  29%|██▊       | 6/21 [00:06&lt;00:16,  1.12s/it]
 
-Running batch inference:  33%|███▎      | 7/21 [00:08&lt;00:16,  1.16s/it]
+Running batch inference:  33%|███▎      | 7/21 [00:07&lt;00:16,  1.14s/it]
 
-Running batch inference:  38%|███▊      | 8/21 [00:09&lt;00:14,  1.15s/it]
+Running batch inference:  38%|███▊      | 8/21 [00:08&lt;00:14,  1.14s/it]
 
-Running batch inference:  43%|████▎     | 9/21 [00:10&lt;00:13,  1.12s/it]
+Running batch inference:  43%|████▎     | 9/21 [00:10&lt;00:14,  1.17s/it]
 
-Running batch inference:  48%|████▊     | 10/21 [00:11&lt;00:12,  1.12s/it]
+Running batch inference:  48%|████▊     | 10/21 [00:11&lt;00:13,  1.19s/it]
 
-Running batch inference:  52%|█████▏    | 11/21 [00:12&lt;00:11,  1.13s/it]
+Running batch inference:  52%|█████▏    | 11/21 [00:12&lt;00:11,  1.19s/it]
 
-Running batch inference:  57%|█████▋    | 12/21 [00:13&lt;00:09,  1.10s/it]
+Running batch inference:  57%|█████▋    | 12/21 [00:13&lt;00:10,  1.18s/it]
 
-Running batch inference:  62%|██████▏   | 13/21 [00:14&lt;00:08,  1.08s/it]
+Running batch inference:  62%|██████▏   | 13/21 [00:14&lt;00:09,  1.16s/it]
 
-Running batch inference:  67%|██████▋   | 14/21 [00:15&lt;00:07,  1.10s/it]
+Running batch inference:  67%|██████▋   | 14/21 [00:15&lt;00:07,  1.14s/it]
 
-Running batch inference:  71%|███████▏  | 15/21 [00:16&lt;00:06,  1.08s/it]
+Running batch inference:  71%|███████▏  | 15/21 [00:17&lt;00:06,  1.15s/it]
 
-Running batch inference:  76%|███████▌  | 16/21 [00:17&lt;00:05,  1.07s/it]
+Running batch inference:  76%|███████▌  | 16/21 [00:18&lt;00:05,  1.17s/it]
 
-Running batch inference:  81%|████████  | 17/21 [00:18&lt;00:04,  1.07s/it]
+Running batch inference:  81%|████████  | 17/21 [00:19&lt;00:04,  1.15s/it]
 
-Running batch inference:  86%|████████▌ | 18/21 [00:19&lt;00:03,  1.07s/it]
+Running batch inference:  86%|████████▌ | 18/21 [00:20&lt;00:03,  1.14s/it]
 
-Running batch inference:  90%|█████████ | 19/21 [00:20&lt;00:02,  1.06s/it]
+Running batch inference:  90%|█████████ | 19/21 [00:21&lt;00:02,  1.16s/it]
 
-Running batch inference:  95%|█████████▌| 20/21 [00:22&lt;00:01,  1.07s/it]
+Running batch inference:  95%|█████████▌| 20/21 [00:22&lt;00:01,  1.14s/it]
 
-Running batch inference: 100%|██████████| 21/21 [00:23&lt;00:00,  1.06s/it]</code></pre></details>
+Running batch inference: 100%|██████████| 21/21 [00:24&lt;00:00,  1.14s/it]</code></pre></details>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Local compressed zarr store inference time: </span><span class="si">{</span><span class="n">zarr_local_clock</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">print</span><span class="p">(</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="sa">f</span><span class="s2">&quot;Compressed zarr store size: </span><span class="si">{</span><span class="n">get_folder_size</span><span class="p">(</span><span class="s1">&#39;outputs/17_io_sync_compressed.zarr&#39;</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Local compressed zarr store inference time: 23.833420991897583s
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Local compressed zarr store inference time: 24.595757961273193s
 Compressed zarr store size: 394.38 MB</code></pre></details>
 
 <h2 id="local-storage-netcdf-io">Local Storage NetCDF IO<a class="headerlink" href="#local-storage-netcdf-io" title="Permanent link">&para;</a></h2>
@@ -3138,34 +3136,34 @@ a single file.</p>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">nc_local_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>22 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  29%|██▊       | 2/7 [00:00&lt;00:00, 11.02it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 37.03it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  8.79it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 59.24it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.43it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 30.90it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.87it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 39.32it/s]
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:17,  1.12it/s]
 
-Running batch inference:  19%|█▉        | 4/21 [00:01&lt;00:03,  4.91it/s]
+Running batch inference:  19%|█▉        | 4/21 [00:01&lt;00:03,  4.87it/s]
 
-Running batch inference:  38%|███▊      | 8/21 [00:01&lt;00:01,  9.81it/s]
+Running batch inference:  38%|███▊      | 8/21 [00:01&lt;00:01,  9.58it/s]
 
-Running batch inference:  57%|█████▋    | 12/21 [00:01&lt;00:00, 13.93it/s]
+Running batch inference:  57%|█████▋    | 12/21 [00:01&lt;00:00, 13.23it/s]
 
-Running batch inference:  71%|███████▏  | 15/21 [00:01&lt;00:00, 16.70it/s]
+Running batch inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 16.82it/s]
 
-Running batch inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 18.56it/s]</code></pre></details>
+Running batch inference:  95%|█████████▌| 20/21 [00:01&lt;00:00, 19.56it/s]</code></pre></details>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Local netcdf store inference time: </span><span class="si">{</span><span class="n">nc_local_clock</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nb">print</span><span class="p">(</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="sa">f</span><span class="s2">&quot;Uncompressed zarr store size: </span><span class="si">{</span><span class="n">get_folder_size</span><span class="p">(</span><span class="s1">&#39;outputs/17_io_sync.nc&#39;</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span>
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Local netcdf store inference time: 2.1569764614105225s
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Local netcdf store inference time: 2.052112340927124s
 Uncompressed zarr store size: 1330.79 MB</code></pre></details>
 
 <h2 id="in-memory-zarr-io">In Memory Zarr IO<a class="headerlink" href="#in-memory-zarr-io" title="Permanent link">&para;</a></h2>
@@ -3181,61 +3179,61 @@ the data is gone.</p>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">zarr_memory_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>52 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.75it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 39.51it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.79it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 32.29it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.18it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 35.51it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.04it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 33.26it/s]
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
-Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:11,  1.75it/s]
+Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:13,  1.47it/s]
 
-Running batch inference:  10%|▉         | 2/21 [00:01&lt;00:11,  1.60it/s]
+Running batch inference:  10%|▉         | 2/21 [00:01&lt;00:13,  1.38it/s]
 
-Running batch inference:  14%|█▍        | 3/21 [00:01&lt;00:11,  1.62it/s]
+Running batch inference:  14%|█▍        | 3/21 [00:02&lt;00:12,  1.41it/s]
 
-Running batch inference:  19%|█▉        | 4/21 [00:02&lt;00:10,  1.56it/s]
+Running batch inference:  19%|█▉        | 4/21 [00:02&lt;00:12,  1.37it/s]
 
-Running batch inference:  24%|██▍       | 5/21 [00:03&lt;00:09,  1.62it/s]
+Running batch inference:  24%|██▍       | 5/21 [00:03&lt;00:11,  1.43it/s]
 
-Running batch inference:  29%|██▊       | 6/21 [00:03&lt;00:08,  1.67it/s]
+Running batch inference:  29%|██▊       | 6/21 [00:04&lt;00:10,  1.45it/s]
 
-Running batch inference:  33%|███▎      | 7/21 [00:04&lt;00:08,  1.69it/s]
+Running batch inference:  33%|███▎      | 7/21 [00:04&lt;00:09,  1.48it/s]
 
-Running batch inference:  38%|███▊      | 8/21 [00:04&lt;00:07,  1.72it/s]
+Running batch inference:  38%|███▊      | 8/21 [00:05&lt;00:08,  1.45it/s]
 
-Running batch inference:  43%|████▎     | 9/21 [00:05&lt;00:06,  1.76it/s]
+Running batch inference:  43%|████▎     | 9/21 [00:06&lt;00:08,  1.44it/s]
 
-Running batch inference:  48%|████▊     | 10/21 [00:05&lt;00:06,  1.74it/s]
+Running batch inference:  48%|████▊     | 10/21 [00:07&lt;00:07,  1.42it/s]
 
-Running batch inference:  52%|█████▏    | 11/21 [00:06&lt;00:05,  1.75it/s]
+Running batch inference:  52%|█████▏    | 11/21 [00:07&lt;00:06,  1.45it/s]
 
-Running batch inference:  57%|█████▋    | 12/21 [00:07&lt;00:05,  1.71it/s]
+Running batch inference:  57%|█████▋    | 12/21 [00:08&lt;00:06,  1.45it/s]
 
-Running batch inference:  62%|██████▏   | 13/21 [00:07&lt;00:04,  1.72it/s]
+Running batch inference:  62%|██████▏   | 13/21 [00:09&lt;00:05,  1.47it/s]
 
-Running batch inference:  67%|██████▋   | 14/21 [00:08&lt;00:04,  1.69it/s]
+Running batch inference:  67%|██████▋   | 14/21 [00:09&lt;00:04,  1.44it/s]
 
-Running batch inference:  71%|███████▏  | 15/21 [00:08&lt;00:03,  1.74it/s]
+Running batch inference:  71%|███████▏  | 15/21 [00:10&lt;00:04,  1.46it/s]
 
-Running batch inference:  76%|███████▌  | 16/21 [00:09&lt;00:02,  1.71it/s]
+Running batch inference:  76%|███████▌  | 16/21 [00:11&lt;00:03,  1.47it/s]
 
-Running batch inference:  81%|████████  | 17/21 [00:09&lt;00:02,  1.73it/s]
+Running batch inference:  81%|████████  | 17/21 [00:11&lt;00:02,  1.54it/s]
 
-Running batch inference:  86%|████████▌ | 18/21 [00:10&lt;00:01,  1.64it/s]
+Running batch inference:  86%|████████▌ | 18/21 [00:12&lt;00:02,  1.49it/s]
 
-Running batch inference:  90%|█████████ | 19/21 [00:11&lt;00:01,  1.67it/s]
+Running batch inference:  90%|█████████ | 19/21 [00:12&lt;00:01,  1.53it/s]
 
-Running batch inference:  95%|█████████▌| 20/21 [00:11&lt;00:00,  1.68it/s]
+Running batch inference:  95%|█████████▌| 20/21 [00:13&lt;00:00,  1.50it/s]
 
-Running batch inference: 100%|██████████| 21/21 [00:12&lt;00:00,  1.67it/s]</code></pre></details>
+Running batch inference: 100%|██████████| 21/21 [00:14&lt;00:00,  1.55it/s]</code></pre></details>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">In memory zarr store inference time: </span><span class="si">{</span><span class="n">zarr_memory_clock</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre><code>In memory zarr store inference time: 12.965675592422485s</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre><code>In memory zarr store inference time: 14.783785343170166s</code></pre></details>
 
 <h2 id="compressed-local-async-zarr-io">Compressed Local Async Zarr IO<a class="headerlink" href="#compressed-local-async-zarr-io" title="Permanent link">&para;</a></h2>
 <p>The async Zarr IO backend is an advanced IO backend designed to offer async
@@ -3266,65 +3264,65 @@ Typically this might be <code>time</code>, <code>lead_time</code> and <code>ense
 <a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="n">zarr_async_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>52 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.38it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 36.57it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.88it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 30.70it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.99it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 34.76it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.96it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 41.47it/s]
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
-Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:05,  3.77it/s]
+Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:04,  4.38it/s]
 
-Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:06,  2.82it/s]
+Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:06,  3.10it/s]
 
-Running batch inference:  14%|█▍        | 3/21 [00:01&lt;00:06,  2.71it/s]
+Running batch inference:  14%|█▍        | 3/21 [00:00&lt;00:06,  2.91it/s]
 
-Running batch inference:  19%|█▉        | 4/21 [00:01&lt;00:06,  2.54it/s]
+Running batch inference:  19%|█▉        | 4/21 [00:01&lt;00:06,  2.71it/s]
 
-Running batch inference:  24%|██▍       | 5/21 [00:01&lt;00:06,  2.54it/s]
+Running batch inference:  24%|██▍       | 5/21 [00:01&lt;00:05,  2.73it/s]
 
-Running batch inference:  29%|██▊       | 6/21 [00:02&lt;00:06,  2.47it/s]
+Running batch inference:  29%|██▊       | 6/21 [00:02&lt;00:05,  2.64it/s]
 
-Running batch inference:  33%|███▎      | 7/21 [00:02&lt;00:05,  2.54it/s]
+Running batch inference:  33%|███▎      | 7/21 [00:02&lt;00:04,  2.81it/s]
 
-Running batch inference:  38%|███▊      | 8/21 [00:03&lt;00:05,  2.46it/s]
+Running batch inference:  38%|███▊      | 8/21 [00:02&lt;00:04,  2.68it/s]
 
-Running batch inference:  43%|████▎     | 9/21 [00:03&lt;00:04,  2.61it/s]
+Running batch inference:  43%|████▎     | 9/21 [00:03&lt;00:04,  2.83it/s]
 
-Running batch inference:  48%|████▊     | 10/21 [00:03&lt;00:04,  2.49it/s]
+Running batch inference:  48%|████▊     | 10/21 [00:03&lt;00:04,  2.71it/s]
 
-Running batch inference:  52%|█████▏    | 11/21 [00:04&lt;00:03,  2.57it/s]
+Running batch inference:  52%|█████▏    | 11/21 [00:03&lt;00:03,  2.82it/s]
 
-Running batch inference:  57%|█████▋    | 12/21 [00:04&lt;00:03,  2.52it/s]
+Running batch inference:  57%|█████▋    | 12/21 [00:04&lt;00:03,  2.67it/s]
 
-Running batch inference:  62%|██████▏   | 13/21 [00:05&lt;00:03,  2.63it/s]
+Running batch inference:  62%|██████▏   | 13/21 [00:04&lt;00:02,  2.72it/s]
 
-Running batch inference:  67%|██████▋   | 14/21 [00:05&lt;00:02,  2.62it/s]
+Running batch inference:  67%|██████▋   | 14/21 [00:05&lt;00:02,  2.65it/s]
 
-Running batch inference:  71%|███████▏  | 15/21 [00:05&lt;00:02,  2.68it/s]
+Running batch inference:  71%|███████▏  | 15/21 [00:05&lt;00:02,  2.70it/s]
 
-Running batch inference:  76%|███████▌  | 16/21 [00:06&lt;00:01,  2.64it/s]
+Running batch inference:  76%|███████▌  | 16/21 [00:05&lt;00:01,  2.72it/s]
 
-Running batch inference:  81%|████████  | 17/21 [00:06&lt;00:01,  2.70it/s]
+Running batch inference:  81%|████████  | 17/21 [00:06&lt;00:01,  2.81it/s]
 
-Running batch inference:  86%|████████▌ | 18/21 [00:06&lt;00:01,  2.62it/s]
+Running batch inference:  86%|████████▌ | 18/21 [00:06&lt;00:01,  2.89it/s]
 
-Running batch inference:  90%|█████████ | 19/21 [00:07&lt;00:00,  2.72it/s]
+Running batch inference:  90%|█████████ | 19/21 [00:06&lt;00:00,  2.95it/s]
 
-Running batch inference:  95%|█████████▌| 20/21 [00:07&lt;00:00,  2.63it/s]
+Running batch inference:  95%|█████████▌| 20/21 [00:07&lt;00:00,  3.01it/s]
 
-Running batch inference: 100%|██████████| 21/21 [00:08&lt;00:00,  2.66it/s]</code></pre></details>
+Running batch inference: 100%|██████████| 21/21 [00:07&lt;00:00,  3.17it/s]</code></pre></details>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Async zarr store inference time: </span><span class="si">{</span><span class="n">zarr_async_clock</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nb">print</span><span class="p">(</span>
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="sa">f</span><span class="s2">&quot;Compressed async zarr store size: </span><span class="si">{</span><span class="n">get_folder_size</span><span class="p">(</span><span class="s1">&#39;outputs/17_io_async.zarr&#39;</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span>
 <a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Async zarr store inference time: 8.648515462875366s
-Compressed async zarr store size: 394.37 MB</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Async zarr store inference time: 7.988466262817383s
+Compressed async zarr store size: 394.38 MB</code></pre></details>
 
 <h2 id="compressed-local-non-blocking-async-zarr-io">Compressed Local Non-Blocking Async Zarr IO<a class="headerlink" href="#compressed-local-non-blocking-async-zarr-io" title="Permanent link">&para;</a></h2>
 <p>That was faster than the normal Zarr method, even the uncompressed version making it
@@ -3351,35 +3349,35 @@ compression!</p>
 <a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="n">zarr_nonblocking_async_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>30 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.44it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 36.58it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.42it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 35.86it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.47it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 37.18it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.22it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 36.36it/s]
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
-Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:02,  8.86it/s]
+Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:02,  6.98it/s]
 
-Running batch inference:  19%|█▉        | 4/21 [00:00&lt;00:02,  6.14it/s]
+Running batch inference:  19%|█▉        | 4/21 [00:00&lt;00:03,  5.64it/s]
 
-Running batch inference:  29%|██▊       | 6/21 [00:01&lt;00:02,  5.66it/s]
+Running batch inference:  29%|██▊       | 6/21 [00:01&lt;00:02,  5.19it/s]
 
-Running batch inference:  38%|███▊      | 8/21 [00:01&lt;00:02,  5.47it/s]
+Running batch inference:  38%|███▊      | 8/21 [00:01&lt;00:02,  5.44it/s]
 
-Running batch inference:  48%|████▊     | 10/21 [00:01&lt;00:02,  5.25it/s]
+Running batch inference:  48%|████▊     | 10/21 [00:01&lt;00:02,  5.11it/s]
 
-Running batch inference:  57%|█████▋    | 12/21 [00:02&lt;00:01,  5.24it/s]
+Running batch inference:  57%|█████▋    | 12/21 [00:02&lt;00:01,  5.32it/s]
 
-Running batch inference:  67%|██████▋   | 14/21 [00:02&lt;00:01,  5.37it/s]
+Running batch inference:  67%|██████▋   | 14/21 [00:02&lt;00:01,  5.61it/s]
 
-Running batch inference:  76%|███████▌  | 16/21 [00:02&lt;00:00,  5.09it/s]
+Running batch inference:  76%|███████▌  | 16/21 [00:02&lt;00:00,  5.66it/s]
 
-Running batch inference:  86%|████████▌ | 18/21 [00:03&lt;00:00,  5.28it/s]
+Running batch inference:  86%|████████▌ | 18/21 [00:03&lt;00:00,  5.80it/s]
 
-Running batch inference:  95%|█████████▌| 20/21 [00:03&lt;00:00,  5.01it/s]</code></pre></details>
+Running batch inference:  95%|█████████▌| 20/21 [00:03&lt;00:00,  5.51it/s]</code></pre></details>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nb">print</span><span class="p">(</span>
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Non-blocking async zarr store inference time: </span><span class="si">{</span><span class="n">zarr_nonblocking_async_clock</span><span class="si">}</span><span class="s2">s&quot;</span>
@@ -3388,8 +3386,8 @@ Running batch inference:  95%|█████████▌| 20/21 [00:03&lt;00
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="sa">f</span><span class="s2">&quot;Compressed non-blocking async zarr store size: </span><span class="si">{</span><span class="n">get_folder_size</span><span class="p">(</span><span class="s1">&#39;outputs/17_io_nonblocking_async.zarr&#39;</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span>
 <a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Non-blocking async zarr store inference time: 4.595767259597778s
-Compressed non-blocking async zarr store size: 394.38 MB</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Non-blocking async zarr store inference time: 4.437672853469849s
+Compressed non-blocking async zarr store size: 394.37 MB</code></pre></details>
 
 <h2 id="remote-non-blocking-async-zarr-io">Remote Non-Blocking Async Zarr IO<a class="headerlink" href="#remote-non-blocking-async-zarr-io" title="Permanent link">&para;</a></h2>
 <p>This IO backend can be further customized by changing the Fsspec Filesystem used by
@@ -3490,9 +3488,9 @@ the same.</p>
 </code></pre></div>
 <p><img alt="Output from IO Backend Performance" class="e2sg-output-image" loading="lazy" src="../../_assets/07_misc-03_io_performance/001-cell-27.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-03_io_performance/03_io_performance.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-03_io_performance/03_io_performance.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 105.5s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-03_io_performance/03_io_performance.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-03_io_performance/03_io_performance.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 108.3s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 45s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 48s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

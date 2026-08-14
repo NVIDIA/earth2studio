@@ -2768,7 +2768,7 @@ fields interpolated to the HRRR grid. An analysis source such as
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="c1"># Create the IO handler, store in memory</span>
 <a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>393 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>350 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -2779,388 +2779,345 @@ WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built f
 CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature
 
 Downloading config.json: 0%|          | 0.00/37.0 [00:00&lt;?, ?B/s]
-Downloading config.json: 100%|██████████| 37.0/37.0 [00:00&lt;00:00, 231B/s]
-Downloading config.json: 100%|██████████| 37.0/37.0 [00:00&lt;00:00, 228B/s]
+Downloading config.json: 100%|██████████| 37.0/37.0 [00:00&lt;00:00, 215B/s]
+Downloading config.json: 100%|██████████| 37.0/37.0 [00:00&lt;00:00, 212B/s]
 
 Downloading model.yaml: 0%|          | 0.00/122 [00:00&lt;?, ?B/s]
-Downloading model.yaml: 100%|██████████| 122/122 [00:00&lt;00:00, 560B/s]
-Downloading model.yaml: 100%|██████████| 122/122 [00:00&lt;00:00, 554B/s]
+Downloading model.yaml: 100%|██████████| 122/122 [00:00&lt;00:00, 834B/s]
+Downloading model.yaml: 100%|██████████| 122/122 [00:00&lt;00:00, 826B/s]
 
 Downloading StormCastCONUS-high.mdlus: 0%|          | 0.00/0.99G [00:00&lt;?, ?B/s]
-Downloading StormCastCONUS-high.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;02:09, 8.12MB/s]
-Downloading StormCastCONUS-high.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;01:02, 16.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 3%|▎         | 30.0M/0.99G [00:01&lt;00:46, 22.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 4%|▍         | 40.0M/0.99G [00:02&lt;00:42, 24.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 5%|▍         | 50.0M/0.99G [00:02&lt;00:34, 29.2MB/s]
-Downloading StormCastCONUS-high.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:28, 35.4MB/s]
-Downloading StormCastCONUS-high.mdlus: 7%|▋         | 70.0M/0.99G [00:02&lt;00:29, 33.2MB/s]
-Downloading StormCastCONUS-high.mdlus: 8%|▊         | 80.0M/0.99G [00:03&lt;00:25, 38.1MB/s]
-Downloading StormCastCONUS-high.mdlus: 9%|▉         | 90.0M/0.99G [00:03&lt;00:24, 39.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 10%|▉         | 100M/0.99G [00:03&lt;00:22, 41.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 11%|█         | 110M/0.99G [00:03&lt;00:23, 40.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 12%|█▏        | 120M/0.99G [00:04&lt;00:22, 41.9MB/s]
-Downloading StormCastCONUS-high.mdlus: 13%|█▎        | 130M/0.99G [00:04&lt;00:22, 40.3MB/s]
-Downloading StormCastCONUS-high.mdlus: 14%|█▍        | 140M/0.99G [00:04&lt;00:19, 46.8MB/s]
-Downloading StormCastCONUS-high.mdlus: 15%|█▍        | 150M/0.99G [00:04&lt;00:20, 45.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 16%|█▌        | 160M/0.99G [00:04&lt;00:17, 51.5MB/s]
-Downloading StormCastCONUS-high.mdlus: 17%|█▋        | 170M/0.99G [00:05&lt;00:17, 52.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 18%|█▊        | 180M/0.99G [00:05&lt;00:15, 54.9MB/s]
-Downloading StormCastCONUS-high.mdlus: 19%|█▊        | 190M/0.99G [00:05&lt;00:17, 49.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 20%|█▉        | 200M/0.99G [00:05&lt;00:18, 45.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 21%|██        | 210M/0.99G [00:05&lt;00:17, 47.8MB/s]
-Downloading StormCastCONUS-high.mdlus: 22%|██▏       | 220M/0.99G [00:06&lt;00:16, 50.5MB/s]
-Downloading StormCastCONUS-high.mdlus: 23%|██▎       | 230M/0.99G [00:06&lt;00:15, 52.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 24%|██▎       | 240M/0.99G [00:06&lt;00:14, 56.2MB/s]
-Downloading StormCastCONUS-high.mdlus: 25%|██▍       | 250M/0.99G [00:06&lt;00:14, 54.2MB/s]
-Downloading StormCastCONUS-high.mdlus: 26%|██▌       | 260M/0.99G [00:07&lt;00:17, 44.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 27%|██▋       | 270M/0.99G [00:07&lt;00:16, 46.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 28%|██▊       | 280M/0.99G [00:07&lt;00:15, 48.2MB/s]
-Downloading StormCastCONUS-high.mdlus: 29%|██▊       | 290M/0.99G [00:07&lt;00:15, 49.1MB/s]
-Downloading StormCastCONUS-high.mdlus: 30%|██▉       | 300M/0.99G [00:07&lt;00:16, 45.3MB/s]
-Downloading StormCastCONUS-high.mdlus: 31%|███       | 310M/0.99G [00:08&lt;00:16, 44.8MB/s]
-Downloading StormCastCONUS-high.mdlus: 32%|███▏      | 320M/0.99G [00:08&lt;00:20, 36.2MB/s]
-Downloading StormCastCONUS-high.mdlus: 33%|███▎      | 330M/0.99G [00:08&lt;00:19, 36.3MB/s]
-Downloading StormCastCONUS-high.mdlus: 34%|███▎      | 340M/0.99G [00:09&lt;00:18, 37.3MB/s]
-Downloading StormCastCONUS-high.mdlus: 35%|███▍      | 350M/0.99G [00:09&lt;00:16, 41.9MB/s]
-Downloading StormCastCONUS-high.mdlus: 36%|███▌      | 360M/0.99G [00:09&lt;00:18, 36.5MB/s]
-Downloading StormCastCONUS-high.mdlus: 37%|███▋      | 370M/0.99G [00:09&lt;00:18, 36.1MB/s]
-Downloading StormCastCONUS-high.mdlus: 37%|███▋      | 380M/0.99G [00:10&lt;00:15, 42.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 38%|███▊      | 390M/0.99G [00:10&lt;00:16, 40.1MB/s]
-Downloading StormCastCONUS-high.mdlus: 39%|███▉      | 400M/0.99G [00:10&lt;00:13, 47.1MB/s]
-Downloading StormCastCONUS-high.mdlus: 40%|████      | 410M/0.99G [00:10&lt;00:14, 44.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 41%|████▏     | 420M/0.99G [00:11&lt;00:14, 41.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 42%|████▏     | 430M/0.99G [00:11&lt;00:12, 48.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 43%|████▎     | 440M/0.99G [00:11&lt;00:13, 44.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 44%|████▍     | 450M/0.99G [00:11&lt;00:16, 36.1MB/s]
-Downloading StormCastCONUS-high.mdlus: 45%|████▌     | 460M/0.99G [00:12&lt;00:13, 41.8MB/s]
-Downloading StormCastCONUS-high.mdlus: 46%|████▋     | 470M/0.99G [00:12&lt;00:12, 45.6MB/s]
-Downloading StormCastCONUS-high.mdlus: 47%|████▋     | 480M/0.99G [00:12&lt;00:11, 50.6MB/s]
-Downloading StormCastCONUS-high.mdlus: 48%|████▊     | 490M/0.99G [00:12&lt;00:11, 46.5MB/s]
-Downloading StormCastCONUS-high.mdlus: 49%|████▉     | 500M/0.99G [00:12&lt;00:11, 48.3MB/s]
-Downloading StormCastCONUS-high.mdlus: 50%|█████     | 510M/0.99G [00:13&lt;00:11, 44.5MB/s]
-Downloading StormCastCONUS-high.mdlus: 51%|█████▏    | 520M/0.99G [00:13&lt;00:13, 38.8MB/s]
-Downloading StormCastCONUS-high.mdlus: 52%|█████▏    | 530M/0.99G [00:13&lt;00:13, 38.9MB/s]
-Downloading StormCastCONUS-high.mdlus: 53%|█████▎    | 540M/0.99G [00:13&lt;00:12, 40.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 54%|█████▍    | 550M/0.99G [00:14&lt;00:10, 47.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 55%|█████▌    | 560M/0.99G [00:14&lt;00:10, 46.5MB/s]
-Downloading StormCastCONUS-high.mdlus: 56%|█████▌    | 570M/0.99G [00:14&lt;00:13, 35.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 57%|█████▋    | 580M/0.99G [00:15&lt;00:15, 30.1MB/s]
-Downloading StormCastCONUS-high.mdlus: 58%|█████▊    | 590M/0.99G [00:15&lt;00:13, 33.8MB/s]
-Downloading StormCastCONUS-high.mdlus: 59%|█████▉    | 600M/0.99G [00:15&lt;00:11, 37.6MB/s]
-Downloading StormCastCONUS-high.mdlus: 60%|██████    | 610M/0.99G [00:15&lt;00:10, 38.8MB/s]
-Downloading StormCastCONUS-high.mdlus: 61%|██████    | 620M/0.99G [00:16&lt;00:12, 34.4MB/s]
-Downloading StormCastCONUS-high.mdlus: 62%|██████▏   | 630M/0.99G [00:16&lt;00:10, 36.6MB/s]
-Downloading StormCastCONUS-high.mdlus: 63%|██████▎   | 640M/0.99G [00:17&lt;00:14, 27.4MB/s]
-Downloading StormCastCONUS-high.mdlus: 64%|██████▍   | 650M/0.99G [00:17&lt;00:12, 31.5MB/s]
-Downloading StormCastCONUS-high.mdlus: 65%|██████▌   | 660M/0.99G [00:17&lt;00:10, 34.3MB/s]
-Downloading StormCastCONUS-high.mdlus: 66%|██████▌   | 670M/0.99G [00:17&lt;00:09, 37.1MB/s]
-Downloading StormCastCONUS-high.mdlus: 67%|██████▋   | 680M/0.99G [00:18&lt;00:09, 38.2MB/s]
-Downloading StormCastCONUS-high.mdlus: 68%|██████▊   | 690M/0.99G [00:18&lt;00:08, 40.5MB/s]
-Downloading StormCastCONUS-high.mdlus: 69%|██████▉   | 700M/0.99G [00:18&lt;00:07, 42.1MB/s]
-Downloading StormCastCONUS-high.mdlus: 70%|███████   | 710M/0.99G [00:19&lt;00:09, 33.5MB/s]
-Downloading StormCastCONUS-high.mdlus: 71%|███████   | 720M/0.99G [00:19&lt;00:08, 38.3MB/s]
-Downloading StormCastCONUS-high.mdlus: 72%|███████▏  | 730M/0.99G [00:19&lt;00:08, 36.6MB/s]
-Downloading StormCastCONUS-high.mdlus: 73%|███████▎  | 740M/0.99G [00:19&lt;00:07, 37.9MB/s]
-Downloading StormCastCONUS-high.mdlus: 74%|███████▍  | 750M/0.99G [00:20&lt;00:06, 41.6MB/s]
-Downloading StormCastCONUS-high.mdlus: 75%|███████▍  | 760M/0.99G [00:20&lt;00:06, 41.6MB/s]
-Downloading StormCastCONUS-high.mdlus: 76%|███████▌  | 770M/0.99G [00:20&lt;00:06, 40.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 77%|███████▋  | 780M/0.99G [00:20&lt;00:05, 41.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 78%|███████▊  | 790M/0.99G [00:21&lt;00:05, 42.9MB/s]
-Downloading StormCastCONUS-high.mdlus: 79%|███████▉  | 800M/0.99G [00:21&lt;00:05, 38.5MB/s]
-Downloading StormCastCONUS-high.mdlus: 80%|███████▉  | 810M/0.99G [00:21&lt;00:05, 40.3MB/s]
-Downloading StormCastCONUS-high.mdlus: 81%|████████  | 820M/0.99G [00:21&lt;00:04, 44.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 82%|████████▏ | 830M/0.99G [00:21&lt;00:03, 48.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 83%|████████▎ | 840M/0.99G [00:22&lt;00:03, 47.3MB/s]
-Downloading StormCastCONUS-high.mdlus: 84%|████████▍ | 850M/0.99G [00:22&lt;00:03, 50.9MB/s]
-Downloading StormCastCONUS-high.mdlus: 85%|████████▍ | 860M/0.99G [00:22&lt;00:02, 55.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 86%|████████▌ | 870M/0.99G [00:22&lt;00:02, 55.4MB/s]
-Downloading StormCastCONUS-high.mdlus: 87%|████████▋ | 880M/0.99G [00:23&lt;00:03, 39.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 89%|████████▉ | 900M/0.99G [00:23&lt;00:02, 46.8MB/s]
-Downloading StormCastCONUS-high.mdlus: 90%|████████▉ | 910M/0.99G [00:23&lt;00:02, 50.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 91%|█████████ | 920M/0.99G [00:23&lt;00:01, 50.7MB/s]
-Downloading StormCastCONUS-high.mdlus: 92%|█████████▏| 930M/0.99G [00:23&lt;00:01, 54.6MB/s]
-Downloading StormCastCONUS-high.mdlus: 93%|█████████▎| 940M/0.99G [00:24&lt;00:01, 49.9MB/s]
-Downloading StormCastCONUS-high.mdlus: 94%|█████████▎| 950M/0.99G [00:24&lt;00:01, 48.3MB/s]
-Downloading StormCastCONUS-high.mdlus: 95%|█████████▍| 960M/0.99G [00:24&lt;00:01, 40.0MB/s]
-Downloading StormCastCONUS-high.mdlus: 96%|█████████▌| 970M/0.99G [00:25&lt;00:01, 39.2MB/s]
-Downloading StormCastCONUS-high.mdlus: 97%|█████████▋| 980M/0.99G [00:25&lt;00:00, 38.1MB/s]
-Downloading StormCastCONUS-high.mdlus: 98%|█████████▊| 990M/0.99G [00:25&lt;00:00, 42.1MB/s]
-Downloading StormCastCONUS-high.mdlus: 99%|█████████▊| 0.98G/0.99G [00:26&lt;00:00, 35.4MB/s]
-Downloading StormCastCONUS-high.mdlus: 100%|█████████▉| 0.99G/0.99G [00:26&lt;00:00, 41.3MB/s]
-Downloading StormCastCONUS-high.mdlus: 100%|██████████| 0.99G/0.99G [00:26&lt;00:00, 40.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;02:23, 7.33MB/s]
+Downloading StormCastCONUS-high.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;01:12, 14.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 3%|▎         | 30.0M/0.99G [00:02&lt;00:56, 18.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 4%|▍         | 40.0M/0.99G [00:02&lt;00:48, 21.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 5%|▍         | 50.0M/0.99G [00:02&lt;00:42, 23.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 6%|▌         | 60.0M/0.99G [00:03&lt;00:37, 26.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 7%|▋         | 70.0M/0.99G [00:03&lt;00:38, 25.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 8%|▊         | 80.0M/0.99G [00:04&lt;00:40, 24.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 9%|▉         | 90.0M/0.99G [00:04&lt;00:31, 31.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 10%|▉         | 100M/0.99G [00:04&lt;00:30, 31.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 11%|█         | 110M/0.99G [00:04&lt;00:30, 30.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 12%|█▏        | 120M/0.99G [00:05&lt;00:30, 30.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 13%|█▎        | 130M/0.99G [00:05&lt;00:32, 29.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 14%|█▍        | 140M/0.99G [00:05&lt;00:30, 30.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 15%|█▍        | 150M/0.99G [00:06&lt;00:29, 30.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 16%|█▌        | 160M/0.99G [00:06&lt;00:27, 32.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 17%|█▋        | 170M/0.99G [00:06&lt;00:28, 31.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 18%|█▊        | 180M/0.99G [00:07&lt;00:24, 35.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 19%|█▊        | 190M/0.99G [00:07&lt;00:27, 31.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 20%|█▉        | 200M/0.99G [00:08&lt;00:32, 26.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 21%|██        | 210M/0.99G [00:08&lt;00:26, 31.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 22%|██▏       | 220M/0.99G [00:08&lt;00:24, 34.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 23%|██▎       | 230M/0.99G [00:08&lt;00:24, 33.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 24%|██▎       | 240M/0.99G [00:09&lt;00:23, 35.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 25%|██▍       | 250M/0.99G [00:09&lt;00:20, 38.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 26%|██▌       | 260M/0.99G [00:09&lt;00:22, 35.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 27%|██▋       | 270M/0.99G [00:09&lt;00:19, 39.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 28%|██▊       | 280M/0.99G [00:10&lt;00:19, 39.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 29%|██▊       | 290M/0.99G [00:10&lt;00:16, 45.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 30%|██▉       | 300M/0.99G [00:10&lt;00:16, 44.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 31%|███       | 310M/0.99G [00:10&lt;00:14, 49.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 32%|███▏      | 320M/0.99G [00:10&lt;00:16, 43.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 33%|███▎      | 330M/0.99G [00:11&lt;00:13, 51.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 34%|███▎      | 340M/0.99G [00:11&lt;00:15, 45.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 35%|███▍      | 350M/0.99G [00:11&lt;00:13, 52.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 36%|███▌      | 360M/0.99G [00:11&lt;00:13, 50.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 37%|███▋      | 370M/0.99G [00:11&lt;00:11, 57.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 37%|███▋      | 380M/0.99G [00:12&lt;00:12, 54.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 38%|███▊      | 390M/0.99G [00:12&lt;00:16, 40.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 39%|███▉      | 400M/0.99G [00:12&lt;00:17, 37.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 41%|████▏     | 420M/0.99G [00:13&lt;00:12, 50.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 42%|████▏     | 430M/0.99G [00:13&lt;00:12, 49.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 43%|████▎     | 440M/0.99G [00:13&lt;00:12, 46.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 44%|████▍     | 450M/0.99G [00:13&lt;00:14, 40.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 45%|████▌     | 460M/0.99G [00:14&lt;00:12, 45.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 46%|████▋     | 470M/0.99G [00:14&lt;00:11, 49.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 47%|████▋     | 480M/0.99G [00:14&lt;00:11, 50.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 48%|████▊     | 490M/0.99G [00:14&lt;00:10, 50.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 49%|████▉     | 500M/0.99G [00:14&lt;00:11, 46.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 50%|█████     | 510M/0.99G [00:15&lt;00:12, 41.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 51%|█████▏    | 520M/0.99G [00:15&lt;00:13, 39.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 52%|█████▏    | 530M/0.99G [00:15&lt;00:11, 44.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 53%|█████▎    | 540M/0.99G [00:15&lt;00:09, 51.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 54%|█████▍    | 550M/0.99G [00:16&lt;00:10, 48.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 56%|█████▌    | 570M/0.99G [00:16&lt;00:08, 57.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 57%|█████▋    | 580M/0.99G [00:16&lt;00:09, 49.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 58%|█████▊    | 590M/0.99G [00:16&lt;00:08, 51.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 59%|█████▉    | 600M/0.99G [00:16&lt;00:07, 54.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 60%|██████    | 610M/0.99G [00:17&lt;00:07, 60.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 61%|██████    | 620M/0.99G [00:17&lt;00:06, 67.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 63%|██████▎   | 640M/0.99G [00:17&lt;00:06, 61.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 64%|██████▍   | 650M/0.99G [00:17&lt;00:05, 66.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 65%|██████▌   | 660M/0.99G [00:17&lt;00:05, 65.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 67%|██████▋   | 680M/0.99G [00:18&lt;00:04, 72.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 68%|██████▊   | 690M/0.99G [00:18&lt;00:04, 77.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 69%|██████▉   | 700M/0.99G [00:18&lt;00:05, 61.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 70%|███████   | 710M/0.99G [00:18&lt;00:05, 56.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 71%|███████   | 720M/0.99G [00:18&lt;00:05, 58.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 72%|███████▏  | 730M/0.99G [00:19&lt;00:04, 61.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 73%|███████▎  | 740M/0.99G [00:19&lt;00:06, 46.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 74%|███████▍  | 750M/0.99G [00:19&lt;00:05, 53.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 75%|███████▍  | 760M/0.99G [00:19&lt;00:04, 56.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 76%|███████▌  | 770M/0.99G [00:19&lt;00:05, 51.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 78%|███████▊  | 790M/0.99G [00:20&lt;00:03, 61.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 79%|███████▉  | 800M/0.99G [00:20&lt;00:03, 63.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 80%|███████▉  | 810M/0.99G [00:20&lt;00:03, 68.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 82%|████████▏ | 830M/0.99G [00:20&lt;00:03, 56.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 83%|████████▎ | 840M/0.99G [00:21&lt;00:03, 55.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 84%|████████▍ | 850M/0.99G [00:21&lt;00:02, 62.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 86%|████████▌ | 870M/0.99G [00:21&lt;00:01, 77.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 88%|████████▊ | 890M/0.99G [00:21&lt;00:01, 88.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 89%|████████▉ | 900M/0.99G [00:21&lt;00:01, 70.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 91%|█████████ | 920M/0.99G [00:22&lt;00:01, 74.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 93%|█████████▎| 940M/0.99G [00:22&lt;00:01, 70.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 94%|█████████▎| 950M/0.99G [00:22&lt;00:00, 72.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 95%|█████████▍| 960M/0.99G [00:22&lt;00:00, 57.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 97%|█████████▋| 980M/0.99G [00:23&lt;00:00, 60.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 99%|█████████▊| 0.98G/0.99G [00:23&lt;00:00, 69.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 100%|█████████▉| 0.99G/0.99G [00:23&lt;00:00, 73.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 100%|██████████| 0.99G/0.99G [00:23&lt;00:00, 45.1MB/s]
 
 Downloading StormCastCONUS-pz-low.mdlus: 0%|          | 0.00/0.99G [00:00&lt;?, ?B/s]
-Downloading StormCastCONUS-pz-low.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;02:01, 8.65MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;01:00, 17.1MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 3%|▎         | 30.0M/0.99G [00:01&lt;00:38, 26.5MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 4%|▍         | 40.0M/0.99G [00:01&lt;00:29, 34.6MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 5%|▍         | 50.0M/0.99G [00:01&lt;00:24, 40.8MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:24, 40.6MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 7%|▋         | 70.0M/0.99G [00:02&lt;00:25, 39.3MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 8%|▊         | 80.0M/0.99G [00:02&lt;00:22, 43.9MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 9%|▉         | 90.0M/0.99G [00:02&lt;00:19, 49.4MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 10%|▉         | 100M/0.99G [00:02&lt;00:17, 53.9MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 11%|█         | 110M/0.99G [00:03&lt;00:15, 60.2MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 12%|█▏        | 120M/0.99G [00:03&lt;00:15, 60.3MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 13%|█▎        | 130M/0.99G [00:03&lt;00:19, 48.6MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 14%|█▍        | 140M/0.99G [00:03&lt;00:16, 57.0MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 15%|█▍        | 150M/0.99G [00:04&lt;00:23, 38.9MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 16%|█▌        | 160M/0.99G [00:04&lt;00:18, 48.0MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 18%|█▊        | 180M/0.99G [00:04&lt;00:12, 67.5MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 19%|█▊        | 190M/0.99G [00:04&lt;00:12, 69.7MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 20%|█▉        | 200M/0.99G [00:04&lt;00:16, 53.2MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 21%|██        | 210M/0.99G [00:05&lt;00:15, 55.3MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 22%|██▏       | 220M/0.99G [00:05&lt;00:13, 63.3MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 23%|██▎       | 230M/0.99G [00:05&lt;00:13, 61.9MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 25%|██▍       | 250M/0.99G [00:05&lt;00:10, 76.4MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 26%|██▌       | 260M/0.99G [00:05&lt;00:14, 55.6MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 28%|██▊       | 280M/0.99G [00:06&lt;00:12, 60.0MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 30%|██▉       | 300M/0.99G [00:06&lt;00:11, 66.6MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 31%|███       | 310M/0.99G [00:06&lt;00:14, 49.3MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 32%|███▏      | 320M/0.99G [00:06&lt;00:13, 53.7MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 34%|███▎      | 340M/0.99G [00:07&lt;00:09, 70.7MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 36%|███▌      | 360M/0.99G [00:07&lt;00:14, 47.0MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 37%|███▋      | 380M/0.99G [00:07&lt;00:11, 60.3MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 38%|███▊      | 390M/0.99G [00:08&lt;00:10, 59.8MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 40%|████      | 410M/0.99G [00:08&lt;00:10, 61.2MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 41%|████▏     | 420M/0.99G [00:08&lt;00:09, 62.5MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 43%|████▎     | 440M/0.99G [00:08&lt;00:08, 69.2MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 44%|████▍     | 450M/0.99G [00:09&lt;00:09, 60.3MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 45%|████▌     | 460M/0.99G [00:09&lt;00:09, 59.2MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 46%|████▋     | 470M/0.99G [00:09&lt;00:10, 55.4MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 48%|████▊     | 490M/0.99G [00:09&lt;00:09, 56.1MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 49%|████▉     | 500M/0.99G [00:10&lt;00:09, 58.7MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 50%|█████     | 510M/0.99G [00:10&lt;00:10, 51.7MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 51%|█████▏    | 520M/0.99G [00:10&lt;00:09, 52.8MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 52%|█████▏    | 530M/0.99G [00:10&lt;00:11, 45.2MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 53%|█████▎    | 540M/0.99G [00:10&lt;00:09, 51.5MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 54%|█████▍    | 550M/0.99G [00:11&lt;00:11, 43.4MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 55%|█████▌    | 560M/0.99G [00:11&lt;00:12, 37.2MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 56%|█████▌    | 570M/0.99G [00:11&lt;00:12, 38.7MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 57%|█████▋    | 580M/0.99G [00:12&lt;00:11, 38.1MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 59%|█████▉    | 600M/0.99G [00:12&lt;00:08, 53.7MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 61%|██████    | 620M/0.99G [00:12&lt;00:06, 62.7MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 62%|██████▏   | 630M/0.99G [00:12&lt;00:06, 61.7MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 63%|██████▎   | 640M/0.99G [00:13&lt;00:06, 57.7MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 64%|██████▍   | 650M/0.99G [00:13&lt;00:06, 56.8MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 65%|██████▌   | 660M/0.99G [00:13&lt;00:05, 62.1MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 67%|██████▋   | 680M/0.99G [00:13&lt;00:04, 75.8MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 69%|██████▉   | 700M/0.99G [00:13&lt;00:04, 78.6MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 70%|███████   | 710M/0.99G [00:14&lt;00:04, 68.1MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 72%|███████▏  | 730M/0.99G [00:14&lt;00:05, 55.5MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 73%|███████▎  | 740M/0.99G [00:14&lt;00:04, 60.5MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 75%|███████▍  | 760M/0.99G [00:14&lt;00:03, 71.4MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 76%|███████▌  | 770M/0.99G [00:15&lt;00:03, 64.0MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 78%|███████▊  | 790M/0.99G [00:15&lt;00:03, 70.2MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 80%|███████▉  | 810M/0.99G [00:15&lt;00:02, 82.9MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 82%|████████▏ | 830M/0.99G [00:15&lt;00:02, 82.0MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 83%|████████▎ | 840M/0.99G [00:16&lt;00:02, 69.0MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 84%|████████▍ | 850M/0.99G [00:16&lt;00:02, 70.6MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 86%|████████▌ | 870M/0.99G [00:16&lt;00:02, 69.3MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 87%|████████▋ | 880M/0.99G [00:16&lt;00:01, 74.6MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 88%|████████▊ | 890M/0.99G [00:16&lt;00:02, 64.5MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 89%|████████▉ | 900M/0.99G [00:17&lt;00:02, 53.6MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 90%|████████▉ | 910M/0.99G [00:17&lt;00:01, 59.8MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 91%|█████████ | 920M/0.99G [00:17&lt;00:01, 51.8MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 92%|█████████▏| 930M/0.99G [00:17&lt;00:01, 60.2MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 93%|█████████▎| 940M/0.99G [00:17&lt;00:01, 49.8MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 94%|█████████▎| 950M/0.99G [00:18&lt;00:01, 47.5MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 95%|█████████▍| 960M/0.99G [00:18&lt;00:01, 44.0MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 96%|█████████▌| 970M/0.99G [00:18&lt;00:00, 49.1MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 97%|█████████▋| 980M/0.99G [00:18&lt;00:00, 50.3MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 99%|█████████▊| 0.98G/0.99G [00:19&lt;00:00, 62.7MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 100%|█████████▉| 0.99G/0.99G [00:19&lt;00:00, 66.4MB/s]
-Downloading StormCastCONUS-pz-low.mdlus: 100%|██████████| 0.99G/0.99G [00:19&lt;00:00, 55.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;02:26, 7.20MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;01:11, 14.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 3%|▎         | 30.0M/0.99G [00:02&lt;00:56, 18.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 4%|▍         | 40.0M/0.99G [00:02&lt;00:46, 22.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 5%|▍         | 50.0M/0.99G [00:02&lt;00:40, 24.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:35, 27.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 7%|▋         | 70.0M/0.99G [00:03&lt;00:35, 27.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 8%|▊         | 80.0M/0.99G [00:03&lt;00:28, 34.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 9%|▉         | 90.0M/0.99G [00:03&lt;00:28, 34.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 10%|▉         | 100M/0.99G [00:04&lt;00:27, 35.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 11%|█         | 110M/0.99G [00:04&lt;00:24, 38.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 12%|█▏        | 120M/0.99G [00:04&lt;00:20, 44.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 13%|█▎        | 130M/0.99G [00:04&lt;00:22, 41.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 15%|█▍        | 150M/0.99G [00:04&lt;00:15, 60.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 17%|█▋        | 170M/0.99G [00:05&lt;00:13, 67.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 19%|█▊        | 190M/0.99G [00:05&lt;00:11, 72.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 20%|█▉        | 200M/0.99G [00:05&lt;00:12, 67.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 21%|██        | 210M/0.99G [00:05&lt;00:11, 70.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 22%|██▏       | 220M/0.99G [00:05&lt;00:11, 75.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 23%|██▎       | 230M/0.99G [00:06&lt;00:10, 75.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 24%|██▎       | 240M/0.99G [00:06&lt;00:10, 78.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 25%|██▍       | 250M/0.99G [00:06&lt;00:09, 82.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 26%|██▌       | 260M/0.99G [00:06&lt;00:12, 65.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 28%|██▊       | 280M/0.99G [00:06&lt;00:08, 85.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 30%|██▉       | 300M/0.99G [00:06&lt;00:09, 81.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 31%|███       | 310M/0.99G [00:07&lt;00:10, 71.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 32%|███▏      | 320M/0.99G [00:07&lt;00:10, 68.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 34%|███▎      | 340M/0.99G [00:07&lt;00:09, 74.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 36%|███▌      | 360M/0.99G [00:09&lt;00:27, 25.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 37%|███▋      | 380M/0.99G [00:09&lt;00:19, 34.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 38%|███▊      | 390M/0.99G [00:09&lt;00:17, 36.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 39%|███▉      | 400M/0.99G [00:09&lt;00:15, 42.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 40%|████      | 410M/0.99G [00:10&lt;00:13, 45.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 41%|████▏     | 420M/0.99G [00:10&lt;00:13, 45.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 42%|████▏     | 430M/0.99G [00:10&lt;00:11, 53.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 43%|████▎     | 440M/0.99G [00:10&lt;00:10, 55.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 44%|████▍     | 450M/0.99G [00:10&lt;00:12, 46.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 45%|████▌     | 460M/0.99G [00:10&lt;00:11, 50.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 46%|████▋     | 470M/0.99G [00:11&lt;00:13, 41.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 47%|████▋     | 480M/0.99G [00:11&lt;00:11, 49.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 48%|████▊     | 490M/0.99G [00:11&lt;00:13, 42.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 49%|████▉     | 500M/0.99G [00:11&lt;00:10, 51.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 50%|█████     | 510M/0.99G [00:12&lt;00:09, 57.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 51%|█████▏    | 520M/0.99G [00:12&lt;00:09, 55.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 52%|█████▏    | 530M/0.99G [00:12&lt;00:08, 60.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 53%|█████▎    | 540M/0.99G [00:12&lt;00:07, 67.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 54%|█████▍    | 550M/0.99G [00:12&lt;00:07, 61.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 56%|█████▌    | 570M/0.99G [00:12&lt;00:06, 76.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 57%|█████▋    | 580M/0.99G [00:13&lt;00:08, 54.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 59%|█████▉    | 600M/0.99G [00:13&lt;00:06, 68.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 61%|██████    | 620M/0.99G [00:13&lt;00:05, 77.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 62%|██████▏   | 630M/0.99G [00:13&lt;00:04, 81.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 63%|██████▎   | 640M/0.99G [00:13&lt;00:05, 70.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 64%|██████▍   | 650M/0.99G [00:14&lt;00:05, 63.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 65%|██████▌   | 660M/0.99G [00:14&lt;00:05, 65.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 67%|██████▋   | 680M/0.99G [00:14&lt;00:05, 67.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 69%|██████▉   | 700M/0.99G [00:14&lt;00:04, 71.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 70%|███████   | 710M/0.99G [00:15&lt;00:07, 44.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 72%|███████▏  | 730M/0.99G [00:15&lt;00:05, 55.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 73%|███████▎  | 740M/0.99G [00:15&lt;00:05, 53.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 74%|███████▍  | 750M/0.99G [00:16&lt;00:04, 55.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 75%|███████▍  | 760M/0.99G [00:16&lt;00:04, 57.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 76%|███████▌  | 770M/0.99G [00:16&lt;00:05, 50.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 78%|███████▊  | 790M/0.99G [00:16&lt;00:03, 63.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 80%|███████▉  | 810M/0.99G [00:17&lt;00:03, 54.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 82%|████████▏ | 830M/0.99G [00:17&lt;00:03, 61.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 83%|████████▎ | 840M/0.99G [00:17&lt;00:03, 58.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 84%|████████▍ | 850M/0.99G [00:17&lt;00:03, 56.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 86%|████████▌ | 870M/0.99G [00:18&lt;00:02, 60.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 88%|████████▊ | 890M/0.99G [00:18&lt;00:02, 52.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 89%|████████▉ | 900M/0.99G [00:19&lt;00:02, 42.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 91%|█████████ | 920M/0.99G [00:19&lt;00:02, 47.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 93%|█████████▎| 940M/0.99G [00:19&lt;00:01, 55.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 94%|█████████▎| 950M/0.99G [00:19&lt;00:01, 54.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 95%|█████████▍| 960M/0.99G [00:20&lt;00:01, 52.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 97%|█████████▋| 980M/0.99G [00:20&lt;00:00, 55.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 99%|█████████▊| 0.98G/0.99G [00:20&lt;00:00, 62.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 100%|██████████| 0.99G/0.99G [00:20&lt;00:00, 65.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 100%|██████████| 0.99G/0.99G [00:20&lt;00:00, 50.7MB/s]
 
 Downloading StormCastCONUS-tq-low.mdlus: 0%|          | 0.00/0.99G [00:00&lt;?, ?B/s]
-Downloading StormCastCONUS-tq-low.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;01:57, 8.95MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;01:03, 16.3MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 3%|▎         | 30.0M/0.99G [00:01&lt;00:41, 25.0MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 4%|▍         | 40.0M/0.99G [00:01&lt;00:35, 29.1MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 5%|▍         | 50.0M/0.99G [00:02&lt;00:32, 31.1MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:28, 34.8MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 7%|▋         | 70.0M/0.99G [00:02&lt;00:28, 34.2MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 8%|▊         | 80.0M/0.99G [00:02&lt;00:25, 38.8MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 9%|▉         | 90.0M/0.99G [00:03&lt;00:22, 43.1MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 10%|▉         | 100M/0.99G [00:03&lt;00:19, 50.0MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 11%|█         | 110M/0.99G [00:03&lt;00:16, 55.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 12%|█▏        | 120M/0.99G [00:03&lt;00:15, 60.6MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 13%|█▎        | 130M/0.99G [00:03&lt;00:17, 52.0MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 14%|█▍        | 140M/0.99G [00:03&lt;00:15, 60.1MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 15%|█▍        | 150M/0.99G [00:04&lt;00:19, 45.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 16%|█▌        | 160M/0.99G [00:04&lt;00:18, 48.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 17%|█▋        | 170M/0.99G [00:04&lt;00:17, 51.1MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 18%|█▊        | 180M/0.99G [00:04&lt;00:16, 53.3MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 19%|█▊        | 190M/0.99G [00:05&lt;00:18, 45.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 20%|█▉        | 200M/0.99G [00:05&lt;00:21, 40.1MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 21%|██        | 210M/0.99G [00:05&lt;00:19, 42.3MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 22%|██▏       | 220M/0.99G [00:05&lt;00:21, 39.5MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 23%|██▎       | 230M/0.99G [00:06&lt;00:18, 45.2MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 24%|██▎       | 240M/0.99G [00:06&lt;00:15, 52.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 25%|██▍       | 250M/0.99G [00:06&lt;00:15, 51.0MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 26%|██▌       | 260M/0.99G [00:06&lt;00:19, 40.0MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 27%|██▋       | 270M/0.99G [00:06&lt;00:16, 48.0MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 28%|██▊       | 280M/0.99G [00:07&lt;00:16, 46.7MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 29%|██▊       | 290M/0.99G [00:07&lt;00:14, 52.4MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 30%|██▉       | 300M/0.99G [00:07&lt;00:12, 57.6MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 31%|███       | 310M/0.99G [00:07&lt;00:13, 53.8MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 32%|███▏      | 320M/0.99G [00:08&lt;00:16, 45.2MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 33%|███▎      | 330M/0.99G [00:08&lt;00:16, 44.6MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 34%|███▎      | 340M/0.99G [00:08&lt;00:17, 39.8MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 35%|███▍      | 350M/0.99G [00:08&lt;00:15, 44.5MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 36%|███▌      | 360M/0.99G [00:08&lt;00:14, 48.8MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 37%|███▋      | 370M/0.99G [00:09&lt;00:13, 51.5MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 37%|███▋      | 380M/0.99G [00:09&lt;00:12, 53.8MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 38%|███▊      | 390M/0.99G [00:09&lt;00:14, 44.8MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 39%|███▉      | 400M/0.99G [00:09&lt;00:13, 47.5MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 40%|████      | 410M/0.99G [00:09&lt;00:12, 51.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 41%|████▏     | 420M/0.99G [00:10&lt;00:11, 55.4MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 42%|████▏     | 430M/0.99G [00:10&lt;00:10, 56.2MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 43%|████▎     | 440M/0.99G [00:10&lt;00:10, 57.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 44%|████▍     | 450M/0.99G [00:10&lt;00:12, 48.4MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 45%|████▌     | 460M/0.99G [00:10&lt;00:10, 55.6MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 46%|████▋     | 470M/0.99G [00:11&lt;00:09, 57.6MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 47%|████▋     | 480M/0.99G [00:11&lt;00:09, 60.0MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 48%|████▊     | 490M/0.99G [00:11&lt;00:08, 66.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 49%|████▉     | 500M/0.99G [00:11&lt;00:07, 69.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 50%|█████     | 510M/0.99G [00:11&lt;00:08, 61.0MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 51%|█████▏    | 520M/0.99G [00:11&lt;00:10, 51.3MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 52%|█████▏    | 530M/0.99G [00:12&lt;00:09, 55.5MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 53%|█████▎    | 540M/0.99G [00:12&lt;00:08, 58.1MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 54%|█████▍    | 550M/0.99G [00:12&lt;00:08, 56.1MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 55%|█████▌    | 560M/0.99G [00:12&lt;00:08, 54.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 56%|█████▌    | 570M/0.99G [00:12&lt;00:09, 49.1MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 57%|█████▋    | 580M/0.99G [00:13&lt;00:11, 38.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 58%|█████▊    | 590M/0.99G [00:13&lt;00:10, 42.1MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 59%|█████▉    | 600M/0.99G [00:13&lt;00:08, 48.4MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 60%|██████    | 610M/0.99G [00:13&lt;00:07, 54.2MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 61%|██████    | 620M/0.99G [00:13&lt;00:06, 60.1MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 62%|██████▏   | 630M/0.99G [00:14&lt;00:06, 63.2MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 63%|██████▎   | 640M/0.99G [00:14&lt;00:07, 49.2MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 64%|██████▍   | 650M/0.99G [00:14&lt;00:07, 50.5MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 65%|██████▌   | 660M/0.99G [00:14&lt;00:06, 55.0MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 66%|██████▌   | 670M/0.99G [00:14&lt;00:06, 55.1MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 67%|██████▋   | 680M/0.99G [00:15&lt;00:06, 57.8MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 68%|██████▊   | 690M/0.99G [00:15&lt;00:05, 65.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 69%|██████▉   | 700M/0.99G [00:15&lt;00:04, 70.6MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 70%|███████   | 710M/0.99G [00:15&lt;00:05, 55.0MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 72%|███████▏  | 730M/0.99G [00:15&lt;00:04, 69.8MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 73%|███████▎  | 740M/0.99G [00:16&lt;00:04, 63.6MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 74%|███████▍  | 750M/0.99G [00:16&lt;00:03, 70.8MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 75%|███████▍  | 760M/0.99G [00:16&lt;00:03, 67.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 76%|███████▌  | 770M/0.99G [00:16&lt;00:05, 50.3MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 78%|███████▊  | 790M/0.99G [00:17&lt;00:04, 53.7MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 79%|███████▉  | 800M/0.99G [00:17&lt;00:03, 57.4MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 80%|███████▉  | 810M/0.99G [00:17&lt;00:03, 58.2MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 82%|████████▏ | 830M/0.99G [00:17&lt;00:03, 60.6MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 83%|████████▎ | 840M/0.99G [00:17&lt;00:03, 55.4MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 84%|████████▍ | 850M/0.99G [00:18&lt;00:03, 52.5MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 86%|████████▌ | 870M/0.99G [00:18&lt;00:02, 55.8MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 88%|████████▊ | 890M/0.99G [00:18&lt;00:01, 66.6MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 89%|████████▉ | 900M/0.99G [00:19&lt;00:02, 49.2MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 91%|█████████ | 920M/0.99G [00:19&lt;00:01, 53.4MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 92%|█████████▏| 930M/0.99G [00:19&lt;00:01, 58.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 93%|█████████▎| 940M/0.99G [00:19&lt;00:01, 48.2MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 94%|█████████▎| 950M/0.99G [00:20&lt;00:01, 46.2MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 95%|█████████▍| 960M/0.99G [00:20&lt;00:01, 43.7MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 96%|█████████▌| 970M/0.99G [00:20&lt;00:00, 48.3MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 97%|█████████▋| 980M/0.99G [00:20&lt;00:00, 42.9MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 98%|█████████▊| 990M/0.99G [00:21&lt;00:00, 47.3MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 99%|█████████▊| 0.98G/0.99G [00:21&lt;00:00, 49.6MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 100%|█████████▉| 0.99G/0.99G [00:21&lt;00:00, 51.2MB/s]
-Downloading StormCastCONUS-tq-low.mdlus: 100%|██████████| 0.99G/0.99G [00:21&lt;00:00, 49.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;02:04, 8.47MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;01:06, 15.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 3%|▎         | 30.0M/0.99G [00:01&lt;00:41, 24.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 4%|▍         | 40.0M/0.99G [00:01&lt;00:38, 26.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 5%|▍         | 50.0M/0.99G [00:02&lt;00:27, 36.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:32, 30.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 7%|▋         | 70.0M/0.99G [00:02&lt;00:30, 32.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 8%|▊         | 80.0M/0.99G [00:03&lt;00:31, 30.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 9%|▉         | 90.0M/0.99G [00:03&lt;00:26, 35.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 10%|▉         | 100M/0.99G [00:03&lt;00:26, 36.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 11%|█         | 110M/0.99G [00:03&lt;00:24, 39.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 12%|█▏        | 120M/0.99G [00:04&lt;00:21, 43.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 13%|█▎        | 130M/0.99G [00:04&lt;00:21, 43.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 15%|█▍        | 150M/0.99G [00:04&lt;00:18, 48.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 17%|█▋        | 170M/0.99G [00:04&lt;00:14, 61.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 18%|█▊        | 180M/0.99G [00:05&lt;00:13, 65.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 19%|█▊        | 190M/0.99G [00:05&lt;00:15, 55.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 20%|█▉        | 200M/0.99G [00:05&lt;00:17, 47.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 21%|██        | 210M/0.99G [00:05&lt;00:18, 46.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 22%|██▏       | 220M/0.99G [00:05&lt;00:16, 51.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 23%|██▎       | 230M/0.99G [00:06&lt;00:14, 57.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 25%|██▍       | 250M/0.99G [00:06&lt;00:11, 72.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 26%|██▌       | 260M/0.99G [00:06&lt;00:12, 61.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 28%|██▊       | 280M/0.99G [00:06&lt;00:10, 71.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 30%|██▉       | 300M/0.99G [00:07&lt;00:09, 77.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 31%|███       | 310M/0.99G [00:07&lt;00:09, 76.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 32%|███▏      | 320M/0.99G [00:07&lt;00:10, 69.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 34%|███▎      | 340M/0.99G [00:07&lt;00:10, 67.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 35%|███▍      | 350M/0.99G [00:07&lt;00:09, 70.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 36%|███▌      | 360M/0.99G [00:07&lt;00:09, 69.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 37%|███▋      | 370M/0.99G [00:08&lt;00:10, 63.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 37%|███▋      | 380M/0.99G [00:08&lt;00:12, 53.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 38%|███▊      | 390M/0.99G [00:08&lt;00:13, 50.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 40%|████      | 410M/0.99G [00:08&lt;00:09, 69.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 41%|████▏     | 420M/0.99G [00:08&lt;00:08, 75.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 43%|████▎     | 440M/0.99G [00:09&lt;00:06, 86.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 44%|████▍     | 450M/0.99G [00:09&lt;00:07, 78.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 46%|████▋     | 470M/0.99G [00:09&lt;00:06, 84.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 48%|████▊     | 490M/0.99G [00:09&lt;00:06, 88.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 49%|████▉     | 500M/0.99G [00:09&lt;00:06, 89.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 50%|█████     | 510M/0.99G [00:10&lt;00:06, 81.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 51%|█████▏    | 520M/0.99G [00:10&lt;00:07, 65.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 52%|█████▏    | 530M/0.99G [00:10&lt;00:08, 62.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 53%|█████▎    | 540M/0.99G [00:10&lt;00:07, 67.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 54%|█████▍    | 550M/0.99G [00:10&lt;00:07, 66.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 55%|█████▌    | 560M/0.99G [00:10&lt;00:06, 72.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 57%|█████▋    | 580M/0.99G [00:11&lt;00:07, 63.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 59%|█████▉    | 600M/0.99G [00:11&lt;00:05, 75.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 61%|██████    | 620M/0.99G [00:11&lt;00:05, 82.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 62%|██████▏   | 630M/0.99G [00:11&lt;00:05, 76.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 63%|██████▎   | 640M/0.99G [00:12&lt;00:05, 68.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 65%|██████▌   | 660M/0.99G [00:12&lt;00:05, 63.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 67%|██████▋   | 680M/0.99G [00:12&lt;00:04, 70.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 69%|██████▉   | 700M/0.99G [00:12&lt;00:04, 68.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 70%|███████   | 710M/0.99G [00:13&lt;00:06, 52.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 71%|███████   | 720M/0.99G [00:13&lt;00:05, 52.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 72%|███████▏  | 730M/0.99G [00:13&lt;00:06, 46.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 73%|███████▎  | 740M/0.99G [00:14&lt;00:06, 44.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 75%|███████▍  | 760M/0.99G [00:14&lt;00:04, 57.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 76%|███████▌  | 770M/0.99G [00:14&lt;00:04, 54.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 78%|███████▊  | 790M/0.99G [00:14&lt;00:03, 64.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 80%|███████▉  | 810M/0.99G [00:15&lt;00:03, 66.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 82%|████████▏ | 830M/0.99G [00:15&lt;00:02, 76.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 83%|████████▎ | 840M/0.99G [00:15&lt;00:02, 68.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 85%|████████▍ | 860M/0.99G [00:15&lt;00:01, 83.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 86%|████████▌ | 870M/0.99G [00:15&lt;00:01, 82.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 87%|████████▋ | 880M/0.99G [00:15&lt;00:01, 81.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 88%|████████▊ | 890M/0.99G [00:16&lt;00:02, 57.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 90%|████████▉ | 910M/0.99G [00:16&lt;00:01, 74.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 91%|█████████ | 920M/0.99G [00:16&lt;00:01, 67.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 92%|█████████▏| 930M/0.99G [00:16&lt;00:01, 66.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 93%|█████████▎| 940M/0.99G [00:16&lt;00:01, 71.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 94%|█████████▎| 950M/0.99G [00:17&lt;00:00, 69.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 95%|█████████▍| 960M/0.99G [00:17&lt;00:00, 63.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 97%|█████████▋| 980M/0.99G [00:17&lt;00:00, 76.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 99%|█████████▊| 0.98G/0.99G [00:17&lt;00:00, 85.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 100%|██████████| 0.99G/0.99G [00:17&lt;00:00, 90.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 100%|██████████| 0.99G/0.99G [00:17&lt;00:00, 59.5MB/s]
 
 Downloading StormCastCONUS-uv-low.mdlus: 0%|          | 0.00/0.99G [00:00&lt;?, ?B/s]
-Downloading StormCastCONUS-uv-low.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;01:56, 8.99MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;00:56, 18.4MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 3%|▎         | 30.0M/0.99G [00:01&lt;00:38, 26.6MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 4%|▍         | 40.0M/0.99G [00:01&lt;00:29, 34.5MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 5%|▍         | 50.0M/0.99G [00:01&lt;00:25, 39.9MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:21, 45.8MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 7%|▋         | 70.0M/0.99G [00:02&lt;00:24, 40.6MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 8%|▊         | 80.0M/0.99G [00:02&lt;00:20, 48.0MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 9%|▉         | 90.0M/0.99G [00:02&lt;00:21, 45.5MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 10%|▉         | 100M/0.99G [00:02&lt;00:22, 43.5MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 11%|█         | 110M/0.99G [00:03&lt;00:18, 51.4MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 12%|█▏        | 120M/0.99G [00:03&lt;00:17, 54.7MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 13%|█▎        | 130M/0.99G [00:03&lt;00:17, 54.4MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 15%|█▍        | 150M/0.99G [00:03&lt;00:13, 68.3MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 17%|█▋        | 170M/0.99G [00:03&lt;00:11, 79.3MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 19%|█▊        | 190M/0.99G [00:04&lt;00:09, 90.5MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 20%|█▉        | 200M/0.99G [00:04&lt;00:11, 75.7MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 21%|██        | 210M/0.99G [00:04&lt;00:11, 75.1MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 23%|██▎       | 230M/0.99G [00:04&lt;00:12, 67.8MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 25%|██▍       | 250M/0.99G [00:04&lt;00:10, 79.0MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 26%|██▌       | 260M/0.99G [00:05&lt;00:12, 63.1MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 27%|██▋       | 270M/0.99G [00:05&lt;00:12, 63.1MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 28%|██▊       | 280M/0.99G [00:05&lt;00:11, 64.5MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 29%|██▊       | 290M/0.99G [00:05&lt;00:11, 64.6MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 30%|██▉       | 300M/0.99G [00:05&lt;00:11, 66.1MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 31%|███       | 310M/0.99G [00:06&lt;00:11, 64.4MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 32%|███▏      | 320M/0.99G [00:06&lt;00:10, 68.1MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 34%|███▎      | 340M/0.99G [00:06&lt;00:08, 86.1MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 36%|███▌      | 360M/0.99G [00:07&lt;00:15, 44.5MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 37%|███▋      | 370M/0.99G [00:07&lt;00:17, 38.8MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 38%|███▊      | 390M/0.99G [00:07&lt;00:14, 46.3MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 39%|███▉      | 400M/0.99G [00:08&lt;00:12, 52.4MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 40%|████      | 410M/0.99G [00:08&lt;00:11, 56.4MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 41%|████▏     | 420M/0.99G [00:08&lt;00:10, 59.1MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 43%|████▎     | 440M/0.99G [00:08&lt;00:08, 68.3MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 44%|████▍     | 450M/0.99G [00:08&lt;00:10, 56.6MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 45%|████▌     | 460M/0.99G [00:08&lt;00:09, 62.1MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 47%|████▋     | 480M/0.99G [00:09&lt;00:07, 78.1MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 48%|████▊     | 490M/0.99G [00:09&lt;00:08, 67.4MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 50%|█████     | 510M/0.99G [00:09&lt;00:07, 74.2MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 51%|█████▏    | 520M/0.99G [00:09&lt;00:08, 58.2MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 52%|█████▏    | 530M/0.99G [00:10&lt;00:08, 58.0MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 53%|█████▎    | 540M/0.99G [00:10&lt;00:07, 63.7MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 55%|█████▌    | 560M/0.99G [00:10&lt;00:06, 73.0MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 56%|█████▌    | 570M/0.99G [00:10&lt;00:07, 58.7MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 57%|█████▋    | 580M/0.99G [00:11&lt;00:09, 48.6MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 59%|█████▉    | 600M/0.99G [00:11&lt;00:07, 59.5MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 61%|██████    | 620M/0.99G [00:11&lt;00:06, 66.1MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 62%|██████▏   | 630M/0.99G [00:11&lt;00:06, 62.7MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 63%|██████▎   | 640M/0.99G [00:12&lt;00:07, 54.0MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 64%|██████▍   | 650M/0.99G [00:12&lt;00:06, 60.4MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 65%|██████▌   | 660M/0.99G [00:12&lt;00:05, 65.2MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 66%|██████▌   | 670M/0.99G [00:12&lt;00:05, 70.2MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 67%|██████▋   | 680M/0.99G [00:12&lt;00:05, 66.0MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 68%|██████▊   | 690M/0.99G [00:12&lt;00:04, 69.3MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 69%|██████▉   | 700M/0.99G [00:13&lt;00:06, 49.3MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 70%|███████   | 710M/0.99G [00:13&lt;00:06, 46.2MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 71%|███████   | 720M/0.99G [00:13&lt;00:05, 52.9MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 72%|███████▏  | 730M/0.99G [00:13&lt;00:05, 59.2MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 73%|███████▎  | 740M/0.99G [00:13&lt;00:05, 53.0MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 74%|███████▍  | 750M/0.99G [00:13&lt;00:04, 61.3MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 75%|███████▍  | 760M/0.99G [00:14&lt;00:03, 67.2MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 76%|███████▌  | 770M/0.99G [00:14&lt;00:04, 56.4MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 77%|███████▋  | 780M/0.99G [00:14&lt;00:04, 61.2MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 78%|███████▊  | 790M/0.99G [00:14&lt;00:04, 53.9MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 79%|███████▉  | 800M/0.99G [00:14&lt;00:03, 58.6MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 80%|███████▉  | 810M/0.99G [00:15&lt;00:03, 54.2MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 81%|████████  | 820M/0.99G [00:15&lt;00:03, 56.9MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 82%|████████▏ | 830M/0.99G [00:15&lt;00:03, 63.6MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 83%|████████▎ | 840M/0.99G [00:15&lt;00:03, 52.9MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 84%|████████▍ | 850M/0.99G [00:15&lt;00:03, 51.5MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 85%|████████▍ | 860M/0.99G [00:16&lt;00:04, 38.9MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 87%|████████▋ | 880M/0.99G [00:16&lt;00:02, 57.5MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 88%|████████▊ | 890M/0.99G [00:16&lt;00:02, 56.7MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 89%|████████▉ | 900M/0.99G [00:16&lt;00:02, 48.6MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 91%|█████████ | 920M/0.99G [00:17&lt;00:01, 57.8MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 92%|█████████▏| 930M/0.99G [00:17&lt;00:01, 58.5MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 93%|█████████▎| 940M/0.99G [00:17&lt;00:01, 52.8MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 94%|█████████▎| 950M/0.99G [00:17&lt;00:01, 47.8MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 95%|█████████▍| 960M/0.99G [00:18&lt;00:01, 43.4MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 96%|█████████▌| 970M/0.99G [00:18&lt;00:00, 47.3MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 97%|█████████▋| 980M/0.99G [00:18&lt;00:00, 46.2MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 98%|█████████▊| 990M/0.99G [00:18&lt;00:00, 47.0MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 99%|█████████▊| 0.98G/0.99G [00:19&lt;00:00, 40.8MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 100%|█████████▉| 0.99G/0.99G [00:19&lt;00:00, 45.8MB/s]
-Downloading StormCastCONUS-uv-low.mdlus: 100%|██████████| 0.99G/0.99G [00:19&lt;00:00, 54.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;02:00, 8.73MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;01:03, 16.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 3%|▎         | 30.0M/0.99G [00:01&lt;00:42, 24.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 4%|▍         | 40.0M/0.99G [00:02&lt;00:44, 23.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:27, 36.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 7%|▋         | 70.0M/0.99G [00:02&lt;00:28, 35.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 9%|▉         | 90.0M/0.99G [00:02&lt;00:20, 47.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 10%|▉         | 100M/0.99G [00:03&lt;00:19, 49.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 12%|█▏        | 120M/0.99G [00:03&lt;00:15, 60.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 13%|█▎        | 130M/0.99G [00:03&lt;00:16, 54.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 15%|█▍        | 150M/0.99G [00:03&lt;00:15, 58.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 17%|█▋        | 170M/0.99G [00:04&lt;00:13, 66.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 19%|█▊        | 190M/0.99G [00:04&lt;00:10, 79.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 20%|█▉        | 200M/0.99G [00:04&lt;00:11, 75.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 21%|██        | 210M/0.99G [00:04&lt;00:11, 76.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 23%|██▎       | 230M/0.99G [00:05&lt;00:11, 70.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 25%|██▍       | 250M/0.99G [00:05&lt;00:09, 82.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 26%|██▌       | 260M/0.99G [00:05&lt;00:09, 80.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 28%|██▊       | 280M/0.99G [00:05&lt;00:10, 74.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 30%|██▉       | 300M/0.99G [00:06&lt;00:13, 56.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 31%|███       | 310M/0.99G [00:06&lt;00:13, 56.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 32%|███▏      | 320M/0.99G [00:06&lt;00:12, 56.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 34%|███▎      | 340M/0.99G [00:06&lt;00:10, 65.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 36%|███▌      | 360M/0.99G [00:08&lt;00:31, 21.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 37%|███▋      | 370M/0.99G [00:09&lt;00:32, 20.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 38%|███▊      | 390M/0.99G [00:09&lt;00:24, 26.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 39%|███▉      | 400M/0.99G [00:10&lt;00:21, 30.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 40%|████      | 410M/0.99G [00:10&lt;00:19, 33.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 41%|████▏     | 420M/0.99G [00:10&lt;00:17, 36.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 42%|████▏     | 430M/0.99G [00:10&lt;00:14, 41.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 44%|████▍     | 450M/0.99G [00:10&lt;00:11, 50.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 46%|████▋     | 470M/0.99G [00:11&lt;00:08, 63.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 48%|████▊     | 490M/0.99G [00:11&lt;00:07, 74.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 50%|█████     | 510M/0.99G [00:11&lt;00:06, 86.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 51%|█████▏    | 520M/0.99G [00:11&lt;00:06, 74.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 52%|█████▏    | 530M/0.99G [00:11&lt;00:08, 62.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 53%|█████▎    | 540M/0.99G [00:12&lt;00:07, 68.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 54%|█████▍    | 550M/0.99G [00:12&lt;00:08, 56.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 56%|█████▌    | 570M/0.99G [00:12&lt;00:07, 62.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 57%|█████▋    | 580M/0.99G [00:12&lt;00:08, 54.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 59%|█████▉    | 600M/0.99G [00:13&lt;00:07, 61.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 61%|██████    | 620M/0.99G [00:13&lt;00:07, 52.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 62%|██████▏   | 630M/0.99G [00:13&lt;00:07, 50.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 63%|██████▎   | 640M/0.99G [00:14&lt;00:09, 39.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 64%|██████▍   | 650M/0.99G [00:14&lt;00:08, 44.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 66%|██████▌   | 670M/0.99G [00:14&lt;00:06, 58.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 68%|██████▊   | 690M/0.99G [00:14&lt;00:04, 73.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 70%|███████   | 710M/0.99G [00:15&lt;00:04, 78.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 72%|███████▏  | 730M/0.99G [00:15&lt;00:04, 70.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 73%|███████▎  | 740M/0.99G [00:16&lt;00:05, 48.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 74%|███████▍  | 750M/0.99G [00:16&lt;00:05, 54.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 75%|███████▍  | 760M/0.99G [00:16&lt;00:07, 34.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 76%|███████▌  | 770M/0.99G [00:17&lt;00:06, 36.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 77%|███████▋  | 780M/0.99G [00:17&lt;00:09, 27.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 78%|███████▊  | 790M/0.99G [00:18&lt;00:10, 22.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 79%|███████▉  | 800M/0.99G [00:18&lt;00:07, 29.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 80%|███████▉  | 810M/0.99G [00:19&lt;00:10, 20.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 81%|████████  | 820M/0.99G [00:19&lt;00:08, 24.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 82%|████████▏ | 830M/0.99G [00:19&lt;00:06, 28.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 83%|████████▎ | 840M/0.99G [00:20&lt;00:05, 31.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 84%|████████▍ | 850M/0.99G [00:20&lt;00:05, 34.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 85%|████████▍ | 860M/0.99G [00:20&lt;00:04, 39.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 86%|████████▌ | 870M/0.99G [00:20&lt;00:03, 48.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 88%|████████▊ | 890M/0.99G [00:20&lt;00:02, 63.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 89%|████████▉ | 900M/0.99G [00:20&lt;00:01, 62.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 90%|████████▉ | 910M/0.99G [00:21&lt;00:01, 69.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 91%|█████████ | 920M/0.99G [00:21&lt;00:01, 69.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 93%|█████████▎| 940M/0.99G [00:21&lt;00:01, 73.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 95%|█████████▍| 960M/0.99G [00:21&lt;00:00, 73.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 96%|█████████▌| 970M/0.99G [00:21&lt;00:00, 73.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 97%|█████████▋| 980M/0.99G [00:22&lt;00:00, 73.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 98%|█████████▊| 990M/0.99G [00:22&lt;00:00, 76.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 100%|█████████▉| 0.99G/0.99G [00:22&lt;00:00, 93.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 100%|██████████| 0.99G/0.99G [00:22&lt;00:00, 47.6MB/s]
 
 Downloading metadata.nc: 0%|          | 0.00/8.56M [00:00&lt;?, ?B/s]
-Downloading metadata.nc: 100%|██████████| 8.56M/8.56M [00:00&lt;00:00, 9.62MB/s]
-Downloading metadata.nc: 100%|██████████| 8.56M/8.56M [00:00&lt;00:00, 9.55MB/s]</code></pre></details>
+Downloading metadata.nc: 100%|██████████| 8.56M/8.56M [00:00&lt;00:00, 11.3MB/s]
+Downloading metadata.nc: 100%|██████████| 8.56M/8.56M [00:00&lt;00:00, 11.2MB/s]</code></pre></details>
 
 <h2 id="execute-the-workflow">Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Permanent link">&para;</a></h2>
 <p>With all components initialized, running the workflow is a single line of Python code.
@@ -3184,1408 +3141,1408 @@ state has 99 channels on the 1024 × 1792 CONUS grid.</p>
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
 <a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>1410 lines</small></summary><pre><code>2026-08-14 04:08:41.370 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
-2026-08-14 04:08:41.370 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
+<details class="e2sg-output" open><summary><span>Console output</span><small>1410 lines</small></summary><pre><code>2026-08-14 17:27:17.473 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+2026-08-14 17:27:17.473 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.983 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 135201969-1045329
+2026-08-14 17:27:19.118 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 120804003-1070913
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.984 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 50932972-1115807
+2026-08-14 17:27:19.118 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 36945864-1153622
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.984 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 13790487-2218858
+2026-08-14 17:27:19.119 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 0-2220705
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.984 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 149413496-1018871
+2026-08-14 17:27:19.119 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 135201969-1045329
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.984 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 65082090-1072289
+2026-08-14 17:27:19.119 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 50932972-1115807
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.985 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 27649776-2219290
+2026-08-14 17:27:19.119 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 13790487-2218858
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.985 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 177731062-992290
+2026-08-14 17:27:19.120 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 149413496-1018871
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.985 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 79436418-1041309
+2026-08-14 17:27:19.120 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 65082090-1072289
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.986 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 41499644-2219523
+2026-08-14 17:27:19.120 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 27649776-2219290
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.987 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 205222336-953090
+2026-08-14 17:27:19.121 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 177731062-992290
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.988 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 93811608-1018710
+2026-08-14 17:27:19.121 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 79436418-1041309
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.988 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 55407449-2219641
+2026-08-14 17:27:19.121 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 41499644-2219523
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.989 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 268164926-824746
+2026-08-14 17:27:19.121 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 205222336-953090
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.989 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 108713886-1003840
+2026-08-14 17:27:19.122 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 93811608-1018710
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.990 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 69654110-2220923
+2026-08-14 17:27:19.122 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 55407449-2219641
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.991 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 322696785-687975
+2026-08-14 17:27:19.122 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 268164926-824746
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.991 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 123488382-995018
+2026-08-14 17:27:19.123 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 108713886-1003840
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.992 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 83960001-2221241
+2026-08-14 17:27:19.123 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 69654110-2220923
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.993 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 375856900-626494
+2026-08-14 17:27:19.123 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 322696785-687975
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.993 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 137792591-990914
+2026-08-14 17:27:19.123 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 123488382-995018
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.994 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 98291978-2223603
+2026-08-14 17:27:19.124 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 83960001-2221241
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.994 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 7581875-1669099
+2026-08-14 17:27:19.124 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 375856900-626494
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.995 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 151921970-983592
+2026-08-14 17:27:19.124 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 137792591-990914
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.996 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 113117132-2202608
+2026-08-14 17:27:19.124 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 98291978-2223603
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.996 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 21447264-1622545
+2026-08-14 17:27:19.125 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 7581875-1669099
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.997 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 180156160-955840
+2026-08-14 17:27:19.125 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 151921970-983592
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.998 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 127694019-2197414
+2026-08-14 17:27:19.125 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 113117132-2202608
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:42.998 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 35342427-1603437
+2026-08-14 17:27:19.126 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 21447264-1622545
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.001 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 207537566-920072
+2026-08-14 17:27:19.126 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 180156160-955840
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.002 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 141927190-2165513
+2026-08-14 17:27:19.126 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 127694019-2197414
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.002 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 49332620-1600352
+2026-08-14 17:27:19.127 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 35342427-1603437
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.003 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 270654034-854726
+2026-08-14 17:27:19.127 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 207537566-920072
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.004 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 169921760-2362030
+2026-08-14 17:27:19.127 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 141927190-2165513
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.005 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 63466631-1615459
+2026-08-14 17:27:19.127 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 49332620-1600352
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.005 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 324590664-840757
+2026-08-14 17:27:19.128 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 270654034-854726
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.008 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 197696038-2287896
+2026-08-14 17:27:19.128 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 169921760-2362030
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.010 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 77822241-1614177
+2026-08-14 17:27:19.128 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 63466631-1615459
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.010 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 377914917-859452
+2026-08-14 17:27:19.129 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 324590664-840757
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.011 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 261948682-2211211
+2026-08-14 17:27:19.129 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 197696038-2287896
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.013 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 92197996-1613612
+2026-08-14 17:27:19.130 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 77822241-1614177
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.014 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 10403486-1115930
+2026-08-14 17:27:19.130 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 377914917-859452
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.015 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 0-467699
+2026-08-14 17:27:19.131 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 261948682-2211211
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.016 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 107086828-1627058
+2026-08-14 17:27:19.131 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 92197996-1613612
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.016 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 24237085-1136024
+2026-08-14 17:27:19.131 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 10403486-1115930
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.017 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 121874916-1613466
+2026-08-14 17:27:19.131 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 0-467699
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.017 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 38099486-1124091
+2026-08-14 17:27:19.132 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 107086828-1627058
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.019 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 136247298-1545293
+2026-08-14 17:27:19.132 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 24237085-1136024
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.019 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 52048779-1103102
+2026-08-14 17:27:19.132 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 121874916-1613466
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.020 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 38146230-1259912
+2026-08-14 17:27:19.132 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 38099486-1124091
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.020 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 150432367-1489603
+2026-08-14 17:27:19.133 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 136247298-1545293
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.021 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 66154379-1084345
+2026-08-14 17:27:19.133 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 52048779-1103102
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.022 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 178723352-1432808
+2026-08-14 17:27:19.133 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 48302215-2381615
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.022 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 80477727-1073475
+2026-08-14 17:27:19.134 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 150432367-1489603
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.023 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 206175426-1362140
+2026-08-14 17:27:19.134 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 66154379-1084345
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.024 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 94830318-1066871
+2026-08-14 17:27:19.134 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 178723352-1432808
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.024 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 268989672-1664362
+2026-08-14 17:27:19.134 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 80477727-1073475
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.025 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 109717726-1061055
+2026-08-14 17:27:19.135 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 206175426-1362140
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.025 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 323384760-1205904
+2026-08-14 17:27:19.135 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 94830318-1066871
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.026 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 124483400-1049668
+2026-08-14 17:27:19.135 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 268989672-1664362
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.027 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 376483394-1431523
+2026-08-14 17:27:19.136 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 109717726-1061055
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.028 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 138783505-1038941
+2026-08-14 17:27:19.136 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 323384760-1205904
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.028 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 4131290-2282667
+2026-08-14 17:27:19.136 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 124483400-1049668
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.029 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 152905562-1023736
+2026-08-14 17:27:19.137 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 376483394-1431523
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.030 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 17942001-2365354
+2026-08-14 17:27:19.137 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 138783505-1038941
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 
-2026-08-14 04:08:43.450 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 181112000-990494
+2026-08-14 17:27:19.581 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 4131290-2282667
 
 Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
-Fetching HRRR data:   1%|          | 1/99 [00:00&lt;00:45,  2.14it/s]
+Fetching HRRR data:   1%|          | 1/99 [00:00&lt;00:45,  2.15it/s]
 
-2026-08-14 04:08:43.560 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 31831939-2384242
+2026-08-14 17:27:19.645 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 152905562-1023736
 
-Fetching HRRR data:   1%|          | 1/99 [00:00&lt;00:45,  2.14it/s]
-Fetching HRRR data:   2%|▏         | 2/99 [00:00&lt;00:25,  3.84it/s]
+Fetching HRRR data:   1%|          | 1/99 [00:00&lt;00:45,  2.15it/s]
 
-2026-08-14 04:08:43.567 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 208457638-951060
+2026-08-14 17:27:19.848 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 17942001-2365354
 
-Fetching HRRR data:   2%|▏         | 2/99 [00:00&lt;00:25,  3.84it/s]
+Fetching HRRR data:   1%|          | 1/99 [00:00&lt;00:45,  2.15it/s]
+Fetching HRRR data:   3%|▎         | 3/99 [00:00&lt;00:21,  4.57it/s]
 
-2026-08-14 04:08:43.726 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 45820143-2402358
+2026-08-14 17:27:19.914 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 181112000-990494
 
-Fetching HRRR data:   2%|▏         | 2/99 [00:00&lt;00:25,  3.84it/s]
-Fetching HRRR data:   4%|▍         | 4/99 [00:00&lt;00:14,  6.77it/s]
+Fetching HRRR data:   3%|▎         | 3/99 [00:00&lt;00:21,  4.57it/s]
 
-2026-08-14 04:08:43.777 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 271508760-866282
+2026-08-14 17:27:20.059 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 31831939-2384242
 
-Fetching HRRR data:   4%|▍         | 4/99 [00:00&lt;00:14,  6.77it/s]
+Fetching HRRR data:   3%|▎         | 3/99 [00:00&lt;00:21,  4.57it/s]
+Fetching HRRR data:   5%|▌         | 5/99 [00:00&lt;00:15,  6.16it/s]
 
-2026-08-14 04:08:43.919 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 59940970-2425842
+2026-08-14 17:27:20.068 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 208457638-951060
 
-Fetching HRRR data:   4%|▍         | 4/99 [00:00&lt;00:14,  6.77it/s]
+Fetching HRRR data:   5%|▌         | 5/99 [00:00&lt;00:15,  6.16it/s]
 
-2026-08-14 04:08:43.920 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 325431421-866942
+2026-08-14 17:27:20.077 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 45820143-2402358
 
-Fetching HRRR data:   4%|▍         | 4/99 [00:00&lt;00:14,  6.77it/s]
-Fetching HRRR data:   6%|▌         | 6/99 [00:00&lt;00:11,  7.85it/s]
+Fetching HRRR data:   5%|▌         | 5/99 [00:00&lt;00:15,  6.16it/s]
+Fetching HRRR data:   7%|▋         | 7/99 [00:01&lt;00:12,  7.63it/s]
 
-2026-08-14 04:08:43.938 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 74280246-2447782
+2026-08-14 17:27:20.298 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 271508760-866282
 
-Fetching HRRR data:   6%|▌         | 6/99 [00:00&lt;00:11,  7.85it/s]
+Fetching HRRR data:   7%|▋         | 7/99 [00:01&lt;00:12,  7.63it/s]
+Fetching HRRR data:   8%|▊         | 8/99 [00:01&lt;00:11,  7.64it/s]
 
-2026-08-14 04:08:44.044 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 378774369-875773
+2026-08-14 17:27:20.375 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 59940970-2425842
 
-Fetching HRRR data:   6%|▌         | 6/99 [00:01&lt;00:11,  7.85it/s]
-Fetching HRRR data:   9%|▉         | 9/99 [00:01&lt;00:08, 10.75it/s]
+Fetching HRRR data:   8%|▊         | 8/99 [00:01&lt;00:11,  7.64it/s]
 
-2026-08-14 04:08:44.115 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 88640525-2467039
+2026-08-14 17:27:20.376 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 325431421-866942
 
-Fetching HRRR data:   9%|▉         | 9/99 [00:01&lt;00:08, 10.75it/s]
+Fetching HRRR data:   8%|▊         | 8/99 [00:01&lt;00:11,  7.64it/s]
 
-2026-08-14 04:08:44.331 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 48302215-2381615
+2026-08-14 17:27:20.404 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 74280246-2447782
 
-Fetching HRRR data:   9%|▉         | 9/99 [00:01&lt;00:08, 10.75it/s]
+Fetching HRRR data:   8%|▊         | 8/99 [00:01&lt;00:11,  7.64it/s]
 
-2026-08-14 04:08:44.333 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 6413957-1167918
+2026-08-14 17:27:20.774 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 378774369-875773
 
-Fetching HRRR data:   9%|▉         | 9/99 [00:01&lt;00:08, 10.75it/s]
-Fetching HRRR data:  11%|█         | 11/99 [00:01&lt;00:11,  7.80it/s]
+Fetching HRRR data:   8%|▊         | 8/99 [00:01&lt;00:11,  7.64it/s]
 
-2026-08-14 04:08:44.632 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 103521167-2480636
+2026-08-14 17:27:20.776 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 88640525-2467039
 
-Fetching HRRR data:  11%|█         | 11/99 [00:01&lt;00:11,  7.80it/s]
+Fetching HRRR data:   8%|▊         | 8/99 [00:01&lt;00:11,  7.64it/s]
+Fetching HRRR data:  12%|█▏        | 12/99 [00:02&lt;00:14,  6.07it/s]
 
-2026-08-14 04:08:44.634 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 20307355-1139909
+2026-08-14 17:27:21.304 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 374339571-1517329
 
-Fetching HRRR data:  11%|█         | 11/99 [00:01&lt;00:11,  7.80it/s]
+Fetching HRRR data:  12%|█▏        | 12/99 [00:02&lt;00:14,  6.07it/s]
 
-2026-08-14 04:08:44.636 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 118309737-2494266
+2026-08-14 17:27:21.306 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 6413957-1167918
 
-Fetching HRRR data:  11%|█         | 11/99 [00:01&lt;00:11,  7.80it/s]
+Fetching HRRR data:  12%|█▏        | 12/99 [00:02&lt;00:14,  6.07it/s]
 
-2026-08-14 04:08:44.644 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 34216181-1126246
+2026-08-14 17:27:21.323 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 103521167-2480636
 
-Fetching HRRR data:  11%|█         | 11/99 [00:01&lt;00:11,  7.80it/s]
-Fetching HRRR data:  13%|█▎        | 13/99 [00:01&lt;00:13,  6.50it/s]
+Fetching HRRR data:  12%|█▏        | 12/99 [00:02&lt;00:14,  6.07it/s]
 
-2026-08-14 04:08:45.057 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 132699458-2502511
+2026-08-14 17:27:21.324 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 20307355-1139909
 
-Fetching HRRR data:  13%|█▎        | 13/99 [00:02&lt;00:13,  6.50it/s]
+Fetching HRRR data:  12%|█▏        | 12/99 [00:02&lt;00:14,  6.07it/s]
+Fetching HRRR data:  14%|█▍        | 14/99 [00:02&lt;00:13,  6.20it/s]
 
-2026-08-14 04:08:45.060 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 48222501-1110119
+2026-08-14 17:27:21.594 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 118309737-2494266
 
-Fetching HRRR data:  13%|█▎        | 13/99 [00:02&lt;00:13,  6.50it/s]
+Fetching HRRR data:  14%|█▍        | 14/99 [00:02&lt;00:13,  6.20it/s]
 
-2026-08-14 04:08:45.106 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 146912501-2500995
+2026-08-14 17:27:21.691 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 34216181-1126246
 
-Fetching HRRR data:  13%|█▎        | 13/99 [00:02&lt;00:13,  6.50it/s]
+Fetching HRRR data:  14%|█▍        | 14/99 [00:02&lt;00:13,  6.20it/s]
 
-2026-08-14 04:08:45.108 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 62366812-1099819
+2026-08-14 17:27:21.692 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 132699458-2502511
 
-Fetching HRRR data:  13%|█▎        | 13/99 [00:02&lt;00:13,  6.50it/s]
-Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+Fetching HRRR data:  14%|█▍        | 14/99 [00:02&lt;00:13,  6.20it/s]
 
-2026-08-14 04:08:45.944 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 45920600-2381615
+2026-08-14 17:27:21.693 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 48222501-1110119
 
-Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+Fetching HRRR data:  14%|█▍        | 14/99 [00:02&lt;00:13,  6.20it/s]
 
-2026-08-14 04:08:45.947 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 175247719-2483343
+2026-08-14 17:27:21.736 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 146912501-2500995
 
-Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+Fetching HRRR data:  14%|█▍        | 14/99 [00:02&lt;00:13,  6.20it/s]
 
-2026-08-14 04:08:45.976 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 76728028-1094213
+2026-08-14 17:27:21.738 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 62366812-1099819
 
-Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+Fetching HRRR data:  14%|█▍        | 14/99 [00:02&lt;00:13,  6.20it/s]
 
-2026-08-14 04:08:45.979 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 202774918-2447418
+2026-08-14 17:27:21.741 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 45920600-2381615
 
-Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+Fetching HRRR data:  14%|█▍        | 14/99 [00:02&lt;00:13,  6.20it/s]
 
-2026-08-14 04:08:45.980 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 0-2220705
+2026-08-14 17:27:21.743 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 175247719-2483343
 
-Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+Fetching HRRR data:  14%|█▍        | 14/99 [00:02&lt;00:13,  6.20it/s]
+Fetching HRRR data:  18%|█▊        | 18/99 [00:02&lt;00:11,  6.83it/s]
 
-2026-08-14 04:08:45.982 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 91107564-1090432
+2026-08-14 17:27:21.955 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 76728028-1094213
 
-Fetching HRRR data:  17%|█▋        | 17/99 [00:02&lt;00:12,  6.67it/s]
+Fetching HRRR data:  18%|█▊        | 18/99 [00:02&lt;00:11,  6.83it/s]
 
-2026-08-14 04:08:45.984 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 26935195-632639
+2026-08-14 17:27:21.957 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 38146230-1259912
 
-Fetching HRRR data:  17%|█▋        | 17/99 [00:03&lt;00:12,  6.67it/s]
-Fetching HRRR data:  21%|██        | 21/99 [00:03&lt;00:12,  6.13it/s]
+Fetching HRRR data:  18%|█▊        | 18/99 [00:02&lt;00:11,  6.83it/s]
 
-2026-08-14 04:08:46.260 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 265962204-2202722
+2026-08-14 17:27:22.725 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 202774918-2447418
 
-Fetching HRRR data:  21%|██        | 21/99 [00:03&lt;00:12,  6.13it/s]
+Fetching HRRR data:  18%|█▊        | 18/99 [00:03&lt;00:11,  6.83it/s]
 
-2026-08-14 04:08:46.629 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 106001803-1085025
+2026-08-14 17:27:22.726 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 91107564-1090432
 
-Fetching HRRR data:  21%|██        | 21/99 [00:03&lt;00:12,  6.13it/s]
+Fetching HRRR data:  18%|█▊        | 18/99 [00:03&lt;00:11,  6.83it/s]
 
-2026-08-14 04:08:46.637 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 9250974-1152512
+2026-08-14 17:27:22.727 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfsfcf00.grib2 26935195-632639
 
-Fetching HRRR data:  21%|██        | 21/99 [00:03&lt;00:12,  6.13it/s]
+Fetching HRRR data:  18%|█▊        | 18/99 [00:03&lt;00:11,  6.83it/s]
 
-2026-08-14 04:08:46.654 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 320817004-1879781
+2026-08-14 17:27:22.728 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 265962204-2202722
 
-Fetching HRRR data:  21%|██        | 21/99 [00:03&lt;00:12,  6.13it/s]
+Fetching HRRR data:  18%|█▊        | 18/99 [00:03&lt;00:11,  6.83it/s]
+Fetching HRRR data:  26%|██▋       | 26/99 [00:03&lt;00:08,  8.44it/s]
 
-2026-08-14 04:08:46.698 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 120804003-1070913
+2026-08-14 17:27:22.980 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 106001803-1085025
 
-Fetching HRRR data:  21%|██        | 21/99 [00:03&lt;00:12,  6.13it/s]
-Fetching HRRR data:  28%|██▊       | 28/99 [00:03&lt;00:08,  8.81it/s]
+Fetching HRRR data:  26%|██▋       | 26/99 [00:03&lt;00:08,  8.44it/s]
 
-2026-08-14 04:08:46.701 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 23069809-1167276
+2026-08-14 17:27:23.079 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 9250974-1152512
 
-Fetching HRRR data:  28%|██▊       | 28/99 [00:03&lt;00:08,  8.81it/s]
+Fetching HRRR data:  26%|██▋       | 26/99 [00:03&lt;00:08,  8.44it/s]
 
-2026-08-14 04:08:46.710 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 374339571-1517329
+2026-08-14 17:27:23.081 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 320817004-1879781
 
-Fetching HRRR data:  28%|██▊       | 28/99 [00:03&lt;00:08,  8.81it/s]
+Fetching HRRR data:  26%|██▋       | 26/99 [00:03&lt;00:08,  8.44it/s]
 
-2026-08-14 04:08:46.711 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 36945864-1153622
+2026-08-14 17:27:23.083 | DEBUG    | earth2studio.data.hrrr:fetch_array:485 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20260813/conus/hrrr.t00z.wrfnatf00.grib2 23069809-1167276
 
-Fetching HRRR data:  28%|██▊       | 28/99 [00:03&lt;00:08,  8.81it/s]
-Fetching HRRR data:  33%|███▎      | 33/99 [00:04&lt;00:07,  9.40it/s]
-Fetching HRRR data:  43%|████▎     | 43/99 [00:04&lt;00:05, 11.18it/s]
-Fetching HRRR data:  54%|█████▎    | 53/99 [00:05&lt;00:02, 15.53it/s]
-Fetching HRRR data:  81%|████████  | 80/99 [00:05&lt;00:00, 29.83it/s]
-Fetching HRRR data:  85%|████████▍ | 84/99 [00:05&lt;00:00, 25.29it/s]
-Fetching HRRR data:  88%|████████▊ | 87/99 [00:06&lt;00:00, 25.04it/s]
-Fetching HRRR data: 100%|██████████| 99/99 [00:06&lt;00:00, 16.35it/s]
-2026-08-14 04:08:49.516 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from HRRR
-2026-08-14 04:08:49.518 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
+Fetching HRRR data:  26%|██▋       | 26/99 [00:03&lt;00:08,  8.44it/s]
+Fetching HRRR data:  32%|███▏      | 32/99 [00:04&lt;00:08,  8.31it/s]
+Fetching HRRR data:  37%|███▋      | 37/99 [00:04&lt;00:06, 10.17it/s]
+Fetching HRRR data:  45%|████▌     | 45/99 [00:04&lt;00:03, 13.97it/s]
+Fetching HRRR data:  63%|██████▎   | 62/99 [00:05&lt;00:01, 21.74it/s]
+Fetching HRRR data:  72%|███████▏  | 71/99 [00:05&lt;00:01, 20.29it/s]
+Fetching HRRR data:  83%|████████▎ | 82/99 [00:06&lt;00:00, 24.19it/s]
+Fetching HRRR data:  98%|█████████▊| 97/99 [00:06&lt;00:00, 34.99it/s]
+Fetching HRRR data: 100%|██████████| 99/99 [00:06&lt;00:00, 15.85it/s]
+2026-08-14 17:27:25.903 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from HRRR
+2026-08-14 17:27:25.906 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
 
 
 Running inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.141 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 268999401-942222
+2026-08-14 17:27:26.490 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 348367517-969817
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.142 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 401400217-1253275
+2026-08-14 17:27:26.491 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 208793162-752522
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.143 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 440519174-1239252
+2026-08-14 17:27:26.492 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 426050835-949182
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.144 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 214751794-614693
+2026-08-14 17:27:26.493 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 268999401-942222
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.145 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 343702083-1277807
+2026-08-14 17:27:26.494 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 401400217-1253275
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.146 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 412119443-835750
+2026-08-14 17:27:26.495 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 440519174-1239252
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.147 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 410017707-1000587
+2026-08-14 17:27:26.496 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 214751794-614693
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.148 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 264357714-1329937
+2026-08-14 17:27:26.497 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 343702083-1277807
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.149 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 0-877772
+2026-08-14 17:27:26.498 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 412119443-835750
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.150 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 340625650-910571
+2026-08-14 17:27:26.499 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 410017707-1000587
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.151 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 210839722-1099225
+2026-08-14 17:27:26.500 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 264357714-1329937
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.152 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 404549017-973715
+2026-08-14 17:27:26.501 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 0-877772
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.153 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 261560567-816574
+2026-08-14 17:27:26.502 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 340625650-910571
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.154 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 347406513-961004
+2026-08-14 17:27:26.503 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 210839722-1099225
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.155 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 208050218-742944
+2026-08-14 17:27:26.505 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 404549017-973715
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.156 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 426050835-949182
+2026-08-14 17:27:26.505 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 261560567-816574
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.157 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 268064827-934574
+2026-08-14 17:27:26.507 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 347406513-961004
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.158 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 399492597-870150
+2026-08-14 17:27:26.508 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 208050218-742944
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.159 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 214149163-602631
+2026-08-14 17:27:26.509 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 420451013-511409
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.160 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 341536221-857899
+2026-08-14 17:27:26.510 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 268064827-934574
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.161 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 420451013-511409
+2026-08-14 17:27:26.511 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 399492597-870150
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.162 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 405522732-961741
+2026-08-14 17:27:26.512 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 214149163-602631
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.163 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 262377141-735970
+2026-08-14 17:27:26.513 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 341536221-857899
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.164 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 425074612-976223
+2026-08-14 17:27:26.514 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 405522732-961741
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.165 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 348367517-969817
+2026-08-14 17:27:26.515 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 262377141-735970
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:08:50.166 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 208793162-752522
+2026-08-14 17:27:26.516 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f001 425074612-976223
 
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  7.19it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  5.68it/s]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:12,  1.98it/s]
-Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:06,  3.55it/s]
-Fetching GFS data:  15%|█▌        | 4/26 [00:00&lt;00:04,  5.29it/s]
-Fetching GFS data:  23%|██▎       | 6/26 [00:01&lt;00:02,  6.81it/s]
-Fetching GFS data:  35%|███▍      | 9/26 [00:01&lt;00:01, 10.57it/s]
-Fetching GFS data:  54%|█████▍    | 14/26 [00:01&lt;00:00, 16.11it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 18.01it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:11,  2.19it/s]
+Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:06,  3.48it/s]
+Fetching GFS data:  19%|█▉        | 5/26 [00:00&lt;00:02,  8.25it/s]
+Fetching GFS data:  27%|██▋       | 7/26 [00:01&lt;00:02,  6.59it/s]
+Fetching GFS data:  46%|████▌     | 12/26 [00:01&lt;00:01, 12.90it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 19.63it/s]
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.209 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 214480515-602275
+2026-08-14 17:27:47.511 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 268619738-934045
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.210 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 341049501-910349
+2026-08-14 17:27:47.512 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 209132034-752325
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.211 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 424314884-972083
+2026-08-14 17:27:47.513 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 214480515-602275
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.212 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 405042931-957316
+2026-08-14 17:27:47.514 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 341049501-910349
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.213 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 400923181-1252301
+2026-08-14 17:27:47.515 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 424314884-972083
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.214 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 348781440-968731
+2026-08-14 17:27:47.516 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 405042931-957316
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.215 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 211175597-1098574
+2026-08-14 17:27:47.517 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 341959850-858533
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.216 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 419698980-511008
+2026-08-14 17:27:47.518 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 348781440-968731
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.217 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 269553783-937457
+2026-08-14 17:27:47.519 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 400923181-1252301
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.219 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 344129572-1278539
+2026-08-14 17:27:47.520 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 419698980-511008
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.220 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 440031495-1238557
+2026-08-14 17:27:47.521 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 269553783-937457
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.221 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 208393098-738936
+2026-08-14 17:27:47.522 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 440031495-1238557
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.222 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 264914388-1330185
+2026-08-14 17:27:47.525 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 211175597-1098574
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.224 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 411364581-836114
+2026-08-14 17:27:47.526 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 215082790-614587
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.224 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 262937999-736167
+2026-08-14 17:27:47.527 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 411364581-836114
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.226 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 209132034-752325
+2026-08-14 17:27:47.528 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 264914388-1330185
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.227 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 0-877229
+2026-08-14 17:27:47.529 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 262121659-816340
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.228 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 215082790-614587
+2026-08-14 17:27:47.530 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 0-877229
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.229 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 409260842-999880
+2026-08-14 17:27:47.532 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 208393098-738936
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.230 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 404070238-972693
+2026-08-14 17:27:47.533 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 409260842-999880
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.231 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 341959850-858533
+2026-08-14 17:27:47.534 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 404070238-972693
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.232 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 399013098-869970
+2026-08-14 17:27:47.535 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 344129572-1278539
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.233 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 347825954-955486
+2026-08-14 17:27:47.536 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 399013098-869970
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.235 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 262121659-816340
+2026-08-14 17:27:47.537 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 425286967-948947
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.236 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 268619738-934045
+2026-08-14 17:27:47.539 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 347825954-955486
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:11.237 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 425286967-948947
+2026-08-14 17:27:47.540 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f002 262937999-736167
 
 
-Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.54s/it]
+Running inference:  40%|████      | 2/5 [00:21&lt;00:37, 12.50s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:09,  2.55it/s]
-Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:07,  3.00it/s]
-Fetching GFS data:  12%|█▏        | 3/26 [00:00&lt;00:05,  4.24it/s]
-Fetching GFS data:  23%|██▎       | 6/26 [00:01&lt;00:04,  4.86it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 17.87it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:10,  2.31it/s]
+Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:06,  3.45it/s]
+Fetching GFS data:  19%|█▉        | 5/26 [00:00&lt;00:03,  6.07it/s]
+Fetching GFS data:  23%|██▎       | 6/26 [00:01&lt;00:03,  5.74it/s]
+Fetching GFS data:  54%|█████▍    | 14/26 [00:01&lt;00:00, 17.36it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 19.65it/s]
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.280 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 440443597-1238207
+2026-08-14 17:28:08.472 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 419999216-511842
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.281 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 214656096-601941
+2026-08-14 17:28:08.472 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 211231818-1098463
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.282 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 411663348-836083
+2026-08-14 17:28:08.473 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 341549857-910209
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.283 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 344635592-1281826
+2026-08-14 17:28:08.473 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 440443597-1238207
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.284 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 262707708-816252
+2026-08-14 17:28:08.473 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 214656096-601941
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.285 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 0-876544
+2026-08-14 17:28:08.474 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 411663348-836083
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.286 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 342460066-858939
+2026-08-14 17:28:08.474 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 215258037-614436
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.287 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 404365754-972026
+2026-08-14 17:28:08.474 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 0-876544
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.288 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 208452433-738112
+2026-08-14 17:28:08.475 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 262707708-816252
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.289 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 349288916-971576
+2026-08-14 17:28:08.475 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 404365754-972026
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.290 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 211231818-1098463
+2026-08-14 17:28:08.475 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 263523960-735627
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.291 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 399304929-869725
+2026-08-14 17:28:08.476 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 342460066-858939
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.292 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 409556510-999840
+2026-08-14 17:28:08.476 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 348333517-955399
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.294 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 341549857-910209
+2026-08-14 17:28:08.477 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 265504141-1330785
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.295 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 265504141-1330785
+2026-08-14 17:28:08.477 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 399304929-869725
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.296 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 424614630-971443
+2026-08-14 17:28:08.477 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 401217162-1253105
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.297 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 348333517-955399
+2026-08-14 17:28:08.478 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 405337780-960841
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.298 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 401217162-1253105
+2026-08-14 17:28:08.478 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 209190545-752298
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.299 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 269208389-933892
+2026-08-14 17:28:08.478 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 424614630-971443
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.300 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 215258037-614436
+2026-08-14 17:28:08.479 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 349288916-971576
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.301 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 270142281-941047
+2026-08-14 17:28:08.479 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 269208389-933892
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.302 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 425586073-952442
+2026-08-14 17:28:08.480 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 344635592-1281826
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.303 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 209190545-752298
+2026-08-14 17:28:08.480 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 208452433-738112
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.304 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 405337780-960841
+2026-08-14 17:28:08.480 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 270142281-941047
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.306 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 419999216-511842
+2026-08-14 17:28:08.481 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 425586073-952442
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:32.307 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 263523960-735627
+2026-08-14 17:28:08.481 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f003 409556510-999840
 
 
-Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.44s/it]
+Running inference:  60%|██████    | 3/5 [00:42&lt;00:32, 16.35s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:09,  2.61it/s]
-Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:06,  3.76it/s]
-Fetching GFS data:  12%|█▏        | 3/26 [00:00&lt;00:04,  5.02it/s]
-Fetching GFS data:  19%|█▉        | 5/26 [00:01&lt;00:03,  5.37it/s]
-Fetching GFS data:  65%|██████▌   | 17/26 [00:01&lt;00:00, 23.65it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 21.06it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:08,  2.94it/s]
+Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:07,  3.15it/s]
+Fetching GFS data:  15%|█▌        | 4/26 [00:00&lt;00:03,  5.68it/s]
+Fetching GFS data:  31%|███       | 8/26 [00:00&lt;00:01, 11.47it/s]
+Fetching GFS data:  42%|████▏     | 11/26 [00:01&lt;00:01, 10.71it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 20.30it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 14.49it/s]
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.108 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 442400374-1238246
+2026-08-14 17:28:30.030 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 344047945-858660
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.109 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 344047945-858660
+2026-08-14 17:28:30.031 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 216135874-601484
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.111 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 407028455-960891
+2026-08-14 17:28:30.032 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 267134955-1330477
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.112 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 426299636-971034
+2026-08-14 17:28:30.033 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 403035900-1124463
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.112 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 216737358-614105
+2026-08-14 17:28:30.034 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 442400374-1238246
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.114 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 403035900-1124463
+2026-08-14 17:28:30.035 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 349924395-954565
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.114 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 350878960-966814
+2026-08-14 17:28:30.036 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 212593009-1219077
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.115 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 209817710-737778
+2026-08-14 17:28:30.037 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 426299636-971034
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.116 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 210555488-751608
+2026-08-14 17:28:30.038 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 407028455-960891
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.117 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 0-876770
+2026-08-14 17:28:30.039 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 265157667-736434
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.118 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 271771552-937313
+2026-08-14 17:28:30.040 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 411247373-1000138
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.119 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 264342875-814792
+2026-08-14 17:28:30.041 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 216737358-614105
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.120 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 270837441-934111
+2026-08-14 17:28:30.043 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 427270670-948325
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.121 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 216135874-601484
+2026-08-14 17:28:30.046 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 401126203-868928
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.122 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 267134955-1330477
+2026-08-14 17:28:30.049 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 271771552-937313
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.123 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 427270670-948325
+2026-08-14 17:28:30.050 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 264342875-814792
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.124 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 421688150-510535
+2026-08-14 17:28:30.052 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 413354777-836340
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.125 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 265157667-736434
+2026-08-14 17:28:30.053 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 343137943-910002
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.126 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 346225903-1281586
+2026-08-14 17:28:30.054 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 0-876770
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.127 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 349924395-954565
+2026-08-14 17:28:30.055 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 421688150-510535
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.129 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 406056666-971789
+2026-08-14 17:28:30.057 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 209817710-737778
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.130 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 343137943-910002
+2026-08-14 17:28:30.058 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 350878960-966814
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.131 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 413354777-836340
+2026-08-14 17:28:30.059 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 210555488-751608
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.132 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 411247373-1000138
+2026-08-14 17:28:30.060 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 406056666-971789
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.133 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 401126203-868928
+2026-08-14 17:28:30.061 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 270837441-934111
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 
 
 
-2026-08-14 04:09:53.134 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 212593009-1219077
+2026-08-14 17:28:30.062 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20260813/00/atmos/gfs.t00z.pgrb2.0p25.f004 346225903-1281586
 
 
-Running inference:  80%|████████  | 4/5 [01:03&lt;00:18, 18.17s/it]
+Running inference:  80%|████████  | 4/5 [01:04&lt;00:18, 18.40s/it]
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:11,  2.24it/s]
-Fetching GFS data:  12%|█▏        | 3/26 [00:00&lt;00:04,  5.31it/s]
-Fetching GFS data:  19%|█▉        | 5/26 [00:00&lt;00:02,  7.59it/s]
-Fetching GFS data:  31%|███       | 8/26 [00:01&lt;00:01,  9.60it/s]
-Fetching GFS data:  38%|███▊      | 10/26 [00:01&lt;00:01,  9.55it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 20.24it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:11,  2.09it/s]
+Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:06,  3.57it/s]
+Fetching GFS data:  19%|█▉        | 5/26 [00:01&lt;00:04,  4.91it/s]
+Fetching GFS data:  42%|████▏     | 11/26 [00:01&lt;00:01, 11.44it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 19.14it/s]
 
 
-Running inference: 100%|██████████| 5/5 [01:24&lt;00:00, 19.17s/it]
-Running inference: 100%|██████████| 5/5 [01:24&lt;00:00, 16.84s/it]
-2026-08-14 04:10:13.727 | SUCCESS  | earth2studio.run:deterministic:189 - 
+Running inference: 100%|██████████| 5/5 [01:24&lt;00:00, 19.38s/it]
+Running inference: 100%|██████████| 5/5 [01:24&lt;00:00, 16.98s/it]
+2026-08-14 17:28:50.801 | SUCCESS  | earth2studio.run:deterministic:189 - 
 Inference complete
 /
 ├── hrrr_x (1792,) float64
@@ -4668,9 +4625,9 @@ reflectivity and 2-m temperature are shown at the final lead time.</p>
 </code></pre></div>
 <p><img alt="Output from Running StormCast-CONUS Inference" class="e2sg-output-image" loading="lazy" src="../../_assets/04_nowcasting-01_stormcast_example/001-cell-6.webp" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/04_nowcasting-01_stormcast_example/01_stormcast_example.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/04_nowcasting-01_stormcast_example/01_stormcast_example.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 232.6s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/04_nowcasting-01_stormcast_example/01_stormcast_example.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/04_nowcasting-01_stormcast_example/01_stormcast_example.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 231.5s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>3m 53s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>3m 52s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 
