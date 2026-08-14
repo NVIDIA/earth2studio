@@ -51,9 +51,7 @@ class AutoModelMixin:
         raise NotImplementedError("Load model function not implemented")
 
     @classmethod
-    def from_pretrained(
-        cls, pretrained_model_name_or_path: str | None = None, **kwargs: Any
-    ) -> Any:
+    def from_pretrained(cls, pretrained_model_name_or_path: str | None = None) -> Any:
         """Loads and instantiates a pre-trained Earth2Studio model
 
         Parameters
@@ -66,8 +64,6 @@ class AutoModelMixin:
             - A path or url/uri to a remote file system supported by Fsspec
             - A s3 uri supported by s3fs
             - A NGC model registry uri
-        **kwargs : Any
-            Model-specific keyword arguments forwarded to :meth:`load_model`.
 
         Returns
         -------
@@ -79,4 +75,4 @@ class AutoModelMixin:
         else:
             package = Package(pretrained_model_name_or_path)
 
-        return cls.load_model(package, **kwargs)
+        return cls.load_model(package)

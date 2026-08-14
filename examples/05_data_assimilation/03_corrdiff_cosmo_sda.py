@@ -47,7 +47,6 @@ In this example you will learn:
 .. note::
    The model package is hosted on Hugging Face
    (``hf://nvidia/corrdiff-cosmo-era5``) and fetched by ``load_default_package()``.
-   Set ``$COSMO_REA_PACKAGE`` to a locally built package to use that instead.
 
 .. note::
    The default ~206 x 206-cell sub-domain completed in a few minutes and used about
@@ -57,6 +56,7 @@ In this example you will learn:
 .. note::
    The assimilated in-situ observations are NOAA NCEI GHCN-Hourly station data.
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[data,da-cosmo] @ git+https://github.com/NVIDIA/earth2studio.git",
@@ -80,15 +80,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
-from dotenv import load_dotenv
 from matplotlib.lines import Line2D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import RegularGridInterpolator
 from scipy.spatial import cKDTree
-
-load_dotenv()  # pick up $COSMO_REA_PACKAGE from a .env file if present
-
-LOCAL_PACKAGE = os.environ.get("COSMO_REA_PACKAGE")
 
 INIT_TIME = datetime(2024, 1, 26, 0)  # historical time (ARCO + GHCNHourly cover it)
 ASSIMILATE = ("u10m", "v10m")  # 10 m wind, an identity/unit-scale REA2 channel
@@ -174,13 +169,9 @@ def regrid_to_input(x_src, src_coords, dvars, dlat, dlon):
 # ``assimilate_variables`` is required and must be identity-transform, unit-scale
 # output channels -- here the 10 m wind, which matches the station reports' height.
 from earth2studio.data import ARCO, GHCNHourly, fetch_data
-from earth2studio.models.auto import Package
 from earth2studio.models.da import CorrDiffCosmoEra5SDA
 
-if LOCAL_PACKAGE:
-    package = Package(LOCAL_PACKAGE)
-else:
-    package = CorrDiffCosmoEra5SDA.load_default_package()
+package = CorrDiffCosmoEra5SDA.load_default_package()
 
 sda = CorrDiffCosmoEra5SDA.load_model(
     package,

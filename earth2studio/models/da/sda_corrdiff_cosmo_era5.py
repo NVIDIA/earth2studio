@@ -214,9 +214,11 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         self.amp = amp
         self.seed = 0
 
-        # Place observations on the model's full denoising grid, where DPS is applied;
-        # the returned output is trimmed to model.output_coords. Use 3D points on the
-        # unit sphere for nearest-cell lookup so longitude wrap-around is handled.
+        # Place observations on the model's denoise grid (halo-inclusive; this is the
+        # cropped sub-domain after set_domain, not the full footprint), where DPS is
+        # applied; the returned output is halo-trimmed to model.output_coords. Use 3D
+        # points on the unit sphere for nearest-cell lookup so longitude wrap-around
+        # is handled.
         self._lat_np = model.lat_output_grid.detach().cpu().numpy()
         self._lon_np = model.lon_output_grid.detach().cpu().numpy()
         gxyz = self._latlon_to_xyz(self._lat_np.ravel(), self._lon_np.ravel())
