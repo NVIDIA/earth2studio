@@ -369,7 +369,7 @@ nvidia-physicsnemo = [
 ]
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
-earth2studio-gallery = { git = "https://github.com/NickGeneva/earth2studio-gallery.git", rev = "0429616f6ed5f660116df16e277a007bbbfa062a" }
+earth2studio-gallery = { git = "https://github.com/NickGeneva/earth2studio-gallery.git", rev = "5eaddfe1fd4e842d6e2a5fa63a9a8718eeed7e9a" }
 
 
 [exclude.uv.workspace]
@@ -430,6 +430,7 @@ download_button_color = "#76b900"
 output_open = true
 collect_telemetry = true
 backreferences = true
+cache_output_directory = false
 
 [tool.earth2studio-gallery.runner]
 environment = "project"

@@ -70,7 +70,7 @@ hide:
       </div>
       <div class="e2s-hero__separator" aria-hidden="true"></div>
       <div class="e2s-hero__quickstart">
-        <div class="e2s-install-command" data-e2s-install aria-label="Install Earth2Studio with FCN support">
+        <div class="e2s-install-command e2s-quickstart-card" data-e2s-install aria-label="Install Earth2Studio with FCN support">
           <div class="e2s-install-tabs" role="tablist" aria-label="Package manager">
             <button type="button" class="e2s-home-button is-active" data-e2s-command='uv pip install "earth2studio[fcn]"'>UV</button>
             <button type="button" class="e2s-home-button" data-e2s-command='pip install "earth2studio[fcn]"'>pip</button>
@@ -81,7 +81,7 @@ hide:
           </div>
         </div>
         <div class="e2s-hero__panel" aria-label="Forecast quickstart code example">
-          <div class="e2s-terminal">
+          <div class="e2s-terminal e2s-quickstart-card">
             <span class="e2s-terminal__dot"></span>
             <span class="e2s-terminal__dot"></span>
             <span class="e2s-terminal__dot"></span>

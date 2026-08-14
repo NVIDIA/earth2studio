@@ -42,6 +42,7 @@ env:
   EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
   EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/.cache/earth2studio-data
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
+  UV_LINK_MODE: symlink
   UV_PYTHON: "3.13.13"
 
 jobs:
