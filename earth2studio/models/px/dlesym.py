@@ -147,8 +147,9 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ```
     Badges
     ------
-    region:global class:s2s product:wind product:temp product:atmos product:ocean year:2025
+    region:global class:subseasonal-seasonal product:wind product:temp product:atmos product:ocean year:2025
     gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(
@@ -956,8 +957,9 @@ class DLESyMLatLon(DLESyM):
 
     Badges
     ------
-    region:global class:s2s product:wind product:temp product:atmos product:ocean year:2025
+    region:global class:subseasonal-seasonal product:wind product:temp product:atmos product:ocean year:2025
     gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     @check_optional_dependencies()

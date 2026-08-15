@@ -1534,7 +1534,8 @@ class StormScopeGOES(StormScopeBase):
 
     Badges
     ------
-    region:na class:nwc product:sat year:2026 gpu:80gb
+    region:na class:nowcasting product:sat year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     _REGISTRY_KEY = "goes"
@@ -1921,7 +1922,8 @@ class StormScopeMRMS(StormScopeBase):
 
     Badges
     ------
-    region:na class:nwc product:radar year:2026 gpu:80gb
+    region:na class:nowcasting product:radar year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     _REGISTRY_KEY = "mrms"

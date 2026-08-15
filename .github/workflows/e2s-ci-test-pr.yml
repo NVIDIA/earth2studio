@@ -36,7 +36,7 @@ env:
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
   DOC_PUBLIC_BUILD: "false"
   EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
-  EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/.cache/earth2studio-data
+  EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/docs-data
   EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
   EARTHMOVER_ORGANIZATION: ${{ secrets.EARTHMOVER_ORGANIZATION }}
   EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
@@ -194,6 +194,7 @@ jobs:
           artifact-name: docs-pr-html
           artifact-retention-days: "10"
           gallery-cache-name: main
+          data-cache-name: main
           save-caches: "false"
 
   test:

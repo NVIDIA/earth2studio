@@ -59,7 +59,6 @@ In this example you will learn:
 #
 # %%
 import os
-from datetime import datetime, timedelta
 
 import numpy as np
 from loguru import logger
@@ -103,8 +102,7 @@ io = ZarrBackend()
 import earth2studio.run as run
 
 nsteps = 4
-today = datetime.today() - timedelta(days=1)
-date = today.isoformat().split("T")[0]
+date = "2022-11-04T18:00:00"
 
 io = run.deterministic(
     [date],

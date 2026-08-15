@@ -129,6 +129,8 @@ plugins:
     group_labels:
       region: Region
       class: Class
+      provider: Provider
+      backend: Backend
       dataclass: Data Class
       year: Release
       product: Product
@@ -138,75 +140,137 @@ plugins:
     definitions:
       region:global:
         label: Global
+        name: Global
         icon: <i class="fa-solid fa-globe"></i>
         color: '#0d47a1'
         text_color: '#fff'
       region:na:
         label: NA
+        name: North America
         icon: <i class="fa-solid fa-earth-americas"></i>
         color: '#1565c0'
         text_color: '#fff'
         tooltip: North America
       region:eu:
         label: EU
+        name: Europe
         icon: <i class="fa-solid fa-earth-europe"></i>
         color: '#1976d2'
         text_color: '#fff'
         tooltip: Europe
       region:as:
         label: AS
+        name: Asia
         icon: <i class="fa-solid fa-earth-asia"></i>
         color: '#1e88e5'
         text_color: '#fff'
         tooltip: Asia
       region:au:
         label: AU
+        name: Australia
         icon: <i class="fa-solid fa-earth-oceania"></i>
         color: '#42a5f5'
         text_color: '#000'
         tooltip: Australia
       region:af:
         label: AF
+        name: Africa
         icon: <i class="fa-solid fa-earth-africa"></i>
         color: '#64b5f6'
         text_color: '#000'
         tooltip: Africa
       region:sa:
         label: SA
+        name: South America
         icon: <i class="fa-solid fa-earth-americas"></i>
         color: '#90caf9'
         text_color: '#000'
         tooltip: South America
-      class:nwc:
+      class:nowcasting:
         label: NWC
+        name: Nowcasting
         color: '#198754'
         text_color: '#fff'
         tooltip: Nowcasting
-      class:ds:
+      class:downscaling:
         label: DS
+        name: Downscaling
         color: '#20c997'
         text_color: '#000'
         tooltip: Downscaling
-      class:mrf:
+      class:medium-range:
         label: MRF
+        name: Medium Range
         color: '#0dcaf0'
         text_color: '#000'
         tooltip: Medium Range
-      class:s2s:
+      class:subseasonal-seasonal:
         label: S2S
+        name: Sub-Seasonal to Seasonal
         color: '#6610f2'
         text_color: '#fff'
         tooltip: Sub-Seasonal to Seasonal
-      class:da:
+      class:data-assimilation:
         label: DA
+        name: Data Assimilation
         color: '#d63384'
         text_color: '#fff'
         tooltip: Data Assimilation
-      class:cm:
+      class:climate:
         label: CM
+        name: Climate
         color: '#ccff00'
         text_color: '#000'
         tooltip: Climate Model
+      provider:nvidia:
+        label: NVIDIA
+        icon: <i class="fa-solid fa-microchip"></i>
+        color: '#3d7a26'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:ecmwf:
+        label: ECMWF
+        icon: <i class="fa-solid fa-cloud-sun-rain"></i>
+        color: '#0b7285'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:ai2:
+        label: AI2
+        icon: <i class="fa-solid fa-flask"></i>
+        color: '#6741d9'
+        text_color: '#fff'
+        tooltip: AI2
+        hide_in: [autosummary, filter]
+      provider:google:
+        label: Google
+        icon: <i class="fa-brands fa-google"></i>
+        color: '#1a73e8'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:microsoft:
+        label: Microsoft
+        icon: <i class="fa-brands fa-microsoft"></i>
+        color: '#5e5e5e'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      backend:pytorch:
+        label: PyTorch
+        icon: <i class="fa-solid fa-fire"></i>
+        color: '#ee4c2c'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      backend:jax:
+        label: JAX
+        icon: <i class="fa-solid fa-code-branch"></i>
+        color: '#f57c00'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      backend:onnx:
+        label: ONNX
+        icon: <i class="fa-solid fa-diagram-project"></i>
+        color: '#005ced'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
       dataclass:analysis:
         label: ''
         icon: <i class="fa-solid fa-chart-line"></i>
@@ -431,6 +495,7 @@ nav:
 - Recipes: https://github.com/NVIDIA/earth2studio/tree/main/recipes
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
+  404.md
   modules/generated/**
   examples/**
   userguide/about/index.md

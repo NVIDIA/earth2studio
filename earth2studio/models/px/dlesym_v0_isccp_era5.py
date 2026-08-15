@@ -214,8 +214,9 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
     ```
     Badges
     ------
-    region:global class:cm product:wind product:temp product:atmos product:ocean year:2024
+    region:global class:climate product:wind product:temp product:atmos product:ocean year:2024
     gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(
@@ -592,8 +593,9 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
     ```
     Badges
     ------
-    region:global class:cm product:wind product:temp product:atmos product:ocean year:2024
+    region:global class:climate product:wind product:temp product:atmos product:ocean year:2024
     gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def _ttr_to_olr_hpx(self, x: torch.Tensor, coords_hpx: CoordSystem) -> torch.Tensor:

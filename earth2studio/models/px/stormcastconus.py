@@ -178,7 +178,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:na class:nwc product:wind product:temp product:precip product:radar product:atmos year:2026 gpu:24gb
+    region:na class:nowcasting product:wind product:temp product:precip product:radar product:atmos year:2026 gpu:24gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(

@@ -27,8 +27,11 @@ inputs:
   gallery-cache-name:
     description: Stable gallery cache scope to restore and optionally update.
     default: main
+  data-cache-name:
+    description: Stable docs data cache scope to restore and optionally update.
+    default: main
   save-caches:
-    description: Whether to save the updated gallery cache.
+    description: Whether to save updated docs caches.
     default: "false"
   upload-artifact:
     description: Whether to upload the built HTML artifact.
@@ -45,6 +48,17 @@ runs:
       shell: bash
       run: mkdir -p "${RUNNER_TEMP}/earth2studio-models"
 
+    - name: Restore docs data cache
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+      continue-on-error: true
+      with:
+        path: docs-data
+        key: e2s-docs-data-${{ runner.os }}-${{ inputs.data-cache-name }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          e2s-docs-data-${{ runner.os }}-${{ inputs.data-cache-name }}-
+          e2s-docs-data-${{ runner.os }}-main-
+          e2s-docs-data-${{ runner.os }}-
+
     - name: Restore gallery cache
       uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
       continue-on-error: true
@@ -59,6 +73,7 @@ runs:
     - name: Prepare CI directories
       shell: bash
       env:
+        EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/docs-data
         EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
       run: python3 test/_ci/prepare_ci_paths.py
 
@@ -73,6 +88,7 @@ runs:
     - name: Build light Zensical site
       shell: bash
       env:
+        EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/docs-data
         EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
         UV_LINK_MODE: symlink
       run: make docs-full
@@ -88,10 +104,20 @@ runs:
 
     - name: Save gallery cache
       if: >
-        always() &&
+        success() &&
         inputs.save-caches == 'true'
       uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
       continue-on-error: true
       with:
         path: .e2sgallery
         key: e2s-gallery-${{ runner.os }}-${{ inputs.gallery-cache-name }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    - name: Save docs data cache
+      if: >
+        success() &&
+        inputs.save-caches == 'true'
+      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+      continue-on-error: true
+      with:
+        path: docs-data
+        key: e2s-docs-data-${{ runner.os }}-${{ inputs.data-cache-name }}-${{ github.run_id }}-${{ github.run_attempt }}

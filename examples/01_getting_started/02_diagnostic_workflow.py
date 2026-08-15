@@ -99,7 +99,7 @@ io = ZarrBackend()
 
 # %% tags=["e2sg-profile:setup"]
 sample = data(
-    to_time_array(["2021-06-01"]),
+    to_time_array(["2024-01-01"]),
     prognostic_model.input_coords()["variable"],
 )
 print(sample)
@@ -117,7 +117,7 @@ import earth2studio.run as run
 
 nsteps = 8
 io = run.diagnostic(
-    ["2021-06-01"], nsteps, prognostic_model, diagnostic_model, data, io
+    ["2024-01-01"], nsteps, prognostic_model, diagnostic_model, data, io
 )
 
 print(io.root.tree())
@@ -142,7 +142,7 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 
-forecast = datetime(2021, 6, 1)
+forecast = datetime(2024, 1, 1)
 variable = "tp"
 step = 8  # lead time = 48 hrs
 
