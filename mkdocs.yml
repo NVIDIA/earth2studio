@@ -227,50 +227,50 @@ plugins:
         icon: <i class="fa-solid fa-microchip"></i>
         color: '#3d7a26'
         text_color: '#fff'
-        hide_in: autosummary
+        hide_in: [autosummary, filter]
       provider:ecmwf:
         label: ECMWF
         icon: <i class="fa-solid fa-cloud-sun-rain"></i>
         color: '#0b7285'
         text_color: '#fff'
-        hide_in: autosummary
+        hide_in: [autosummary, filter]
       provider:ai2:
         label: AI2
         icon: <i class="fa-solid fa-flask"></i>
         color: '#6741d9'
         text_color: '#fff'
         tooltip: AI2
-        hide_in: autosummary
+        hide_in: [autosummary, filter]
       provider:google:
         label: Google
         icon: <i class="fa-brands fa-google"></i>
         color: '#1a73e8'
         text_color: '#fff'
-        hide_in: autosummary
+        hide_in: [autosummary, filter]
       provider:microsoft:
         label: Microsoft
         icon: <i class="fa-brands fa-microsoft"></i>
         color: '#5e5e5e'
         text_color: '#fff'
-        hide_in: autosummary
+        hide_in: [autosummary, filter]
       backend:pytorch:
         label: PyTorch
         icon: <i class="fa-solid fa-fire"></i>
         color: '#ee4c2c'
         text_color: '#fff'
-        hide_in: autosummary
+        hide_in: [autosummary, filter]
       backend:jax:
         label: JAX
         icon: <i class="fa-solid fa-code-branch"></i>
         color: '#f57c00'
         text_color: '#fff'
-        hide_in: autosummary
+        hide_in: [autosummary, filter]
       backend:onnx:
         label: ONNX
         icon: <i class="fa-solid fa-diagram-project"></i>
         color: '#005ced'
         text_color: '#fff'
-        hide_in: autosummary
+        hide_in: [autosummary, filter]
       dataclass:analysis:
         label: ''
         icon: <i class="fa-solid fa-chart-line"></i>
