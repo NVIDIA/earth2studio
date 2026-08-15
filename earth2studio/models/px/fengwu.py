@@ -147,7 +147,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Badges
     ------
     region:global class:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
-    provider:nvidia backend:onnx
+    backend:onnx
     """
 
     def __init__(
