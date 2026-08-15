@@ -247,12 +247,6 @@ def _catalog_records(page: object | None) -> list[dict[str, object]]:
         if kind is None:
             continue
 
-        import_path = _generated_import_path(path)
-        source = _catalog_source(title, import_path, kind)
-        framework = _catalog_framework(title, import_path) if kind == "model" else ""
-        family = _catalog_family(title, import_path, badges)
-        filters = _catalog_filters(kind, group, source, framework, family, badges)
-        chips = _catalog_chips(kind, group, source, framework, family, badges)
         records.append(
             {
                 "kind": kind,
@@ -265,20 +259,12 @@ def _catalog_records(page: object | None) -> list[dict[str, object]]:
                     page,
                 ),
                 "badges": badges,
-                "chips": chips,
-                "filters": filters,
+                "chips": _catalog_chips(kind, group, badges),
+                "filters": _catalog_filters(kind, badges),
                 "tone": _catalog_tone(badges, kind),
             }
         )
     return records
-
-
-def _generated_import_path(path: Path) -> str:
-    text = path.read_text(encoding="utf-8")
-    match = re.search(
-        r"^\*\*Import path:\*\*\s+`(?P<target>earth2studio\.[^`]+)`", text, re.M
-    )
-    return match.group("target") if match else ""
 
 
 def _catalog_kind_group(parts: tuple[str, ...]) -> tuple[str | None, str]:
@@ -297,143 +283,61 @@ def _catalog_kind_group(parts: tuple[str, ...]) -> tuple[str | None, str]:
     return None, ""
 
 
-def _catalog_source(title: str, import_path: str, kind: str) -> str:
-    key = f"{title} {import_path}".lower()
-    model_sources = (
-        ("graphcast", "Google DeepMind"),
-        ("gencast", "Google DeepMind"),
-        ("pangu", "Huawei"),
-        ("aurora", "Microsoft"),
-        ("ace2", "Allen Institute"),
-        ("fuxi", "Fudan University"),
-        ("aifs", "ECMWF"),
+def _catalog_filters(kind: str, badges: list[str]) -> dict[str, list[str]]:
+    prefixes = (
+        (
+            ("class", "class"),
+            ("provider", "provider"),
+            ("backend", "backend"),
+            ("product", "product"),
+            ("region", "region"),
+            ("gpu", "gpu"),
+            ("year", "year"),
+        )
+        if kind == "model"
+        else (
+            ("dataclass", "data class"),
+            ("product", "product"),
+            ("region", "region"),
+            ("gpu", "gpu"),
+            ("year", "year"),
+        )
     )
-    data_sources = (
-        ("earthmover", "EarthMover"),
-        ("dynamical", "Dynamical"),
-        ("planetarycomputer", "Planetary Computer"),
-        ("ecmwf", "ECMWF"),
-        ("ifs", "ECMWF"),
-        ("aifs", "ECMWF"),
-        ("era5", "ECMWF"),
-        ("arco", "Google Cloud"),
-        ("wb2", "WeatherBench"),
-        ("gfs", "NOAA"),
-        ("gefs", "NOAA"),
-        ("gdas", "NOAA"),
-        ("hrrr", "NOAA"),
-        ("mrms", "NOAA"),
-        ("goes", "NOAA"),
-        ("jpss", "NOAA"),
-        ("ninja", "NOAA"),
-        ("nomad", "NOAA"),
-        ("ufs", "NOAA"),
-        ("ghcn", "NOAA"),
-        ("nclim", "NOAA"),
-        ("iem", "Iowa State"),
-        ("cmip", "CMIP"),
-        ("meteosat", "EUMETSAT"),
-        ("metop", "EUMETSAT"),
-        ("himawari", "JMA"),
-        ("opera", "OPERA"),
-    )
-    source_map = model_sources if kind == "model" else data_sources
-    for needle, source in source_map:
-        if needle in key:
-            return source
-    return "NVIDIA" if kind == "model" else "Earth2Studio"
-
-
-def _catalog_framework(title: str, import_path: str) -> str:
-    key = f"{title} {import_path}".lower()
-    if any(name in key for name in ("graphcast", "gencast")):
-        return "JAX origin"
-    return "PyTorch"
-
-
-def _catalog_family(title: str, import_path: str, badges: list[str]) -> str:
-    key = f"{title} {import_path}".lower()
-    families = (
-        "era5",
-        "ifs",
-        "aifs",
-        "gfs",
-        "gefs",
-        "gdas",
-        "hrrr",
-        "mrms",
-        "goes",
-        "jpss",
-        "cmip6",
-        "weatherbench",
-        "satellite",
-        "radar",
-        "reanalysis",
-        "forecast",
-        "observation",
-    )
-    for family in families:
-        if family in key:
-            return (
-                family.upper()
-                if family
-                not in {"satellite", "radar", "reanalysis", "forecast", "observation"}
-                else family.title()
-            )
-    dataclass = next(
-        (badge.split(":", 1)[1] for badge in badges if badge.startswith("dataclass:")),
-        "",
-    )
-    return dataclass.replace("_", " ").title() if dataclass else "General"
-
-
-def _catalog_filters(
-    kind: str,
-    group: str,
-    source: str,
-    framework: str,
-    family: str,
-    badges: list[str],
-) -> dict[str, list[str]]:
-    filters: dict[str, list[str]] = {
-        "product": [
-            _badge_label(badge) for badge in badges if badge.startswith("product:")
-        ],
-        "region": [
-            _badge_label(badge) for badge in badges if badge.startswith("region:")
-        ],
-        "gpu": [_badge_label(badge) for badge in badges if badge.startswith("gpu:")],
-        "year": [_badge_label(badge) for badge in badges if badge.startswith("year:")],
+    filters = {
+        label: [
+            _catalog_filter_label(label, badge)
+            for badge in badges
+            if badge.startswith(f"{prefix}:")
+        ]
+        for prefix, label in prefixes
     }
-    if kind == "model":
-        filters["workflow"] = [
-            _badge_label(badge) for badge in badges if badge.startswith("class:")
-        ]
-    else:
-        filters["data class"] = [
-            _badge_label(badge) for badge in badges if badge.startswith("dataclass:")
-        ]
     return {
         key: [value for value in values if value] for key, values in filters.items()
     }
 
 
-def _catalog_chips(
-    kind: str,
-    group: str,
-    source: str,
-    framework: str,
-    family: str,
-    badges: list[str],
-) -> list[str]:
-    chips = [group, source]
-    chips.append(framework if kind == "model" else family)
-    chips.extend(
-        _badge_label(badge)
-        for badge in badges
-        if badge.startswith(("class:", "dataclass:", "product:"))
+def _catalog_chips(kind: str, group: str, badges: list[str]) -> list[str]:
+    prefixes = (
+        ("class", "provider", "backend", "product")
+        if kind == "model"
+        else (
+            "dataclass",
+            "product",
+        )
     )
+    chips = [group]
+    for prefix in prefixes:
+        chips.extend(
+            _catalog_filter_label(prefix, badge)
+            for badge in badges
+            if badge.startswith(f"{prefix}:")
+        )
     return list(dict.fromkeys(chip for chip in chips if chip))[:6]
+
+
+def _catalog_filter_label(group: str, badge: str) -> str:
+    """Return display label for a catalog filter value."""
+    return _badge_label(badge)
 
 
 def _badge_label(badge: str) -> str:
@@ -443,6 +347,9 @@ def _badge_label(badge: str) -> str:
         _mkdocs_badge_definitions(),
         _mkdocs_badge_default_color(),
     )
+    name = getattr(resolved, "name", "")
+    if name:
+        return name
     if resolved.label:
         return resolved.label
     if resolved.tooltip:
@@ -457,8 +364,8 @@ def _catalog_tone(badges: list[str], kind: str) -> str:
         ("product:solar", "solar"),
         ("product:ocean", "ocean"),
         ("product:precip", "precip"),
-        ("class:da", "assimilation"),
-        ("class:ds", "downscaling"),
+        ("class:data-assimilation", "assimilation"),
+        ("class:downscaling", "downscaling"),
         ("dataclass:observation", "observation"),
         ("dataclass:reanalysis", "reanalysis"),
         ("dataclass:simulation", "simulation"),

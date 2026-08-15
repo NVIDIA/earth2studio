@@ -108,7 +108,7 @@ from tqdm import tqdm
 from earth2studio.utils.coords import map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
-times = [datetime(2022, 12, 20)]
+times = [datetime(2024, 1, 1)]
 nsteps = 20  # Assuming 6-hour time steps
 
 

@@ -20,7 +20,7 @@
     data: "Data Sources",
   };
   const groupOrder = {
-    model: ["workflow", "product", "region", "gpu", "year"],
+    model: ["class", "provider", "backend", "region"],
     data: ["data class", "product", "region", "gpu", "year"],
   };
   const pageSize = 10;
@@ -34,11 +34,17 @@
   }
 
   function sortedValues(group) {
-    const values = new Set();
+    const counts = new Map();
     records
       .filter((item) => item.kind === state.kind)
-      .forEach((item) => (item.filters[group] || []).forEach((value) => values.add(value)));
-    return [...values].sort((a, b) => a.localeCompare(b));
+      .forEach((item) => {
+        (item.filters[group] || []).forEach((value) => {
+          counts.set(value, (counts.get(value) || 0) + 1);
+        });
+      });
+    return [...counts]
+      .sort(([a, aCount], [b, bCount]) => bCount - aCount || a.localeCompare(b))
+      .map(([value]) => value);
   }
 
   function selected(group, value) {

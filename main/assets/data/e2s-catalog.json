@@ -10,11 +10,11 @@
     ],
     "chips": [
       "Data Source",
-      "Google Cloud",
       "Reanalysis",
       "Surface Winds",
       "Surface Precipitation",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -52,11 +52,11 @@
     ],
     "chips": [
       "Data Source",
-      "Earth2Studio",
-      "Simulation",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -94,11 +94,11 @@
     ],
     "chips": [
       "Data Source",
-      "Earth2Studio",
       "Reanalysis",
       "Surface Winds",
       "Surface Precipitation",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -136,11 +136,11 @@
     ],
     "chips": [
       "Data Source",
-      "CMIP",
-      "CMIP6",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -179,11 +179,11 @@
     ],
     "chips": [
       "Data Source",
-      "CMIP",
-      "CMIP6",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -213,9 +213,7 @@
   {
     "badges": [],
     "chips": [
-      "Data Source",
-      "Earth2Studio",
-      "General"
+      "Data Source"
     ],
     "filters": {
       "data class": [],
@@ -235,9 +233,7 @@
   {
     "badges": [],
     "chips": [
-      "Data Source",
-      "Earth2Studio",
-      "General"
+      "Data Source"
     ],
     "filters": {
       "data class": [],
@@ -257,9 +253,7 @@
   {
     "badges": [],
     "chips": [
-      "Data Source",
-      "Earth2Studio",
-      "General"
+      "Data Source"
     ],
     "filters": {
       "data class": [],
@@ -286,11 +280,10 @@
     ],
     "chips": [
       "Data Source",
-      "Dynamical",
-      "IFS",
       "Analysis / Initial Conditions",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -325,11 +318,10 @@
     ],
     "chips": [
       "Data Source",
-      "Dynamical",
-      "IFS",
       "Analysis / Initial Conditions",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -364,11 +356,10 @@
     ],
     "chips": [
       "Data Source",
-      "Dynamical",
-      "GEFS",
       "Analysis / Initial Conditions",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -403,11 +394,10 @@
     ],
     "chips": [
       "Data Source",
-      "Dynamical",
-      "GFS",
       "Analysis / Initial Conditions",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -443,11 +433,11 @@
     ],
     "chips": [
       "Data Source",
-      "Dynamical",
-      "HRRR",
       "Analysis / Initial Conditions",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -461,7 +451,7 @@
         "Atmosphere"
       ],
       "region": [
-        "NA"
+        "North America"
       ],
       "year": []
     },
@@ -483,11 +473,10 @@
     ],
     "chips": [
       "Data Source",
-      "Dynamical",
-      "IFS",
       "Analysis / Initial Conditions",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -521,8 +510,6 @@
     ],
     "chips": [
       "Data Source",
-      "Dynamical",
-      "MRMS",
       "Analysis / Initial Conditions",
       "Surface Precipitation",
       "Radar"
@@ -537,7 +524,7 @@
         "Radar"
       ],
       "region": [
-        "NA"
+        "North America"
       ],
       "year": []
     },
@@ -561,11 +548,11 @@
     ],
     "chips": [
       "Data Source",
-      "EarthMover",
-      "IFS",
       "Analysis / Initial Conditions",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere",
+      "Ocean"
     ],
     "filters": {
       "data class": [
@@ -604,11 +591,11 @@
     ],
     "chips": [
       "Data Source",
-      "EarthMover",
-      "ERA5",
       "Reanalysis",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -646,11 +633,11 @@
     ],
     "chips": [
       "Data Source",
-      "NOAA",
-      "GFS",
       "Analysis / Initial Conditions",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -684,8 +671,6 @@
     ],
     "chips": [
       "Data Source",
-      "NOAA",
-      "GOES",
       "Direct Observations",
       "Satellite"
     ],
@@ -698,7 +683,7 @@
         "Satellite"
       ],
       "region": [
-        "NA"
+        "North America"
       ],
       "year": []
     },
@@ -718,8 +703,6 @@
     ],
     "chips": [
       "Data Source",
-      "NOAA",
-      "GOES",
       "Direct Observations",
       "Satellite"
     ],
@@ -732,7 +715,7 @@
         "Satellite"
       ],
       "region": [
-        "NA"
+        "North America"
       ],
       "year": []
     },
@@ -756,11 +739,11 @@
     ],
     "chips": [
       "Data Source",
-      "NOAA",
-      "HRRR",
       "Analysis / Initial Conditions",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -775,7 +758,7 @@
         "Radar"
       ],
       "region": [
-        "NA"
+        "North America"
       ],
       "year": []
     },
@@ -796,8 +779,6 @@
     ],
     "chips": [
       "Data Source",
-      "JMA",
-      "Observation",
       "Direct Observations",
       "Satellite"
     ],
@@ -810,8 +791,8 @@
         "Satellite"
       ],
       "region": [
-        "AS",
-        "AU"
+        "Asia",
+        "Australia"
       ],
       "year": []
     },
@@ -834,11 +815,11 @@
     ],
     "chips": [
       "Data Source",
-      "ECMWF",
-      "IFS",
       "Analysis / Initial Conditions",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -875,11 +856,11 @@
     ],
     "chips": [
       "Data Source",
-      "ECMWF",
-      "IFS",
       "Analysis / Initial Conditions",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -913,8 +894,6 @@
     ],
     "chips": [
       "Data Source",
-      "NOAA",
-      "JPSS",
       "Direct Observations",
       "Satellite"
     ],
@@ -947,8 +926,6 @@
     ],
     "chips": [
       "Data Source",
-      "NOAA",
-      "MRMS",
       "Direct Observations",
       "Radar"
     ],
@@ -961,7 +938,7 @@
         "Radar"
       ],
       "region": [
-        "NA"
+        "North America"
       ],
       "year": []
     },
@@ -982,8 +959,6 @@
     ],
     "chips": [
       "Data Source",
-      "EUMETSAT",
-      "Observation",
       "Direct Observations",
       "Satellite"
     ],
@@ -996,8 +971,8 @@
         "Satellite"
       ],
       "region": [
-        "EU",
-        "AF"
+        "Europe",
+        "Africa"
       ],
       "year": []
     },
@@ -1020,11 +995,11 @@
     ],
     "chips": [
       "Data Source",
-      "ECMWF",
-      "ERA5",
       "Reanalysis",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -1059,8 +1034,6 @@
     ],
     "chips": [
       "Data Source",
-      "NOAA",
-      "Observation",
       "Direct Observations",
       "Surface Temperature",
       "Surface Precipitation"
@@ -1075,7 +1048,7 @@
         "Surface Precipitation"
       ],
       "region": [
-        "NA"
+        "North America"
       ],
       "year": []
     },
@@ -1096,8 +1069,6 @@
     ],
     "chips": [
       "Data Source",
-      "OPERA",
-      "Observation",
       "Direct Observations",
       "Surface Precipitation",
       "Radar"
@@ -1112,7 +1083,7 @@
         "Radar"
       ],
       "region": [
-        "EU"
+        "Europe"
       ],
       "year": []
     },
@@ -1135,11 +1106,11 @@
     ],
     "chips": [
       "Data Source",
-      "Planetary Computer",
-      "IFS",
       "Analysis / Initial Conditions",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -1173,8 +1144,6 @@
     ],
     "chips": [
       "Data Source",
-      "Planetary Computer",
-      "GOES",
       "Direct Observations",
       "Satellite"
     ],
@@ -1187,7 +1156,7 @@
         "Satellite"
       ],
       "region": [
-        "NA"
+        "North America"
       ],
       "year": []
     },
@@ -1208,8 +1177,6 @@
     ],
     "chips": [
       "Data Source",
-      "Planetary Computer",
-      "Observation",
       "Direct Observations",
       "Land/Soil",
       "Satellite"
@@ -1244,8 +1211,6 @@
     ],
     "chips": [
       "Data Source",
-      "Planetary Computer",
-      "Observation",
       "Direct Observations",
       "Ocean"
     ],
@@ -1279,8 +1244,6 @@
     ],
     "chips": [
       "Data Source",
-      "Planetary Computer",
-      "Observation",
       "Direct Observations",
       "Atmosphere",
       "Satellite"
@@ -1310,9 +1273,7 @@
   {
     "badges": [],
     "chips": [
-      "Data Source",
-      "Earth2Studio",
-      "General"
+      "Data Source"
     ],
     "filters": {
       "data class": [],
@@ -1340,11 +1301,11 @@
     ],
     "chips": [
       "Data Source",
-      "WeatherBench",
       "Reanalysis",
       "Surface Winds",
       "Surface Precipitation",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -1381,11 +1342,11 @@
     ],
     "chips": [
       "Data Source",
-      "ECMWF",
-      "ERA5",
       "Reanalysis",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -1422,11 +1383,11 @@
     ],
     "chips": [
       "Data Source",
-      "ECMWF",
-      "ERA5",
       "Reanalysis",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -1463,11 +1424,11 @@
     ],
     "chips": [
       "Data Source",
-      "ECMWF",
-      "ERA5",
       "Reanalysis",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -1506,11 +1467,11 @@
     ],
     "chips": [
       "DataFrame Source",
-      "NOAA",
-      "Observation",
       "Direct Observations",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -1549,11 +1510,11 @@
     ],
     "chips": [
       "DataFrame Source",
-      "NOAA",
-      "Observation",
       "Direct Observations",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "In-Situ Observations"
     ],
     "filters": {
       "data class": [
@@ -1588,8 +1549,6 @@
     ],
     "chips": [
       "DataFrame Source",
-      "NOAA",
-      "GOES",
       "Direct Observations",
       "Satellite"
     ],
@@ -1602,8 +1561,8 @@
         "Satellite"
       ],
       "region": [
-        "NA",
-        "SA"
+        "North America",
+        "South America"
       ],
       "year": []
     },
@@ -1624,8 +1583,6 @@
     ],
     "chips": [
       "DataFrame Source",
-      "Earth2Studio",
-      "Observation",
       "Direct Observations",
       "Surface Winds",
       "Atmosphere"
@@ -1664,11 +1621,11 @@
     ],
     "chips": [
       "DataFrame Source",
-      "Iowa State",
-      "Observation",
       "Direct Observations",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -1706,11 +1663,11 @@
     ],
     "chips": [
       "DataFrame Source",
-      "Earth2Studio",
-      "Observation",
       "Direct Observations",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "In-Situ Observations"
     ],
     "filters": {
       "data class": [
@@ -1724,7 +1681,7 @@
         "In-Situ Observations"
       ],
       "region": [
-        "NA"
+        "North America"
       ],
       "year": []
     },
@@ -1744,8 +1701,6 @@
     ],
     "chips": [
       "DataFrame Source",
-      "NOAA",
-      "JPSS",
       "Direct Observations",
       "Satellite"
     ],
@@ -1778,8 +1733,6 @@
     ],
     "chips": [
       "DataFrame Source",
-      "NOAA",
-      "JPSS",
       "Direct Observations",
       "Satellite"
     ],
@@ -1812,8 +1765,6 @@
     ],
     "chips": [
       "DataFrame Source",
-      "EUMETSAT",
-      "Observation",
       "Direct Observations",
       "Satellite"
     ],
@@ -1846,8 +1797,6 @@
     ],
     "chips": [
       "DataFrame Source",
-      "EUMETSAT",
-      "Observation",
       "Direct Observations",
       "Satellite"
     ],
@@ -1880,8 +1829,6 @@
     ],
     "chips": [
       "DataFrame Source",
-      "EUMETSAT",
-      "Observation",
       "Direct Observations",
       "Satellite"
     ],
@@ -1914,8 +1861,6 @@
     ],
     "chips": [
       "DataFrame Source",
-      "EUMETSAT",
-      "Observation",
       "Direct Observations",
       "Satellite"
     ],
@@ -1951,11 +1896,11 @@
     ],
     "chips": [
       "DataFrame Source",
-      "Earth2Studio",
-      "Observation",
       "Direct Observations",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere",
+      "In-Situ Observations"
     ],
     "filters": {
       "data class": [
@@ -1990,8 +1935,6 @@
     ],
     "chips": [
       "DataFrame Source",
-      "Earth2Studio",
-      "Observation",
       "Direct Observations",
       "Atmosphere",
       "Satellite"
@@ -2029,11 +1972,11 @@
     ],
     "chips": [
       "DataFrame Source",
-      "NOAA",
-      "GDAS",
       "Direct Observations",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere",
+      "In-Situ Observations"
     ],
     "filters": {
       "data class": [
@@ -2062,9 +2005,7 @@
   {
     "badges": [],
     "chips": [
-      "DataFrame Source",
-      "Earth2Studio",
-      "General"
+      "DataFrame Source"
     ],
     "filters": {
       "data class": [],
@@ -2090,8 +2031,6 @@
     ],
     "chips": [
       "DataFrame Source",
-      "NOAA",
-      "Observation",
       "Direct Observations",
       "Atmosphere",
       "In-Situ Observations"
@@ -2127,8 +2066,6 @@
     ],
     "chips": [
       "DataFrame Source",
-      "NOAA",
-      "Observation",
       "Direct Observations",
       "Atmosphere",
       "Satellite"
@@ -2166,11 +2103,11 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "ECMWF",
-      "IFS",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2207,11 +2144,11 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "ECMWF",
-      "IFS",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2247,11 +2184,10 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "Earth2Studio",
-      "Simulation",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2286,11 +2222,10 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "Earth2Studio",
-      "Simulation",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2327,11 +2262,11 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "Earth2Studio",
-      "Simulation",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2368,11 +2303,10 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "Earth2Studio",
-      "Forecast",
       "Reanalysis",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2407,11 +2341,10 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "Earth2Studio",
-      "Forecast",
       "Reanalysis",
       "Surface Precipitation",
-      "Land/Soil"
+      "Land/Soil",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2446,11 +2379,10 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "Dynamical",
-      "IFS",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2485,11 +2417,10 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "Dynamical",
-      "IFS",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2524,11 +2455,10 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "Dynamical",
-      "GEFS",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2563,11 +2493,10 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "Dynamical",
-      "GFS",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2603,11 +2532,11 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "Dynamical",
-      "HRRR",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2621,7 +2550,7 @@
         "Atmosphere"
       ],
       "region": [
-        "NA"
+        "North America"
       ],
       "year": []
     },
@@ -2644,11 +2573,11 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "Dynamical",
-      "Simulation",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2662,7 +2591,7 @@
         "Atmosphere"
       ],
       "region": [
-        "EU"
+        "Europe"
       ],
       "year": []
     },
@@ -2684,11 +2613,10 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "Dynamical",
-      "IFS",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2724,11 +2652,11 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "EarthMover",
-      "IFS",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2765,11 +2693,11 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "NOAA",
-      "GEFS",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2806,11 +2734,11 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "NOAA",
-      "GEFS",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2847,11 +2775,11 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "NOAA",
-      "GFS",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2889,11 +2817,11 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "NOAA",
-      "HRRR",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2908,7 +2836,7 @@
         "Radar"
       ],
       "region": [
-        "NA"
+        "North America"
       ],
       "year": []
     },
@@ -2931,11 +2859,11 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "ECMWF",
-      "IFS",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -2972,11 +2900,11 @@
     ],
     "chips": [
       "Forecast Data Source",
-      "ECMWF",
-      "IFS",
       "Numerical / AI Simulation",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
@@ -3005,26 +2933,34 @@
   {
     "badges": [
       "region:global",
-      "class:da",
+      "class:data-assimilation",
       "product:wind",
       "product:temp",
       "product:atmos",
       "product:sat",
       "product:insitu",
       "year:2026",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Data Assimilation",
       "NVIDIA",
       "PyTorch",
-      "DA",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Data Assimilation"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -3033,11 +2969,11 @@
         "Satellite",
         "In-Situ Observations"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "DA"
       ],
       "year": [
         "2026"
@@ -3055,30 +2991,37 @@
     "badges": [
       "region:global",
       "region:na",
-      "class:da",
+      "class:data-assimilation",
       "product:atmos",
-      "product:insitu"
+      "product:insitu",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Data Assimilation",
       "NVIDIA",
       "PyTorch",
-      "DA",
       "Atmosphere",
       "In-Situ Observations"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Data Assimilation"
+      ],
       "gpu": [],
       "product": [
         "Atmosphere",
         "In-Situ Observations"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global",
-        "NA"
-      ],
-      "workflow": [
-        "DA"
+        "North America"
       ],
       "year": []
     },
@@ -3093,27 +3036,36 @@
   {
     "badges": [
       "region:na",
-      "class:da",
-      "class:nwc",
+      "class:data-assimilation",
+      "class:nowcasting",
       "product:wind",
       "product:temp",
       "product:atmos",
       "product:radar",
       "product:insitu",
       "year:2024",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Data Assimilation",
+      "Nowcasting",
       "NVIDIA",
       "PyTorch",
-      "DA",
-      "NWC",
-      "Surface Winds"
+      "Surface Winds",
+      "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Data Assimilation",
+        "Nowcasting"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -3122,12 +3074,11 @@
         "Radar",
         "In-Situ Observations"
       ],
-      "region": [
-        "NA"
+      "provider": [
+        "NVIDIA"
       ],
-      "workflow": [
-        "DA",
-        "NWC"
+      "region": [
+        "North America"
       ],
       "year": [
         "2024"
@@ -3144,26 +3095,34 @@
   {
     "badges": [
       "region:global",
-      "class:cm",
+      "class:climate",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
       "product:ocean",
       "year:2025",
-      "gpu:80gb"
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Climate",
       "NVIDIA",
       "PyTorch",
-      "CM",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Climate"
+      ],
       "gpu": [
-        "80 GB"
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -3172,11 +3131,11 @@
         "Atmosphere",
         "Ocean"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "CM"
       ],
       "year": [
         "2025"
@@ -3193,25 +3152,33 @@
   {
     "badges": [
       "region:global",
-      "class:ds",
+      "class:downscaling",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
       "year:2025",
-      "gpu:80gb"
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Downscaling",
       "NVIDIA",
       "PyTorch",
-      "DS",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Downscaling"
+      ],
       "gpu": [
-        "80 GB"
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -3219,11 +3186,11 @@
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "DS"
       ],
       "year": [
         "2025"
@@ -3240,25 +3207,33 @@
   {
     "badges": [
       "region:global",
-      "class:cm",
+      "class:climate",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
       "year:2025",
-      "gpu:80gb"
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Climate",
       "NVIDIA",
       "PyTorch",
-      "CM",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Climate"
+      ],
       "gpu": [
-        "80 GB"
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -3266,11 +3241,11 @@
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "CM"
       ],
       "year": [
         "2025"
@@ -3287,30 +3262,38 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:atmos",
       "year:2021",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Medium Range",
       "NVIDIA",
       "PyTorch",
-      "MRF",
       "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2021"
@@ -3327,26 +3310,35 @@
   {
     "badges": [
       "region:global",
-      "class:ds",
-      "class:cm",
+      "class:downscaling",
+      "class:climate",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
       "year:2026",
-      "gpu:80gb"
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Downscaling",
+      "Climate",
       "NVIDIA",
       "PyTorch",
-      "DS",
-      "CM",
       "Surface Winds"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Downscaling",
+        "Climate"
+      ],
       "gpu": [
-        "80 GB"
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -3354,12 +3346,11 @@
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "DS",
-        "CM"
       ],
       "year": [
         "2026"
@@ -3376,25 +3367,33 @@
   {
     "badges": [
       "region:eu",
-      "class:ds",
+      "class:downscaling",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
       "year:2026",
-      "gpu:80gb"
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Downscaling",
       "NVIDIA",
       "PyTorch",
-      "DS",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Downscaling"
+      ],
       "gpu": [
-        "80 GB"
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -3402,11 +3401,11 @@
         "Surface Temperature",
         "Atmosphere"
       ],
-      "region": [
-        "EU"
+      "provider": [
+        "NVIDIA"
       ],
-      "workflow": [
-        "DS"
+      "region": [
+        "Europe"
       ],
       "year": [
         "2026"
@@ -3423,25 +3422,33 @@
   {
     "badges": [
       "region:as",
-      "class:ds",
+      "class:downscaling",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
       "year:2023",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Downscaling",
       "NVIDIA",
       "PyTorch",
-      "DS",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Downscaling"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -3449,11 +3456,11 @@
         "Surface Temperature",
         "Atmosphere"
       ],
-      "region": [
-        "AS"
+      "provider": [
+        "NVIDIA"
       ],
-      "workflow": [
-        "DS"
+      "region": [
+        "Asia"
       ],
       "year": [
         "2023"
@@ -3470,30 +3477,38 @@
   {
     "badges": [
       "region:global",
-      "class:cm",
+      "class:climate",
       "product:precip",
       "year:2024",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Climate",
       "NVIDIA",
       "PyTorch",
-      "CM",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Climate"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Precipitation"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "CM"
       ],
       "year": [
         "2024"
@@ -3510,7 +3525,9 @@
   {
     "badges": [
       "region:global",
-      "product:atmos"
+      "product:atmos",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
@@ -3519,14 +3536,20 @@
       "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [],
       "gpu": [],
       "product": [
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
       ],
-      "workflow": [],
       "year": []
     },
     "group": "Diagnostic",
@@ -3540,7 +3563,9 @@
   {
     "badges": [
       "region:global",
-      "product:atmos"
+      "product:atmos",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
@@ -3549,14 +3574,20 @@
       "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [],
       "gpu": [],
       "product": [
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
       ],
-      "workflow": [],
       "year": []
     },
     "group": "Diagnostic",
@@ -3570,7 +3601,9 @@
   {
     "badges": [
       "region:global",
-      "product:atmos"
+      "product:atmos",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
@@ -3579,14 +3612,20 @@
       "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [],
       "gpu": [],
       "product": [
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
       ],
-      "workflow": [],
       "year": []
     },
     "group": "Diagnostic",
@@ -3600,7 +3639,9 @@
   {
     "badges": [
       "region:global",
-      "product:atmos"
+      "product:atmos",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
@@ -3609,14 +3650,20 @@
       "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [],
       "gpu": [],
       "product": [
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
       ],
-      "workflow": [],
       "year": []
     },
     "group": "Diagnostic",
@@ -3631,7 +3678,9 @@
     "badges": [
       "region:global",
       "product:veg",
-      "product:atmos"
+      "product:atmos",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
@@ -3641,15 +3690,21 @@
       "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [],
       "gpu": [],
       "product": [
         "Vegetation",
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
       ],
-      "workflow": [],
       "year": []
     },
     "group": "Diagnostic",
@@ -3664,7 +3719,9 @@
     "badges": [
       "region:global",
       "product:wind",
-      "product:atmos"
+      "product:atmos",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
@@ -3674,15 +3731,21 @@
       "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
       ],
-      "workflow": [],
       "year": []
     },
     "group": "Diagnostic",
@@ -3694,17 +3757,29 @@
     "url": "../../../modules/generated/models/dx/DerivedWS"
   },
   {
-    "badges": [],
+    "badges": [
+      "region:global",
+      "provider:nvidia",
+      "backend:pytorch"
+    ],
     "chips": [
       "Diagnostic",
       "NVIDIA",
       "PyTorch"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [],
       "gpu": [],
       "product": [],
-      "region": [],
-      "workflow": [],
+      "provider": [
+        "NVIDIA"
+      ],
+      "region": [
+        "Global"
+      ],
       "year": []
     },
     "group": "Diagnostic",
@@ -3718,30 +3793,34 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:precip",
       "year:2025",
-      "gpu:40gb"
+      "gpu:40gb",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
-      "NVIDIA",
+      "Medium Range",
       "PyTorch",
-      "MRF",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Precipitation"
       ],
+      "provider": [],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2025"
@@ -3758,30 +3837,38 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:precip",
       "year:2022",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Medium Range",
       "NVIDIA",
       "PyTorch",
-      "MRF",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Precipitation"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2022"
@@ -3798,30 +3885,38 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:precip",
       "year:2024",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Medium Range",
       "NVIDIA",
       "PyTorch",
-      "MRF",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Precipitation"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2024"
@@ -3838,30 +3933,38 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:solar",
       "year:2024",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Medium Range",
       "NVIDIA",
       "PyTorch",
-      "MRF",
       "Solar"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Solar"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2024"
@@ -3878,30 +3981,38 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:solar",
       "year:2024",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Medium Range",
       "NVIDIA",
       "PyTorch",
-      "MRF",
       "Solar"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Solar"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2024"
@@ -3918,30 +4029,38 @@
   {
     "badges": [
       "region:na",
-      "class:nwc",
+      "class:nowcasting",
       "product:solar",
       "year:2026",
-      "gpu:48gb"
+      "gpu:48gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Nowcasting",
       "NVIDIA",
       "PyTorch",
-      "NWC",
       "Solar"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Nowcasting"
+      ],
       "gpu": [
-        "48 GB"
+        "48 GB VRAM (L40S, A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Solar"
       ],
-      "region": [
-        "NA"
+      "provider": [
+        "NVIDIA"
       ],
-      "workflow": [
-        "NWC"
+      "region": [
+        "North America"
       ],
       "year": [
         "2026"
@@ -3958,26 +4077,34 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
-      "product:atmos"
+      "class:medium-range",
+      "product:atmos",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Medium Range",
       "NVIDIA",
       "PyTorch",
-      "MRF",
       "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [],
       "product": [
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": []
     },
@@ -3992,27 +4119,35 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:atmos",
-      "year:2023"
+      "year:2023",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Medium Range",
       "NVIDIA",
       "PyTorch",
-      "MRF",
       "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [],
       "product": [
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2023"
@@ -4029,30 +4164,38 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "year:2024",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Diagnostic",
+      "Medium Range",
       "NVIDIA",
       "PyTorch",
-      "MRF",
       "Surface Winds"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2024"
@@ -4069,7 +4212,7 @@
   {
     "badges": [
       "region:global",
-      "class:cm",
+      "class:climate",
       "product:wind",
       "product:precip",
       "product:temp",
@@ -4077,19 +4220,27 @@
       "product:ocean",
       "product:land",
       "year:2024",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:ai2",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
-      "Allen Institute",
+      "Climate",
+      "AI2",
       "PyTorch",
-      "CM",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Climate"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -4099,11 +4250,11 @@
         "Ocean",
         "Land/Soil"
       ],
+      "provider": [
+        "AI2"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "CM"
       ],
       "year": [
         "2024"
@@ -4120,7 +4271,7 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:precip",
       "product:temp",
@@ -4128,19 +4279,27 @@
       "product:land",
       "product:solar",
       "year:2025",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:ecmwf",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Medium Range",
       "ECMWF",
       "PyTorch",
-      "MRF",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -4150,11 +4309,11 @@
         "Land/Soil",
         "Solar"
       ],
+      "provider": [
+        "ECMWF"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2025"
@@ -4171,7 +4330,7 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:precip",
       "product:temp",
@@ -4180,19 +4339,27 @@
       "product:solar",
       "product:ocean",
       "year:2026",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:ecmwf",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Medium Range",
       "ECMWF",
       "PyTorch",
-      "MRF",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -4203,11 +4370,11 @@
         "Solar",
         "Ocean"
       ],
+      "provider": [
+        "ECMWF"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2026"
@@ -4224,7 +4391,7 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:precip",
       "product:temp",
@@ -4233,19 +4400,27 @@
       "product:solar",
       "product:ocean",
       "year:2026",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:ecmwf",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Medium Range",
       "ECMWF",
       "PyTorch",
-      "MRF",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -4256,11 +4431,11 @@
         "Solar",
         "Ocean"
       ],
+      "provider": [
+        "ECMWF"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2026"
@@ -4277,7 +4452,7 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:precip",
       "product:temp",
@@ -4285,19 +4460,27 @@
       "product:land",
       "product:solar",
       "year:2025",
-      "gpu:48gb"
+      "gpu:48gb",
+      "provider:ecmwf",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Medium Range",
       "ECMWF",
       "PyTorch",
-      "MRF",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "48 GB"
+        "48 GB VRAM (L40S, A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -4307,11 +4490,11 @@
         "Land/Soil",
         "Solar"
       ],
+      "provider": [
+        "ECMWF"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2025"
@@ -4328,25 +4511,33 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
       "year:2026",
-      "gpu:80gb"
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Medium Range",
       "NVIDIA",
       "PyTorch",
-      "MRF",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "80 GB"
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -4354,11 +4545,11 @@
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2026"
@@ -4375,35 +4566,43 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:temp",
       "product:atmos",
       "year:2024",
-      "gpu:48gb"
+      "gpu:48gb",
+      "provider:microsoft",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Medium Range",
       "Microsoft",
       "PyTorch",
-      "MRF",
       "Surface Winds",
       "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "48 GB"
+        "48 GB VRAM (L40S, A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [
+        "Microsoft"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2024"
@@ -4420,7 +4619,7 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:temp",
       "product:atmos",
@@ -4429,19 +4628,27 @@
       "product:ocean",
       "product:solar",
       "year:2026",
-      "gpu:48gb"
+      "gpu:48gb",
+      "provider:microsoft",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Medium Range",
       "Microsoft",
       "PyTorch",
-      "MRF",
       "Surface Winds",
       "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "48 GB"
+        "48 GB VRAM (L40S, A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -4452,11 +4659,11 @@
         "Ocean",
         "Solar"
       ],
+      "provider": [
+        "Microsoft"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2026"
@@ -4473,7 +4680,7 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:temp",
       "product:atmos",
@@ -4482,19 +4689,27 @@
       "product:ocean",
       "product:solar",
       "year:2026",
-      "gpu:48gb"
+      "gpu:48gb",
+      "provider:microsoft",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Medium Range",
       "Microsoft",
       "PyTorch",
-      "MRF",
       "Surface Winds",
       "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "48 GB"
+        "48 GB VRAM (L40S, A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -4505,11 +4720,11 @@
         "Ocean",
         "Solar"
       ],
+      "provider": [
+        "Microsoft"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2026"
@@ -4526,26 +4741,34 @@
   {
     "badges": [
       "region:global",
-      "class:cm",
+      "class:climate",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
       "product:solar",
       "year:2025",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Climate",
       "NVIDIA",
       "PyTorch",
-      "CM",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Climate"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -4554,11 +4777,11 @@
         "Atmosphere",
         "Solar"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "CM"
       ],
       "year": [
         "2025"
@@ -4575,25 +4798,33 @@
   {
     "badges": [
       "region:global",
-      "class:s2s",
+      "class:subseasonal-seasonal",
       "product:wind",
       "product:temp",
       "product:atmos",
       "product:ocean",
       "year:2025",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Sub-Seasonal to Seasonal",
       "NVIDIA",
       "PyTorch",
-      "S2S",
       "Surface Winds",
       "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Sub-Seasonal to Seasonal"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -4601,11 +4832,11 @@
         "Atmosphere",
         "Ocean"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "S2S"
       ],
       "year": [
         "2025"
@@ -4622,25 +4853,33 @@
   {
     "badges": [
       "region:global",
-      "class:s2s",
+      "class:subseasonal-seasonal",
       "product:wind",
       "product:temp",
       "product:atmos",
       "product:ocean",
       "year:2025",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Sub-Seasonal to Seasonal",
       "NVIDIA",
       "PyTorch",
-      "S2S",
       "Surface Winds",
       "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Sub-Seasonal to Seasonal"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -4648,11 +4887,11 @@
         "Atmosphere",
         "Ocean"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "S2S"
       ],
       "year": [
         "2025"
@@ -4669,25 +4908,33 @@
   {
     "badges": [
       "region:global",
-      "class:cm",
+      "class:climate",
       "product:wind",
       "product:temp",
       "product:atmos",
       "product:ocean",
       "year:2024",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Climate",
       "NVIDIA",
       "PyTorch",
-      "CM",
       "Surface Winds",
       "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Climate"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -4695,11 +4942,11 @@
         "Atmosphere",
         "Ocean"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "CM"
       ],
       "year": [
         "2024"
@@ -4716,25 +4963,33 @@
   {
     "badges": [
       "region:global",
-      "class:cm",
+      "class:climate",
       "product:wind",
       "product:temp",
       "product:atmos",
       "product:ocean",
       "year:2024",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Climate",
       "NVIDIA",
       "PyTorch",
-      "CM",
       "Surface Winds",
       "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Climate"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -4742,11 +4997,11 @@
         "Atmosphere",
         "Ocean"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "CM"
       ],
       "year": [
         "2024"
@@ -4763,33 +5018,41 @@
   {
     "badges": [
       "region:global",
-      "class:s2s",
+      "class:subseasonal-seasonal",
       "product:temp",
       "product:atmos",
       "year:2021",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Sub-Seasonal to Seasonal",
       "NVIDIA",
       "PyTorch",
-      "S2S",
       "Surface Temperature",
       "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Sub-Seasonal to Seasonal"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "S2S"
       ],
       "year": [
         "2021"
@@ -4804,17 +5067,29 @@
     "url": "../../../modules/generated/models/px/DLWP"
   },
   {
-    "badges": [],
+    "badges": [
+      "region:global",
+      "provider:nvidia",
+      "backend:pytorch"
+    ],
     "chips": [
       "Prognostic",
       "NVIDIA",
       "PyTorch"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [],
       "gpu": [],
       "product": [],
-      "region": [],
-      "workflow": [],
+      "provider": [
+        "NVIDIA"
+      ],
+      "region": [
+        "Global"
+      ],
       "year": []
     },
     "group": "Prognostic",
@@ -4826,17 +5101,29 @@
     "url": "../../../modules/generated/models/px/DataReplay"
   },
   {
-    "badges": [],
+    "badges": [
+      "region:global",
+      "provider:nvidia",
+      "backend:pytorch"
+    ],
     "chips": [
       "Prognostic",
       "NVIDIA",
       "PyTorch"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [],
       "gpu": [],
       "product": [],
-      "region": [],
-      "workflow": [],
+      "provider": [
+        "NVIDIA"
+      ],
+      "region": [
+        "Global"
+      ],
       "year": []
     },
     "group": "Prognostic",
@@ -4850,35 +5137,43 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:temp",
       "product:atmos",
       "year:2022",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Medium Range",
       "NVIDIA",
       "PyTorch",
-      "MRF",
       "Surface Winds",
       "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2022"
@@ -4895,35 +5190,43 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:temp",
       "product:atmos",
       "year:2025",
-      "gpu:80gb"
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Medium Range",
       "NVIDIA",
       "PyTorch",
-      "MRF",
       "Surface Winds",
       "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "80 GB"
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2025"
@@ -4940,35 +5243,40 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:temp",
       "product:atmos",
       "year:2023",
-      "gpu:40gb"
+      "gpu:40gb",
+      "backend:onnx"
     ],
     "chips": [
       "Prognostic",
-      "NVIDIA",
-      "PyTorch",
-      "MRF",
+      "Medium Range",
+      "ONNX",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "ONNX"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2023"
@@ -4985,25 +5293,32 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
       "year:2023",
-      "gpu:40gb"
+      "gpu:40gb",
+      "backend:onnx"
     ],
     "chips": [
       "Prognostic",
-      "Fudan University",
-      "PyTorch",
-      "MRF",
+      "Medium Range",
+      "ONNX",
       "Surface Winds",
-      "Surface Precipitation"
+      "Surface Precipitation",
+      "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "ONNX"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -5011,11 +5326,9 @@
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2023"
@@ -5032,26 +5345,34 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
       "product:ocean",
       "year:2024",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:google",
+      "backend:jax"
     ],
     "chips": [
       "Prognostic",
-      "Google DeepMind",
-      "JAX origin",
-      "MRF",
+      "Medium Range",
+      "Google",
+      "JAX",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "JAX"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -5060,11 +5381,11 @@
         "Atmosphere",
         "Ocean"
       ],
+      "provider": [
+        "Google"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2024"
@@ -5081,25 +5402,33 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
       "year:2022",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:google",
+      "backend:jax"
     ],
     "chips": [
       "Prognostic",
-      "Google DeepMind",
-      "JAX origin",
-      "MRF",
+      "Medium Range",
+      "Google",
+      "JAX",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "JAX"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -5107,11 +5436,11 @@
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [
+        "Google"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2022"
@@ -5128,25 +5457,33 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
       "year:2022",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:google",
+      "backend:jax"
     ],
     "chips": [
       "Prognostic",
-      "Google DeepMind",
-      "JAX origin",
-      "MRF",
+      "Medium Range",
+      "Google",
+      "JAX",
       "Surface Winds",
       "Surface Precipitation"
     ],
     "filters": {
+      "backend": [
+        "JAX"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -5154,11 +5491,11 @@
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [
+        "Google"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2022"
@@ -5175,35 +5512,43 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:temp",
       "product:atmos",
       "year:2024",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Medium Range",
       "NVIDIA",
       "PyTorch",
-      "MRF",
       "Surface Winds",
       "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2024"
@@ -5220,35 +5565,40 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:temp",
       "product:atmos",
       "year:2023",
-      "gpu:40gb"
+      "gpu:40gb",
+      "backend:onnx"
     ],
     "chips": [
       "Prognostic",
-      "Huawei",
-      "PyTorch",
-      "MRF",
+      "Medium Range",
+      "ONNX",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "ONNX"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2023"
@@ -5265,35 +5615,40 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:temp",
       "product:atmos",
       "year:2023",
-      "gpu:40gb"
+      "gpu:40gb",
+      "backend:onnx"
     ],
     "chips": [
       "Prognostic",
-      "Huawei",
-      "PyTorch",
-      "MRF",
+      "Medium Range",
+      "ONNX",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "ONNX"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2023"
@@ -5310,35 +5665,40 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:temp",
       "product:atmos",
       "year:2023",
-      "gpu:40gb"
+      "gpu:40gb",
+      "backend:onnx"
     ],
     "chips": [
       "Prognostic",
-      "Huawei",
-      "PyTorch",
-      "MRF",
+      "Medium Range",
+      "ONNX",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "ONNX"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2023"
@@ -5353,17 +5713,29 @@
     "url": "../../../modules/generated/models/px/Pangu6"
   },
   {
-    "badges": [],
+    "badges": [
+      "region:global",
+      "provider:nvidia",
+      "backend:pytorch"
+    ],
     "chips": [
       "Prognostic",
       "NVIDIA",
       "PyTorch"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [],
       "gpu": [],
       "product": [],
-      "region": [],
-      "workflow": [],
+      "provider": [
+        "NVIDIA"
+      ],
+      "region": [
+        "Global"
+      ],
       "year": []
     },
     "group": "Prognostic",
@@ -5377,35 +5749,43 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:temp",
       "product:atmos",
       "year:2023",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Medium Range",
       "NVIDIA",
       "PyTorch",
-      "MRF",
       "Surface Winds",
       "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2023"
@@ -5422,25 +5802,33 @@
   {
     "badges": [
       "region:na",
-      "class:nwc",
+      "class:nowcasting",
       "product:wind",
       "product:temp",
       "product:radar",
       "product:atmos",
       "year:2024",
-      "gpu:40gb"
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Nowcasting",
       "NVIDIA",
       "PyTorch",
-      "NWC",
       "Surface Winds",
       "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Nowcasting"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -5448,11 +5836,11 @@
         "Radar",
         "Atmosphere"
       ],
-      "region": [
-        "NA"
+      "provider": [
+        "NVIDIA"
       ],
-      "workflow": [
-        "NWC"
+      "region": [
+        "North America"
       ],
       "year": [
         "2024"
@@ -5469,26 +5857,34 @@
   {
     "badges": [
       "region:na",
-      "class:nwc",
+      "class:nowcasting",
       "product:wind",
       "product:temp",
       "product:precip",
       "product:radar",
       "product:atmos",
       "year:2026",
-      "gpu:24gb"
+      "gpu:24gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Nowcasting",
       "NVIDIA",
       "PyTorch",
-      "NWC",
       "Surface Winds",
       "Surface Temperature"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Nowcasting"
+      ],
       "gpu": [
-        "24 GB"
+        "24 GB VRAM (A30, A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -5497,11 +5893,11 @@
         "Radar",
         "Atmosphere"
       ],
-      "region": [
-        "NA"
+      "provider": [
+        "NVIDIA"
       ],
-      "workflow": [
-        "NWC"
+      "region": [
+        "North America"
       ],
       "year": [
         "2026"
@@ -5518,30 +5914,38 @@
   {
     "badges": [
       "region:na",
-      "class:nwc",
+      "class:nowcasting",
       "product:sat",
       "year:2026",
-      "gpu:80gb"
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Nowcasting",
       "NVIDIA",
       "PyTorch",
-      "NWC",
       "Satellite"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Nowcasting"
+      ],
       "gpu": [
-        "80 GB"
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Satellite"
       ],
-      "region": [
-        "NA"
+      "provider": [
+        "NVIDIA"
       ],
-      "workflow": [
-        "NWC"
+      "region": [
+        "North America"
       ],
       "year": [
         "2026"
@@ -5558,30 +5962,38 @@
   {
     "badges": [
       "region:na",
-      "class:nwc",
+      "class:nowcasting",
       "product:radar",
       "year:2026",
-      "gpu:80gb"
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
+      "Nowcasting",
       "NVIDIA",
       "PyTorch",
-      "NWC",
       "Radar"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Nowcasting"
+      ],
       "gpu": [
-        "80 GB"
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Radar"
       ],
-      "region": [
-        "NA"
+      "provider": [
+        "NVIDIA"
       ],
-      "workflow": [
-        "NWC"
+      "region": [
+        "North America"
       ],
       "year": [
         "2026"
@@ -5598,25 +6010,32 @@
   {
     "badges": [
       "region:global",
-      "class:mrf",
+      "class:medium-range",
       "product:wind",
       "product:temp",
       "product:atmos",
       "product:ocean",
       "year:2026",
-      "gpu:40gb"
+      "gpu:40gb",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
-      "NVIDIA",
+      "Medium Range",
       "PyTorch",
-      "MRF",
       "Surface Winds",
-      "Surface Temperature"
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
       "gpu": [
-        "40 GB"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -5624,11 +6043,9 @@
         "Atmosphere",
         "Ocean"
       ],
+      "provider": [],
       "region": [
         "Global"
-      ],
-      "workflow": [
-        "MRF"
       ],
       "year": [
         "2026"

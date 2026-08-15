@@ -2760,7 +2760,7 @@ folder is <em>not</em> present. The .env file is intended for the documentation 
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
-2026-08-14 18:00:55.656 | INFO     | __main__:&lt;module&gt;:19 - Inference runner 0 of 1 with device cuda:0</code></pre></details>
+2026-08-15 05:59:21.497 | INFO     | __main__:&lt;module&gt;:19 - Inference runner 0 of 1 with device cuda:0</code></pre></details>
 
 <p>Next the needed components get initialized.
 Rigorous parallel support is not part of Earth2Studio's design goals, there are some
@@ -2779,23 +2779,13 @@ taken to ensure safe parallel inference.</p>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">rank</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">model</span> <span class="o">=</span> <span class="n">DLWP</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>17 lines</small></summary><pre><code>WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
+<details class="e2sg-output" open><summary><span>Console output</span><small>7 lines</small></summary><pre><code>WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
     Python  3.10.19 (you have 3.13.13)
   Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
   Memory-efficient attention, SwiGLU, sparse and more won't be available.
   Set XFORMERS_MORE_DETAILS=1 for more details
-CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature
-
-Downloading dlwp_cubesphere.zip: 0%|          | 0.00/67.2M [00:00&lt;?, ?B/s]
-Downloading dlwp_cubesphere.zip: 1%|          | 570k/67.2M [00:00&lt;00:12, 5.80MB/s]
-Downloading dlwp_cubesphere.zip: 8%|▊         | 5.60M/67.2M [00:00&lt;00:01, 33.4MB/s]
-Downloading dlwp_cubesphere.zip: 25%|██▌       | 17.1M/67.2M [00:00&lt;00:00, 73.2MB/s]
-Downloading dlwp_cubesphere.zip: 43%|████▎     | 29.2M/67.2M [00:00&lt;00:00, 94.1MB/s]
-Downloading dlwp_cubesphere.zip: 61%|██████▏   | 41.3M/67.2M [00:00&lt;00:00, 106MB/s] 
-Downloading dlwp_cubesphere.zip: 79%|███████▉  | 53.2M/67.2M [00:00&lt;00:00, 112MB/s]
-Downloading dlwp_cubesphere.zip: 97%|█████████▋| 65.3M/67.2M [00:00&lt;00:00, 117MB/s]
-Downloading dlwp_cubesphere.zip: 100%|██████████| 67.2M/67.2M [00:00&lt;00:00, 97.9MB/s]</code></pre></details>
+CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature</code></pre></details>
 
 <p>When loading models that are built into Earth2Studio, the model's checkpoint files
 will be downloaded into the machines cache. If each inference process has access to
@@ -2841,80 +2831,77 @@ process.</p>
 <a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 <a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="n">torch</span><span class="o">.</span><span class="n">distributed</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>81 lines</small></summary><pre><code>2026-08-14 18:01:20.556 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
-2026-08-14 18:01:20.556 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda:0
+<details class="e2sg-output" open><summary><span>Console output</span><small>78 lines</small></summary><pre><code>2026-08-15 05:59:46.535 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+2026-08-15 05:59:46.535 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda:0
 
 Fetching WB2 data:   0%|          | 0/42 [00:00&lt;?, ?it/s]
-Fetching WB2 data:   2%|▏         | 1/42 [00:00&lt;00:17,  2.33it/s]
-Fetching WB2 data:  17%|█▋        | 7/42 [00:00&lt;00:02, 15.95it/s]
-Fetching WB2 data:  26%|██▌       | 11/42 [00:00&lt;00:02, 12.58it/s]
-Fetching WB2 data:  33%|███▎      | 14/42 [00:01&lt;00:02, 10.95it/s]
-Fetching WB2 data:  57%|█████▋    | 24/42 [00:01&lt;00:00, 23.68it/s]
-Fetching WB2 data:  71%|███████▏  | 30/42 [00:01&lt;00:00, 29.49it/s]
-Fetching WB2 data:  83%|████████▎ | 35/42 [00:02&lt;00:00, 18.17it/s]
-Fetching WB2 data:  95%|█████████▌| 40/42 [00:02&lt;00:00, 11.21it/s]
-Fetching WB2 data: 100%|██████████| 42/42 [00:04&lt;00:00, 10.02it/s]
+Fetching WB2 data:   2%|▏         | 1/42 [00:00&lt;00:06,  6.71it/s]
+Fetching WB2 data:  21%|██▏       | 9/42 [00:00&lt;00:00, 41.63it/s]
+Fetching WB2 data:  33%|███▎      | 14/42 [00:00&lt;00:01, 17.80it/s]
+Fetching WB2 data:  48%|████▊     | 20/42 [00:00&lt;00:00, 22.27it/s]
+Fetching WB2 data:  60%|█████▉    | 25/42 [00:01&lt;00:00, 27.31it/s]
+Fetching WB2 data:  88%|████████▊ | 37/42 [00:01&lt;00:00, 41.75it/s]
+Fetching WB2 data: 100%|██████████| 42/42 [00:01&lt;00:00, 28.50it/s]
 
 Fetching WB2 data:   0%|          | 0/42 [00:00&lt;?, ?it/s]
-Fetching WB2 data:   2%|▏         | 1/42 [00:00&lt;00:23,  1.77it/s]
-Fetching WB2 data:   5%|▍         | 2/42 [00:00&lt;00:12,  3.20it/s]
-Fetching WB2 data:  10%|▉         | 4/42 [00:00&lt;00:05,  6.55it/s]
-Fetching WB2 data:  24%|██▍       | 10/42 [00:01&lt;00:02, 14.41it/s]
-Fetching WB2 data:  29%|██▊       | 12/42 [00:01&lt;00:02, 12.27it/s]
-Fetching WB2 data:  33%|███▎      | 14/42 [00:01&lt;00:02, 10.45it/s]
-Fetching WB2 data:  52%|█████▏    | 22/42 [00:01&lt;00:00, 21.89it/s]
-Fetching WB2 data:  79%|███████▊  | 33/42 [00:01&lt;00:00, 33.43it/s]
-Fetching WB2 data: 100%|██████████| 42/42 [00:02&lt;00:00, 21.12it/s]
-Fetching WB2 data: 100%|██████████| 42/42 [00:02&lt;00:00, 16.73it/s]
-2026-08-14 18:01:28.127 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from WB2ERA5
-2026-08-14 18:01:28.128 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
+Fetching WB2 data:   2%|▏         | 1/42 [00:00&lt;00:09,  4.11it/s]
+Fetching WB2 data:  12%|█▏        | 5/42 [00:00&lt;00:02, 16.42it/s]
+Fetching WB2 data:  24%|██▍       | 10/42 [00:00&lt;00:01, 24.12it/s]
+Fetching WB2 data:  31%|███       | 13/42 [00:00&lt;00:01, 16.19it/s]
+Fetching WB2 data:  45%|████▌     | 19/42 [00:00&lt;00:00, 24.37it/s]
+Fetching WB2 data:  57%|█████▋    | 24/42 [00:01&lt;00:00, 29.59it/s]
+Fetching WB2 data:  76%|███████▌  | 32/42 [00:01&lt;00:00, 40.19it/s]
+Fetching WB2 data:  88%|████████▊ | 37/42 [00:01&lt;00:00, 34.75it/s]
+Fetching WB2 data: 100%|██████████| 42/42 [00:01&lt;00:00, 30.83it/s]
+2026-08-15 05:59:49.967 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from WB2ERA5
+2026-08-15 05:59:49.968 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
 
 
 Running inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
-Running inference:   5%|▍         | 1/21 [00:00&lt;00:06,  2.91it/s]
+Running inference:   5%|▍         | 1/21 [00:00&lt;00:05,  3.52it/s]
 
-Running inference:  10%|▉         | 2/21 [00:00&lt;00:09,  2.10it/s]
+Running inference:  10%|▉         | 2/21 [00:00&lt;00:08,  2.16it/s]
 
-Running inference:  14%|█▍        | 3/21 [00:01&lt;00:06,  2.70it/s]
+Running inference:  14%|█▍        | 3/21 [00:01&lt;00:06,  2.78it/s]
 
-Running inference:  19%|█▉        | 4/21 [00:01&lt;00:05,  3.04it/s]
+Running inference:  19%|█▉        | 4/21 [00:01&lt;00:05,  3.00it/s]
 
-Running inference:  24%|██▍       | 5/21 [00:01&lt;00:05,  3.15it/s]
+Running inference:  24%|██▍       | 5/21 [00:01&lt;00:04,  3.22it/s]
 
-Running inference:  29%|██▊       | 6/21 [00:01&lt;00:04,  3.29it/s]
+Running inference:  29%|██▊       | 6/21 [00:01&lt;00:04,  3.25it/s]
 
-Running inference:  33%|███▎      | 7/21 [00:02&lt;00:03,  3.55it/s]
+Running inference:  33%|███▎      | 7/21 [00:02&lt;00:03,  3.54it/s]
 
-Running inference:  38%|███▊      | 8/21 [00:02&lt;00:03,  3.43it/s]
+Running inference:  38%|███▊      | 8/21 [00:02&lt;00:03,  3.60it/s]
 
-Running inference:  43%|████▎     | 9/21 [00:02&lt;00:03,  3.42it/s]
+Running inference:  43%|████▎     | 9/21 [00:02&lt;00:03,  3.78it/s]
 
-Running inference:  48%|████▊     | 10/21 [00:03&lt;00:03,  3.40it/s]
+Running inference:  48%|████▊     | 10/21 [00:02&lt;00:02,  3.82it/s]
 
-Running inference:  52%|█████▏    | 11/21 [00:03&lt;00:02,  3.46it/s]
+Running inference:  52%|█████▏    | 11/21 [00:03&lt;00:02,  3.88it/s]
 
-Running inference:  57%|█████▋    | 12/21 [00:03&lt;00:02,  3.43it/s]
+Running inference:  57%|█████▋    | 12/21 [00:03&lt;00:02,  3.79it/s]
 
-Running inference:  62%|██████▏   | 13/21 [00:03&lt;00:02,  3.68it/s]
+Running inference:  62%|██████▏   | 13/21 [00:03&lt;00:02,  3.82it/s]
 
-Running inference:  67%|██████▋   | 14/21 [00:04&lt;00:01,  3.59it/s]
+Running inference:  67%|██████▋   | 14/21 [00:04&lt;00:01,  3.75it/s]
 
-Running inference:  71%|███████▏  | 15/21 [00:04&lt;00:01,  3.72it/s]
+Running inference:  71%|███████▏  | 15/21 [00:04&lt;00:01,  3.90it/s]
 
-Running inference:  76%|███████▌  | 16/21 [00:04&lt;00:01,  3.70it/s]
+Running inference:  76%|███████▌  | 16/21 [00:04&lt;00:01,  3.87it/s]
 
-Running inference:  81%|████████  | 17/21 [00:05&lt;00:01,  3.66it/s]
+Running inference:  81%|████████  | 17/21 [00:04&lt;00:01,  3.90it/s]
 
-Running inference:  86%|████████▌ | 18/21 [00:05&lt;00:00,  3.61it/s]
+Running inference:  86%|████████▌ | 18/21 [00:05&lt;00:00,  3.82it/s]
 
-Running inference:  90%|█████████ | 19/21 [00:05&lt;00:00,  3.54it/s]
+Running inference:  90%|█████████ | 19/21 [00:05&lt;00:00,  3.91it/s]
 
-Running inference:  95%|█████████▌| 20/21 [00:05&lt;00:00,  3.48it/s]
+Running inference:  95%|█████████▌| 20/21 [00:05&lt;00:00,  3.81it/s]
 
-Running inference: 100%|██████████| 21/21 [00:06&lt;00:00,  3.65it/s]
-Running inference: 100%|██████████| 21/21 [00:06&lt;00:00,  3.41it/s]
-2026-08-14 18:01:34.286 | SUCCESS  | earth2studio.run:deterministic:189 - 
+Running inference: 100%|██████████| 21/21 [00:05&lt;00:00,  3.87it/s]
+Running inference: 100%|██████████| 21/21 [00:05&lt;00:00,  3.61it/s]
+2026-08-15 05:59:55.786 | SUCCESS  | earth2studio.run:deterministic:189 - 
 Inference complete
 /
 ├── lat (721,) float64
@@ -2973,9 +2960,9 @@ Data variables:
 
 <p><img alt="Output from Distributed Manager Inference" class="e2sg-output-image" loading="lazy" src="../../_assets/07_misc-01_distributed_manager/001-cell-11.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-01_distributed_manager/01_distributed_manager.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-01_distributed_manager/01_distributed_manager.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 48.1s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-01_distributed_manager/01_distributed_manager.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-01_distributed_manager/01_distributed_manager.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 44.2s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>48.1 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>44.2 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

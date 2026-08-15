@@ -3370,18 +3370,18 @@ members which will be ran in 2 batches with batch size 4.</p>
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">output_coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;tcwv&quot;</span><span class="p">])},</span>
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>77 lines</small></summary><pre><code>2026-08-14 09:00:37.585 | INFO     | earth2studio.run:ensemble:394 - Running ensemble inference!
-2026-08-14 09:00:37.585 | INFO     | earth2studio.run:ensemble:401 - Inference device: cuda
+<details class="e2sg-output" open><summary><span>Console output</span><small>77 lines</small></summary><pre><code>2026-08-15 04:38:56.072 | INFO     | earth2studio.run:ensemble:394 - Running ensemble inference!
+2026-08-15 04:38:56.072 | INFO     | earth2studio.run:ensemble:401 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  3.24it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 20.65it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.01it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 32.97it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.44it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 30.98it/s]
-2026-08-14 09:00:38.305 | SUCCESS  | earth2studio.run:ensemble:422 - Fetched data from GFS
-2026-08-14 09:00:38.400 | INFO     | earth2studio.run:ensemble:466 - Starting 8 Member Ensemble Inference with             2 number of batches.
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.83it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 33.61it/s]
+2026-08-15 04:38:56.614 | SUCCESS  | earth2studio.run:ensemble:422 - Fetched data from GFS
+2026-08-15 04:38:56.686 | INFO     | earth2studio.run:ensemble:466 - Starting 8 Member Ensemble Inference with             2 number of batches.
 
 
 
@@ -3389,63 +3389,63 @@ Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
 Running batch 0 inference:   0%|          | 0/11 [00:00&lt;?, ?it/s]
 
-Running batch 0 inference:   9%|▉         | 1/11 [00:00&lt;00:04,  2.30it/s]
+Running batch 0 inference:   9%|▉         | 1/11 [00:00&lt;00:04,  2.12it/s]
 
-Running batch 0 inference:  18%|█▊        | 2/11 [00:00&lt;00:04,  1.99it/s]
+Running batch 0 inference:  18%|█▊        | 2/11 [00:00&lt;00:04,  1.98it/s]
 
-Running batch 0 inference:  27%|██▋       | 3/11 [00:01&lt;00:03,  2.21it/s]
+Running batch 0 inference:  27%|██▋       | 3/11 [00:01&lt;00:03,  2.32it/s]
 
-Running batch 0 inference:  36%|███▋      | 4/11 [00:01&lt;00:03,  2.27it/s]
+Running batch 0 inference:  36%|███▋      | 4/11 [00:01&lt;00:02,  2.56it/s]
 
-Running batch 0 inference:  45%|████▌     | 5/11 [00:02&lt;00:02,  2.43it/s]
+Running batch 0 inference:  45%|████▌     | 5/11 [00:01&lt;00:02,  2.79it/s]
 
-Running batch 0 inference:  55%|█████▍    | 6/11 [00:02&lt;00:01,  2.58it/s]
+Running batch 0 inference:  55%|█████▍    | 6/11 [00:02&lt;00:01,  2.86it/s]
 
-Running batch 0 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  2.66it/s]
+Running batch 0 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  2.85it/s]
 
-Running batch 0 inference:  73%|███████▎  | 8/11 [00:03&lt;00:01,  2.65it/s]
+Running batch 0 inference:  73%|███████▎  | 8/11 [00:03&lt;00:01,  2.79it/s]
 
-Running batch 0 inference:  82%|████████▏ | 9/11 [00:03&lt;00:00,  2.68it/s]
+Running batch 0 inference:  82%|████████▏ | 9/11 [00:03&lt;00:00,  2.88it/s]
 
-Running batch 0 inference:  91%|█████████ | 10/11 [00:03&lt;00:00,  2.65it/s]
+Running batch 0 inference:  91%|█████████ | 10/11 [00:03&lt;00:00,  2.94it/s]
 
-Running batch 0 inference: 100%|██████████| 11/11 [00:04&lt;00:00,  2.69it/s]
-
-
+Running batch 0 inference: 100%|██████████| 11/11 [00:04&lt;00:00,  2.87it/s]
 
 
-Total Ensemble Batches:  50%|█████     | 1/2 [00:05&lt;00:05,  5.60s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:05&lt;00:05,  5.42s/it]
 
 Running batch 4 inference:   0%|          | 0/11 [00:00&lt;?, ?it/s]
 
-Running batch 4 inference:   9%|▉         | 1/11 [00:00&lt;00:03,  2.93it/s]
+Running batch 4 inference:   9%|▉         | 1/11 [00:00&lt;00:03,  2.84it/s]
 
-Running batch 4 inference:  18%|█▊        | 2/11 [00:00&lt;00:02,  3.10it/s]
+Running batch 4 inference:  18%|█▊        | 2/11 [00:00&lt;00:03,  2.82it/s]
 
-Running batch 4 inference:  27%|██▋       | 3/11 [00:01&lt;00:02,  2.96it/s]
+Running batch 4 inference:  27%|██▋       | 3/11 [00:01&lt;00:02,  3.01it/s]
 
-Running batch 4 inference:  36%|███▋      | 4/11 [00:01&lt;00:02,  2.81it/s]
+Running batch 4 inference:  36%|███▋      | 4/11 [00:01&lt;00:02,  2.87it/s]
 
-Running batch 4 inference:  45%|████▌     | 5/11 [00:01&lt;00:02,  2.76it/s]
+Running batch 4 inference:  45%|████▌     | 5/11 [00:01&lt;00:02,  2.90it/s]
 
-Running batch 4 inference:  55%|█████▍    | 6/11 [00:02&lt;00:01,  2.64it/s]
+Running batch 4 inference:  55%|█████▍    | 6/11 [00:02&lt;00:01,  2.83it/s]
 
-Running batch 4 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  2.66it/s]
+Running batch 4 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  2.94it/s]
 
-Running batch 4 inference:  73%|███████▎  | 8/11 [00:02&lt;00:01,  2.59it/s]
+Running batch 4 inference:  73%|███████▎  | 8/11 [00:02&lt;00:01,  2.95it/s]
 
-Running batch 4 inference:  82%|████████▏ | 9/11 [00:03&lt;00:00,  2.69it/s]
+Running batch 4 inference:  82%|████████▏ | 9/11 [00:03&lt;00:00,  2.81it/s]
 
-Running batch 4 inference:  91%|█████████ | 10/11 [00:03&lt;00:00,  2.82it/s]
+Running batch 4 inference:  91%|█████████ | 10/11 [00:03&lt;00:00,  2.81it/s]
 
-Running batch 4 inference: 100%|██████████| 11/11 [00:03&lt;00:00,  2.91it/s]
-
-
+Running batch 4 inference: 100%|██████████| 11/11 [00:03&lt;00:00,  2.90it/s]
 
 
-Total Ensemble Batches: 100%|██████████| 2/2 [00:10&lt;00:00,  5.28s/it]
-Total Ensemble Batches: 100%|██████████| 2/2 [00:10&lt;00:00,  5.33s/it]
-2026-08-14 09:00:49.064 | SUCCESS  | earth2studio.run:ensemble:536 - 
+
+
+Total Ensemble Batches: 100%|██████████| 2/2 [00:10&lt;00:00,  5.18s/it]
+Total Ensemble Batches: 100%|██████████| 2/2 [00:10&lt;00:00,  5.22s/it]
+2026-08-15 04:39:07.127 | SUCCESS  | earth2studio.run:ensemble:536 - 
 Inference complete</code></pre></details>
 
 <h2 id="post-processing">Post Processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
@@ -3524,9 +3524,9 @@ perturbing the temperature field.</p>
 </code></pre></div>
 <p><img alt="Output from Single Variable Perturbation Method" class="e2sg-output-image" loading="lazy" src="../../_assets/02_medium_range-01_ensemble_workflow_extend/003-cell-12.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/02_medium_range-01_ensemble_workflow_extend/01_ensemble_workflow_extend.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/02_medium_range-01_ensemble_workflow_extend/01_ensemble_workflow_extend.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 45.3s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/02_medium_range-01_ensemble_workflow_extend/01_ensemble_workflow_extend.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/02_medium_range-01_ensemble_workflow_extend/01_ensemble_workflow_extend.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 45.1s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>45.3 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>45.1 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

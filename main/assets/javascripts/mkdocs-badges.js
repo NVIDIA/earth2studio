@@ -75,10 +75,10 @@
     return pages[normalised] || [];
   }
 
-  function makeBadge(badgeId) {
+  function makeBadge(badgeId, context = "page") {
     const config = state();
     const definition = (config.definitions || {})[badgeId];
-    if (!definition || definition.hidden) return null;
+    if (!definition || definition.hidden || (definition.hide_in || []).includes(context)) return null;
     const badge = document.createElement("span");
     badge.className = `mkdocs-badge mkdocs-badge--${config.style || "rounded"}`;
     badge.dataset.badgeId = badgeId;
@@ -92,10 +92,13 @@
       icon.innerHTML = definition.icon;
       badge.appendChild(icon);
     }
-    if (definition.label) {
+    const displayLabel = context === "filter"
+      ? (definition.name || definition.tooltip || definition.label)
+      : definition.label;
+    if (displayLabel) {
       const label = document.createElement("span");
       label.className = "mkdocs-badge__label";
-      label.textContent = definition.label;
+      label.textContent = displayLabel;
       badge.appendChild(label);
     }
     return badge;
@@ -119,7 +122,11 @@
       : hrefToPageName(anchor?.getAttribute("href") || "");
     return {
       element, anchor, tbody, pageName,
-      badgeIds: explicit.length ? explicit : null
+      badgeIds: explicit.length ? explicit : null,
+      badgeContext: element.closest("table.mkdocs-badges-autosummary")
+        ? "autosummary"
+        : "filter",
+      renderBadges: element.dataset.renderBadges !== "false"
     };
   }
 
@@ -176,7 +183,7 @@
   }
 
   function annotateEntry(entry, badgeOrder) {
-    if (!entry.anchor || directBadgeIds(entry.element).length) return;
+    if (!entry.anchor || !entry.renderBadges || directBadgeIds(entry.element).length) return;
     let ids = badgesForEntry(entry).slice();
     if (badgeOrder.length) {
       ids.sort((left, right) => {
@@ -188,7 +195,7 @@
     const list = document.createElement("span");
     list.className = "mkdocs-badge-list mkdocs-badge-list--entry";
     ids.forEach((id) => {
-      const badge = makeBadge(id);
+      const badge = makeBadge(id, entry.badgeContext);
       if (badge) list.appendChild(badge);
     });
     if (!list.children.length) return;
@@ -266,6 +273,17 @@
     const grouped = widget.dataset.grouped === "true";
     const mode = widget.dataset.filterMode || "and";
     const badgeOrder = (widget.dataset.badgeOrder || "").split(",").filter(Boolean);
+    const labelSource = widget.dataset.filterLabelSource || "auto";
+    const useCompactLabels = labelSource === "label" || (
+      labelSource === "auto" && Boolean(content.querySelector("table.mkdocs-badges-autosummary"))
+    );
+    if (useCompactLabels) {
+      widget.querySelectorAll(".mkdocs-badge-filter__button").forEach((button) => {
+        const definition = (state().definitions || {})[button.dataset.badgeId];
+        const label = button.querySelector(".mkdocs-badge__label");
+        if (definition && label) label.textContent = definition.label || "";
+      });
+    }
     const available = new Set(
       [...widget.querySelectorAll(".mkdocs-badge-filter__button")]
         .map((button) => button.dataset.badgeId)

@@ -2868,13 +2868,13 @@ after each successful IO write because <code>flush_interval=1</code> and
 <a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Checkpoint after the stopped run:&quot;</span><span class="p">)</span>
 <a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a><span class="nb">print</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>18 lines</small></summary><pre><code>2026-08-14 09:00:00.144 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
-2026-08-14 09:00:00.145 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda:0
-2026-08-14 09:00:00.196 | WARNING  | earth2studio.io.zarr:add_array:206 - t2m is already in Zarr Store. Skipping add_array.
-2026-08-14 09:00:00.198 | WARNING  | earth2studio.io.zarr:add_array:206 - u10m is already in Zarr Store. Skipping add_array.
-2026-08-14 09:00:00.721 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from Random
-2026-08-14 09:00:00.722 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
-2026-08-14 09:00:01.630 | SUCCESS  | earth2studio.run:deterministic:189 - 
+<details class="e2sg-output" open><summary><span>Console output</span><small>18 lines</small></summary><pre><code>2026-08-15 04:38:18.672 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+2026-08-15 04:38:18.672 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda:0
+2026-08-15 04:38:18.732 | WARNING  | earth2studio.io.zarr:add_array:206 - t2m is already in Zarr Store. Skipping add_array.
+2026-08-15 04:38:18.733 | WARNING  | earth2studio.io.zarr:add_array:206 - u10m is already in Zarr Store. Skipping add_array.
+2026-08-15 04:38:19.325 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from Random
+2026-08-15 04:38:19.326 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
+2026-08-15 04:38:20.179 | SUCCESS  | earth2studio.run:deterministic:189 - 
 Inference complete
 Checkpoint after the stopped run:
 Checkpoint("restart-demo")
@@ -2884,8 +2884,8 @@ level: 2
 rank: 0/1
 
 id  lead_time  write_count  saved_at                        
-0   0 hours    1            2026-08-14T09:00:00.920045+00:00
-1   6 hours    2            2026-08-14T09:00:01.486285+00:00</code></pre></details>
+0   0 hours    1            2026-08-15T04:38:19.502654+00:00
+1   6 hours    2            2026-08-15T04:38:20.029458+00:00</code></pre></details>
 
 <h2 id="resume">Resume<a class="headerlink" href="#resume" title="Permanent link">&para;</a></h2>
 <p>In a new process, re-open the same IO store and checkpoint. The printout above
@@ -2926,13 +2926,13 @@ condition and feeds it to the iterator.</p>
 <a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="nb">print</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
 <a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>27 lines</small></summary><pre><code>2026-08-14 09:00:03.561 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
-2026-08-14 09:00:03.561 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda:0
-2026-08-14 09:00:03.603 | WARNING  | earth2studio.io.zarr:add_array:206 - t2m is already in Zarr Store. Skipping add_array.
-2026-08-14 09:00:03.604 | WARNING  | earth2studio.io.zarr:add_array:206 - u10m is already in Zarr Store. Skipping add_array.
-2026-08-14 09:00:04.124 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from Random
-2026-08-14 09:00:04.125 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
-2026-08-14 09:00:04.708 | SUCCESS  | earth2studio.run:deterministic:189 - 
+<details class="e2sg-output" open><summary><span>Console output</span><small>27 lines</small></summary><pre><code>2026-08-15 04:38:22.312 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+2026-08-15 04:38:22.312 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda:0
+2026-08-15 04:38:22.362 | WARNING  | earth2studio.io.zarr:add_array:206 - t2m is already in Zarr Store. Skipping add_array.
+2026-08-15 04:38:22.364 | WARNING  | earth2studio.io.zarr:add_array:206 - u10m is already in Zarr Store. Skipping add_array.
+2026-08-15 04:38:22.950 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from Random
+2026-08-15 04:38:22.951 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
+2026-08-15 04:38:23.512 | SUCCESS  | earth2studio.run:deterministic:189 - 
 Inference complete
 Checkpoint after resume:
 Checkpoint("restart-demo")
@@ -2942,10 +2942,10 @@ level: 2
 rank: 0/1
 
 id  lead_time  write_count  saved_at                        
-0   0 hours    1            2026-08-14T09:00:00.920045+00:00
-1   6 hours    2            2026-08-14T09:00:01.486285+00:00
-2   12 hours   3            2026-08-14T09:00:04.279023+00:00
-3   18 hours   4            2026-08-14T09:00:04.568885+00:00
+0   0 hours    1            2026-08-15T04:38:19.502654+00:00
+1   6 hours    2            2026-08-15T04:38:20.029458+00:00
+2   12 hours   3            2026-08-15T04:38:23.091748+00:00
+3   18 hours   4            2026-08-15T04:38:23.363178+00:00
 /
 ├── lat (720,) float64
 ├── lead_time (4,) timedelta64[h]
@@ -2955,9 +2955,9 @@ id  lead_time  write_count  saved_at
 └── u10m (1, 4, 720, 1440) float32</code></pre></details>
 
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/01_getting_started-04_checkpoint_restart/04_checkpoint_restart.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/01_getting_started-04_checkpoint_restart/04_checkpoint_restart.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 39.5s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/01_getting_started-04_checkpoint_restart/04_checkpoint_restart.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/01_getting_started-04_checkpoint_restart/04_checkpoint_restart.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 39.8s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>39.5 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>39.8 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 
