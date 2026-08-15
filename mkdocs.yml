@@ -15,7 +15,7 @@ theme:
   name: material
   custom_dir: docs/overrides
   logo: _static/nvidia-logo-horiz-rgb-wht-for-screen.svg
-  favicon: _static/favicon.ico
+  favicon: _static/favicon.png
   language: en
   font:
     text: NVIDIA Sans
