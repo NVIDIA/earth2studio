@@ -658,32 +658,43 @@ def tile_coords(
 
     Examples
     --------
-    Tiling a tensor to match additional dimensions from target_coords
+    Tiling a tensor to match additional dimensions from target_coords.
 
-    >>> from earth2studio.utils.coords import tile_coords
-    >>> from collections import OrderedDict
-    >>> import torch
-    >>> import numpy as np
-    >>>
-    >>> x = torch.randn(3, 4)
-    >>> coords = OrderedDict({
-    ...     "variable": np.array(["a", "b", "c"]),
-    ...     "time": np.array([0, 1, 2, 3])
-    ... })
-    >>>
-    >>> target_coords = OrderedDict({
-    ...     "batch": np.array([0, 1]),
-    ...     "ensemble": np.array([0, 1, 2]),
-    ...     "variable": np.array(["x", "y"]),  # Ignored, uses coords value
-    ...     "time": np.array([10, 20, 30, 40])  # Ignored, uses coords value
-    ... })
-    >>>
-    >>> # Tile x to match batch and ensemble dimensions
-    >>> x_tiled, out_coords = tile_coords(x, coords, target_coords)
-    >>> x_tiled.shape
+    ```python
+    from collections import OrderedDict
+
+    import numpy as np
+    import torch
+
+    from earth2studio.utils.coords import tile_coords
+
+    x = torch.randn(3, 4)
+    coords = OrderedDict(
+        {
+            "variable": np.array(["a", "b", "c"]),
+            "time": np.array([0, 1, 2, 3]),
+        }
+    )
+
+    target_coords = OrderedDict(
+        {
+            "batch": np.array([0, 1]),
+            "ensemble": np.array([0, 1, 2]),
+            "variable": np.array(["x", "y"]),  # Ignored, uses coords value
+            "time": np.array([10, 20, 30, 40]),  # Ignored, uses coords value
+        }
+    )
+
+    # Tile x to match batch and ensemble dimensions.
+    x_tiled, out_coords = tile_coords(x, coords, target_coords)
+    print(x_tiled.shape)
+    print(list(out_coords.keys()))
+    ```
+
+    ```text
     torch.Size([2, 3, 3, 4])
-    >>> list(out_coords.keys())
     ['batch', 'ensemble', 'variable', 'time']
+    ```
     """
     coords_keys = set(coords.keys())
     leading_dims = OrderedDict()

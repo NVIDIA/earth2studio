@@ -503,12 +503,12 @@ class JPSS_CRIS:
         contains all 2223 channels, including 12 guards with
         ``sensor_index=0``.
 
-        .. note::
+        !!! note
 
-           NOAA's CrIS SDR ATBD defines Hamming apodization on the Nyquist
-           grid as this exact three-point radiance-space operator. Exact
-           brightness-temperature reproduction additionally requires the same
-           Planck constants as the comparison product.
+            NOAA's CrIS SDR ATBD defines Hamming apodization on the Nyquist
+            grid as this exact three-point radiance-space operator. Exact
+            brightness-temperature reproduction additionally requires the same
+            Planck constants as the comparison product.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,

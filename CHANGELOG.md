@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added Zarr v3 sharding support to `AsyncZarrBackend`
+- Added a working `add_array` plus `__contains__`, `__getitem__`, `__iter__`,
+  `__len__`, `store` and `coords` to `AsyncZarrBackend`, matching `ZarrBackend`, and
+  `output.io_backend` to the eval recipe to select between them (`async_zarr` is the
+  new default)
+- Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
+  `NNJAObsSat`, returned as brightness temperature (K) with per-channel
+  wavenumbers alongside the existing microwave sensors
 
 ### Changed
 
@@ -41,6 +48,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JPSS CrIS granule downloads now fetch large objects as concurrent byte
   ranges (1 MiB x 8 streams per file) instead of one single-stream GET,
   roughly halving fetch time for typical requests
+- Migrated ISD, IBTrACS, CFS reforecast, and OPERA data sources from
+  fsspec/s3fs to obstore
+- CFS reforecast grib decoding now resolves all requested variables in a
+  single pass over the file's messages instead of one `pygrib.select` scan
+  per variable (~20x faster for full-lexicon requests)
+- Consolidated the four identical per-source grib decode helpers
+  (`_decode_gfs_grib`, `_decode_hrrr_grib`, `_decode_gefs_grib`,
+  `_decode_cfs_grib`) into a shared `decode_grib_message` helper in
+  `earth2studio.data.utils`
+- Migrated MRMS data source from s3fs to obstore, with memoized day-directory
+  listings and threaded, header-based grid decoding
+- Migrated NClimGridDaily data source from s3fs to obstore; monthly NetCDF
+  files are now downloaded once into the cache and shared across all
+  (day, variable) slices instead of being streamed per slice over fsspec
 
 ### Deprecated
 
@@ -48,6 +69,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `CFS_Reforecast_FX` and `CFS_Reforecast_FX_Flux` pointing at the retired
+  NCEI archive path; the reforecast archive moved to
+  `https://www.ncei.noaa.gov/oa/prod-cfs-reforecast` with renamed product subdirs
 - Fixed `CorrDiffCosmoEra5` loading files from the wrong resolution when cache names
   collided. Cache names now include the resolution.
 - Fixed `OPERA` data source returning negative precipitation values (`-99.0 mm/h`

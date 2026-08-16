@@ -26,7 +26,7 @@ class MetOpAMSUALexicon(metaclass=LexiconType):
     This lexicon maps the ``amsua`` variable to an identity modifier for
     brightness temperature observations in Kelvin.  Individual channels (1-15)
     are distinguished by the ``sensor_index`` column of the returned DataFrame,
-    following the same convention used by :class:`~earth2studio.data.UFSObsSat`.
+    following the same convention used by [`UFSObsSat`][earth2studio.data.UFSObsSat].
 
     AMSU-A is a 15-channel microwave radiometer on the MetOp satellite series
     providing atmospheric temperature profiles from the surface through the
@@ -225,7 +225,7 @@ class MetOpMHSLexicon(metaclass=LexiconType):
     This lexicon maps the ``mhs`` variable to an identity modifier for
     brightness temperature observations in Kelvin.  Individual channels (1-5)
     are distinguished by the ``sensor_index`` column of the returned DataFrame,
-    following the same convention used by :class:`~earth2studio.data.UFSObsSat`.
+    following the same convention used by [`UFSObsSat`][earth2studio.data.UFSObsSat].
 
     MHS (Microwave Humidity Sounder) is a 5-channel cross-track scanning
     microwave radiometer aboard the MetOp satellite series, providing
@@ -307,8 +307,8 @@ class MetOpIASILexicon(metaclass=LexiconType):
     This lexicon maps the ``iasi`` variable to an identity modifier for
     brightness temperature observations in Kelvin.  Individual channels (1-8461)
     are distinguished by the ``sensor_index`` column of the returned DataFrame,
-    following the same convention used by :class:`~earth2studio.data.MetOpAMSUA`
-    and :class:`~earth2studio.data.UFSObsSat`.
+    following the same convention used by [`MetOpAMSUA`][earth2studio.data.MetOpAMSUA]
+    and [`UFSObsSat`][earth2studio.data.UFSObsSat].
 
     IASI (Infrared Atmospheric Sounding Interferometer) is a Fourier-transform
     infrared spectrometer on the MetOp satellite series providing 8461 spectral

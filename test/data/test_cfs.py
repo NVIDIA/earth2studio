@@ -292,7 +292,7 @@ def test_cfs_call_mock(tmp_path, monkeypatch):
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
         patch(
-            "earth2studio.data.cfs._decode_cfs_grib",
+            "earth2studio.data.cfs.decode_grib_message",
             return_value=fake_grid,
         ),
     ):
@@ -332,7 +332,7 @@ def test_cfs_nomads_call_mock(tmp_path, monkeypatch):
         patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.cfs._decode_cfs_grib", return_value=fake_grid),
+        patch("earth2studio.data.cfs.decode_grib_message", return_value=fake_grid),
     ):
         # Bypass real store by stubbing it to a truthy sentinel.
         ds.store = object()  # type: ignore[assignment]
@@ -368,7 +368,7 @@ def test_cfs_flux_call_mock(tmp_path, monkeypatch):
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
         patch(
-            "earth2studio.data.cfs._decode_cfs_grib",
+            "earth2studio.data.cfs.decode_grib_message",
             return_value=fake_grid,
         ),
     ):
@@ -408,7 +408,7 @@ def test_cfs_missing_variable_returns_nan(tmp_path, monkeypatch):
         patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.cfs._decode_cfs_grib", return_value=fake_grid),
+        patch("earth2studio.data.cfs.decode_grib_message", return_value=fake_grid),
     ):
         ds.store = object()  # type: ignore[assignment]
         data = ds(_TEST_CYCLE, timedelta(hours=6), ["msl", "z500"])

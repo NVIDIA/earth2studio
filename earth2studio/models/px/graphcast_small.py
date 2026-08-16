@@ -207,8 +207,9 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:mrf product:wind product:precip product:temp product:atmos year:2022
+    region:global class:medium-range product:wind product:precip product:temp product:atmos year:2022
     gpu:40gb
+    provider:google backend:jax
     """
 
     def __init__(
