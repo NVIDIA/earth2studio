@@ -30,17 +30,16 @@ from typing import Any
 
 import h5py
 import numpy as np
-import obstore as obs
 import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
 from earth2studio.data.utils import (
     AsyncListableStore,
-    AsyncReadableStore,
     _sync_async,
     datasource_cache_root,
     gather_with_concurrency,
+    obstore_fetch_to_cache,
     obstore_list_prefix,
     obstore_store_from_url,
     prep_data_inputs,
@@ -389,90 +388,6 @@ def _iet_to_utc(
     """Convert IET using the UTC/IET anchor published with the granule."""
     iet = np.asarray(iet_microseconds, dtype=np.int64)
     return anchor_utc + (iet - anchor_iet).astype("timedelta64[us]")
-
-
-# ---------------------------------------------------------------------------
-# Chunked object download
-# ---------------------------------------------------------------------------
-# CrIS granule HDF5 files are tens of MB and a typical request touches only a
-# handful of files, so a single whole-object GET per file runs at
-# single-stream S3 throughput while the file-level worker pool sits idle.
-# Splitting large objects into byte-range GETs fetched concurrently recovers
-# multi-stream throughput. Local helper for now; a hoist to
-# earth2studio/data/utils.py can happen once the in-flight utils PR lands.
-#
-# 1 MiB chunks split a ~16 MB granule into 16 ranges; with 8 in flight this
-# measured ~5x faster and far less variable than a whole-object GET (and
-# clearly beat 2--8 MiB chunks, which yield too few concurrent streams).
-_CHUNK_SIZE_BYTES: int = 1024 * 1024
-# Per-file range-GET concurrency. Files already download concurrently through
-# gather_with_concurrency(max_workers) and the per-bucket store keeps
-# max_pool_connections == max_workers (24); a typical +/-2m request touches
-# ~4 files, so files x chunks (~32) stays near the pool size. For large
-# requests the worst case is max_workers x 8 in-flight ranges, but
-# pool_max_idle_per_host only caps idle connection reuse (not concurrency)
-# and with many files in flight aggregate bandwidth is already saturated.
-_MAX_CHUNK_CONCURRENCY: int = 8
-
-
-async def _read_object_chunked(
-    store: AsyncReadableStore,
-    key: str,
-    chunk_size: int = _CHUNK_SIZE_BYTES,
-    max_concurrent: int = _MAX_CHUNK_CONCURRENCY,
-) -> bytes:
-    """Read a whole object, fetching large objects as parallel byte ranges.
-
-    Objects of at most ``chunk_size`` bytes are read with a single range GET.
-    Larger objects are split into ``chunk_size`` ranges fetched with at most
-    ``max_concurrent`` in flight, then reassembled in order.
-
-    Parameters
-    ----------
-    store : AsyncReadableStore
-        obspec-conforming store to read from (e.g. an obstore store)
-    key : str
-        Object key (bucket-relative path)
-    chunk_size : int, optional
-        Byte-range size per GET, by default 1 MiB
-    max_concurrent : int, optional
-        Maximum concurrent range GETs for one object, by default 8
-
-    Returns
-    -------
-    bytes
-        The complete object payload
-
-    Raises
-    ------
-    FileNotFoundError
-        If the object does not exist. obstore's ``NotFoundError`` subclasses
-        plain ``Exception``, so it is translated here (mirroring
-        ``obstore_read_range``) to keep the caller's retry semantics sane.
-    """
-    try:
-        meta = await store.head_async(key)
-        size = int(meta["size"])
-
-        if size <= chunk_size:
-            return bytes(await store.get_range_async(key, start=0, end=size))
-
-        semaphore = asyncio.Semaphore(max_concurrent)
-
-        async def _fetch_range(start: int) -> bytes:
-            async with semaphore:
-                return bytes(
-                    await store.get_range_async(
-                        key, start=start, end=min(start + chunk_size, size)
-                    )
-                )
-
-        chunks = await asyncio.gather(
-            *(_fetch_range(start) for start in range(0, size, chunk_size))
-        )
-    except (FileNotFoundError, obs.exceptions.NotFoundError):
-        raise FileNotFoundError(f"Object {key} not found in store") from None
-    return b"".join(chunks)
 
 
 @dataclass
@@ -1004,10 +919,6 @@ class JPSS_CRIS:
     # ------------------------------------------------------------------
     async def _fetch_remote_file(self, s3_uri: str) -> None:
         """Download a single HDF5 file to local cache (with retry)."""
-        local_path = self._cache_path(s3_uri)
-        if pathlib.Path(local_path).is_file():
-            return
-
         if self.stores is None:
             raise ValueError("Object stores are not initialized")
         bucket, key = s3_uri.removeprefix("s3://").split("/", 1)
@@ -1015,9 +926,16 @@ class JPSS_CRIS:
         last_exc: Exception | None = None
         for attempt in range(1, self._retries + 1):
             try:
-                data = await _read_object_chunked(self.stores[bucket], key)
-                with open(local_path, "wb") as fh:
-                    fh.write(data)
+                # Chunked fetch recovers multi-stream S3 throughput on the
+                # tens-of-MB granules; the explicit cache_key preserves the
+                # historical sha256(s3_uri) cache file names (_cache_path)
+                await obstore_fetch_to_cache(
+                    self.stores[bucket],
+                    key,
+                    self.cache,
+                    cache_key=os.path.basename(self._cache_path(s3_uri)),
+                    chunked=True,
+                )
                 return
             except (OSError, TimeoutError, ConnectionError) as exc:
                 last_exc = exc

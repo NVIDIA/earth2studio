@@ -315,8 +315,11 @@ class JPSS:
         # Fetch the file from S3
         local_file = await self._fetch_remote_file(s3_uri)
 
-        # HDF5 decode is CPU-bound; run in a worker thread so it overlaps
-        # with concurrent granule downloads instead of blocking the event loop
+        # HDF5 decode is CPU-bound and serialized by _HDF5_LOCK, so decodes
+        # gain nothing from each other -- but running them in a worker thread
+        # keeps the event loop free: a sync decode would stall every in-flight
+        # granule download for its duration, while here downloads keep
+        # overlapping with whichever decode holds the lock
         processed_data = await asyncio.to_thread(
             self._decode_data, local_file, folder, dataset_name, modifier
         )
@@ -382,8 +385,11 @@ class JPSS:
         # Fetch the file from S3
         local_file = await self._fetch_remote_file(s3_uri)
 
-        # HDF5 decode is CPU-bound; run in a worker thread so it overlaps
-        # with concurrent granule downloads instead of blocking the event loop
+        # HDF5 decode is CPU-bound and serialized by _HDF5_LOCK, so decodes
+        # gain nothing from each other -- but running them in a worker thread
+        # keeps the event loop free: a sync decode would stall every in-flight
+        # granule download for its duration, while here downloads keep
+        # overlapping with whichever decode holds the lock
         lat, lon = await asyncio.to_thread(self._decode_geolocation, local_file)
 
         return lat, lon, timestamp, filename
@@ -579,6 +585,9 @@ class JPSS:
         # Day directories that can no longer gain files are memoized so
         # repeated (time, variable) requests issue a single LIST; the
         # bucket-prefixed paths match the historical cache-key scheme.
+        # Granules land in a day's directory after processing/upload latency,
+        # so a day only counts as closed once it is an hour past -- a
+        # conservative buffer against memoizing a still-filling listing.
         day_end = datetime(time.year, time.month, time.day) + timedelta(days=1)
         prefix = base_url.split(f"{bucket}/", 1)[1]
         keys = await obstore_list_prefix(
