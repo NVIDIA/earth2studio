@@ -507,7 +507,11 @@ class GHCNDaily(_GHCNBase):
 
         async with managed_session(self.fs) as session:  # noqa: F841
             if self._station_meta is None:
-                self._station_meta = self.get_station_metadata()
+                # get_station_metadata downloads the station list with a sync
+                # s3fs call; s3fs's instance cache can hand back the running
+                # loop's filesystem, and fsspec then refuses sync() from inside
+                # a running loop. A worker thread gives it a loop-free thread.
+                self._station_meta = await asyncio.to_thread(self.get_station_metadata)
 
             # Build unique (year, product) pairs needed. Tolerance windows can
             # span year boundaries, so enumerate every year in [tmin, tmax].
