@@ -23,8 +23,8 @@ import shutil
 import uuid
 from abc import abstractmethod
 from collections.abc import Callable
-from typing import Any
 from datetime import datetime
+from typing import Any
 
 import numpy as np
 import obstore as obs
