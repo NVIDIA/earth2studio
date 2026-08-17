@@ -1336,11 +1336,31 @@ def test_async_zarr_default_local_is_fsspec_free(tmp_path: str) -> None:
     assert np.allclose(stored[0], x[0].numpy())
 
     # Passing fs_factory still works but is deprecated
-    with pytest.warns(DeprecationWarning, match="fs_factory is deprecated"):
+    with pytest.warns(FutureWarning, match="fs_factory is deprecated"):
         AsyncZarrBackend(
             f"{tmp_path}/legacy.zarr",
             parallel_coords=OrderedDict({"time": time}),
             fs_factory=LocalFileSystem,
+        )
+
+    # store also accepts a plain local path (no URL scheme required)
+    z3 = AsyncZarrBackend(
+        None,
+        parallel_coords=OrderedDict({"time": time}),
+        store=f"{tmp_path}/plain_path.zarr",
+    )
+    z3.write(x, _store_coords(time), "fields")
+    z3.close()
+    assert np.allclose(
+        zarr.open(f"{tmp_path}/plain_path.zarr")["fields"][0], x[0].numpy()
+    )
+    # ... but local paths take no store_kwargs
+    with pytest.raises(ValueError):
+        AsyncZarrBackend(
+            None,
+            parallel_coords=OrderedDict({"time": time}),
+            store=f"{tmp_path}/plain_kwargs.zarr",
+            store_kwargs={"region": "us-east-1"},
         )
 
 

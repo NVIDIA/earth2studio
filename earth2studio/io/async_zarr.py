@@ -295,8 +295,9 @@ class AsyncZarrBackend:
         in memory. Lower it if memory is tight, raise it if writes are the bottleneck
         and the store has bandwidth to spare, by default 4
     store : str | zarr.abc.store.Store | obstore store, optional
-        Obstore-backed output store, bypassing fsspec entirely so cloud writes use
-        obstore's native put / multipart upload. Accepts a store URL resolved with
+        Output store, bypassing fsspec entirely so cloud writes use obstore's
+        native put / multipart upload. Accepts a plain local path
+        (``out/forecast.zarr``), a store URL resolved with
         ``obstore.store.from_url`` (e.g. ``s3://bucket/forecast.zarr``,
         ``gs://bucket/out.zarr``, ``file:///tmp/out.zarr``), an obstore store
         instance, or an already constructed zarr store. Credentials are resolved
@@ -319,7 +320,7 @@ class AsyncZarrBackend:
 
     Warns
     -----
-    DeprecationWarning
+    FutureWarning
         If `fs_factory` is provided; pass the output location via `store`
 
     Notes
@@ -416,13 +417,20 @@ class AsyncZarrBackend:
         # safe and mirrors the shared state of the remote object store)
         self._object_store = self._resolve_store(store, store_kwargs)
 
+        # FutureWarning rather than DeprecationWarning so end users actually
+        # see it: Python hides DeprecationWarning outside __main__ code
         if fs_factory is not None:
             warnings.warn(
                 "fs_factory is deprecated and will be removed in a future "
                 "release; pass the output location via `store` instead (a "
-                "s3:// / gs:// / file:// URL, obstore store, or zarr store)",
-                DeprecationWarning,
+                "path, s3:// / gs:// URL, obstore store, or zarr store)",
+                FutureWarning,
                 stacklevel=2,
+            )
+        if file_name is not None and self._object_store is not None:
+            logger.warning(
+                "Both file_name and store were provided; file_name is ignored "
+                "and the store defines the output location"
             )
 
         # `store` takes precedence; the legacy fsspec path only runs when no
@@ -518,8 +526,9 @@ class AsyncZarrBackend:
         Parameters
         ----------
         store : str | zarr.abc.store.Store | obstore.store.ObjectStore | None
-            Store URL (resolved with ``obstore.store.from_url``), obstore store
-            instance, already constructed zarr store, or None for the fsspec path
+            Plain local path, store URL (resolved with
+            ``obstore.store.from_url``), obstore store instance, already
+            constructed zarr store, or None for the fsspec path
         store_kwargs : dict[str, Any]
             Configuration forwarded to ``obstore.store.from_url`` for URL inputs
 
@@ -550,9 +559,19 @@ class AsyncZarrBackend:
                 )
             return store
 
-        import obstore.store
-
         if isinstance(store, str):
+            # A schemeless string is a local path, so `store` covers the
+            # local case without a URL ceremony
+            if "://" not in store:
+                if store_kwargs:
+                    raise ValueError(
+                        "store_kwargs only applies to remote store URLs; "
+                        "local paths take no configuration"
+                    )
+                return zarr.storage.LocalStore(root=store)
+
+            import obstore.store
+
             store = obstore.store.from_url(store, **store_kwargs)
         return zarr.storage.ObjectStore(store, read_only=False)
 
