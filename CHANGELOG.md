@@ -81,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `obspec>=0.1` core dependency; the shared obstore helpers are typed
   against its vendor-neutral store protocols
+- Updated GraphCast and GenCast optional dependencies to use WeatherNext.
 
 ## [0.17.0] - 2026-07-30
 
