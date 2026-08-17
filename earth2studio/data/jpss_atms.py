@@ -21,22 +21,26 @@ import hashlib
 import os
 import pathlib
 import shutil
+import threading
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-import s3fs
 from loguru import logger
 
 from earth2studio.data.utils import (
+    AsyncListableStore,
     _sync_async,
     datasource_cache_root,
     gather_with_concurrency,
+    obstore_list_prefix,
+    obstore_read_range,
+    obstore_store_from_url,
     prep_data_inputs,
 )
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
@@ -55,6 +59,12 @@ try:
 except ImportError:
     OptionalDependencyFailure("data")
     eccodes = None  # type: ignore[assignment]
+
+# eccodes keeps global state in its underlying C library and is NOT
+# thread-safe.  Decoding runs in worker threads (via asyncio.to_thread) so
+# it can overlap with in-flight downloads, but this lock serializes the
+# actual eccodes decode calls: only one BUFR file is decoded at a time.
+_ECCODES_LOCK = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -148,17 +158,17 @@ _C_CM_S: float = 2.99792458e10
 _ATMS_CHANNEL_WAVENUMBER: np.ndarray = _ATMS_CHANNEL_FREQ_GHZ * 1e9 / _C_CM_S
 
 
-def _fov_to_scan_angle(fov: float) -> float:
+def _fov_to_scan_angle(fov: float | np.ndarray) -> float | np.ndarray:
     """Convert a 1-indexed field-of-view number to scan angle in degrees.
 
     Parameters
     ----------
-    fov : float
-        Field-of-view number (1–96).
+    fov : float | np.ndarray
+        Field-of-view number (1–96), scalar or per-FOV array.
 
     Returns
     -------
-    float
+    float | np.ndarray
         Scan angle in degrees (negative = left of nadir, positive = right).
     """
     return (fov - (_ATMS_NUM_FOVS + 1) / 2.0) * _ATMS_DEG_PER_FOV
@@ -392,7 +402,13 @@ class JPSS_ATMS:
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
 
-        self.fs: s3fs.S3FileSystem | None = None
+        # Object stores (one per satellite bucket) are lazily initialized
+        # on first call
+        self.stores: dict[str, AsyncListableStore] | None = None
+        # Memoized S3 day-directory listings, one cache dict per bucket
+        # (the same bucket-relative prefix exists in multiple buckets).
+        # Only day directories that can no longer gain files are cached.
+        self._listing_caches: dict[str, dict[str, list[str]]] = {}
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
@@ -402,13 +418,22 @@ class JPSS_ATMS:
     # Async initialisation
     # ------------------------------------------------------------------
     async def _async_init(self) -> None:
-        """Initialise the async S3 filesystem."""
-        self.fs = s3fs.S3FileSystem(
-            anon=True,
-            client_kwargs={},
-            asynchronous=True,
-            skip_instance_cache=True,
-        )
+        """Async initialization of the per-bucket object stores
+
+        Note
+        ----
+        Unlike async fsspec filesystems, obstore stores are event-loop
+        independent and could be built in ``__init__``; kept as a lazy async
+        method to preserve the initialization seam.
+        """
+        buckets = {_SAT_BUCKET_MAP[sat] for sat in self._satellites}
+        self.stores = {
+            bucket: obstore_store_from_url(
+                f"s3://{bucket}", max_pool_connections=self._max_workers
+            )
+            for bucket in buckets
+        }
+        self._listing_caches = {bucket: {} for bucket in buckets}
 
     # ------------------------------------------------------------------
     # Synchronous entry point
@@ -470,10 +495,8 @@ class JPSS_ATMS:
         pd.DataFrame
             Long-format DataFrame.
         """
-        if self.fs is None:
+        if self.stores is None:
             await self._async_init()
-
-        session = await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         time_list, variable_list = prep_data_inputs(time, variable)
         schema = self.resolve_fields(fields)
@@ -491,21 +514,48 @@ class JPSS_ATMS:
         # Discover and download BUFR files within tolerance windows
         tasks = await self._create_tasks(time_list, variable_list)
 
-        # Deduplicate by S3 URI
-        uri_set = {t.s3_uri for t in tasks}
-        fetch_jobs = [self._fetch_remote_file(uri) for uri in uri_set]
+        # Deduplicate decode work: multiple tasks can reference the same
+        # file when tolerance windows overlap.  The URI already encodes
+        # bucket (satellite) and file; the variable is included in the key
+        # for safety since _decode_bufr uses task.bufr_key/modifier/variable.
+        decode_tasks: dict[tuple[str, str], _ATMSAsyncTask] = {}
+        for task in tasks:
+            decode_tasks.setdefault((task.s3_uri, task.variable), task)
+
+        # Pipeline: decode each file (in a worker thread, serialized by
+        # _ECCODES_LOCK) as soon as its download lands, while other
+        # downloads continue in flight.
+        decoded: dict[tuple[str, str], pd.DataFrame] = {}
+
+        async def _fetch_and_decode(key: tuple[str, str], task: _ATMSAsyncTask) -> None:
+            await self._fetch_remote_file(task.s3_uri)
+            local_path = self._cache_path(task.s3_uri)
+            if not pathlib.Path(local_path).is_file():
+                # Missing-file warning is emitted per task in
+                # _compile_dataframe
+                return
+
+            def _decode() -> pd.DataFrame:
+                # eccodes has global state and is not thread-safe: hold the
+                # lock for the whole decode so only one file decodes at a
+                # time (still overlapping with network I/O).
+                with _ECCODES_LOCK:
+                    return self._decode_bufr(local_path, task)
+
+            try:
+                decoded[key] = await asyncio.to_thread(_decode)
+            except Exception:
+                logger.warning(f"Failed to decode {task.s3_uri}", exc_info=True)
+
         await gather_with_concurrency(
-            fetch_jobs,
+            [_fetch_and_decode(key, task) for key, task in decode_tasks.items()],
             max_workers=self._max_workers,
             desc="Fetching ATMS BUFR files",
             verbose=(not self._verbose),
         )
 
-        if session:
-            await session.close()
-
-        # Decode and compile
-        df = self._compile_dataframe(tasks, schema)
+        # Compile the decoded frames in task order
+        df = self._compile_dataframe(tasks, schema, decoded)
         return df
 
     # ------------------------------------------------------------------
@@ -539,26 +589,41 @@ class JPSS_ATMS:
                     end_day = tmax.replace(hour=0, minute=0, second=0, microsecond=0)
 
                     while day <= end_day:
-                        prefix = (
-                            f"{bucket}/ATMS_BUFR/"
+                        if self.stores is None:
+                            raise ValueError("Object stores are not initialized")
+                        day_prefix = (
+                            f"ATMS_BUFR/"
                             f"{day.year:04d}/{day.month:02d}/{day.day:02d}/"
                         )
-                        try:
-                            listing = await self.fs._ls(prefix, detail=False)  # type: ignore[union-attr]
-                        except FileNotFoundError:
-                            logger.warning(f"No ATMS data at s3://{prefix}")
+                        # Day directories that can still gain files (today,
+                        # allowing an hour of upload latency) bypass the
+                        # per-bucket listing memoization
+                        listing = await obstore_list_prefix(
+                            self.stores[bucket],
+                            day_prefix,
+                            cache=self._listing_caches.setdefault(bucket, {}),
+                            cacheable=day + timedelta(days=1, hours=1)
+                            <= datetime.now(timezone.utc).replace(tzinfo=None),
+                        )
+                        if not listing:
+                            logger.warning(
+                                f"No ATMS data at s3://{bucket}/{day_prefix}"
+                            )
                             day += timedelta(days=1)
                             continue
 
-                        for path in listing:
-                            fname = path.rsplit("/", 1)[-1]
+                        for key in listing:
+                            fname = key.rsplit("/", 1)[-1]
                             file_time = self._parse_filename_time(fname)
                             if file_time is None:
                                 continue
                             if tmin <= file_time <= tmax:
                                 tasks.append(
                                     _ATMSAsyncTask(
-                                        s3_uri=f"s3://{path}",
+                                        # Keys are bucket-relative; the full
+                                        # s3://bucket/key form matches the
+                                        # historical cache-key scheme
+                                        s3_uri=f"s3://{bucket}/{key}",
                                         datetime_min=tmin,
                                         datetime_max=tmax,
                                         satellite=sat,
@@ -581,10 +646,14 @@ class JPSS_ATMS:
         if pathlib.Path(local_path).is_file():
             return
 
+        if self.stores is None:
+            raise ValueError("Object stores are not initialized")
+        bucket, key = s3_uri.removeprefix("s3://").split("/", 1)
+
         last_exc: Exception | None = None
         for attempt in range(1, self._retries + 1):
             try:
-                data = await self.fs._cat_file(s3_uri.replace("s3://", "", 1))  # type: ignore[union-attr]
+                data = await obstore_read_range(self.stores[bucket], key)
                 with open(local_path, "wb") as fh:
                     fh.write(data)
                 return
@@ -604,8 +673,14 @@ class JPSS_ATMS:
         self,
         tasks: list[_ATMSAsyncTask],
         schema: pa.Schema,
+        decoded: dict[tuple[str, str], pd.DataFrame],
     ) -> pd.DataFrame:
-        """Decode cached BUFR files and assemble the output DataFrame."""
+        """Assemble the output DataFrame from pre-decoded per-file frames.
+
+        ``decoded`` maps ``(s3_uri, variable)`` to the DataFrame decoded from
+        that file; entries are absent when the decode failed (already warned
+        during the fetch/decode pipeline).
+        """
         frames: list[pd.DataFrame] = []
 
         for task in tasks:
@@ -614,13 +689,9 @@ class JPSS_ATMS:
                 logger.warning(f"Cached file missing for {task.s3_uri}")
                 continue
 
-            try:
-                df = self._decode_bufr(local_path, task)
-            except Exception:
-                logger.warning(f"Failed to decode {task.s3_uri}", exc_info=True)
-                continue
-
-            if df.empty:
+            df = decoded.get((task.s3_uri, task.variable))
+            if df is None or df.empty:
+                # None: decode failed (warning already emitted); skip
                 continue
 
             # Filter by time tolerance window
@@ -636,9 +707,10 @@ class JPSS_ATMS:
 
         # When multiple requested times have overlapping tolerance windows
         # the same BUFR file may appear in more than one task.  Downloads
-        # are already deduplicated via ``uri_set``, but the decode path
-        # runs once per task, so identical observations can end up in
-        # ``frames`` twice.  Drop exact duplicates to prevent this.
+        # and decodes are deduplicated by (uri, variable), but each task
+        # still contributes its own window-filtered slice of the shared
+        # frame, so identical observations can end up in ``frames`` twice.
+        # Drop exact duplicates to prevent this.
         dedup_cols = [
             c
             for c in (
@@ -668,7 +740,7 @@ class JPSS_ATMS:
         brightness temperature array has *C* channel values, yielding
         ``N * C`` rows in the output.
         """
-        rows: list[dict] = []
+        tables: list[pa.Table] = []
 
         with open(path, "rb") as fh:
             while True:
@@ -757,77 +829,102 @@ class JPSS_ATMS:
                     except Exception:
                         sat_name = task.satellite
 
-                    # Build rows: one per (FOV, channel)
-                    for i in range(n_fov):
-                        try:
-                            obs_time = datetime(
-                                int(years[i]),
-                                int(months[i]),
-                                int(days[i]),
-                                int(hours[i]),
-                                int(minutes[i]),
-                                int(seconds[i]),
-                            )
-                        except (ValueError, OverflowError):
-                            continue  # skip FOVs with invalid timestamps
+                    # Build rows vectorized: one per (FOV, channel), FOV-major
+                    # so the row order matches the historical nested loop.
 
-                        # Add sub-second offset based on FOV position in
-                        # the scan line.  BUFR only carries integer-second
-                        # timestamps; the offset recovers ~18 ms per-FOV
-                        # timing from the ATMS scan geometry (ATBD §3).
-                        fov_index = float(fov[i])
-                        obs_time = obs_time + _fov_to_time_offset(fov_index)
+                    # Base integer-second timestamps per FOV; invalid
+                    # component combinations coerce to NaT (the row loop
+                    # skipped these FOVs via ValueError/OverflowError)
+                    base_time = pd.to_datetime(
+                        {
+                            "year": years,
+                            "month": months,
+                            "day": days,
+                            "hour": hours,
+                            "minute": minutes,
+                            "second": seconds,
+                        },
+                        errors="coerce",
+                    ).to_numpy()
 
-                        for ch in range(n_channels):
-                            raw_val = float(bt[i, ch])
-                            # Skip missing / fill values
-                            if raw_val > 1e6 or raw_val < 0:
-                                continue
+                    # Add sub-second offset based on FOV position in the
+                    # scan line.  BUFR only carries integer-second
+                    # timestamps; the offset recovers ~18 ms per-FOV
+                    # timing from the ATMS scan geometry (ATBD §3).
+                    offsets = np.array(
+                        [_fov_to_time_offset(float(f)) for f in fov],
+                        dtype="timedelta64[us]",
+                    )
+                    obs_time = base_time + offsets
 
-                            val = float(task.modifier(raw_val))
+                    # Fill-value test kept verbatim from the row loop: only
+                    # values > 1e6 or < 0 are dropped (NaN fails both
+                    # comparisons and is therefore kept)
+                    bt_flat = bt.reshape(-1)
+                    keep = ~((bt_flat > 1e6) | (bt_flat < 0))
+                    keep &= np.repeat(~np.isnat(obs_time), n_channels)
+                    if not keep.any():
+                        continue
 
-                            rows.append(
-                                {
-                                    "time": obs_time,
-                                    "class": "rad",
-                                    "lat": float(lat[i]),
-                                    "lon": float(lon[i]) % 360.0,
-                                    "scan_angle": _fov_to_scan_angle(fov_index),
-                                    "sensor_index": ch + 1,
-                                    "wavenumber": float(_ATMS_CHANNEL_WAVENUMBER[ch]),
-                                    "solza": float(solza[i]),
-                                    "solaza": float(solaza[i]),
-                                    "satellite_za": float(sat_za[i]),
-                                    "satellite_aza": float(sat_aza[i]),
-                                    "quality": int(
-                                        cqf[i, ch] if cqf.ndim == 2 else cqf[ch]
-                                    ),
-                                    "satellite": sat_name,
-                                    "observation": val,
-                                    "variable": task.variable,
-                                }
-                            )
+                    if cqf.ndim == 2:
+                        quality = cqf.reshape(-1)
+                    else:
+                        quality = np.tile(cqf, n_fov)
+
+                    n_out = int(keep.sum())
+                    columns = {
+                        "time": np.repeat(obs_time, n_channels)[keep].astype(
+                            "datetime64[ms]"
+                        ),
+                        "class": np.full(n_out, "rad", dtype=object),
+                        "lat": np.repeat(lat, n_channels)[keep].astype(np.float32),
+                        "lon": np.repeat(lon % 360.0, n_channels)[keep].astype(
+                            np.float32
+                        ),
+                        "scan_angle": np.repeat(
+                            _fov_to_scan_angle(fov.astype(np.float64)), n_channels
+                        )[keep].astype(np.float32),
+                        "sensor_index": np.tile(
+                            np.arange(1, n_channels + 1, dtype=np.uint16), n_fov
+                        )[keep],
+                        "wavenumber": np.tile(
+                            _ATMS_CHANNEL_WAVENUMBER[:n_channels], n_fov
+                        )[keep],
+                        "solza": np.repeat(solza, n_channels)[keep].astype(np.float32),
+                        "solaza": np.repeat(solaza, n_channels)[keep].astype(
+                            np.float32
+                        ),
+                        "satellite_za": np.repeat(sat_za, n_channels)[keep].astype(
+                            np.float32
+                        ),
+                        "satellite_aza": np.repeat(sat_aza, n_channels)[keep].astype(
+                            np.float32
+                        ),
+                        "quality": quality[keep].astype(np.uint16),
+                        "satellite": np.full(n_out, sat_name, dtype=object),
+                        "observation": np.asarray(task.modifier(bt_flat[keep])).astype(
+                            np.float32
+                        ),
+                        "variable": np.full(n_out, task.variable, dtype=object),
+                    }
+                    tables.append(
+                        pa.table(
+                            {
+                                name: pa.array(columns[name])
+                                for name in self.SCHEMA.names
+                            }
+                        )
+                    )
                 finally:
                     eccodes.codes_release(msgid)
 
-        if not rows:
+        if not tables:
             return pd.DataFrame(columns=self.SCHEMA.names)
 
-        df = pd.DataFrame(rows)
-        # Enforce schema dtypes
-        df["time"] = pd.to_datetime(df["time"]).astype("datetime64[ms]")
-        df["lat"] = df["lat"].astype(np.float32)
-        df["lon"] = df["lon"].astype(np.float32)
-        df["scan_angle"] = df["scan_angle"].astype(np.float32)
-        df["sensor_index"] = df["sensor_index"].astype(np.uint16)
-        df["wavenumber"] = df["wavenumber"].astype(np.float64)
-        df["solza"] = df["solza"].astype(np.float32)
-        df["solaza"] = df["solaza"].astype(np.float32)
-        df["satellite_za"] = df["satellite_za"].astype(np.float32)
-        df["satellite_aza"] = df["satellite_aza"].astype(np.float32)
-        df["quality"] = df["quality"].astype(np.uint16)
-        df["observation"] = df["observation"].astype(np.float32)
-        return df
+        # Numpy columns above already carry the schema dtypes; one Arrow
+        # concat + to_pandas replaces per-row dict assembly and the
+        # column-by-column astype passes
+        return pa.concat_tables(tables).to_pandas()
 
     # ------------------------------------------------------------------
     # File-name timestamp parsing
