@@ -1,32 +1,34 @@
 {% extends "main.html" %}
+{% block extrahead %}
+  {{ super() }}
+  <script data-site-url="{{ config.site_url }}">
+    {% include "partials/e2s-404-redirect.js" %}
+  </script>
+{% endblock %}
 {% block content %}
 <section class="e2s-404" aria-labelledby="e2s-404-title">
   <div class="e2s-404__panel">
     <p class="e2s-section-kicker">404</p>
     <h1 id="e2s-404-title">Documentation page not found</h1>
     <p>
-      The Earth2Studio documentation structure was recently rebuilt, so some
-      older links may have moved. Start from the current main documentation, or
-      browse the archived versioned docs if you are looking for an older page.
+      We also checked the equivalent path in the current main documentation,
+      but no page was found. Start from the main documentation, or browse the
+      archived versioned docs if you are looking for an older page.
     </p>
     <div class="e2s-404__actions">
-      <a class="e2s-404__button e2s-404__button--primary e2s-home-button" href="{{ 'main/' | url }}">
-        <span>Back to main docs</span>
+      <a class="e2s-404__button e2s-404__button--primary e2s-home-button" data-e2s-main-docs href="{{ config.site_url }}">
+        <span>Go to Current Docs</span>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 12h14M13 6l6 6-6 6"></path>
         </svg>
       </a>
       <a class="e2s-404__button e2s-home-button" href="https://github.com/NVIDIA/earth2studio/tree/gh-pages/v">
-        <span>Older versions</span>
+        <span>Go to old docs</span>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 12h14M13 6l6 6-6 6"></path>
         </svg>
       </a>
     </div>
-    <p class="e2s-404__note">
-      Historical HTML is also available in the
-      <a href="https://github.com/NVIDIA/earth2studio/tree/gh-pages/v">gh-pages <code>v</code> folder</a>.
-    </p>
   </div>
 </section>
 {% endblock %}
