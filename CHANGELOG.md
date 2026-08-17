@@ -33,10 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hours are memoized per instance while the current hour is always re-listed
 - Migrated Himawari AHI data source from s3fs to obstore with memoized
   minute-directory listings (scans older than an hour)
-- Migrated GHCNDaily and GHCNHourly data sources from s3fs/fsspec to obstore
-- GHCNDaily requests with up to 500 unique stations now fetch per-station
-  parquet files (~25x faster) instead of global by_year partitions, and pick
-  up elements (e.g. TAVG) the by_year layout is missing
+- Migrated GHCNDaily and GHCNHourly data sources to obstore; GHCNDaily
+  station-scale requests now fetch per-station parquet files instead of
+  global by_year partitions (~25x faster)
 - Migrated ISD, IBTrACS, CFS reforecast, and OPERA data sources from
   fsspec/s3fs to obstore
 - CFS reforecast grib decoding now resolves all requested variables in a
