@@ -1317,6 +1317,33 @@ def test_async_zarr_object_store_memory_url() -> None:
     assert np.allclose(stored, x.numpy())
 
 
+def test_async_zarr_default_local_is_fsspec_free(tmp_path: str) -> None:
+    """Default path (no store, no fs_factory) writes via a zarr LocalStore
+    without any fsspec filesystem; fs_factory warns as deprecated"""
+    time = np.array([np.datetime64("2024-01-01")])
+    z = AsyncZarrBackend(
+        f"{tmp_path}/default_local.zarr",
+        parallel_coords=OrderedDict({"time": time}),
+    )
+    assert z.fs is None
+    assert all(fs is None for fs in z.fs_pool)
+
+    total_coords = _store_coords(time)
+    x = torch.randn(1, 16, 32)
+    z.write(x, total_coords, "fields")
+    z.close()
+    stored = zarr.open(f"{tmp_path}/default_local.zarr")["fields"][:]
+    assert np.allclose(stored[0], x[0].numpy())
+
+    # Passing fs_factory still works but is deprecated
+    with pytest.warns(DeprecationWarning, match="fs_factory is deprecated"):
+        AsyncZarrBackend(
+            f"{tmp_path}/legacy.zarr",
+            parallel_coords=OrderedDict({"time": time}),
+            fs_factory=LocalFileSystem,
+        )
+
+
 def test_async_zarr_object_store_ignores_fs_factory() -> None:
     """fs_factory and file_name are ignored (not validated) when a store is
     provided; the store path wins over a callable fs_factory"""

@@ -19,6 +19,7 @@ import concurrent
 import concurrent.futures
 import datetime
 import threading
+import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -32,7 +33,6 @@ import numpy as np
 import torch
 import zarr
 from fsspec.asyn import AsyncFileSystem
-from fsspec.implementations.local import LocalFileSystem
 from loguru import logger
 from zarr import AsyncGroup
 from zarr.core.array import CompressorsLike
@@ -256,9 +256,12 @@ class AsyncZarrBackend:
         entire  inference pipeline. The remaining coordinates of a given array will be
         populated upon the first write to the respective array.
     fs_factory : Callable[..., fsspec.spec.AbstractFileSystem] | None, optional
-        FSSpec file system factory method. This is a callable object that should return
-        an instance of the desired filesystem to use, by default LocalFileSystem.
-        Ignored (and not validated) when `store` is provided.
+        Deprecated, use `store` instead. FSSpec file system factory method: a
+        callable that returns an instance of the filesystem to write with.
+        When None (default) the fsspec machinery is skipped entirely — output
+        goes to the `store` if provided, otherwise straight to a local zarr
+        store at `file_name`. Ignored (and not validated) when `store` is
+        provided, by default None
     blocking : bool, optional
         Blocking write calls in the synchronous API. When set to false, the IO backend
         will execute write calls in separate threads. Users should call the `close()`
@@ -309,10 +312,15 @@ class AsyncZarrBackend:
     ImportError
         If Zarr 2.0 is installed. This io backend only supports Zarr 3.0
     TypeError
-        If fs_factory is not a callable when no `store` is provided
+        If a provided fs_factory is not a callable when no `store` is given
     ValueError
         If a `shard_coords` value is not positive, if neither `file_name` nor
         `store` is provided, or if `store_kwargs` is passed with a non-URL store
+
+    Warns
+    -----
+    DeprecationWarning
+        If `fs_factory` is provided; pass the output location via `store`
 
     Notes
     -----
@@ -390,9 +398,7 @@ class AsyncZarrBackend:
         self,
         file_name: str | None,
         parallel_coords: CoordSystem,
-        fs_factory: (
-            Callable[..., fsspec.spec.AbstractFileSystem] | None
-        ) = LocalFileSystem,
+        fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] | None = None,
         blocking: bool = True,
         pool_size: int = 8,
         async_timeout: int = 600,
@@ -404,25 +410,42 @@ class AsyncZarrBackend:
         store: "str | zarr.abc.store.Store | obstore.store.ObjectStore | None" = None,
         store_kwargs: dict[str, Any] = {},
     ) -> None:
-        # May need to trigger warning about this, needed to handle multi-threading!
-        # But silent for now since people wont know what this means / get confused by an error message I think
-        AsyncFileSystem.cachable = False
-
         # Obstore-backed output store; when set the fsspec machinery is bypassed
         # and every loop in the pool shares this single store instance (obstore
         # binds each request to the calling event loop, so cross-loop sharing is
         # safe and mirrors the shared state of the remote object store)
         self._object_store = self._resolve_store(store, store_kwargs)
 
-        # `store` takes precedence; `fs_factory` and `file_name` only matter on
-        # the fsspec path, so they are validated only when no store is given
+        if fs_factory is not None:
+            warnings.warn(
+                "fs_factory is deprecated and will be removed in a future "
+                "release; pass the output location via `store` instead (a "
+                "s3:// / gs:// / file:// URL, obstore store, or zarr store)",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        # `store` takes precedence; the legacy fsspec path only runs when no
+        # store is given AND a deprecated fs_factory was supplied. The default
+        # (neither) writes straight to a zarr LocalStore, fsspec-free.
         if self._object_store is None:
             if file_name is None:
-                raise ValueError("file_name is required when no store is provided")
-            if not callable(fs_factory):
+                raise ValueError(
+                    "An output location is required: pass `store` (preferred) "
+                    "or `file_name`"
+                )
+            if fs_factory is None:
+                self._object_store = zarr.storage.LocalStore(root=file_name)
+            elif not callable(fs_factory):
                 raise TypeError(
                     "fs_factory must be a callable that returns a fsspec.spec.AbstractFileSystem"
                 )
+            else:
+                # Legacy fsspec path only: uncached filesystems are needed so
+                # each loop in the pool gets its own instance
+                # (multi-threading); silent since the details would only
+                # confuse users of the deprecated path
+                AsyncFileSystem.cachable = False
 
         self.overwrite = False  # Not formally supported
         self.parallel_coords = self._scrub_coordinates(parallel_coords.copy())
@@ -522,7 +545,8 @@ class AsyncZarrBackend:
                 raise ValueError(
                     "FsspecStore binds its filesystem to a single event loop and "
                     "cannot be shared across this backend's loop pool; use the "
-                    "fs_factory parameter for fsspec-backed writes instead"
+                    "(deprecated) fs_factory parameter for fsspec-backed writes "
+                    "instead"
                 )
             return store
 

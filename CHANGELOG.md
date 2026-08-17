@@ -67,6 +67,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
+- Deprecated the `fs_factory` parameter of `AsyncZarrBackend` in favor of
+  `store`; the default local write path no longer uses fsspec
+
 ### Removed
 
 ### Fixed
