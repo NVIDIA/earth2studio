@@ -10,9 +10,7 @@
         color-scheme: light;
         --e2s-green: #76b900;
         --e2s-green-bright: #8fe33a;
-        --e2s-header: #08130b;
-        --e2s-panel: #4d504d;
-        --e2s-page: #f5f6f5;
+        --e2s-panel: rgba(12, 18, 14, 0.9);
         --e2s-text: #ffffff;
         --e2s-muted: #e1e4e1;
       }
@@ -28,56 +26,42 @@
       }
 
       body {
-        background: var(--e2s-page);
-        color: #171a17;
+        background:
+          radial-gradient(circle at 50% 18%, rgba(118, 185, 0, 0.16), transparent 32rem),
+          radial-gradient(circle at 70% 70%, rgba(14, 165, 164, 0.12), transparent 34rem),
+          radial-gradient(circle at 50% 83%, rgba(56, 189, 248, 0.12), transparent 25rem),
+          linear-gradient(180deg, #050806 0%, #071007 44%, #030603 100%);
+        color: #ffffff;
         font-family: Arial, Helvetica, sans-serif;
       }
 
-      .e2s-header {
-        align-items: center;
-        background: var(--e2s-header);
-        border-bottom: 1px solid #243226;
-        display: flex;
-        min-height: 72px;
-        padding: 0 32px;
-      }
-
-      .e2s-brand {
-        align-items: center;
-        color: #fff;
-        display: inline-flex;
-        font-size: 20px;
-        font-weight: 700;
-        gap: 12px;
-        text-decoration: none;
-      }
-
-      .e2s-brand__mark {
-        align-items: center;
-        background: var(--e2s-green);
-        color: #071006;
-        display: inline-flex;
-        font-size: 12px;
-        font-weight: 800;
-        height: 28px;
-        justify-content: center;
-        letter-spacing: -0.03em;
-        width: 28px;
+      body::before {
+        background-image:
+          linear-gradient(rgba(118, 185, 0, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(118, 185, 0, 0.05) 1px, transparent 1px),
+          radial-gradient(ellipse at center, transparent 0%, transparent 56%, rgba(0, 0, 0, 0.56) 100%);
+        background-size: 42px 42px, 42px 42px, auto;
+        content: "";
+        inset: 0;
+        pointer-events: none;
+        position: fixed;
       }
 
       .e2s-main {
         align-items: center;
         display: flex;
         justify-content: center;
-        min-height: calc(100vh - 72px);
+        min-height: 100vh;
         padding: 48px 24px;
+        position: relative;
       }
 
       .e2s-404 {
         background: var(--e2s-panel);
-        border: 1px solid #66765f;
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(143, 227, 58, 0.24);
         border-radius: 16px;
-        box-shadow: 0 24px 70px rgba(15, 24, 15, 0.18);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
         color: var(--e2s-text);
         max-width: 720px;
         padding: 56px 64px;
@@ -150,13 +134,7 @@
       }
 
       @media (max-width: 640px) {
-        .e2s-header {
-          min-height: 64px;
-          padding: 0 20px;
-        }
-
         .e2s-main {
-          min-height: calc(100vh - 64px);
           padding: 24px 16px;
         }
 
@@ -219,12 +197,6 @@
     </script>
   </head>
   <body>
-    <header class="e2s-header">
-      <a class="e2s-brand" data-e2s-main-docs href="/earth2studio/main/">
-        <span class="e2s-brand__mark" aria-hidden="true">E2</span>
-        <span>Earth2Studio</span>
-      </a>
-    </header>
     <main class="e2s-main">
       <section class="e2s-404" aria-labelledby="e2s-404-title">
         <p class="e2s-kicker">404</p>
