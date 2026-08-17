@@ -47,6 +47,24 @@ from earth2studio.lexicon.ghcn import GHCNDailyLexicon, GHCNHourlyLexicon
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
+# Mutable partitions (full station histories, current-year slices) receive new
+# observations on NOAA's roughly daily update cadence, so their disk-cached
+# copies are only served while younger than this window. Immutable past-year
+# partitions are cached indefinitely.
+_MUTABLE_CACHE_MAX_AGE_S: float = 24 * 60 * 60
+
+
+def _cache_file_fresh(path: str, max_age_s: float | None) -> bool:
+    """Whether a cache file exists and is still young enough to serve.
+
+    ``max_age_s=None`` means the file never goes stale (immutable partition).
+    """
+    if not os.path.isfile(path):
+        return False
+    if max_age_s is None:
+        return True
+    return (datetime.now().timestamp() - os.path.getmtime(path)) < max_age_s
+
 
 class _GHCNBase:
     """Internal base class shared by GHCNDaily and GHCNHourly.
@@ -529,6 +547,11 @@ class GHCNDaily(_GHCNBase):
             pair_list = sorted(year_product_pairs)
             fetcher = self._fetch_year_element
 
+        # by_station files are ~100 KB while by_year partitions are ~100 MB,
+        # so the per-attempt timeout scales with the layout instead of
+        # assuming fast-connection throughput for the large partitions
+        task_timeout = 60.0 if fetcher is self._fetch_station_element else 300.0
+
         coros = [
             async_retry(
                 fetcher,
@@ -536,7 +559,7 @@ class GHCNDaily(_GHCNBase):
                 product,
                 retries=self._retries,
                 backoff=1.0,
-                task_timeout=60.0,
+                task_timeout=task_timeout,
                 exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
             for partition_key, product in pair_list
@@ -673,7 +696,10 @@ class GHCNDaily(_GHCNBase):
         cache_hash = hashlib.sha256(s3_path.encode()).hexdigest()
         parquet_path = os.path.join(self.cache, f"{cache_hash}.parquet")
 
-        if self._cache and os.path.isfile(parquet_path):
+        # by_station files cover the station's full period of record and
+        # receive new observations continuously, so cached copies expire
+        # after a day rather than being served indefinitely
+        if self._cache and _cache_file_fresh(parquet_path, _MUTABLE_CACHE_MAX_AGE_S):
             return await asyncio.to_thread(pd.read_parquet, parquet_path)
 
         try:
@@ -729,8 +755,11 @@ class GHCNDaily(_GHCNBase):
         cache_hash = hashlib.sha256(s3_path.encode()).hexdigest()
         parquet_path = os.path.join(self.cache, f"{cache_hash}.parquet")
 
-        # Read from cached parquet if available
-        if self._cache and os.path.isfile(parquet_path):
+        # Read from cached parquet if available; past-year partitions are
+        # immutable, but the current year's partition is still growing so its
+        # cached copy expires after a day
+        max_age = None if year < datetime.now().year else _MUTABLE_CACHE_MAX_AGE_S
+        if self._cache and _cache_file_fresh(parquet_path, max_age):
             df = await asyncio.to_thread(pd.read_parquet, parquet_path)
         else:
             try:
@@ -1176,7 +1205,10 @@ class GHCNHourly(_GHCNBase):
         cache_hash = hashlib.sha256(url.encode()).hexdigest()
         parquet_path = os.path.join(self.cache, f"{cache_hash}.parquet")
 
-        if self._cache and os.path.isfile(parquet_path):
+        # Past-year files are immutable; the current year's file is still
+        # growing, so its cached copy expires after a day
+        max_age = None if year < datetime.now().year else _MUTABLE_CACHE_MAX_AGE_S
+        if self._cache and _cache_file_fresh(parquet_path, max_age):
             df = pd.read_parquet(parquet_path)
         else:
             try:

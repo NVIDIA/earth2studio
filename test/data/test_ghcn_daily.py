@@ -377,3 +377,28 @@ class TestGHCNMock:
         # Verify longitude normalization ([-84.44 + 360] % 360 = 275.56)
         assert all(result["lon"] >= 0)
         assert all(result["lon"] < 360)
+
+
+def test_ghcn_cache_freshness(tmp_path):
+    """Mutable-partition cache files expire after the freshness window;
+    immutable ones (max_age_s=None) never do."""
+    import os
+
+    from earth2studio.data.ghcn import _MUTABLE_CACHE_MAX_AGE_S, _cache_file_fresh
+
+    missing = str(tmp_path / "missing.parquet")
+    assert not _cache_file_fresh(missing, None)
+    assert not _cache_file_fresh(missing, _MUTABLE_CACHE_MAX_AGE_S)
+
+    path = tmp_path / "cached.parquet"
+    path.write_bytes(b"data")
+
+    # Fresh file is served under both policies
+    assert _cache_file_fresh(str(path), _MUTABLE_CACHE_MAX_AGE_S)
+    assert _cache_file_fresh(str(path), None)
+
+    # Backdate the mtime past the window: mutable expires, immutable persists
+    stale = path.stat().st_mtime - (_MUTABLE_CACHE_MAX_AGE_S + 60)
+    os.utime(path, (stale, stale))
+    assert not _cache_file_fresh(str(path), _MUTABLE_CACHE_MAX_AGE_S)
+    assert _cache_file_fresh(str(path), None)
