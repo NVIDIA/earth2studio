@@ -23,6 +23,7 @@ import shutil
 import uuid
 from abc import abstractmethod
 from collections.abc import Callable
+from typing import Any
 from datetime import datetime
 
 import numpy as np
@@ -846,7 +847,9 @@ class GHCNDaily(_GHCNBase):
         try:
             store = obstore_store_from_url(f"s3://{cls._S3_BUCKET}")
             prefix = s3_path.removeprefix(f"s3://{cls._S3_BUCKET}/")
-            chunk = next(iter(obs.list(store, prefix=prefix, chunk_size=1)), [])
+            chunk: list[Any] = next(
+                iter(obs.list(store, prefix=prefix, chunk_size=1)), []
+            )
             return len(chunk) > 0
         except (OSError, obs.exceptions.BaseError):
             return False
