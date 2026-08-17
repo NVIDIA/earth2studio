@@ -103,6 +103,7 @@ earth2studio.models.px.StormCastCONUS
 earth2studio.models.px.StormScopeGOES
 earth2studio.models.px.StormScopeMRMS
 earth2studio.models.px.UCast
+earth2studio.models.px.WeatherNext2CyclonesMini
 {% endautosummary %}
 
 <!-- mkdocs-badges:end -->

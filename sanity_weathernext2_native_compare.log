@@ -1,0 +1,31 @@
+WARNING:absl:No coordinates found for dim noise_channels of array <xarray.DataArray 'noise' (batch: 1, channels: 1, noise_channels: 32)> Size: 128B
+JitTracer(float32[1,1,32])
+Coordinates:
+  * batch    (batch) int64 8B 0
+Dimensions without coordinates: channels, noise_channels., using index for param name. This may make model surgery more error prone if changing coordinates at fine-tuning time.
+WARNING:absl:Only the first input of the static gather operation is being used, others are being ignored at runtime.
+WARNING:absl:Only the first input of the static gather operation is being used, others are being ignored at runtime.
+WARNING:absl:Only the first input of the sorted segment sum operation is being used, others are being ignored at runtime.
+WARNING:absl:Only the first input of the static gather operation is being used, others are being ignored at runtime.
+WARNING:absl:Only the first input of the static gather operation is being used, others are being ignored at runtime.
+WARNING:absl:Only the first input of the static gather operation is being used, others are being ignored at runtime.
+WARNING:absl:Only the first input of the sorted segment sum operation is being used, others are being ignored at runtime.
+WARNING:absl:No coordinates found for dim noise_channels of array <xarray.DataArray 'noise' (batch: 1, channels: 1, noise_channels: 32)> Size: 128B
+JitTracer(float32[1,1,32])
+Dimensions without coordinates: batch, channels, noise_channels., using index for param name. This may make model surgery more error prone if changing coordinates at fine-tuning time.
+WARNING:absl:Only the first input of the static gather operation is being used, others are being ignored at runtime.
+WARNING:absl:Only the first input of the static gather operation is being used, others are being ignored at runtime.
+WARNING:absl:Only the first input of the sorted segment sum operation is being used, others are being ignored at runtime.
+WARNING:absl:Only the first input of the static gather operation is being used, others are being ignored at runtime.
+WARNING:absl:Only the first input of the static gather operation is being used, others are being ignored at runtime.
+WARNING:absl:Only the first input of the static gather operation is being used, others are being ignored at runtime.
+WARNING:absl:Only the first input of the sorted segment sum operation is being used, others are being ignored at runtime.
+WeatherNextCyclones_Mini: shape=[1, 1, 5, 181, 360]
+native-vs-e2s: finite=325800/325800 rel_l2=2.422243e-06 mean_abs=5.047473e-02 max_abs=5.343750e+00
+e2s-repeat: finite=325800/325800 rel_l2=4.713431e-04 mean_abs=1.048339e+01 max_abs=8.624844e+02
+t2m: rel_l2=1.319560e-05 mean_abs=1.793034e-03 max_abs=1.956787e-01
+u10m: rel_l2=1.399439e-03 mean_abs=3.242381e-03 max_abs=5.003514e-01
+v10m: rel_l2=1.537662e-03 mean_abs=3.317748e-03 max_abs=3.313751e-01
+msl: rel_l2=2.413546e-06 mean_abs=1.493287e-01 max_abs=5.343750e+00
+z500: rel_l2=2.444198e-06 mean_abs=9.469179e-02 max_abs=2.687500e+00
+plot=weathernext_plots/weathernext2_native_compare.png

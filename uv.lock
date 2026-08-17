@@ -2272,6 +2272,13 @@ utils = [
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
     { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
 ]
+weathernext = [
+    { name = "dm-haiku" },
+    { name = "dm-tree" },
+    { name = "flax" },
+    { name = "jax", extra = ["cuda13"] },
+    { name = "weathernext", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
+]
 windgust-afno = [
     { name = "nvidia-physicsnemo" },
 ]
@@ -2357,9 +2364,11 @@ requires-dist = [
     { name = "dm-haiku", marker = "extra == 'all'", specifier = ">=0.0.14" },
     { name = "dm-haiku", marker = "extra == 'gencast'", specifier = ">=0.0.14" },
     { name = "dm-haiku", marker = "extra == 'graphcast'", specifier = ">=0.0.14" },
+    { name = "dm-haiku", marker = "extra == 'weathernext'", specifier = ">=0.0.14" },
     { name = "dm-tree", marker = "extra == 'all'", specifier = ">=0.1.9" },
     { name = "dm-tree", marker = "extra == 'gencast'", specifier = ">=0.1.9" },
     { name = "dm-tree", marker = "extra == 'graphcast'", specifier = ">=0.1.9" },
+    { name = "dm-tree", marker = "extra == 'weathernext'", specifier = ">=0.1.9" },
     { name = "earth2grid", marker = "extra == 'all'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'cbottle'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'da-healda'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
@@ -2398,6 +2407,7 @@ requires-dist = [
     { name = "flax", marker = "extra == 'all'", specifier = ">=0.10.6" },
     { name = "flax", marker = "extra == 'gencast'", specifier = ">=0.10.6" },
     { name = "flax", marker = "extra == 'graphcast'", specifier = ">=0.10.6" },
+    { name = "flax", marker = "extra == 'weathernext'", specifier = ">=0.10.6" },
     { name = "fme", marker = "extra == 'ace2'", git = "https://github.com/ai2cm/ace.git?rev=e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" },
     { name = "fsspec", specifier = ">=2024.2.0" },
     { name = "gcsfs" },
@@ -2425,6 +2435,7 @@ requires-dist = [
     { name = "jax", extras = ["cuda13"], marker = "extra == 'all'", specifier = ">=0.4.26" },
     { name = "jax", extras = ["cuda13"], marker = "extra == 'gencast'", specifier = ">=0.4.26" },
     { name = "jax", extras = ["cuda13"], marker = "extra == 'graphcast'", specifier = ">=0.4.26" },
+    { name = "jax", extras = ["cuda13"], marker = "extra == 'weathernext'", specifier = ">=0.4.26" },
     { name = "loguru" },
     { name = "makani", marker = "extra == 'all'", git = "https://github.com/NVIDIA/makani.git?rev=b38fcb2799d7dbc146fa60459f3f9823394a8bf1" },
     { name = "makani", marker = "extra == 'fcn3'", git = "https://github.com/NVIDIA/makani.git?rev=b38fcb2799d7dbc146fa60459f3f9823394a8bf1" },
@@ -2571,10 +2582,11 @@ requires-dist = [
     { name = "weathernext", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/google-deepmind/weathernext.git?rev=9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" },
     { name = "weathernext", marker = "python_full_version >= '3.12' and extra == 'gencast'", git = "https://github.com/google-deepmind/weathernext.git?rev=9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" },
     { name = "weathernext", marker = "python_full_version >= '3.12' and extra == 'graphcast'", git = "https://github.com/google-deepmind/weathernext.git?rev=9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" },
+    { name = "weathernext", marker = "python_full_version >= '3.12' and extra == 'weathernext'", git = "https://github.com/google-deepmind/weathernext.git?rev=9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" },
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=3.1.3" },
 ]
-provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cosmo", "cyclone", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormcast-conus", "stormscope", "ucast", "utils", "windgust-afno"]
+provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cosmo", "cyclone", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormcast-conus", "stormscope", "ucast", "utils", "weathernext", "windgust-afno"]
 
 [package.metadata.requires-dev]
 build = [
