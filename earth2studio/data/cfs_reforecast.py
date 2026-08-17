@@ -28,8 +28,8 @@ from typing import Any
 import numpy as np
 import pygrib
 import xarray as xr
-from fsspec.implementations.http import HTTPFileSystem
 from loguru import logger
+from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.cfs import CFS_FX, CFS_FX_Flux
@@ -39,6 +39,8 @@ from earth2studio.data.utils import (
     cancellable_to_thread,
     datasource_cache_root,
     gather_with_concurrency,
+    obstore_fetch_to_cache,
+    obstore_store_from_url,
     prep_forecast_inputs,
 )
 from earth2studio.lexicon import CFSFluxLexicon, CFSLexicon
@@ -158,8 +160,8 @@ class CFS_Reforecast_FX:
 
     This class exposes the pressure-level (``pgbf``) product on the same
     1 degree regular lat-lon grid (181 x 360) as the operational
-    :class:`~earth2studio.data.CFS_FX`. Variable definitions are taken
-    verbatim from :class:`~earth2studio.lexicon.CFSLexicon`, which the
+    [`CFS_FX`][earth2studio.data.CFS_FX]. Variable definitions are taken
+    verbatim from [`CFSLexicon`][earth2studio.lexicon.CFSLexicon], which the
     grib2 inventories match.
 
     Parameters
@@ -198,8 +200,7 @@ class CFS_Reforecast_FX:
     Additional information on the data repository:
 
     - https://www.ncei.noaa.gov/products/weather-climate-models/climate-forecast-system
-    - https://www.ncei.noaa.gov/data/climate-forecast-system/access/reforecast/6-hourly-by-pressure-level-9-month-runs/
-    - https://www.ncei.noaa.gov/data/climate-forecast-system/access/reforecast/6-hourly-flux-9-month-runs/
+    - https://www.ncei.noaa.gov/oa/prod-cfs-reforecast/index.html
 
     Badges
     ------
@@ -207,15 +208,15 @@ class CFS_Reforecast_FX:
     """
 
     # NCEI HTTPS base path; both pgbf and flxf live under the same parent
-    # but differ in the product subdir.
-    CFS_NCEI_BASE = (
-        "https://www.ncei.noaa.gov/data/climate-forecast-system/access/reforecast"
-    )
+    # but differ in the product subdir. The archive moved from
+    # /data/climate-forecast-system/access/reforecast to this S3-style
+    # endpoint (the old path now only serves a readme with the new URL).
+    CFS_NCEI_BASE = "https://www.ncei.noaa.gov/oa/prod-cfs-reforecast"
 
     # File prefix and product subdirectory for this product.  Overridden in
     # :class:`CFS_Reforecast_FX_Flux`.
     CFS_PRODUCT = "pgbf"
-    CFS_NCEI_SUBDIR = "6-hourly-by-pressure-level-9-month-runs"
+    CFS_NCEI_SUBDIR = "6-hourly_9mon_pgbf"
 
     # 1 degree regular lat-lon grid, identical to the operational pgbf.
     CFS_LAT = CFS_FX.CFS_LAT
@@ -239,16 +240,11 @@ class CFS_Reforecast_FX:
         self.async_timeout = async_timeout
 
         # Filesystem is lazily initialised inside the event loop.
-        self.fs: HTTPFileSystem | None = None
+        self.store: ObjectStore | None = None
 
     async def _async_init(self) -> None:
-        """Async initialisation of the HTTPS fsspec backend.
-
-        Note
-        ----
-        Async fsspec expects initialisation inside the execution loop.
-        """
-        self.fs = HTTPFileSystem(asynchronous=True)
+        """Async initialization of the obstore HTTP store"""
+        self.store = obstore_store_from_url(self.CFS_NCEI_BASE)
 
     def __call__(
         self,
@@ -304,7 +300,7 @@ class CFS_Reforecast_FX:
         xr.DataArray
             CFS reforecast data array.
         """
-        if self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
@@ -514,25 +510,23 @@ class CFS_Reforecast_FX:
         str
             Path to the cached file on local disk.
         """
-        if self.fs is None:
-            raise ValueError("File system is not initialised")
+        if self.store is None:
+            raise ValueError("Object store is not initialised")
 
-        cache_path = os.path.join(self.cache, hashlib.sha256(uri.encode()).hexdigest())
-        if pathlib.Path(cache_path).is_file():
-            return cache_path
-
+        # Hash the full URI (unchanged scheme) so warm caches populated
+        # before the obstore migration remain valid
+        cache_key = hashlib.sha256(uri.encode()).hexdigest()
+        key = uri.removeprefix(self.CFS_NCEI_BASE + "/")
         try:
-            data = await self.fs._cat_file(uri)
+            return await obstore_fetch_to_cache(
+                self.store, key, self.cache, cache_key=cache_key
+            )
         except FileNotFoundError as e:
             logger.error(
                 f"CFS reforecast file not found at {uri}: cycle/lead may not "
                 "fall on the 5-day reforecast schedule."
             )
             raise e
-
-        with open(cache_path, "wb") as fh:
-            fh.write(data)
-        return cache_path
 
     def _grib_uri(self, time: datetime, lead_time: timedelta) -> str:
         """Build the HTTPS URI for a (time, lead_time) grib file."""
@@ -597,7 +591,7 @@ class CFS_Reforecast_FX_Flux(CFS_Reforecast_FX):
     Same archive and access pattern as :class:`CFS_Reforecast_FX` but
     exposes the ``flxf`` product on the native T126 Gaussian grid
     (190 x 384). Variable inventory mirrors
-    :class:`~earth2studio.lexicon.CFSFluxLexicon` (which the reforecast
+    [`CFSFluxLexicon`][earth2studio.lexicon.CFSFluxLexicon] (which the reforecast
     grib2 inventories match).
 
     Parameters
@@ -625,7 +619,7 @@ class CFS_Reforecast_FX_Flux(CFS_Reforecast_FX):
     Additional information on the data repository:
 
     - https://www.ncei.noaa.gov/products/weather-climate-models/climate-forecast-system
-    - https://www.ncei.noaa.gov/data/climate-forecast-system/access/reforecast/6-hourly-flux-9-month-runs/
+    - https://www.ncei.noaa.gov/oa/prod-cfs-reforecast/index.html
 
     Badges
     ------
@@ -633,7 +627,7 @@ class CFS_Reforecast_FX_Flux(CFS_Reforecast_FX):
     """
 
     CFS_PRODUCT = "flxf"
-    CFS_NCEI_SUBDIR = "6-hourly-flux-9-month-runs"
+    CFS_NCEI_SUBDIR = "cfs_reforecast_6-hourly_9mon_flxf"
 
     # T126 Gaussian grid, identical to the operational flxf.
     CFS_LAT = CFS_FX_Flux.CFS_LAT
@@ -653,8 +647,8 @@ def _decode_cfs_reforecast_grib(
     grib_file : str
         Path to the cached grib file on local disk.
     variables : list of (var_idx, parameterName, typeOfLevel, level, modifier)
-        Variables to extract from this grib file. Each tuple is processed
-        independently against ``pygrib.select``; missing variables emit a
+        Variables to extract from this grib file. All variables are resolved
+        in a single pass over the file's messages; missing variables emit a
         warning but do not abort the others.
 
     Returns
@@ -671,21 +665,34 @@ def _decode_cfs_reforecast_grib(
         logger.error(f"Failed to open grib file {grib_file}")
         raise e
     try:
+        # One pass over the file: pygrib.select() rescans every message per
+        # call, which is O(variables x messages) and dominates fetch time for
+        # large requests (~1.2 s per select on a 524-message pgbf file).
+        # Matching the first message per requested key preserves select()'s
+        # matches[0] behaviour.
+        wanted = {
+            (param_name, type_of_level, level)
+            for _, param_name, type_of_level, level, _ in variables
+        }
+        found: dict[tuple[str, str, int], Any] = {}
+        for grb in grbs:
+            key = (grb.parameterName, grb.typeOfLevel, grb.level)
+            if key in wanted and key not in found:
+                found[key] = grb
+                if len(found) == len(wanted):
+                    break
+
         out: list[tuple[int, np.ndarray]] = []
         for var_idx, param_name, type_of_level, level, modifier in variables:
-            matches = grbs.select(
-                parameterName=param_name,
-                typeOfLevel=type_of_level,
-                level=level,
-            )
-            if not matches:
+            grb = found.get((param_name, type_of_level, level))
+            if grb is None:
                 logger.warning(
                     f"CFS reforecast grib {grib_file} has no record matching "
                     f"parameterName={param_name!r} typeOfLevel={type_of_level!r} "
                     f"level={level}; variable will be left unset."
                 )
                 continue
-            out.append((var_idx, modifier(np.asarray(matches[0].values))))
+            out.append((var_idx, modifier(np.asarray(grb.values))))
         return out
     finally:
         grbs.close()

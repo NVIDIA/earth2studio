@@ -25,7 +25,6 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import obstore as obs
-import pygrib
 import xarray as xr
 from loguru import logger
 from obstore.store import ObjectStore
@@ -36,6 +35,7 @@ from earth2studio.data.utils import (
     async_retry,
     cancellable_to_thread,
     datasource_cache_root,
+    decode_grib_message,
     gather_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
@@ -92,7 +92,7 @@ class GFS:
     Note
     ----
     This data source only fetches the initial state of GFS and does not fetch an
-    predicted time steps. See :class:`~earth2studio.data.GFS_FX` for fetching predicted
+    predicted time steps. See [`GFS_FX`][earth2studio.data.GFS_FX] for fetching predicted
     data from this forecast system.
 
     Note
@@ -300,7 +300,7 @@ class GFS:
                 # Get index file dictionary
                 index_file = results.pop(0)
                 for k, v in enumerate(variable):
-                    # sphinx - lexicon start
+                    # --8<-- [start:gfs-lexicon-lookup]
                     try:
                         gfs_name, modifier = GFSLexicon[v]
                     except KeyError:
@@ -326,7 +326,7 @@ class GFS:
                             f"Variable {v} not found in index file for time {t} at {lt}, values will be unset"
                         )
                         continue
-                    # sphinx - lexicon end
+                    # --8<-- [end:gfs-lexicon-lookup]
                     tasks.append(
                         GFSAsyncTask(
                             data_array_indices=(i, j, k),
@@ -391,7 +391,9 @@ class GFS:
             byte_length=byte_length,
         )
         # pygrib decode is blocking and GIL-bound; run in a thread with timeout
-        values = await cancellable_to_thread(_decode_gfs_grib, grib_file, timeout=30.0)
+        values = await cancellable_to_thread(
+            decode_grib_message, grib_file, timeout=30.0
+        )
         return modifier(values)
 
     def _validate_time(self, times: list[datetime]) -> None:
@@ -711,34 +713,3 @@ class GFS_FX(GFS):
                 raise ValueError(
                     f"Requested lead time {delta} can only be a max of 384 hours for GFS"
                 )
-
-
-def _decode_gfs_grib(grib_file: str) -> np.ndarray:
-    """Decode a single-message GFS grib file into a numpy array.
-
-    Module-level so it can be dispatched to a worker thread and patched in
-    offline tests. Uses pygrib, which is faster and lower memory than
-    xarray/cfgrib for single-message slices.
-
-    Parameters
-    ----------
-    grib_file : str
-        Path to local grib file holding one message
-
-    Returns
-    -------
-    np.ndarray
-        Decoded field values
-    """
-    try:
-        grbs = pygrib.open(grib_file)
-    except Exception:
-        logger.error(f"Failed to open grib file {grib_file}")
-        raise
-    try:
-        return grbs[1].values
-    except Exception:
-        logger.error(f"Failed to read grib file {grib_file}")
-        raise
-    finally:
-        grbs.close()

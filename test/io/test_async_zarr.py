@@ -1621,3 +1621,126 @@ def test_async_zarr_object_store_remote(blocking: bool) -> None:
         keys = [entry["path"] for chunk in obstore.list(store) for entry in chunk]
         if keys:
             obstore.delete(store, keys)
+
+
+def test_async_zarr_add_array_eager_and_idempotent(tmp_path: str) -> None:
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    total_coords = OrderedDict(
+        {
+            "lead_time": lead_time,
+            "lat": np.linspace(-90, 90, 8),
+            "lon": np.linspace(0, 360, 16, endpoint=False),
+        }
+    )
+    z = AsyncZarrBackend(
+        f"{tmp_path}/add_array.zarr",
+        parallel_coords=OrderedDict({"lead_time": lead_time}),
+        fs_factory=LocalFileSystem,
+        blocking=True,
+    )
+    z.add_array(total_coords, ["fields_1", "fields_2"])
+    assert "fields_1" in z and "fields_2" in z
+    assert "never_added" not in z
+    assert z["fields_1"].shape == (2, 8, 16)
+
+    # Re-adding an existing array must not raise or destroy data
+    step = total_coords.copy()
+    step["lead_time"] = lead_time[0:1]
+    z.write(torch.ones(1, 8, 16), step, "fields_1")
+    z.add_array(total_coords, ["fields_1", "fields_2"])
+    assert np.all(z["fields_1"][0] == 1.0)
+
+    # An ndarray of names is accepted, as the eval recipe's scoring passes
+    z.add_array(total_coords, np.array(["fields_3", "fields_4"]))
+    assert "fields_3" in z and "fields_4" in z
+    z.close()
+
+
+def test_async_zarr_add_array_heterogeneous_dims(tmp_path: str) -> None:
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    z = AsyncZarrBackend(
+        f"{tmp_path}/hetero.zarr",
+        parallel_coords=OrderedDict({"lead_time": lead_time}),
+        fs_factory=LocalFileSystem,
+        blocking=True,
+    )
+    z.add_array(
+        OrderedDict({"lead_time": lead_time, "lat": np.linspace(-90, 90, 4)}),
+        "with_lat",
+    )
+    z.add_array(
+        OrderedDict({"lead_time": lead_time, "member": np.arange(3)}), "with_member"
+    )
+    z.close()
+    assert z["with_lat"].shape == (2, 4)
+    assert z["with_member"].shape == (2, 3)
+
+
+def test_async_zarr_add_array_coord_mismatch_raises(tmp_path: str) -> None:
+    z = AsyncZarrBackend(
+        f"{tmp_path}/mismatch.zarr",
+        parallel_coords={},
+        fs_factory=LocalFileSystem,
+        blocking=True,
+    )
+    z.add_array(OrderedDict({"quantile": np.array([0.1, 0.5, 0.9])}), "a")
+    with pytest.raises(ValueError, match="different values"):
+        z.add_array(OrderedDict({"quantile": np.array([0.25, 0.75])}), "b")
+
+
+def test_async_zarr_matches_zarr_backend_surface(tmp_path: str) -> None:
+    from earth2studio.io import ZarrBackend
+
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    total_coords = OrderedDict(
+        {
+            "lead_time": lead_time,
+            "lat": np.linspace(-90, 90, 8),
+            "lon": np.linspace(0, 360, 16, endpoint=False),
+        }
+    )
+    sync_io = ZarrBackend(f"{tmp_path}/sync.zarr")
+    sync_io.add_array(total_coords, "fields")
+
+    async_io = AsyncZarrBackend(
+        f"{tmp_path}/async.zarr",
+        parallel_coords=OrderedDict({"lead_time": lead_time}),
+        fs_factory=LocalFileSystem,
+        blocking=True,
+    )
+    async_io.add_array(total_coords, "fields")
+
+    assert ("fields" in sync_io) == ("fields" in async_io) is True
+    assert ("absent" in sync_io) == ("absent" in async_io) is False
+    assert set(sync_io) == set(async_io)
+    assert len(sync_io) == len(async_io)
+    assert sync_io["fields"].shape == async_io["fields"].shape
+
+    # Same coordinate names, values and dimension order
+    assert list(async_io.coords) == list(sync_io.coords)
+    for dim, values in total_coords.items():
+        np.testing.assert_array_equal(np.asarray(async_io.coords[dim]), values)
+
+    zarr.consolidate_metadata(async_io.store)
+    async_io.close()
+
+
+def test_async_zarr_coords_of_coord_only_store(tmp_path: str) -> None:
+    """A store with no data arrays yet must still report its coordinates.
+
+    The eval recipe's score store looks exactly like this between its creation
+    and its data arrays being added, and every rank validates against it.
+    """
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    total_coords = OrderedDict({"lead_time": lead_time, "lat": np.linspace(-90, 90, 4)})
+    z = AsyncZarrBackend(
+        f"{tmp_path}/coords_only.zarr",
+        parallel_coords=OrderedDict({"lead_time": lead_time}),
+        fs_factory=LocalFileSystem,
+        blocking=True,
+    )
+    z.add_array(total_coords, [])
+    z.close()
+
+    assert set(z.coords) == {"lead_time", "lat"}
+    np.testing.assert_array_equal(np.asarray(z.coords["lat"]), total_coords["lat"])

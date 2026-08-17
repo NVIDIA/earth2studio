@@ -794,8 +794,7 @@ class MeteosatFCI:
 
         if not segments:
             raise ValueError(
-                f"Channel '{channel_name}' not found in BODY segments "
-                f"at {product_dir}"
+                f"Channel '{channel_name}' not found in BODY segments at {product_dir}"
             )
 
         full = np.concatenate(segments, axis=0)

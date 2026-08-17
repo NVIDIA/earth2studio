@@ -40,8 +40,8 @@ This example demonstrates how to:
 # ------
 # For this example, the following are needed:
 #
-# - Prognostic Model: Use the built-in Aurora 6-hour model :py:class:`earth2studio.models.px.Aurora`.
-# - Data source: Pull data from the WeatherBench2 data API :py:class:`earth2studio.data.WB2ERA5`.
+# - Prognostic Model: Use the built-in Aurora 6-hour model [`earth2studio.models.px.Aurora`][earth2studio.models.px.Aurora].
+# - Data source: Pull data from the WeatherBench2 data API [`earth2studio.data.WB2ERA5`][earth2studio.data.WB2ERA5].
 
 # %%
 import os
@@ -123,11 +123,11 @@ print(zg.tree())
 # Execute the Workflow
 # --------------------
 # To use the saved dataset as a data source, we could create our own class that implements
-# the interface required by :py:class:`earth2studio.data.base.DataSource`, which needs
+# the interface required by [`earth2studio.data.base.DataSource`][earth2studio.data.base.DataSource], which needs
 # just a ``__call__(time, variable)`` method.
 #
 # However, since we used an IO backend from Earth2Studio we can use the
-# :py:class:`earth2studio.data.xr.InferenceOutputSource` which is a convenience class
+# [`earth2studio.data.xr.InferenceOutputSource`][earth2studio.data.xr.InferenceOutputSource] which is a convenience class
 # that supports the output of inference pipelines.
 
 # %%

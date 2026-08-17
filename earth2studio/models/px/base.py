@@ -23,6 +23,7 @@ import torch
 from earth2studio.utils.type import CoordSystem
 
 
+# --8<-- [start:prognostic-model-interface]
 @runtime_checkable
 class PrognosticModel(Protocol):
     """Prognostic model interface"""
@@ -116,3 +117,6 @@ class PrognosticModel(Protocol):
             Returns instance of prognostic
         """
         pass
+
+
+# --8<-- [end:prognostic-model-interface]

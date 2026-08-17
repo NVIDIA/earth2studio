@@ -19,7 +19,8 @@ import concurrent
 import concurrent.futures
 import datetime
 import threading
-from collections.abc import Callable
+from collections import OrderedDict
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
 # import threading
@@ -204,6 +205,14 @@ class _ShardBuffer:
 class AsyncZarrBackend:
     """Async Zarr v3 IO Backend
 
+    An asynchronous Zarr backend for inference pipelines that produce
+    data faster than a store can absorb it synchronously. Iteratively generated dimensions
+    (time, lead_time, ensemble) go into `parallel_coords` with their complete value sets,
+    each inference step writes one slice along them, and `close()` is called at the end
+    to drain pending writes and write out any incomplete shard. Remote stores are supported
+    through `fs_factory`, and Zarr v3 sharding via `shard_coords` keeps the file count of
+    large campaigns low.
+
     Warning
     -------
     This IO backend presently does not support overwritting existing Zarr stores. Only
@@ -307,6 +316,21 @@ class AsyncZarrBackend:
 
     Notes
     -----
+    Relation to ZarrBackend
+
+    Exposes the same surface as :class:`ZarrBackend` and can be used as a drop-in
+    replacement, with a few behavioral differences:
+
+    - `add_array` takes a `dtype` instead of a template `data` tensor and is
+      idempotent, so it is safe to call from every rank of a distributed job.
+    - In non-blocking mode a failed write raises at a later `write`, `flush` or
+      `close` rather than at the failing call, and inputs are copied so callers
+      may freely reuse their buffers.
+    - `coords` is read back from the store, and `__getitem__` flushes pending
+      writes first; intended for inspection, not reads in a write loop.
+    - Consolidated metadata is not maintained; consolidate at the end of a
+      pipeline if desired, e.g. ``zarr.consolidate_metadata(io.store)``.
+
     Sharding
 
     Because every coordinate in `parallel_coords` is chunked with a size of 1, a large
@@ -332,6 +356,34 @@ class AsyncZarrBackend:
     Sharding composes with `zarr_codecs`, which compresses the inner chunks within a
     shard, and with `chunked_coords`, which sets the chunk size of coordinates outside
     `parallel_coords`.
+
+    Examples
+    --------
+    Write a forecast one lead time at a time, hiding the IO behind the model steps:
+
+    >>> times = np.array([np.datetime64("2024-01-01")])
+    >>> lead_times = np.array([np.timedelta64(6 * i, "h") for i in range(4)])
+    >>> io = AsyncZarrBackend(
+    ...     "forecast.zarr",
+    ...     parallel_coords={"time": times, "lead_time": lead_times},
+    ...     blocking=False,
+    ...     shard_coords={"lead_time": 4},  # optional: 4 chunks per storage object
+    ... )
+    >>> total_coords = OrderedDict(
+    ...     {
+    ...         "time": times,
+    ...         "lead_time": lead_times,
+    ...         "lat": np.linspace(-90, 90, 721),
+    ...         "lon": np.linspace(0, 360, 1440, endpoint=False),
+    ...     }
+    ... )
+    >>> io.add_array(total_coords, ["t2m", "z500"])
+    >>> for i in range(len(lead_times)):
+    ...     x = torch.randn(1, 1, 721, 1440)  # model output for this step
+    ...     step_coords = total_coords.copy()
+    ...     step_coords["lead_time"] = lead_times[i : i + 1]
+    ...     io.write([x, x], step_coords, ["t2m", "z500"])
+    >>> io.close()  # drain pending writes, write out any incomplete shard
     """
 
     def __init__(
@@ -1231,12 +1283,145 @@ class AsyncZarrBackend:
                 io_future.result()
             self.io_futures = [f for f in self.io_futures if f in not_done]
 
+    def __contains__(self, item: str) -> bool:
+        """Checks if item in Zarr Group.
+
+        Parameters
+        ----------
+        item : str
+        """
+        return bool(fsspec.asyn.sync(self.loop, self.root.contains, item))
+
+    def __getitem__(self, item: str) -> Any:
+        """Gets item in Zarr Group, flushing pending writes first.
+
+        `self.root` is an AsyncGroup whose arrays cannot be indexed from
+        synchronous code, so a separate synchronous handle is opened. Without the
+        flush that handle would not see writes still in flight on a pool thread,
+        nor chunks still buffered in an incomplete shard. Note flushing writes out
+        incomplete shards, so later writes into those shards fall back to a read
+        modify write. Intended for inspection, not for reads in a hot write loop.
+
+        Parameters
+        ----------
+        item : str
+        """
+        if self.io_futures or self._shard_buffers:
+            self.flush()
+        return self._sync_root()[item]
+
+    def __len__(self) -> int:
+        """Gets length of Zarr Group."""
+        return len(self._sync_root())
+
+    def __iter__(self) -> Iterator:
+        """Return an iterator over Zarr Group member names."""
+        return iter(self._sync_root())
+
+    def _sync_root(self) -> Any:
+        """Synchronous handle on the same store, backing the read side of the API"""
+        return zarr.open(store=self.root.store, mode="r", use_consolidated=False)
+
+    @property
+    def store(self) -> Any:
+        """Underlying Zarr store, e.g. for `zarr.consolidate_metadata(io.store)`"""
+        return self.root.store
+
+    @property
+    def coords(self) -> CoordSystem:
+        """Coordinate arrays of the store, read back from it.
+
+        `ZarrBackend` accumulates this as arrays are added; here the store is the
+        single source of truth, which also keeps it correct when the store was
+        created by another process.
+        """
+        return fsspec.asyn.sync(self.loop, self._read_coords)
+
+    async def _read_coords(self) -> CoordSystem:
+        arrays = {name: array async for name, array in self.root.arrays()}
+        dims_of = {
+            name: list(array.metadata.dimension_names or [])
+            for name, array in sorted(arrays.items())
+        }
+        # Data arrays carry the dimension order, a self named coordinate array
+        # carries none. Those seed nothing and are appended after, otherwise a
+        # store holding only coordinate arrays would report no coordinates at all.
+        dim_order: list[str] = []
+        for name, dims in dims_of.items():
+            if dims == [name]:
+                continue
+            for dim in dims:
+                if dim not in dim_order:
+                    dim_order.append(dim)
+        for name, dims in dims_of.items():
+            if dims == [name] and name not in dim_order:
+                dim_order.append(name)
+
+        coords: CoordSystem = OrderedDict()
+        for dim in dim_order:
+            if dim in arrays:
+                coords[dim] = await arrays[dim].getitem(slice(None))
+        return coords
+
     def add_array(
-        self, coords: CoordSystem, array_name: str | list[str], **kwargs: dict[str, Any]
+        self,
+        coords: CoordSystem,
+        array_name: str | list[str],
+        dtype: Any = np.float32,
+        **kwargs: Any,
     ) -> None:
-        """Pass through, arrays are initialized lazily in this io object"""
-        # TODO: Warning?
-        pass
+        """Create arrays and their coordinate arrays in the store
+
+        Arrays are otherwise created lazily on first write, which is per process:
+        several processes writing the same array for the first time all see it as
+        absent and race on creation. Creating the schema up front, from one process,
+        avoids that race. It also allows arrays with different dimension sets, which
+        no single first write could imply.
+
+        Parameters
+        ----------
+        coords : CoordSystem
+            Coordinate system of the array(s).
+        array_name : str | list[str]
+            Name(s) of the array(s) to create.
+        dtype : np.dtype, optional
+            Data type of the array(s), by default np.float32 (matching
+            `ZarrBackend.add_array` without data). Arrays created lazily by
+            `write` instead use the written tensor's dtype.
+        kwargs : Any
+            Accepted for `IOBackend` compatibility (e.g. `ZarrBackend`'s `data=`)
+            but not supported here, array content comes from `write` and creation
+            options from the constructor. Ignored with a warning.
+        """
+        if kwargs:
+            logger.warning(
+                f"AsyncZarrBackend.add_array ignoring unsupported kwargs: "
+                f"{sorted(kwargs)}"
+            )
+        if isinstance(array_name, str):
+            array_name = [array_name]
+        names = [str(name) for name in array_name]
+        dtypes = [np.dtype(dtype)] * len(names)
+        coords = self._scrub_coordinates(coords.copy())
+        fsspec.asyn.sync(self.loop, self._add_array, coords, names, dtypes)
+
+    async def _add_array(
+        self, coords: CoordSystem, names: list[str], dtypes: list[np.dtype]
+    ) -> None:
+        # An existing coordinate array must match the values passed, otherwise data
+        # arrays sized from these coords disagree with the stored coordinate and the
+        # store cannot be opened by xarray
+        for key, value in coords.items():
+            if key in self.parallel_coords or not await self.root.contains(key):
+                continue
+            existing = await (await self.root.get(key)).getitem(slice(None))
+            if existing.shape != value.shape or not np.array_equal(existing, value):
+                raise ValueError(
+                    f"Coordinate array '{key}' already exists in the store with "
+                    "different values, use a different dimension name"
+                )
+        await self._initialize_arrays(coords, names, dtypes)
+        await self._register_shard_specs(names)
 
     def write(
         self,
