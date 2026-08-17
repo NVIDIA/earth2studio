@@ -20,7 +20,6 @@ import functools
 import io
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
-from typing import Any
 
 import numpy as np
 import torch
@@ -43,22 +42,19 @@ try:
     import chex
     import haiku as hk
     import jax
-    import jax.numpy as jnp
-    from graphcast import (
+    from weathernext.utils import (
         checkpoint,
         data_utils,
-        gencast,
-        graphcast,
         nan_cleaning,
         normalization,
         rollout,
-        xarray_jax,
     )
+    from weathernext.weathernext1_gen import gencast
+    from weathernext.weathernext1_graph import graphcast
 except ImportError:
     OptionalDependencyFailure("gencast")
     hk = None
     jax = None
-    jnp = None
     chex = None
     checkpoint = None
     data_utils = None
@@ -67,7 +63,6 @@ except ImportError:
     nan_cleaning = None
     normalization = None
     rollout = None
-    xarray_jax = None
 
 # Input variables: 5 surface + 6x13 atmospheric (no precipitation in inputs)
 INPUT_SURFACE_VARIABLES = [
@@ -135,11 +130,14 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Note
     ----
-    This model is provided by DeepMind.
+    As of July 2026, GenCast was renamed to WeatherNext 1-Gen in the
+    WeatherNext codebase. This Earth2Studio wrapper keeps the GenCast name
+    for backwards compatibility.
+
     For more information see the following references:
 
     - https://arxiv.org/abs/2312.15796
-    - https://github.com/google-deepmind/graphcast
+    - https://github.com/google-deepmind/weathernext
     - https://www.nature.com/articles/s41586-024-08252-9
 
     Warning
@@ -372,7 +370,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Build GenCast inference function from checkpoint.
 
         This function is based on the inference pipeline from:
-        https://github.com/google-deepmind/graphcast
+        https://github.com/google-deepmind/weathernext
 
         License info:
 
@@ -413,55 +411,6 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.ckpt.denoiser_architecture_config,
             sparse_transformer_config=tbd_spt_cfg,
         )
-
-        # Monkey-patch xarray_jax to handle JAX tracers inside jax.lax.fori_loop.
-        # GenCast's diffusion sampler (DPM-Solver++2S) uses fori_loop which
-        # turns loop variables into DynamicJaxprTracer. The upstream
-        # JaxArrayWrapper.__array_ufunc__ rejects these tracers because
-        # DynamicJaxprTracer is not jax.typing.ArrayLike.
-        # This is an upstream bug: https://github.com/google-deepmind/graphcast/issues/203
-        # We intercept NotImplemented and fall back to the JAX operation directly.
-        _original_array_ufunc = xarray_jax.JaxArrayWrapper.__array_ufunc__
-
-        # Map numpy ufuncs to their JAX equivalents so we can operate
-        # on JAX tracers without triggering numpy's __array__ conversion.
-        _UFUNC_TO_JAX: dict[np.ufunc, Any] = {
-            np.multiply: jnp.multiply,
-            np.add: jnp.add,
-            np.subtract: jnp.subtract,
-            np.divide: jnp.divide,
-            np.true_divide: jnp.true_divide,
-            np.negative: jnp.negative,
-            np.sqrt: jnp.sqrt,
-            np.square: jnp.square,
-            np.abs: jnp.abs,
-            np.log: jnp.log,
-            np.exp: jnp.exp,
-            np.power: jnp.power,
-            np.maximum: jnp.maximum,
-            np.minimum: jnp.minimum,
-        }
-
-        def _patched_array_ufunc(
-            self: "xarray_jax.JaxArrayWrapper",
-            ufunc: np.ufunc,
-            method: str,
-            *inputs: Any,
-            **kwargs: Any,
-        ) -> Any:
-            result = _original_array_ufunc(self, ufunc, method, *inputs, **kwargs)
-            if result is NotImplemented:
-                jax_fn = _UFUNC_TO_JAX.get(ufunc)
-                if jax_fn is None:
-                    return NotImplemented
-                jax_inputs = [
-                    i.jax_array if isinstance(i, xarray_jax.JaxArrayWrapper) else i
-                    for i in inputs
-                ]
-                return xarray_jax.JaxArrayWrapper(jax_fn(*jax_inputs, **kwargs))
-            return result
-
-        xarray_jax.JaxArrayWrapper.__array_ufunc__ = _patched_array_ufunc
 
         def construct_wrapped_gencast(
             task_config: "graphcast.TaskConfig",
@@ -550,7 +499,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Autoregressive prediction generator for GenCast.
 
         This function is based on the rollout logic from:
-        https://github.com/google-deepmind/graphcast
+        https://github.com/google-deepmind/weathernext
 
         License info:
 
@@ -929,7 +878,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     step_rng = jax.random.fold_in(jax.random.PRNGKey(self.seed), t)
                 else:
                     step_rng = jax.random.PRNGKey(np.random.randint(0, 2**31))
-                # Silence print out from graphcast package for this model
+                # Silence print out from WeatherNext package for this model
                 with contextlib.redirect_stdout(io.StringIO()):
                     predictions = rollout.chunked_prediction(
                         self.run_forward,
