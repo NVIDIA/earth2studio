@@ -74,6 +74,7 @@ earth2studio.models.px.AIFS2
 earth2studio.models.px.AIFS2ENS
 earth2studio.models.px.AIFSENS
 earth2studio.models.px.Atlas
+earth2studio.models.px.AtlasCRPS
 earth2studio.models.px.Aurora
 earth2studio.models.px.Aurora1p5
 earth2studio.models.px.Aurora1p5Ensemble

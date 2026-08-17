@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
   `NNJAObsSat`, returned as brightness temperature (K) with per-channel
   wavenumbers alongside the existing microwave sensors
+- Added Atlas CRPS ensemble prognostic model (`AtlasCRPS`), which generates ensemble
+  members from noise conditioned transformer blocks and shares the Atlas autoencoder
 
 ### Changed
 
