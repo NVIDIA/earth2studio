@@ -1618,7 +1618,7 @@
     },
     {
       "classifiers": [],
-      "signature": "io.AsyncZarrBackend(file_name: str, parallel_coords: CoordSystem, fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] = LocalFileSystem, blocking: bool = True, pool_size: int = 8, async_timeout: int = 600, zarr_kwargs: dict[str, Any] = {'mode': 'a'}, zarr_codecs: CompressorsLike = None, chunked_coords: dict[str, int] = {}, shard_coords: dict[str, int] = {}, max_inflight_shards: int = 4)",
+      "signature": "io.AsyncZarrBackend(file_name: str | None, parallel_coords: CoordSystem, fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] | None = None, blocking: bool = True, pool_size: int = 8, async_timeout: int = 600, zarr_kwargs: dict[str, Any] = {'mode': 'a'}, zarr_codecs: CompressorsLike = None, chunked_coords: dict[str, int] = {}, shard_coords: dict[str, int] = {}, max_inflight_shards: int = 4, store: 'str | zarr.abc.store.Store | obstore.store.ObjectStore | None' = None, store_kwargs: dict[str, Any] = {})",
       "source": "modules/generated/io/1/io_AsyncZarrBackend.md",
       "summary": "Async Zarr v3 IO Backend",
       "symbol": "earth2studio.io.AsyncZarrBackend",

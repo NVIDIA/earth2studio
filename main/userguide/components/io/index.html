@@ -992,6 +992,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#writing-to-cloud-object-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing to cloud object storage
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2884,6 +2895,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#writing-to-cloud-object-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing to cloud object storage
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3221,6 +3243,31 @@ at one rank count and silently lose data at another, so prefer the first layout.
 <p>Separately, and independent of sharding: arrays are created lazily on the first write, so
 several ranks writing a new array at once can race on its creation. Have one rank
 establish the arrays before the others begin writing.</p>
+<h3 id="writing-to-cloud-object-storage">Writing to cloud object storage<a class="headerlink" href="#writing-to-cloud-object-storage" title="Permanent link">&para;</a></h3>
+<p>For cloud outputs, pass the <code>store</code> parameter instead of <code>fs_factory</code>. This routes all
+writes through an <a href="https://developmentseed.org/obstore/latest/">obstore</a>-backed
+<code>zarr.storage.ObjectStore</code>, which uses native put and multipart-upload requests rather
+than fsspec sessions. The parameter accepts a store URL, an obstore store instance, or
+an already constructed zarr store:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># URL form: credentials resolved from the environment</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">io</span> <span class="o">=</span> <span class="n">AsyncZarrBackend</span><span class="p">(</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="s2">&quot;unused&quot;</span><span class="p">,</span>  <span class="c1"># location comes from the store</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">parallel_coords</span><span class="o">=</span><span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">times</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">lead_times</span><span class="p">}),</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">store</span><span class="o">=</span><span class="s2">&quot;s3://my-bucket/forecasts/run-001.zarr&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">store_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;region&quot;</span><span class="p">:</span> <span class="s2">&quot;us-east-1&quot;</span><span class="p">},</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="p">)</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="c1"># Instance form: full control over store construction</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="kn">from</span><span class="w"> </span><span class="nn">obstore.store</span><span class="w"> </span><span class="kn">import</span> <span class="n">S3Store</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="n">io</span> <span class="o">=</span> <span class="n">AsyncZarrBackend</span><span class="p">(</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    <span class="s2">&quot;unused&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>    <span class="n">parallel_coords</span><span class="o">=</span><span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">times</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">lead_times</span><span class="p">}),</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>    <span class="n">store</span><span class="o">=</span><span class="n">S3Store</span><span class="p">(</span><span class="s2">&quot;my-bucket&quot;</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;forecasts/run-001.zarr&quot;</span><span class="p">),</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="p">)</span>
+</code></pre></div>
+<p><code>file_name</code> and <code>fs_factory</code> are ignored when <code>store</code> is set. Everything else —
+non-blocking writes, sharding, restarts — behaves identically; the loop pool shares a
+single store instance, matching the shared state of the remote bucket.</p>
 
 
 

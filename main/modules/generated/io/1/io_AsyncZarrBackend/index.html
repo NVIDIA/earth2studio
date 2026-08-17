@@ -2727,7 +2727,7 @@
 <p><span id="earth2studio.io.AsyncZarrBackend"></span>
 <span id="earth2studio.io.AsyncZarrBackend.add_array"></span>
 <span id="earth2studio.io.AsyncZarrBackend.write"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L202-L1519" title="earth2studio/io/async_zarr.py:202">View source on GitHub</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/async_zarr.py#L205-L1659" title="earth2studio/io/async_zarr.py:205">View source on GitHub</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -2784,10 +2784,12 @@ the coordinate the work is distributed over.</p>
     <ul>
         <li class="doc-section-item field-body">
             <b><code>file_name</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>)
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>)
           –
           <div class="doc-md-description">
-            <p>Path location to place zarr store</p>
+            <p>Path location to place zarr store. Required unless <code>store</code> is provided,
+in which case it is ignored (the store then defines the output location)
+and may be None.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -2806,13 +2808,17 @@ populated upon the first write to the respective array.</p>
         </li>
         <li class="doc-section-item field-body">
             <b><code>fs_factory</code></b>
-              (<code><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a>[..., <a class="autorefs autorefs-external" title="fsspec.spec.AbstractFileSystem" href="https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem">AbstractFileSystem</a>]</code>, default:
-                  <code><a class="autorefs autorefs-external" title="fsspec.implementations.local.LocalFileSystem" href="https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.local.LocalFileSystem">LocalFileSystem</a></code>
+              (<code><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a>[..., <a class="autorefs autorefs-external" title="fsspec.spec.AbstractFileSystem" href="https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem">AbstractFileSystem</a>] | None</code>, default:
+                  <code>None</code>
 )
           –
           <div class="doc-md-description">
-            <p>FSSpec file system factory method. This is a callable object that should return
-an instance of the desired filesystem to use, by default LocalFileSystem</p>
+            <p>Deprecated, use <code>store</code> instead. FSSpec file system factory method: a
+callable that returns an instance of the filesystem to write with.
+When None (default) the fsspec machinery is skipped entirely — output
+goes to the <code>store</code> if provided, otherwise straight to a local zarr
+store at <code>file_name</code>. Ignored (and not validated) when <code>store</code> is
+provided, by default None</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -2911,6 +2917,35 @@ in memory. Lower it if memory is tight, raise it if writes are the bottleneck
 and the store has bandwidth to spare, by default 4</p>
           </div>
         </li>
+        <li class="doc-section-item field-body">
+            <b><code>store</code></b>
+              (<code>str | zarr.abc.store.Store | obstore store</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Output store, bypassing fsspec entirely so cloud writes use obstore's
+native put / multipart upload. Accepts a plain local path
+(<code>out/forecast.zarr</code>), a store URL resolved with
+<code>obstore.store.from_url</code> (e.g. <code>s3://bucket/forecast.zarr</code>,
+<code>gs://bucket/out.zarr</code>, <code>file:///tmp/out.zarr</code>), an obstore store
+instance, or an already constructed zarr store. Credentials are resolved
+from the environment by obstore unless passed via <code>store_kwargs</code>. When set,
+<code>file_name</code> and <code>fs_factory</code> are ignored, by default None</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>store_kwargs</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a>]</code>, default:
+                  <code>{}</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Additional configuration forwarded to <code>obstore.store.from_url</code> when
+<code>store</code> is a URL string (e.g. <code>region</code>, <code>skip_signature</code>, credentials),
+by default {}</p>
+          </div>
+        </li>
     </ul>
 
 
@@ -2927,14 +2962,27 @@ and the store has bandwidth to spare, by default 4</p>
               <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#TypeError">TypeError</a></code>
             –
           <div class="doc-md-description">
-            <p>If fs_factory is not a callable, this should be a callable method not an object</p>
+            <p>If a provided fs_factory is not a callable when no <code>store</code> is given</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
               <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#ValueError">ValueError</a></code>
             –
           <div class="doc-md-description">
-            <p>If a <code>shard_coords</code> value is not positive</p>
+            <p>If a <code>shard_coords</code> value is not positive, if neither <code>file_name</code> nor
+<code>store</code> is provided, or if <code>store_kwargs</code> is passed with a non-URL store</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Warns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#FutureWarning">FutureWarning</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If <code>fs_factory</code> is provided; pass the output location via <code>store</code></p>
           </div>
         </li>
     </ul>
