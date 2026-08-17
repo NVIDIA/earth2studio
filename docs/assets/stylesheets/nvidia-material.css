@@ -2723,10 +2723,7 @@ body .md-grid {
   place-items: center;
   padding: clamp(4rem, 9vw, 7rem) 1rem;
   color: var(--nv-fg);
-  background:
-    radial-gradient(circle at 28% 22%, rgba(118, 185, 0, 0.12), transparent 26rem),
-    radial-gradient(circle at 76% 70%, rgba(14, 165, 164, 0.12), transparent 28rem),
-    linear-gradient(135deg, #050806 0%, #071007 48%, #0d1714 100%);
+  background: transparent;
 }
 
 .e2s-404__panel {
@@ -2793,10 +2790,4 @@ body .md-grid {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
-}
-
-.md-typeset .e2s-404__note {
-  margin-top: 1.35rem;
-  color: rgba(244, 247, 239, 0.66);
-  font-size: 0.72rem;
 }
