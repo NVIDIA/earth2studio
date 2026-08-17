@@ -56,10 +56,50 @@
     return `${pageUrl.origin}${root}/main/${normalizedPath}${pageUrl.search}${pageUrl.hash}`;
   }
 
+  function currentDocsResourceUrl(value, locationValue, siteUrl) {
+    const pageUrl = new URL(locationValue.href);
+    const resourceUrl = new URL(value, pageUrl.origin);
+    if (resourceUrl.origin !== pageUrl.origin) return value;
+
+    const root = documentationRoot(siteUrl, pageUrl);
+    for (const directory of ["assets", "_static"]) {
+      const source = `${root}/${directory}/`;
+      if (resourceUrl.pathname.startsWith(source)) {
+        resourceUrl.pathname = `${root}/main/${directory}/${resourceUrl.pathname.slice(source.length)}`;
+        return resourceUrl.href;
+      }
+    }
+    return value;
+  }
+
+  function rebaseCurrentDocsResources(documentValue, locationValue, siteUrl) {
+    const rewrite = function (element) {
+      for (const attribute of ["href", "src"]) {
+        if (!element.hasAttribute || !element.hasAttribute(attribute)) continue;
+        const value = element.getAttribute(attribute);
+        const rebased = currentDocsResourceUrl(value, locationValue, siteUrl);
+        if (rebased !== value) element.setAttribute(attribute, rebased);
+      }
+    };
+
+    documentValue.querySelectorAll("link[href], script[src], img[src]").forEach(rewrite);
+    new MutationObserver(function (records) {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          rewrite(node);
+          node.querySelectorAll?.("link[href], script[src], img[src]").forEach(rewrite);
+        }
+      }
+    }).observe(documentValue.documentElement, { childList: true, subtree: true });
+  }
+
   const api = {
+    currentDocsResourceUrl,
     documentationRoot,
     mainDocumentationUrl,
     normalizeMarkdownPath,
+    rebaseCurrentDocsResources,
     redirectTarget,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
@@ -67,6 +107,7 @@
 
   const script = browser.document.currentScript;
   const siteUrl = script && script.dataset.siteUrl ? script.dataset.siteUrl : "/";
+  rebaseCurrentDocsResources(browser.document, browser.location, siteUrl);
   const target = redirectTarget(browser.location, siteUrl);
   if (target && target !== browser.location.href) {
     browser.location.replace(target);

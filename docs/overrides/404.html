@@ -1,9 +1,21 @@
 {% extends "main.html" %}
+{% block styles %}
+  {{ super() | replace('/earth2studio/assets/', '/earth2studio/main/assets/') | safe }}
+{% endblock %}
 {% block extrahead %}
   {{ super() }}
   <script data-site-url="{{ config.site_url }}">
     {% include "partials/e2s-404-redirect.js" %}
   </script>
+{% endblock %}
+{% block config %}
+  {{ super()
+    | replace('/earth2studio/assets/', '/earth2studio/main/assets/')
+    | replace('"base":"/earth2studio"', '"base":"/earth2studio/main"')
+    | safe }}
+{% endblock %}
+{% block scripts %}
+  {{ super() | replace('/earth2studio/assets/', '/earth2studio/main/assets/') | safe }}
 {% endblock %}
 {% block content %}
 <section class="e2s-404" aria-labelledby="e2s-404-title">
@@ -23,7 +35,7 @@
         </svg>
       </a>
       <a class="e2s-404__button e2s-home-button" href="https://github.com/NVIDIA/earth2studio/tree/gh-pages/v">
-        <span>Go to old docs</span>
+        <span>Go to Old Docs</span>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 12h14M13 6l6 6-6 6"></path>
         </svg>
