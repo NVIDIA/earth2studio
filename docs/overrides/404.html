@@ -1,46 +1,222 @@
-{% extends "main.html" %}
-{% block styles %}
-  {# The root 404 can outlive a particular MkDocs/Zensical build. The inline
-     bootstrap below loads the active main documentation's hashed assets. #}
-{% endblock %}
-{% block extrahead %}
-  <script data-site-url="{{ config.site_url }}">
-    {% include "partials/e2s-404-redirect.js" %}
-  </script>
-{% endblock %}
-{% block config %}
-  {{ super()
-    | replace('/earth2studio/assets/', '/earth2studio/main/assets/')
-    | replace('"base":"/earth2studio"', '"base":"/earth2studio/main"')
-    | safe }}
-{% endblock %}
-{% block scripts %}
-  {# Scripts are loaded from the active main documentation by the bootstrap. #}
-{% endblock %}
-{% block content %}
-<section class="e2s-404" aria-labelledby="e2s-404-title">
-  <div class="e2s-404__panel">
-    <p class="e2s-section-kicker">404</p>
-    <h1 id="e2s-404-title">Documentation page not found</h1>
-    <p>
-      The Earth2Studio documentation structure was recently rebuilt, so some
-      older links may have moved. Start from the current main documentation, or
-      browse the archived versioned docs if you are looking for an older page.
-    </p>
-    <div class="e2s-404__actions">
-      <a class="e2s-404__button e2s-404__button--primary e2s-home-button" data-e2s-main-docs href="{{ config.site_url }}">
-        <span>Go to Current Docs</span>
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M5 12h14M13 6l6 6-6 6"></path>
-        </svg>
-      </a>
-      <a class="e2s-404__button e2s-home-button" href="https://github.com/NVIDIA/earth2studio/tree/gh-pages/v">
-        <span>Go to Old Docs</span>
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M5 12h14M13 6l6 6-6 6"></path>
-        </svg>
-      </a>
-    </div>
-  </div>
-</section>
-{% endblock %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Documentation page not found | Earth2Studio</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --e2s-green: #76b900;
+        --e2s-green-bright: #8fe33a;
+        --e2s-panel: rgba(12, 18, 14, 0.9);
+        --e2s-text: #ffffff;
+        --e2s-muted: #e1e4e1;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        background:
+          radial-gradient(circle at 50% 18%, rgba(118, 185, 0, 0.16), transparent 32rem),
+          radial-gradient(circle at 70% 70%, rgba(14, 165, 164, 0.12), transparent 34rem),
+          radial-gradient(circle at 50% 83%, rgba(56, 189, 248, 0.12), transparent 25rem),
+          linear-gradient(180deg, #050806 0%, #071007 44%, #030603 100%);
+        color: #ffffff;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      body::before {
+        background-image:
+          linear-gradient(rgba(118, 185, 0, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(118, 185, 0, 0.05) 1px, transparent 1px),
+          radial-gradient(ellipse at center, transparent 0%, transparent 56%, rgba(0, 0, 0, 0.56) 100%);
+        background-size: 42px 42px, 42px 42px, auto;
+        content: "";
+        inset: 0;
+        pointer-events: none;
+        position: fixed;
+      }
+
+      .e2s-main {
+        align-items: center;
+        display: flex;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 48px 24px;
+        position: relative;
+      }
+
+      .e2s-404 {
+        background: var(--e2s-panel);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(143, 227, 58, 0.24);
+        border-radius: 16px;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+        color: var(--e2s-text);
+        max-width: 720px;
+        padding: 56px 64px;
+        text-align: center;
+        width: 100%;
+      }
+
+      .e2s-kicker {
+        color: var(--e2s-green-bright);
+        font-size: 18px;
+        font-weight: 800;
+        margin: 0 0 14px;
+      }
+
+      h1 {
+        font-size: clamp(42px, 7vw, 72px);
+        letter-spacing: -0.045em;
+        line-height: 0.98;
+        margin: 0;
+      }
+
+      .e2s-description {
+        color: var(--e2s-muted);
+        font-size: 18px;
+        line-height: 1.7;
+        margin: 28px auto 0;
+        max-width: 590px;
+      }
+
+      .e2s-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        justify-content: center;
+        margin-top: 34px;
+      }
+
+      .e2s-button {
+        align-items: center;
+        background: #10180d;
+        border: 1px solid #2d411e;
+        border-radius: 9px;
+        color: var(--e2s-green-bright);
+        display: inline-flex;
+        font-size: 14px;
+        font-weight: 800;
+        gap: 14px;
+        justify-content: center;
+        min-height: 52px;
+        padding: 0 22px;
+        text-decoration: none;
+        text-transform: uppercase;
+      }
+
+      .e2s-button--primary {
+        background: #52673f;
+        border-color: var(--e2s-green);
+      }
+
+      .e2s-button:hover,
+      .e2s-button:focus-visible {
+        border-color: var(--e2s-green-bright);
+        outline: none;
+        transform: translateY(-1px);
+      }
+
+      .e2s-button__arrow {
+        font-size: 21px;
+        line-height: 1;
+      }
+
+      @media (max-width: 640px) {
+        .e2s-main {
+          padding: 24px 16px;
+        }
+
+        .e2s-404 {
+          padding: 42px 24px;
+        }
+
+        .e2s-description {
+          font-size: 16px;
+        }
+
+        .e2s-button {
+          width: 100%;
+        }
+      }
+    </style>
+    <script>
+      (function () {
+        "use strict";
+
+        const PROJECT_ROOT = "/earth2studio";
+        const VERSION_SEGMENT = /^(?:main|v?\d+(?:\.\d+)+(?:[-._]?[0-9a-z][0-9a-z._-]*)?)$/i;
+        const pageUrl = new URL(window.location.href);
+        const root = pageUrl.pathname === PROJECT_ROOT ||
+          pageUrl.pathname.startsWith(`${PROJECT_ROOT}/`) ? PROJECT_ROOT : "";
+
+        function normalizeMarkdownPath(path) {
+          if (/\/index\.md$/i.test(path)) return path.replace(/index\.md$/i, "");
+          if (/\.md$/i.test(path)) return `${path.replace(/\.md$/i, "")}/`;
+          return path;
+        }
+
+        const relativePath = pageUrl.pathname.slice(root.length).replace(/^\/+/, "");
+        if (relativePath) {
+          const normalizedPath = normalizeMarkdownPath(relativePath);
+          const firstSegment = normalizedPath.split("/", 1)[0];
+          let target = null;
+
+          if (VERSION_SEGMENT.test(firstSegment)) {
+            if (normalizedPath !== relativePath) {
+              target = `${pageUrl.origin}${root}/${normalizedPath}${pageUrl.search}${pageUrl.hash}`;
+            }
+          } else {
+            target = `${pageUrl.origin}${root}/main/${normalizedPath}${pageUrl.search}${pageUrl.hash}`;
+          }
+
+          if (target && target !== pageUrl.href) {
+            window.location.replace(target);
+            return;
+          }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+          const mainUrl = `${pageUrl.origin}${root}/main/`;
+          document.querySelectorAll("[data-e2s-main-docs]").forEach(function (link) {
+            link.href = mainUrl;
+          });
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <main class="e2s-main">
+      <section class="e2s-404" aria-labelledby="e2s-404-title">
+        <p class="e2s-kicker">404</p>
+        <h1 id="e2s-404-title">Documentation page not found</h1>
+        <p class="e2s-description">
+          The Earth2Studio documentation structure was recently rebuilt, so some
+          older links may have moved. Start from the current main documentation, or
+          browse the archived versioned docs if you are looking for an older page.
+        </p>
+        <div class="e2s-actions">
+          <a class="e2s-button e2s-button--primary" data-e2s-main-docs href="/earth2studio/main/">
+            <span>Go to Current Docs</span>
+            <span class="e2s-button__arrow" aria-hidden="true">→</span>
+          </a>
+          <a class="e2s-button" href="https://github.com/NVIDIA/earth2studio/tree/gh-pages/v">
+            <span>Go to Old Docs</span>
+            <span class="e2s-button__arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
