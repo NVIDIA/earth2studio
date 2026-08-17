@@ -94,7 +94,7 @@ repos:
         additional_dependencies: ['types-requests']
 
 -   repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: v1.29.0  # v1.29.0
+    rev: 451b56af716f9f0d0c2b816503a3fd0cf8b036fa  # v1.29.0
     hooks:
     -   id: zizmor
 
