@@ -141,6 +141,12 @@ class StormScopePipeline(Pipeline):
     dim; :meth:`Pipeline.run` squeezes it before filtering and ensemble
     injection so :meth:`run_item` can yield raw model outputs."""
 
+    supports_online_scoring = False
+    """Not yet validated for online scoring.  The coupled GOES/MRMS loop
+    yields from two models on a shared cadence and its verification spans
+    several per-model stores; both need explicit validation before an
+    ensemble group can be driven through it."""
+
     model_goes: Any
     model_mrms: Any
     nsteps: int

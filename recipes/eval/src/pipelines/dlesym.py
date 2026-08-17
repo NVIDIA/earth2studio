@@ -69,6 +69,12 @@ class DLESyMPipeline(ForecastPipeline):
     different perturbations).
     """
 
+    supports_online_scoring = False
+    """Not yet validated for online scoring.  DLESyM yields 16 lead times
+    per model step and masks ocean variables to NaN outside their cadence,
+    so the per-lead accumulation and the NaN policy both need explicit
+    validation before an ensemble group can be driven through it."""
+
     _ocean_variables: list[str]
 
     def setup(self, cfg: DictConfig, device: torch.device) -> None:

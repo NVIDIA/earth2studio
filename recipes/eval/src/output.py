@@ -349,6 +349,11 @@ class OutputManager:
         If provided, overrides ``output.overwrite`` from config.
     resume : bool | None
         If provided, overrides the top-level ``resume`` from config.
+    chunks : dict[str, int] | None
+        If provided, overrides ``output.chunks`` from config.  Used by
+        stores whose natural chunking differs from the forecast store's
+        (e.g. the online-scoring statistics store, which is small enough
+        to keep a whole IC trajectory in one chunk).
     """
 
     def __init__(
@@ -357,6 +362,7 @@ class OutputManager:
         store_name: str = "forecast.zarr",
         overwrite: bool | None = None,
         resume: bool | None = None,
+        chunks: dict[str, int] | None = None,
     ) -> None:
         output_cfg = cfg.output
         self._dist = DistributedManager()
@@ -368,7 +374,9 @@ class OutputManager:
         self._resume = resume if resume is not None else cfg.get("resume", False)
         self._thread_io = output_cfg.get("thread_writers", 0)
         self._chunks: dict[str, int] = dict(
-            output_cfg.get("chunks", {"time": 1, "lead_time": 1})
+            chunks
+            if chunks is not None
+            else output_cfg.get("chunks", {"time": 1, "lead_time": 1})
         )
 
         self._total_coords: CoordSystem | None = None

@@ -25,6 +25,7 @@ import hydra
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
 from omegaconf import DictConfig
 from tqdm import tqdm
 
@@ -81,6 +82,18 @@ def _align_to_grid(
     new_coords["lat"] = np.asarray(tgt_lat)
     new_coords["lon"] = np.asarray(tgt_lon)
     return torch.from_numpy(np.asarray(da.values)).to(x.device), new_coords
+
+
+def _is_stochastic(model: PrognosticModel) -> bool:
+    """Best-effort check for a model that draws randomness at inference.
+
+    Two signals, because models express it differently: an explicit
+    ``set_rng`` hook (FCN3), or a truthy ``stochastic`` flag for models
+    that keep dropout active instead (U-CAST).  Used only to decide
+    whether a batched rollout deserves a reproducibility warning, so a
+    false negative costs a missing log line, not correctness.
+    """
+    return hasattr(model, "set_rng") or bool(getattr(model, "stochastic", False))
 
 
 class ForecastPipeline(Pipeline):
@@ -223,13 +236,89 @@ class ForecastPipeline(Pipeline):
             torch.manual_seed(item.seed)
             x, coords = self.perturbation(x, coords)
 
+        yield from self._rollout(x, coords, item.seed, f"IC {item.time}")
+
+    def run_item_batched(
+        self,
+        items: list[WorkItem],
+        data_source: DataSource,
+        device: torch.device,
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        """Roll several ensemble members of one IC forward together.
+
+        Members ride on a leading ``ensemble`` axis, which prognostic
+        models absorb into their ``batch`` dimension — the same layout
+        ``earth2studio.run.ensemble`` uses.
+
+        Perturbations are drawn **per member** rather than once for the
+        stacked state.  Seeding the global RNG and letting a single
+        ``perturbation`` call fill a ``K``-member tensor would consume
+        draws in a different order than the unbatched path, so members
+        would silently stop matching a ``members_per_rank=1`` run.  Drawing
+        each member under its own seed keeps them identical.
+
+        Model-internal stochasticity is a different matter: ``set_rng``
+        seeds the model once for the whole batch, so a stochastic model's
+        member *m* will not reproduce its unbatched trajectory.  The
+        ensemble remains a valid sample (each batch element still gets
+        independent noise) — it is just a different draw, which is why this
+        is logged rather than silently accepted.
+        """
+        if not items:
+            return
+        times = {item.time for item in items}
+        if len(times) != 1:
+            raise ValueError(
+                f"run_item_batched expects one initial condition per batch, "
+                f"got {sorted(str(t) for t in times)}."
+            )
+
+        x0, coords0 = self._fetch_initial_state(items[0], data_source, device)
+        member_ids = np.array([item.ensemble_id for item in items])
+
+        x = x0.unsqueeze(0).repeat(len(items), *([1] * x0.ndim))
+        coords = CoordSystem({"ensemble": member_ids} | dict(coords0))
+
+        if self.perturbation is not None:
+            for m, item in enumerate(items):
+                member_coords = CoordSystem(
+                    {"ensemble": member_ids[m : m + 1]} | dict(coords0)
+                )
+                torch.manual_seed(item.seed)
+                x_m, _ = self.perturbation(x[m : m + 1], member_coords)
+                x[m] = x_m[0]
+
+        if len(items) > 1 and _is_stochastic(self.prognostic):
+            logger.warning(
+                f"{type(self.prognostic).__name__} is stochastic but is being "
+                f"driven with {len(items)} members per rollout; the batch is "
+                "seeded once, so individual members will not reproduce a "
+                "members_per_rank=1 run (the ensemble is still a valid draw)."
+            )
+
+        yield from self._rollout(
+            x, coords, items[0].seed, f"IC {items[0].time} x{len(items)}"
+        )
+
+    def _rollout(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+        seed: int,
+        label: str,
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        """Drive the prognostic iterator, applying diagnostics at each step.
+
+        Shared by :meth:`run_item` and :meth:`run_item_batched`; the only
+        difference between them is how the initial state was assembled.
+        """
         if hasattr(self.prognostic, "set_rng"):
-            self.prognostic.set_rng(seed=item.seed, reset=True)
+            self.prognostic.set_rng(seed=seed, reset=True)
         else:
             # Fallback for stochastic models that don't expose set_rng:
             # seed torch's global RNG so per-ensemble-member draws are
             # reproducible.  No-op for deterministic models.
-            torch.manual_seed(item.seed)
+            torch.manual_seed(seed)
 
         model_iter = self.prognostic.create_iterator(x, coords)
 
@@ -240,7 +329,7 @@ class ForecastPipeline(Pipeline):
             tqdm(
                 model_iter,
                 total=self.nsteps + 1,
-                desc=f"IC {item.time}",
+                desc=label,
                 position=1,
                 leave=False,
                 disable=rank != 0,

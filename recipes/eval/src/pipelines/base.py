@@ -41,7 +41,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import cast
+from typing import Any, cast
 
 import hydra
 import numpy as np
@@ -269,6 +269,28 @@ class Pipeline(ABC):
     the pipeline's own config block (e.g. overriding
     ``cfg.model.goes.ic_source._target_``)."""
 
+    supports_online_scoring: bool = True
+    """Whether this pipeline may be driven by the online scorer.
+
+    Online scoring rests on one invariant:
+
+        For a fixed IC, the sequence of coords yielded by :meth:`run_item`
+        is identical across ensemble members.
+
+    Every rank in an ensemble group calls :meth:`run_item` on the same IC
+    with a different ``ensemble_id`` and the per-lead-step group reduction
+    is what synchronizes them — so a member-dependent yield sequence
+    deadlocks the group rather than producing a wrong answer.  (The scorer
+    cross-checks each step's lead time across the group when
+    ``scoring.online.validate_coords`` is set, turning that deadlock into a
+    clean error.)
+
+    The flag defaults to ``True`` because the invariant holds for every
+    single-cadence rollout.  Pipelines with a more intricate yield
+    structure — ``DLESyMPipeline``'s dual atmosphere/ocean cadence,
+    ``StormScopePipeline``'s coupled two-model loop — set it to ``False``
+    until they are validated explicitly."""
+
     _run_item_includes_batch_dim: bool = False
     """Whether :meth:`run_item` yields tensors with a leading ``batch`` dim.
 
@@ -388,6 +410,67 @@ class Pipeline(ABC):
     # ------------------------------------------------------------------
     # Optional hooks with defaults
     # ------------------------------------------------------------------
+
+    def run_item_batched(
+        self,
+        items: list[WorkItem],
+        data_source: DataSource,
+        device: torch.device,
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        """Run several ensemble members of one IC through a single rollout.
+
+        The member-batched twin of :meth:`run_item`, used by online scoring
+        when a rank carries more than one member
+        (``scoring.online.members_per_rank > 1``).  All *items* share an
+        initial-condition time and differ only in ``ensemble_id`` / ``seed``.
+
+        Why it exists: with one member per rank, an ensemble group spans
+        ``M`` ranks — typically several nodes — and the CRPS member
+        exchange runs over the inter-node fabric.  Batching ``K`` members
+        onto each rank shrinks the group to ``M/K`` ranks, which is what
+        lets a group fit inside a node and move that exchange onto NVLink
+        (~10x cheaper).  It also unblocks running an ensemble at all when
+        ``world_size < M``.
+
+        Implementations must yield ``(tensor, coords)`` pairs whose coords
+        carry an ``ensemble`` axis holding *exactly* the items'
+        ``ensemble_id`` values, in order — the online scorer writes
+        per-member statistics at those absolute indices and validates them.
+
+        Parameters
+        ----------
+        items : list[WorkItem]
+            Members of one IC to run together, in ensemble-id order.
+        data_source : DataSource
+            Source for fetching input data.
+        device : torch.device
+            Target device for tensors.
+
+        Yields
+        ------
+        tuple[torch.Tensor, CoordSystem]
+            ``(data, coords)`` pairs with a leading ``ensemble`` dimension.
+
+        Raises
+        ------
+        NotImplementedError
+            By default.  Pipelines opt in by overriding this method.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement run_item_batched, so it "
+            "cannot carry more than one ensemble member per rank.  Either set "
+            "scoring.online.members_per_rank=1 (and launch at least "
+            "`ensemble_size` ranks), or implement the batched rollout."
+        )
+
+    def supports_member_batching(self) -> bool:
+        """Whether :meth:`run_item_batched` is implemented.
+
+        Checked by ``main.py`` before work is distributed, so an
+        unsupported ``members_per_rank`` fails at startup rather than after
+        the models have loaded.
+        """
+        return type(self).run_item_batched is not Pipeline.run_item_batched
 
     def predownload_stores(self, cfg: DictConfig) -> list[PredownloadStore]:
         """Declare zarr stores that ``predownload.py`` should populate.
@@ -545,7 +628,9 @@ class Pipeline(ABC):
         tuple[torch.Tensor, CoordSystem]
             Possibly-modified ``(x, coords)`` pair.
         """
-        if not has_ensemble:
+        if not has_ensemble or "ensemble" in coords:
+            # A batched rollout already carries its members on an
+            # ``ensemble`` axis, so there is nothing to inject.
             return x, coords
         x = x.unsqueeze(0)
         coords = CoordSystem({"ensemble": np.array([item.ensemble_id])} | dict(coords))
@@ -581,12 +666,14 @@ class Pipeline(ABC):
         self,
         work_items: list[WorkItem],
         data_source: DataSource | None,
-        output_mgr: OutputManager,
+        output_mgr: OutputManager | None,
         output_variables: list[str],
         device: torch.device,
         cfg: DictConfig | None = None,
+        scorer: Any = None,
+        member_batch: int = 1,
     ) -> None:
-        """Iterate work items, filter+regrid outputs, and write to the store.
+        """Iterate work items, filter+regrid outputs, and write/score them.
 
         Shared outer loop.  For each work item:
 
@@ -594,11 +681,18 @@ class Pipeline(ABC):
         2. Filters each yielded chunk to the configured output variables
            and the model's native spatial grid.
         3. If an output regridder is configured, applies it.
-        4. Injects the ensemble dim via :meth:`_inject_ensemble`.
-        5. Writes the chunk via :class:`OutputManager`.
+        4. Hands the chunk to the online scorer, when one is supplied.
+        5. Injects the ensemble dim via :meth:`_inject_ensemble` and writes
+           the chunk via :class:`OutputManager`, when one is supplied.
+
+        Steps 4 and 5 are independent: an online run with
+        ``output.retain=none`` scores without ever materializing
+        ``forecast.zarr``, while ``output.retain=all`` does both.
 
         When ``cfg.resume`` is true, a completion marker is written after
-        each work item so that resumed runs can skip it.
+        each work item so that resumed runs can skip it.  Online runs track
+        their own, IC-granular markers inside the scorer instead — an
+        ensemble group's unit of durability is the IC, not the member.
 
         Parameters
         ----------
@@ -608,8 +702,9 @@ class Pipeline(ABC):
             Source for fetching input data.  ``None`` is allowed for
             pipelines that set :attr:`needs_data_source` to ``False``
             (they manage their own sources internally).
-        output_mgr : OutputManager
-            Context-managed output handler (store already validated).
+        output_mgr : OutputManager | None
+            Context-managed output handler (store already validated), or
+            ``None`` to skip raw output entirely.
         output_variables : list[str]
             Variable names to sub-select before writing.
         device : torch.device
@@ -617,17 +712,39 @@ class Pipeline(ABC):
         cfg : DictConfig | None
             Full Hydra config.  Required when ``resume=true`` so that
             completion markers can be written.
+        scorer : src.online.OnlineScorer | None
+            When set, each yielded chunk is accumulated into sufficient
+            statistics as it is produced.  Typed loosely to keep
+            :mod:`src.online` (and its distributed machinery) off the
+            import path of runs that don't use it.
+        member_batch : int
+            Ensemble members to run together per rollout.  ``1`` (the
+            default) drives :meth:`run_item` once per work item.  Greater
+            than 1 groups *work_items* into consecutive blocks of that size
+            — which :func:`src.work.build_group_work_items` lays out as one
+            block per IC — and drives :meth:`run_item_batched` instead.
         """
         if not work_items:
             logger.warning("No work items for this rank — skipping inference.")
             return
+        if output_mgr is None and scorer is None:
+            raise ValueError(
+                "Pipeline.run needs an output manager, an online scorer, or "
+                "both — otherwise the run produces nothing."
+            )
+        if member_batch > 1 and len(work_items) % member_batch:
+            raise ValueError(
+                f"member_batch={member_batch} does not divide the "
+                f"{len(work_items)} assigned work items, so the batches would "
+                "straddle initial conditions."
+            )
 
         resume = cfg.get("resume", False) if cfg is not None else False
 
         # Filter at the model's native grid — cheaper than regridding
         # all model-output channels only to throw some away.
         native_filter = build_output_coords(self._spatial_ref, output_variables)
-        has_ensemble = "ensemble" in output_mgr.io.coords
+        has_ensemble = output_mgr is not None and "ensemble" in output_mgr.io.coords
 
         # Move output regridder to device once.
         if self._output_regridder is not None:
@@ -639,8 +756,23 @@ class Pipeline(ABC):
         # None is only passed when needs_data_source=False, in which case
         # the subclass's run_item ignores the argument.
         ds = cast(DataSource, data_source)
-        for item in tqdm(work_items, desc="Work items", position=0, disable=rank != 0):
-            for x_step, coords_step in self.run_item(item, ds, device):
+        batches = [
+            work_items[i : i + member_batch]
+            for i in range(0, len(work_items), member_batch)
+        ]
+        for batch in tqdm(batches, desc="Work items", position=0, disable=rank != 0):
+            # Every member of a batch shares an IC; the first stands in for
+            # the batch wherever a single item is needed (markers, seeds).
+            item = batch[0]
+            if scorer is not None:
+                scorer.begin_item(item)
+
+            steps = (
+                self.run_item(item, ds, device)
+                if member_batch == 1
+                else self.run_item_batched(batch, ds, device)
+            )
+            for x_step, coords_step in steps:
                 if self._run_item_includes_batch_dim and "batch" in coords_step:
                     batch_axis = list(coords_step.keys()).index("batch")
                     x_step = x_step.squeeze(batch_axis)
@@ -654,13 +786,21 @@ class Pipeline(ABC):
                         x_out, coords_out
                     )
 
-                x_out, coords_out = self._inject_ensemble(
-                    x_out, coords_out, item, has_ensemble
-                )
-                output_mgr.write(x_out, coords_out)
+                if scorer is not None:
+                    scorer.update(x_out, coords_out)
 
-            if resume:
+                if output_mgr is not None:
+                    x_write, coords_write = self._inject_ensemble(
+                        x_out, coords_out, item, has_ensemble
+                    )
+                    output_mgr.write(x_write, coords_write)
+
+            if scorer is not None:
+                scorer.finish_item(item)
+
+            if resume and output_mgr is not None:
                 output_mgr.flush()
-                write_marker(item, cfg)
+                for done in batch:
+                    write_marker(done, cfg)
 
         logger.success("Inference complete.")

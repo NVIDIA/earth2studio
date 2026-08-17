@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import shutil
 import struct
 from dataclasses import dataclass
 from pathlib import Path
@@ -83,6 +84,224 @@ def build_work_items(cfg: DictConfig) -> list[WorkItem]:
     return items
 
 
+@dataclass(frozen=True)
+class EnsembleGroup:
+    """The ensemble group a rank belongs to under online scoring.
+
+    Ranks are partitioned into ``n_groups`` disjoint **ensemble groups** of
+    ``group_size`` (``G``) ranks each.  A group owns one initial condition
+    at a time and collectively carries the full ensemble: rank ``g`` of the
+    group runs members ``[g*K, (g+1)*K)`` where ``K`` is
+    ``members_per_rank`` and ``G * K == ensemble_size``.  Because every rank
+    in a group calls ``run_item`` on the *same* IC, their generator yields
+    are lead-step synchronized and the per-step group reduction doubles as
+    the barrier.
+
+    Parameters
+    ----------
+    group_id : int
+        Index of this group in ``[0, n_groups)``.  Initial conditions are
+        distributed across *groups* using this index.
+    n_groups : int
+        Total number of ensemble groups in the job.
+    group_rank : int
+        This rank's position within its group, in ``[0, group_size)``.
+        Rank 0 of the group is the *group root* — the only rank that
+        writes to the statistics store.
+    group_size : int
+        Number of ranks per group (``G``).
+    members_per_rank : int
+        Ensemble members carried by each rank (``K``).  ``K > 1`` requires
+        a member-batched rollout (``Pipeline.run_item_batched``).
+    ranks : tuple[int, ...]
+        Global ranks belonging to this group, in group-rank order.
+    member_ids : tuple[int, ...]
+        Ensemble member indices owned by *this* rank.
+    """
+
+    group_id: int
+    n_groups: int
+    group_rank: int
+    group_size: int
+    members_per_rank: int
+    ranks: tuple[int, ...]
+    member_ids: tuple[int, ...]
+
+    @property
+    def is_root(self) -> bool:
+        """Whether this rank is the group root (the writer)."""
+        return self.group_rank == 0
+
+    @property
+    def root_rank(self) -> int:
+        """Global rank of this group's root."""
+        return self.ranks[0]
+
+    @property
+    def ensemble_size(self) -> int:
+        """Total ensemble size covered by the group (``G * K``)."""
+        return self.group_size * self.members_per_rank
+
+
+def plan_ensemble_groups(
+    world_size: int,
+    ensemble_size: int,
+    group_size: int | None = None,
+    members_per_rank: int = 1,
+) -> list[tuple[int, ...]]:
+    """Partition ``world_size`` ranks into contiguous ensemble groups.
+
+    Groups are contiguous rank blocks so that a group lands inside a node
+    whenever ``group_size`` divides the per-node rank count — the topology
+    that keeps the CRPS member exchange on NVLink.
+
+    Parameters
+    ----------
+    world_size : int
+        Total number of ranks in the job.
+    ensemble_size : int
+        Ensemble size ``M``.
+    group_size : int | None
+        Ranks per group ``G``.  ``None`` selects ``G = M / K``, i.e. one
+        member per rank when ``members_per_rank`` is 1.
+    members_per_rank : int
+        Members carried by each rank ``K``.  Must divide ``ensemble_size``.
+
+    Returns
+    -------
+    list[tuple[int, ...]]
+        One tuple of global ranks per group.  Ranks beyond
+        ``n_groups * group_size`` are left out (they idle).
+
+    Raises
+    ------
+    ValueError
+        If ``group_size * members_per_rank != ensemble_size``, or if the
+        job has too few ranks to form a single group.
+    """
+    if members_per_rank < 1:
+        raise ValueError(f"members_per_rank must be >= 1, got {members_per_rank}")
+    if ensemble_size < 1:
+        raise ValueError(f"ensemble_size must be >= 1, got {ensemble_size}")
+
+    if group_size is None:
+        if ensemble_size % members_per_rank != 0:
+            raise ValueError(
+                f"members_per_rank={members_per_rank} does not divide "
+                f"ensemble_size={ensemble_size}.  Ragged ensemble groups are "
+                "not supported; choose a divisor of the ensemble size."
+            )
+        group_size = ensemble_size // members_per_rank
+
+    if group_size * members_per_rank != ensemble_size:
+        raise ValueError(
+            f"ensemble_group_size={group_size} x members_per_rank="
+            f"{members_per_rank} = {group_size * members_per_rank}, which does "
+            f"not equal ensemble_size={ensemble_size}.  Online scoring requires "
+            "an exact factorization (G * K = M)."
+        )
+    if world_size < group_size:
+        raise ValueError(
+            f"world_size={world_size} is smaller than the ensemble group size "
+            f"G={group_size}.  Either launch at least {group_size} ranks, or "
+            "raise scoring.online.members_per_rank so that G * K = "
+            f"{ensemble_size} with a smaller G."
+        )
+
+    n_groups = world_size // group_size
+    leftover = world_size - n_groups * group_size
+    if leftover:
+        logger.warning(
+            f"world_size={world_size} is not a multiple of the ensemble group "
+            f"size {group_size}; the last {leftover} rank(s) will idle."
+        )
+
+    return [
+        tuple(range(g * group_size, (g + 1) * group_size)) for g in range(n_groups)
+    ]
+
+
+def ensemble_group_for_rank(
+    rank: int,
+    rank_groups: list[tuple[int, ...]],
+    members_per_rank: int = 1,
+) -> EnsembleGroup | None:
+    """Return the :class:`EnsembleGroup` *rank* belongs to, or ``None``.
+
+    Parameters
+    ----------
+    rank : int
+        Global rank to look up.
+    rank_groups : list[tuple[int, ...]]
+        Output of :func:`plan_ensemble_groups`.
+    members_per_rank : int
+        Members carried by each rank (``K``).
+
+    Returns
+    -------
+    EnsembleGroup | None
+        ``None`` when *rank* is a leftover rank belonging to no group.
+    """
+    for group_id, ranks in enumerate(rank_groups):
+        if rank in ranks:
+            group_rank = ranks.index(rank)
+            return EnsembleGroup(
+                group_id=group_id,
+                n_groups=len(rank_groups),
+                group_rank=group_rank,
+                group_size=len(ranks),
+                members_per_rank=members_per_rank,
+                ranks=tuple(ranks),
+                member_ids=tuple(
+                    range(
+                        group_rank * members_per_rank,
+                        (group_rank + 1) * members_per_rank,
+                    )
+                ),
+            )
+    return None
+
+
+def build_group_work_items(
+    times: list[np.datetime64],
+    group: EnsembleGroup,
+    cfg: DictConfig,
+) -> list[WorkItem]:
+    """Build this rank's work items for a group-assigned list of IC times.
+
+    Every rank in a group iterates the *same* IC times in the same order,
+    differing only in which ensemble members it carries.  Seeds are
+    produced by the same :func:`_deterministic_seed` used by
+    :func:`build_work_items`, so an online run reproduces the offline
+    run's per-member perturbations bit-for-bit when ``K = 1``.
+
+    Parameters
+    ----------
+    times : list[np.datetime64]
+        IC times assigned to this rank's group.
+    group : EnsembleGroup
+        This rank's ensemble group.
+    cfg : DictConfig
+        Hydra config (reads ``random_seed``).
+
+    Returns
+    -------
+    list[WorkItem]
+        One item per (time, member) pair owned by this rank, ordered by
+        time then member so the group stays step-synchronized.
+    """
+    base_seed = cfg.get("random_seed", 42)
+    return [
+        WorkItem(
+            time=t,
+            ensemble_id=member_id,
+            seed=_deterministic_seed(base_seed, t, member_id),
+        )
+        for t in times
+        for member_id in group.member_ids
+    ]
+
+
 def distribute_work(
     items: list[T],
     rank: int,
@@ -132,6 +351,43 @@ def distribute_work(
 # ---------------------------------------------------------------------------
 # Resume / progress tracking
 # ---------------------------------------------------------------------------
+
+
+def _remove_progress_dir(directory: Path) -> None:
+    """Delete a marker directory, tolerating concurrent removal by peers.
+
+    Every rank calls the ``clear_*`` helpers on a fresh run, so several
+    processes walk the same tree at once and whichever loses the race sees
+    entries disappear underneath it — ``shutil.rmtree`` then raises
+    ``FileNotFoundError`` partway through and may leave the rest behind.
+
+    A missing entry is the desired end state, so retry until the directory
+    is actually gone.  This converges immediately in practice: nothing
+    writes markers while a clear is in flight (markers are only written
+    during the run, after the store-creation barriers).
+
+    Parameters
+    ----------
+    directory : Path
+        Marker directory to remove.  A no-op when it does not exist.
+
+    Raises
+    ------
+    RuntimeError
+        If the directory survives several attempts, which would mean
+        something other than a peer rank is holding it.
+    """
+    for _ in range(5):
+        if not directory.exists():
+            return
+        try:
+            shutil.rmtree(directory)
+        except FileNotFoundError:
+            continue  # a peer got there first; re-check and retry the rest
+    raise RuntimeError(
+        f"Could not clear progress directory '{directory}' — it still exists "
+        "after several attempts.  Remove it by hand before re-running."
+    )
 
 
 def progress_dir(cfg: DictConfig) -> Path:
@@ -214,9 +470,7 @@ def clear_progress(cfg: DictConfig) -> None:
     """
     d = progress_dir(cfg)
     if d.exists():
-        import shutil
-
-        shutil.rmtree(d)
+        _remove_progress_dir(d)
         logger.debug(f"Cleared progress directory: {d}")
 
 
@@ -313,9 +567,7 @@ def clear_predownload_progress(cfg: DictConfig) -> None:
     """
     d = Path(cfg.output.path) / ".predownload_progress"
     if d.exists():
-        import shutil
-
-        shutil.rmtree(d)
+        _remove_progress_dir(d)
         logger.debug(f"Cleared predownload progress directory: {d}")
 
 
@@ -401,10 +653,105 @@ def clear_scoring_progress(cfg: DictConfig) -> None:
     """
     d = scoring_progress_dir(cfg)
     if d.exists():
-        import shutil
-
-        shutil.rmtree(d)
+        _remove_progress_dir(d)
         logger.debug(f"Cleared scoring progress directory: {d}")
+
+
+# ---------------------------------------------------------------------------
+# Online-scoring progress tracking
+# ---------------------------------------------------------------------------
+#
+# Online scoring's unit of durability is the (IC, ensemble group) pair, not
+# the (IC, member) work item: a group root writes one IC slab of sufficient
+# statistics and then one marker.  The namespace is deliberately distinct
+# from `.progress` so that switching a run between offline and online modes
+# can never make one mode's markers look like the other's.
+
+
+def online_progress_dir(cfg: DictConfig) -> Path:
+    """Return the progress-tracking directory for online scoring.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config with an ``output.path`` key.
+
+    Returns
+    -------
+    Path
+        ``<output.path>/.online_progress``
+    """
+    return Path(cfg.output.path) / ".online_progress"
+
+
+def _online_marker_name(time: np.datetime64) -> str:
+    """Return a filesystem-safe marker filename for an online-scored IC."""
+    ts = str(time.astype("datetime64[s]")).replace("-", "").replace(":", "")
+    return f"{ts}.done"
+
+
+def write_online_marker(time: np.datetime64, cfg: DictConfig) -> None:
+    """Write a completion marker for an online-scored initial-condition time.
+
+    Called by the group root once the IC's statistics slab has landed in
+    ``stats.zarr``.
+
+    Parameters
+    ----------
+    time : np.datetime64
+        The completed IC time.
+    cfg : DictConfig
+        Hydra config (used to locate the progress directory).
+    """
+    d = online_progress_dir(cfg)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / _online_marker_name(time)).write_text(
+        np.datetime64("now", "s").item().isoformat()
+    )
+
+
+def filter_online_completed(
+    times: list[np.datetime64], cfg: DictConfig
+) -> list[np.datetime64]:
+    """Remove IC times that already have online-scoring completion markers.
+
+    Parameters
+    ----------
+    times : list[np.datetime64]
+        Full list of IC times to check.
+    cfg : DictConfig
+        Hydra config (used to locate the progress directory).
+
+    Returns
+    -------
+    list[np.datetime64]
+        Times whose markers are absent (still need scoring).
+    """
+    d = online_progress_dir(cfg)
+    if not d.exists():
+        return times
+    existing = {f.name for f in d.iterdir() if f.suffix == ".done"}
+    remaining = [t for t in times if _online_marker_name(t) not in existing]
+    skipped = len(times) - len(remaining)
+    if skipped:
+        logger.info(
+            f"Online scoring resume: skipping {skipped}/{len(times)} completed ICs"
+        )
+    return remaining
+
+
+def clear_online_progress(cfg: DictConfig) -> None:
+    """Remove all online-scoring completion markers.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config (used to locate the progress directory).
+    """
+    d = online_progress_dir(cfg)
+    if d.exists():
+        _remove_progress_dir(d)
+        logger.debug(f"Cleared online progress directory: {d}")
 
 
 # ---------------------------------------------------------------------------
