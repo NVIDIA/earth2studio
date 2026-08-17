@@ -378,6 +378,50 @@ class TestGHCNMock:
         assert all(result["lon"] >= 0)
         assert all(result["lon"] < 360)
 
+    @patch("earth2studio.data.ghcn.GHCNDaily.get_station_metadata")
+    def test_task_timeout_matches_fetch_layout(self, mock_get_meta):
+        """by_station fetches use a 60s per-attempt timeout and by_year
+        fallback fetches use 300s.
+
+        Regression test: `task_timeout` used to be picked via
+        `fetcher is self._fetch_station_element`, a bound-method identity
+        comparison that is always False in CPython, so every fetch silently
+        used the 300s timeout regardless of layout.
+        """
+        mock_get_meta.return_value = self._build_station_metadata()
+
+        captured: list[tuple[str, float | None]] = []
+
+        async def fake_async_retry(coro_func, *args, task_timeout=None, **kwargs):
+            captured.append((coro_func.__name__, task_timeout))
+            return pd.DataFrame(columns=["ID", "DATE", "DATA_VALUE", "Q_FLAG"])
+
+        with patch("earth2studio.data.ghcn.async_retry", fake_async_retry):
+            # Few stations -> by_station layout, 60s per-attempt timeout
+            ds = GHCNDaily(
+                stations=["USW00013722"],
+                time_tolerance=timedelta(days=0),
+                cache=False,
+                verbose=False,
+            )
+            ds.store = MagicMock()
+            ds(datetime(2023, 1, 1), ["t2m_max"])
+
+            # More stations than _BY_STATION_MAX_STATIONS -> by_year
+            # fallback, 300s per-attempt timeout
+            many_stations = [f"USW{i:08d}" for i in range(ds._BY_STATION_MAX_STATIONS + 1)]
+            ds_many = GHCNDaily(
+                stations=many_stations,
+                time_tolerance=timedelta(days=0),
+                cache=False,
+                verbose=False,
+            )
+            ds_many.store = MagicMock()
+            ds_many(datetime(2023, 1, 1), ["t2m_max"])
+
+        assert captured[0] == ("_fetch_station_element", 60.0)
+        assert captured[-1] == ("_fetch_year_element", 300.0)
+
 
 def test_ghcn_cache_freshness(tmp_path):
     """Mutable-partition cache files expire after the freshness window;

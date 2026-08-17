@@ -531,7 +531,8 @@ class GHCNDaily(_GHCNBase):
         # Large station lists fall back to by_year, where the request count is
         # bounded by years x elements rather than stations x elements.
         pair_list: list[tuple[int | str, str]]
-        if len(set(self.stations)) <= self._BY_STATION_MAX_STATIONS:
+        by_station = len(set(self.stations)) <= self._BY_STATION_MAX_STATIONS
+        if by_station:
             pair_list = sorted((s, p) for s in set(self.stations) for p in products)
             fetcher: Callable = self._fetch_station_element
         else:
@@ -550,7 +551,7 @@ class GHCNDaily(_GHCNBase):
         # by_station files are ~100 KB while by_year partitions are ~100 MB,
         # so the per-attempt timeout scales with the layout instead of
         # assuming fast-connection throughput for the large partitions
-        task_timeout = 60.0 if fetcher is self._fetch_station_element else 300.0
+        task_timeout = 60.0 if by_station else 300.0
 
         coros = [
             async_retry(
@@ -666,6 +667,75 @@ class GHCNDaily(_GHCNBase):
     # more requests than downloading the global by_year partitions.
     _BY_STATION_MAX_STATIONS = 500
 
+    async def _fetch_partition(
+        self,
+        prefix: str,
+        max_age: float | None,
+        cacheable: bool,
+        warn_label: str,
+    ) -> pd.DataFrame:
+        """Fetch and cache every parquet file under a GHCN S3 prefix.
+
+        Shared by the ``by_station`` and ``by_year`` layouts: both list the
+        files under a directory-style prefix, read+concat the parquet parts,
+        and cache the merged result locally. They differ only in the prefix
+        shape and how long a cached copy stays fresh.
+
+        Parameters
+        ----------
+        prefix : str
+            Bucket-relative key prefix to list (e.g.
+            ``parquet/by_station/STATION=.../ELEMENT=.../``)
+        max_age : float | None
+            Cache freshness window in seconds; ``None`` means the cached copy
+            never goes stale
+        cacheable : bool
+            Whether the partition listing may be read from/written to the
+            per-instance listing memo cache
+        warn_label : str
+            Human-readable identifier for the "data not found" log message
+
+        Returns
+        -------
+        pd.DataFrame
+            Partition data with columns ID, DATE, DATA_VALUE, Q_FLAG
+        """
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
+
+        cache_hash = hashlib.sha256(f"{self._S3_BUCKET}/{prefix}".encode()).hexdigest()
+        parquet_path = os.path.join(self.cache, f"{cache_hash}.parquet")
+
+        if self._cache and _cache_file_fresh(parquet_path, max_age):
+            return await asyncio.to_thread(pd.read_parquet, parquet_path)
+
+        try:
+            files = await obstore_list_prefix(
+                self.store, prefix, cache=self._list_cache, cacheable=cacheable
+            )
+            frames: list[pd.DataFrame] = []
+            for file_path in files:
+                if not file_path.endswith(".parquet"):
+                    continue
+                data = await obstore_read_range(self.store, file_path)
+                table = pq.read_table(
+                    io.BytesIO(data),
+                    columns=["ID", "DATE", "DATA_VALUE", "Q_FLAG"],
+                )
+                frames.append(table.to_pandas())
+
+            if not frames:
+                return pd.DataFrame()
+
+            df = pd.concat(frames, ignore_index=True)
+            await asyncio.to_thread(df.to_parquet, parquet_path, index=False)
+        except (FileNotFoundError, OSError, pa.ArrowInvalid):
+            if self._verbose:
+                logger.warning(f"GHCN data not found for {warn_label}")
+            return pd.DataFrame()
+
+        return df
+
     async def _fetch_station_element(self, station: str, element: str) -> pd.DataFrame:
         """Fetch a single station/element history file from the GHCN S3 bucket.
 
@@ -686,51 +756,16 @@ class GHCNDaily(_GHCNBase):
         pd.DataFrame
             Station history with columns ID, DATE, DATA_VALUE, Q_FLAG
         """
-        if self.store is None:
-            raise ValueError("Object store is not initialized")
-
-        s3_path = (
-            f"{self._S3_BUCKET}/parquet/by_station/"
-            f"STATION={station}/ELEMENT={element}/"
-        )
-        cache_hash = hashlib.sha256(s3_path.encode()).hexdigest()
-        parquet_path = os.path.join(self.cache, f"{cache_hash}.parquet")
-
         # by_station files cover the station's full period of record and
         # receive new observations continuously, so cached copies expire
-        # after a day rather than being served indefinitely
-        if self._cache and _cache_file_fresh(parquet_path, _MUTABLE_CACHE_MAX_AGE_S):
-            return await asyncio.to_thread(pd.read_parquet, parquet_path)
-
-        try:
-            # Station partitions receive new observations, so listings are
-            # not memoized across requests.
-            prefix = f"parquet/by_station/STATION={station}/ELEMENT={element}/"
-            files = await obstore_list_prefix(self.store, prefix, cacheable=False)
-            frames: list[pd.DataFrame] = []
-            for file_path in files:
-                if not file_path.endswith(".parquet"):
-                    continue
-                data = await obstore_read_range(self.store, file_path)
-                table = pq.read_table(
-                    io.BytesIO(data),
-                    columns=["ID", "DATE", "DATA_VALUE", "Q_FLAG"],
-                )
-                frames.append(table.to_pandas())
-
-            if not frames:
-                return pd.DataFrame()
-
-            df = pd.concat(frames, ignore_index=True)
-            await asyncio.to_thread(df.to_parquet, parquet_path, index=False)
-        except (FileNotFoundError, OSError, pa.ArrowInvalid):
-            if self._verbose:
-                logger.warning(
-                    f"GHCN data not found for STATION={station}, ELEMENT={element}"
-                )
-            return pd.DataFrame()
-
-        return df
+        # after a day rather than being served indefinitely, and listings
+        # are not memoized across requests.
+        return await self._fetch_partition(
+            prefix=f"parquet/by_station/STATION={station}/ELEMENT={element}/",
+            max_age=_MUTABLE_CACHE_MAX_AGE_S,
+            cacheable=False,
+            warn_label=f"STATION={station}, ELEMENT={element}",
+        )
 
     async def _fetch_year_element(self, year: int, element: str) -> pd.DataFrame:
         """Fetch a single year/element partition from the GHCN S3 bucket.
@@ -747,58 +782,16 @@ class GHCNDaily(_GHCNBase):
         pd.DataFrame
             Parquet partition data with columns ID, DATE, DATA_VALUE, Q_FLAG
         """
-        if self.store is None:
-            raise ValueError("Object store is not initialized")
-
-        s3_path = f"{self._S3_BUCKET}/parquet/by_year/YEAR={year}/ELEMENT={element}/"
-        # Hash the URL for cache file names
-        cache_hash = hashlib.sha256(s3_path.encode()).hexdigest()
-        parquet_path = os.path.join(self.cache, f"{cache_hash}.parquet")
-
-        # Read from cached parquet if available; past-year partitions are
-        # immutable, but the current year's partition is still growing so its
-        # cached copy expires after a day
-        max_age = None if year < datetime.now().year else _MUTABLE_CACHE_MAX_AGE_S
-        if self._cache and _cache_file_fresh(parquet_path, max_age):
-            df = await asyncio.to_thread(pd.read_parquet, parquet_path)
-        else:
-            try:
-                # List parquet files in the partition directory; partitions of
-                # past years are immutable and may be served from the memo cache
-                prefix = f"parquet/by_year/YEAR={year}/ELEMENT={element}/"
-                files = await obstore_list_prefix(
-                    self.store,
-                    prefix,
-                    cache=self._list_cache,
-                    cacheable=(year < datetime.now().year),
-                )
-                # Read all parquet files using async byte reads
-                frames: list[pd.DataFrame] = []
-                for file_path in files:
-                    if not file_path.endswith(".parquet"):
-                        continue
-                    data = await obstore_read_range(self.store, file_path)
-                    table = pq.read_table(
-                        io.BytesIO(data),
-                        columns=["ID", "DATE", "DATA_VALUE", "Q_FLAG"],
-                    )
-                    frames.append(table.to_pandas())
-
-                if not frames:
-                    return pd.DataFrame()
-
-                df = pd.concat(frames, ignore_index=True)
-                # Cache locally
-                await asyncio.to_thread(df.to_parquet, parquet_path, index=False)
-
-            except (FileNotFoundError, OSError, pa.ArrowInvalid):
-                if self._verbose:
-                    logger.warning(
-                        f"GHCN data not found for YEAR={year}, ELEMENT={element}"
-                    )
-                return pd.DataFrame()
-
-        return df
+        # Past-year partitions are immutable and may be served from the memo
+        # cache indefinitely; the current year's partition is still growing,
+        # so its cached copy expires after a day and is always re-listed.
+        is_past_year = year < datetime.now().year
+        return await self._fetch_partition(
+            prefix=f"parquet/by_year/YEAR={year}/ELEMENT={element}/",
+            max_age=None if is_past_year else _MUTABLE_CACHE_MAX_AGE_S,
+            cacheable=is_past_year,
+            warn_label=f"YEAR={year}, ELEMENT={element}",
+        )
 
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
