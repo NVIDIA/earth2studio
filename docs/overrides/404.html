@@ -1,9 +1,9 @@
 {% extends "main.html" %}
 {% block styles %}
-  {{ super() | replace('/earth2studio/assets/', '/earth2studio/main/assets/') | safe }}
+  {# The root 404 can outlive a particular MkDocs/Zensical build. The inline
+     bootstrap below loads the active main documentation's hashed assets. #}
 {% endblock %}
 {% block extrahead %}
-  {{ super() }}
   <script data-site-url="{{ config.site_url }}">
     {% include "partials/e2s-404-redirect.js" %}
   </script>
@@ -15,7 +15,7 @@
     | safe }}
 {% endblock %}
 {% block scripts %}
-  {{ super() | replace('/earth2studio/assets/', '/earth2studio/main/assets/') | safe }}
+  {# Scripts are loaded from the active main documentation by the bootstrap. #}
 {% endblock %}
 {% block content %}
 <section class="e2s-404" aria-labelledby="e2s-404-title">

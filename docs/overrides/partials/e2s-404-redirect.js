@@ -83,7 +83,7 @@
     };
 
     documentValue.querySelectorAll("link[href], script[src], img[src]").forEach(rewrite);
-    new MutationObserver(function (records) {
+    const observer = new browser.MutationObserver(function (records) {
       for (const record of records) {
         for (const node of record.addedNodes) {
           if (node.nodeType !== 1) continue;
@@ -92,11 +92,77 @@
         }
       }
     }).observe(documentValue.documentElement, { childList: true, subtree: true });
+    return observer;
+  }
+
+  function documentReady(documentValue) {
+    if (documentValue.readyState !== "loading") return Promise.resolve();
+    return new Promise(function (resolve) {
+      documentValue.addEventListener("DOMContentLoaded", resolve, { once: true });
+    });
+  }
+
+  async function loadCurrentDocsAssets(browserValue, siteUrl) {
+    const documentValue = browserValue.document;
+    const mainUrl = mainDocumentationUrl(browserValue.location, siteUrl);
+    const response = await browserValue.fetch(mainUrl);
+    if (!response.ok) throw new Error(`Unable to load documentation assets from ${mainUrl}`);
+
+    const source = new browserValue.DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+
+    const styles = [];
+    source.querySelectorAll('link[rel="stylesheet"], link[rel~="icon"]').forEach(function (link) {
+      const href = link.getAttribute("href");
+      if (!href) return;
+      const clone = documentValue.createElement("link");
+      for (const attribute of link.attributes) {
+        clone.setAttribute(attribute.name, attribute.value);
+      }
+      clone.href = new URL(href, mainUrl).href;
+      if (link.relList.contains("stylesheet")) {
+        styles.push(new Promise(function (resolve) {
+          clone.addEventListener("load", resolve, { once: true });
+          clone.addEventListener("error", resolve, { once: true });
+        }));
+      }
+      documentValue.head.appendChild(clone);
+    });
+
+    await Promise.all(styles);
+    await documentReady(documentValue);
+
+    const sourceConfig = source.querySelector("#__config");
+    const targetConfig = documentValue.querySelector("#__config");
+    if (sourceConfig && targetConfig) {
+      const config = JSON.parse(sourceConfig.textContent);
+      config.base = new URL(config.base || ".", mainUrl).pathname.replace(/\/$/, "");
+      if (config.search) config.search = new URL(config.search, mainUrl).pathname;
+      targetConfig.textContent = JSON.stringify(config);
+    }
+
+    for (const script of source.querySelectorAll("script[src]")) {
+      const src = script.getAttribute("src");
+      if (!src) continue;
+      await new Promise(function (resolve) {
+        const clone = documentValue.createElement("script");
+        for (const attribute of script.attributes) {
+          clone.setAttribute(attribute.name, attribute.value);
+        }
+        clone.src = new URL(src, mainUrl).href;
+        clone.addEventListener("load", resolve, { once: true });
+        clone.addEventListener("error", resolve, { once: true });
+        documentValue.body.appendChild(clone);
+      });
+    }
   }
 
   const api = {
     currentDocsResourceUrl,
     documentationRoot,
+    loadCurrentDocsAssets,
     mainDocumentationUrl,
     normalizeMarkdownPath,
     rebaseCurrentDocsResources,
@@ -107,12 +173,15 @@
 
   const script = browser.document.currentScript;
   const siteUrl = script && script.dataset.siteUrl ? script.dataset.siteUrl : "/";
-  rebaseCurrentDocsResources(browser.document, browser.location, siteUrl);
   const target = redirectTarget(browser.location, siteUrl);
   if (target && target !== browser.location.href) {
     browser.location.replace(target);
     return;
   }
+  rebaseCurrentDocsResources(browser.document, browser.location, siteUrl);
+  loadCurrentDocsAssets(browser, siteUrl).catch(function (error) {
+    browser.console.warn(error);
+  });
 
   browser.document.addEventListener("DOMContentLoaded", function () {
     const mainUrl = mainDocumentationUrl(browser.location, siteUrl);
