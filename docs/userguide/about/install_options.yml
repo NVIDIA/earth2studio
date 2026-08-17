@@ -193,6 +193,8 @@ categories:
           uv:
             pypi:
               - 'uv add "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"'
+        notes:
+          - GenCast uses WeatherNext and requires Python 3.12 or newer.
       - id: graphcast
         label: GraphCast
         extra: graphcast
@@ -206,6 +208,8 @@ categories:
           uv:
             pypi:
               - 'uv add "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"'
+        notes:
+          - GraphCast uses WeatherNext and requires Python 3.12 or newer.
       - id: interp-modafno
         label: InterpModAFNO
         extra: interp-modafno
