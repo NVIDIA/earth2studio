@@ -151,7 +151,8 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2024 gpu:48gb
+    region:global class:medium-range product:wind product:temp product:atmos year:2024 gpu:48gb
+    provider:microsoft backend:pytorch
     """
 
     def __init__(

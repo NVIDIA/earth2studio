@@ -82,33 +82,61 @@ coverage:
 .PHONY: docs
 docs:
 	uv sync --group docs
-	uv run $(MAKE) -C docs clean
-	uv run $(MAKE) -C docs html
+	uv run python docs/generate_api.py
+	uv run python docs/generate_catalog.py
+	uv run python docs/generate_install_options.py
+	uv run python docs/generate_gallery.py
+	E2S_GALLERY_EXECUTE=never uv run zensical build --clean
+	rm -rf site/__pycache__ site/_build/html
+	find site -maxdepth 1 -type f -name "*.py" -delete
 
 .PHONY: docs-full
 docs-full:
-	uv sync --extra all --group docs
 	$(MAKE) docs-build-examples
 
 .PHONY: docs-build-examples
 docs-build-examples:
-	rm -rf docs/examples
-	rm -rf docs/modules/generated
-	rm -rf docs/modules/backreferences
-	uv run $(MAKE) -C docs clean
-	rm -rf examples/outputs
-	uv run $(MAKE) -C docs html
-	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True uv run $(MAKE) -j 8 -C docs html
+	test/_ci/build_docs_examples.sh
 
+DOCS_JOBS ?= 1
 .PHONY: docs-dev
 docs-dev:
-	@echo "Make sure you synced your uv environment with needed extras and --group docs..."
-	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) uv run $(MAKE) -j 4 -C docs html
+	uv sync --extra all --group docs
+	uv run python docs/generate_api.py
+	uv run python docs/generate_catalog.py
+	uv run python docs/generate_install_options.py
+	@if [ -n "$(FILENAME)" ]; then 		uv run e2s-gallery build "$(FILENAME)" --execute stale --jobs $(DOCS_JOBS); 	else 		uv run e2s-gallery render; 	fi
+	E2S_GALLERY_EXECUTE=never uv run zensical serve -a 0.0.0.0:$(PORT)
+
+DOC_VERSION ?= main
+.PHONY: docs-build-version
+docs-build-version:
+	uv sync --group docs
+	uv run python docs/generate_api.py
+	uv run python docs/generate_catalog.py
+	uv run python docs/generate_install_options.py
+	uv run python docs/generate_gallery.py
+	DOC_VERSION=$(DOC_VERSION) E2S_GALLERY_EXECUTE=never uv run zensical build --clean
+	rm -rf site/__pycache__ site/_build/html
+	find site -maxdepth 1 -type f -name "*.py" -delete
+
+.PHONY: docs-deploy-version
+docs-deploy-version:
+	$(MAKE) docs-build-version
+
+.PHONY: docs-version-serve
+docs-version-serve:
+	uv sync --group docs
+	uv run mike serve
 
 PORT ?= 8001
-.PHONY: serve
+.PHONY: docs-serve
 docs-serve:
-	uv run python -m http.server $(PORT) --cgi --directory docs/_build/html
+	uv sync --group docs
+	uv run python docs/generate_api.py
+	uv run python docs/generate_catalog.py
+	uv run python docs/generate_install_options.py
+	E2S_GALLERY_EXECUTE=never uv run zensical serve -a 0.0.0.0:$(PORT)
 
 .PHONY: container-service
 # Example DOCKER_REPO?=nvcr.io/dycvht5ows21

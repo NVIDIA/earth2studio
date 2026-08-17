@@ -178,11 +178,17 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
 
 
 class NNJAObsSatLexicon(metaclass=LexiconType):
-    """NNJA aggregate microwave observation lexicon.
+    """NNJA aggregate satellite observation lexicon.
 
     ``atms`` selects encoded ``TMBR`` scene brightness temperature, while
     ``atms_antenna_temperature`` selects encoded ``TMANT`` antenna temperature.
     The legacy sounder names select their encoded ``TMBR`` fields unchanged.
+
+    The hyperspectral IR sounder names select every published channel of the
+    sensor, returned as brightness temperature in Kelvin: ``airs`` is encoded
+    as ``TMBR`` directly, while ``iasi`` (scaled radiance ``SCRA``) and
+    ``cris`` (float radiance ``SRAD``) are converted via Planck inversion
+    during decode.
 
     Note
     ----
@@ -196,6 +202,9 @@ class NNJAObsSatLexicon(metaclass=LexiconType):
         "mhs": "mhs::TMBR",
         "amsua": "amsua::TMBR",
         "amsub": "amsub::TMBR",
+        "airs": "airs::TMBR",
+        "iasi": "iasi::SCRA",
+        "cris": "cris::SRAD",
     }
 
     @classmethod
