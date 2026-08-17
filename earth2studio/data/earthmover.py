@@ -902,7 +902,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
 
     Badges
     ------
-    region:global dataclass:forecast product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     MARKETPLACE_URL = "https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04"

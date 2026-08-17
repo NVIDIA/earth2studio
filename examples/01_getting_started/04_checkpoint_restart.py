@@ -21,13 +21,13 @@ Checkpointing a Deterministic Forecast
 
 Basic inference workflow checkpointing.
 
-This example shows how to use :py:class:`earth2studio.utils.checkpoint.Checkpoint`
+This example shows how to use [`earth2studio.utils.checkpoint.Checkpoint`][earth2studio.utils.checkpoint.Checkpoint]
 to restart a deterministic forecast after it stops partway through a run. See the
-:doc:`checkpointing user guide </userguide/advanced/checkpointing>` for more
+[checkpointing user guide](../../userguide/advanced/checkpointing.md) for more
 information on checkpoint catalogs and restart policies.
 
-The example uses :py:class:`earth2studio.data.Random` and
-:py:class:`earth2studio.models.px.FCN`, the FourCastNet AFNO prognostic model.
+The example uses [`earth2studio.data.Random`][earth2studio.data.Random] and
+[`earth2studio.models.px.FCN`][earth2studio.models.px.FCN], the FourCastNet AFNO prognostic model.
 
 In this example you will learn:
 
@@ -52,12 +52,11 @@ In this example you will learn:
 # the rollout. Model weights and forecast fields are not copied into the
 # checkpoint.
 #
-# .. warning::
-#
-#    Model checkpoint state is opt-in. Before relying on restartable inference,
-#    verify that the model you plan to use documents checkpoint support. If a
-#    model does not support checkpointing yet, open a feature request on the
-#    `Earth2Studio GitHub <https://github.com/NVIDIA/earth2studio/issues>`_.
+# !!! warning
+#      Model checkpoint state is opt-in. Before relying on restartable inference,
+#      verify that the model you plan to use documents checkpoint support. If a
+#      model does not support checkpointing yet, open a feature request on the
+#      [Earth2Studio GitHub](https://github.com/NVIDIA/earth2studio/issues).
 
 # %%
 import os

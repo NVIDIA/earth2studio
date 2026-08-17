@@ -108,14 +108,6 @@ SHORTWAVE_VARIABLES = ("ASWDIR_S", "ASWDIFD_S")
 # here because the native grid ships verbatim in the package.
 SUPPORTED_VARIANTS = ("rea6", "rea2")
 
-# Hosted URI for the combined (rea6/ + rea2/) downscaling package, used by
-# ``load_default_package`` / ``from_pretrained``. The package nests rea6/ and
-# rea2/ subfolders; ``load_model(..., resolution=)`` selects the subfolder, so
-# one URI serves all four models.
-DEFAULT_PACKAGE_URI: str = (
-    "hf://nvidia/corrdiff-cosmo-era5@44064f304158f863f6ae02948b1b8e08d523458e"
-)
-
 
 def _points_in_grid_footprint(
     plat: np.ndarray, plon: np.ndarray, lat2d: np.ndarray, lon2d: np.ndarray
@@ -248,7 +240,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     surface and model-level (3D) fields -- winds,
     temperature, humidity, precipitation, cloud cover, fluxes, TKE, PBL height;
     variables with a canonical Earth2Studio name are relabelled via
-    :class:`~earth2studio.lexicon.CosmoLexicon` and COSMO-specific fields keep a
+    [`CosmoLexicon`][earth2studio.lexicon.CosmoLexicon] and COSMO-specific fields keep a
     descriptive name. Optionally emits derived hub-height wind components (see
     ``hub_heights``).
 
@@ -352,7 +344,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:eu class:ds product:wind product:precip product:temp product:atmos year:2026 gpu:80gb
+    region:eu class:downscaling product:wind product:precip product:temp product:atmos year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(
@@ -1608,8 +1601,12 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         ``load_model(..., mode=, resolution=)`` (or rely on the ``mean``/``rea6``
         defaults through ``from_pretrained``).
         """
+        # Hosted URI for the combined (rea6/ + rea2/) downscaling package, used by
+        # ``load_default_package`` / ``from_pretrained``. The package nests rea6/ and
+        # rea2/ subfolders; ``load_model(..., resolution=)`` selects the subfolder, so
+        # one URI serves all four models.
         return Package(
-            DEFAULT_PACKAGE_URI,
+            "hf://nvidia/corrdiff-cosmo-era5@44064f304158f863f6ae02948b1b8e08d523458e",
             cache_options={
                 "cache_storage": Package.default_cache("corrdiff_cosmo_era5"),
                 # Include the resolution directory to distinguish files with
@@ -1651,6 +1648,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         package to carry a ``wind_levels`` metadata block (else requesting
         ``hub_heights`` raises). See the constructor.
         """
+
         # Validate the selectors up front so a bad value fails with a clear message
         # rather than a cryptic missing-file when resolving "<resolution>/...".
         if resolution not in SUPPORTED_VARIANTS:

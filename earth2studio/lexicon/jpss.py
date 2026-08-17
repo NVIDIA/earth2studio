@@ -310,7 +310,7 @@ class JPSSATMSLexicon(metaclass=LexiconType):
     This lexicon maps the ``atms`` variable to an identity modifier for brightness
     temperature observations in Kelvin.  Individual channels (1-22) are distinguished
     by the ``sensor_index`` column of the returned DataFrame, following the same
-    convention used by :class:`~earth2studio.data.UFSObsSat`.
+    convention used by [`UFSObsSat`][earth2studio.data.UFSObsSat].
 
     The ATMS instrument is a 22-channel cross-track scanning microwave radiometer
     operating from 23 GHz to 183 GHz aboard NOAA-20 (JPSS-1) and NOAA-21 (JPSS-2).
@@ -397,7 +397,7 @@ class JPSSCrISLexicon(metaclass=LexiconType):
     optional Hamming apodization (default on) followed by the inverse Planck
     function to convert radiance into brightness temperature (K), so the
     ``observation`` column in the returned DataFrame is directly comparable
-    with :class:`~earth2studio.data.UFSObsSat`.  Individual channels are
+    with [`UFSObsSat`][earth2studio.data.UFSObsSat].  Individual channels are
     distinguished by the ``sensor_index`` column, which uses the GSI
     ``sensor_chan`` numbering convention.
 
@@ -410,7 +410,7 @@ class JPSSCrISLexicon(metaclass=LexiconType):
     - **MWIR** (5.71--8.26 µm, 1210--1750 cm^-1): 869 channels at 0.625 cm^-1
     - **SWIR** (3.92--4.64 µm, 2155--2550 cm^-1): 637 channels at 0.625 cm^-1
 
-    When ``apodize=True`` (default in :class:`~earth2studio.data.JPSS_CRIS`),
+    When ``apodize=True`` (default in [`JPSS_CRIS`][earth2studio.data.JPSS_CRIS]),
     the 2 guard channels at each end of each band (4 per band, 12 total) are
     trimmed after apodization, yielding 2211 science channels with contiguous
     ``sensor_index`` 1--2211.

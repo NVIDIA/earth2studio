@@ -1,8 +1,6 @@
 <!-- markdownlint-disable MD025 -->
 
-(developer_skills)=
-
-# AI Agent Skills
+# AI Agent Skills { #developer_skills }
 
 Earth2Studio includes AI agent skills that provide specialized guidance for AI coding
 assistants (Claude Code, Codex, etc.) when working with Earth2Studio. These skills help
@@ -18,10 +16,9 @@ contains:
 - `evals/targets/` - Reference outputs for evaluation grading
 - `references/` - Supporting documentation (optional)
 
-:::{note}
-Skill development is currently internal to NVIDIA. External contributions to skills
-are not accepted at this time.
-:::
+!!! note
+    Skill development is currently internal to NVIDIA. External contributions to skills
+    are not accepted at this time.
 
 ## Skill Validation
 

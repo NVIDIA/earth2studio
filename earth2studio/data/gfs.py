@@ -92,7 +92,7 @@ class GFS:
     Note
     ----
     This data source only fetches the initial state of GFS and does not fetch an
-    predicted time steps. See :class:`~earth2studio.data.GFS_FX` for fetching predicted
+    predicted time steps. See [`GFS_FX`][earth2studio.data.GFS_FX] for fetching predicted
     data from this forecast system.
 
     Note
@@ -300,7 +300,7 @@ class GFS:
                 # Get index file dictionary
                 index_file = results.pop(0)
                 for k, v in enumerate(variable):
-                    # sphinx - lexicon start
+                    # --8<-- [start:gfs-lexicon-lookup]
                     try:
                         gfs_name, modifier = GFSLexicon[v]
                     except KeyError:
@@ -326,7 +326,7 @@ class GFS:
                             f"Variable {v} not found in index file for time {t} at {lt}, values will be unset"
                         )
                         continue
-                    # sphinx - lexicon end
+                    # --8<-- [end:gfs-lexicon-lookup]
                     tasks.append(
                         GFSAsyncTask(
                             data_array_indices=(i, j, k),
