@@ -11,7 +11,10 @@ resolution-markers = [
 ]
 
 [manifest]
-overrides = [{ name = "onnx", marker = "python_full_version < '3.13'" }]
+overrides = [
+    { name = "natten", specifier = "==0.21.6+torch2110cu130" },
+    { name = "onnx", marker = "python_full_version < '3.13'" },
+]
 
 [[package]]
 name = "affine"
@@ -1396,18 +1399,17 @@ dev = [
 ]
 docs = [
     { name = "cartopy" },
-    { name = "jupytext", specifier = ">=1.15.0" },
+    { name = "earth2studio-gallery", git = "https://github.com/NickGeneva/earth2studio-gallery.git?rev=5eaddfe1fd4e842d6e2a5fa63a9a8718eeed7e9a" },
+    { name = "griffe-inherited-docstrings", specifier = ">=1.1.3" },
     { name = "matplotlib" },
-    { name = "myst-parser", specifier = ">=0.18.0" },
-    { name = "nvidia-sphinx-theme" },
+    { name = "mike", specifier = ">=2.1.0" },
+    { name = "mkdocs", specifier = ">=1.6.1" },
+    { name = "mkdocs-badges", git = "https://github.com/NickGeneva/mkdocs-badges.git?rev=edd9365ed6cbcce883fc0c183c14fc7350e1c728" },
+    { name = "mkdocs-material", specifier = ">=9.6.0" },
+    { name = "mkdocstrings", specifier = ">=1.0.4" },
+    { name = "mkdocstrings-python", specifier = ">=2.0.5" },
     { name = "scipy" },
-    { name = "sphinx", specifier = ">=6.0.0" },
-    { name = "sphinx-autodoc-typehints", specifier = ">=1.24.0" },
-    { name = "sphinx-badges" },
-    { name = "sphinx-design" },
-    { name = "sphinx-favicon", specifier = ">=1.0.1" },
-    { name = "sphinx-gallery", specifier = ">=0.12.0" },
-    { name = "sphinx-togglebutton", specifier = ">=0.3.0" },
+    { name = "zensical", specifier = ">=0.0.53" },
 ]
 
 [[package]]
@@ -2875,9 +2877,18 @@ wheels = [
 
 [[package]]
 name = "natten"
-version = "0.21.6"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/06/2f/e10aa0edfa2e203fc649a4a52ed9e946decc16824f4740cf61d85a7f9a88/natten-0.21.6.tar.gz", hash = "sha256:c26871225fa533f8a9433ccd4496e3c4dcf6d0e0da369a2f6b547d4321a25dc1", size = 2863866, upload-time = "2026-04-14T18:15:50.885Z" }
+version = "0.21.6+torch2110cu130"
+source = { registry = "https://whl.natten.org/" }
+wheels = [
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp311-cp311-linux_aarch64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp311-cp311-linux_x86_64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp312-cp312-linux_aarch64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp312-cp312-linux_x86_64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp313-cp313-linux_aarch64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp313-cp313-linux_x86_64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp313-cp313t-linux_aarch64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp313-cp313t-linux_x86_64.whl" },
+]
 
 [[package]]
 name = "netcdf4"

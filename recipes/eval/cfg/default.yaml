@@ -232,7 +232,12 @@ scoring:
         # Set it when also scoring the same run offline, so the two stores
         # sit side by side rather than one overwriting the other.
         scores_store: null
-        moment_comm_dtype: float64     # float32 halves the moment reduction
+        # Memory under one-sample-per-GPU (members_per_rank=1,
+        # ensemble_group_size=ensemble_size): CRPS's abs-diff temporary
+        # (bounded by pairwise_member_tile x variable_chunk, below) and this
+        # field-sized moment reduction are the two float64 terms with no
+        # other knob.  float32 halves the moment reduction's wire volume.
+        moment_comm_dtype: float64
         verification_cache_size: 4     # valid times held per rank
         validate_coords: true          # cross-check lead steps within a group
         nccl_timeout_s: 1800           # a dead rank hangs its whole group
@@ -262,6 +267,15 @@ scoring:
         defer_pairwise_one_step: true  # overlap the exchange with the next step
         variable_chunk: 4              # variables per exchange + compute step
         pairwise_variables: null       # null -> every scored variable
+        # Members per float64 abs-diff tile — the scorer's own dominant
+        # memory term, and the one with no other knob.  Binds when a model
+        # is large enough to force members_per_rank=1 (one sample per GPU):
+        # the temporary is sized pairwise_member_tile x variable_chunk x
+        # field x 8 bytes.  Lower alongside variable_chunk=1 for a
+        # memory-constrained run (e.g. 2 brings a 4-variable, M=16, ~1.9M
+        # point CONUS-scale run from ~1.5GB to well under 250MB, at some
+        # throughput cost).
+        pairwise_member_tile: 8
     output:
         store_name: scores.zarr
         overwrite: true

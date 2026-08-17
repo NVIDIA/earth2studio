@@ -269,7 +269,7 @@ class Pipeline(ABC):
     the pipeline's own config block (e.g. overriding
     ``cfg.model.goes.ic_source._target_``)."""
 
-    supports_online_scoring: bool = True
+    supports_online_scoring: bool = False
     """Whether this pipeline may be driven by the online scorer.
 
     Online scoring rests on one invariant:
@@ -285,11 +285,17 @@ class Pipeline(ABC):
     ``scoring.online.validate_coords`` is set, turning that deadlock into a
     clean error.)
 
-    The flag defaults to ``True`` because the invariant holds for every
-    single-cadence rollout.  Pipelines with a more intricate yield
-    structure — ``DLESyMPipeline``'s dual atmosphere/ocean cadence,
-    ``StormScopePipeline``'s coupled two-model loop — set it to ``False``
-    until they are validated explicitly."""
+    The flag defaults to ``False``: support is an explicit, per-pipeline
+    claim rather than something inherited for free.  A pipeline sets it to
+    ``True`` only once its yield sequence and seeding have been validated
+    (grouping invariance, online-vs-offline parity, member reproducibility
+    — see the recipe's online-scoring validation gates)."""
+
+    _members_per_rank: int = 1
+    """Ensemble members this rank carries per rollout (``K``).  Set by
+    :meth:`run` from its ``member_batch`` argument before the first
+    :meth:`run_item` / :meth:`run_item_batched` call.  Consulted by the
+    default :meth:`seed_member` for sample-indexed stochastic components."""
 
     _run_item_includes_batch_dim: bool = False
     """Whether :meth:`run_item` yields tensors with a leading ``batch`` dim.
@@ -471,6 +477,60 @@ class Pipeline(ABC):
         the models have loaded.
         """
         return type(self).run_item_batched is not Pipeline.run_item_batched
+
+    def stochastic_components(self) -> list[Any]:
+        """Models this pipeline drives whose output depends on RNG state.
+
+        Consulted by :meth:`seed_member`.  Default: empty — a pipeline
+        with no stochastic component needs no per-member seeding and its
+        ensemble is degenerate by construction.
+        """
+        return []
+
+    def seed_member(self, item: WorkItem) -> None:
+        """Place every stochastic component in the state for member ``item.ensemble_id``.
+
+        Call this from :meth:`run_item` / :meth:`run_item_batched` before
+        the first model invocation.  ``torch.manual_seed(item.seed)`` runs
+        unconditionally first, so perturbation methods and any incidental
+        global-RNG use are covered regardless of what the model itself
+        does.  Each entry from :meth:`stochastic_components` is then
+        dispatched by the mechanism it exposes:
+
+        * has ``set_rng`` — ``component.set_rng(seed=item.seed, reset=True)``.
+        * has ``number_of_samples`` and ``seed`` — sample-indexed draw;
+          ``component.seed = item.seed`` and ``component.number_of_samples``
+          is set from :attr:`_members_per_rank`.  Member ``m`` of IC ``t``
+          is then a reproducible, independent draw indexed by ``(t, m)`` —
+          it is not required to equal the ``m``-th sample of a
+          single-process, ``M``-sample call.
+        * neither — global-RNG component; already covered by the
+          unconditional ``torch.manual_seed`` above.
+
+        Override only for a mechanism genuinely new to these three.
+        """
+        torch.manual_seed(item.seed)
+        for component in self.stochastic_components():
+            if hasattr(component, "set_rng"):
+                component.set_rng(seed=item.seed, reset=True)
+            elif hasattr(component, "number_of_samples") and hasattr(
+                component, "seed"
+            ):
+                component.seed = item.seed
+                component.number_of_samples = self._members_per_rank
+
+    def known_missing_leads(self) -> set[np.timedelta64]:
+        """Lead times this pipeline structurally never yields.
+
+        Consulted by the online scorer's ``finish_item`` so its
+        missing-lead-time warning fires only for a genuine gap (a crashed
+        or partially resumed IC) rather than every single IC.  Default:
+        empty — most pipelines yield every lead time in their own output
+        schema.  ``DLESyMPipeline`` overrides this to declare
+        ``lead_time=0``, which its ``run_item`` deliberately skips (the
+        model's IC-window yield falls outside the output schema).
+        """
+        return set()
 
     def predownload_stores(self, cfg: DictConfig) -> list[PredownloadStore]:
         """Declare zarr stores that ``predownload.py`` should populate.
@@ -740,6 +800,7 @@ class Pipeline(ABC):
             )
 
         resume = cfg.get("resume", False) if cfg is not None else False
+        self._members_per_rank = member_batch
 
         # Filter at the model's native grid — cheaper than regridding
         # all model-output channels only to throw some away.

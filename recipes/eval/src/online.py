@@ -67,7 +67,7 @@ from __future__ import annotations
 import os
 import shutil
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Protocol
@@ -183,6 +183,20 @@ class OnlineSettings:
         all of them.  The moment-based statistics stay on the full set
         either way, so this trades CRPS coverage against the only expensive
         communication in the run.
+    pairwise_member_tile : int
+        Members per float64 abs-diff tile in :func:`_abs_diff_weighted_sum`
+        — the scorer's own dominant memory term, and the one with no other
+        knob.  It binds when a model is large enough to force
+        ``members_per_rank=1, ensemble_group_size=ensemble_size`` (one
+        sample per GPU): the exchange's receive buffer arrives in a narrow
+        wire dtype, but the abs-diff arithmetic upcasts to float64
+        immediately, so the *temporary* — sized
+        ``pairwise_member_tile * variable_chunk * field * 8 bytes`` — is
+        the actual constraint.  Defaults to 8, preserving prior behavior;
+        lowering it (e.g. to 2) alongside ``variable_chunk=1`` trades
+        throughput for a much smaller working set.  ``moment_comm_dtype``
+        is the other memory lever for this regime — it halves the
+        field-sized ensemble-moment reduction, a separate ~120 MB term.
     """
 
     ensemble_group_size: int | None
@@ -199,6 +213,7 @@ class OnlineSettings:
     defer_pairwise_one_step: bool
     variable_chunk: int
     pairwise_variables: list[str] | None
+    pairwise_member_tile: int
 
 
 def online_enabled(cfg: DictConfig) -> bool:
@@ -320,6 +335,15 @@ def parse_online_settings(cfg: DictConfig) -> OnlineSettings:
     if pairwise_variables is not None:
         pairwise_variables = [str(v) for v in pairwise_variables]
 
+    pairwise_member_tile = _int_or(
+        block.get("pairwise_member_tile", _PAIRWISE_MEMBER_TILE), _PAIRWISE_MEMBER_TILE
+    )
+    if pairwise_member_tile < 1:
+        raise ValueError(
+            "scoring.online.pairwise_member_tile must be >= 1, got "
+            f"{pairwise_member_tile}."
+        )
+
     group_size = block.get("ensemble_group_size", None)
     return OnlineSettings(
         ensemble_group_size=None if group_size is None else int(group_size),
@@ -340,6 +364,7 @@ def parse_online_settings(cfg: DictConfig) -> OnlineSettings:
         defer_pairwise_one_step=defer,
         variable_chunk=variable_chunk,
         pairwise_variables=pairwise_variables,
+        pairwise_member_tile=pairwise_member_tile,
     )
 
 
@@ -783,8 +808,15 @@ class StepContext:
         ``f_local - y``, precomputed once (every statistic wants it).
     weights : torch.Tensor
         Spatial weights broadcastable over the spatial dims.
-    w_sum : float
-        ``sum(weights)`` over the full grid — the weighted-mean normalizer.
+    valid : torch.Tensor
+        Boolean ``[variable, <spatial...>]`` mask, ``True`` where every
+        member's *original* (pre-``nan_policy``) forecast was finite.  A
+        pipeline like ``DLESyMPipeline`` NaN-masks whole (lead, variable)
+        slices outside their validity cadence; this mask is what keeps
+        that from either propagating as NaN through every derived
+        statistic or, under ``nan_policy=zero_fill``, being scored as a
+        spurious zero-valued forecast.  :meth:`wsum` excludes masked
+        gridpoints from every weighted sum it forms.
     n_spatial : int
         Number of trailing spatial dimensions.
     ensemble_size : int
@@ -808,7 +840,7 @@ class StepContext:
     f_local: torch.Tensor
     d_local: torch.Tensor
     weights: torch.Tensor
-    w_sum: float
+    valid: torch.Tensor
     n_spatial: int
     ensemble_size: int
     member_ids: tuple[int, ...]
@@ -818,9 +850,24 @@ class StepContext:
     below: torch.Tensor | None = None
 
     def wsum(self, t: torch.Tensor) -> torch.Tensor:
-        """Weighted sum of *t* over its trailing spatial dimensions."""
+        """Weighted sum of *t* over its trailing spatial dimensions.
+
+        Gridpoints :attr:`valid` marks invalid for their variable are
+        excluded — treated as absent, not zero — regardless of what *t*
+        actually holds there (NaN under ``nan_policy=propagate``, or a
+        finite but meaningless value under ``zero_fill``).
+        """
         axes = tuple(range(t.ndim - self.n_spatial, t.ndim))
-        return (t.double() * self.weights).sum(dim=axes)
+        td = torch.where(self.valid, t.double(), 0.0)
+        return (td * self.weights).sum(dim=axes)
+
+    def wsum_valid(self) -> torch.Tensor:
+        """Per-variable weighted sum of :attr:`valid` — the mask-aware
+        weighted-mean normalizer for whatever :meth:`wsum` excluded.
+        Equals the old constant ``sum(weights)`` wherever nothing is
+        masked."""
+        axes = tuple(range(self.valid.ndim - self.n_spatial, self.valid.ndim))
+        return (self.valid.double() * self.weights).sum(dim=axes)
 
 
 class OnlineStatistic(Protocol):
@@ -888,9 +935,13 @@ def _empty(*shape: int | torch.device) -> torch.Tensor:
 class WeightSum:
     """The weighted-mean normalizer ``W = sum_s w``.
 
-    Stored per ``(IC, lead, variable)`` rather than assumed constant so
-    that a future masked / regional accumulation can vary it without
-    changing the store schema or the finalizers.
+    Stored per ``(IC, lead, variable)`` — rather than assumed constant —
+    precisely so a masked / regional accumulation can vary it without
+    changing the store schema or the finalizers: a fully NaN-masked
+    (lead, variable) gets ``W = 0`` here, matching the zeroed numerator
+    every other statistic's :meth:`StepContext.wsum` produces for it, so
+    ``finalize_stats`` divides ``0 / 0 = NaN`` rather than a wrong,
+    finite value against the unmasked grid weight.
     """
 
     name = "weight_sum"
@@ -913,7 +964,7 @@ class WeightSum:
     def update(self, ctx: StepContext) -> None:
         if not ctx.comm.is_root:
             return
-        self._w[ctx.lead_index, :] = ctx.w_sum
+        self._w[ctx.lead_index, :] = ctx.wsum_valid()
 
     def state(self) -> dict[str, torch.Tensor]:
         return {"w_sum": self._w}
@@ -1072,6 +1123,12 @@ class RankHistogram:
         n_bins, _, n_variables = self._counts.shape
         device = self._counts.device
 
+        # `below` is meaningless at a masked gridpoint — NaN < y is always
+        # False, so a masked member's non-comparison would otherwise land
+        # in bin 0 as if it were a genuine low-value forecast.  Rather than
+        # try to fix its value, zero its weight so it contributes to no
+        # bin at all; `ctx.valid` was captured before nan_policy could
+        # have replaced the NaN with something that compares "normally".
         ranks = ctx.below.reshape(n_variables, -1).long()
         w_flat = (
             ctx.weights.expand(ctx.y.shape[1:])
@@ -1079,6 +1136,8 @@ class RankHistogram:
             .expand(n_variables, -1)
             .contiguous()
         )
+        valid_flat = ctx.valid.reshape(n_variables, -1)
+        w_flat = torch.where(valid_flat, w_flat, 0.0)
         hist = torch.zeros((n_variables, n_bins), dtype=torch.float64, device=device)
         hist.scatter_add_(1, ranks, w_flat)
         self._counts[:, ctx.lead_index, :] = hist.transpose(0, 1)
@@ -1160,10 +1219,11 @@ class AnomalyMoments:
 # Pairwise member exchange (fair CRPS)
 # ---------------------------------------------------------------------------
 
-# Members per float64 abs-diff tile.  The exchange arrives in a narrow wire
-# dtype but the arithmetic upcasts immediately, so the temporary — not the
-# receive buffer — is the memory constraint: this bounds it to
-# _PAIRWISE_MEMBER_TILE * variable_chunk * field * 8 bytes.
+# Default members per float64 abs-diff tile, preserved by
+# scoring.online.pairwise_member_tile when unset.  The exchange arrives in a
+# narrow wire dtype but the arithmetic upcasts immediately, so the temporary
+# — not the receive buffer — is the memory constraint: this bounds it to
+# pairwise_member_tile * variable_chunk * field * 8 bytes.
 _PAIRWISE_MEMBER_TILE = 8
 
 
@@ -1172,12 +1232,16 @@ def _abs_diff_weighted_sum(
     other: torch.Tensor,
     weights: torch.Tensor,
     n_spatial: int,
+    member_tile: int = _PAIRWISE_MEMBER_TILE,
 ) -> torch.Tensor:
     """``sum_{i in local} sum_{j in other} sum_s w_s |f_i(s) - f_j(s)|``.
 
     Tiled over both member axes so the float64 temporary stays bounded
     regardless of ensemble size.  The subtraction upcasts straight from the
-    wire dtype, so a bf16 exchange never does bf16 arithmetic.
+    wire dtype, so a bf16 exchange never does bf16 arithmetic.  The weight
+    multiply runs in place on the abs-diff tile (``mul_``) rather than
+    forming a separate ``diff * weights`` temporary, dropping one of the
+    three float64 buffers live at once.
 
     Parameters
     ----------
@@ -1189,6 +1253,10 @@ def _abs_diff_weighted_sum(
         Spatial weights broadcastable over the spatial dims.
     n_spatial : int
         Number of trailing spatial dimensions.
+    member_tile : int
+        Members of *other* per tile — bounds the float64 working set.
+        Defaults to :data:`_PAIRWISE_MEMBER_TILE`; runs pass
+        ``settings.pairwise_member_tile`` explicitly.
 
     Returns
     -------
@@ -1199,10 +1267,11 @@ def _abs_diff_weighted_sum(
     out = torch.zeros(local.shape[1], dtype=torch.float64, device=local.device)
     for i in range(local.shape[0]):
         a = local[i].double()
-        for j0 in range(0, other.shape[0], _PAIRWISE_MEMBER_TILE):
-            tile = other[j0 : j0 + _PAIRWISE_MEMBER_TILE].double()
+        for j0 in range(0, other.shape[0], member_tile):
+            tile = other[j0 : j0 + member_tile].double()
             diff = (a.unsqueeze(0) - tile).abs_()
-            out += (diff * weights).sum(dim=axes).sum(dim=0)
+            diff.mul_(weights)
+            out += diff.sum(dim=axes).sum(dim=0)
     return out
 
 
@@ -1318,12 +1387,23 @@ class PairwiseExchange:
                 "lead steps were submitted without an intervening completion."
             )
         dtype = self._settings.pairwise_comm_dtype
+        # Masked once for the whole exchange, before chunking or the wire
+        # cast: a gridpoint invalid for its variable (StepContext.valid)
+        # must compare as identical "absent" state across every member,
+        # not whatever nan_policy left there.  Under zero_fill every
+        # member already lands on the same replacement value, so its
+        # pairwise diff happens to self-cancel to 0 — but under propagate
+        # a lone NaN would poison the entire per-variable sum for this
+        # lead, not just the masked gridpoints.  This makes both policies
+        # agree, and matches what StepContext.wsum already does for
+        # crps_t1.
+        d_local = torch.where(ctx.valid, ctx.d_local, 0.0)
         local_chunks: list[torch.Tensor] = []
         gathered: list[list[torch.Tensor]] = []
         work: list[Any] = []
         for chunk in self._chunks():
             index = torch.tensor(chunk, device=ctx.d_local.device, dtype=torch.long)
-            block = ctx.d_local.index_select(1, index).to(dtype).contiguous()
+            block = d_local.index_select(1, index).to(dtype).contiguous()
             buffers, handle = ctx.comm.all_gather(block, async_op=self.defers)
             local_chunks.append(block)
             gathered.append(buffers)
@@ -1353,7 +1433,11 @@ class PairwiseExchange:
             members = torch.cat(buffers, dim=0)
             width = local.shape[1]
             total[offset : offset + width] = _abs_diff_weighted_sum(
-                local, members, ctx.weights, ctx.n_spatial
+                local,
+                members,
+                ctx.weights,
+                ctx.n_spatial,
+                member_tile=self._settings.pairwise_member_tile,
             )
             offset += width
 
@@ -1647,6 +1731,19 @@ def open_stats_store(
     metadata overhead.  That also makes ``(IC, group)`` the natural unit of
     durability: a group root writes one IC's chunks and then its marker.
 
+    Always opened on the synchronous ``ZarrBackend``, regardless of
+    ``output.io_backend`` — :func:`add_stats_arrays` creates its arrays
+    directly against ``io.root`` (to control dtype and skip
+    :meth:`OutputManager.add_array`'s float32 default), which only
+    ``ZarrBackend`` exposes synchronously.  ``AsyncZarrBackend.root`` is an
+    async zarr group and tracks its own ``parallel_coords``/
+    ``chunked_coords`` state from arrays created through :meth:`add_array`,
+    so writes against arrays created behind its back would not go through
+    the async write path correctly even if the attribute access itself were
+    fixed.  stats.zarr is a few hundred KB per IC, so none of
+    ``async_zarr``'s threaded/sharded-write machinery would matter here
+    anyway.
+
     The returned manager is **not** entered as a context manager here — the
     caller owns its lifetime so that metadata consolidation happens after
     all groups have finished writing.
@@ -1655,7 +1752,9 @@ def open_stats_store(
     superset, groups = stats_array_groups(
         statistics, variables, times, lead_times, ensemble_size
     )
-    mgr = OutputManager(cfg, store_name=settings.stats_store, chunks={"time": 1})
+    mgr = OutputManager(
+        cfg, store_name=settings.stats_store, chunks={"time": 1}, io_backend="zarr"
+    )
     mgr.validate_output_store(superset, [])
     run_on_rank0_first(add_stats_arrays, mgr.io, groups)
     return mgr
@@ -1699,6 +1798,13 @@ class OnlineScorer:
         Manager for ``stats.zarr``.
     device : torch.device
         Device for accumulation.
+    known_missing_leads : Iterable[np.timedelta64]
+        Lead times the pipeline structurally never yields — e.g.
+        ``DLESyMPipeline`` skips its IC-window yield, so ``lead_time=0``
+        never arrives (see :meth:`~src.pipelines.base.Pipeline.known_missing_leads`).
+        Excluded from :meth:`finish_item`'s missing-lead-time warning so it
+        fires only for a genuine gap (a crashed or partially resumed IC),
+        not every single IC.
     """
 
     def __init__(
@@ -1714,6 +1820,7 @@ class OnlineScorer:
         weights: torch.Tensor,
         stats_mgr: OutputManager,
         device: torch.device,
+        known_missing_leads: Iterable[np.timedelta64] = (),
     ) -> None:
         self._cfg = cfg
         self._settings = settings
@@ -1725,14 +1832,18 @@ class OnlineScorer:
         self._lead_index = {
             int(lt.astype("int64")): i for i, lt in enumerate(self._lead_times)
         }
+        self._known_missing_indices = {
+            self._lead_index[int(np.timedelta64(lt, "ns").astype("int64"))]
+            for lt in known_missing_leads
+            if int(np.timedelta64(lt, "ns").astype("int64")) in self._lead_index
+        }
+        self._expected_leads = set(range(len(self._lead_times))) - (
+            self._known_missing_indices
+        )
         self._spatial_dims = tuple(
             d for d in spatial_coords if d not in _NON_SPATIAL
         )
-        self._spatial_shape = tuple(
-            len(spatial_coords[d]) for d in self._spatial_dims
-        )
         self._weights = weights.to(device=device, dtype=torch.float64)
-        self._w_sum = float(self._weights.expand(self._spatial_shape).sum().item())
         self._stats_mgr = stats_mgr
         self._device = device
 
@@ -1816,11 +1927,11 @@ class OnlineScorer:
         *is* collective (it drains the deferred CRPS exchange), so every
         rank of the group runs it before the root writes.
         """
-        missing = len(self._lead_times) - len(self._seen_leads)
+        missing = self._expected_leads - self._seen_leads
         if missing:
             logger.warning(
-                f"IC {item.time}: {missing}/{len(self._lead_times)} lead times "
-                "were never yielded; their statistics stay NaN."
+                f"IC {item.time}: {len(missing)}/{len(self._expected_leads)} "
+                "lead times were never yielded; their statistics stay NaN."
             )
 
         self._flush_statistics()
@@ -1865,7 +1976,9 @@ class OnlineScorer:
             f_local=empty,
             d_local=empty,
             weights=self._weights,
-            w_sum=self._w_sum,
+            valid=torch.ones(
+                (0, len(self._variables)), dtype=torch.bool, device=self._device
+            ),
             n_spatial=len(self._spatial_dims),
             ensemble_size=self._ensemble_size,
             member_ids=self._comm.group.member_ids,
@@ -2010,6 +2123,14 @@ class OnlineScorer:
                 "regridded) output."
             )
 
+        # Captured before nan_policy can replace a masked NaN with a value
+        # that would otherwise look like a genuine (if wrong) forecast —
+        # see StepContext.valid.  Members share the same masked-invalid
+        # gridpoints by construction (a pipeline like DLESyMPipeline masks
+        # a whole (lead, variable) slice, not per-member), so this is
+        # already identical across the group without needing a reduction.
+        valid = torch.isfinite(f_local).all(dim=0)
+
         # Apply the same conditioning the offline scorer applies, so online
         # and offline scores are directly comparable.
         if self._nan_policy == "zero_fill":
@@ -2027,7 +2148,7 @@ class OnlineScorer:
             f_local=f_local,
             d_local=f_local - y,
             weights=self._weights,
-            w_sum=self._w_sum,
+            valid=valid,
             n_spatial=len(self._spatial_dims),
             ensemble_size=self._ensemble_size,
             member_ids=self._comm.group.member_ids,
@@ -2189,8 +2310,13 @@ def _finalize_variable(
         counts = ds[f"rank_counts__{var}"]
         total = counts.sum(dim="rank_bin")
         uniform = 1.0 / (ensemble_size + 1)
+        # skipna=False: xarray's DataArray.sum() defaults to skipping NaN,
+        # which would silently turn a fully-masked (lead, variable) --
+        # counts/total = 0/0 = NaN in every bin -- into a "perfectly
+        # calibrated" 0.0 instead of propagating the NaN every other
+        # metric already gives it there.
         out[f"rank_reliability__{var}"] = np.abs(counts / total - uniform).sum(
-            dim="rank_bin"
+            dim="rank_bin", skipna=False
         )
 
     # Moment-derived scores.  Anomaly-space sums (a/b) additionally support
@@ -2333,6 +2459,7 @@ def build_online_scorer(
     spatial_coords: CoordSystem,
     stats_mgr: OutputManager,
     device: torch.device,
+    known_missing_leads: Iterable[np.timedelta64] = (),
 ) -> OnlineScorer:
     """Assemble an :class:`OnlineScorer` from config and resolved sources.
 
@@ -2348,6 +2475,10 @@ def build_online_scorer(
         Predownloaded verification source.
     variables : list[str]
         Variables to score.
+    known_missing_leads : Iterable[np.timedelta64]
+        Forwarded to :class:`OnlineScorer` — lead times the driving
+        pipeline structurally never yields (see
+        :meth:`~src.pipelines.base.Pipeline.known_missing_leads`).
     lead_times : np.ndarray
         Full lead-time axis of the forecast.
     spatial_coords : CoordSystem
@@ -2413,4 +2544,5 @@ def build_online_scorer(
         weights=weights,
         stats_mgr=stats_mgr,
         device=device,
+        known_missing_leads=known_missing_leads,
     )

@@ -290,6 +290,7 @@ def _run_online(
                 spatial_coords,
                 stats_mgr,
                 device,
+                known_missing_leads=pipeline.known_missing_leads(),
             )
             pipeline.run(
                 my_items,

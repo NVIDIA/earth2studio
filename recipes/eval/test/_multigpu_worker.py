@@ -222,7 +222,6 @@ def _grouping_invariance(defer: bool) -> None:
 
     spatial = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
     weights = build_spatial_weights(spatial, lat_weights=True).to(device)
-    w_sum = float(weights.expand(len(SMALL_LAT), len(SMALL_LON)).sum())
 
     # Same synthetic ensemble on every rank — a fixed seed, not comms.
     generator = torch.Generator(device="cpu").manual_seed(1234)
@@ -256,7 +255,7 @@ def _grouping_invariance(defer: bool) -> None:
                 f_local=f_local,
                 d_local=f_local - truth,
                 weights=weights,
-                w_sum=w_sum,
+                valid=torch.ones_like(truth, dtype=torch.bool),
                 n_spatial=2,
                 ensemble_size=ensemble_size,
                 member_ids=comm.group.member_ids,

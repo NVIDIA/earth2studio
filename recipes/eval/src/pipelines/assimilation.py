@@ -39,6 +39,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Iterator
+from typing import Any
 
 import numpy as np
 import torch
@@ -127,7 +128,7 @@ class AssimilationPipeline(Pipeline):
     """
 
     needs_data_source = False
-
+    supports_online_scoring = True
     model: AssimilationModel
     obs_set: ObsSourceSet
     runner: AssimilationRunner
@@ -187,22 +188,60 @@ class AssimilationPipeline(Pipeline):
         times: list[np.datetime64] = sorted({i.time for i in build_work_items(cfg)})
         return _declare_obs_frame_stores(cfg, times)
 
+    def stochastic_components(self) -> list[Any]:
+        return [self.model]
+
     def run_item(
         self,
         item: WorkItem,
         data_source: DataSource,
         device: torch.device,
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        if hasattr(self.model, "set_rng"):
-            self.model.set_rng(seed=item.seed, reset=True)
-        else:
-            # No-op for deterministic DA models; makes stochastic ones
-            # reproducible per ensemble member.
-            torch.manual_seed(item.seed)
+        self.seed_member(item)
 
         analysis = self.runner.analysis(item.time)
         x, coords = analysis_to_tensor(analysis, device)
         x, coords = insert_zero_lead_time(x, coords)
+        yield x, coords
+
+    def run_item_batched(
+        self,
+        items: list[WorkItem],
+        data_source: DataSource,
+        device: torch.device,
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        """Run several ensemble members of one IC's analysis together.
+
+        Unlike :class:`~.forecast.ForecastPipeline`, the DA runner has no
+        batched-analysis API — :meth:`~src.assimilation.AssimilationRunner.analysis`
+        produces one member per call — so members run serially, each seeded
+        via :meth:`seed_member` before its own call (a no-op for a
+        deterministic DA model), and are stacked onto a leading ``ensemble``
+        axis afterward.
+        """
+        if not items:
+            return
+        times = {item.time for item in items}
+        if len(times) != 1:
+            raise ValueError(
+                f"run_item_batched expects one initial condition per batch, "
+                f"got {sorted(str(t) for t in times)}."
+            )
+
+        member_ids = np.array([item.ensemble_id for item in items])
+        slices: list[torch.Tensor] = []
+        coords0: CoordSystem | None = None
+        for item in items:
+            self.seed_member(item)
+            analysis = self.runner.analysis(item.time)
+            x, coords = analysis_to_tensor(analysis, device)
+            x, coords = insert_zero_lead_time(x, coords)
+            slices.append(x)
+            coords0 = coords
+        assert coords0 is not None
+
+        x = torch.stack(slices, dim=0)
+        coords = CoordSystem({"ensemble": member_ids} | dict(coords0))
         yield x, coords
 
 

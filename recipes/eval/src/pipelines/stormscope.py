@@ -100,10 +100,14 @@ class StormScopePipeline(Pipeline):
     StormScope exposes ensemble diversity through the diffusion sampler's
     stochasticity.  We honor :attr:`cfg.ensemble_size` the same way
     other pipelines do — one :class:`WorkItem` per member, seeded
-    deterministically.  The model's ``batch`` dimension is used
-    internally (required by ``call_with_conditioning``) but is squeezed
-    out of the yielded tensor so :meth:`Pipeline._inject_ensemble` can
-    prepend a proper ``ensemble`` axis at write time.
+    deterministically.  In :meth:`run_item` the model's ``batch``
+    dimension is used internally (required by ``call_with_conditioning``)
+    but is squeezed out of the yielded tensor so
+    :meth:`Pipeline._inject_ensemble` can prepend a proper ``ensemble``
+    axis at write time.  :meth:`run_item_batched` (``members_per_rank >
+    1``) drives several members through that same ``batch`` dimension at
+    once and renames it to ``ensemble`` — carrying this rank's member ids
+    — before yielding, rather than relying on the single-member squeeze.
 
     Predownload
     -----------
@@ -141,12 +145,7 @@ class StormScopePipeline(Pipeline):
     dim; :meth:`Pipeline.run` squeezes it before filtering and ensemble
     injection so :meth:`run_item` can yield raw model outputs."""
 
-    supports_online_scoring = False
-    """Not yet validated for online scoring.  The coupled GOES/MRMS loop
-    yields from two models on a shared cadence and its verification spans
-    several per-model stores; both need explicit validation before an
-    ensemble group can be driven through it."""
-
+    supports_online_scoring = True
     model_goes: Any
     model_mrms: Any
     nsteps: int
@@ -295,8 +294,10 @@ class StormScopePipeline(Pipeline):
 
         # Seed torch's global RNG so the diffusion sampler's per-member
         # noise is deterministic across runs.  StormScope models don't
-        # expose a set_rng hook; torch.manual_seed is the supported path.
-        torch.manual_seed(item.seed)
+        # expose a set_rng hook, so the default seed_member's unconditional
+        # torch.manual_seed is the supported path (no stochastic_components
+        # override needed).
+        self.seed_member(item)
 
         # Rank only gates tqdm output below.
         rank = get_rank()
@@ -328,6 +329,94 @@ class StormScopePipeline(Pipeline):
             )
 
             yield combined, combined_coords
+
+            # Prepare next-step inputs.  next_input handles sliding
+            # window (10min variants) or passes pred through (60min).
+            y, y_coords = self.model_goes.next_input(
+                pred_goes, pred_goes_coords, y, y_coords
+            )
+            y_m, y_m_coords = self.model_mrms.next_input(
+                pred_mrms, pred_mrms_coords, y_m, y_m_coords
+            )
+
+    def run_item_batched(
+        self,
+        items: list[WorkItem],
+        data_source: DataSource,
+        device: torch.device,
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        """Run several ensemble members of one IC through a shared rollout.
+
+        Members ride on the models' own ``batch`` dimension for the
+        duration of the loop — ``call_with_conditioning`` hard-requires
+        that literal key (unlike the ``@batch_func``-decorated calls
+        elsewhere, it isn't name-agnostic) — and are renamed onto
+        ``ensemble`` (carrying this rank's *global* member ids) only in
+        the chunk handed to :meth:`~src.pipelines.base.Pipeline.run`, same
+        as every other pipeline's batched-rollout contract.
+
+        The diffusion sampler is seeded once for the whole batch, the same
+        caveat as
+        :meth:`~.forecast.ForecastPipeline.run_item_batched`: each batch
+        element still draws independent noise, so the ensemble stays a
+        valid sample, but a member will not reproduce its
+        ``members_per_rank=1`` trajectory bit-for-bit.
+        """
+        if not items:
+            return
+        times = {item.time for item in items}
+        if len(times) != 1:
+            raise ValueError(
+                f"run_item_batched expects one initial condition per batch, "
+                f"got {sorted(str(t) for t in times)}."
+            )
+
+        k = len(items)
+        member_ids = np.array([item.ensemble_id for item in items])
+
+        y, y_coords = self._fetch_ic(
+            self._goes_ic_source, self._goes_ic_coords, items[0], device
+        )
+        y_m, y_m_coords = self._fetch_ic(
+            self._mrms_ic_source, self._mrms_ic_coords, items[0], device
+        )
+        y, y_coords = _repeat_batch(y, y_coords, k)
+        y_m, y_m_coords = _repeat_batch(y_m, y_m_coords, k)
+
+        self.seed_member(items[0])
+        if k > 1:
+            logger.warning(
+                f"StormScope diffusion sampler is being driven with {k} "
+                "members per rollout; the batch is seeded once, so "
+                "individual members will not reproduce a "
+                "members_per_rank=1 run (the ensemble is still a valid "
+                "draw)."
+            )
+
+        # Rank only gates tqdm output below.
+        rank = get_rank()
+
+        for step_idx in tqdm(
+            range(self.nsteps),
+            desc=f"IC {items[0].time} x{k}",
+            position=1,
+            leave=False,
+            disable=rank != 0,
+        ):
+            pred_goes, pred_goes_coords = self.model_goes(y, y_coords)
+            pred_mrms, pred_mrms_coords = self.model_mrms.call_with_conditioning(
+                y_m,
+                y_m_coords,
+                conditioning=y,
+                conditioning_coords=y_coords,
+            )
+
+            combined, combined_coords = cat_coords(
+                (pred_goes, pred_mrms),
+                (pred_goes_coords, pred_mrms_coords),
+                "variable",
+            )
+            yield _rename_batch_to_ensemble(combined, combined_coords, member_ids)
 
             # Prepare next-step inputs.  next_input handles sliding
             # window (10min variants) or passes pred through (60min).
@@ -978,3 +1067,40 @@ def _as_np(arr: Any) -> np.ndarray:
     if isinstance(arr, torch.Tensor):
         return arr.detach().cpu().numpy()
     return np.asarray(arr)
+
+
+def _repeat_batch(
+    x: torch.Tensor, coords: CoordSystem, k: int
+) -> tuple[torch.Tensor, CoordSystem]:
+    """Repeat a size-1 ``batch`` axis out to *k*, for a member-batched rollout.
+
+    Values in ``coords["batch"]`` are placeholder indices, not semantic
+    identity — ``call_with_conditioning`` only checks the axis's presence
+    and length — so a plain ``arange(k)`` is fine here.
+    """
+    batch_axis = list(coords.keys()).index("batch")
+    reps = [1] * x.ndim
+    reps[batch_axis] = k
+    x = x.repeat(*reps)
+    coords = OrderedDict(coords)
+    coords["batch"] = np.arange(k)
+    return x, coords
+
+
+def _rename_batch_to_ensemble(
+    x: torch.Tensor, coords: CoordSystem, member_ids: np.ndarray
+) -> tuple[torch.Tensor, CoordSystem]:
+    """Rename the model-internal ``batch`` axis to ``ensemble`` for scoring/output.
+
+    ``call_with_conditioning`` hard-requires a literal ``batch`` key
+    during the rollout, so member identity rides there internally; the
+    chunk yielded to :meth:`~src.pipelines.base.Pipeline.run` must instead
+    carry ``ensemble`` with this rank's *global* member ids, matching
+    every other pipeline's batched-rollout contract
+    (``OnlineScorer._check_member_block`` validates against them).
+    """
+    coords = OrderedDict(
+        (("ensemble", np.asarray(member_ids)) if k == "batch" else (k, v))
+        for k, v in coords.items()
+    )
+    return x, coords

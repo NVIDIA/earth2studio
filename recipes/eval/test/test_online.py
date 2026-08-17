@@ -424,14 +424,26 @@ class TestSpatialWeights:
 # ---------------------------------------------------------------------------
 
 
-def _run_statistics(f: torch.Tensor, y: torch.Tensor, ensemble_size: int):
-    """Drive one lead step through the statistics and return their state."""
+def _run_statistics(
+    f: torch.Tensor,
+    y: torch.Tensor,
+    ensemble_size: int,
+    valid: torch.Tensor | None = None,
+):
+    """Drive one lead step through the statistics and return their state.
+
+    *valid* defaults to an all-True mask (nothing excluded) — pass a
+    ``[variable, lat, lon]`` boolean tensor to exercise the mask-aware
+    accumulation path (see ``TestMaskAwareAccumulation``).
+    """
     comm = _single_rank_comm(ensemble_size)
     weights = build_spatial_weights(
         OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), lat_weights=True
     )
     w_sum = float(weights.expand(len(SMALL_LAT), len(SMALL_LON)).sum())
     n_variables = y.shape[0]
+    if valid is None:
+        valid = torch.ones_like(y, dtype=torch.bool)
 
     statistics = build_statistics(ensemble_size, has_climatology=False)
     for stat in statistics:
@@ -445,7 +457,7 @@ def _run_statistics(f: torch.Tensor, y: torch.Tensor, ensemble_size: int):
         f_local=f,
         d_local=f - y,
         weights=weights,
-        w_sum=w_sum,
+        valid=valid,
         n_spatial=2,
         ensemble_size=ensemble_size,
         member_ids=tuple(range(ensemble_size)),
@@ -605,6 +617,173 @@ class TestAccumulatorMath:
 
 
 # ---------------------------------------------------------------------------
+# Mask-aware accumulation (phase 6): StepContext.valid must exclude
+# gridpoints a pipeline like DLESyMPipeline NaN-masks (ocean variables
+# outside their validity cadence) from every weighted sum, rather than
+# either propagating NaN through the whole field or, under
+# nan_policy=zero_fill, scoring a spurious zero-valued forecast.  See
+# docs/online_scoring_expansion.md, "Partially-valid fields".
+# ---------------------------------------------------------------------------
+
+
+class TestMaskAwareAccumulation:
+    """Pin StepContext.valid to actually excluding masked gridpoints,
+    not just leaving them to propagate as NaN or landing in rank_counts
+    bin 0 (below == False for a NaN comparison, regardless of policy).
+
+    Variable 0 is masked over the right half of the longitude axis in
+    every test; variable 1 is left untouched as a control that must come
+    out identical to the unmasked case.
+    """
+
+    HALF = len(SMALL_LON) // 2
+
+    def _mask_variable_zero(
+        self, f_clean: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return (f_masked, valid) with variable 0 NaN'd over the right
+        half of lon.  The NaN — rather than some other placeholder — is
+        deliberate: it's what a pipeline sees under nan_policy=propagate,
+        and the accumulators must not let it leak into a sum regardless."""
+        valid = torch.ones(
+            f_clean.shape[-3], len(SMALL_LAT), len(SMALL_LON), dtype=torch.bool
+        )
+        valid[0, :, self.HALF :] = False
+        f_masked = f_clean.clone()
+        f_masked[..., 0, :, self.HALF :] = float("nan")
+        return f_masked, valid
+
+    def test_wsum_excludes_masked_gridpoints(self):
+        torch.manual_seed(20)
+        m = 3
+        f_clean = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+        f_masked, valid = self._mask_variable_zero(f_clean)
+
+        state, w_sum = _run_statistics(f_masked, y, ensemble_size=m, valid=valid)
+
+        w = build_spatial_weights(
+            OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), True
+        ).expand(len(SMALL_LAT), len(SMALL_LON))
+        mask = valid[0].double()
+        fbar = f_clean.double().mean(dim=0)
+
+        expected_wsum = (w * mask).sum()
+        expected_sse = ((fbar[0] - y[0].double()) ** 2 * w * mask).sum()
+
+        assert state["w_sum"][0, 0].item() == pytest.approx(
+            expected_wsum.item(), rel=1e-9
+        )
+        assert state["sse_ensmean"][0, 0].item() == pytest.approx(
+            expected_sse.item(), rel=1e-7
+        )
+        assert not torch.isnan(state["w_sum"]).any()
+        assert not torch.isnan(state["sse_ensmean"]).any()
+
+        # The untouched variable keeps the full-grid weight and matches
+        # the plain (unmasked) computation exactly.
+        assert state["w_sum"][0, 1].item() == pytest.approx(w_sum, rel=1e-9)
+
+    def test_fully_masked_variable_zeros_the_raw_sums(self):
+        """A wholly invalid (lead, variable) leaves w_sum and every
+        numerator at exactly 0 — finalize_stats' 0/0 division is what
+        turns that into the store's NaN, not a raw NaN leaking out of
+        accumulation itself."""
+        torch.manual_seed(21)
+        m = 3
+        f = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+        f[:, 0] = float("nan")
+        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+        valid = torch.ones(
+            len(VARIABLES), len(SMALL_LAT), len(SMALL_LON), dtype=torch.bool
+        )
+        valid[0] = False
+
+        state, _ = _run_statistics(f, y, ensemble_size=m, valid=valid)
+
+        assert state["w_sum"][0, 0].item() == 0.0
+        assert state["sse_ensmean"][0, 0].item() == 0.0
+        assert not torch.isnan(state["w_sum"]).any()
+        assert not torch.isnan(state["sse_ensmean"]).any()
+        assert state["w_sum"][0, 1].item() > 0.0
+
+    def test_rank_histogram_excludes_masked_gridpoints(self):
+        """Regression test for the exact bug described in the design doc:
+        NaN < y is always False, so a masked member used to land in
+        rank_counts bin 0 as if it were a genuine low-value forecast."""
+        torch.manual_seed(22)
+        m = 4
+        f_clean = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+        f_masked, valid = self._mask_variable_zero(f_clean)
+
+        state, w_sum = _run_statistics(f_masked, y, ensemble_size=m, valid=valid)
+        counts = state["rank_counts"][:, 0, :]
+
+        w = build_spatial_weights(
+            OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), True
+        ).expand(len(SMALL_LAT), len(SMALL_LON))
+        expected_masked_w = float((w * valid[0].double()).sum())
+
+        # Masked variable's total counted weight is the *valid* subgrid's
+        # weight only — not the full grid, and critically not inflated by
+        # masked points defaulting into bin 0.
+        assert counts[:, 0].sum().item() == pytest.approx(expected_masked_w, rel=1e-9)
+        assert counts[0, 0].item() < expected_masked_w, (
+            "bin 0 alone should not hold every masked gridpoint's weight"
+        )
+        # The untouched variable is bin-for-bin identical to the unmasked
+        # baseline.
+        assert counts[:, 1].sum().item() == pytest.approx(w_sum, rel=1e-9)
+
+    def test_crps_terms_match_a_grid_trimmed_to_the_valid_columns(self, tmp_path):
+        """The strongest check: masking the right half of lon for every
+        lead must reproduce, term for term, running the same statistic on
+        a grid that never had those columns.  Weighting here is lat-only,
+        so trimming lon columns changes nothing about the per-gridpoint
+        weight on what remains — an equivalence that doesn't require
+        re-deriving CRPS's fair-estimator formula by hand.  Exercises both
+        crps_t1 (via wsum) and crps_t2 (via PairwiseExchange._submit's
+        masking) together.
+        """
+        torch.manual_seed(23)
+        m, n_leads = 4, 2
+        half = len(SMALL_LON) // 2
+        var = VARIABLES[:1]
+
+        full_members = [
+            torch.randn(m, 1, len(SMALL_LAT), len(SMALL_LON)) for _ in range(n_leads)
+        ]
+        full_truths = [
+            torch.randn(1, len(SMALL_LAT), len(SMALL_LON)) for _ in range(n_leads)
+        ]
+
+        masked_members, masked_truths, valids = [], [], []
+        trim_members, trim_truths = [], []
+        for f, y in zip(full_members, full_truths):
+            valid = torch.zeros(1, len(SMALL_LAT), len(SMALL_LON), dtype=torch.bool)
+            valid[:, :, :half] = True
+            valids.append(valid)
+
+            f_masked = f.clone()
+            f_masked[:, :, :, half:] = float("nan")
+            masked_members.append(f_masked)
+            masked_truths.append(y)
+
+            trim_members.append(f[:, :, :, :half].clone())
+            trim_truths.append(y[:, :, :half].clone())
+
+        settings = _settings(tmp_path, crps=True, pairwise_comm_dtype="float64")
+        got_masked = _run_crps(
+            settings, masked_members, masked_truths, variables=var, valid=valids
+        )
+        got_trimmed = _run_crps(settings, trim_members, trim_truths, variables=var)
+
+        assert not torch.isnan(got_masked).any()
+        assert torch.allclose(got_masked, got_trimmed, atol=1e-9)
+
+
+# ---------------------------------------------------------------------------
 # Fair CRPS (phase 3)
 # ---------------------------------------------------------------------------
 
@@ -638,12 +817,26 @@ def _reference_fair_crps(f: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return value
 
 
-def _run_crps(settings, members: list[torch.Tensor], truths: list[torch.Tensor]):
+def _run_crps(
+    settings,
+    members: list[torch.Tensor],
+    truths: list[torch.Tensor],
+    variables: list[str] | None = None,
+    valid: list[torch.Tensor] | None = None,
+):
     """Drive FairCRPS over a sequence of lead steps on a single-rank group.
 
     Returns the finalized ``[lead, variable]`` CRPS, so the caller checks
     what ``finalize_stats`` would write rather than the raw terms — which
     is where a deferral-bookkeeping bug would show up.
+
+    *variables* narrows the variable list ``FairCRPS`` sees (default: the
+    full ``VARIABLES``).  *valid* is a per-lead list of ``[variable, lat,
+    lon]`` boolean masks (default: all-True — nothing excluded); the
+    weighted-mean normalizer is derived mask-aware from the first lead's
+    context, matching ``WeightSum``'s per-variable ``w_sum`` rather than a
+    single scalar, so a caller that passes a mask gets the same
+    normalization the real store would.
     """
     from src.online import FairCRPS
 
@@ -652,14 +845,16 @@ def _run_crps(settings, members: list[torch.Tensor], truths: list[torch.Tensor])
     weights = build_spatial_weights(
         OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), lat_weights=True
     )
-    w_sum = float(weights.expand(len(SMALL_LAT), len(SMALL_LON)).sum())
     n_leads = len(members)
+    all_variables = list(variables) if variables is not None else list(VARIABLES)
+    n_variables = truths[0].shape[0]
 
-    stat = FairCRPS(settings, list(VARIABLES))
-    stat.reset(n_leads, len(VARIABLES), m, torch.device("cpu"))
+    stat = FairCRPS(settings, all_variables)
+    stat.reset(n_leads, n_variables, m, torch.device("cpu"))
 
     contexts = []
     for lead, (f, y) in enumerate(zip(members, truths)):
+        v = valid[lead] if valid is not None else torch.ones_like(y, dtype=torch.bool)
         ctx = StepContext(
             lead_index=lead,
             valid_time=np.datetime64("2024-01-01T00", "ns"),
@@ -668,7 +863,7 @@ def _run_crps(settings, members: list[torch.Tensor], truths: list[torch.Tensor])
             f_local=f,
             d_local=f - y,
             weights=weights,
-            w_sum=w_sum,
+            valid=v,
             n_spatial=2,
             ensemble_size=m,
             member_ids=tuple(range(m)),
@@ -678,6 +873,9 @@ def _run_crps(settings, members: list[torch.Tensor], truths: list[torch.Tensor])
         stat.update(ctx)
     stat.flush(contexts[-1])
 
+    # Assumes a constant mask across leads (true for every caller here) —
+    # the first context's mask-aware normalizer applies to all of them.
+    w_sum = contexts[0].wsum_valid()
     state = stat.state()
     return state["crps_t1"] / (m * w_sum) - state["crps_t2"] / (
         m * (m - 1) * w_sum
