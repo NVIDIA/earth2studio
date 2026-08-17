@@ -409,7 +409,9 @@ class TestGHCNMock:
 
             # More stations than _BY_STATION_MAX_STATIONS -> by_year
             # fallback, 300s per-attempt timeout
-            many_stations = [f"USW{i:08d}" for i in range(ds._BY_STATION_MAX_STATIONS + 1)]
+            many_stations = [
+                f"USW{i:08d}" for i in range(ds._BY_STATION_MAX_STATIONS + 1)
+            ]
             ds_many = GHCNDaily(
                 stations=many_stations,
                 time_tolerance=timedelta(days=0),
