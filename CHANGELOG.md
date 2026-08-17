@@ -36,6 +36,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated GHCNDaily and GHCNHourly data sources to obstore; GHCNDaily
   station-scale requests now fetch per-station parquet files instead of
   global by_year partitions (~25x faster)
+- Migrated JPSS VIIRS, ATMS, and CrIS data sources from s3fs to obstore;
+  day-directory listings of completed days are memoized per instance while
+  in-progress days are always re-listed, and the CrIS SDR/GEO dual listings
+  remain concurrent
+- Vectorized the JPSS ATMS BUFR decode (numpy column assembly + Arrow table
+  accumulation instead of per-row dicts), roughly halving end-to-end fetch
+  time; decoded output is bit-identical to the previous implementation
+- JPSS VIIRS HDF5 decode now runs in worker threads (serialized by an HDF5
+  lock) so decoding no longer blocks concurrent granule downloads
+- JPSS ATMS now decodes each BUFR file as soon as its download completes
+  (pipelined with in-flight downloads, one decode per unique file) instead
+  of decoding after all downloads finish
+- JPSS CrIS granule downloads now fetch large objects as concurrent byte
+  ranges (1 MiB x 8 streams per file) instead of one single-stream GET,
+  roughly halving fetch time for typical requests
 - Migrated ISD, IBTrACS, CFS reforecast, and OPERA data sources from
   fsspec/s3fs to obstore
 - CFS reforecast grib decoding now resolves all requested variables in a
