@@ -256,3 +256,33 @@ at one rank count and silently lose data at another, so prefer the first layout.
 Separately, and independent of sharding: arrays are created lazily on the first write, so
 several ranks writing a new array at once can race on its creation. Have one rank
 establish the arrays before the others begin writing.
+
+### Writing to cloud object storage
+
+For cloud outputs, pass the `store` parameter instead of `fs_factory`. This routes all
+writes through an [obstore](https://developmentseed.org/obstore/latest/)-backed
+`zarr.storage.ObjectStore`, which uses native put and multipart-upload requests rather
+than fsspec sessions. The parameter accepts a store URL, an obstore store instance, or
+an already constructed zarr store:
+
+```python
+# URL form: credentials resolved from the environment
+io = AsyncZarrBackend(
+    "unused",  # location comes from the store
+    parallel_coords=OrderedDict({"time": times, "lead_time": lead_times}),
+    store="s3://my-bucket/forecasts/run-001.zarr",
+    store_kwargs={"region": "us-east-1"},
+)
+
+# Instance form: full control over store construction
+from obstore.store import S3Store
+io = AsyncZarrBackend(
+    "unused",
+    parallel_coords=OrderedDict({"time": times, "lead_time": lead_times}),
+    store=S3Store("my-bucket", prefix="forecasts/run-001.zarr"),
+)
+```
+
+`file_name` and `fs_factory` are ignored when `store` is set. Everything else —
+non-blocking writes, sharding, restarts — behaves identically; the loop pool shares a
+single store instance, matching the shared state of the remote bucket.
