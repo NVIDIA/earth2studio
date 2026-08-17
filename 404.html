@@ -25,20 +25,22 @@
       
     
     
+  
       
         
       
-      <link rel="stylesheet" href="/earth2studio/assets/stylesheets/modern/main.20815dad.min.css">
+      <link rel="stylesheet" href="/earth2studio/main/assets/stylesheets/modern/main.20815dad.min.css">
       
         
           
         
-        <link rel="stylesheet" href="/earth2studio/assets/stylesheets/modern/palette.dfe2e883.min.css">
+        <link rel="stylesheet" href="/earth2studio/main/assets/stylesheets/modern/palette.dfe2e883.min.css">
       
       
 
 
     
+
     
       
     
@@ -124,10 +126,50 @@
     return `${pageUrl.origin}${root}/main/${normalizedPath}${pageUrl.search}${pageUrl.hash}`;
   }
 
+  function currentDocsResourceUrl(value, locationValue, siteUrl) {
+    const pageUrl = new URL(locationValue.href);
+    const resourceUrl = new URL(value, pageUrl.origin);
+    if (resourceUrl.origin !== pageUrl.origin) return value;
+
+    const root = documentationRoot(siteUrl, pageUrl);
+    for (const directory of ["assets", "_static"]) {
+      const source = `${root}/${directory}/`;
+      if (resourceUrl.pathname.startsWith(source)) {
+        resourceUrl.pathname = `${root}/main/${directory}/${resourceUrl.pathname.slice(source.length)}`;
+        return resourceUrl.href;
+      }
+    }
+    return value;
+  }
+
+  function rebaseCurrentDocsResources(documentValue, locationValue, siteUrl) {
+    const rewrite = function (element) {
+      for (const attribute of ["href", "src"]) {
+        if (!element.hasAttribute || !element.hasAttribute(attribute)) continue;
+        const value = element.getAttribute(attribute);
+        const rebased = currentDocsResourceUrl(value, locationValue, siteUrl);
+        if (rebased !== value) element.setAttribute(attribute, rebased);
+      }
+    };
+
+    documentValue.querySelectorAll("link[href], script[src], img[src]").forEach(rewrite);
+    new MutationObserver(function (records) {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          rewrite(node);
+          node.querySelectorAll?.("link[href], script[src], img[src]").forEach(rewrite);
+        }
+      }
+    }).observe(documentValue.documentElement, { childList: true, subtree: true });
+  }
+
   const api = {
+    currentDocsResourceUrl,
     documentationRoot,
     mainDocumentationUrl,
     normalizeMarkdownPath,
+    rebaseCurrentDocsResources,
     redirectTarget,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
@@ -135,6 +177,7 @@
 
   const script = browser.document.currentScript;
   const siteUrl = script && script.dataset.siteUrl ? script.dataset.siteUrl : "/";
+  rebaseCurrentDocsResources(browser.document, browser.location, siteUrl);
   const target = redirectTarget(browser.location, siteUrl);
   if (target && target !== browser.location.href) {
     browser.location.replace(target);
@@ -2525,9 +2568,9 @@
     <p class="e2s-section-kicker">404</p>
     <h1 id="e2s-404-title">Documentation page not found</h1>
     <p>
-      We also checked the equivalent path in the current main documentation,
-      but no page was found. Start from the main documentation, or browse the
-      archived versioned docs if you are looking for an older page.
+      The Earth2Studio documentation structure was recently rebuilt, so some
+      older links may have moved. Start from the current main documentation, or
+      browse the archived versioned docs if you are looking for an older page.
     </p>
     <div class="e2s-404__actions">
       <a class="e2s-404__button e2s-404__button--primary e2s-home-button" data-e2s-main-docs href="https://nvidia.github.io/earth2studio/">
@@ -2537,7 +2580,7 @@
         </svg>
       </a>
       <a class="e2s-404__button e2s-home-button" href="https://github.com/NVIDIA/earth2studio/tree/gh-pages/v">
-        <span>Go to old docs</span>
+        <span>Go to Old Docs</span>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 12h14M13 6l6 6-6 6"></path>
         </svg>
@@ -2605,23 +2648,27 @@
     
     
     
+  
       
       
-      <script id="__config" type="application/json">{"annotate":null,"base":"/earth2studio","features":["announce.dismiss","navigation.tabs","navigation.tabs.sticky","navigation.indexes","navigation.top","navigation.footer","search.highlight","search.suggest","toc.follow","content.code.copy","content.code.annotate"],"search":"/earth2studio/assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"provider":"mike"}}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"/earth2studio/main","features":["announce.dismiss","navigation.tabs","navigation.tabs.sticky","navigation.indexes","navigation.top","navigation.footer","search.highlight","search.suggest","toc.follow","content.code.copy","content.code.annotate"],"search":"/earth2studio/main/assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"provider":"mike"}}</script>
     
+
     
-      <script src="/earth2studio/assets/javascripts/bundle.69c251d7.min.js"></script>
+  
+      <script src="/earth2studio/main/assets/javascripts/bundle.69c251d7.min.js"></script>
       
-        <script src="/earth2studio/assets/javascripts/e2s-landing.js"></script>
+        <script src="/earth2studio/main/assets/javascripts/e2s-landing.js"></script>
       
-        <script src="/earth2studio/assets/javascripts/e2s-install-selector.js"></script>
+        <script src="/earth2studio/main/assets/javascripts/e2s-install-selector.js"></script>
       
-        <script src="/earth2studio/assets/javascripts/e2s-catalog.js"></script>
+        <script src="/earth2studio/main/assets/javascripts/e2s-catalog.js"></script>
       
-        <script src="/earth2studio/assets/javascripts/mathjax.js"></script>
+        <script src="/earth2studio/main/assets/javascripts/mathjax.js"></script>
       
         <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
+
   </body>
 </html>
