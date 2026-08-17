@@ -13,10 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added Zarr v3 sharding support to `AsyncZarrBackend`
-- Added a `store` parameter to `AsyncZarrBackend` accepting a store URL, obstore
-  store instance, or zarr store, so cloud output writes go through an
-  obstore-backed `zarr.storage.ObjectStore` (native put / multipart upload)
-  instead of fsspec sessions
+- Added obstore support to `AsyncZarrBackend` via a new `store` parameter
+  (store URL, obstore store, or zarr store)
 - Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
   `NNJAObsSat`, returned as brightness temperature (K) with per-channel
   wavenumbers alongside the existing microwave sensors

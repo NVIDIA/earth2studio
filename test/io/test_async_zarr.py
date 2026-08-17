@@ -1317,6 +1317,51 @@ def test_async_zarr_object_store_memory_url() -> None:
     assert np.allclose(stored, x.numpy())
 
 
+def test_async_zarr_object_store_ignores_fs_factory() -> None:
+    """fs_factory and file_name are ignored (not validated) when a store is
+    provided; the store path wins over a callable fs_factory"""
+    time = np.array([np.datetime64("2024-01-01")])
+    z = AsyncZarrBackend(
+        None,  # file_name not required on the store path
+        parallel_coords=OrderedDict({"time": time}),
+        fs_factory=None,  # non-callable placeholder must not raise
+        store="memory:///",
+    )
+    assert z.fs is None
+
+    total_coords = _store_coords(time)
+    x = torch.randn(1, 16, 32)
+    z.write(x, total_coords, "fields")
+    z.close()
+    stored = zarr.open_group(z._object_store, mode="r")["fields"][:]
+    assert np.allclose(stored, x.numpy())
+
+    # A callable fs_factory alongside a store still takes the store path
+    z2 = AsyncZarrBackend(
+        None,
+        parallel_coords=OrderedDict({"time": time}),
+        fs_factory=LocalFileSystem,
+        store="memory:///",
+    )
+    assert z2.fs is None
+    assert all(fs is None for fs in z2.fs_pool)
+
+    # Without a store, file_name is still required
+    with pytest.raises(ValueError):
+        AsyncZarrBackend(None, parallel_coords=OrderedDict({"time": time}))
+
+    # store_kwargs only applies to URL stores
+    import obstore.store
+
+    with pytest.raises(ValueError):
+        AsyncZarrBackend(
+            None,
+            parallel_coords=OrderedDict({"time": time}),
+            store=obstore.store.MemoryStore(),
+            store_kwargs={"region": "us-east-1"},
+        )
+
+
 def test_async_zarr_object_store_local_instance(tmp_path: str) -> None:
     """store as obstore store instance, on-disk layout readable by plain zarr"""
     import obstore.store

@@ -23,7 +23,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 # import threading
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import fsspec
 import fsspec.asyn
@@ -37,6 +37,9 @@ from zarr import AsyncGroup
 from zarr.core.array import CompressorsLike
 
 from earth2studio.utils.type import CoordSystem
+
+if TYPE_CHECKING:
+    import obstore.store
 
 # https://github.com/pytorch/pytorch/blob/e180ca652f8a38c479a3eff1080efe69cbc11621/torch/testing/_internal/common_utils.py#L349
 torch_to_numpy_dtype_dict = {
@@ -231,9 +234,10 @@ class AsyncZarrBackend:
 
     Parameters
     ----------
-    file_name : str
-        Path location to place zarr store. Ignored when `store` is provided, since
-        the store then defines the output location.
+    file_name : str | None
+        Path location to place zarr store. Required unless `store` is provided,
+        in which case it is ignored (the store then defines the output location)
+        and may be None.
     parallel_coords : CoordSystem
         Coordinates that enable parallel writes during inference. These coordinates
         specify which dimensions will be written in parallel via async operations,
@@ -242,10 +246,10 @@ class AsyncZarrBackend:
         These coordinates should contain the complete set of values needed for the
         entire  inference pipeline. The remaining coordinates of a given array will be
         populated upon the first write to the respective array.
-    fs_factory : Callable[..., fsspec.spec.AbstractFileSystem], optional
+    fs_factory : Callable[..., fsspec.spec.AbstractFileSystem] | None, optional
         FSSpec file system factory method. This is a callable object that should return
         an instance of the desired filesystem to use, by default LocalFileSystem.
-        Ignored when `store` is provided.
+        Ignored (and not validated) when `store` is provided.
     blocking : bool, optional
         Blocking write calls in the synchronous API. When set to false, the IO backend
         will execute write calls in separate threads. Users should call the `close()`
@@ -296,9 +300,10 @@ class AsyncZarrBackend:
     ImportError
         If Zarr 2.0 is installed. This io backend only supports Zarr 3.0
     TypeError
-        If fs_factory is not a callable, this should be a callable method not an object
+        If fs_factory is not a callable when no `store` is provided
     ValueError
-        If a `shard_coords` value is not positive
+        If a `shard_coords` value is not positive, if neither `file_name` nor
+        `store` is provided, or if `store_kwargs` is passed with a non-URL store
 
     Notes
     -----
@@ -331,9 +336,11 @@ class AsyncZarrBackend:
 
     def __init__(
         self,
-        file_name: str,
+        file_name: str | None,
         parallel_coords: CoordSystem,
-        fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] = LocalFileSystem,
+        fs_factory: (
+            Callable[..., fsspec.spec.AbstractFileSystem] | None
+        ) = LocalFileSystem,
         blocking: bool = True,
         pool_size: int = 8,
         async_timeout: int = 600,
@@ -342,23 +349,28 @@ class AsyncZarrBackend:
         chunked_coords: dict[str, int] = {},
         shard_coords: dict[str, int] = {},
         max_inflight_shards: int = 4,
-        store: str | zarr.abc.store.Store | Any | None = None,
+        store: "str | zarr.abc.store.Store | obstore.store.ObjectStore | None" = None,
         store_kwargs: dict[str, Any] = {},
     ) -> None:
         # May need to trigger warning about this, needed to handle multi-threading!
         # But silent for now since people wont know what this means / get confused by an error message I think
         AsyncFileSystem.cachable = False
 
-        if not callable(fs_factory):
-            raise TypeError(
-                "fs_factory must be a callable that returns a fsspec.spec.AbstractFileSystem"
-            )
-
         # Obstore-backed output store; when set the fsspec machinery is bypassed
         # and every loop in the pool shares this single store instance (obstore
         # binds each request to the calling event loop, so cross-loop sharing is
         # safe and mirrors the shared state of the remote object store)
         self._object_store = self._resolve_store(store, store_kwargs)
+
+        # `store` takes precedence; `fs_factory` and `file_name` only matter on
+        # the fsspec path, so they are validated only when no store is given
+        if self._object_store is None:
+            if file_name is None:
+                raise ValueError("file_name is required when no store is provided")
+            if not callable(fs_factory):
+                raise TypeError(
+                    "fs_factory must be a callable that returns a fsspec.spec.AbstractFileSystem"
+                )
 
         self.overwrite = False  # Not formally supported
         self.parallel_coords = self._scrub_coordinates(parallel_coords.copy())
@@ -423,14 +435,14 @@ class AsyncZarrBackend:
 
     @staticmethod
     def _resolve_store(
-        store: str | zarr.abc.store.Store | Any | None,
+        store: "str | zarr.abc.store.Store | obstore.store.ObjectStore | None",
         store_kwargs: dict[str, Any],
     ) -> zarr.abc.store.Store | None:
         """Resolves the `store` parameter into a zarr store, or None.
 
         Parameters
         ----------
-        store : str | zarr.abc.store.Store | Any | None
+        store : str | zarr.abc.store.Store | obstore.store.ObjectStore | None
             Store URL (resolved with ``obstore.store.from_url``), obstore store
             instance, already constructed zarr store, or None for the fsspec path
         store_kwargs : dict[str, Any]
@@ -443,11 +455,22 @@ class AsyncZarrBackend:
         """
         if store is None:
             return None
+        if store_kwargs and not isinstance(store, str):
+            raise ValueError(
+                "store_kwargs only applies when store is a URL string; "
+                "configure the provided store instance directly instead"
+            )
         if isinstance(store, zarr.abc.store.Store):
             if store.read_only:
                 raise ValueError(
                     "Provided zarr store is read-only; the IO backend needs a "
                     "writable store"
+                )
+            if isinstance(store, zarr.storage.FsspecStore):
+                raise ValueError(
+                    "FsspecStore binds its filesystem to a single event loop and "
+                    "cannot be shared across this backend's loop pool; use the "
+                    "fs_factory parameter for fsspec-backed writes instead"
                 )
             return store
 
@@ -498,8 +521,8 @@ class AsyncZarrBackend:
 
     async def _initialize_zarr_group(
         self,
-        root: str,
-        fs_factory: Callable[..., fsspec.spec.AbstractFileSystem],
+        root: str | None,
+        fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] | None,
         zarr_kwargs: dict[str, Any] = {},
     ) -> tuple[AsyncGroup, fsspec.AbstractFileSystem | None]:
         """Initializes both the fsspec filesystem and zarr group, its critical this
@@ -507,10 +530,10 @@ class AsyncZarrBackend:
 
         Parameters
         ----------
-        root : str
-            Root location of the zarr store
-        fs_factory : Callable[..., fsspec.spec.AbstractFileSystem]
-            fsspec factory method
+        root : str | None
+            Root location of the zarr store; unused on the object-store path
+        fs_factory : Callable[..., fsspec.spec.AbstractFileSystem] | None
+            fsspec factory method; unused on the object-store path
         zarr_kwargs : dict[str, Any], optional
             Zarr open key word arguments, by default {}
 
@@ -521,9 +544,18 @@ class AsyncZarrBackend:
             store is used, which needs no fsspec session handling)
         """
         if self._object_store is not None:
+            # One shared store yields identical groups, so reuse the first and
+            # skip a redundant metadata round trip per pool loop (obstore binds
+            # each request to the calling loop, so cross-loop reuse is safe)
+            if len(self.zarr_pool) > 0:
+                return self.zarr_pool[0], None
             fs = None
             zstore: zarr.abc.store.Store = self._object_store
         else:
+            if fs_factory is None or root is None:
+                raise ValueError(
+                    "fs_factory and file_name are required when no store is provided"
+                )
             fs = fs_factory()
             if "local" in fs.protocol:
                 zstore = zarr.storage.LocalStore(root=root)
@@ -1308,13 +1340,14 @@ class AsyncZarrBackend:
         x = {key: value.detach().cpu().numpy() for key, value in x.items()}
 
         # If fsspec store has a aiohttp session, collect it so we can then close it
-        # manually...
+        # manually... (fs is None on the object-store path, which manages its own)
         # https://s3fs.readthedocs.io/en/latest/#async
         session = None
-        try:
-            session = await fs.set_session(refresh=True)
-        except AttributeError:
-            pass
+        if fs is not None:
+            try:
+                session = await fs.set_session(refresh=True)
+            except AttributeError:
+                pass
 
         # Start with building a list of slices for every array and index that needs to
         # be written
