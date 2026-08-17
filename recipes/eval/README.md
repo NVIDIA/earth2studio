@@ -517,6 +517,38 @@ When `resume=true`, the `output.overwrite` setting is ignored — existing
 data is never deleted.  When all items are complete, subsequent runs exit
 immediately with a success message.
 
+## IO backend and sharding
+
+By default the recipe writes through `AsyncZarrBackend`, which runs
+`output.thread_writers` writer threads of its own and supports Zarr v3
+sharding.  Setting `output.io_backend: zarr` falls back to `ZarrBackend`,
+which writes synchronously (`thread_writers` is ignored there).
+
+```yaml
+output:
+    io_backend: async_zarr
+    shard_coords: {lead_time: 8}
+    max_inflight_shards: 4
+```
+
+Note that larger *chunks* are not the alternative: `time`, `lead_time` and
+`ensemble` are written one slice at a time, so a chunk spanning several of them
+would let concurrent writes read-modify-write the same object and lose one of
+them.  `OutputManager` rejects a chunk size other than 1 on those axes.
+
+Only `lead_time` is safe to shard on a multi-rank run.  `time` and `ensemble`
+are the distributed axes, and shard buffering is per-process, so a shard
+spanning two ranks is written in full by both and the later write silently
+discards the other's data.  `OutputManager` rejects sharding those axes
+whenever the world size is greater than one.  Sharding also interacts with
+resume: `flush()` runs after every work item there, writing out any incomplete
+shard, and re-entering that shard later falls back to a read-modify-write of
+the whole object.  Sharding on `lead_time` only avoids this.  Predownload
+stores hold a single `lead_time` and are always written unsharded.
+
+Reading a sharded store requires zarr ≥ 3 (and a correspondingly recent
+xarray); readers on zarr 2.x fail with a codec error.
+
 ## Configuration
 
 All configuration lives under `cfg/` and uses [Hydra](https://hydra.cc/docs/intro/).

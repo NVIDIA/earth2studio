@@ -6,7 +6,7 @@ Presently we expect new functionality to have over 90% coverage within reason.
 The core tool used for testing in Earth2Studio is [pytest](https://docs.pytest.org/en/8.2.x/)
 and all unit tests can be found inside the [test](https://github.com/NVIDIA/earth2studio/tree/main/test)
 folder.
-Ensure that developer dependencies are installed as outlined in {ref}`developer_overview`.
+Ensure that developer dependencies are installed as outlined in [Developer Overview](overview.md#developer_overview).
 Run `make` targets below from the repository root (the directory that contains `Makefile`
 and `pyproject.toml`).
 
@@ -114,10 +114,9 @@ uv run pytest --slow test/
 uv run pytest test/data/test_gfs.py
 ```
 
-:::{note}
-When running pytest directly, ensure you have the appropriate dependencies installed
-for the tests you're running. The tox environments handle dependency management automatically.
-:::
+!!! note
+    When running pytest directly, ensure you have the appropriate dependencies installed
+    for the tests you're running. The tox environments handle dependency management automatically.
 
 ### CI Pipeline Structure
 

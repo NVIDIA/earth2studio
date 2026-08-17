@@ -178,7 +178,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:na class:nwc product:wind product:temp product:precip product:radar product:atmos year:2026 gpu:24gb
+    region:na class:nowcasting product:wind product:temp product:precip product:radar product:atmos year:2026 gpu:24gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(
@@ -686,7 +687,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Iterator wrapper around :meth:`create_generator` without observation input."""
+        """Iterator wrapper around ``create_generator`` without observation input."""
         yield from self.create_generator(x, coords)
 
     def _get_conditioning(

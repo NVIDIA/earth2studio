@@ -42,6 +42,7 @@ class DerivedWS(torch.nn.Module):
     Badges
     ------
     region:global product:wind product:atmos
+    provider:nvidia backend:pytorch
     """
 
     def __init__(self, levels: list[int | str] = [100]) -> None:
@@ -133,6 +134,7 @@ class DerivedRH(torch.nn.Module):
     Badges
     ------
     region:global product:atmos
+    provider:nvidia backend:pytorch
     """
 
     def __init__(self, levels: list[int | str] = [100]) -> None:
@@ -233,6 +235,7 @@ class DerivedRHDewpoint(torch.nn.Module):
     Badges
     ------
     region:global product:atmos
+    provider:nvidia backend:pytorch
     """
 
     def __init__(self) -> None:
@@ -338,6 +341,7 @@ class DerivedVPD(torch.nn.Module):
     Badges
     ------
     region:global product:veg product:atmos
+    provider:nvidia backend:pytorch
     """
 
     def __init__(self, levels: list[int | str] = [100]) -> None:
@@ -441,6 +445,7 @@ class DerivedSurfacePressure(torch.nn.Module):
     Badges
     ------
     region:global product:atmos
+    provider:nvidia backend:pytorch
     """
 
     Rs = 287.053  # gas constant for dry air (J/kg/K)
@@ -666,6 +671,7 @@ class DerivedTCWV(torch.nn.Module):
     Badges
     ------
     region:global product:atmos
+    provider:nvidia backend:pytorch
     """
 
     g = 9.8067  # Earth's gravitational constant (m/s**2)

@@ -21,6 +21,7 @@ import torch
 from earth2studio.utils.type import CoordSystem
 
 
+# --8<-- [start:statistic-interface]
 @runtime_checkable
 class Statistic(Protocol):
     """Statistic interface."""
@@ -64,6 +65,10 @@ class Statistic(Protocol):
         pass
 
 
+# --8<-- [end:statistic-interface]
+
+
+# --8<-- [start:metric-interface]
 @runtime_checkable
 class Metric(Protocol):
     """Metrics interface."""
@@ -113,3 +118,6 @@ class Metric(Protocol):
             `reduction_dimensions` must be in coords.
         """
         pass
+
+
+# --8<-- [end:metric-interface]
