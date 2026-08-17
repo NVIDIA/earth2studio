@@ -191,7 +191,6 @@ gencast = [
     "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
-    "xarray<2026.4.0", # https://github.com/google-deepmind/weathernext
 ]
 graphcast = [
     "weathernext; python_version >= '3.12'",
@@ -199,7 +198,6 @@ graphcast = [
     "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
-    "xarray<2026.4.0", # https://github.com/google-deepmind/weathernext
 ]
 interp-modafno = [
     "nvidia-physicsnemo>=2.0",

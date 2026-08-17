@@ -2061,7 +2061,6 @@ all = [
     { name = "urllib3" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "weathernext", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "xarray" },
 ]
 atlas = [
     { name = "einops" },
@@ -2177,7 +2176,6 @@ gencast = [
     { name = "flax" },
     { name = "jax", extra = ["cuda13"] },
     { name = "weathernext", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "xarray" },
 ]
 graphcast = [
     { name = "dm-haiku" },
@@ -2185,7 +2183,6 @@ graphcast = [
     { name = "flax" },
     { name = "jax", extra = ["cuda13"] },
     { name = "weathernext", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "xarray" },
 ]
 interp-modafno = [
     { name = "nvidia-physicsnemo" },
@@ -2574,9 +2571,6 @@ requires-dist = [
     { name = "weathernext", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/google-deepmind/weathernext.git?rev=9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" },
     { name = "weathernext", marker = "python_full_version >= '3.12' and extra == 'gencast'", git = "https://github.com/google-deepmind/weathernext.git?rev=9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" },
     { name = "weathernext", marker = "python_full_version >= '3.12' and extra == 'graphcast'", git = "https://github.com/google-deepmind/weathernext.git?rev=9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" },
-    { name = "xarray", marker = "extra == 'all'", specifier = "<2026.4.0" },
-    { name = "xarray", marker = "extra == 'gencast'", specifier = "<2026.4.0" },
-    { name = "xarray", marker = "extra == 'graphcast'", specifier = "<2026.4.0" },
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=3.1.3" },
 ]
