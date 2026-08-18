@@ -388,43 +388,31 @@ print(
 # %%
 # Remote Non-Blocking Async Zarr IO
 # ----------------------------------
-# This IO backend can be further customized by changing the Fsspec Filesystem used by
-# the Zarr store which can be controlled via the `fs_factory` parameter.
-# Note that this is a factory method, the IO backend will need to create multiple
-# instances of the file system.
-# Some examples that may be of interest are:
+# This IO backend can also write directly to remote object storage through the
+# `store` parameter, which accepts a plain local path, a store URL (``s3://``,
+# ``gs://``, ``file://``), an obstore store instance, or an already constructed
+# zarr store. Cloud writes go through obstore's native put / multipart upload,
+# which is faster and more robust than routing through fsspec sessions.
 #
-# - `from fsspec.implementations.local import LocalFileSystem` (Default, local store)
-# - `from fsspec.implementations.memory import MemoryFileSystem` (in-memory store)
-# - `from s3fs import S3FileSystem` (Remote S3 store)
-#
-# For sake of example, lets have a look at writing to a remote store would require.
-# Compression is a must in this instances, since we need to minimize the data transfer
-# over the network.
-# The file system factory is set to S3 with the appropiate credentials in a partial
-# callable object.
-# Lastly we can increase the max number of thread workers with the `pool_size` parameter
-# to further boost performance.
+# For sake of example, lets have a look at what writing to a remote store would
+# require. Compression is a must in this instance, since we need to minimize the
+# data transfer over the network. Credentials are resolved from the environment
+# by obstore, or can be passed explicitly via `store_kwargs` as done here.
+# Lastly we can increase the max number of thread workers with the `pool_size`
+# parameter to further boost performance.
 
 # %%
 
-import functools
-
-import s3fs
-
 if "S3FS_KEY" in os.environ and "S3FS_SECRET" in os.environ:
-    # Remember, needs to be a callable
-    fs_factory = functools.partial(
-        s3fs.S3FileSystem,
-        key=os.environ["S3FS_KEY"],
-        secret=os.environ["S3FS_SECRET"],
-        client_kwargs={"endpoint_url": os.environ.get("S3FS_ENDPOINT", None)},
-        asynchronous=True,
-    )
     io = AsyncZarrBackend(
-        "earth2studio/ci/example/17_io_async.zarr",
+        None,
         parallel_coords=parallel_coords,
-        fs_factory=fs_factory,
+        store="s3://earth2studio/ci/example/17_io_async.zarr",
+        store_kwargs={
+            "access_key_id": os.environ["S3FS_KEY"],
+            "secret_access_key": os.environ["S3FS_SECRET"],
+            "endpoint": os.environ.get("S3FS_ENDPOINT", None),
+        },
         blocking=False,
         pool_size=16,
         zarr_codecs=zarr.codecs.BloscCodec(
@@ -436,6 +424,7 @@ if "S3FS_KEY" in os.environ and "S3FS_SECRET" in os.environ:
     io.close()
 
     # To clean up the zarr store you can use
+    # import s3fs
     # fs = s3fs.S3FileSystem(
     #     key=os.environ["S3FS_KEY"],
     #     secret=os.environ["S3FS_SECRET"],

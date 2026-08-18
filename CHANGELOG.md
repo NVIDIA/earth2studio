@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added Zarr v3 sharding support to `AsyncZarrBackend`
+- Added obstore support to `AsyncZarrBackend` via a new `store` parameter
+  (store URL, obstore store, or zarr store)
 - Added a working `add_array` plus `__contains__`, `__getitem__`, `__iter__`,
   `__len__`, `store` and `coords` to `AsyncZarrBackend`, matching `ZarrBackend`, and
   `output.io_backend` to the eval recipe to select between them (`async_zarr` is the
@@ -67,6 +69,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (day, variable) slices instead of being streamed per slice over fsspec
 
 ### Deprecated
+
+- Deprecated the `fs_factory` parameter of `AsyncZarrBackend` in favor of
+  `store`; the default local write path no longer uses fsspec
 
 ### Removed
 
