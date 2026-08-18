@@ -379,15 +379,21 @@ body .md-grid {
   align-items: center;
   margin-top: 0;
   margin-bottom: 0;
+  margin-right: 0;
   padding-top: 0;
   padding-bottom: 0;
+  padding-right: 0.15rem;
 }
 
 .md-header__button.md-logo img,
 .md-header__button.md-logo svg {
   display: block;
-  height: 1.9rem; /* default Material logo height is 1.2rem */
+  height: 2.2rem; /* default Material logo height is 1.2rem */
   width: auto;
+}
+
+.md-header__title {
+  margin-left: 0.3rem; /* default is 1rem; pull "Earth2Studio" closer to the logo */
 }
 
 .md-tabs__link[href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"]::after,
