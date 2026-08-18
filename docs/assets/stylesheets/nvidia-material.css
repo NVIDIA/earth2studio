@@ -246,7 +246,8 @@ body .md-grid {
    too faint/small against our dark header to read the star/fork counts. */
 .md-header .md-source__facts {
   font-size: 0.68rem;
-  opacity: 0.95;
+  opacity: 1;
+  color: #fff !important;
 }
 
 .md-banner,
