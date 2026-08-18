@@ -186,20 +186,18 @@ fuxi = [
     "onnxruntime-gpu>=1.21.0",
 ]
 gencast = [
-    "graphcast",
+    "weathernext; python_version >= '3.12'",
     "dm-haiku>=0.0.14",
     "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
-    "xarray<2026.4.0", # https://github.com/google-deepmind/graphcast/issues/213
 ]
 graphcast = [
-    "graphcast",
+    "weathernext; python_version >= '3.12'",
     "dm-haiku>=0.0.14",
     "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
-    "xarray<2026.4.0", # https://github.com/google-deepmind/graphcast/issues/213
 ]
 interp-modafno = [
     "nvidia-physicsnemo>=2.0",
@@ -352,7 +350,7 @@ cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d70
 cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "f0f519987589cc0b368ab892a1adfb2fb30a5587" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" }
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "b38fcb2799d7dbc146fa60459f3f9823394a8bf1"}
-graphcast = { git = "https://github.com/google-deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
+weathernext = { git = "https://github.com/google-deepmind/weathernext.git", rev = "9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
 fme = { git = "https://github.com/ai2cm/ace.git", rev = "e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" }
 # Specific source for each of the current torch-harmonics models, avoiding ace2 conflicts until they update torch-harmonics

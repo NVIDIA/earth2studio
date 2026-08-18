@@ -24,10 +24,12 @@ import torch
 import xarray as xr
 
 try:
-    from graphcast import denoiser, graphcast
-    from graphcast import gencast as gencast_module
+    from weathernext.utils import variables
+    from weathernext.weathernext1_gen import denoiser
+    from weathernext.weathernext1_gen import gencast as gencast_module
+    from weathernext.weathernext1_graph import graphcast
 except ImportError:
-    pytest.importorskip("graphcast")
+    pytest.importorskip("weathernext")
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px.gencast_mini import (
@@ -101,15 +103,15 @@ def _build_fake_ckpt(n_lat: int, n_lon: int):
     task_config = graphcast.TaskConfig(
         input_variables=(
             GENCAST_TARGET_SURFACE_NO_PRECIP_VARS
-            + graphcast.TARGET_ATMOSPHERIC_VARS
+            + gencast_module.TARGET_ATMOSPHERIC_VARS
             + tuple(GENERATED_FORCING_VARS)
             + GENCAST_STATIC_VARS
         ),
         target_variables=(
-            GENCAST_TARGET_SURFACE_VARS + graphcast.TARGET_ATMOSPHERIC_VARS
+            GENCAST_TARGET_SURFACE_VARS + gencast_module.TARGET_ATMOSPHERIC_VARS
         ),
         forcing_variables=tuple(GENERATED_FORCING_VARS),
-        pressure_levels=graphcast.PRESSURE_LEVELS_WEATHERBENCH_13,
+        pressure_levels=variables.PRESSURE_LEVELS_WEATHERBENCH_13,
         input_duration="24h",
     )
 
@@ -150,7 +152,7 @@ def _build_fake_ckpt(n_lat: int, n_lon: int):
 
 def _build_fake_stats(n_levels: int = 13):
     """Build fake normalization stats datasets."""
-    pressure_levels = list(graphcast.PRESSURE_LEVELS_WEATHERBENCH_13)
+    pressure_levels = list(variables.PRESSURE_LEVELS_WEATHERBENCH_13)
 
     static_data = {}
     for v in (
@@ -209,7 +211,7 @@ def mock_GenCastMini_model():
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@mock.patch("graphcast.rollout.chunked_prediction", mocked_chunked_prediction)
+@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
 def test_gencast_mini_call(time, device, mock_GenCastMini_model):
 
     p = mock_GenCastMini_model.to(device)
@@ -244,7 +246,7 @@ def test_gencast_mini_call(time, device, mock_GenCastMini_model):
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @mock.patch(
-    "graphcast.rollout.chunked_prediction_generator",
+    "weathernext.utils.rollout.chunked_prediction_generator",
     mocked_chunked_prediction_generator,
 )
 def test_gencast_mini_iter(ensemble, device, mock_GenCastMini_model):
