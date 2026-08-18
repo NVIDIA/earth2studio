@@ -21,6 +21,7 @@ import torch
 from earth2studio.utils.type import CoordSystem
 
 
+# --8<-- [start:perturbation-interface]
 @runtime_checkable
 class Perturbation(Protocol):
     """Perturbation interface."""
@@ -46,3 +47,6 @@ class Perturbation(Protocol):
             Output tensor and respective coordinate system dictionary
         """
         pass
+
+
+# --8<-- [end:perturbation-interface]

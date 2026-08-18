@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added Zarr v3 sharding support to `AsyncZarrBackend`
+- Added obstore support to `AsyncZarrBackend` via a new `store` parameter
+  (store URL, obstore store, or zarr store)
 - Added a working `add_array` plus `__contains__`, `__getitem__`, `__iter__`,
   `__len__`, `store` and `coords` to `AsyncZarrBackend`, matching `ZarrBackend`, and
   `output.io_backend` to the eval recipe to select between them (`async_zarr` is the
@@ -33,6 +35,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hours are memoized per instance while the current hour is always re-listed
 - Migrated Himawari AHI data source from s3fs to obstore with memoized
   minute-directory listings (scans older than an hour)
+- Migrated GHCNDaily and GHCNHourly data sources to obstore; GHCNDaily
+  station-scale requests now fetch per-station parquet files instead of
+  global by_year partitions (~25x faster), and their default
+  `async_workers` is raised from 16 to 32 since fetches are small,
+  latency-bound requests where throughput scales with concurrency
+  (roughly halves wall time again for large station lists)
+- Migrated JPSS VIIRS, ATMS, and CrIS data sources from s3fs to obstore;
+  day-directory listings of completed days are memoized per instance while
+  in-progress days are always re-listed, and the CrIS SDR/GEO dual listings
+  remain concurrent
+- Vectorized the JPSS ATMS BUFR decode (numpy column assembly + Arrow table
+  accumulation instead of per-row dicts), roughly halving end-to-end fetch
+  time; decoded output is bit-identical to the previous implementation
+- JPSS VIIRS HDF5 decode now runs in worker threads (serialized by an HDF5
+  lock) so decoding no longer blocks concurrent granule downloads
+- JPSS ATMS now decodes each BUFR file as soon as its download completes
+  (pipelined with in-flight downloads, one decode per unique file) instead
+  of decoding after all downloads finish
+- JPSS CrIS granule downloads now fetch large objects as concurrent byte
+  ranges (1 MiB x 8 streams per file) instead of one single-stream GET,
+  roughly halving fetch time for typical requests
+- Migrated ISD, IBTrACS, CFS reforecast, and OPERA data sources from
+  fsspec/s3fs to obstore
+- CFS reforecast grib decoding now resolves all requested variables in a
+  single pass over the file's messages instead of one `pygrib.select` scan
+  per variable (~20x faster for full-lexicon requests)
+- Consolidated the four identical per-source grib decode helpers
+  (`_decode_gfs_grib`, `_decode_hrrr_grib`, `_decode_gefs_grib`,
+  `_decode_cfs_grib`) into a shared `decode_grib_message` helper in
+  `earth2studio.data.utils`
 - Migrated MRMS data source from s3fs to obstore, with memoized day-directory
   listings and threaded, header-based grid decoding
 - Migrated NClimGridDaily data source from s3fs to obstore; monthly NetCDF
@@ -41,10 +73,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
+- Deprecated the `fs_factory` parameter of `AsyncZarrBackend` in favor of
+  `store`; the default local write path no longer uses fsspec
+
 ### Removed
 
 ### Fixed
 
+- Fixed `CFS_Reforecast_FX` and `CFS_Reforecast_FX_Flux` pointing at the retired
+  NCEI archive path; the reforecast archive moved to
+  `https://www.ncei.noaa.gov/oa/prod-cfs-reforecast` with renamed product subdirs
 - Fixed `CorrDiffCosmoEra5` loading files from the wrong resolution when cache names
   collided. Cache names now include the resolution.
 - Fixed `OPERA` data source returning negative precipitation values (`-99.0 mm/h`

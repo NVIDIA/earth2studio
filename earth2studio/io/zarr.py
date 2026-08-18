@@ -52,7 +52,7 @@ class ZarrBackend:
     For keyword argument options see: https://zarr.readthedocs.io/en/latest/api/zarr/index.html#zarr.group
     """
 
-    # sphinx - io zarr start
+    # --8<-- [start:zarr-backend-read]
     def __init__(
         self,
         file_name: str = None,
@@ -123,7 +123,7 @@ class ZarrBackend:
         """Return an iterator over Zarr Group member names."""
         return self.root.__iter__()
 
-    # sphinx - io zarr end
+    # --8<-- [end:zarr-backend-read]
     def add_array(
         self,
         coords: CoordSystem,

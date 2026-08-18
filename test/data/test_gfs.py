@@ -294,7 +294,7 @@ def test_gfs_call_mock(tmp_path, monkeypatch):
         patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.gfs._decode_gfs_grib", return_value=fake_grid),
+        patch("earth2studio.data.gfs.decode_grib_message", return_value=fake_grid),
     ):
         # Bypass real store by stubbing it to a truthy sentinel.
         ds.store = object()  # type: ignore[assignment]
@@ -329,7 +329,7 @@ def test_gfs_fx_call_mock(tmp_path, monkeypatch):
         patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.gfs._decode_gfs_grib", return_value=fake_grid),
+        patch("earth2studio.data.gfs.decode_grib_message", return_value=fake_grid),
     ):
         ds.store = object()  # type: ignore[assignment]
         data = ds(
@@ -364,7 +364,7 @@ def test_gfs_missing_variable_mock(tmp_path, monkeypatch):
         patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.gfs._decode_gfs_grib", return_value=fake_grid),
+        patch("earth2studio.data.gfs.decode_grib_message", return_value=fake_grid),
     ):
         ds.store = object()  # type: ignore[assignment]
         data = ds(datetime(2024, 1, 1), ["t2m", "z500"])
