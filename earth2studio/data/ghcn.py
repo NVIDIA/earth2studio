@@ -1203,24 +1203,38 @@ class GHCNHourly(_GHCNBase):
         # growing, so its cached copy expires after a day
         max_age = None if year < datetime.now().year else _MUTABLE_CACHE_MAX_AGE_S
         if self._cache and _cache_file_fresh(parquet_path, max_age):
-            df = pd.read_parquet(parquet_path)
+            df = await asyncio.to_thread(pd.read_parquet, parquet_path)
         else:
             try:
                 key = url.removeprefix(self.BASE_URL + "/")
                 data = await obstore_read_range(self.store, key)
-                buf = io.BytesIO(data)
-                available = pq.read_schema(buf).names
-                buf.seek(0)
-                cols = [c for c in self._PARQUET_COLS if c in available]
-                df = pd.read_parquet(buf, columns=cols)
-                df["DATE"] = pd.to_datetime(df["DATE"])
-                df.to_parquet(parquet_path, index=False)
+                df = await asyncio.to_thread(
+                    self._parse_station_year_parquet, data, parquet_path
+                )
             except FileNotFoundError:
                 if self._verbose:
                     logger.warning(
                         f"GHCNh: no data for station {station_id}, year {year}"
                     )
                 return pd.DataFrame()
+        return df
+
+    def _parse_station_year_parquet(
+        self, data: bytes, parquet_path: str
+    ) -> pd.DataFrame:
+        """Parse a station-year parquet payload and cache it to disk.
+
+        Run via ``asyncio.to_thread`` so the blocking pandas/pyarrow calls
+        don't stall the event loop while other station-year fetches are
+        in flight.
+        """
+        buf = io.BytesIO(data)
+        available = pq.read_schema(buf).names
+        buf.seek(0)
+        cols = [c for c in self._PARQUET_COLS if c in available]
+        df = pd.read_parquet(buf, columns=cols)
+        df["DATE"] = pd.to_datetime(df["DATE"])
+        df.to_parquet(parquet_path, index=False)
         return df
 
     @classmethod
