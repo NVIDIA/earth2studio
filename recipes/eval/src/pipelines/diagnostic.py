@@ -127,6 +127,8 @@ class DiagnosticPipeline(Pipeline):
     pair containing the accumulated diagnostic output.
     """
 
+    supports_online_scoring = True
+
     diagnostics: list[DiagnosticModel]
     _dx_input_coords: dict[int, CoordSystem]
     _all_input_vars: list[str]
