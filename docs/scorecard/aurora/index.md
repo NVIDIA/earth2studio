@@ -34,9 +34,9 @@ conditions. Evaluation is done against ERA5 fetched from ARCO.
     | Name | Description | Unit | Group |
     |---|---|---|---|
     | `msl` | Mean sea level pressure | Pa | Surface |
-    | `t2m` | 2-metre temperature | K | Surface |
-    | `u10m` | 10-metre eastward (zonal) wind | m s⁻¹ | Surface |
-    | `v10m` | 10-metre northward (meridional) wind | m s⁻¹ | Surface |
+    | `t2m` | Temperature at 2m | K | Surface |
+    | `u10m` | U-component (eastward, zonal) of wind at 10 m | m s⁻¹ | Surface |
+    | `v10m` | V-component (northward, meridional) of wind at 10 m | m s⁻¹ | Surface |
     | `z50` | Geopotential at 50 hPa | m² s⁻² | Geopotential |
     | `z100` | Geopotential at 100 hPa | m² s⁻² | Geopotential |
     | `z150` | Geopotential at 150 hPa | m² s⁻² | Geopotential |
@@ -63,32 +63,32 @@ conditions. Evaluation is done against ERA5 fetched from ARCO.
     | `t850` | Temperature at 850 hPa | K | Temperature |
     | `t925` | Temperature at 925 hPa | K | Temperature |
     | `t1000` | Temperature at 1000 hPa | K | Temperature |
-    | `u50` | Eastward (zonal) wind at 50 hPa | m s⁻¹ | U wind |
-    | `u100` | Eastward (zonal) wind at 100 hPa | m s⁻¹ | U wind |
-    | `u150` | Eastward (zonal) wind at 150 hPa | m s⁻¹ | U wind |
-    | `u200` | Eastward (zonal) wind at 200 hPa | m s⁻¹ | U wind |
-    | `u250` | Eastward (zonal) wind at 250 hPa | m s⁻¹ | U wind |
-    | `u300` | Eastward (zonal) wind at 300 hPa | m s⁻¹ | U wind |
-    | `u400` | Eastward (zonal) wind at 400 hPa | m s⁻¹ | U wind |
-    | `u500` | Eastward (zonal) wind at 500 hPa | m s⁻¹ | U wind |
-    | `u600` | Eastward (zonal) wind at 600 hPa | m s⁻¹ | U wind |
-    | `u700` | Eastward (zonal) wind at 700 hPa | m s⁻¹ | U wind |
-    | `u850` | Eastward (zonal) wind at 850 hPa | m s⁻¹ | U wind |
-    | `u925` | Eastward (zonal) wind at 925 hPa | m s⁻¹ | U wind |
-    | `u1000` | Eastward (zonal) wind at 1000 hPa | m s⁻¹ | U wind |
-    | `v50` | Northward (meridional) wind at 50 hPa | m s⁻¹ | V wind |
-    | `v100` | Northward (meridional) wind at 100 hPa | m s⁻¹ | V wind |
-    | `v150` | Northward (meridional) wind at 150 hPa | m s⁻¹ | V wind |
-    | `v200` | Northward (meridional) wind at 200 hPa | m s⁻¹ | V wind |
-    | `v250` | Northward (meridional) wind at 250 hPa | m s⁻¹ | V wind |
-    | `v300` | Northward (meridional) wind at 300 hPa | m s⁻¹ | V wind |
-    | `v400` | Northward (meridional) wind at 400 hPa | m s⁻¹ | V wind |
-    | `v500` | Northward (meridional) wind at 500 hPa | m s⁻¹ | V wind |
-    | `v600` | Northward (meridional) wind at 600 hPa | m s⁻¹ | V wind |
-    | `v700` | Northward (meridional) wind at 700 hPa | m s⁻¹ | V wind |
-    | `v850` | Northward (meridional) wind at 850 hPa | m s⁻¹ | V wind |
-    | `v925` | Northward (meridional) wind at 925 hPa | m s⁻¹ | V wind |
-    | `v1000` | Northward (meridional) wind at 1000 hPa | m s⁻¹ | V wind |
+    | `u50` | U-component of wind at 50 hPa | m s⁻¹ | U wind |
+    | `u100` | U-component of wind at 100 hPa | m s⁻¹ | U wind |
+    | `u150` | U-component of wind at 150 hPa | m s⁻¹ | U wind |
+    | `u200` | U-component of wind at 200 hPa | m s⁻¹ | U wind |
+    | `u250` | U-component of wind at 250 hPa | m s⁻¹ | U wind |
+    | `u300` | U-component of wind at 300 hPa | m s⁻¹ | U wind |
+    | `u400` | U-component of wind at 400 hPa | m s⁻¹ | U wind |
+    | `u500` | U-component of wind at 500 hPa | m s⁻¹ | U wind |
+    | `u600` | U-component of wind at 600 hPa | m s⁻¹ | U wind |
+    | `u700` | U-component of wind at 700 hPa | m s⁻¹ | U wind |
+    | `u850` | U-component of wind at 850 hPa | m s⁻¹ | U wind |
+    | `u925` | U-component of wind at 925 hPa | m s⁻¹ | U wind |
+    | `u1000` | U-component of wind at 1000 hPa | m s⁻¹ | U wind |
+    | `v50` | V-component of wind at 50 hPa | m s⁻¹ | V wind |
+    | `v100` | V-component of wind at 100 hPa | m s⁻¹ | V wind |
+    | `v150` | V-component of wind at 150 hPa | m s⁻¹ | V wind |
+    | `v200` | V-component of wind at 200 hPa | m s⁻¹ | V wind |
+    | `v250` | V-component of wind at 250 hPa | m s⁻¹ | V wind |
+    | `v300` | V-component of wind at 300 hPa | m s⁻¹ | V wind |
+    | `v400` | V-component of wind at 400 hPa | m s⁻¹ | V wind |
+    | `v500` | V-component of wind at 500 hPa | m s⁻¹ | V wind |
+    | `v600` | V-component of wind at 600 hPa | m s⁻¹ | V wind |
+    | `v700` | V-component of wind at 700 hPa | m s⁻¹ | V wind |
+    | `v850` | V-component of wind at 850 hPa | m s⁻¹ | V wind |
+    | `v925` | V-component of wind at 925 hPa | m s⁻¹ | V wind |
+    | `v1000` | V-component of wind at 1000 hPa | m s⁻¹ | V wind |
     | `q50` | Specific humidity at 50 hPa | kg kg⁻¹ | Specific humidity |
     | `q100` | Specific humidity at 100 hPa | kg kg⁻¹ | Specific humidity |
     | `q150` | Specific humidity at 150 hPa | kg kg⁻¹ | Specific humidity |

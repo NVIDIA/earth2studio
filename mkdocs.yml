@@ -499,8 +499,9 @@ nav:
     - Documentation: blog/categories/documentation.md
 - Scorecards:
   - scorecard/index.md
-  - FCN3: scorecard/fcn3/index.md
-  - Aurora: scorecard/aurora/index.md
+  - Prognostic models:
+    - FCN3: scorecard/fcn3/index.md
+    - Aurora: scorecard/aurora/index.md
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
   404.md

@@ -37,6 +37,12 @@ python scorecard/make_pages.py
 The YAML carries everything a docs page needs — metric curves per variable
 and lead time (aggregated over initial conditions), units, and variable groups.
 
+Multiple campaigns per model are supported by construction: a campaign is just
+another self-contained config, and the docs plot selects its data file by URL
+key. Only the default file naming (`eval_scores_<model>.yaml`) assumes one
+campaign per model — exporting a second campaign under a distinct name (and
+listing it in `docs/scorecard/make_pages.py`) is the whole extension.
+
 ## Model-specific pipelines (`utils/pipelines.py`)
 
 * `HistoryForecastPipeline` — models that consume history (e.g. Aurora with

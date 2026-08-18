@@ -391,10 +391,40 @@ _DESC_PREFIX = {
 }
 
 
+# Authoritative descriptions come from the package's own variable vocabulary
+# (earth2studio.lexicon.base.E2STUDIO_VOCAB). Parse it out of the source file
+# rather than importing it: importing the package pulls torch and friends,
+# which a docs-only environment need not have, and the vocab is a pure dict
+# literal. The pattern tables above remain the fallback.
+def _load_vocab() -> dict:
+    import ast
+
+    src = Path(__file__).resolve().parents[2] / "earth2studio" / "lexicon" / "base.py"
+    try:
+        for node in ast.parse(src.read_text()).body:
+            if (
+                isinstance(node, ast.Assign)
+                and getattr(node.targets[0], "id", "") == "E2STUDIO_VOCAB"
+            ):
+                return ast.literal_eval(node.value)
+    except Exception:  # noqa: BLE001 -- fall back to the pattern tables
+        pass
+    return {}
+
+
+E2STUDIO_VOCAB = _load_vocab()
+
+
 def describe(var: str) -> str:
     """Human-readable description of a variable name like ``z500`` or ``t2m``."""
     import re
 
+    if var in E2STUDIO_VOCAB:
+        # Entries read "geopotential at 500 hPa (m2 s-2)": drop the trailing
+        # unit parenthetical (the table has its own Unit column) and
+        # capitalise the first letter.
+        text = re.sub(r"\s*\([^()]*\)\s*$", "", E2STUDIO_VOCAB[var]).strip()
+        return text[:1].upper() + text[1:]
     if var in _DESC_EXACT:
         return _DESC_EXACT[var]
     m = re.fullmatch(r"([a-z]+)(\d+)", var)
