@@ -113,7 +113,7 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
     <div class="e2s-solution-grid">
       <article class="e2s-solution-card">
         <div class="e2s-solution-card__head">
-          <span class="e2s-solution-card__icon e2s-solution-card__icon--bare"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
+          <span class="e2s-solution-card__icon"><i class="fa-solid fa-flask" aria-hidden="true"></i></span>
           <h3>Scientists & researchers</h3>
         </div>
         <p>
@@ -124,7 +124,7 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
       </article>
       <article class="e2s-solution-card">
         <div class="e2s-solution-card__head">
-          <span class="e2s-solution-card__icon"><i class="fa-solid fa-landmark" aria-hidden="true"></i></span>
+          <span class="e2s-solution-card__icon"><i class="fa-solid fa-satellite-dish" aria-hidden="true"></i></span>
           <h3>Met services & agencies</h3>
         </div>
         <p>
@@ -135,7 +135,7 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
       </article>
       <article class="e2s-solution-card">
         <div class="e2s-solution-card__head">
-          <span class="e2s-solution-card__icon"><i class="fa-solid fa-building" aria-hidden="true"></i></span>
+          <span class="e2s-solution-card__icon"><i class="fa-solid fa-briefcase" aria-hidden="true"></i></span>
           <h3>Enterprise</h3>
         </div>
         <p>
