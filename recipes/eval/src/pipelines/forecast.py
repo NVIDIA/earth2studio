@@ -349,4 +349,3 @@ class ForecastPipeline(Pipeline):
 
             if step >= self.nsteps:
                 break
-

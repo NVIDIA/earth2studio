@@ -1032,7 +1032,11 @@ class EnsembleMeanSquaredError:
     def update(self, ctx: StepContext) -> None:
         if not ctx.comm.is_root:
             return
-        assert ctx.s1 is not None
+        if ctx.s1 is None:
+            raise RuntimeError(
+                "StepContext.s1 is unset — 'ens_moments' must be requested "
+                "before this accumulator's update() runs."
+            )
         mean_dev = ctx.s1 / ctx.ensemble_size
         self._sse[ctx.lead_index, :] = ctx.wsum(mean_dev**2)
 
@@ -1070,7 +1074,11 @@ class EnsembleSpread:
     def update(self, ctx: StepContext) -> None:
         if not ctx.comm.is_root:
             return
-        assert ctx.s1 is not None and ctx.s2 is not None
+        if ctx.s1 is None or ctx.s2 is None:
+            raise RuntimeError(
+                "StepContext.s1/s2 are unset — 'ens_moments' must be "
+                "requested before this accumulator's update() runs."
+            )
         m = ctx.ensemble_size
         var = (ctx.s2 - ctx.s1**2 / m) / (m - 1)
         self._var[ctx.lead_index, :] = ctx.wsum(var)
@@ -1111,7 +1119,11 @@ class RankHistogram:
     def update(self, ctx: StepContext) -> None:
         if not ctx.comm.is_root:
             return
-        assert ctx.below is not None
+        if ctx.below is None:
+            raise RuntimeError(
+                "StepContext.below is unset — 'rank_counts' must be "
+                "requested before this accumulator's update() runs."
+            )
         n_bins, _, n_variables = self._counts.shape
         device = self._counts.device
 
@@ -1183,7 +1195,11 @@ class AnomalyMoments:
     def update(self, ctx: StepContext) -> None:
         if not ctx.comm.is_root:
             return
-        assert ctx.s1 is not None
+        if ctx.s1 is None:
+            raise RuntimeError(
+                "StepContext.s1 is unset — 'ens_moments' must be requested "
+                "before this accumulator's update() runs."
+            )
         # fbar = y + mean_i(f_i - y); reconstructing it this way keeps the
         # reduction on residuals without changing the result.
         fbar = ctx.y.double() + ctx.s1 / ctx.ensemble_size
@@ -2073,7 +2089,8 @@ class OnlineScorer:
         lead : np.timedelta64
             Lead time of this step.
         """
-        assert self._item is not None
+        if self._item is None:
+            raise RuntimeError("OnlineScorer._step called before begin_item.")
         key = int(lead.astype("int64"))
         if self._settings.validate_coords and not self._comm.all_agree(
             key, self._device

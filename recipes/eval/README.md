@@ -793,7 +793,8 @@ makes the exchange deferrable; `variable_chunk` bounds both the payload
 and the float64 working set.
 
 **Re-deriving scores.**  `stats.zarr` holds *sums*, not scores, so regional
-breakdowns, or bootstrap CIs over ICs never require re-running inference. However, new metrics or more extensive changes will require re-running the
+breakdowns, or bootstrap CIs over ICs never require re-running inference.
+However, new metrics or more extensive changes will require re-running the
 inference portion, which is the main downside of online scoring. To
 consolidate the summation results in `stats.zarr` into the final scores,
 run:
@@ -1037,10 +1038,12 @@ zarr writes).  Subclasses implement three methods:
 
 Two optional hooks matter for online scoring:
 
+<!-- markdownlint-disable MD013 -->
 | Hook | Purpose |
 | --- | --- |
 | `supports_online_scoring` | Class flag asserting that `run_item` yields an identical coord sequence for every ensemble member — the invariant an ensemble group's per-step reduction depends on |
 | `run_item_batched(items, ...)` | Roll `K` members of one IC forward together, yielding a leading `ensemble` axis.  Required for `members_per_rank > 1` |
+<!-- markdownlint-enable MD013 -->
 
 The base class `Pipeline.run()` handles everything else: iterating work
 items, building the output variable filter, injecting the ensemble dimension,

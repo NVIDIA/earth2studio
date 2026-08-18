@@ -238,7 +238,11 @@ class AssimilationPipeline(Pipeline):
             x, coords = insert_zero_lead_time(x, coords)
             slices.append(x)
             coords0 = coords
-        assert coords0 is not None
+        if coords0 is None:
+            raise RuntimeError(
+                "run_item_batched produced no coords — items was checked "
+                "non-empty above."
+            )
 
         x = torch.stack(slices, dim=0)
         coords = CoordSystem({"ensemble": member_ids} | dict(coords0))
