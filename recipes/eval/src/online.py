@@ -255,9 +255,7 @@ def retain_raw_output(cfg: DictConfig) -> bool:
             "yet. Use 'all' or 'none'."
         )
     if retain not in ("all", "none"):
-        raise ValueError(
-            f"Invalid output.retain '{retain}'; expected 'all' or 'none'."
-        )
+        raise ValueError(f"Invalid output.retain '{retain}'; expected 'all' or 'none'.")
     if retain == "none" and not online_enabled(cfg):
         raise ValueError(
             "output.retain='none' discards the raw forecast store, but "
@@ -376,9 +374,7 @@ def _int_or(value: Any, default: int) -> int:
     return default if value is None else int(value)
 
 
-def _parse_dtype(
-    value: Any, allowed: dict[str, torch.dtype], key: str
-) -> torch.dtype:
+def _parse_dtype(value: Any, allowed: dict[str, torch.dtype], key: str) -> torch.dtype:
     """Resolve a config dtype name against the options valid for *key*."""
     name = str(value).lower()
     if name not in allowed:
@@ -629,9 +625,7 @@ class FieldCache:
         self._nan_policy = nan_policy
         self._valid_ranges = valid_ranges or {}
         self._cache: OrderedDict[int, torch.Tensor] = OrderedDict()
-        self._coords: CoordSystem = OrderedDict(
-            {"variable": np.array(self._variables)}
-        )
+        self._coords: CoordSystem = OrderedDict({"variable": np.array(self._variables)})
 
     def get(self, valid_time: np.datetime64) -> torch.Tensor:
         """Return the field at *valid_time* as a ``[variable, <spatial...>]`` tensor.
@@ -1184,9 +1178,7 @@ class AnomalyMoments:
         ensemble_size: int,
         device: torch.device,
     ) -> None:
-        self._buf = {
-            name: _empty(n_leads, n_variables, device) for name in self._names
-        }
+        self._buf = {name: _empty(n_leads, n_variables, device) for name in self._names}
 
     def update(self, ctx: StepContext) -> None:
         if not ctx.comm.is_root:
@@ -1342,8 +1334,7 @@ class PairwiseExchange:
         if size <= 0 or size >= len(self._var_index):
             return [self._var_index]
         return [
-            self._var_index[i : i + size]
-            for i in range(0, len(self._var_index), size)
+            self._var_index[i : i + size] for i in range(0, len(self._var_index), size)
         ]
 
     def step(self, ctx: StepContext) -> tuple[int, torch.Tensor] | None:
@@ -1536,9 +1527,7 @@ class FairCRPS:
         return {"crps_t1": self._t1, "crps_t2": self._t2}
 
 
-def statistic_variables(
-    stat: OnlineStatistic, variables: Sequence[str]
-) -> list[str]:
+def statistic_variables(stat: OnlineStatistic, variables: Sequence[str]) -> list[str]:
     """Variables *stat* emits fields for — all of them unless it says otherwise.
 
     Only :class:`FairCRPS` narrows this today (via
@@ -1838,9 +1827,7 @@ class OnlineScorer:
         self._expected_leads = set(range(len(self._lead_times))) - (
             self._known_missing_indices
         )
-        self._spatial_dims = tuple(
-            d for d in spatial_coords if d not in _NON_SPATIAL
-        )
+        self._spatial_dims = tuple(d for d in spatial_coords if d not in _NON_SPATIAL)
         self._weights = weights.to(device=device, dtype=torch.float64)
         self._stats_mgr = stats_mgr
         self._device = device
@@ -1859,9 +1846,7 @@ class OnlineScorer:
         if unsupported:
             raise ValueError(f"Unknown group products requested: {sorted(unsupported)}")
 
-        self._nan_policy = str(
-            cfg.scoring.get("nan_policy", "propagate")
-        ).lower()
+        self._nan_policy = str(cfg.scoring.get("nan_policy", "propagate")).lower()
         valid_ranges_cfg = cfg.scoring.get("valid_ranges", None)
         self._valid_ranges: dict = (
             OmegaConf.to_container(valid_ranges_cfg, resolve=True) or {}
@@ -2056,9 +2041,7 @@ class OnlineScorer:
                     f"Scored variables {self._variables} are not all present in "
                     f"the yielded chunk ({chunk_vars})."
                 ) from exc
-            x = x.index_select(
-                2, torch.tensor(idx, device=x.device, dtype=torch.long)
-            )
+            x = x.index_select(2, torch.tensor(idx, device=x.device, dtype=torch.long))
 
         return x, np.asarray(coords["lead_time"]).astype("timedelta64[ns]")
 

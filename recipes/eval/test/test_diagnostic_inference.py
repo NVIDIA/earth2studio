@@ -288,9 +288,7 @@ class TestGenerativeDiagnosticSampleAxis:
         pipeline._members_per_rank = len(items)
 
         x, coords = next(
-            iter(
-                pipeline.run_item_batched(items, data_source, torch.device("cpu"))
-            )
+            iter(pipeline.run_item_batched(items, data_source, torch.device("cpu")))
         )
 
         assert fake_generative_diagnostic.number_of_samples == 3

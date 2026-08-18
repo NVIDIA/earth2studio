@@ -198,9 +198,9 @@ def _verification_zarr(path, times, seed: int = 7) -> str:
     ds = xr.Dataset()
     for var in VARIABLES:
         ds[var] = xr.DataArray(
-            rng.standard_normal(
-                (len(times), len(SMALL_LAT), len(SMALL_LON))
-            ).astype("float32"),
+            rng.standard_normal((len(times), len(SMALL_LAT), len(SMALL_LON))).astype(
+                "float32"
+            ),
             dims=["time", "lat", "lon"],
             coords={"time": times, "lat": SMALL_LAT, "lon": SMALL_LON},
         )
@@ -234,9 +234,7 @@ class TestEnsembleGroups:
         assert group.member_ids == (0,)
 
     def test_member_assignment(self):
-        groups = plan_ensemble_groups(
-            world_size=4, ensemble_size=8, members_per_rank=2
-        )
+        groups = plan_ensemble_groups(world_size=4, ensemble_size=8, members_per_rank=2)
         assert groups == [(0, 1, 2, 3)]
         group = ensemble_group_for_rank(2, groups, members_per_rank=2)
         assert group.member_ids == (4, 5)
@@ -505,9 +503,9 @@ class TestAccumulatorMath:
             }
         )
 
-        ref_member, _ = mse(
-            reduction_dimensions=["lat", "lon"], weights=_weights_2d()
-        )(f, x_coords, y, y_coords)
+        ref_member, _ = mse(reduction_dimensions=["lat", "lon"], weights=_weights_2d())(
+            f, x_coords, y, y_coords
+        )
         got_member = (state["sse_member"][:, 0, :] / w_sum).float()
         assert torch.allclose(got_member, ref_member, atol=1e-5)
 
@@ -728,9 +726,9 @@ class TestMaskAwareAccumulation:
         # weight only — not the full grid, and critically not inflated by
         # masked points defaulting into bin 0.
         assert counts[:, 0].sum().item() == pytest.approx(expected_masked_w, rel=1e-9)
-        assert counts[0, 0].item() < expected_masked_w, (
-            "bin 0 alone should not hold every masked gridpoint's weight"
-        )
+        assert (
+            counts[0, 0].item() < expected_masked_w
+        ), "bin 0 alone should not hold every masked gridpoint's weight"
         # The untouched variable is bin-for-bin identical to the unmasked
         # baseline.
         assert counts[:, 1].sum().item() == pytest.approx(w_sum, rel=1e-9)
@@ -876,9 +874,7 @@ def _run_crps(
     # the first context's mask-aware normalizer applies to all of them.
     w_sum = contexts[0].wsum_valid()
     state = stat.state()
-    return state["crps_t1"] / (m * w_sum) - state["crps_t2"] / (
-        m * (m - 1) * w_sum
-    )
+    return state["crps_t1"] / (m * w_sum) - state["crps_t2"] / (m * (m - 1) * w_sum)
 
 
 class TestFairCRPS:
@@ -906,9 +902,9 @@ class TestFairCRPS:
         assert not torch.isnan(got).any(), "a lead step was left unfilled"
         for lead, (f, y) in enumerate(zip(members, truths)):
             expected = _reference_fair_crps(f, y)
-            assert torch.allclose(got[lead].float(), expected, atol=1e-5), (
-                f"lead {lead}: {got[lead].tolist()} != {expected.tolist()}"
-            )
+            assert torch.allclose(
+                got[lead].float(), expected, atol=1e-5
+            ), f"lead {lead}: {got[lead].tolist()} != {expected.tolist()}"
 
     def test_deferral_places_terms_at_the_right_lead(self, tmp_path):
         """Distinct per-lead ensembles catch an off-by-one in the deferral."""
@@ -920,8 +916,7 @@ class TestFairCRPS:
             for s in (1.0, 10.0, 100.0)
         ]
         truths = [
-            torch.zeros(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-            for _ in members
+            torch.zeros(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON)) for _ in members
         ]
         deferred = _run_crps(
             _settings(
@@ -1002,13 +997,19 @@ class TestFairCRPS:
 
     def test_crps_disabled_and_deterministic_runs_skip_it(self, tmp_path):
         settings = _settings(tmp_path, crps=False)
-        fields = {f for s in build_statistics(4, False, settings, VARIABLES)
-                  for f in s.fields()}
+        fields = {
+            f
+            for s in build_statistics(4, False, settings, VARIABLES)
+            for f in s.fields()
+        }
         assert "crps_t1" not in fields
 
         enabled = _settings(tmp_path)
-        fields = {f for s in build_statistics(1, False, enabled, VARIABLES)
-                  for f in s.fields()}
+        fields = {
+            f
+            for s in build_statistics(1, False, enabled, VARIABLES)
+            for f in s.fields()
+        }
         assert "crps_t1" not in fields, "CRPS is undefined for a single member"
 
 
@@ -1060,9 +1061,7 @@ class TestVerification:
     def test_field_cache_normalizes_and_caches(self, tmp_path):
         from src.data import PredownloadedSource
 
-        times = np.array(
-            ["2024-01-01T00", "2024-01-01T06"], dtype="datetime64[ns]"
-        )
+        times = np.array(["2024-01-01T00", "2024-01-01T06"], dtype="datetime64[ns]")
         path = _verification_zarr(tmp_path / "verif.zarr", times)
         source = PredownloadedSource(path)
 
@@ -1084,9 +1083,7 @@ class TestVerification:
             ["2024-01-01T00", "2024-01-01T06", "2024-01-01T12"],
             dtype="datetime64[ns]",
         )
-        source = PredownloadedSource(
-            _verification_zarr(tmp_path / "verif.zarr", times)
-        )
+        source = PredownloadedSource(_verification_zarr(tmp_path / "verif.zarr", times))
         ics = [np.datetime64("2024-01-01T00", "ns")]
 
         check_verification_coverage(source, ics, LEAD_TIMES, VARIABLES)
@@ -1104,9 +1101,7 @@ class TestVerification:
 
         assert available_times(Opaque()) is None
         # Unknown coverage is a warning, not a failure.
-        check_verification_coverage(
-            Opaque(), [IC_TIMES[0]], LEAD_TIMES, VARIABLES
-        )
+        check_verification_coverage(Opaque(), [IC_TIMES[0]], LEAD_TIMES, VARIABLES)
 
 
 # ---------------------------------------------------------------------------
@@ -1130,8 +1125,9 @@ class _ConstantField:
 
 def _persistence_pipeline(device: torch.device, nsteps: int = 2):
     """A ForecastPipeline wired to Persistence without touching Hydra."""
-    from earth2studio.models.px import Persistence
     from src.pipelines import ForecastPipeline
+
+    from earth2studio.models.px import Persistence
 
     prognostic = Persistence(
         variable=VARIABLES,
@@ -1178,9 +1174,7 @@ class TestMemberBatching:
         ]
 
         batched = list(pipeline.run_item_batched(items, source, device))
-        per_member = [
-            list(pipeline.run_item(item, source, device)) for item in items
-        ]
+        per_member = [list(pipeline.run_item(item, source, device)) for item in items]
 
         assert len(batched) == len(per_member[0])
         for step, (x_batch, coords_batch) in enumerate(batched):
@@ -1203,19 +1197,14 @@ class TestMemberBatching:
     def test_run_rejects_indivisible_member_batch(self):
         device = torch.device("cpu")
         pipeline = _persistence_pipeline(device)
-        items = [
-            WorkItem(time=IC_TIMES[0], ensemble_id=m, seed=m) for m in range(3)
-        ]
+        items = [WorkItem(time=IC_TIMES[0], ensemble_id=m, seed=m) for m in range(3)]
 
         class _Sink:
-            def begin_item(self, item):
-                ...
+            def begin_item(self, item): ...
 
-            def update(self, x, coords):
-                ...
+            def update(self, x, coords): ...
 
-            def finish_item(self, item):
-                ...
+            def finish_item(self, item): ...
 
         with pytest.raises(ValueError, match="does not divide"):
             pipeline.run(
@@ -1341,9 +1330,10 @@ class TestEndToEnd:
         }
 
         spatial = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-        with patch(
-            "src.output.DistributedManager", return_value=_fake_dist()
-        ), patch("src.distributed.DistributedManager", return_value=_fake_dist()):
+        with (
+            patch("src.output.DistributedManager", return_value=_fake_dist()),
+            patch("src.distributed.DistributedManager", return_value=_fake_dist()),
+        ):
             stats_mgr = open_stats_store(
                 cfg, statistics, VARIABLES, IC_TIMES, LEAD_TIMES, 1
             )
@@ -1363,9 +1353,7 @@ class TestEndToEnd:
                     stats_mgr=stats_mgr,
                     device=torch.device("cpu"),
                 )
-                for item in build_group_work_items(
-                    list(IC_TIMES), comm.group, cfg
-                ):
+                for item in build_group_work_items(list(IC_TIMES), comm.group, cfg):
                     scorer.begin_item(item)
                     for lt in LEAD_TIMES:
                         x = torch.from_numpy(
@@ -1431,9 +1419,7 @@ class TestEndToEnd:
                 )
                 ref, _ = metric(x, y_coords, y, y_coords)
                 for j, var in enumerate(VARIABLES):
-                    got = float(
-                        scores[f"mse__{var}"].sel(time=t, lead_time=lt).values
-                    )
+                    got = float(scores[f"mse__{var}"].sel(time=t, lead_time=lt).values)
                     assert got == pytest.approx(float(ref[j]), rel=1e-5)
 
     def test_finalize_is_idempotent(self, tmp_path):

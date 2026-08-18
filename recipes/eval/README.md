@@ -792,9 +792,9 @@ Members meet via a single all-gather per variable chunk, which is what
 makes the exchange deferrable; `variable_chunk` bounds both the payload
 and the float64 working set.
 
-**Re-deriving scores.**  `stats.zarr` holds *sums*, not scores, so regional 
+**Re-deriving scores.**  `stats.zarr` holds *sums*, not scores, so regional
 breakdowns, or bootstrap CIs over ICs never require re-running inference. However, new metrics or more extensive changes will require re-running the
-inference portion, which is the main downside of online scoring. To 
+inference portion, which is the main downside of online scoring. To
 consolidate the summation results in `stats.zarr` into the final scores,
 run:
 

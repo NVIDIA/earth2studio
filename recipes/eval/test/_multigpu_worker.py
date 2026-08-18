@@ -237,9 +237,7 @@ def _grouping_invariance(defer: bool) -> None:
     ]
 
     def accumulate(comm, member_slice: list[int]) -> dict:
-        statistics = build_statistics(
-            ensemble_size, False, settings, list(VARIABLES)
-        )
+        statistics = build_statistics(ensemble_size, False, settings, list(VARIABLES))
         for stat in statistics:
             stat.reset(n_leads, len(VARIABLES), ensemble_size, device)
 
@@ -315,8 +313,7 @@ def _grouping_invariance(defer: bool) -> None:
 
     assert "crps_t2" in distributed_state, "CRPS was not accumulated"
     assert set(distributed_state) == set(reference_state), (
-        f"field mismatch: {sorted(distributed_state)} vs "
-        f"{sorted(reference_state)}"
+        f"field mismatch: {sorted(distributed_state)} vs " f"{sorted(reference_state)}"
     )
     for name, got in distributed_state.items():
         expected = reference_state[name]
