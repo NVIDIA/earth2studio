@@ -982,7 +982,8 @@ recipes/eval/
 ├── src/
 │   ├── pipelines/       # Pipeline package — ABC + built-in pipelines
 │   │   ├── base.py      #   Pipeline ABC, Predownload(Frame)Store, shared run loop
-│   │   ├── forecast.py  #   ForecastPipeline + DiagnosticPipeline
+│   │   ├── forecast.py  #   ForecastPipeline (prognostic rollout)
+│   │   ├── diagnostic.py #  DiagnosticPipeline (diagnostic-only)
 │   │   ├── assimilation.py # AssimilationPipeline + AssimilationForecastPipeline
 │   │   ├── dlesym.py    #   DLESyMPipeline (HEALPix forecast variant)
 │   │   └── stormscope.py #  StormScopePipeline (coupled GOES+MRMS nowcasting)
@@ -1050,7 +1051,7 @@ Built-in pipelines (pass the fully qualified class path via `cfg.pipeline`):
 - **`ForecastPipeline`** (`src.pipelines.forecast.ForecastPipeline`, the
   default) — prognostic rollout with optional diagnostic models.  Yields
   one output per lead-time step.
-- **`DiagnosticPipeline`** (`src.pipelines.forecast.DiagnosticPipeline`) —
+- **`DiagnosticPipeline`** (`src.pipelines.diagnostic.DiagnosticPipeline`) —
   diagnostic-only (no prognostic model).  Yields a single output per work
   item.
 - **`AssimilationPipeline`** (`src.pipelines.assimilation.AssimilationPipeline`)

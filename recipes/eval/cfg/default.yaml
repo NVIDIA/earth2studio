@@ -33,7 +33,7 @@ start_times:
 # ---------------------------------------------------------------------------
 # Fully qualified class path, or a {_target_: ...} block.  Built-in options:
 #   src.pipelines.forecast.ForecastPipeline     — prognostic rollout (default)
-#   src.pipelines.forecast.DiagnosticPipeline   — diagnostic-only (e.g. CorrDiff)
+#   src.pipelines.diagnostic.DiagnosticPipeline — diagnostic-only (e.g. CorrDiff)
 #   src.pipelines.dlesym.DLESyMPipeline         — coupled Earth-system forecast
 #   src.pipelines.stormscope.StormScopePipeline — coupled GOES/MRMS nowcasting
 #   src.pipelines.assimilation.AssimilationPipeline
