@@ -29,7 +29,6 @@ hide:
           <p class="e2s-github-stats">
             <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/v/earth2studio?style=flat-square&color=76b900&label=release" alt="Latest release"></a>
             <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/dm/earth2studio?style=flat-square&color=76b900&label=downloads" alt="PyPI downloads"></a>
-            <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/pyversions/earth2studio?style=flat-square&color=76b900" alt="Python versions"></a>
             <a href="https://github.com/NVIDIA/earth2studio/blob/main/LICENSE" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/l/earth2studio?style=flat-square&color=76b900" alt="License"></a>
           </p>
         </div>
