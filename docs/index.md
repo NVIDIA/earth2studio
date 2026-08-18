@@ -26,6 +26,12 @@ hide:
               <path d="M5 12h14M13 6l6 6-6 6"></path>
             </svg>
           </a>
+          <p class="e2s-github-stats">
+            <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/v/earth2studio?style=flat-square&color=76b900&label=release" alt="Latest release"></a>
+            <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/dm/earth2studio?style=flat-square&color=76b900&label=downloads" alt="PyPI downloads"></a>
+            <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/pyversions/earth2studio?style=flat-square&color=76b900" alt="Python versions"></a>
+            <a href="https://github.com/NVIDIA/earth2studio/blob/main/LICENSE" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/l/earth2studio?style=flat-square&color=76b900" alt="License"></a>
+          </p>
         </div>
         <div class="e2s-hero__visual">
           <div class="e2s-orbit" data-e2s-orbit role="img" aria-label="Earth2Studio mark: weather and climate icons around a globe">
@@ -313,12 +319,6 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
         Earth2Studio keeps the pieces separate: data sources fetch initial states and observations,
         models transform state, IO stores results, and workflows compose them. Easy to get
         started, easy to extend.
-      </p>
-      <p class="e2s-github-stats">
-        <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/v/earth2studio?style=flat-square&color=76b900&label=release" alt="Latest release"></a>
-        <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/dm/earth2studio?style=flat-square&color=76b900&label=downloads" alt="PyPI downloads"></a>
-        <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/pyversions/earth2studio?style=flat-square&color=76b900" alt="Python versions"></a>
-        <a href="https://github.com/NVIDIA/earth2studio/blob/main/LICENSE" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/l/earth2studio?style=flat-square&color=76b900" alt="License"></a>
       </p>
     </div>
     <div class="e2s-start-grid">
