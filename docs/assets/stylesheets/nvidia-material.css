@@ -1409,6 +1409,12 @@ body .md-grid {
     0 0 1.5rem rgba(118, 185, 0, 0.08);
 }
 
+.e2s-solution-card__icon--bare {
+  border: none;
+  background: none;
+  box-shadow: none;
+}
+
 .e2s-solution-card:nth-child(2) .e2s-solution-card__icon {
   border-color: rgba(92, 176, 255, 0.24);
   background: rgba(92, 176, 255, 0.1);

@@ -112,7 +112,7 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
     </div>
     <div class="e2s-solution-grid">
       <article class="e2s-solution-card">
-        <span class="e2s-solution-card__icon"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
+        <span class="e2s-solution-card__icon e2s-solution-card__icon--bare"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
         <h3>Scientists & researchers</h3>
         <p>
           Benchmark models on identical data through one API, design ensemble
