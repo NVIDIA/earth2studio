@@ -26,7 +26,6 @@ from typing import Any
 
 import numpy as np
 import obstore as obs
-import pygrib
 import xarray as xr
 from loguru import logger
 from obstore.store import ObjectStore
@@ -37,6 +36,7 @@ from earth2studio.data.utils import (
     async_retry,
     cancellable_to_thread,
     datasource_cache_root,
+    decode_grib_message,
     gather_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
@@ -469,7 +469,7 @@ class CFS_FX:
         # pygrib is sync-only.  Use cancellable_to_thread so a hung decode can
         # be abandoned without holding the event loop.
         values = await cancellable_to_thread(
-            _decode_cfs_grib,
+            decode_grib_message,
             grib_file,
             task.cfs_submsg_index,
             timeout=30.0,
@@ -807,38 +807,3 @@ class CFS_FX_Flux(CFS_FX):
     CFS_LON = np.linspace(0, 360 - 360 / 384, 384)
 
     LEXICON: Any = CFSFluxLexicon
-
-
-def _decode_cfs_grib(grib_file: str, submsg_index: int) -> np.ndarray:
-    """Decode a single CFS grib submessage from a cached byte-range file.
-
-    Parameters
-    ----------
-    grib_file : str
-        Path to the cached grib file on local disk. The file may contain a
-        single message or, for vector wind packing, multiple submessages.
-    submsg_index : int
-        1-based pygrib message index to extract. For scalar records this is
-        always 1; for vector records (e.g. `UGRD`/`VGRD` siblings) it selects
-        the requested wind component.
-
-    Returns
-    -------
-    np.ndarray
-        Decoded 2-D field as a NumPy array.
-    """
-    try:
-        grbs = pygrib.open(grib_file)
-    except Exception as e:
-        logger.error(f"Failed to open grib file {grib_file}")
-        raise e
-    try:
-        # pygrib.open() uses 1-based message indexing.
-        return np.asarray(grbs[submsg_index].values)
-    except Exception as e:
-        logger.error(
-            f"Failed to read grib file {grib_file} at submessage {submsg_index}"
-        )
-        raise e
-    finally:
-        grbs.close()

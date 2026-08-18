@@ -250,8 +250,8 @@ class fss:
         self._validate_coords(x_coords, y_coords)
 
         if self.spatial_dimensions is not None:
-            (x, x_coords) = _spatial_dims_to_end(x, x_coords, self.spatial_dimensions)
-            (y, y_coords) = _spatial_dims_to_end(y, y_coords, self.spatial_dimensions)
+            x, x_coords = _spatial_dims_to_end(x, x_coords, self.spatial_dimensions)
+            y, y_coords = _spatial_dims_to_end(y, y_coords, self.spatial_dimensions)
 
         thresholds = torch.as_tensor(self.thresholds).to(dtype=x.dtype, device=x.device)
         out_coords = self.output_coords(x_coords)

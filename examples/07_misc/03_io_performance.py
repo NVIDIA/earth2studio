@@ -34,6 +34,7 @@ In this example you will learn:
 - Initializing and writing with the Asynchronous Non-blocking Zarr IO backend
 - Discussing performance implications and strategies that can be used
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
@@ -51,10 +52,10 @@ In this example you will learn:
 # %%
 # We need the following components:
 #
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
-# - Perturbation Method: Use the standard Gaussian method :py:class:`earth2studio.perturbation.Gaussian`.
-# - IO Backends: Use a few IO Backends including :py:class:`earth2studio.io.AsyncZarrBackend`, :py:class:`earth2studio.io.NetCDF4Backend` and :py:class:`earth2studio.io.ZarrBackend`.
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - Prognostic Model: Use the built in DLWP model [`earth2studio.models.px.DLWP`][earth2studio.models.px.DLWP].
+# - Perturbation Method: Use the standard Gaussian method [`earth2studio.perturbation.Gaussian`][earth2studio.perturbation.Gaussian].
+# - IO Backends: Use a few IO Backends including [`earth2studio.io.AsyncZarrBackend`][earth2studio.io.AsyncZarrBackend], [`earth2studio.io.NetCDF4Backend`][earth2studio.io.NetCDF4Backend] and [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 
 # %%
 
@@ -90,7 +91,7 @@ pt = Gaussian()
 # Creating a Simple Ensemble Workflow
 # -----------------------------------
 # Start with creating a simple ensemble inference workflow. This is essentially a
-# simpler version of the built in ensemble workflow :py:meth:`earth2studio.run.ensemble`.
+# simpler version of the built in ensemble workflow [`earth2studio.run.ensemble`][earth2studio.run.ensemble].
 # In this case, this is for an ensemble inference workflow that will predict a 5 day
 # forecast for Christmas 2022. Following standard Earth2Studio practices, the function
 # accepts initialized prognostic, data source, io backend and perturbation method.
@@ -107,7 +108,7 @@ from tqdm import tqdm
 from earth2studio.utils.coords import map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
-times = [datetime(2022, 12, 20)]
+times = [datetime(2024, 1, 1)]
 nsteps = 20  # Assuming 6-hour time steps
 
 
@@ -387,43 +388,31 @@ print(
 # %%
 # Remote Non-Blocking Async Zarr IO
 # ----------------------------------
-# This IO backend can be further customized by changing the Fsspec Filesystem used by
-# the Zarr store which can be controlled via the `fs_factory` parameter.
-# Note that this is a factory method, the IO backend will need to create multiple
-# instances of the file system.
-# Some examples that may be of interest are:
+# This IO backend can also write directly to remote object storage through the
+# `store` parameter, which accepts a plain local path, a store URL (``s3://``,
+# ``gs://``, ``file://``), an obstore store instance, or an already constructed
+# zarr store. Cloud writes go through obstore's native put / multipart upload,
+# which is faster and more robust than routing through fsspec sessions.
 #
-# - :code:`from fsspec.implementations.local import LocalFileSystem` (Default, local store)
-# - :code:`from fsspec.implementations.memory import MemoryFileSystem` (in-memory store)
-# - :code:`from s3fs import S3FileSystem` (Remote S3 store)
-#
-# For sake of example, lets have a look at writing to a remote store would require.
-# Compression is a must in this instances, since we need to minimize the data transfer
-# over the network.
-# The file system factory is set to S3 with the appropiate credentials in a partial
-# callable object.
-# Lastly we can increase the max number of thread workers with the `pool_size` parameter
-# to further boost performance.
+# For sake of example, lets have a look at what writing to a remote store would
+# require. Compression is a must in this instance, since we need to minimize the
+# data transfer over the network. Credentials are resolved from the environment
+# by obstore, or can be passed explicitly via `store_kwargs` as done here.
+# Lastly we can increase the max number of thread workers with the `pool_size`
+# parameter to further boost performance.
 
 # %%
 
-import functools
-
-import s3fs
-
 if "S3FS_KEY" in os.environ and "S3FS_SECRET" in os.environ:
-    # Remember, needs to be a callable
-    fs_factory = functools.partial(
-        s3fs.S3FileSystem,
-        key=os.environ["S3FS_KEY"],
-        secret=os.environ["S3FS_SECRET"],
-        client_kwargs={"endpoint_url": os.environ.get("S3FS_ENDPOINT", None)},
-        asynchronous=True,
-    )
     io = AsyncZarrBackend(
-        "earth2studio/ci/example/17_io_async.zarr",
+        None,
         parallel_coords=parallel_coords,
-        fs_factory=fs_factory,
+        store="s3://earth2studio/ci/example/17_io_async.zarr",
+        store_kwargs={
+            "access_key_id": os.environ["S3FS_KEY"],
+            "secret_access_key": os.environ["S3FS_SECRET"],
+            "endpoint": os.environ.get("S3FS_ENDPOINT", None),
+        },
         blocking=False,
         pool_size=16,
         zarr_codecs=zarr.codecs.BloscCodec(
@@ -435,6 +424,7 @@ if "S3FS_KEY" in os.environ and "S3FS_SECRET" in os.environ:
     io.close()
 
     # To clean up the zarr store you can use
+    # import s3fs
     # fs = s3fs.S3FileSystem(
     #     key=os.environ["S3FS_KEY"],
     #     secret=os.environ["S3FS_SECRET"],

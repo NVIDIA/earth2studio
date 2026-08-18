@@ -63,7 +63,7 @@ class PhooDiffusionDiT(torch.nn.Module):
         )
         self.model = types.SimpleNamespace(model=inner)
 
-    def forward(self, x, sigma, condition=None):
+    def forward(self, x, sigma, condition=None, attn_kwargs=None):
         return self.gain * x[:, : self.n_out]
 
 
@@ -400,7 +400,8 @@ def test_run_diffusion_guided_changes_analysis_under_no_grad():
         ({"sda_std_obs": {"u10m": 0.5, "v10m": -1.0}}, r"must be > 0"),
         ({"sda_std_obs": {"u10m": 0.5, "v10m": float("inf")}}, r"must be > 0"),
         ({"sda_std_obs": {"u10m": 0.5, "v10m": 1.5, "t2m": 9.0}}, "non-assimilated"),
-        ({"sda_gamma": -1e-6}, "sda_gamma must be >= 0"),
+        ({"sda_gamma": -1e-6}, "sda_gamma must be a finite value"),
+        ({"sda_gamma": float("inf")}, "sda_gamma must be a finite value"),
         ({"assimilate_variables": ()}, "assimilate_variables must be non-empty"),
         ({"number_of_samples": 0}, "number_of_samples must be >= 1"),
         ({"sampler_steps": 1}, "sampler_steps must be >= 2"),

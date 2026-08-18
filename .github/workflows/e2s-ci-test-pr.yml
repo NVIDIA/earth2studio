@@ -1,0 +1,491 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: e2s-ci-test-pr
+
+on:
+  push:
+    branches:
+      - "pull-request/**"
+
+permissions:
+  contents: read
+  packages: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.5
+  E2S_CI_LITE_IMAGE: &e2s_ci_lite_image ghcr.io/nvidia/earth2studio-ci-lite:0.3
+  CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
+  CDSAPI_URL: https://cds.climate.copernicus.eu/api
+  DOC_PUBLIC_BUILD: "false"
+  EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
+  EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/docs-data
+  EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
+  EARTHMOVER_ORGANIZATION: ${{ secrets.EARTHMOVER_ORGANIZATION }}
+  EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
+  EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  PRE_COMMIT_HOME: ${{ github.workspace }}/.cache/pre-commit
+  TESTMON_CACHE: ${{ github.workspace }}/.cache/testmon
+  TESTMON_DATAFILE: ${{ github.workspace }}/.cache/testmon/.testmondata
+  TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
+  UV_PYTHON: "3.13.13"
+
+jobs:
+  changes:
+    name: Detect changes
+    if: github.repository == 'NVIDIA/earth2studio'
+    runs-on: ubuntu-latest
+    outputs:
+      data: ${{ steps.filter.outputs.data }}
+      perturb: ${{ steps.filter.outputs.perturb }}
+      stats: ${{ steps.filter.outputs.stats }}
+      px_models: ${{ steps.filter.outputs.px_models }}
+      dx_models: ${{ steps.filter.outputs.dx_models }}
+      da_models: ${{ steps.filter.outputs.da_models }}
+      serve: ${{ steps.filter.outputs.serve }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changed test suites
+        id: filter
+        uses: ./.github/actions/detect-ci-changes
+        with:
+          mode: pr
+
+  format:
+    name: Format
+    if: github.repository == 'NVIDIA/earth2studio'
+    runs-on: linux-amd64-cpu8
+    container:
+      image: *e2s_ci_lite_image
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Restore pre-commit cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        continue-on-error: true
+        with:
+          path: ${{ env.PRE_COMMIT_HOME }}
+          key: e2s-pre-commit-${{ runner.os }}-main-${{ hashFiles('.pre-commit-config.yaml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            e2s-pre-commit-${{ runner.os }}-main-${{ hashFiles('.pre-commit-config.yaml') }}-
+            e2s-pre-commit-${{ runner.os }}-main-
+
+      - name: Set up environment
+        run: uv sync --python 3.13.13 --locked --only-dev --no-install-project
+
+      - name: Check formatting
+        env:
+          UV_NO_SYNC: "1"
+        run: make format
+
+  lint:
+    name: Lint
+    if: github.repository == 'NVIDIA/earth2studio'
+    runs-on: linux-amd64-cpu8
+    container:
+      image: *e2s_ci_lite_image
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Restore pre-commit cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        continue-on-error: true
+        with:
+          path: ${{ env.PRE_COMMIT_HOME }}
+          key: e2s-pre-commit-${{ runner.os }}-main-${{ hashFiles('.pre-commit-config.yaml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            e2s-pre-commit-${{ runner.os }}-main-${{ hashFiles('.pre-commit-config.yaml') }}-
+            e2s-pre-commit-${{ runner.os }}-main-
+
+      - name: Set up environment
+        run: uv sync --python 3.13.13 --locked --only-dev --no-install-project
+
+      - name: Check docstring coverage
+        env:
+          UV_NO_SYNC: "1"
+        run: make interrogate
+
+      - name: Run lint checks
+        env:
+          UV_NO_SYNC: "1"
+        run: make lint
+
+      - name: Check license headers
+        env:
+          UV_NO_SYNC: "1"
+        run: make license
+
+      - name: Audit GitHub Actions workflows
+        env:
+          UV_NO_SYNC: "1"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: make zizmor
+
+  docs:
+    name: Build docs
+    if: github.repository == 'NVIDIA/earth2studio'
+    needs:
+      - format
+      - lint
+    runs-on: linux-amd64-gpu-h100-latest-1
+    timeout-minutes: 180
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      FLASH_ATTN_CUDA_ARCHS: "90"
+      MAX_JOBS: "8"
+      NATTEN_CUDA_ARCH: "9.0"
+      NATTEN_N_WORKERS: "8"
+      NVCC_THREADS: "2"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Build docs
+        uses: ./.github/actions/build-light-docs
+        with:
+          artifact-name: docs-pr-html
+          artifact-retention-days: "10"
+          gallery-cache-name: main
+          data-cache-name: main
+          save-caches: "false"
+
+  test:
+    name: Test
+    if: github.repository == 'NVIDIA/earth2studio'
+    needs:
+      - format
+      - lint
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Run test job
+        uses: ./.github/actions/run-ci-test
+        with:
+          tox-env: test
+          save-testmon-cache: "false"
+
+  test-px-models:
+    name: Test prognostic models
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.px_models == 'true'
+    needs:
+      - format
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Run test job
+        uses: ./.github/actions/run-ci-test
+        with:
+          tox-env: test-px-models
+          save-testmon-cache: "false"
+
+  test-dx-models:
+    name: Test diagnostic models
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.dx_models == 'true'
+    needs:
+      - format
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Run test job
+        uses: ./.github/actions/run-ci-test
+        with:
+          tox-env: test-dx-models
+          save-testmon-cache: "false"
+
+  test-data:
+    name: Test data sources
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.data == 'true'
+    needs:
+      - format
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Run test job
+        uses: ./.github/actions/run-ci-test
+        with:
+          tox-env: test-data
+          save-testmon-cache: "false"
+
+  test-perturb:
+    name: Test perturbation methods
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.perturb == 'true'
+    needs:
+      - format
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Run test job
+        uses: ./.github/actions/run-ci-test
+        with:
+          tox-env: test-perturb
+          save-testmon-cache: "false"
+
+  test-stats:
+    name: Test statistics and metrics
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.stats == 'true'
+    needs:
+      - format
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Run test job
+        uses: ./.github/actions/run-ci-test
+        with:
+          tox-env: test-stats
+          save-testmon-cache: "false"
+
+  test-da-models:
+    name: Test data assimilation models
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.da_models == 'true'
+    needs:
+      - format
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Run test job
+        uses: ./.github/actions/run-ci-test
+        with:
+          tox-env: test-da-models
+          save-testmon-cache: "false"
+
+  test-px-models-conflicts:
+    name: Test model conflict environments
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.px_models == 'true'
+    needs:
+      - format
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Run test job
+        uses: ./.github/actions/run-ci-test
+        with:
+          tox-env: test-px-models-conflicts
+          save-testmon-cache: "false"
+
+  test-serve:
+    name: Test serve
+    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.serve == 'true'
+    needs:
+      - format
+      - lint
+      - changes
+    runs-on: linux-amd64-gpu-h100-latest-1
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Run test job
+        uses: ./.github/actions/run-ci-test
+        with:
+          tox-env: test-serve
+          save-testmon-cache: "false"
+
+  coverage:
+    name: Coverage
+    if: github.repository == 'NVIDIA/earth2studio' && always()
+    needs:
+      - test
+      - test-px-models
+      - test-dx-models
+      - test-data
+      - test-perturb
+      - test-stats
+      - test-da-models
+      - test-px-models-conflicts
+      - test-serve
+    runs-on: linux-amd64-cpu8
+    container:
+      image: *e2s_ci_lite_image
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Set up environment
+        run: uv sync --python 3.13.13 --locked --only-dev --no-install-project
+
+      - name: Download coverage data
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        continue-on-error: true
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+
+      - name: Generate coverage report
+        env:
+          UV_NO_SYNC: "1"
+        run: |
+          if ! compgen -G ".coverage.*" > /dev/null; then
+            echo "No coverage data artifacts found." | tee coverage-report.txt
+            exit 0
+          fi
+
+          make coverage | tee coverage-report.txt
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-report
+          path: |
+            coverage-report.txt
+            .coverage
+          include-hidden-files: true
+          if-no-files-found: ignore

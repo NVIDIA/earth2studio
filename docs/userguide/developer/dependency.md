@@ -1,6 +1,4 @@
-(developer_dependency)=
-
-# Dependency Management
+# Dependency Management { #developer_dependency }
 
 Earth2Studio uses [uv](https://github.com/astral-sh/uv) as its primary package manager
 to handle complex dependency relationships between different models, data sources, and
@@ -23,12 +21,10 @@ With these base dependencies, most IO methods, data sources, perturbation method
 utilities should be functional. However, specific features can require additional
 optional dependencies.
 
-:::{admonition} Adding Packages
-:class: note
-uv commands should always be used to update package lists inside the `pyproject.toml`.
-Refer to the [uv documentation](https://docs.astral.sh/uv/concepts/projects/dependencies/)
-for details about this if unfamiliar.
-:::
+!!! note "Adding Packages"
+    uv commands should always be used to update package lists inside the `pyproject.toml`.
+    Refer to the [uv documentation](https://docs.astral.sh/uv/concepts/projects/dependencies/)
+    for details about this if unfamiliar.
 
 ## Optional Dependencies
 
@@ -73,7 +69,7 @@ handling for the user to communicate if an additional dependency group needs to 
 installed.
 A good sanity check is to run `make docs` from the repository root to build the API
 documentation and verify that optional imports are handled correctly. For targets and
-setup, refer to {ref}`building_documentation`.
+setup, refer to `building_documentation`.
 
 It is important to handle the absence of optional dependencies in a standardized way for
 the user.

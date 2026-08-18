@@ -44,13 +44,13 @@ In this example you will learn:
 - Produce a prior (free, no-obs) downscaling and an observation-guided analysis
 - Compare both fields to held-out stations (prior vs analysis RMSE)
 
-.. note::
-   The default ~206 x 206-cell sub-domain completed in a few minutes and used about
-   5 GB of GPU memory in one test run (bf16). Set ``DOMAIN = None`` for the full domain;
-   its time and memory requirements were not validated.
+!!! note
+    The default ~206 x 206-cell sub-domain completed in a few minutes and used about
+    5 GB of GPU memory in one test run (bf16). Set ``DOMAIN = None`` for the full domain;
+    its time and memory requirements were not validated.
 
-.. note::
-   The assimilated in-situ observations are NOAA NCEI GHCN-Hourly station data.
+!!! note
+    The assimilated in-situ observations are NOAA NCEI GHCN-Hourly station data.
 """
 
 # /// script
@@ -58,7 +58,7 @@ In this example you will learn:
 #   "earth2studio[data,da-cosmo] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   # PhysicsNeMo's RoPE/NATTEN backend is not on PyPI yet; pin the Git source
 #   # explicitly -- the repo's [tool.uv.sources] pin does not reach a PEP 723 script.
-#   "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@ced75d93d014f70bb691372788eee2d201171c12",
+#   "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260",
 #   "cartopy",
 #   "matplotlib",
 #   "scipy",

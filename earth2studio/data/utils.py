@@ -28,10 +28,11 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
 from pathlib import Path
-from typing import Any, ClassVar, Literal, TypeVar
+from typing import Any, ClassVar, Literal, Protocol, TypeVar
 
 import fsspec.asyn
 import numpy as np
+import obspec
 import obstore as obs
 import obstore.store
 import pandas as pd
@@ -673,11 +674,11 @@ async def managed_session(fs: Any) -> Any:
 
     Example
     -------
-    .. code-block:: python
-
-        async with managed_session(self.fs) as session:
-            # fetch data here - session will be closed even on error
-            await gather_with_concurrency(coros, ...)
+    ```python
+    async with managed_session(self.fs) as session:
+        # fetch data here - session will be closed even on error
+        await gather_with_concurrency(coros, ...)
+    ```
     """
     session = None
     try:
@@ -834,6 +835,108 @@ def resolve_async_workers(
     return max(1, min(n_tasks, cap))
 
 
+def decode_grib_message(grib_file: str, message_index: int = 1) -> np.ndarray:
+    """Decode one message from a local grib file into a numpy array.
+
+    Shared by the GRIB byte-range data sources (GFS, HRRR, GEFS, CFS), which
+    cache single-message (or few-submessage) slices to disk. Sync and
+    module-level so callers can dispatch it via ``cancellable_to_thread`` and
+    patch it in offline tests. Uses pygrib, which is faster and lower memory
+    than xarray/cfgrib for single-message slices.
+
+    Parameters
+    ----------
+    grib_file : str
+        Path to local grib file.
+    message_index : int, optional
+        1-based pygrib message index to extract, by default 1. Byte-range
+        slices hold a single message; vector wind packings (e.g. CFS
+        `UGRD`/`VGRD` siblings) hold multiple submessages.
+
+    Returns
+    -------
+    np.ndarray
+        Decoded 2-D field values.
+    """
+    # Local import keeps pygrib (a heavy C extension) out of the import path
+    # of data sources that do not read grib.
+    import pygrib
+
+    try:
+        grbs = pygrib.open(grib_file)
+    except Exception:
+        logger.error(f"Failed to open grib file {grib_file}")
+        raise
+    try:
+        return np.asarray(grbs[message_index].values)
+    except Exception:
+        logger.error(f"Failed to read grib file {grib_file} at message {message_index}")
+        raise
+    finally:
+        grbs.close()
+
+
+class AsyncReadableStore(
+    obspec.GetAsync, obspec.GetRangeAsync, obspec.HeadAsync, Protocol
+):
+    """obspec capabilities required by the async byte-range read helpers.
+
+    Any obspec-conforming store (obstore stores included) satisfies this
+    structurally; tests can pass a plain fake object instead of patching
+    obstore internals.
+    """
+
+
+class AsyncListableStore(AsyncReadableStore, obspec.ListAsync, Protocol):
+    """Read + list obspec capabilities required by listing data sources
+    (e.g. GOES / GOES GLM hour-directory discovery)."""
+
+
+async def obstore_list_prefix(
+    store: AsyncListableStore,
+    prefix: str,
+    cache: dict[str, list[str]] | None = None,
+    cacheable: bool = True,
+) -> list[str]:
+    """Lists object keys under a prefix, optionally memoizing per prefix.
+
+    The list stream is consumed asynchronously so LIST round-trips don't block
+    the event loop while downloads are in flight. Callers with directory-style
+    layouts (e.g. per-hour satellite archives) pass a per-instance ``cache``
+    dict so repeated fetches over the same prefix issue a single LIST request;
+    pass ``cacheable=False`` for prefixes that are still being filled (e.g. the
+    current hour) so the cache is bypassed entirely and they are re-listed on
+    every call.
+
+    Parameters
+    ----------
+    store : AsyncListableStore
+        obspec-conforming store to list (e.g. an obstore store)
+    prefix : str
+        Key prefix to list (bucket-relative)
+    cache : dict[str, list[str]] | None, optional
+        Memoization dict keyed by prefix; by default None (no memoization)
+    cacheable : bool, optional
+        Whether the result may be read from or stored in ``cache``, by
+        default True
+
+    Returns
+    -------
+    list[str]
+        Object keys (bucket-relative paths) under the prefix
+    """
+    if cache is not None and cacheable and prefix in cache:
+        return cache[prefix]
+    paths = [
+        entry["path"]
+        async for chunk in store.list_async(prefix=prefix)
+        for entry in chunk
+    ]
+    if cache is not None and cacheable:
+        cache[prefix] = paths
+    return paths
+
+
 def obstore_store_from_url(
     url: str,
     anonymous: bool = True,
@@ -878,7 +981,7 @@ def obstore_store_from_url(
 
 
 async def obstore_read_range(
-    store: obstore.store.ObjectStore,
+    store: AsyncReadableStore,
     key: str,
     byte_offset: int = 0,
     byte_length: int | None = None,
@@ -896,8 +999,8 @@ async def obstore_read_range(
 
     Parameters
     ----------
-    store : obstore.store.ObjectStore
-        Object store to read from
+    store : AsyncReadableStore
+        obspec-conforming store to read from (e.g. an obstore store)
     key : str
         Object key (bucket-relative path)
     byte_offset : int, optional
@@ -919,29 +1022,102 @@ async def obstore_read_range(
     """
     try:
         if byte_length is not None:
-            data = await obs.get_range_async(
-                store, key, start=byte_offset, length=byte_length
+            data = await store.get_range_async(
+                key, start=byte_offset, length=byte_length
             )
         elif byte_offset == 0:
-            resp = await obs.get_async(store, key)
-            data = await resp.bytes_async()
+            resp = await store.get_async(key)
+            data = await resp.buffer_async()
         else:
-            meta = await obs.head_async(store, key)
-            data = await obs.get_range_async(
-                store, key, start=byte_offset, end=int(meta["size"])
+            meta = await store.head_async(key)
+            data = await store.get_range_async(
+                key, start=byte_offset, end=int(meta["size"])
             )
     except (FileNotFoundError, obs.exceptions.NotFoundError):
         raise FileNotFoundError(f"Object {key} not found in store")
     return bytes(data)
 
 
+# Defaults for chunked whole-object reads. 1 MiB chunks with 8 in flight
+# measured ~5x faster and far less variable than a single whole-object GET on
+# tens-of-MB S3 objects (2--8 MiB chunks yield too few concurrent streams).
+# Callers that also parallelize across files should keep files x chunks near
+# their store's connection-pool size.
+_READ_CHUNK_SIZE_BYTES: int = 1024 * 1024
+_READ_CHUNK_CONCURRENCY: int = 8
+
+
+async def obstore_read_chunked(
+    store: AsyncReadableStore,
+    key: str,
+    chunk_size: int = _READ_CHUNK_SIZE_BYTES,
+    max_concurrent: int = _READ_CHUNK_CONCURRENCY,
+) -> bytes:
+    """Reads a whole object, fetching large objects as parallel byte ranges.
+
+    A single whole-object GET runs at single-stream throughput; splitting
+    large objects (e.g. tens-of-MB HDF5 granules) into ``chunk_size`` byte
+    ranges fetched concurrently recovers multi-stream throughput. Objects of
+    at most ``chunk_size`` bytes are read with a single range GET; larger
+    objects are split with at most ``max_concurrent`` ranges in flight, then
+    reassembled in order.
+
+    Parameters
+    ----------
+    store : AsyncReadableStore
+        obspec-conforming store to read from (e.g. an obstore store)
+    key : str
+        Object key (bucket-relative path)
+    chunk_size : int, optional
+        Byte-range size per GET, by default 1 MiB
+    max_concurrent : int, optional
+        Maximum concurrent range GETs for one object, by default 8
+
+    Returns
+    -------
+    bytes
+        The complete object payload
+
+    Raises
+    ------
+    FileNotFoundError
+        If the object does not exist. obstore's ``NotFoundError`` subclasses
+        plain ``Exception``, so it is translated here (mirroring
+        ``obstore_read_range``) to keep callers' retry semantics sane.
+    """
+    try:
+        meta = await store.head_async(key)
+        size = int(meta["size"])
+
+        if size <= chunk_size:
+            return bytes(await store.get_range_async(key, start=0, end=size))
+
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def _fetch_range(start: int) -> bytes:
+            async with semaphore:
+                return bytes(
+                    await store.get_range_async(
+                        key, start=start, end=min(start + chunk_size, size)
+                    )
+                )
+
+        chunks = await asyncio.gather(
+            *(_fetch_range(start) for start in range(0, size, chunk_size))
+        )
+    except (FileNotFoundError, obs.exceptions.NotFoundError):
+        raise FileNotFoundError(f"Object {key} not found in store") from None
+    return b"".join(chunks)
+
+
 async def obstore_fetch_to_cache(
-    store: obstore.store.ObjectStore,
+    store: AsyncReadableStore,
     key: str,
     cache_dir: str,
     byte_offset: int = 0,
     byte_length: int | None = None,
     cache_key: str | None = None,
+    chunked: bool = False,
 ) -> str:
     """Fetches a byte range of an object into a local cache file.
 
@@ -953,8 +1129,8 @@ async def obstore_fetch_to_cache(
 
     Parameters
     ----------
-    store : obstore.store.ObjectStore
-        Object store to read from
+    store : AsyncReadableStore
+        obspec-conforming store to read from (e.g. an obstore store)
     key : str
         Object key (bucket-relative path)
     cache_dir : str
@@ -965,20 +1141,29 @@ async def obstore_fetch_to_cache(
         Number of bytes to read, by default None (read to end)
     cache_key : str | None, optional
         Explicit cache file name, by default None (sha256 of key + offset)
+    chunked : bool, optional
+        Fetch the object as concurrent byte-range chunks via
+        :func:`obstore_read_chunked`. Only valid for whole-object fetches
+        (``byte_offset == 0`` and ``byte_length is None``), by default False
 
     Returns
     -------
     str
         Path to the local cache file
     """
+    if chunked and (byte_offset != 0 or byte_length is not None):
+        raise ValueError("chunked fetches only support whole-object reads")
     if cache_key is None:
         cache_key = sha256((key + str(byte_offset)).encode()).hexdigest()
     cache_path = os.path.join(cache_dir, cache_key)
     if Path(cache_path).is_file():
         return cache_path
-    data = await obstore_read_range(
-        store, key, byte_offset=byte_offset, byte_length=byte_length
-    )
+    if chunked:
+        data = await obstore_read_chunked(store, key)
+    else:
+        data = await obstore_read_range(
+            store, key, byte_offset=byte_offset, byte_length=byte_length
+        )
     await asyncio.to_thread(Path(cache_path).write_bytes, data)
     return cache_path
 
@@ -1202,8 +1387,8 @@ def radiance_to_bt(
     Notes
     -----
     Uses NIST CODATA 2018 radiation constants:
-    - C1 = 1.191042953e-5 mW/(m²·sr·cm⁻⁴)
-    - C2 = 1.4387774 K·cm
+    - C1 = 1.191042972e-5 mW/(m²·sr·cm⁻⁴)
+    - C2 = 1.438776877 K·cm
 
     Examples
     --------
@@ -1221,9 +1406,12 @@ def radiance_to_bt(
     nu = np.asarray(wavenumber)
     nu3 = nu * nu * nu
 
-    # Compute inverse Planck, suppressing warnings for invalid radiance
+    # Compute inverse Planck, suppressing warnings for invalid radiance.
+    # log(1 + x) rather than log1p: the argument is e^(C2·nu/T) - 1, which
+    # never falls below ~16 over Earth scenes, so log1p buys no accuracy
+    # here and is measurably slower.
     with np.errstate(divide="ignore", invalid="ignore"):
-        t_star = PLANCK_C2 * nu / np.log1p(PLANCK_C1 * nu3 / radiance)
+        t_star = PLANCK_C2 * nu / np.log(1.0 + PLANCK_C1 * nu3 / radiance)
 
     # Mask invalid radiance (≤0 or NaN) → NaN in output
     invalid = ~(radiance > 0)

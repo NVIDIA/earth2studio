@@ -146,8 +146,8 @@ class PrepareInputTensorDefault:
             dx_coords["lon"] = px_coords["lon"]
 
         if self.interp is None:
-            (lat0, lon0) = _convert_to_2d(px_coords["lat"], px_coords["lon"])
-            (lat1, lon1) = _convert_to_2d(dx_coords["lat"], dx_coords["lon"])
+            lat0, lon0 = _convert_to_2d(px_coords["lat"], px_coords["lon"])
+            lat1, lon1 = _convert_to_2d(dx_coords["lat"], dx_coords["lon"])
 
             # Check if coordinates are identical - if so, skip interpolation
             if np.array_equal(lat0, lat1) and np.array_equal(lon0, lon1):
@@ -370,6 +370,10 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
     prepare_output_tensor : PrepareOutputTensor | None, optional
         Callable or Protocol-implementing object to prepare output tensor. If None,
         uses PrepareOutputTensorDefault which concatenates all outputs, by default None
+
+    Badges
+    ------
+    region:global provider:nvidia backend:pytorch
     """
 
     def __init__(

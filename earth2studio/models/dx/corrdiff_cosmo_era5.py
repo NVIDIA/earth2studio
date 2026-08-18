@@ -53,6 +53,7 @@ from typing import Literal
 import numpy as np
 import torch
 import xarray as xr
+from fsspec.implementations.cache_mapper import BasenameCacheMapper
 from loguru import logger
 
 from earth2studio.lexicon import CosmoLexicon
@@ -113,12 +114,6 @@ SHORTWAVE_VARIABLES = ("ASWDIR_S", "ASWDIFD_S")
 # (also used as the package-subfolder key); the actual grid resolution isn't stored
 # here because the native grid ships verbatim in the package.
 SUPPORTED_VARIANTS = ("rea6", "rea2")
-
-# Hosted URI for the combined (rea6/ + rea2/) downscaling package, used by
-# ``load_default_package`` / ``from_pretrained``. The package nests rea6/ and
-# rea2/ subfolders; ``load_model(..., resolution=)`` selects the subfolder, so
-# one URI serves all four models.
-DEFAULT_PACKAGE_URI: str = "hf://nvidia/corrdiff-cosmo-era5"
 
 
 def _points_in_grid_footprint(
@@ -253,7 +248,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     surface and model-level (3D) fields -- winds,
     temperature, humidity, precipitation, cloud cover, fluxes, TKE, PBL height;
     variables with a canonical Earth2Studio name are relabelled via
-    :class:`~earth2studio.lexicon.CosmoLexicon` and COSMO-specific fields keep a
+    [`CosmoLexicon`][earth2studio.lexicon.CosmoLexicon] and COSMO-specific fields keep a
     descriptive name. Optionally emits derived hub-height wind components (see
     ``hub_heights``).
 
@@ -357,7 +352,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:eu class:ds product:wind product:precip product:temp product:atmos year:2026 gpu:80gb
+    region:eu class:downscaling product:wind product:precip product:temp product:atmos year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(
@@ -1182,7 +1178,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         return lo, hi
 
     @staticmethod
-    def _rebind_latent(dit: torch.nn.Module, H: int, W: int) -> None:
+    def _rebind_latent(dit: torch.nn.Module, H: int, W: int) -> tuple[int, int]:
         """Rebind a RoPE/NATTEN DiT to an (H, W) output domain (its construction
         grid was the training patch). Two pieces of per-grid metadata change -- the
         attention's latent grid and the detokenizer's patch counts -- and nothing
@@ -1190,11 +1186,13 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         per resolution. Shared by the regression forward and the diffusion sampler.
         Mutates ``dit`` in place, so callers sharing one network (e.g. sub-domains
         from ``set_domain``) must not run concurrently -- see ``set_domain``.
+        Returns the latent grid so callers can pass it through forward-time
+        ``attn_kwargs`` for PhysicsNeMo RoPE table providers.
         """
         ph, pw = dit.tokenizer.patch_size
         latent_hw = (H // ph, W // pw)  # pixel grid -> latent (post-patchify) grid
-        # (1) attention: NATTEN neighbour windows + the RoPE tables are built per
-        # latent grid, so the attention layers need the new latent_hw.
+        # (1) attention: NATTEN neighbour windows use the latent grid. Newer
+        # PhysicsNeMo RoPE providers also need this as a forward-time override.
         dit.attn_kwargs_forward["latent_hw"] = latent_hw
         # (2) detokenizer: the token->pixel reshape uses these patch counts. They
         # live on the detokenizer, or on its ``.proj`` for the ConvDetokenizer
@@ -1202,6 +1200,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         detok = dit.detokenizer
         target = detok.proj if hasattr(detok, "proj") else detok
         target.h_patches, target.w_patches = latent_hw
+        return latent_hw
 
     def _inference_context(self) -> AbstractContextManager:
         """Context manager wrapping the network forward passes.
@@ -1229,7 +1228,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         if self.regression_model is None:
             raise RuntimeError("regression_model is not loaded")
         H, W = background.shape[-2:]
-        self._rebind_latent(self.regression_model, H, W)
+        latent_hw = self._rebind_latent(self.regression_model, H, W)
         bg = background.to(torch.float32)
         with self._inference_context():
             # Regression net is the bare DiT (not EDM-wrapped). Its forward is
@@ -1237,7 +1236,10 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             # channels), t = a dummy 0 (no diffusion noise level in a regression),
             # condition = None (no separate vector conditioning).
             return self.regression_model(
-                bg, bg.new_zeros(bg.shape[0]), condition=None
+                bg,
+                bg.new_zeros(bg.shape[0]),
+                condition=None,
+                attn_kwargs={"latent_hw": latent_hw},
             ).float()
 
     def _denoise(
@@ -1274,9 +1276,9 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         cond = background.to(torch.float32)  # ConcatConditionWrapper cond_concat
 
         # Rebind the DiT latent grid to this domain (the construction grid was the
-        # training patch size); the RoPE cos/sin tables rebuild for the new
-        # latent_hw inside attention.
-        self._rebind_latent(net.model.model, H, W)
+        # training patch size); pass it forward so PhysicsNeMo builds matching
+        # RoPE cos/sin tables for the current latent grid.
+        latent_hw = self._rebind_latent(net.model.model, H, W)
         gen = (
             torch.Generator(device=dev).manual_seed(seed) if seed is not None else None
         )
@@ -1300,7 +1302,10 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
         def x0_predictor(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
             return net(
-                x.float(), t.to(torch.float32).reshape(-1), condition=cond
+                x.float(),
+                t.to(torch.float32).reshape(-1),
+                condition=cond,
+                attn_kwargs={"latent_hw": latent_hw},
             ).double()
 
         if score_predictor_factory is not None:
@@ -1655,11 +1660,18 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         ``load_model(..., mode=, resolution=)`` (or rely on the ``mean``/``rea6``
         defaults through ``from_pretrained``).
         """
+        # Hosted URI for the combined (rea6/ + rea2/) downscaling package, used by
+        # ``load_default_package`` / ``from_pretrained``. The package nests rea6/ and
+        # rea2/ subfolders; ``load_model(..., resolution=)`` selects the subfolder, so
+        # one URI serves all four models.
         return Package(
-            DEFAULT_PACKAGE_URI,
+            "hf://nvidia/corrdiff-cosmo-era5@44064f304158f863f6ae02948b1b8e08d523458e",
             cache_options={
                 "cache_storage": Package.default_cache("corrdiff_cosmo_era5"),
-                "same_names": True,
+                # Include the resolution directory to distinguish files with
+                # matching basenames, such as rea2/metadata.json and
+                # rea6/metadata.json.
+                "cache_mapper": BasenameCacheMapper(directory_levels=1),
             },
         )
 
@@ -1695,6 +1707,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         package to carry a ``wind_levels`` metadata block (else requesting
         ``hub_heights`` raises). See the constructor.
         """
+
         # Validate the selectors up front so a bad value fails with a clear message
         # rather than a cryptic missing-file when resolving "<resolution>/...".
         if resolution not in SUPPORTED_VARIANTS:

@@ -142,7 +142,9 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:eu class:da product:wind product:atmos year:2026 gpu:80gb
+    region:global class:data-assimilation class:downscaling product:wind product:temp
+    product:precip product:atmos product:insitu year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(
@@ -162,8 +164,10 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
                 "CorrDiffCosmoEra5SDA requires a diffusion-mode model "
                 f'(got mode={model.mode!r}); load with mode="diffusion".'
             )
-        if sda_gamma < 0:
-            raise ValueError(f"sda_gamma must be >= 0 (got {sda_gamma}).")
+        if not np.isfinite(sda_gamma) or sda_gamma < 0:
+            raise ValueError(
+                f"sda_gamma must be a finite value >= 0 (got {sda_gamma})."
+            )
         if not assimilate_variables:
             raise ValueError("assimilate_variables must be non-empty.")
         self.model = model

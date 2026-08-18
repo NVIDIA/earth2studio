@@ -123,19 +123,20 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > [!NOTE]
 > As of version `0.14.0`, Earth2Studio TOML default installs now target CUDA 13.
 
-- [**AIFS 2.0**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.AIFS2.html),
-    ECMWF's AIFS 2.0 prognostic model with wave and 10 hPa pressure level support,
-    plus an ensemble variant (`AIFS2ENS`) with stochastic noise injection.
-- [**U-CAST**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.UCast.html),
-    U-CAST prognostic model with 1.5-degree global ERA5 forecasting support.
-- [**CFS Forecast Sources**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.CFS_FX.html),
-    NCEP CFSv2 operational forecast and 9-month reforecast data sources backed by
-    NOMADS and the AWS Open Data mirror.
-- [**IBTrACS**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.IBTrACS.html),
-    tropical cyclone best-track DataFrame source for historical storm analysis.
-- **Checkpoint/Restart**, session utilities and restart support for deterministic,
-    diagnostic, and ensemble inference workflows. Individual model support is rolling
-    out progressively.
+- [**Aurora v1.5**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/Aurora1p5/),
+    Microsoft Aurora v1.5 deterministic and ensemble model wrapper for global
+    weather forecasting.
+- [**StormCast CONUS**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/StormCastCONUS/),
+    StormCast CONUS prognostic model for convective-scale forecasting over the
+    contiguous United States.
+- [**Dynamical.org Sources**](https://nvidia.github.io/earth2studio/main/modules/generated/data/analysis/data_DynamicalGFS/),
+    a comprehensive suite of analysis and forecast data sources reading from
+    anonymous Icechunk repositories (AIFS, GFS, GEFS, HRRR, MRMS, ICON-EU, IFS-ENS).
+- [**EarthMover Data Sources**](https://nvidia.github.io/earth2studio/main/modules/generated/data/analysis/data_EarthMoverERA5/),
+    EarthMover ERA5 0.25-degree reanalysis and IFS 0.1-degree forecast sources
+    hosted by BrightBand.
+- [**StormScope NSRDB**](https://nvidia.github.io/earth2studio/main/modules/generated/models/dx/StormScopeDxNSRDB/),
+    solar irradiance (GHI) estimation diagnostic model.
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 
@@ -173,193 +174,6 @@ statistical operations and more to accelerate your pipelines.
 Access state of the art Nvidia open models for climate and weather: [Earth-2 Open Models](https://huggingface.co/collections/nvidia/earth-2).
 For training recipes for these models, see the [PhysicsNeMo repository][physicsnemo_repo_url].
 
-## Features
-
-Earth2Studio package focuses on supplying you the tools to build your own
-workflows, pipelines, APIs, or packages using modular components including:
-
-<details>
-<summary>Prognostic Models</summary>
-
-[Prognostic models][e2studio_px_url]
-    in Earth2Studio perform time integration, taking atmospheric fields at a specific
-    time and auto-regressively predicting the same fields into the future (typically 6
-    hours per step), enabling both single time-step predictions and extended time-series
-    forecasting.
-
-Earth2Studio maintains the largest collection of pre-trained state-of-the-art AI
-    weather/climate models ranging from global forecast models to regional specialized
-    models, covering various resolutions, architectures, and forecasting capabilities to
-    suit different computational and accuracy requirements.
-
-Available models include but are not limited to:
-
-| Model | Resolution | Architecture | Time Step | Coverage |
-|-------|------------|--------------|-----------|----------|
-| GraphCast Small | 1.0° | Graph Neural Network | 6h | Global |
-| GraphCast Operational | 0.25° | Graph Neural Network | 6h | Global |
-| Pangu 3hr | 0.25° | Transformer | 3h | Global |
-| Pangu 6hr | 0.25° | Transformer | 6h | Global |
-| Pangu 24hr | 0.25° | Transformer | 24h | Global |
-| Aurora | 0.25° | Transformer | 6h | Global |
-| FuXi | 0.25° | Transformer | 6h | Global |
-| AIFS | 0.25° | Transformer | 6h | Global |
-| AIFS Ensemble | 0.25° | Transformer Ensemble | 6h | Global |
-| AIFS 2.0 | 0.25° | Transformer | 6h | Global |
-| AIFS 2.0 Ensemble | 0.25° | Transformer Ensemble | 6h | Global |
-| U-CAST | 1.5° | UNet | 12h | Global |
-| StormCast | 3km | Diffusion + Regression | 1h | Regional (US) |
-| SFNO | 0.25° | Neural Operator | 6h | Global |
-| DLESyM | 1.0° | Convolutional | 6h | Global |
-
-For a complete list, see the [prognostic model API docs][e2studio_px_api].
-
-</details>
-
-<details>
-<summary>Diagnostic Models</summary>
-
-[Diagnostic models][e2studio_dx_url] in Earth2Studio perform time-independent
-    transformations, typically taking geospatial fields at a specific time and
-    predicting new derived quantities without performing time integration enabling users
-    to build pipelines to predict specific quantities of interest that may not be
-    provided by forecasting models.
-
-Earth2Studio contains a growing collection of specialized diagnostic models for
-    various phenomena including precipitation prediction, tropical cyclone tracking,
-    solar radiation estimation, wind gust forecasting, and more.
-
-Available diagnostics include but are not limited to:
-
-| Model | Resolution | Architecture | Coverage | Output |
-|-------|------------|--------------|----------|--------|
-| PrecipitationAFNO | 0.25° | Neural Operator  | Global | Total precipitation |
-| SolarRadiationAFNO1H | 0.25° | Neural Operator  | Global | Surface solar radiation |
-| WindgustAFNO | 0.25° | AFNO | Global | Maximum wind gust |
-| TCTrackerVitart | 0.25° | Algorithmic | Global | TC tracks & properties |
-| CBottleInfill | 100km | Diffusion | Global | Global climate sample |
-| CBottleSR | 5km | Diffusion | Regional / Global | High-res climate |
-| CorrDiff | Variable | Diffusion | Regional | Fine-scale weather |
-| CorrDiffTaiwan | 2km | Diffusion | Regional (Taiwan) | Taiwan fine-scale weather |
-
-For a complete list, see the [diagnostic model API docs][e2studio_dx_api].
-
-</details>
-
-<details>
-<summary>Datasources</summary>
-
-[Data sources][e2studio_data_url]
-    in Earth2Studio provide a standardized API for accessing weather and climate
-    datasets from various providers (numerical models, data assimilation results, and
-    AI-generated data), enabling seamless integration of initial conditions for model
-    inference and validation data for scoring across different data formats and storage
-    systems.
-
-Earth2Studio includes data sources ranging from operational weather models (GFS, HRRR,
-    IFS) and reanalysis datasets (ERA5 via ARCO, CDS) to AI-generated climate data
-    (cBottle) and local file systems. Fetching data is just plain easy, Earth2Studio
-    handles the complicated parts giving you an easy to use Xarray data array of
-    requested data under a shared package wide [vocabulary][e2studio_lex_url] and
-    coordinate system.
-
-Available data sources include but are not limited to:
-
-| Data Source | Type | Resolution | Coverage | Data Format |
-|-------------|------|------------|----------|-------------|
-| GFS | Operational | 0.25° | Global | GRIB2 |
-| GFS_FX | Forecast | 0.25° | Global | GRIB2 |
-| HRRR | Operational | 3km | Regional (US) | GRIB2 |
-| HRRR_FX | Forecast | 3km | Regional (US) | GRIB2 |
-| ARCO ERA5 | Reanalysis | 0.25° | Global | Zarr |
-| CDS | Reanalysis | 0.25° | Global | NetCDF |
-| IFS | Operational | 0.25° | Global | GRIB2 |
-| NCAR_ERA5 | Reanalysis | 0.25° | Global | NetCDF |
-| WeatherBench2 | Reanalysis | 0.25° | Global | Zarr |
-| GEFS_FX | Ensemble Forecast | 0.25° | Global | GRIB2 |
-| ISD | Observational | Point | Regional (US) | CSV |
-| MRMS | Reanalysis | 1km | Regional (US) | GRIB2 |
-
-For a complete list, see the [data source API docs][e2studio_data_api].
-
-</details>
-
-<details>
-<summary>IO Backends</summary>
-
-[IO backends][e2studio_io_url] in
-    Earth2Studio provides a standardized interface for writing and storing
-    pipeline outputs across different file formats and storage systems enabling users
-    to store inference outputs for later processing.
-
-Earth2Studio includes IO backends ranging from traditional scientific formats (NetCDF)
-    and modern cloud-optimized formats (Zarr) to in-memory storage backends.
-
-Available IO backends include:
-
-| IO Backend | Format | Features | Location |
-|------------|--------|----------|----------|
-| ZarrBackend | Zarr | Compression, Chunking | In-Memory/Local |
-| AsyncZarrBackend | Zarr | Async writes, Parallel I/O | In-Memory/Local/Remote |
-| NetCDF4Backend | NetCDF4 | CF-compliant, Metadata | In-Memory/Local |
-| XarrayBackend | Xarray Dataset | Rich metadata, Analysis-ready | In-Memory |
-| KVBackend | Key-Value| Fast Temporary Access | In-Memory |
-
-For a complete list, see the [IO API docs][e2studio_io_api].
-
-</details>
-
-<details>
-<summary>Perturbation Methods</summary>
-
-[Perturbation methods][e2studio_pb_url]
-    in Earth2Studio provide a standardized interface for adding noise
-    to data arrays, typically enabling the creation of ensembling forecast pipelines
-    that capture uncertainty in weather and climate predictions.
-
-Available perturbations include but are not limited to:
-
-| Perturbation Method | Type | Spatial Correlation | Temporal Correlation |
-|---------------------|------|-------------------|---------------------|
-| Gaussian | Noise | None | None |
-| Correlated SphericalGaussian | Noise | Spherical | AR(1) process |
-| Spherical Gaussian | Noise | Spherical (Matern) | None |
-| Brown | Noise | 2D Fourier | None |
-| Bred Vector | Dynamical | Model-dependent | Model-dependent |
-| Hemispheric Centred Bred Vector | Dynamical | Hemispheric | Model-dependent |
-
-For a complete list, see the [perturbations API docs][e2studio_pb_url].
-
-</details>
-
-<details>
-<summary>Statistics / Metrics</summary>
-
-[Statistics and metrics][e2studio_stat_url]
-    in Earth2Studio provide operations typically useful for in-pipeline evaluation of
-    forecast performance across different dimensions (spatial, temporal, ensemble)
-    through various statistical measures including error metrics, correlation
-    coefficients, and ensemble verification statistics.
-
-Available operations include but are not limited to:
-
-| Statistic | Type | Application |
-|-----------|------|-------------|
-| RMSE | Error Metric | Forecast accuracy |
-| ACC | Correlation | Pattern correlation |
-| CRPS | Ensemble Metric | Probabilistic skill |
-| Rank Histogram | Ensemble Metric | Ensemble reliability |
-| Standard Deviation | Moment | Spread measure |
-| Spread-Skill Ratio | Ensemble Metric | Ensemble calibration |
-
-For a complete list, see the [statistics API docs][e2studio_stat_api].
-
-</details>
-
-For a more complete list of features, be sure to view the [documentation][e2studio_docs_url].
-Don't see what you need?
-Great news, extension and customization are at the heart of our [design][e2studio_customization_url].
-
 ## Contributors
 
 Check out the [contributing](CONTRIBUTING.md) document for details about the technical
@@ -390,24 +204,24 @@ Earth2Studio is provided under the Apache License 2.0, refer to the
 
 <!-- Doc links -->
 [e2studio_docs_url]: https://nvidia.github.io/earth2studio/
-[e2studio_install_url]: https://nvidia.github.io/earth2studio/userguide/about/install.html
-[e2studio_userguide_url]: https://nvidia.github.io/earth2studio/userguide/
-[e2studio_examples_url]: https://nvidia.github.io/earth2studio/examples/
-[e2studio_api_url]: https://nvidia.github.io/earth2studio/modules/
-[e2studio_customization_url]: https://nvidia.github.io/earth2studio/examples/extend/index.html
-[e2studio_px_url]: https://nvidia.github.io/earth2studio/userguide/components/prognostic.html
-[e2studio_px_api]: https://nvidia.github.io/earth2studio/modules/models_px.html
-[e2studio_dx_url]: https://nvidia.github.io/earth2studio/userguide/components/diagnostic.html
-[e2studio_dx_api]: https://nvidia.github.io/earth2studio/modules/models_dx.html
-[e2studio_data_url]: https://nvidia.github.io/earth2studio/userguide/components/datasources.html
-[e2studio_data_api]: https://nvidia.github.io/earth2studio/modules/datasources_analysis.html
-[e2studio_io_url]: https://nvidia.github.io/earth2studio/userguide/components/io.html
-[e2studio_io_api]: https://nvidia.github.io/earth2studio/modules/io.html
-[e2studio_pb_url]: https://nvidia.github.io/earth2studio/userguide/components/perturbation.html
-[e2studio_pb_api]: https://nvidia.github.io/earth2studio/modules/perturbation.html
-[e2studio_stat_url]: https://nvidia.github.io/earth2studio/userguide/components/statistics.html
-[e2studio_stat_api]: https://nvidia.github.io/earth2studio/modules/statistics.html
-[e2studio_lex_url]: https://nvidia.github.io/earth2studio/userguide/advanced/lexicon.html
+[e2studio_install_url]: https://nvidia.github.io/earth2studio/main/userguide/about/install/
+[e2studio_userguide_url]: https://nvidia.github.io/earth2studio/main/userguide/
+[e2studio_examples_url]: https://nvidia.github.io/earth2studio/main/examples/
+[e2studio_api_url]: https://nvidia.github.io/earth2studio/main/modules/
+[e2studio_customization_url]: https://nvidia.github.io/earth2studio/main/examples/08_extend/
+[e2studio_px_url]: https://nvidia.github.io/earth2studio/main/userguide/components/prognostic/
+[e2studio_px_api]: https://nvidia.github.io/earth2studio/main/modules/models_px/
+[e2studio_dx_url]: https://nvidia.github.io/earth2studio/main/userguide/components/diagnostic/
+[e2studio_dx_api]: https://nvidia.github.io/earth2studio/main/modules/models_dx/
+[e2studio_data_url]: https://nvidia.github.io/earth2studio/main/userguide/components/datasources/
+[e2studio_data_api]: https://nvidia.github.io/earth2studio/main/modules/datasources_analysis/
+[e2studio_io_url]: https://nvidia.github.io/earth2studio/main/userguide/components/io/
+[e2studio_io_api]: https://nvidia.github.io/earth2studio/main/modules/io/
+[e2studio_pb_url]: https://nvidia.github.io/earth2studio/main/userguide/components/perturbation/
+[e2studio_pb_api]: https://nvidia.github.io/earth2studio/main/modules/perturbation/
+[e2studio_stat_url]: https://nvidia.github.io/earth2studio/main/userguide/components/statistics/
+[e2studio_stat_api]: https://nvidia.github.io/earth2studio/main/modules/statistics/
+[e2studio_lex_url]: https://nvidia.github.io/earth2studio/main/userguide/advanced/lexicon/
 
 <!-- Misc links -->
 [physicsnemo_repo_url]: https://github.com/NVIDIA/physicsnemo
