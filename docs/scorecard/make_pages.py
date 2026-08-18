@@ -172,6 +172,7 @@ const LABEL=Q.get("label")||MODEL;
 document.title=LABEL+" skill";
 $(".badge") && ($(".badge").textContent=LABEL);
 let D=null,days=[];
+const LOWER=["rmse","mae","lsd","ensemble_mean_mse","crps","ensemble_variance"];
 const css=n=>getComputedStyle(document.body).getPropertyValue(n).trim();
 const isFin=q=>q!=null&&isFinite(q);
 const tip=$("#tip");
@@ -200,7 +201,7 @@ function draw(){
   $("#t").textContent=`${D.metrics[k].label} — ${v}${unit?" ("+unit+")":""}`;
   $("#s").textContent=
     k==="spread_skill"?"Ensemble spread over ensemble-mean RMSE. 1.0 is calibrated; below 1 is over-confident."
-    :D.lower_better.includes(k)?"Lower is better. Latitude-weighted, averaged over initial conditions."
+    :LOWER.includes(k)?"Lower is better. Latitude-weighted, averaged over initial conditions."
     :"Higher is better.";
   const all=y.filter(isFin);
   if(!all.length){mk(svg,"text",{x:450,y:155,class:"al","text-anchor":"middle"}).textContent="no data";return;}
