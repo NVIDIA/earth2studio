@@ -1042,7 +1042,7 @@
         "product:solar",
         "product:insitu"
       ],
-      "signature": "data.GHCNDaily(stations: list[str], time_tolerance: TimeTolerance = np.timedelta64(0), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 16, retries: int = 3)",
+      "signature": "data.GHCNDaily(stations: list[str], time_tolerance: TimeTolerance = np.timedelta64(0), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 32, retries: int = 3)",
       "source": "modules/generated/data/dataframe/data_GHCNDaily.md",
       "summary": "NOAA's Global Historical Climatology Network Daily (GHCN-D) is a dataset that contains daily climate summaries from land surface stations across the globe.",
       "symbol": "earth2studio.data.GHCNDaily",
@@ -1058,7 +1058,7 @@
         "product:temp",
         "product:insitu"
       ],
-      "signature": "data.GHCNHourly(stations: list[str], time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 16, retries: int = 3)",
+      "signature": "data.GHCNHourly(stations: list[str], time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 32, retries: int = 3)",
       "source": "modules/generated/data/dataframe/data_GHCNHourly.md",
       "summary": "NOAA's Global Historical Climatology Network Hourly (GHCNh) is a global database of hourly surface observations that supersedes the Integrated Surface Database (ISD). It compiles observations from thousands of stations worldwide into a common data model with consistent CSV encoding.",
       "symbol": "earth2studio.data.GHCNHourly",

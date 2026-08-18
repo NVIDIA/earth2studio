@@ -2740,7 +2740,7 @@
 <span id="earth2studio.data.GHCNDaily.__call__"></span>
 <span id="earth2studio.data.GHCNDaily.fetch"></span>
 <span id="earth2studio.data.GHCNDaily.available"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ghcn.py#L327-L770" title="earth2studio/data/ghcn.py:327">View source on GitHub</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ghcn.py#L349-L880" title="earth2studio/data/ghcn.py:349">View source on GitHub</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -2816,11 +2816,16 @@ by default 600</p>
         <li class="doc-section-item field-body">
             <b><code>async_workers</code></b>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>, default:
-                  <code>16</code>
+                  <code>32</code>
 )
           –
           <div class="doc-md-description">
-            <p>Maximum number of concurrent async fetch tasks, by default 16</p>
+            <p>Maximum number of concurrent async fetch tasks, by default 32.
+Fetches are small independent HTTP/S3 requests dominated by
+round-trip latency rather than bandwidth, so throughput scales
+with concurrency well past this default -- raising it further
+(e.g. 64) roughly halves wall time again for large station lists,
+at the cost of more concurrent requests against NOAA's endpoints.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
