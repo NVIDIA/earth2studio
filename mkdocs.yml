@@ -483,7 +483,9 @@ nav:
   - Statistics: modules/statistics.md
   - Utilities: modules/utils_all.md
   - Workflows: modules/workflows.md
-- Examples: examples/index.md
+- Examples:
+  - examples/index.md
+  - Recipes: recipes/index.md
 - Blog:
   - Overview: blog/index.md
   - Posts:
@@ -492,7 +494,6 @@ nav:
   - Categories:
     - Overview: blog/categories.md
     - Documentation: blog/categories/documentation.md
-- Recipes: recipes/index.md
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
   404.md
