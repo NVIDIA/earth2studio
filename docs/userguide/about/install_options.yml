@@ -307,6 +307,12 @@ categories:
         summary: CorrDiff COSMO-ERA5 model dependencies.
         api_refs:
           - earth2studio.models.dx.CorrDiffCosmoEra5
+        preinstall:
+          pip:
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ced75d93d014f70bb691372788eee2d201171c12"'
+          uv:
+            pypi:
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ced75d93d014f70bb691372788eee2d201171c12"'
         warnings:
           - Depends on natten for Python versions before 3.14.
       - id: cyclone
