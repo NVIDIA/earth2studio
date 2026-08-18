@@ -59,8 +59,6 @@ SURFACE_INPUT_VARIABLES = [
     "v10m",
     "u10m",
     "sst",
-    "u100m",
-    "v100m",
 ]
 SURFACE_OUTPUT_VARIABLES = SURFACE_INPUT_VARIABLES + ["tp06"]
 ATMOS_VARIABLES = ["t", "z", "u", "v", "w", "q"]
