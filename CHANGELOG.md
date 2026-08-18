@@ -37,7 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   minute-directory listings (scans older than an hour)
 - Migrated GHCNDaily and GHCNHourly data sources to obstore; GHCNDaily
   station-scale requests now fetch per-station parquet files instead of
-  global by_year partitions (~25x faster)
+  global by_year partitions (~25x faster), and their default
+  `async_workers` is raised from 16 to 32 since fetches are small,
+  latency-bound requests where throughput scales with concurrency
+  (roughly halves wall time again for large station lists)
 - Migrated JPSS VIIRS, ATMS, and CrIS data sources from s3fs to obstore;
   day-directory listings of completed days are memoized per instance while
   in-progress days are always re-listed, and the CrIS SDR/GEO dual listings

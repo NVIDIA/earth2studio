@@ -367,7 +367,12 @@ class GHCNDaily(_GHCNBase):
         Time in sec after which download will be cancelled if not finished successfully,
         by default 600
     async_workers : int, optional
-        Maximum number of concurrent async fetch tasks, by default 16
+        Maximum number of concurrent async fetch tasks, by default 32.
+        Fetches are small independent HTTP/S3 requests dominated by
+        round-trip latency rather than bandwidth, so throughput scales
+        with concurrency well past this default -- raising it further
+        (e.g. 64) roughly halves wall time again for large station lists,
+        at the cost of more concurrent requests against NOAA's endpoints.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential backoff,
         by default 3
@@ -458,7 +463,7 @@ class GHCNDaily(_GHCNBase):
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
-        async_workers: int = 16,
+        async_workers: int = 32,
         retries: int = 3,
     ):
         super().__init__(
@@ -899,7 +904,12 @@ class GHCNHourly(_GHCNBase):
         Time in sec after which download will be cancelled if not finished
         successfully, by default 600
     async_workers : int, optional
-        Maximum number of concurrent async fetch tasks, by default 16
+        Maximum number of concurrent async fetch tasks, by default 32.
+        Fetches are small independent HTTP/S3 requests dominated by
+        round-trip latency rather than bandwidth, so throughput scales
+        with concurrency well past this default -- raising it further
+        (e.g. 64) roughly halves wall time again for large station lists,
+        at the cost of more concurrent requests against NOAA's endpoints.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential backoff,
         by default 3
@@ -1047,7 +1057,7 @@ class GHCNHourly(_GHCNBase):
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
-        async_workers: int = 16,
+        async_workers: int = 32,
         retries: int = 3,
     ):
         super().__init__(
