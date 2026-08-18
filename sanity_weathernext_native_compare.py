@@ -191,11 +191,15 @@ def _native_gencast_run_forward(model: GenCastMini, jit_compile: bool) -> Callab
 def _load_model(variant: str, jit_compile: bool) -> Any:
     cls = VARIANTS[variant]
     if cls is GenCastMini:
-        return cls.load_model(cls.load_default_package(), jit_compile=jit_compile, seed=0)
+        return cls.load_model(
+            cls.load_default_package(), jit_compile=jit_compile, seed=0
+        )
     return cls.load_model(cls.load_default_package())
 
 
-def _fetch_input(model: Any, device: str, valid_time: str) -> tuple[torch.Tensor, OrderedDict]:
+def _fetch_input(
+    model: Any, device: str, valid_time: str
+) -> tuple[torch.Tensor, OrderedDict]:
     coords_in = model.input_coords()
     domain = OrderedDict(
         (key, value)
@@ -269,7 +273,11 @@ def _native_prediction(
         run_forward = _native_graphcast_run_forward(model)
 
     if isinstance(model, GenCastMini):
-        rng = jax.random.PRNGKey(0) if model.seed is None else jax.random.PRNGKey(model.seed)
+        rng = (
+            jax.random.PRNGKey(0)
+            if model.seed is None
+            else jax.random.PRNGKey(model.seed)
+        )
         rng = jax.random.fold_in(rng, 0)
     else:
         rng = model.prng_key
@@ -326,7 +334,9 @@ def _field_metrics(
         )
 
 
-def _print_tensor_delta(name: str, reference: torch.Tensor, candidate: torch.Tensor) -> None:
+def _print_tensor_delta(
+    name: str, reference: torch.Tensor, candidate: torch.Tensor
+) -> None:
     reference = reference.detach().cpu().float()
     candidate = candidate.detach().cpu().float()
     finite = torch.isfinite(reference) & torch.isfinite(candidate)
@@ -395,7 +405,9 @@ def _plot_fields(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--variant", choices=sorted(VARIANTS), default="graphcast-small")
+    parser.add_argument(
+        "--variant", choices=sorted(VARIANTS), default="graphcast-small"
+    )
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--time", default="2020-01-01T00:00")
     parser.add_argument("--plot-dir", type=Path, default=Path("weathernext_plots"))

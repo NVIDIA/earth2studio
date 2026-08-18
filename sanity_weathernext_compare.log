@@ -47,14 +47,14 @@ IndexError: index 86173920 is out of bounds for dimension 0 with size 86173920
 Traceback (most recent call last):
   File "/localhome/local-ngeneva/codex-workspace/earth2studio-2/sanity_weathernext_compare.py", line 439, in <module>
     baseline, candidate, args.rtol, args.atol, args.strict_values
-    
+
   File "/localhome/local-ngeneva/codex-workspace/earth2studio-2/sanity_weathernext_compare.py", line 420, in main
     args.seed,
           ^^^^
     args.timeout,
     ^^^^^^^^^^^^^
     args.source,
-    
+
   File "/localhome/local-ngeneva/codex-workspace/earth2studio-2/sanity_weathernext_compare.py", line 275, in _compare
     raise AssertionError(f"{variant}: output coordinates differ")
 AssertionError: gencast-mini: non-finite output detected
