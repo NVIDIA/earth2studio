@@ -231,6 +231,8 @@ body .md-grid {
 .md-header label:focus,
 .md-header label:active,
 .md-header svg,
+.md-header .md-source__facts,
+.md-header .md-source__fact,
 .md-tabs,
 .md-tabs__link,
 .md-tabs__link:hover,
@@ -238,6 +240,13 @@ body .md-grid {
 .md-tabs__link:active,
 .md-tabs__link--active {
   color: var(--e2s-header-fg) !important;
+}
+
+/* Material's default .md-source__facts is 0.55rem at 75% opacity --
+   too faint/small against our dark header to read the star/fork counts. */
+.md-header .md-source__facts {
+  font-size: 0.68rem;
+  opacity: 0.95;
 }
 
 .md-banner,
