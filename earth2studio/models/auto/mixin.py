@@ -44,6 +44,8 @@ class AutoModelMixin:
         ----------
         package: Package
             Model package, file system, to fetch assets
+        **kwargs
+            Addition keyword arguments are allowed, must have defaults
         """
         raise NotImplementedError("Load model function not implemented")
 
