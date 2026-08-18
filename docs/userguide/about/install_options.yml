@@ -268,6 +268,13 @@ categories:
         summary: StormCast-CONUS model dependencies.
         api_refs:
           - earth2studio.models.px.StormCastCONUS
+        # TODO: Removed with psn release 2.2.0
+        preinstall:
+          pip:
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+          uv:
+            pypi:
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
         warnings:
           - Depends on natten for Python versions before 3.14, which can take a long
             time to build.
@@ -321,6 +328,13 @@ categories:
         summary: CorrDiff COSMO-ERA5 model dependencies.
         api_refs:
           - earth2studio.models.dx.CorrDiffCosmoEra5
+        # TODO: Removed with psn release 2.2.0
+        preinstall:
+          pip:
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+          uv:
+            pypi:
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
         warnings:
           - Depends on natten for Python versions before 3.14.
       - id: cyclone
