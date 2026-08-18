@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
   `NNJAObsSat`, returned as brightness temperature (K) with per-channel
   wavenumbers alongside the existing microwave sensors
+- Added WeatherNext 2 Cyclones Mini prognostic model wrapper (`WeatherNext2CyclonesMini`)
 
 ### Changed
 
