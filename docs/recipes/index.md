@@ -44,26 +44,6 @@ examples, built to be adapted for real projects.
 
     [:octicons-arrow-right-24: View recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval)
 
-- :material-waves: **Ocean**
-
-    ---
-
-    AI-driven ocean forecasting pipelines — sea surface state and subsurface
-    variables from coupled and ocean-only models.
-    *Under construction.*
-
-    [:octicons-arrow-right-24: View recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/ocean)
-
-- :material-water: **Hydrology**
-
-    ---
-
-    Streamflow and land-surface hydrology forecasting pipelines built on
-    AI weather and precipitation forecasts.
-    *Under construction.*
-
-    [:octicons-arrow-right-24: View recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/hydrology)
-
 </div>
 
 [All recipes on GitHub :octicons-arrow-right-24:](https://github.com/NVIDIA/earth2studio/tree/main/recipes){ .md-button .md-button--primary }
