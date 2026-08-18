@@ -314,6 +314,16 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
         models transform state, IO stores results, and workflows compose them. Easy to get
         started, easy to extend.
       </p>
+      <p class="e2s-github-stats">
+        <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/v/earth2studio?style=flat-square&color=76b900&label=release" alt="Latest release"></a>
+        <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/dm/earth2studio?style=flat-square&color=76b900&label=downloads" alt="PyPI downloads"></a>
+        <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/pyversions/earth2studio?style=flat-square&color=76b900" alt="Python versions"></a>
+        <a href="https://github.com/NVIDIA/earth2studio/blob/main/LICENSE" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/l/earth2studio?style=flat-square&color=76b900" alt="License"></a>
+        <a href="https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/coverage-pytest--cov-76b900.svg?style=flat-square" alt="Coverage tracked with pytest-cov"></a>
+        <a href="https://mypy-lang.org/" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/types-mypy-blue.svg?style=flat-square" alt="Checked with mypy"></a>
+        <a href="https://github.com/astral-sh/ruff" target="_blank" rel="noopener"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square" alt="Linted and formatted with Ruff"></a>
+        <a href="https://github.com/astral-sh/uv" target="_blank" rel="noopener"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json&style=flat-square" alt="Managed with uv"></a>
+      </p>
     </div>
     <div class="e2s-start-grid">
       <a class="e2s-home-button" href="https://www.youtube.com/watch?v=Sog6aCapZeA" target="_blank" rel="noopener">Tutorial</a>
@@ -321,9 +331,6 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
       <a class="e2s-home-button" href="examples/">Examples</a>
       <a class="e2s-home-button" href="modules/">API Reference</a>
     </div>
-    <p class="e2s-github-stats">
-      <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/dm/earth2studio?style=flat&color=76b900&label=downloads" alt="PyPI downloads"></a>
-    </p>
   </section>
 </div>
 
