@@ -2752,7 +2752,7 @@
 <span id="earth2studio.models.px.GenCastMini.create_iterator"></span>
 <span id="earth2studio.models.px.GenCastMini.load_default_package"></span>
 <span id="earth2studio.models.px.GenCastMini.load_model"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/gencast_mini.py#L123-L1064" title="earth2studio/models/px/gencast_mini.py:123">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=gencast#install-command" title="category=prognostic item=gencast">View install commands</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/gencast_mini.py#L118-L1013" title="earth2studio/models/px/gencast_mini.py:118">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=gencast#install-command" title="category=prognostic item=gencast">View install commands</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -2780,11 +2780,13 @@ which includes a zero 12hr total precipitation input.</p>
 
 <details class="note" open>
   <summary>Note</summary>
-  <p>This model is provided by DeepMind.
-For more information see the following references:</p>
+  <p>As of July 2026, GenCast was renamed to WeatherNext 1-Gen in the
+WeatherNext codebase. This Earth2Studio wrapper keeps the GenCast name
+for backwards compatibility.</p>
+<p>For more information see the following references:</p>
 <ul>
 <li><a href="https://arxiv.org/abs/2312.15796">arxiv.org/abs/2312.15796</a></li>
-<li><a class="magiclink magiclink-github magiclink-repository" href="https://github.com/google-deepmind/graphcast" title="GitHub Repository: google-deepmind/graphcast">google-deepmind/graphcast</a></li>
+<li><a class="magiclink magiclink-github magiclink-repository" href="https://github.com/google-deepmind/weathernext" title="GitHub Repository: google-deepmind/weathernext">google-deepmind/weathernext</a></li>
 <li><a href="https://www.nature.com/articles/s41586-024-08252-9">www.nature.com/articles/s41586-024-08252-9</a></li>
 </ul>
 </details>
@@ -2799,7 +2801,7 @@ model's checkpoints.</p>
     <ul>
         <li class="doc-section-item field-body">
             <b><code>ckpt</code></b>
-              (<code><span title="graphcast.gencast.CheckPoint">CheckPoint</span></code>)
+              (<code><span title="weathernext.weathernext1_gen.gencast.CheckPoint">CheckPoint</span></code>)
           –
           <div class="doc-md-description">
             <p>Model checkpoint containing weights and configuration</p>

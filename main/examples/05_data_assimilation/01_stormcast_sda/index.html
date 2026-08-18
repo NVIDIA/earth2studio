@@ -2859,25 +2859,10 @@ coordinate system.</p>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">)</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>19 lines</small></summary><pre><code>Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
-Fetching HRRR data:   1%|          | 1/99 [00:00&lt;00:46,  2.10it/s]
-Fetching HRRR data:   2%|▏         | 2/99 [00:00&lt;00:25,  3.77it/s]
-Fetching HRRR data:   4%|▍         | 4/99 [00:00&lt;00:12,  7.38it/s]
-Fetching HRRR data:   8%|▊         | 8/99 [00:00&lt;00:06, 14.10it/s]
-Fetching HRRR data:  12%|█▏        | 12/99 [00:00&lt;00:04, 18.82it/s]
-Fetching HRRR data:  15%|█▌        | 15/99 [00:01&lt;00:04, 19.08it/s]
-Fetching HRRR data:  18%|█▊        | 18/99 [00:01&lt;00:04, 17.05it/s]
-Fetching HRRR data:  20%|██        | 20/99 [00:01&lt;00:05, 15.34it/s]
-Fetching HRRR data:  22%|██▏       | 22/99 [00:01&lt;00:05, 14.81it/s]
-Fetching HRRR data:  24%|██▍       | 24/99 [00:01&lt;00:06, 12.46it/s]
-Fetching HRRR data:  27%|██▋       | 27/99 [00:02&lt;00:05, 12.87it/s]
-Fetching HRRR data:  30%|███       | 30/99 [00:02&lt;00:05, 12.28it/s]
-Fetching HRRR data:  37%|███▋      | 37/99 [00:02&lt;00:04, 14.37it/s]
-Fetching HRRR data:  47%|████▋     | 47/99 [00:03&lt;00:03, 16.34it/s]
-Fetching HRRR data:  57%|█████▋    | 56/99 [00:03&lt;00:01, 22.10it/s]
-Fetching HRRR data:  70%|██████▉   | 69/99 [00:03&lt;00:01, 28.53it/s]
-Fetching HRRR data:  82%|████████▏ | 81/99 [00:04&lt;00:00, 34.77it/s]
-Fetching HRRR data: 100%|██████████| 99/99 [00:04&lt;00:00, 24.07it/s]</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre><code>Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+Fetching HRRR data:   1%|          | 1/99 [00:05&lt;09:42,  5.94s/it]
+Fetching HRRR data:  57%|█████▋    | 56/99 [00:06&lt;00:03, 12.61it/s]
+Fetching HRRR data: 100%|██████████| 99/99 [00:06&lt;00:00, 15.86it/s]</code></pre></details>
 
 <h2 id="run-without-observations">Run Without Observations<a class="headerlink" href="#run-without-observations" title="Permanent link">&para;</a></h2>
 <p>Step the model forward 6 hours without any observations. This uses the
@@ -2906,112 +2891,74 @@ used for comparison.</p>
 <a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="n">gen</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 <a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="n">no_obs_fields</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">no_obs_fields</span><span class="p">)</span>  <span class="c1"># (nsteps, H, W)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>106 lines</small></summary><pre><code>No-obs forecast:   0%|          | 0/6 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>68 lines</small></summary><pre><code>No-obs forecast:   0%|          | 0/6 [00:00&lt;?, ?it/s]
 
-2026-08-15 05:39:35.671 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 1/6
+2026-08-18 22:53:26.224 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 1/6
 
 No-obs forecast:   0%|          | 0/6 [00:00&lt;?, ?it/s]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:10,  2.31it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:24,  1.04it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 26.67it/s]
 
-Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:06,  3.51it/s]
+No-obs forecast:  17%|█▋        | 1/6 [00:04&lt;00:24,  4.81s/it]
 
-Fetching GFS data:  19%|█▉        | 5/26 [00:00&lt;00:02,  8.69it/s]
+2026-08-18 22:53:31.038 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 2/6
 
-Fetching GFS data:  35%|███▍      | 9/26 [00:00&lt;00:01, 14.70it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 26.32it/s]
-
-No-obs forecast:  17%|█▋        | 1/6 [00:05&lt;00:29,  5.88s/it]
-
-2026-08-15 05:39:41.555 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 2/6
-
-No-obs forecast:  17%|█▋        | 1/6 [00:05&lt;00:29,  5.88s/it]
+No-obs forecast:  17%|█▋        | 1/6 [00:04&lt;00:24,  4.81s/it]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:05,  4.30it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:21,  1.17it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 30.16it/s]
 
-Fetching GFS data:  19%|█▉        | 5/26 [00:00&lt;00:02,  7.74it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 34.76it/s]
+No-obs forecast:  33%|███▎      | 2/6 [00:09&lt;00:18,  4.62s/it]
 
-No-obs forecast:  33%|███▎      | 2/6 [00:11&lt;00:21,  5.47s/it]
+2026-08-18 22:53:35.522 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 3/6
 
-2026-08-15 05:39:46.741 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 3/6
-
-No-obs forecast:  33%|███▎      | 2/6 [00:11&lt;00:21,  5.47s/it]
+No-obs forecast:  33%|███▎      | 2/6 [00:09&lt;00:18,  4.62s/it]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:06,  3.79it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:18,  1.33it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 34.16it/s]
 
-Fetching GFS data:  12%|█▏        | 3/26 [00:00&lt;00:02,  9.08it/s]
+No-obs forecast:  50%|█████     | 3/6 [00:13&lt;00:13,  4.51s/it]
 
-Fetching GFS data:  19%|█▉        | 5/26 [00:00&lt;00:01, 12.00it/s]
+2026-08-18 22:53:39.905 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 4/6
 
-Fetching GFS data:  35%|███▍      | 9/26 [00:00&lt;00:00, 19.08it/s]
-
-Fetching GFS data:  92%|█████████▏| 24/26 [00:00&lt;00:00, 55.45it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 21.04it/s]
-
-No-obs forecast:  50%|█████     | 3/6 [00:16&lt;00:16,  5.55s/it]
-
-2026-08-15 05:39:52.389 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 4/6
-
-No-obs forecast:  50%|█████     | 3/6 [00:16&lt;00:16,  5.55s/it]
+No-obs forecast:  50%|█████     | 3/6 [00:13&lt;00:13,  4.51s/it]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:04,  5.20it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:18,  1.32it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 33.97it/s]
 
-Fetching GFS data:  15%|█▌        | 4/26 [00:00&lt;00:01, 15.28it/s]
+No-obs forecast:  67%|██████▋   | 4/6 [00:18&lt;00:08,  4.47s/it]
 
-Fetching GFS data:  27%|██▋       | 7/26 [00:00&lt;00:01, 13.86it/s]
+2026-08-18 22:53:44.314 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 5/6
 
-Fetching GFS data:  42%|████▏     | 11/26 [00:00&lt;00:00, 19.33it/s]
-
-Fetching GFS data:  92%|█████████▏| 24/26 [00:00&lt;00:00, 47.10it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 33.83it/s]
-
-No-obs forecast:  67%|██████▋   | 4/6 [00:21&lt;00:10,  5.43s/it]
-
-2026-08-15 05:39:57.626 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 5/6
-
-No-obs forecast:  67%|██████▋   | 4/6 [00:21&lt;00:10,  5.43s/it]
+No-obs forecast:  67%|██████▋   | 4/6 [00:18&lt;00:08,  4.47s/it]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:05,  4.66it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:20,  1.19it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 30.74it/s]
 
-Fetching GFS data:  19%|█▉        | 5/26 [00:00&lt;00:01, 18.43it/s]
+No-obs forecast:  83%|████████▎ | 5/6 [00:22&lt;00:04,  4.48s/it]
 
-Fetching GFS data:  31%|███       | 8/26 [00:00&lt;00:00, 21.29it/s]
+2026-08-18 22:53:48.801 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 6/6
 
-Fetching GFS data:  77%|███████▋  | 20/26 [00:00&lt;00:00, 53.29it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 18.59it/s]
-
-No-obs forecast:  83%|████████▎ | 5/6 [00:27&lt;00:05,  5.59s/it]
-
-2026-08-15 05:40:03.502 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 6/6
-
-No-obs forecast:  83%|████████▎ | 5/6 [00:27&lt;00:05,  5.59s/it]
+No-obs forecast:  83%|████████▎ | 5/6 [00:22&lt;00:04,  4.48s/it]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:06,  3.90it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:17,  1.44it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 36.86it/s]
 
-Fetching GFS data:  15%|█▌        | 4/26 [00:00&lt;00:01, 12.17it/s]
-
-Fetching GFS data:  23%|██▎       | 6/26 [00:00&lt;00:01, 13.89it/s]
-
-Fetching GFS data:  69%|██████▉   | 18/26 [00:00&lt;00:00, 44.20it/s]
-
-Fetching GFS data:  92%|█████████▏| 24/26 [00:01&lt;00:00, 17.34it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 16.62it/s]
-
-No-obs forecast: 100%|██████████| 6/6 [00:33&lt;00:00,  5.74s/it]
-No-obs forecast: 100%|██████████| 6/6 [00:33&lt;00:00,  5.64s/it]</code></pre></details>
+No-obs forecast: 100%|██████████| 6/6 [00:26&lt;00:00,  4.43s/it]
+No-obs forecast: 100%|██████████| 6/6 [00:26&lt;00:00,  4.49s/it]</code></pre></details>
 
 <h2 id="fetch-observations-and-plot-station-locations">Fetch Observations and Plot Station Locations<a class="headerlink" href="#fetch-observations-and-plot-station-locations" title="Permanent link">&para;</a></h2>
 <p>Fetch GHCNh surface observations covering the model domain. The bounding box
@@ -3060,7 +3007,7 @@ assimilation forecast.</p>
 <a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;GHCNh Station Locations - StormCast-CONUS Domain&quot;</span><span class="p">)</span>
 <a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/01_ghcn_stations.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
 </code></pre></div>
-<p><img alt="Output from StormCast-CONUS Score-Based Data Assimilation" class="e2sg-output-image" loading="lazy" src="../../_assets/05_data_assimilation-01_stormcast_sda/001-cell-9.jpg" /></p>
+<p><img alt="Output from StormCast-CONUS Score-Based Data Assimilation" class="e2sg-output-image" loading="lazy" src="../../_assets/05_data_assimilation-01_stormcast_sda/001-cell-9.webp" /></p>
 <h2 id="run-inference-with-streaming-observations">Run Inference With Streaming Observations<a class="headerlink" href="#run-inference-with-streaming-observations" title="Permanent link">&para;</a></h2>
 <p>At each forecast step the next valid time is determined from the current
 generator state, GHCNh observations are fetched for that time, and the
@@ -3100,72 +3047,72 @@ observation DataFrame is sent to the generator. Zero-value wind reports
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>68 lines</small></summary><pre><code>Obs forecast:   0%|          | 0/6 [00:00&lt;?, ?it/s]
 
-2026-08-15 05:41:48.751 | INFO     | __main__:&lt;module&gt;:24 - Step 1/6 — 392 obs
+2026-08-18 22:56:08.722 | INFO     | __main__:&lt;module&gt;:24 - Step 1/6 — 3281 obs
 
-Obs forecast:   0%|          | 0/6 [00:14&lt;?, ?it/s]
-
-Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:11,  2.15it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 54.94it/s]
-
-Obs forecast:  17%|█▋        | 1/6 [01:16&lt;06:20, 76.02s/it]
-
-2026-08-15 05:43:04.187 | INFO     | __main__:&lt;module&gt;:24 - Step 2/6 — 392 obs
-
-Obs forecast:  17%|█▋        | 1/6 [01:30&lt;06:20, 76.02s/it]
+Obs forecast:   0%|          | 0/6 [00:25&lt;?, ?it/s]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:10,  2.28it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 56.90it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:21,  1.16it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 29.61it/s]
 
-Obs forecast:  33%|███▎      | 2/6 [02:38&lt;05:18, 79.65s/it]
+Obs forecast:  17%|█▋        | 1/6 [01:15&lt;06:16, 75.37s/it]
 
-2026-08-15 05:44:26.533 | INFO     | __main__:&lt;module&gt;:24 - Step 3/6 — 392 obs
+2026-08-18 22:57:23.708 | INFO     | __main__:&lt;module&gt;:24 - Step 2/6 — 3293 obs
 
-Obs forecast:  33%|███▎      | 2/6 [02:52&lt;05:18, 79.65s/it]
-
-Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:11,  2.23it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 57.82it/s]
-
-Obs forecast:  50%|█████     | 3/6 [04:09&lt;04:15, 85.02s/it]
-
-2026-08-15 05:45:58.076 | INFO     | __main__:&lt;module&gt;:24 - Step 4/6 — 392 obs
-
-Obs forecast:  50%|█████     | 3/6 [04:23&lt;04:15, 85.02s/it]
+Obs forecast:  17%|█▋        | 1/6 [01:40&lt;06:16, 75.37s/it]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:12,  2.01it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 51.66it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:19,  1.28it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 31.90it/s]
 
-Obs forecast:  67%|██████▋   | 4/6 [05:35&lt;02:50, 85.49s/it]
+Obs forecast:  33%|███▎      | 2/6 [02:23&lt;04:44, 71.04s/it]
 
-2026-08-15 05:47:23.786 | INFO     | __main__:&lt;module&gt;:24 - Step 5/6 — 392 obs
+2026-08-18 22:58:33.058 | INFO     | __main__:&lt;module&gt;:24 - Step 3/6 — 3191 obs
 
-Obs forecast:  67%|██████▋   | 4/6 [05:49&lt;02:50, 85.49s/it]
-
-Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:12,  1.93it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 49.90it/s]
-
-Obs forecast:  83%|████████▎ | 5/6 [06:59&lt;01:24, 84.84s/it]
-
-2026-08-15 05:48:48.630 | INFO     | __main__:&lt;module&gt;:24 - Step 6/6 — 392 obs
-
-Obs forecast:  83%|████████▎ | 5/6 [07:14&lt;01:24, 84.84s/it]
+Obs forecast:  33%|███▎      | 2/6 [02:49&lt;04:44, 71.04s/it]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:10,  2.33it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 58.18it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:16,  1.54it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 40.00it/s]
 
-Obs forecast: 100%|██████████| 6/6 [08:32&lt;00:00, 87.52s/it]
-Obs forecast: 100%|██████████| 6/6 [08:32&lt;00:00, 85.38s/it]</code></pre></details>
+Obs forecast:  50%|█████     | 3/6 [03:32&lt;03:30, 70.24s/it]
+
+2026-08-18 22:59:40.741 | INFO     | __main__:&lt;module&gt;:24 - Step 4/6 — 3288 obs
+
+Obs forecast:  50%|█████     | 3/6 [03:57&lt;03:30, 70.24s/it]
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:17,  1.44it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 36.96it/s]
+
+Obs forecast:  67%|██████▋   | 4/6 [04:40&lt;02:18, 69.30s/it]
+
+2026-08-18 23:00:49.212 | INFO     | __main__:&lt;module&gt;:24 - Step 5/6 — 3342 obs
+
+Obs forecast:  67%|██████▋   | 4/6 [05:05&lt;02:18, 69.30s/it]
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:19,  1.31it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 33.64it/s]
+
+Obs forecast:  83%|████████▎ | 5/6 [05:49&lt;01:09, 69.08s/it]
+
+2026-08-18 23:01:57.175 | INFO     | __main__:&lt;module&gt;:24 - Step 6/6 — 3104 obs
+
+Obs forecast:  83%|████████▎ | 5/6 [06:13&lt;01:09, 69.08s/it]
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:19,  1.29it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 33.13it/s]
+
+Obs forecast: 100%|██████████| 6/6 [06:57&lt;00:00, 68.65s/it]
+Obs forecast: 100%|██████████| 6/6 [06:57&lt;00:00, 69.51s/it]</code></pre></details>
 
 <h2 id="post-processing">Post Processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
 <p>Compare the two forecasts. The top row shows the baseline (no observations),
@@ -3304,29 +3251,23 @@ improves accuracy relative to the actual analysis.</p>
 <a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="n">no_obs_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">no_obs_fields</span> <span class="o">-</span> <span class="n">truth_fields</span><span class="p">)</span>
 <a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="n">obs_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">obs_fields</span> <span class="o">-</span> <span class="n">truth_fields</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>23 lines</small></summary><pre><code>Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  2.10it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  2.09it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>17 lines</small></summary><pre><code>Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00, 37.76it/s]
 
 Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  2.11it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  2.10it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00, 37.67it/s]
 
 Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  4.38it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  4.37it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00, 26.21it/s]
 
 Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.62it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.61it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00, 20.55it/s]
 
 Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  3.60it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  3.60it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00, 38.12it/s]
 
 Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.54it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.53it/s]</code></pre></details>
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00, 75.52it/s]</code></pre></details>
 
 <p>Plot absolute errors between the StormCast-CONUS predictions and HRRR
 analysis ground truth. In later time-steps the assimilated forecast typically
@@ -3401,9 +3342,9 @@ shows lower errors near the observation stations.</p>
 </code></pre></div>
 <p><img alt="Output from StormCast-CONUS Score-Based Data Assimilation" class="e2sg-output-image" loading="lazy" src="../../_assets/05_data_assimilation-01_stormcast_sda/005-cell-17.webp" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/05_data_assimilation-01_stormcast_sda/01_stormcast_sda.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/05_data_assimilation-01_stormcast_sda/01_stormcast_sda.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 712.8s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/05_data_assimilation-01_stormcast_sda/01_stormcast_sda.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/05_data_assimilation-01_stormcast_sda/01_stormcast_sda.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 631.7s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>11m 53s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>10m 32s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

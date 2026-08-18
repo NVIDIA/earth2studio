@@ -2752,7 +2752,7 @@
 <span id="earth2studio.models.px.GraphCastSmall.create_iterator"></span>
 <span id="earth2studio.models.px.GraphCastSmall.load_default_package"></span>
 <span id="earth2studio.models.px.GraphCastSmall.load_model"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/graphcast_small.py#L166-L855" title="earth2studio/models/px/graphcast_small.py:166">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=graphcast#install-command" title="category=prognostic item=graphcast">View install commands</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/graphcast_small.py#L166-L857" title="earth2studio/models/px/graphcast_small.py:166">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=graphcast#install-command" title="category=prognostic item=graphcast">View install commands</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -2782,11 +2782,13 @@ equirectangular grid with 85 variables including:</p>
 
 <details class="note" open>
   <summary>Note</summary>
-  <p>This model and checkpoint are based on the GraphCast architecture from DeepMind.
-For more information see the following references:</p>
+  <p>As of July 2026, GraphCast was renamed to WeatherNext 1-Graph in the
+WeatherNext codebase. This Earth2Studio wrapper keeps the GraphCast name
+for backwards compatibility.</p>
+<p>For more information see the following references:</p>
 <ul>
 <li><a href="https://arxiv.org/abs/2212.12794">arxiv.org/abs/2212.12794</a></li>
-<li><a class="magiclink magiclink-github magiclink-repository" href="https://github.com/google-deepmind/graphcast" title="GitHub Repository: google-deepmind/graphcast">google-deepmind/graphcast</a></li>
+<li><a class="magiclink magiclink-github magiclink-repository" href="https://github.com/google-deepmind/weathernext" title="GitHub Repository: google-deepmind/weathernext">google-deepmind/weathernext</a></li>
 <li><a href="https://www.science.org/doi/10.1126/science.adi2336">www.science.org/doi/10.1126/science.adi2336</a></li>
 </ul>
 </details>
@@ -2801,7 +2803,7 @@ model's checkpoints.</p>
     <ul>
         <li class="doc-section-item field-body">
             <b><code>ckpt</code></b>
-              (<code><span title="graphcast.graphcast.CheckPoint">CheckPoint</span></code>)
+              (<code><span title="weathernext.weathernext1_graph.graphcast.CheckPoint">CheckPoint</span></code>)
           –
           <div class="doc-md-description">
             <p>Model checkpoint containing weights and configuration</p>
