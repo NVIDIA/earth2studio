@@ -247,7 +247,7 @@ class TestDiagnosticPipeline:
 # spatial reference so it isn't classified as a bogus spatial dim, (2) set
 # number_of_samples from the member block size (via seed_member), and (3)
 # rename each call's 'sample' axis to 'ensemble', carrying this rank's
-# *global* member ids.  See docs/online_scoring_expansion.md.
+# *global* member ids.
 
 
 class TestGenerativeDiagnosticSampleAxis:

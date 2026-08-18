@@ -92,9 +92,8 @@ class FakeGenerativeDiagnostic(torch.nn.Module):
 
     Emits its own leading ``sample`` axis (size ``number_of_samples``)
     rather than expressing ensemble draws through the pipeline's own
-    machinery — the same contract as ``earth2studio.models.dx.CorrDiff``
-    (see ``docs/online_scoring_expansion.md``, "Generative models and the
-    ensemble axis").  Decorated with the real ``@batch_func()`` so its
+    machinery — the same contract as ``earth2studio.models.dx.CorrDiff``.
+    Decorated with the real ``@batch_func()`` so its
     compress/decompress behavior — where a pass-through leading dim like
     ``lead_time`` lands relative to the model's own declared ``sample``
     axis — matches a real generative diagnostic exactly, not a

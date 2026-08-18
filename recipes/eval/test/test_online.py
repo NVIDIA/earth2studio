@@ -338,7 +338,7 @@ class TestConfig:
     def test_retain_sample_not_implemented(self, tmp_path):
         cfg = _base_cfg(tmp_path)
         cfg.output.retain = "sample"
-        with pytest.raises(NotImplementedError, match="phase 5"):
+        with pytest.raises(NotImplementedError, match="not implemented"):
             retain_raw_output(cfg)
 
     def test_retain_all(self, tmp_path):
@@ -617,12 +617,11 @@ class TestAccumulatorMath:
 
 
 # ---------------------------------------------------------------------------
-# Mask-aware accumulation (phase 6): StepContext.valid must exclude
-# gridpoints a pipeline like DLESyMPipeline NaN-masks (ocean variables
-# outside their validity cadence) from every weighted sum, rather than
-# either propagating NaN through the whole field or, under
-# nan_policy=zero_fill, scoring a spurious zero-valued forecast.  See
-# docs/online_scoring_expansion.md, "Partially-valid fields".
+# Mask-aware accumulation: StepContext.valid must exclude gridpoints a
+# pipeline like DLESyMPipeline NaN-masks (ocean variables outside their
+# validity cadence) from every weighted sum, rather than either
+# propagating NaN through the whole field or, under nan_policy=zero_fill,
+# scoring a spurious zero-valued forecast.
 # ---------------------------------------------------------------------------
 
 

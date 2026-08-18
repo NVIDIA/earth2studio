@@ -56,10 +56,9 @@ in ``sum f^2``.
 
 Scope
 -----
-Phases 1–4 of ``docs/online_scoring_plan.md``: per-member MSE, ensemble-mean
-MSE, ensemble variance / spread, rank histogram, bias / correlation / ACC,
-fair CRPS (via the member exchange), and ``members_per_rank > 1`` on top of
-a member-batched rollout.
+Per-member MSE, ensemble-mean MSE, ensemble variance / spread, rank
+histogram, bias / correlation / ACC, fair CRPS (via the member exchange),
+and ``members_per_rank > 1`` on top of a member-batched rollout.
 """
 
 from __future__ import annotations
@@ -253,8 +252,7 @@ def retain_raw_output(cfg: DictConfig) -> bool:
     if retain == "sample":
         raise NotImplementedError(
             "output.retain='sample' (thinned raw retention) is not implemented "
-            "yet — see phase 5 of docs/online_scoring_plan.md.  Use 'all' or "
-            "'none'."
+            "yet. Use 'all' or 'none'."
         )
     if retain not in ("all", "none"):
         raise ValueError(

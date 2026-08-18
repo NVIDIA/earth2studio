@@ -835,9 +835,6 @@ turns that into a clean job failure that `resume=true` picks up from.
   `(IC + lead)` valid time is checked before model weights load.
 - With `output.retain=none` the report's visualization sections have no
   raw fields to plot and degrade gracefully.
-- `DLESyMPipeline` and `StormScopePipeline` set
-  `supports_online_scoring = False` pending validation of their yield
-  cadences; requesting online mode with them errors.
 
 ### Report
 
