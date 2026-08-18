@@ -39,8 +39,10 @@ from earth2studio.utils.type import CoordSystem
 try:
     from physicsnemo import Module
 
-    from earth2studio.models.nn.atlas import SInterpolantDownsampleProcessor
-    from earth2studio.models.nn.atlas_crps import CRPSLatentDiT
+    from earth2studio.models.nn.atlas_crps import (
+        CRPSDownsampleProcessor,
+        CRPSLatentDiT,
+    )
 except ImportError:
     OptionalDependencyFailure("atlas")
     Module = None
@@ -63,7 +65,8 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CRPS latent transformer predicting a normalized low-resolution residual.
     model_processor : nn.Module
         Processor providing the state and residual normalizers, the static invariant
-        channels, the cosine zenith angle channel and the low-resolution downsampling.
+        channels, the cosine zenith angle channel, the low-resolution downsampling and
+        the low-resolution conditioning.
     autoencoder : nn.Module
         Autoencoder decoding the low-resolution residual to full resolution.
     autoencoder_processor : nn.Module
@@ -285,10 +288,8 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             prev = prev_latents[0].clone()
             low_res = prev_latents[1].clone()
 
-        # Zenith and static channels are downsampled from the high-res tensor
-        aux = self.model_processor.intep(high_res[:, x_cur.shape[1] :], low_res_shape)
-
-        residual_latent = self.model(prev, torch.cat([low_res, aux], dim=1))
+        conditioning = self.model_processor.preprocess_conditioning(high_res, low_res)
+        residual_latent = self.model(prev, conditioning)
 
         # Decode the latent residual and return to state space
         pred = self.autoencoder(high_res, residual_latent)
@@ -468,7 +469,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         model.load_state_dict(cls._load_state_dict(package.resolve("model_best.pt")))
         model.eval()
 
-        model_processor = SInterpolantDownsampleProcessor(
+        model_processor = CRPSDownsampleProcessor(
             normalizer_stats_shape=(1, len(VARIABLES), 1, 1),
             static_channels_shape=(1, 3, 721, 1440),
             cosine_zenith_angle=True,

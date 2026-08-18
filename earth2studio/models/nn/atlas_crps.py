@@ -25,6 +25,7 @@ from earth2studio.models.nn.atlas import (
     FourierEmbedder,
     PatchPad,
     PatchUnpad,
+    SInterpolantDownsampleProcessor,
     modulate,
     validate_patch_size,
 )
@@ -39,6 +40,40 @@ try:
 except ImportError:
     OptionalDependencyFailure("atlas")
     einops = None
+
+
+class CRPSDownsampleProcessor(SInterpolantDownsampleProcessor):
+    """Downsampling processor that also builds the low-resolution conditioning.
+
+    The CRPS model consumes the cosine zenith angle and static invariant channels at
+    low resolution, whereas :meth:`preprocess_input` appends them to the
+    high-resolution state. Those channels are therefore downsampled from the
+    high-resolution tensor rather than computed on the low-resolution grid, which is
+    the convention the model was trained with.
+    """
+
+    def preprocess_conditioning(
+        self, high_res: torch.Tensor, low_res: torch.Tensor
+    ) -> torch.Tensor:
+        """Append the downsampled auxiliary channels to the low-resolution state.
+
+        Parameters
+        ----------
+        high_res : torch.Tensor
+            High-resolution state with the auxiliary channels appended, as returned
+            by :meth:`preprocess_input`.
+        low_res : torch.Tensor
+            Low-resolution normalized state, as returned by :meth:`preprocess_input`.
+
+        Returns
+        -------
+        torch.Tensor
+            Low-resolution conditioning of shape (batch, state + auxiliary channels,
+            lat, lon).
+        """
+        auxiliary = high_res[:, self.normalizer_in.mean.shape[1] :]
+        auxiliary = self.intep(auxiliary, self.downsample_grid_shape)
+        return torch.cat([low_res, auxiliary], dim=1)
 
 
 class EnsembleDiTBlock(DiTBlock):

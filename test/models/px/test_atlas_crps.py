@@ -81,6 +81,9 @@ class PhooProcessor(torch.nn.Module):
     def preprocess_input(self, x, current_date):
         return x, x
 
+    def preprocess_conditioning(self, high_res, low_res):
+        return low_res
+
     def intep(self, x, downsample_grid_shape):
         return x
 
