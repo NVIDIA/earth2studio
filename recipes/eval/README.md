@@ -792,9 +792,9 @@ Members meet via a single all-gather per variable chunk, which is what
 makes the exchange deferrable; `variable_chunk` bounds both the payload
 and the float64 working set.
 
-**Re-deriving scores.**  `stats.zarr` holds *sums*, not scores, so regional 
+**Re-deriving scores.**  `stats.zarr` holds *sums*, not scores, so regional
 breakdowns, or bootstrap CIs over ICs never require re-running inference. However, new metrics or more extensive changes will require re-running the
-inference portion, which is the main downside of online scoring. To 
+inference portion, which is the main downside of online scoring. To
 consolidate the summation results in `stats.zarr` into the final scores,
 run:
 
@@ -982,7 +982,8 @@ recipes/eval/
 ├── src/
 │   ├── pipelines/       # Pipeline package — ABC + built-in pipelines
 │   │   ├── base.py      #   Pipeline ABC, Predownload(Frame)Store, shared run loop
-│   │   ├── forecast.py  #   ForecastPipeline + DiagnosticPipeline
+│   │   ├── forecast.py  #   ForecastPipeline (prognostic rollout)
+│   │   ├── diagnostic.py #  DiagnosticPipeline (diagnostic-only)
 │   │   ├── assimilation.py # AssimilationPipeline + AssimilationForecastPipeline
 │   │   ├── dlesym.py    #   DLESyMPipeline (HEALPix forecast variant)
 │   │   └── stormscope.py #  StormScopePipeline (coupled GOES+MRMS nowcasting)
@@ -1050,7 +1051,7 @@ Built-in pipelines (pass the fully qualified class path via `cfg.pipeline`):
 - **`ForecastPipeline`** (`src.pipelines.forecast.ForecastPipeline`, the
   default) — prognostic rollout with optional diagnostic models.  Yields
   one output per lead-time step.
-- **`DiagnosticPipeline`** (`src.pipelines.forecast.DiagnosticPipeline`) —
+- **`DiagnosticPipeline`** (`src.pipelines.diagnostic.DiagnosticPipeline`) —
   diagnostic-only (no prognostic model).  Yields a single output per work
   item.
 - **`AssimilationPipeline`** (`src.pipelines.assimilation.AssimilationPipeline`)

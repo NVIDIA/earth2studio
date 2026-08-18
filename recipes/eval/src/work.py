@@ -216,9 +216,7 @@ def plan_ensemble_groups(
             f"size {group_size}; the last {leftover} rank(s) will idle."
         )
 
-    return [
-        tuple(range(g * group_size, (g + 1) * group_size)) for g in range(n_groups)
-    ]
+    return [tuple(range(g * group_size, (g + 1) * group_size)) for g in range(n_groups)]
 
 
 def ensemble_group_for_rank(

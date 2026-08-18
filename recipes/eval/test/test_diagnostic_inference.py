@@ -25,7 +25,7 @@ import pytest
 import torch
 from src.output import OutputManager, build_diagnostic_coords
 from src.pipelines import DiagnosticPipeline
-from src.pipelines.forecast import _spatial_ref_from_output_coords
+from src.pipelines.diagnostic import _spatial_ref_from_output_coords
 from src.work import WorkItem
 
 _DIST_PATH = "src.output.DistributedManager"
@@ -288,9 +288,7 @@ class TestGenerativeDiagnosticSampleAxis:
         pipeline._members_per_rank = len(items)
 
         x, coords = next(
-            iter(
-                pipeline.run_item_batched(items, data_source, torch.device("cpu"))
-            )
+            iter(pipeline.run_item_batched(items, data_source, torch.device("cpu")))
         )
 
         assert fake_generative_diagnostic.number_of_samples == 3

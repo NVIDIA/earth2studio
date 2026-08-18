@@ -513,9 +513,7 @@ class Pipeline(ABC):
         for component in self.stochastic_components():
             if hasattr(component, "set_rng"):
                 component.set_rng(seed=item.seed, reset=True)
-            elif hasattr(component, "number_of_samples") and hasattr(
-                component, "seed"
-            ):
+            elif hasattr(component, "number_of_samples") and hasattr(component, "seed"):
                 component.seed = item.seed
                 component.number_of_samples = self._members_per_rank
 
