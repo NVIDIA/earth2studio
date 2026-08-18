@@ -14,5 +14,22 @@ provides the backend support (inference, scoring and metrics).
 
 ## Prognostic models
 
-- [Aurora](aurora/index.md)
-- [FCN3](fcn3/index.md)
+<div class="grid cards" markdown>
+
+- **Aurora**
+
+    Aurora is a foundation model of the atmosphere from Microsoft Research.
+
+    *deterministic · 69 variables · 14-day horizon*
+
+    [:octicons-arrow-right-24: Aurora scorecard](aurora/index.md){ title="Aurora is a foundation model of the atmosphere from Microsoft Research." }
+
+- **FCN3**
+
+    FourCastNet 3 is NVIDIA's probabilistic machine-learning weather model.
+
+    *16-member ensemble · 72 variables · 14-day horizon*
+
+    [:octicons-arrow-right-24: FCN3 scorecard](fcn3/index.md){ title="FourCastNet 3 is NVIDIA's probabilistic machine-learning weather model." }
+
+</div>

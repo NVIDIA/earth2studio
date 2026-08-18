@@ -61,6 +61,10 @@ LOWER_BETTER = {"rmse", "mae", "lsd", "ensemble_mean_mse", "crps", "ensemble_var
 # entry simply get no description/reference section.
 MODEL_INFO = {
     "fcn3": {
+        "short": (
+            "FourCastNet 3 is NVIDIA's probabilistic machine-learning "
+            "weather model."
+        ),
         "description": (
             "FourCastNet 3 is NVIDIA's probabilistic machine-learning weather "
             "model, built on spherical (geometric) signal processing with a "
@@ -78,6 +82,10 @@ MODEL_INFO = {
         ),
     },
     "aurora": {
+        "short": (
+            "Aurora is a foundation model of the atmosphere from Microsoft "
+            "Research."
+        ),
         "description": (
             "Aurora is a foundation model of the atmosphere from Microsoft "
             "Research: a 1.3B-parameter Swin-transformer with Perceiver-style "
@@ -298,6 +306,14 @@ conditions. Evaluation is done against ERA5 fetched from ARCO.
 | Variables scored | {n_var} |
 | Metrics | {metric_list} |
 
+## Variables
+
+??? note "Scored output variables ({n_var})"
+
+{variables_table}
+
+All of the model's output variables that have ERA5 verification are scored.
+
 ## Data
 
 The numbers behind the plot are in [`eval_scores_{model}.yaml`](../../_static/scorecard/eval_scores_{model}.yaml), exported by
@@ -329,19 +345,75 @@ provides the backend support (inference, scoring and metrics).
 
 ## Prognostic models
 
+<div class="grid cards" markdown>
+
 {entries}
+
+</div>
 """
 
 # Reproducibility fields, in display order: yaml key -> row label.
 _PROV_ROWS = {
+    "date_scored": "Date scored",
     "scores_written": "Scores written",
     "gpus": "GPUs",
     "torch": "PyTorch",
     "cuda": "CUDA",
     "python": "Python",
-    "repo_commit": "Repo commit (at export)",
+    "repo_commit": "Repo commit",
+    "provenance_source": "Provenance source",
     "exported": "YAML exported",
 }
+
+
+REPO_URL = "https://github.com/NVIDIA/earth2studio"
+
+# Human-readable variable descriptions, derived from the naming convention
+# (prefix + pressure level or height) plus a few exact surface names.
+_DESC_EXACT = {
+    "msl": "Mean sea level pressure",
+    "sp": "Surface pressure",
+    "tcwv": "Total column water vapour",
+    "t2m": "2-metre temperature",
+    "u10m": "10-metre eastward (zonal) wind",
+    "v10m": "10-metre northward (meridional) wind",
+    "u100m": "100-metre eastward (zonal) wind",
+    "v100m": "100-metre northward (meridional) wind",
+}
+_DESC_PREFIX = {
+    "z": "Geopotential",
+    "t": "Temperature",
+    "u": "Eastward (zonal) wind",
+    "v": "Northward (meridional) wind",
+    "q": "Specific humidity",
+    "r": "Relative humidity",
+    "w": "Vertical velocity",
+}
+
+
+def describe(var: str) -> str:
+    """Human-readable description of a variable name like ``z500`` or ``t2m``."""
+    import re
+
+    if var in _DESC_EXACT:
+        return _DESC_EXACT[var]
+    m = re.fullmatch(r"([a-z]+)(\d+)", var)
+    if m and m.group(1) in _DESC_PREFIX:
+        return f"{_DESC_PREFIX[m.group(1)]} at {m.group(2)} hPa"
+    return ""
+
+
+def variables_table(doc: dict) -> str:
+    rows = [
+        f"| `{v}` | {describe(v)} | {doc['units'].get(v, '')} "
+        f"| {doc['variable_groups'].get(v, '')} |"
+        for v in doc["variables"]
+    ]
+    table = (
+        "| Name | Description | Unit | Group |\n|---|---|---|---|\n"
+        + "\n".join(rows)
+    )
+    return "\n".join("    " + ln for ln in table.splitlines())
 
 
 def provenance_table(doc: dict) -> str:
@@ -352,7 +424,17 @@ def provenance_table(doc: dict) -> str:
             "after it was scored. Re-exporting with the current "
             "`export_yaml.py` records it."
         )
+    # The commit links to the exact tree, and uv.lock at that commit pins the
+    # full dependency set a reader can `uv sync` from.
+    if commit := prov.get("repo_commit"):
+        prov = dict(prov)
+        prov["repo_commit"] = f"[`{commit[:12]}`]({REPO_URL}/tree/{commit})"
     rows = [f"| {label} | {prov[k]} |" for k, label in _PROV_ROWS.items() if k in prov]
+    if commit:
+        rows.append(
+            f"| Locked dependencies | [`uv.lock` @ `{commit[:12]}`]"
+            f"({REPO_URL}/blob/{commit}/uv.lock) |"
+        )
     extra = {k: v for k, v in prov.items() if k not in _PROV_ROWS}
     rows += [f"| {k} | {v} |" for k, v in sorted(extra.items())]
     table = "| | |\n|---|---|\n" + "\n".join(rows)
@@ -383,6 +465,7 @@ def build_page(model: str, doc: dict) -> str:
         n_var=len(doc["variables"]),
         metric_list=", ".join(m["label"] for m in doc["metrics"].values()),
         provenance_table=provenance_table(doc),
+        variables_table=variables_table(doc),
         label_q=quote(label),
         description=(
             "\n" + MODEL_INFO[model]["description"] + "\n"
@@ -396,6 +479,29 @@ def build_page(model: str, doc: dict) -> str:
         ),
     )
     return md
+
+
+def _card(model: str, doc: dict) -> str:
+    """One Material grid card for the section index."""
+    label = LABELS.get(model, model)
+    short = MODEL_INFO.get(model, {}).get("short", "")
+    kind = (
+        f"{doc['members']}-member ensemble"
+        if doc["kind"] == "prob"
+        else "deterministic"
+    )
+    facts = (
+        f"{kind} · {len(doc['variables'])} variables · "
+        f"{doc['lead_hours'][-1] // 24}-day horizon"
+    )
+    tooltip = short or f"{label} scorecard"
+    return (
+        f"- **{label}**\n\n"
+        f"    {short}\n\n"
+        f"    *{facts}*\n\n"
+        f'    [:octicons-arrow-right-24: {label} scorecard]({model}/index.md)'
+        f'{{ title="{tooltip}" }}'
+    )
 
 
 def main() -> int:
@@ -428,9 +534,7 @@ def main() -> int:
         INDEX_MD.format(
             n_ic=len(any_doc["initial_conditions"]),
             years="/".join(years),
-            entries="\n".join(
-                f"- [{LABELS.get(m, m)}]({m}/index.md)" for m in models
-            ),
+            entries="\n\n".join(_card(m, docs[m]) for m in models),
         )
     )
     print(f"wrote scorecard/index.md ({len(models)} model(s): {', '.join(models)})")

@@ -27,6 +27,87 @@ conditions. Evaluation is done against ERA5 fetched from ARCO.
 | Variables scored | 72 |
 | Metrics | RMSE, Log spectral distance, RMSE (ensemble mean), CRPS, Spread, Spread / Skill |
 
+## Variables
+
+??? note "Scored output variables (72)"
+
+    | Name | Description | Unit | Group |
+    |---|---|---|---|
+    | `msl` | Mean sea level pressure | Pa | Surface |
+    | `t2m` | 2-metre temperature | K | Surface |
+    | `tcwv` | Total column water vapour | kg m⁻² | Surface |
+    | `u100m` | 100-metre eastward (zonal) wind | m s⁻¹ | Surface |
+    | `u10m` | 10-metre eastward (zonal) wind | m s⁻¹ | Surface |
+    | `v100m` | 100-metre northward (meridional) wind | m s⁻¹ | Surface |
+    | `v10m` | 10-metre northward (meridional) wind | m s⁻¹ | Surface |
+    | `z50` | Geopotential at 50 hPa | m² s⁻² | Geopotential |
+    | `z100` | Geopotential at 100 hPa | m² s⁻² | Geopotential |
+    | `z150` | Geopotential at 150 hPa | m² s⁻² | Geopotential |
+    | `z200` | Geopotential at 200 hPa | m² s⁻² | Geopotential |
+    | `z250` | Geopotential at 250 hPa | m² s⁻² | Geopotential |
+    | `z300` | Geopotential at 300 hPa | m² s⁻² | Geopotential |
+    | `z400` | Geopotential at 400 hPa | m² s⁻² | Geopotential |
+    | `z500` | Geopotential at 500 hPa | m² s⁻² | Geopotential |
+    | `z600` | Geopotential at 600 hPa | m² s⁻² | Geopotential |
+    | `z700` | Geopotential at 700 hPa | m² s⁻² | Geopotential |
+    | `z850` | Geopotential at 850 hPa | m² s⁻² | Geopotential |
+    | `z925` | Geopotential at 925 hPa | m² s⁻² | Geopotential |
+    | `z1000` | Geopotential at 1000 hPa | m² s⁻² | Geopotential |
+    | `t50` | Temperature at 50 hPa | K | Temperature |
+    | `t100` | Temperature at 100 hPa | K | Temperature |
+    | `t150` | Temperature at 150 hPa | K | Temperature |
+    | `t200` | Temperature at 200 hPa | K | Temperature |
+    | `t250` | Temperature at 250 hPa | K | Temperature |
+    | `t300` | Temperature at 300 hPa | K | Temperature |
+    | `t400` | Temperature at 400 hPa | K | Temperature |
+    | `t500` | Temperature at 500 hPa | K | Temperature |
+    | `t600` | Temperature at 600 hPa | K | Temperature |
+    | `t700` | Temperature at 700 hPa | K | Temperature |
+    | `t850` | Temperature at 850 hPa | K | Temperature |
+    | `t925` | Temperature at 925 hPa | K | Temperature |
+    | `t1000` | Temperature at 1000 hPa | K | Temperature |
+    | `u50` | Eastward (zonal) wind at 50 hPa | m s⁻¹ | U wind |
+    | `u100` | Eastward (zonal) wind at 100 hPa | m s⁻¹ | U wind |
+    | `u150` | Eastward (zonal) wind at 150 hPa | m s⁻¹ | U wind |
+    | `u200` | Eastward (zonal) wind at 200 hPa | m s⁻¹ | U wind |
+    | `u250` | Eastward (zonal) wind at 250 hPa | m s⁻¹ | U wind |
+    | `u300` | Eastward (zonal) wind at 300 hPa | m s⁻¹ | U wind |
+    | `u400` | Eastward (zonal) wind at 400 hPa | m s⁻¹ | U wind |
+    | `u500` | Eastward (zonal) wind at 500 hPa | m s⁻¹ | U wind |
+    | `u600` | Eastward (zonal) wind at 600 hPa | m s⁻¹ | U wind |
+    | `u700` | Eastward (zonal) wind at 700 hPa | m s⁻¹ | U wind |
+    | `u850` | Eastward (zonal) wind at 850 hPa | m s⁻¹ | U wind |
+    | `u925` | Eastward (zonal) wind at 925 hPa | m s⁻¹ | U wind |
+    | `u1000` | Eastward (zonal) wind at 1000 hPa | m s⁻¹ | U wind |
+    | `v50` | Northward (meridional) wind at 50 hPa | m s⁻¹ | V wind |
+    | `v100` | Northward (meridional) wind at 100 hPa | m s⁻¹ | V wind |
+    | `v150` | Northward (meridional) wind at 150 hPa | m s⁻¹ | V wind |
+    | `v200` | Northward (meridional) wind at 200 hPa | m s⁻¹ | V wind |
+    | `v250` | Northward (meridional) wind at 250 hPa | m s⁻¹ | V wind |
+    | `v300` | Northward (meridional) wind at 300 hPa | m s⁻¹ | V wind |
+    | `v400` | Northward (meridional) wind at 400 hPa | m s⁻¹ | V wind |
+    | `v500` | Northward (meridional) wind at 500 hPa | m s⁻¹ | V wind |
+    | `v600` | Northward (meridional) wind at 600 hPa | m s⁻¹ | V wind |
+    | `v700` | Northward (meridional) wind at 700 hPa | m s⁻¹ | V wind |
+    | `v850` | Northward (meridional) wind at 850 hPa | m s⁻¹ | V wind |
+    | `v925` | Northward (meridional) wind at 925 hPa | m s⁻¹ | V wind |
+    | `v1000` | Northward (meridional) wind at 1000 hPa | m s⁻¹ | V wind |
+    | `q50` | Specific humidity at 50 hPa | kg kg⁻¹ | Specific humidity |
+    | `q100` | Specific humidity at 100 hPa | kg kg⁻¹ | Specific humidity |
+    | `q150` | Specific humidity at 150 hPa | kg kg⁻¹ | Specific humidity |
+    | `q200` | Specific humidity at 200 hPa | kg kg⁻¹ | Specific humidity |
+    | `q250` | Specific humidity at 250 hPa | kg kg⁻¹ | Specific humidity |
+    | `q300` | Specific humidity at 300 hPa | kg kg⁻¹ | Specific humidity |
+    | `q400` | Specific humidity at 400 hPa | kg kg⁻¹ | Specific humidity |
+    | `q500` | Specific humidity at 500 hPa | kg kg⁻¹ | Specific humidity |
+    | `q600` | Specific humidity at 600 hPa | kg kg⁻¹ | Specific humidity |
+    | `q700` | Specific humidity at 700 hPa | kg kg⁻¹ | Specific humidity |
+    | `q850` | Specific humidity at 850 hPa | kg kg⁻¹ | Specific humidity |
+    | `q925` | Specific humidity at 925 hPa | kg kg⁻¹ | Specific humidity |
+    | `q1000` | Specific humidity at 1000 hPa | kg kg⁻¹ | Specific humidity |
+
+All of the model's output variables that have ERA5 verification are scored.
+
 ## Data
 
 The numbers behind the plot are in [`eval_scores_fcn3.yaml`](../../_static/scorecard/eval_scores_fcn3.yaml), exported by
@@ -40,15 +121,16 @@ and lead time, in the variable's own units.
 
     | | |
     |---|---|
+    | Date scored | 2026-08-17 |
     | Scores written | 2026-08-17 |
     | GPUs | 8 x NVIDIA H100 80GB HBM3 (single node) |
     | PyTorch | 2.12.0a0+0291f960b6.nv26.04.48445190 |
     | CUDA | 13.2 |
     | Python | 3.12.3 |
-    | Repo commit (at export) | ed72231a8716c34e5fd9f0d9550f372815a65e45 |
+    | Repo commit | [`ed72231a8716`](https://github.com/NVIDIA/earth2studio/tree/ed72231a8716c34e5fd9f0d9550f372815a65e45) |
+    | Provenance source | run |
     | YAML exported | 2026-08-17 |
-    | date_scored | 2026-08-17 |
-    | provenance_source | run |
+    | Locked dependencies | [`uv.lock` @ `ed72231a8716`](https://github.com/NVIDIA/earth2studio/blob/ed72231a8716c34e5fd9f0d9550f372815a65e45/uv.lock) |
 
 ## Reference
 
