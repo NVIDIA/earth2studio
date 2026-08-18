@@ -33,7 +33,7 @@ from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
 from ..models import load_diagnostics
 from ..output import build_diagnostic_coords
 from ..work import WorkItem
-from .base import Pipeline, PredownloadStore
+from .base import Pipeline, PredownloadStore, is_explicit_rng_component
 
 
 def _spatial_ref_from_output_coords(coords: CoordSystem) -> CoordSystem:
@@ -215,8 +215,8 @@ class DiagnosticPipeline(Pipeline):
             always_separate_verification=True,
         )
 
-    def stochastic_components(self) -> list[Any]:
-        return list(self.diagnostics)
+    def explicit_rng_components(self) -> list[Any]:
+        return [dx for dx in self.diagnostics if is_explicit_rng_component(dx)]
 
     def _run_diagnostics(
         self,

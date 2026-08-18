@@ -63,7 +63,12 @@ from ..assimilation import (
 )
 from ..output import build_analysis_coords
 from ..work import WorkItem
-from .base import Pipeline, PredownloadFrameStore, PredownloadStore
+from .base import (
+    Pipeline,
+    PredownloadFrameStore,
+    PredownloadStore,
+    is_explicit_rng_component,
+)
 from .forecast import ForecastPipeline, _align_to_grid
 
 
@@ -188,8 +193,8 @@ class AssimilationPipeline(Pipeline):
         times: list[np.datetime64] = sorted({i.time for i in build_work_items(cfg)})
         return _declare_obs_frame_stores(cfg, times)
 
-    def stochastic_components(self) -> list[Any]:
-        return [self.model]
+    def explicit_rng_components(self) -> list[Any]:
+        return [self.model] if is_explicit_rng_component(self.model) else []
 
     def run_item(
         self,

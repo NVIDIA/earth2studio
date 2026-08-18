@@ -40,7 +40,7 @@ from ..distributed import get_rank
 from ..models import load_diagnostics, load_prognostic
 from ..output import build_forecast_coords
 from ..work import WorkItem
-from .base import Pipeline, PredownloadStore
+from .base import Pipeline, PredownloadStore, is_explicit_rng_component
 
 
 def _align_to_grid(
@@ -83,18 +83,6 @@ def _align_to_grid(
     new_coords["lat"] = np.asarray(tgt_lat)
     new_coords["lon"] = np.asarray(tgt_lon)
     return torch.from_numpy(np.asarray(da.values)).to(x.device), new_coords
-
-
-def _is_stochastic(model: PrognosticModel) -> bool:
-    """Best-effort check for a model that draws randomness at inference.
-
-    Two signals, because models express it differently: an explicit
-    ``set_rng`` hook (FCN3), or a truthy ``stochastic`` flag for models
-    that keep dropout active instead (U-CAST).  Used only to decide
-    whether a batched rollout deserves a reproducibility warning, so a
-    false negative costs a missing log line, not correctness.
-    """
-    return hasattr(model, "set_rng") or bool(getattr(model, "stochastic", False))
 
 
 class ForecastPipeline(Pipeline):
@@ -226,8 +214,12 @@ class ForecastPipeline(Pipeline):
         x, coords = map_coords(x, coords, self._prognostic_ic)
         return x, coords
 
-    def stochastic_components(self) -> list[Any]:
-        return [self.prognostic]
+    def explicit_rng_components(self) -> list[Any]:
+        return [
+            m
+            for m in (self.prognostic, *self.diagnostics)
+            if is_explicit_rng_component(m)
+        ]
 
     def run_item(
         self,
@@ -293,7 +285,7 @@ class ForecastPipeline(Pipeline):
                 x_m, _ = self.perturbation(x[m : m + 1], member_coords)
                 x[m] = x_m[0]
 
-        if len(items) > 1 and _is_stochastic(self.prognostic):
+        if len(items) > 1 and is_explicit_rng_component(self.prognostic):
             logger.warning(
                 f"{type(self.prognostic).__name__} is stochastic but is being "
                 f"driven with {len(items)} members per rollout; the batch is "

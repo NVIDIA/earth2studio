@@ -196,6 +196,36 @@ class PredownloadFrameStore:
     role: str = "observation"
 
 
+def is_explicit_rng_component(component: Any) -> bool:
+    """Best-effort check for a component that needs a component-specific reseed.
+
+    Three signals, since models expose this differently: an explicit
+    ``set_rng`` hook (e.g. FCN3), a sample-indexed generative draw
+    (``number_of_samples`` + ``seed``, e.g. CorrDiff), or a truthy
+    ``stochastic`` flag for models that keep dropout active instead (e.g.
+    U-CAST).  These are exactly the mechanisms :meth:`Pipeline.seed_member`
+    dispatches on, so this is the predicate a :meth:`Pipeline.explicit_rng_components`
+    override should filter with — returning a component that fails this
+    check makes the method's contract ("components that need one of these
+    three hooks") misleading even though :meth:`seed_member` itself would
+    just silently no-op on it.
+
+    This is *not* a general "does this component's output depend on RNG
+    state" check — a model can be fully stochastic (e.g. a diffusion
+    sampler drawing unique noise per member) while exposing none of these
+    three hooks, relying instead on :meth:`Pipeline.seed_member`'s
+    unconditional ``torch.manual_seed`` call.  Such a model correctly
+    returns ``False`` here even though its output is RNG-dependent; a
+    false negative just means no component-specific reseed hook fires,
+    not that the member draws are non-unique.
+    """
+    return (
+        hasattr(component, "set_rng")
+        or (hasattr(component, "number_of_samples") and hasattr(component, "seed"))
+        or bool(getattr(component, "stochastic", False))
+    )
+
+
 # ======================================================================
 # Pipeline ABC
 # ======================================================================
@@ -478,12 +508,33 @@ class Pipeline(ABC):
         """
         return type(self).run_item_batched is not Pipeline.run_item_batched
 
-    def stochastic_components(self) -> list[Any]:
-        """Models this pipeline drives whose output depends on RNG state.
+    def explicit_rng_components(self) -> list[Any]:
+        """Models this pipeline drives that need a component-specific reseed hook.
 
-        Consulted by :meth:`seed_member`.  Default: empty — a pipeline
-        with no stochastic component needs no per-member seeding and its
-        ensemble is degenerate by construction.
+        Consulted by :meth:`seed_member`, which always calls
+        ``torch.manual_seed(item.seed)`` unconditionally first — that alone
+        is enough to give perturbation methods and any model that draws
+        from the global RNG (e.g. a diffusion sampler with no exposed seed
+        hook) a unique, reproducible draw per member.  Default: empty.
+
+        An empty return here does **not** imply the pipeline's ensemble is
+        degenerate — it only means no component needs one of the three
+        hooks :func:`is_explicit_rng_component` checks for beyond the
+        global reseed.  A pipeline whose stochasticity comes purely from
+        IC perturbations or from a generative model with no ``set_rng`` /
+        ``number_of_samples`` / ``stochastic`` hook legitimately returns
+        ``[]`` here while still producing a non-degenerate ensemble.
+
+        An override must return *only* components that actually satisfy
+        :func:`is_explicit_rng_component` — filter with it rather than
+        returning every model this pipeline drives.  A component that
+        fails the check is a no-op in :meth:`seed_member`, so including it
+        anyway causes no bug, but it makes this method's return value an
+        inaccurate signal of which models need explicit reseeding (e.g.
+        for a future "ensemble_size > 1 with no explicit RNG component"
+        warning — note such a warning would still need to special-case
+        perturbation-only and global-RNG-only ensembles to avoid false
+        positives).
         """
         return []
 
@@ -494,7 +545,7 @@ class Pipeline(ABC):
         the first model invocation.  ``torch.manual_seed(item.seed)`` runs
         unconditionally first, so perturbation methods and any incidental
         global-RNG use are covered regardless of what the model itself
-        does.  Each entry from :meth:`stochastic_components` is then
+        does.  Each entry from :meth:`explicit_rng_components` is then
         dispatched by the mechanism it exposes:
 
         * has ``set_rng`` — ``component.set_rng(seed=item.seed, reset=True)``.
@@ -510,7 +561,7 @@ class Pipeline(ABC):
         Override only for a mechanism genuinely new to these three.
         """
         torch.manual_seed(item.seed)
-        for component in self.stochastic_components():
+        for component in self.explicit_rng_components():
             if hasattr(component, "set_rng"):
                 component.set_rng(seed=item.seed, reset=True)
             elif hasattr(component, "number_of_samples") and hasattr(component, "seed"):

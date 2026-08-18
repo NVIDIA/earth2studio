@@ -295,7 +295,7 @@ class StormScopePipeline(Pipeline):
         # Seed torch's global RNG so the diffusion sampler's per-member
         # noise is deterministic across runs.  StormScope models don't
         # expose a set_rng hook, so the default seed_member's unconditional
-        # torch.manual_seed is the supported path (no stochastic_components
+        # torch.manual_seed is the supported path (no explicit_rng_components
         # override needed).
         self.seed_member(item)
 
