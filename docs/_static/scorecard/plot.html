@@ -1,0 +1,168 @@
+<!doctype html>
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+SPDX-FileCopyrightText: All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Model skill</title>
+<style>
+  :root{color-scheme:light dark}
+  body{
+    --surface-1:#fcfcfb; --plane:#f9f9f7; --ink:#0b0b0b; --ink-2:#52514e;
+    --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+    --s1:#2a78d6;
+    margin:0;background:var(--plane);color:var(--ink);
+    font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+  @media (prefers-color-scheme:dark){body{
+    --surface-1:#1a1a19; --plane:#0d0d0d; --ink:#fff; --ink-2:#c3c2b7;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --s1:#3987e5}}
+  .wrap{position:relative;max-width:980px;margin:0 auto;padding:12px 14px 16px}
+  .badge{position:absolute;top:14px;right:14px;z-index:2;
+    background:var(--s1);color:#fff;font-weight:600;font-size:12px;
+    border-radius:20px;padding:4px 13px;letter-spacing:.02em;
+    box-shadow:0 3px 10px rgba(0,0,0,.18)}
+  .bar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;
+    background:var(--surface-1);border:1px solid var(--border);
+    border-radius:10px;padding:10px 12px;margin-bottom:12px}
+  .ctl{display:flex;flex-direction:column;gap:4px}
+  .ctl label{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  select{font:inherit;color:var(--ink);background:var(--surface-1);
+    border:1px solid var(--axis);border-radius:7px;padding:6px 9px}
+  .card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;
+    padding:12px 14px 8px}
+  .card h2{font-size:13.5px;margin:0 0 2px} .card p{margin:0 0 8px;color:var(--ink-2);font-size:12px}
+  svg{display:block;width:100%;height:auto;overflow:visible}
+  .gl{stroke:var(--grid);stroke-width:.8} .ax{stroke:var(--axis);stroke-width:1}
+  .tk{fill:var(--ink-2);font-size:10.5px} .al{fill:var(--muted);font-size:10.5px}
+  .tip{position:fixed;pointer-events:none;opacity:0;transition:opacity .08s;
+    background:var(--surface-1);border:1px solid var(--border);border-radius:7px;
+    padding:6px 8px;font-size:11.5px;box-shadow:0 6px 20px rgba(0,0,0,.16);z-index:9}
+  .tip b{font-weight:600} .tip .k{color:var(--muted)}
+</style></head>
+<body><div class="wrap">
+<div class="badge"></div>
+<div class="bar">
+  <div class="ctl"><label>Metric</label><select id="m"></select></div>
+  <div class="ctl"><label>Variable</label><select id="v"></select></div>
+</div>
+<div class="card"><h2 id="t"></h2><p id="s"></p><svg id="c" viewBox="0 0 900 330"></svg></div>
+</div>
+<div class="tip" id="tip"></div>
+<script>
+// No data here: the model is picked by ?model=, its YAML fetched below.
+const $=s=>document.querySelector(s);
+const Q=new URLSearchParams(location.search);
+const MODEL=Q.get("model")||"";
+const LABEL=Q.get("label")||MODEL;
+document.title=LABEL+" skill";
+$(".badge") && ($(".badge").textContent=LABEL);
+let D=null,days=[];
+const css=n=>getComputedStyle(document.body).getPropertyValue(n).trim();
+const isFin=q=>q!=null&&isFinite(q);
+const tip=$("#tip");
+const ns="http://www.w3.org/2000/svg";
+const mk=(svg,t,a)=>{const e=document.createElementNS(ns,t);
+  for(const k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e;};
+const fmt=v=>{if(!isFin(v))return "–";const a=Math.abs(v);
+  if(a!==0&&(a<1e-3||a>=1e5))return v.toExponential(2);
+  return v.toFixed(a>=100?1:a>=10?2:3);};
+const mSel=$("#m"),vSel=$("#v");
+function fillVars(){
+  const vs=Object.keys(D.metrics[mSel.value].values);
+  vs.sort((a,b)=>D.variables.indexOf(a)-D.variables.indexOf(b));
+  const prev=vSel.value; vSel.innerHTML="";
+  let g=null,last=null;
+  vs.forEach(v=>{const grp=(D.variable_groups||{})[v]||"Other";
+    if(grp!==last){g=document.createElement("optgroup");g.label=grp;vSel.appendChild(g);last=grp;}
+    g.appendChild(new Option(v+(D.units[v]?"  ("+D.units[v]+")":""),v));});
+  if(vs.includes(prev))vSel.value=prev;
+  else if(vs.includes("z500"))vSel.value="z500";
+}
+function draw(){
+  const k=mSel.value,v=vSel.value,y=D.metrics[k].values[v]||[];
+  const svg=$("#c");svg.innerHTML="";
+  const unit=D.metrics[k].unit||D.units[v]||"";
+  $("#t").textContent=`${D.metrics[k].label} — ${v}${unit?" ("+unit+")":""}`;
+  $("#s").textContent=
+    k==="spread_skill"?"Ensemble spread over ensemble-mean RMSE. 1.0 is calibrated; below 1 is over-confident."
+    :D.lower_better.includes(k)?"Lower is better. Latitude-weighted, averaged over initial conditions."
+    :"Higher is better.";
+  const all=y.filter(isFin);
+  if(!all.length){mk(svg,"text",{x:450,y:155,class:"al","text-anchor":"middle"}).textContent="no data";return;}
+  const W=900,H=330,L=64,R=24,T=14,B=44;
+  const div=k==="spread_skill";
+  let lo,hi;
+  if(div){const l=Math.max(...all.map(q=>Math.abs(Math.log2(q||1))))*1.15||.4;
+    lo=Math.pow(2,-l);hi=Math.pow(2,l);}
+  else if(k==="acc"){lo=Math.min(0,Math.min(...all));hi=1.02;}
+  else{lo=0;hi=Math.max(...all)*1.08||1;}
+  const px=d=>L+(W-L-R)*(d-days[0])/((days[days.length-1]-days[0])||1);
+  const py=q=>T+(H-T-B)*(1-(q-lo)/((hi-lo)||1));
+  for(let i=0;i<=4;i++){const val=lo+(hi-lo)*i/4,Y=py(val);
+    mk(svg,"line",{x1:L,x2:W-R,y1:Y,y2:Y,class:"gl"});
+    mk(svg,"text",{x:L-8,y:Y+4,class:"tk","text-anchor":"end"}).textContent=fmt(val);}
+  const maxd=days[days.length-1],step=maxd<=3?0.5:maxd<=8?1:2;
+  for(let d=0;d<=maxd+1e-9;d+=step){
+    mk(svg,"line",{x1:px(d),x2:px(d),y1:T,y2:H-B,class:"gl"});
+    mk(svg,"text",{x:px(d),y:H-B+16,class:"tk","text-anchor":"middle"})
+      .textContent=(d%1?d.toFixed(1):d);}
+  mk(svg,"line",{x1:L,x2:W-R,y1:H-B,y2:H-B,class:"ax"});
+  mk(svg,"line",{x1:L,x2:L,y1:T,y2:H-B,class:"ax"});
+  mk(svg,"text",{x:(L+W-R)/2,y:H-6,class:"al","text-anchor":"middle"}).textContent="lead time (days)";
+  if(div){const Y=py(1);mk(svg,"line",{x1:L,x2:W-R,y1:Y,y2:Y,stroke:css("--muted"),
+    "stroke-width":1,"stroke-dasharray":"4 4"});
+    mk(svg,"text",{x:W-R,y:Y-6,class:"al","text-anchor":"end"}).textContent="calibrated (1.0)";}
+  let d="",pen=false;
+  y.forEach((q,i)=>{if(!isFin(q)){pen=false;return;}
+    d+=(pen?"L":"M")+px(days[i])+" "+py(q);pen=true;});
+  mk(svg,"path",{d,fill:"none",stroke:css("--s1"),"stroke-width":2,
+    "stroke-linejoin":"round","stroke-linecap":"round"});
+  const hl=mk(svg,"line",{x1:L,x2:L,y1:T,y2:H-B,stroke:css("--muted"),"stroke-width":1,opacity:0});
+  const dot=mk(svg,"circle",{r:4.5,fill:css("--s1"),stroke:css("--surface-1"),"stroke-width":2,opacity:0});
+  const hit=mk(svg,"rect",{x:L,y:T,width:W-L-R,height:H-T-B,fill:"transparent"});
+  hit.style.cursor="crosshair";
+  hit.addEventListener("mousemove",e=>{
+    const bb=svg.getBoundingClientRect(),sx=(e.clientX-bb.left)*W/bb.width;
+    let bi=0,bd=1e9;days.forEach((dd,i)=>{const q=Math.abs(px(dd)-sx);if(q<bd){bd=q;bi=i;}});
+    hl.setAttribute("x1",px(days[bi]));hl.setAttribute("x2",px(days[bi]));hl.setAttribute("opacity",1);
+    const q=y[bi];
+    if(isFin(q)){dot.setAttribute("cx",px(days[bi]));dot.setAttribute("cy",py(q));
+      dot.setAttribute("opacity",1);}
+    else dot.setAttribute("opacity",0);
+    tip.innerHTML=`<span class="k">lead</span> ${D.lead_hours[bi]} h (${days[bi]} d)<br><b>${fmt(q)}</b> ${D.metrics[k].unit||D.units[v]||""}`;
+    tip.style.opacity=1;
+    let x=e.clientX+14,yy=e.clientY-10;
+    const r=tip.getBoundingClientRect();
+    if(x+r.width+8>innerWidth)x=e.clientX-r.width-14;
+    tip.style.left=Math.max(8,x)+"px";tip.style.top=Math.max(8,yy)+"px";});
+  hit.addEventListener("mouseleave",()=>{tip.style.opacity=0;
+    hl.setAttribute("opacity",0);dot.setAttribute("opacity",0);});
+}
+mSel.addEventListener("change",()=>{fillVars();draw();});
+vSel.addEventListener("change",draw);
+// The export writes JSON-formatted YAML exactly so this needs no YAML
+// library: strip the leading comment lines and JSON.parse the rest.
+fetch(`eval_scores_${MODEL}.yaml`)
+  .then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.text();})
+  .then(t=>{
+    D=JSON.parse(t.replace(/^(?:#[^\n]*\n)+/,""));
+    days=D.lead_hours.map(h=>h/24);
+    Object.keys(D.metrics).forEach(k=>mSel.appendChild(new Option(D.metrics[k].label,k)));
+    fillVars();draw();})
+  .catch(e=>{$("#t").textContent=`failed to load eval_scores_${MODEL}.yaml`;
+    $("#s").textContent=String(e);});
+</script></body></html>

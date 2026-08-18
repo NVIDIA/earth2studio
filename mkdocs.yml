@@ -8,6 +8,8 @@ docs_dir: docs
 exclude_docs: |
   _build/**
   overrides/**
+  scorecard/make_pages.py
+  **/__pycache__/
 site_dir: site
 strict: false
 copyright: Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
@@ -495,6 +497,10 @@ nav:
   - Categories:
     - Overview: blog/categories.md
     - Documentation: blog/categories/documentation.md
+- Scorecards:
+  - scorecard/index.md
+  - FCN3: scorecard/fcn3/index.md
+  - Aurora: scorecard/aurora/index.md
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
   404.md

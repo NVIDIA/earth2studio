@@ -1,0 +1,46 @@
+# Scorecard
+
+Generates the source YAML files behind the documentation's
+[Scorecards pages](../../../docs/scorecard). Each model is evaluated on the
+same campaign — 24 initial conditions (1st and 15th of each month of 2025,
+00 UTC), 14-day horizon, ERA5 verification via ARCO — using the eval recipe.
+
+## Layout
+
+```
+scorecard/
+  cfg/campaign/<model>_2025_scorecard.yaml   self-contained evaluation campaigns
+  run_scorecard.py        predownload -> infer -> score -> prune
+  export_yaml.py          scores.zarr -> exports/eval_scores_<model>.yaml
+  utils/pipelines.py      history / off-grid pipeline variants (see below)
+  models/<model>/outputs/ run data: forecast.zarr -> scores.zarr (not tracked)
+  data/                   shared ERA5 stores (not tracked)
+```
+Note: Some of the following folders will be generated after running the scorecard recipe.
+
+## Usage
+
+On a GPU node with the recipe environment:
+
+```bash
+# 1. Run a campaign from cfg/campaign/
+python run_scorecard.py fcn3_2025_scorecard
+
+# 2. Export the score YAML and copy it into the docs
+python export_yaml.py fcn3 --docs
+
+# 3. Regenerate the docs pages
+cd ../../../docs/
+python scorecard/make_pages.py
+```
+
+The YAML carries everything a docs page needs — metric curves per variable
+and lead time (aggregated over initial conditions), units, and variable groups.
+
+## Model-specific pipelines (`utils/pipelines.py`)
+
+* `HistoryForecastPipeline` — models that consume history (e.g. Aurora with
+  `lead_time = [-6h, 0h]`) never emit lead 0 from their iterator; this writes
+  lead 0 from the initial condition and skips history frames.
+* `RegriddedForecastPipeline` — models off ERA5's 721x1440 grid are gathered
+  onto it so the shared verification store is reused. A no-op on-grid.
