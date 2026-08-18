@@ -1,43 +1,0 @@
-### native graphcast-small 2026-08-17T07:37:55+00:00
-Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 21.10it/s]Fetching ARCO data:  82%|████████▏ | 9/11 [00:00<00:00, 19.34it/s]Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 24.03it/s]
-Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 20.36it/s]Fetching ARCO data:  82%|████████▏ | 9/11 [00:00<00:00, 20.46it/s]Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 23.66it/s]
-WARNING:absl:Skipping gradient checkpointing for sequence length of 1
-WARNING:absl:Skipping gradient checkpointing for sequence length of 1
-graphcast-small: shape=[1, 1, 83, 181, 360]
-native-vs-e2s: finite=5408280/5408280 rel_l2=1.774816e-05 mean_abs=2.182561e-01 max_abs=3.021094e+01
-e2s-repeat: finite=5408280/5408280 rel_l2=1.704686e-05 mean_abs=2.100500e-01 max_abs=2.014062e+01
-t2m: rel_l2=5.869284e-05 mean_abs=1.042483e-02 max_abs=1.834564e-01
-u10m: rel_l2=4.498730e-03 mean_abs=1.702951e-02 max_abs=2.810097e-01
-v10m: rel_l2=5.068764e-03 mean_abs=1.774707e-02 max_abs=3.872261e-01
-msl: rel_l2=1.876251e-05 mean_abs=1.303138e+00 max_abs=1.667969e+01
-z500: rel_l2=2.904175e-05 mean_abs=1.048857e+00 max_abs=1.498438e+01
-plot=weathernext_plots/graphcast-small_native_compare.png
-### native graphcast-small exit=0 2026-08-17T07:38:51+00:00
-### native graphcast-operational 2026-08-17T07:38:51+00:00
-Fetching ARCO data:   0%|          | 0/10 [00:00<?, ?it/s]Fetching ARCO data:  50%|█████     | 5/10 [00:00<00:00, 19.60it/s]Fetching ARCO data:  70%|███████   | 7/10 [00:00<00:00, 14.29it/s]Fetching ARCO data: 100%|██████████| 10/10 [00:00<00:00, 21.66it/s]
-Fetching ARCO data:   0%|          | 0/10 [00:00<?, ?it/s]Fetching ARCO data:  50%|█████     | 5/10 [00:00<00:00, 15.69it/s]Fetching ARCO data:  70%|███████   | 7/10 [00:00<00:00, 15.59it/s]Fetching ARCO data: 100%|██████████| 10/10 [00:00<00:00, 22.29it/s]
-WARNING:absl:Skipping gradient checkpointing for sequence length of 1
-WARNING:absl:Skipping gradient checkpointing for sequence length of 1
-graphcast-operational: shape=[1, 1, 83, 721, 1440]
-native-vs-e2s: finite=86173920/86173920 rel_l2=1.546654e-05 mean_abs=1.888248e-01 max_abs=2.667188e+01
-e2s-repeat: finite=86173920/86173920 rel_l2=1.536711e-05 mean_abs=1.875909e-01 max_abs=2.700781e+01
-t2m: rel_l2=5.305042e-05 mean_abs=9.357497e-03 max_abs=2.445984e-01
-u10m: rel_l2=4.344727e-03 mean_abs=1.646345e-02 max_abs=3.512630e-01
-v10m: rel_l2=4.850217e-03 mean_abs=1.691754e-02 max_abs=3.097820e-01
-msl: rel_l2=1.656761e-05 mean_abs=1.140538e+00 max_abs=2.501562e+01
-z500: rel_l2=2.528272e-05 mean_abs=9.402441e-01 max_abs=1.498438e+01
-plot=weathernext_plots/graphcast-operational_native_compare.png
-### native graphcast-operational exit=0 2026-08-17T07:41:04+00:00
-### native gencast-mini 2026-08-17T07:41:04+00:00
-Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 20.46it/s]Fetching ARCO data:  82%|████████▏ | 9/11 [00:00<00:00, 18.63it/s]Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 23.18it/s]
-Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 28.90it/s]Fetching ARCO data:  82%|████████▏ | 9/11 [00:00<00:00, 18.10it/s]Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 23.90it/s]
-gencast-mini: shape=[1, 1, 84, 181, 360]
-native-vs-e2s: finite=5451329/5473440 rel_l2=1.418685e-06 mean_abs=1.742303e-02 max_abs=1.359375e+00
-e2s-repeat: finite=5451329/5473440 rel_l2=1.433611e-06 mean_abs=1.746985e-02 max_abs=1.593750e+00
-t2m: rel_l2=3.459531e-06 mean_abs=6.912208e-04 max_abs=1.196289e-02
-u10m: rel_l2=2.374864e-04 mean_abs=8.803501e-04 max_abs=2.506065e-02
-v10m: rel_l2=2.705479e-04 mean_abs=9.449611e-04 max_abs=1.926517e-02
-msl: rel_l2=1.514058e-06 mean_abs=1.083686e-01 max_abs=1.179688e+00
-z500: rel_l2=2.540223e-06 mean_abs=9.775918e-02 max_abs=1.039062e+00
-plot=weathernext_plots/gencast-mini_native_compare.png
-### native gencast-mini exit=0 2026-08-17T07:43:04+00:00
