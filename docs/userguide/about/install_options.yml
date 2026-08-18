@@ -254,6 +254,7 @@ categories:
         summary: StormCast-CONUS model dependencies.
         api_refs:
           - earth2studio.models.px.StormCastCONUS
+        # TODO: Removed with psn release 2.2.0
         preinstall:
           pip:
             - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
@@ -313,6 +314,7 @@ categories:
         summary: CorrDiff COSMO-ERA5 model dependencies.
         api_refs:
           - earth2studio.models.dx.CorrDiffCosmoEra5
+        # TODO: Removed with psn release 2.2.0
         preinstall:
           pip:
             - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
