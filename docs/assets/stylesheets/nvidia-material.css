@@ -386,11 +386,11 @@ body .md-grid {
 .md-header__button.md-logo img,
 .md-header__button.md-logo svg {
   display: block;
+  height: 1.9rem; /* default Material logo height is 1.2rem */
+  width: auto;
 }
 
-.md-tabs__link[href="https://github.com/NVIDIA/earth2studio/tree/main/recipes"]::after,
 .md-tabs__link[href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"]::after,
-.md-nav__link[href="https://github.com/NVIDIA/earth2studio/tree/main/recipes"]::after,
 .md-nav__link[href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"]::after {
   display: inline-block;
   margin-left: 0.28rem;
@@ -1822,6 +1822,17 @@ body .md-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.8rem;
+}
+
+.e2s-github-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1rem !important;
+}
+
+.e2s-github-stats img {
+  display: block;
 }
 
 .md-typeset .e2s-start-grid a {

@@ -492,7 +492,7 @@ nav:
   - Categories:
     - Overview: blog/categories.md
     - Documentation: blog/categories/documentation.md
-- Recipes: https://github.com/NVIDIA/earth2studio/tree/main/recipes
+- Recipes: recipes/index.md
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
   404.md

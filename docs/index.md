@@ -321,6 +321,10 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
       <a class="e2s-home-button" href="examples/">Examples</a>
       <a class="e2s-home-button" href="modules/">API Reference</a>
     </div>
+    <p class="e2s-github-stats">
+      <a href="https://github.com/NVIDIA/earth2studio" target="_blank" rel="noopener"><img src="https://img.shields.io/github/stars/NVIDIA/earth2studio?style=flat&color=76b900&label=stars" alt="GitHub stars"></a>
+      <a href="https://github.com/NVIDIA/earth2studio" target="_blank" rel="noopener"><img src="https://img.shields.io/github/forks/NVIDIA/earth2studio?style=flat&color=76b900&label=forks" alt="GitHub forks"></a>
+    </p>
   </section>
 </div>
 
