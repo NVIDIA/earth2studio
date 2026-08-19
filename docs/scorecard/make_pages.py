@@ -254,7 +254,10 @@ PAGE_MD = """\
 
 Pick a metric and variable; hover for exact values at each lead time.
 
-<iframe src="../../../_static/scorecard/plot.html?model={model}&label={label_q}" title="{label} skill"
+<!-- src is SOURCE-relative (docs/scorecard/generated/ -> docs/_static);
+     the site build rewrites it for the final page location. -->
+
+<iframe src="../../_static/scorecard/plot.html?model={model}&label={label_q}" title="{label} skill"
         style="width:100%;height:560px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
         loading="lazy"></iframe>
 
