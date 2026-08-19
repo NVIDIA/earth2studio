@@ -414,6 +414,7 @@ plugins:
     examples_dir: examples
     output_dir: examples
     cache_dir: .e2sgallery
+    invalidate_on_lock_change: false
     execute: never
     jobs: 1
     fail_fast: true
