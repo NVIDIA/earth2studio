@@ -42,8 +42,12 @@ properties follow:
 * Non-linear aggregations stay correct.  ``RMSE = sqrt(mean_t(MSE))`` and
   ACC are not linear in ICs, so the *sums* rather than the per-IC scores
   are the durable artifact.
-* Derived metrics, regional breakdowns and bootstrap CIs over ICs remain
-  possible after the fact without re-running inference.
+* Metrics derivable from the stored sums, and bootstrap CIs over ICs,
+  remain possible after the fact without re-running inference. Spatial
+  weighting (e.g. cosine-latitude weighting) is baked into the sums at
+  run time and applies to the whole grid; there is no per-region
+  weighting, so evaluating a different spatial region requires
+  re-running inference.
 * Scope limited to a fixed set of metrics amenable to the above patterns.
   Users with custom metrics must still run offline.
 

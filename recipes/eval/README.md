@@ -792,12 +792,18 @@ Members meet via a single all-gather per variable chunk, which is what
 makes the exchange deferrable; `variable_chunk` bounds both the payload
 and the float64 working set.
 
-**Re-deriving scores.**  `stats.zarr` holds *sums*, not scores, so regional
-breakdowns, or bootstrap CIs over ICs never require re-running inference.
-However, new metrics or more extensive changes will require re-running the
-inference portion, which is the main downside of online scoring. To
-consolidate the summation results in `stats.zarr` into the final scores,
-run:
+**Re-deriving scores.**  `stats.zarr` holds *sums*, not scores, so
+re-deriving scores from the already-stored sums -- e.g. recomputing rank
+reliability from the stored rank counts, or bootstrap CIs over ICs --
+never requires re-running inference. Spatial weighting is baked into the
+sum at run time, though: cosine-latitude weighting is on or off for the
+whole grid for the entire run, and there is currently no per-region
+weighting exposed. So while a *new* metric that is derivable from the
+existing sums is free, evaluating a *different* spatial weighting/region,
+a genuinely new metric that needs its own accumulator, or anything else
+that needs the raw fields, all require re-running the inference portion --
+which is the main downside of online scoring. To consolidate the
+summation results in `stats.zarr` into the final scores, run:
 
 ```bash
 python score.py campaign=fcn3_2024_monthly scoring.mode=online
@@ -834,7 +840,7 @@ turns that into a clean job failure that `resume=true` picks up from.
 
 - `verification.zarr` must be predownloaded; coverage of every
   `(IC + lead)` valid time is checked before model weights load.
-- Online scoring priortizes support for a fixed set of important metrics
+- Online scoring prioritizes support for a fixed set of important metrics
   amenable to the partial summation approach that produces `stats.zarr`.
   Users with custom metrics will have to fall back to offline scoring,
   or open an issue with a request to add new online metrics.
