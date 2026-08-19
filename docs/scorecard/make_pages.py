@@ -283,7 +283,7 @@ All of the model's output variables that have ERA5 verification are scored.
 
 ## Data
 
-The numbers behind the plot are in [`eval_scores_{model}.yaml`](../../../_static/scorecard/eval_scores_{model}.yaml), exported by
+The numbers behind the plot are in [`eval_scores_{model}.yaml`](../../_static/scorecard/eval_scores_{model}.yaml), exported by
 the [eval recipe scorecard](https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval)
 (`scorecard/export_yaml.py --docs`) -- one value per metric, variable
 and lead time, in the variable's own units.
@@ -547,7 +547,7 @@ def _card(model: str, doc: dict, conf: dict) -> str:
     # <br> keeps the facts on their own line while the link text stays a
     # single paragraph (markdown links cannot span blank lines).
     return (
-        f'- [**{label}**<br>*{facts}*]({model}/index.md)'
+        f'- [**{label}**<br>*{facts}*]({model}.md)'
         f'{{ title="{tooltip}" }}'
     )
 
@@ -563,6 +563,12 @@ def main() -> int:
             "export_yaml.py --docs first"
         )
 
+    # Fully regenerated every run: clear stale pages from renamed models.
+    import shutil
+
+    shutil.rmtree(GENERATED, ignore_errors=True)
+    GENERATED.mkdir(parents=True)
+
     # One shared plot for every model; it holds no data.
     import json
 
@@ -577,10 +583,9 @@ def main() -> int:
         # The YAML body is JSON (a YAML subset), so safe_load reads it too.
         doc = yaml.safe_load((STATIC / f"eval_scores_{model}.yaml").read_text())
         conf = read_config(model)
-        (GENERATED / model).mkdir(parents=True, exist_ok=True)
-        (GENERATED / model / "index.md").write_text(build_page(model, doc, conf))
+        (GENERATED / f"{model}.md").write_text(build_page(model, doc, conf))
         docs[model], confs[model] = doc, conf
-        print(f"wrote scorecard/generated/{model}/index.md")
+        print(f"wrote scorecard/generated/{model}.md")
 
     any_doc = next(iter(docs.values()))
     years = sorted({t[:4] for d in docs.values() for t in d["initial_conditions"]})
