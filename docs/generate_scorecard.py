@@ -303,6 +303,10 @@ INDEX_MD = """\
 
 # Scorecards
 
+!!! warning
+    The scorecards are in beta. We are actively working on adding more models
+    and improved evaluation.
+
 Forecast skill of Earth2Studio models, one scorecard per model -- these show
 each model's own skill, not a comparison. Every model was evaluated on the
 same campaign: {n_ic} initial conditions ({years}), 14-day horizon, ERA5
