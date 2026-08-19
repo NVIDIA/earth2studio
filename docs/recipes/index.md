@@ -2,7 +2,7 @@
 
 # Recipes
 
-Recipes are complete, production-oriented reference pipelines — larger than
+Recipes are complete, production-oriented reference pipelines, larger than
 examples, built to be adapted for real projects.
 
 <div class="grid cards" markdown>
@@ -12,7 +12,7 @@ examples, built to be adapted for real projects.
     ---
 
     A multi-checkpoint inference pipeline for large-scale ensemble weather
-    forecasting — thousands of members for tail-risk and extreme-event
+    forecasting, with thousands of members for tail-risk and extreme-event
     statistics.
 
     [:octicons-arrow-right-24: View recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/hens)
@@ -30,7 +30,7 @@ examples, built to be adapted for real projects.
 
     ---
 
-    Track tropical cyclones in AI forecast output — from genesis detection
+    Track tropical cyclones in AI forecast output, from genesis detection
     to track and intensity extraction.
 
     [:octicons-arrow-right-24: View recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/tc_tracking)
@@ -46,4 +46,4 @@ examples, built to be adapted for real projects.
 
 </div>
 
-[All recipes on GitHub :octicons-arrow-right-24:](https://github.com/NVIDIA/earth2studio/tree/main/recipes){ .md-button .md-button--primary }
+[All recipes on GitHub :octicons-arrow-right-24:](https://github.com/NVIDIA/earth2studio/tree/main/recipes){ .e2s-hero__start .e2s-home-button }

@@ -26,11 +26,6 @@ hide:
               <path d="M5 12h14M13 6l6 6-6 6"></path>
             </svg>
           </a>
-          <p class="e2s-github-stats">
-            <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/v/earth2studio?style=flat-square&color=76b900&label=release" alt="Latest release"></a>
-            <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/dm/earth2studio?style=flat-square&color=76b900&label=downloads" alt="PyPI downloads"></a>
-            <a href="https://github.com/NVIDIA/earth2studio/blob/main/LICENSE" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/l/earth2studio?style=flat-square&color=76b900" alt="License"></a>
-          </p>
         </div>
         <div class="e2s-hero__visual">
           <div class="e2s-orbit" data-e2s-orbit role="img" aria-label="Earth2Studio mark: weather and climate icons around a globe">
@@ -75,6 +70,11 @@ hide:
       </div>
       <div class="e2s-hero__separator" aria-hidden="true"></div>
       <div class="e2s-hero__quickstart">
+        <p class="e2s-github-stats">
+          <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/v/earth2studio?style=flat-square&color=76b900&label=release" alt="Latest release"></a>
+          <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/dm/earth2studio?style=flat-square&color=76b900&label=downloads" alt="PyPI downloads"></a>
+          <a href="https://github.com/NVIDIA/earth2studio/blob/main/LICENSE" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/l/earth2studio?style=flat-square&color=76b900" alt="License"></a>
+        </p>
         <div class="e2s-install-command e2s-quickstart-card" data-e2s-install aria-label="Install Earth2Studio with FCN support">
           <div class="e2s-install-tabs" role="tablist" aria-label="Package manager">
             <button type="button" class="e2s-home-button is-active" data-e2s-command='uv pip install "earth2studio[fcn]"'>UV</button>
