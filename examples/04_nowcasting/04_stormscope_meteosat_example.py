@@ -257,5 +257,5 @@ ax.set_title(
 )
 
 fig.tight_layout()
-fig.savefig("outputs/05_stormcast_meteosat_example.png", dpi=150)
-print("Saved outputs/05_stormcast_meteosat_example.png")
+fig.savefig("outputs/04_stormcast_meteosat_example.png", dpi=150)
+print("Saved outputs/04_stormcast_meteosat_example.png")
