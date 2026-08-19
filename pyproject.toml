@@ -280,9 +280,6 @@ windgust-afno = [
 # DA Models
 da-cosmo = [
     "earth2studio[cosmo]",
-    # Temporary: mirrors cosmo's git pin. uv scopes the [tool.uv.sources] git
-    # source per directly-selected extra, so da-cosmo must declare physicsnemo
-    # directly to pick it up. Drop with cosmo's pin once PNM 2.2 ships on PyPI.
     "nvidia-physicsnemo>=2.2.0a0",
     "cupy-cuda13x",
 ]
