@@ -235,8 +235,8 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:s2s product:wind product:precip product:temp product:atmos
-    product:ocean year:2024
+    region:global class:subseasonal-seasonal product:wind product:precip product:temp
+    product:atmos product:ocean year:2024 backend:onnx
     """
 
     def __init__(self, onnx_path: str) -> None:

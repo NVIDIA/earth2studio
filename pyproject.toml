@@ -20,6 +20,7 @@ dependencies = [
     "huggingface-hub>=0.27.0",
     "loguru",
     "netCDF4>=1.6.4,<1.7.3", # https://github.com/Unidata/netcdf4-python/issues/1438
+    "obspec>=0.1",
     "obstore>=0.8",
     "pygrib",
     "python-dotenv",
@@ -190,20 +191,18 @@ fuxi-s2s = [
     "onnxscript",
 ]
 gencast = [
-    "graphcast",
+    "weathernext; python_version >= '3.12'",
     "dm-haiku>=0.0.14",
     "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
-    "xarray<2026.4.0", # https://github.com/google-deepmind/graphcast/issues/213
 ]
 graphcast = [
-    "graphcast",
+    "weathernext; python_version >= '3.12'",
     "dm-haiku>=0.0.14",
     "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
-    "xarray<2026.4.0", # https://github.com/google-deepmind/graphcast/issues/213
 ]
 interp-modafno = [
     "nvidia-physicsnemo>=2.0",
@@ -356,7 +355,7 @@ cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d70
 cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "f0f519987589cc0b368ab892a1adfb2fb30a5587" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" }
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "b38fcb2799d7dbc146fa60459f3f9823394a8bf1"}
-graphcast = { git = "https://github.com/google-deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
+weathernext = { git = "https://github.com/google-deepmind/weathernext.git", rev = "9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
 fme = { git = "https://github.com/ai2cm/ace.git", rev = "e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" }
 # Specific source for each of the current torch-harmonics models, avoiding ace2 conflicts until they update torch-harmonics
@@ -373,6 +372,7 @@ nvidia-physicsnemo = [
 ]
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
+earth2studio-gallery = { git = "https://github.com/NickGeneva/earth2studio-gallery.git", rev = "5eaddfe1fd4e842d6e2a5fa63a9a8718eeed7e9a" }
 
 
 [exclude.uv.workspace]
@@ -405,20 +405,41 @@ dev = [
     "tox-uv>=1.29.0"
 ]
 docs = [
+    "earth2studio-gallery",
     "cartopy",
+    "griffe-inherited-docstrings>=1.1.3",
     "matplotlib",
+    "mike>=2.1.0",
+    "mkdocs>=1.6.1",
+    "mkdocs-badges @ git+https://github.com/NickGeneva/mkdocs-badges.git@edd9365ed6cbcce883fc0c183c14fc7350e1c728",
+    "mkdocs-material>=9.6.0",
+    "mkdocstrings>=1.0.4",
+    "mkdocstrings-python>=2.0.5",
     "scipy",
-    "sphinx-design",
-    "sphinx>=6.0.0",
-    "jupytext>=1.15.0",
-    "sphinx-autodoc-typehints>=1.24.0",
-    "sphinx-gallery>=0.12.0",
-    "sphinx-togglebutton>=0.3.0",
-    "myst-parser>=0.18.0",
-    "sphinx-favicon>=1.0.1",
-    "nvidia-sphinx-theme",
-    "sphinx-badges",
+    "zensical>=0.0.53",
 ]
+
+[tool.earth2studio-gallery]
+examples_dir = "examples"
+docs_dir = "docs"
+output_dir = "docs/examples"
+cache_dir = ".e2sgallery"
+execute = "never"
+jobs = 1
+fail_fast = true
+optimize_images = true
+generate_notebooks = true
+download_button_color = "#76b900"
+output_open = true
+collect_telemetry = true
+backreferences = true
+cache_output_directory = false
+
+[tool.earth2studio-gallery.runner]
+environment = "project"
+groups = ["docs"]
+timeout = 7200
+uv_args = ["--no-progress"]
 
 [tool.hatch.version]
 path = "earth2studio/__init__.py"
