@@ -83,8 +83,9 @@ placeholders so the PR author can upload plots manually in the browser.
 
 Before opening or updating the PR, verify that packaged diagnostics have a
 `pyproject.toml` optional dependency extra, that the `all` extra includes it,
-that install docs include both pip and uv commands, and that the model is listed
-in `docs/modules/models_dx.rst` and `CHANGELOG.md` when it is public.
+that `docs/userguide/about/install_options.yml` has model notes, preinstall
+commands, and `api_refs`, and that the model is listed in
+`docs/modules/models_dx.md` and `CHANGELOG.md` when it is public.
 
 Stage only implementation, tests, docs, changelog, dependency metadata, and skill
 updates that belong in the branch. Exclude validation scripts and outputs.
@@ -96,8 +97,8 @@ git add \
   test/models/dx/test_<filename>.py \
   pyproject.toml \
   CHANGELOG.md \
-  docs/modules/models_dx.rst \
-  docs/userguide/about/install.md
+  docs/modules/models_dx.md \
+  docs/userguide/about/install_options.yml
 ```
 
 Create the PR with the body template and then post the validation comment from
