@@ -210,7 +210,7 @@ def test_weathernext2_cyclone_tracks_have_e2s_observation_names(
     )
 
     tracks = mock_weathernext2_model.cyclone_tracks
-    assert set(["lat", "lon", "tcmsl", "tcw10m"]).issubset(tracks.columns)
+    assert {"lat", "lon", "tcmsl", "tcw10m"}.issubset(tracks.columns)
     np.testing.assert_allclose(tracks[["lat", "lon", "tcmsl"]], [[10.0, 20.0, 99000.0]])
     np.testing.assert_allclose(tracks["tcw10m"], [10.28888])
 
