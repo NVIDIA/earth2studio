@@ -280,6 +280,15 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         cyclone_predictions = cyclone_predictions.assign_coords(
             time=np.asarray(coords["lead_time"]), init_time=init_times[0]
         )
+        for name in cyclone_predictions.data_vars:
+            array = cyclone_predictions[name]
+            cyclone_predictions[name] = xr.DataArray(
+                np.asarray(array.data),
+                dims=array.dims,
+                coords=array.coords,
+                attrs=array.attrs,
+                name=name,
+            )
 
         if accumulate_predictions:
             self._cyclone_prediction_history.append(cyclone_predictions)
@@ -456,6 +465,54 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         if jit_compile:
             return jax.jit(apply)
         return apply
+
+    def _chunked_prediction_generator(
+        self,
+        predictor_fn: Callable,
+        rng: "chex.PRNGKey",
+        inputs: xr.Dataset,
+        targets_template: xr.Dataset,
+        batch: xr.Dataset,
+        forcings: xr.Dataset,
+    ) -> Generator[xr.Dataset, None, None]:
+        """Generate an open-ended WeatherNext 2 rollout one chunk at a time."""
+        inputs = xr.Dataset(inputs)
+        targets_template = xr.Dataset(targets_template)
+        forcings = xr.Dataset(forcings)
+        targets_chunk_time = targets_template.time.isel(time=slice(0, 1))
+        current_inputs = inputs
+        forcing_variables = list(self.task_config.forcing_variables)
+        index = 0
+
+        while True:
+            forcings = forcings.assign_coords(time=targets_chunk_time).compute()
+            rng, step_rng = jax.random.split(rng)
+            predictions = predictor_fn(
+                rng=step_rng,
+                inputs=current_inputs,
+                targets_template=targets_template,
+                forcings=forcings,
+            )
+            next_frame = xr.merge([predictions, forcings])
+            current_inputs = rollout._get_next_inputs(current_inputs, next_frame)
+            current_inputs = current_inputs.assign_coords(time=inputs.coords["time"])
+            predictions = predictions.assign_coords(
+                time=targets_template.coords["time"] + index * np.timedelta64(6, "h")
+            )
+            yield predictions
+
+            batch = batch.assign_coords(
+                datetime=batch.coords["datetime"] + np.timedelta64(6, "h")
+            )
+            batch = batch.drop_vars(
+                forcing_variables + ["year_progress", "day_progress"], errors="ignore"
+            )
+            data_utils.add_derived_vars(batch)
+            data_utils.add_tisr_var(batch)
+            batch = batch.compute()
+            forcings = batch.isel(time=slice(-1, None))[forcing_variables]
+            forcings = forcings.reset_coords("datetime", drop=True).compute()
+            index += 1
 
     def iterator_result_to_tensor(self, dataset: xr.Dataset) -> torch.Tensor:
         """Convert an xarray Dataset prediction to an Earth2Studio tensor."""
@@ -701,13 +758,13 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
                 )
                 self.prng_key, rng = jax.random.split(self.prng_key)
                 self.iterators.append(
-                    rollout.chunked_prediction_generator(
+                    self._chunked_prediction_generator(
                         predictor_fn=self.run_forward,
                         rng=rng,
                         inputs=inputs,
                         targets_template=targets * np.nan,
+                        batch=data,
                         forcings=forcings,
-                        num_steps_per_chunk=1,
                     )
                 )
             yield from self._default_generator(x, coords)

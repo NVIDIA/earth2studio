@@ -47,13 +47,13 @@ def mocked_chunked_prediction(
 
 
 def mocked_chunked_prediction_generator(
+    self,
     predictor_fn,
     rng,
     inputs,
     targets_template,
+    batch,
     forcings,
-    num_steps_per_chunk=None,
-    verbose=None,
 ):
     yield targets_template.isel(time=[0])
     while True:
@@ -114,8 +114,9 @@ def test_weathernext2_call(time, device, mock_weathernext2_model):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@mock.patch(
-    "weathernext.utils.rollout.chunked_prediction_generator",
+@mock.patch.object(
+    WeatherNext2CyclonesMini,
+    "_chunked_prediction_generator",
     mocked_chunked_prediction_generator,
 )
 def test_weathernext2_iter(device, mock_weathernext2_model):
