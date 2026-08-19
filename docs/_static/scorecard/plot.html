@@ -71,7 +71,7 @@ const LABEL=Q.get("label")||MODEL;
 document.title=LABEL+" skill";
 $(".badge") && ($(".badge").textContent=LABEL);
 let D=null,days=[];
-const LOWER=["rmse","mae","lsd","ensemble_mean_mse","crps","ensemble_variance"];
+const LOWER=["rmse", "mae", "lsd", "ensemble_mean_mse", "crps", "ensemble_variance"];
 const css=n=>getComputedStyle(document.body).getPropertyValue(n).trim();
 const isFin=q=>q!=null&&isFinite(q);
 const tip=$("#tip");

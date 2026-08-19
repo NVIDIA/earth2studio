@@ -103,6 +103,7 @@ _build
 docs/modules/generated
 docs/modules/backreferences
 docs/examples
+docs/scorecard/generated
 
 # Pytestmon
 .testmondata*

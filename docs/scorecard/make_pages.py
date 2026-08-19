@@ -16,12 +16,25 @@
 
 """Generate the scorecard documentation pages from per-model YAML exports.
 
-For every ``docs/_static/scorecard/eval_scores_<model>.yaml`` (produced by the
-eval recipe's ``export_yaml.py --docs``) this writes:
+A model page is built from two inputs and nothing else:
 
-  docs/scorecard/<model>/index.md        the doc page, embedding the plot
-  docs/_static/scorecard/plot.html       ONE shared interactive plot
-  docs/scorecard/index.md                the section index / toctree
+  docs/_static/scorecard/eval_scores_<model>.yaml   the numbers, exported by
+                                                    the eval recipe's
+                                                    ``export_yaml.py --docs``
+  docs/scorecard/config/<model>.md                  the prose: front matter
+                                                    (label, category) plus a
+                                                    description and optional
+                                                    extra sections (Reference)
+
+For every such pair this writes, under the git-ignored ``generated/`` folder:
+
+  docs/scorecard/generated/<model>/index.md   the doc page, embedding the plot
+  docs/scorecard/generated/index.md           the section index with cards
+  docs/_static/scorecard/plot.html            ONE shared interactive plot
+
+The Makefile ``docs`` target runs this script before the site build, so the
+pages always exist on the fly and are never committed. Adding a model is:
+export its YAML, add its ``config/<model>.md``, list it in ``mkdocs.yml``.
 
 The plot holds no data: it fetches eval_scores_<model>.yaml (selected by its
 ?model= query parameter) and parses it in the browser. The export writes that
@@ -39,71 +52,25 @@ from urllib.parse import quote
 import yaml
 
 HERE = Path(__file__).resolve().parent  # docs/scorecard
+CONFIG = HERE / "config"  # per-model prose: front matter + description
+GENERATED = HERE / "generated"  # output pages, git-ignored
+
+
+def _load_defaults() -> dict:
+    """Site-wide defaults (fallback labels, metric direction) from
+    ``config/default.md`` front matter."""
+    path = CONFIG / "default.md"
+    if path.exists():
+        text = path.read_text()
+        if text.startswith("---"):
+            return yaml.safe_load(text.split("---", 2)[1]) or {}
+    return {}
+
+
+DEFAULTS = _load_defaults()
+LABELS = DEFAULTS.get("labels", {})
+LOWER_IS_BETTER = DEFAULTS.get("metrics", {}).get("lower_is_better", [])
 STATIC = HERE.parent / "_static" / "scorecard"  # data + shared plot live here
-
-# Display names for page titles and the plot's floating model badge.
-LABELS = {
-    "fcn3": "FCN3",
-    "aurora": "Aurora",
-    "sfno": "SFNO",
-    "fengwu": "FengWu",
-    "ucast": "UCast",
-    "graphcast": "GraphCast",
-    "graphcast_small": "GraphCast-small",
-    "pangu3": "Pangu (3 h)",
-    "pangu6": "Pangu (6 h)",
-    "pangu24": "Pangu (24 h)",
-}
-
-LOWER_BETTER = {"rmse", "mae", "lsd", "ensemble_mean_mse", "crps", "ensemble_variance"}
-
-# Short model description + citation shown on each page. Models without an
-# entry simply get no description/reference section.
-MODEL_INFO = {
-    "fcn3": {
-        "short": (
-            "FourCastNet 3 is NVIDIA's probabilistic machine-learning "
-            "weather model."
-        ),
-        "description": (
-            "FourCastNet 3 is NVIDIA's probabilistic machine-learning weather "
-            "model, built on spherical (geometric) signal processing with a "
-            "hidden-Markov ensemble formulation: each member evolves its own "
-            "calibrated stochastic state, so the ensemble spread is learned "
-            "rather than imposed by initial-condition perturbations. It "
-            "forecasts 72 atmospheric variables globally at 0.25° resolution "
-            "with a 6-hour step."
-        ),
-        "citation": (
-            "Bonev, B., Kurth, T., Mahesh, A., Bisson, M., Kossaifi, J., "
-            "Kashinath, K., ... & Keller, A. (2025). FourCastNet 3: A "
-            "geometric approach to probabilistic machine-learning weather "
-            "forecasting at scale. arXiv preprint arXiv:2507.12144."
-        ),
-    },
-    "aurora": {
-        "short": (
-            "Aurora is a foundation model of the atmosphere from Microsoft "
-            "Research."
-        ),
-        "description": (
-            "Aurora is a foundation model of the atmosphere from Microsoft "
-            "Research: a 1.3B-parameter Swin-transformer with Perceiver-style "
-            "encoders pretrained on over a million hours of diverse weather "
-            "and climate data. The version scored here is the 0.25° "
-            "deterministic medium-range configuration, which consumes the two "
-            "most recent analysis frames (t-6h and t0) and steps forward "
-            "6 hours at a time on a 720x1440 grid (pole-padded onto ERA5's "
-            "721x1440 for verification)."
-        ),
-        "citation": (
-            "Bodnar, C., Bruinsma, W. P., Lucic, A., Stanley, M., "
-            "Brandstetter, J., Garvan, P., ... & Perdikaris, P. (2024). "
-            "Aurora: A foundation model of the atmosphere. arXiv preprint "
-            "arXiv:2405.13063, 1(8)."
-        ),
-    },
-}
 
 # Self-contained single-model skill plot. Same palette and idioms as the
 # recipe's full scorecard so the docs and the recipe read as one system.
@@ -180,7 +147,7 @@ const LABEL=Q.get("label")||MODEL;
 document.title=LABEL+" skill";
 $(".badge") && ($(".badge").textContent=LABEL);
 let D=null,days=[];
-const LOWER=["rmse","mae","lsd","ensemble_mean_mse","crps","ensemble_variance"];
+const LOWER=__LOWER__;
 const css=n=>getComputedStyle(document.body).getPropertyValue(n).trim();
 const isFin=q=>q!=null&&isFinite(q);
 const tip=$("#tip");
@@ -282,12 +249,12 @@ PAGE_MD = """\
 <!-- Generated by docs/scorecard/make_pages.py from _static/scorecard/eval_scores_{model}.yaml -- do not hand-edit. -->
 
 # {label}
-{description}
+{badges}{description}
 ## Skill
 
 Pick a metric and variable; hover for exact values at each lead time.
 
-<iframe src="../../_static/scorecard/plot.html?model={model}&label={label_q}" title="{label} skill"
+<iframe src="../../../_static/scorecard/plot.html?model={model}&label={label_q}" title="{label} skill"
         style="width:100%;height:560px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
         loading="lazy"></iframe>
 
@@ -316,7 +283,7 @@ All of the model's output variables that have ERA5 verification are scored.
 
 ## Data
 
-The numbers behind the plot are in [`eval_scores_{model}.yaml`](../../_static/scorecard/eval_scores_{model}.yaml), exported by
+The numbers behind the plot are in [`eval_scores_{model}.yaml`](../../../_static/scorecard/eval_scores_{model}.yaml), exported by
 the [eval recipe scorecard](https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval)
 (`scorecard/export_yaml.py --docs`) -- one value per metric, variable
 and lead time, in the variable's own units.
@@ -446,6 +413,60 @@ def variables_table(doc: dict) -> str:
     return "\n".join("    " + ln for ln in table.splitlines())
 
 
+def _api_badges(px_class: str) -> str:
+    """Badge set from the model's generated API catalog page, so the
+    scorecard never disagrees with the catalog. generate_api.py runs before
+    this script in the Makefile, so the page exists during a docs build."""
+    if not px_class:
+        return ""
+    page = HERE.parent / "modules" / "generated" / "models" / "px" / f"{px_class}.md"
+    if not page.exists():
+        return ""
+    text = page.read_text()
+    if not text.startswith("---"):
+        return ""
+    meta = yaml.safe_load(text.split("---", 2)[1]) or {}
+    badges = meta.get("badges", [])
+    return " ".join(badges) if isinstance(badges, list) else str(badges)
+
+
+def read_config(model: str) -> dict:
+    """Parse ``config/<model>.md`` into label, description and extra sections.
+
+    The file is ordinary markdown with YAML front matter. Everything before
+    the first ``## `` heading is the model description; the headings and their
+    content are appended verbatim at the bottom of the page (Reference etc.).
+    """
+    path = CONFIG / f"{model}.md"
+    meta: dict = {}
+    body = ""
+    if path.exists():
+        text = path.read_text()
+        if text.startswith("---"):
+            _, fm, body = text.split("---", 2)
+            meta = yaml.safe_load(fm) or {}
+        else:
+            body = text
+    else:
+        print(f"!! no config/{model}.md -- page gets defaults; please add one")
+    body = body.strip()
+    idx = body.find("\n## ")
+    description = body if idx < 0 else body[:idx].strip()
+    extras = "" if idx < 0 else body[idx:].strip()
+    short = meta.get("short") or (
+        description.split(". ")[0].rstrip(".") + "." if description else ""
+    )
+    return {
+        "label": meta.get("label", LABELS.get(model, model)),
+        "badges": str(
+            meta.get("badges", "") or _api_badges(meta.get("px_class", ""))
+        ).strip(),
+        "description": description,
+        "extras": extras,
+        "short": short.replace("\n", " "),
+    }
+
+
 def provenance_table(doc: dict) -> str:
     prov = doc.get("provenance") or {}
     if not prov:
@@ -471,9 +492,9 @@ def provenance_table(doc: dict) -> str:
     return "\n".join("    " + ln for ln in table.splitlines())
 
 
-def build_page(model: str, doc: dict) -> str:
-    """Return the model's index.md."""
-    label = LABELS.get(model, model)
+def build_page(model: str, doc: dict, conf: dict) -> str:
+    """Return the model's generated page."""
+    label = conf["label"]
     years = sorted({t[:4] for t in doc["initial_conditions"]})
     kind = (
         f"{doc['members']}-member ensemble" if doc["kind"] == "prob" else "deterministic"
@@ -497,24 +518,21 @@ def build_page(model: str, doc: dict) -> str:
         provenance_table=provenance_table(doc),
         variables_table=variables_table(doc),
         label_q=quote(label),
-        description=(
-            "\n" + MODEL_INFO[model]["description"] + "\n"
-            if model in MODEL_INFO
+        badges=(
+            "\n{% badges " + conf["badges"] + " %}\n"
+            if conf["badges"]
             else ""
         ),
-        reference=(
-            "\n## Reference\n\n" + MODEL_INFO[model]["citation"] + "\n"
-            if model in MODEL_INFO
-            else ""
-        ),
+        description=("\n" + conf["description"] + "\n") if conf["description"] else "",
+        reference=("\n" + conf["extras"] + "\n") if conf["extras"] else "",
     )
     return md
 
 
-def _card(model: str, doc: dict) -> str:
+def _card(model: str, doc: dict, conf: dict) -> str:
     """One Material grid card for the section index."""
-    label = LABELS.get(model, model)
-    short = MODEL_INFO.get(model, {}).get("short", "")
+    label = conf["label"]
+    short = conf["short"]
     kind = (
         f"{doc['members']}-member ensemble"
         if doc["kind"] == "prob"
@@ -525,11 +543,11 @@ def _card(model: str, doc: dict) -> str:
         f"{doc['lead_hours'][-1] // 24}-day horizon"
     )
     tooltip = short or f"{label} scorecard"
+    # The whole card is the link; the description appears only on hover.
+    # <br> keeps the facts on their own line while the link text stays a
+    # single paragraph (markdown links cannot span blank lines).
     return (
-        f"- **{label}**\n\n"
-        f"    {short}\n\n"
-        f"    *{facts}*\n\n"
-        f'    [:octicons-arrow-right-24: {label} scorecard]({model}/index.md)'
+        f'- [**{label}**<br>*{facts}*]({model}/index.md)'
         f'{{ title="{tooltip}" }}'
     )
 
@@ -546,28 +564,34 @@ def main() -> int:
         )
 
     # One shared plot for every model; it holds no data.
-    (STATIC / "plot.html").write_text(PLOT_HTML)
+    import json
+
+    (STATIC / "plot.html").write_text(
+        PLOT_HTML.replace("__LOWER__", json.dumps(LOWER_IS_BETTER))
+    )
     print("wrote _static/scorecard/plot.html (shared, data-free)")
 
     docs = {}
+    confs = {}
     for model in models:
         # The YAML body is JSON (a YAML subset), so safe_load reads it too.
         doc = yaml.safe_load((STATIC / f"eval_scores_{model}.yaml").read_text())
-        (HERE / model).mkdir(exist_ok=True)
-        (HERE / model / "index.md").write_text(build_page(model, doc))
-        docs[model] = doc
-        print(f"wrote scorecard/{model}/index.md")
+        conf = read_config(model)
+        (GENERATED / model).mkdir(parents=True, exist_ok=True)
+        (GENERATED / model / "index.md").write_text(build_page(model, doc, conf))
+        docs[model], confs[model] = doc, conf
+        print(f"wrote scorecard/generated/{model}/index.md")
 
     any_doc = next(iter(docs.values()))
     years = sorted({t[:4] for d in docs.values() for t in d["initial_conditions"]})
-    (HERE / "index.md").write_text(
+    (GENERATED / "index.md").write_text(
         INDEX_MD.format(
             n_ic=len(any_doc["initial_conditions"]),
             years="/".join(years),
-            entries="\n\n".join(_card(m, docs[m]) for m in models),
+            entries="\n\n".join(_card(m, docs[m], confs[m]) for m in models),
         )
     )
-    print(f"wrote scorecard/index.md ({len(models)} model(s): {', '.join(models)})")
+    print(f"wrote scorecard/generated/index.md ({len(models)} model(s): {', '.join(models)})")
     return 0
 
 
