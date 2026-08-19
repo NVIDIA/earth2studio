@@ -91,6 +91,7 @@ We expect the model to abide by the defined interface and meet the requirements 
 forth in our contribution guide. Typically, you are expected to provide any required
 weights or assets in a downloadable location that can be fetched.
 
-[Open an issue](https://github.com/NVIDIA/earth2studio/issues) when you have an initial implementation you would like us to review. If
-you are aware of an existing model and want us to implement it, [open a feature request](https://github.com/NVIDIA/earth2studio/issues)
+[Open an issue](https://github.com/NVIDIA/earth2studio/issues) when you have an initial
+implementation you would like us to review. If you are aware of an existing model and want
+us to implement it, [open a feature request](https://github.com/NVIDIA/earth2studio/issues)
 and we will get it triaged.

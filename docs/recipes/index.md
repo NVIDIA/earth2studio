@@ -46,4 +46,6 @@ examples, built to be adapted for real projects.
 
 </div>
 
-[All recipes on GitHub :octicons-arrow-right-24:](https://github.com/NVIDIA/earth2studio/tree/main/recipes){ .e2s-hero__start .e2s-home-button }
+[All recipes on GitHub :octicons-arrow-right-24:][recipes]{ .e2s-hero__start .e2s-home-button }
+
+[recipes]: https://github.com/NVIDIA/earth2studio/tree/main/recipes
