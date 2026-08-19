@@ -199,6 +199,13 @@ graphcast = [
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
 ]
+weathernext = [
+    "weathernext; python_version >= '3.12'",
+    "dm-haiku>=0.0.14",
+    "jax[cuda13]>=0.4.26",
+    "flax>=0.10.6",
+    "dm-tree>=0.1.9",
+]
 interp-modafno = [
     "nvidia-physicsnemo>=2.0",
 ]
@@ -295,7 +302,7 @@ da-stormcast = [
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
-    "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",
+    "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,graphcast,interp-modafno,pangu,stormcast,sfno,stormscope,ucast,weathernext]",
     "earth2studio[cbottle,climatenet,corrdiff,cosmo,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda]",
 ]
@@ -367,7 +374,7 @@ nvidia-physicsnemo = [
 ]
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
-earth2studio-gallery = { git = "https://github.com/NickGeneva/earth2studio-gallery.git", rev = "5eaddfe1fd4e842d6e2a5fa63a9a8718eeed7e9a" }
+earth2studio-gallery = { git = "https://github.com/NickGeneva/earth2studio-gallery.git", rev = "124064d9cbe134cf7998fe93d4731225a6a922b4" }
 
 
 [exclude.uv.workspace]
@@ -429,6 +436,7 @@ output_open = true
 collect_telemetry = true
 backreferences = true
 cache_output_directory = false
+invalidate_on_lock_change = false
 
 [tool.earth2studio-gallery.runner]
 environment = "project"
