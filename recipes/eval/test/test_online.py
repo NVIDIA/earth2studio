@@ -872,7 +872,11 @@ def _run_crps(
 
     # Assumes a constant mask across leads (true for every caller here) —
     # the first context's mask-aware normalizer applies to all of them.
-    w_sum = contexts[0].wsum_valid()
+    # wsum_valid() is sized to all_variables; narrow it to whatever subset
+    # FairCRPS actually scored (pairwise_variables may trim it further),
+    # matching finalize_stats's per-variable w_sum lookup.
+    var_index = [all_variables.index(v) for v in stat.variables()]
+    w_sum = contexts[0].wsum_valid()[var_index]
     state = stat.state()
     return state["crps_t1"] / (m * w_sum) - state["crps_t2"] / (m * (m - 1) * w_sum)
 
@@ -987,6 +991,39 @@ class TestFairCRPS:
         assert "crps_t1__t2m" not in scalar
         # The cheap moment statistics still cover every variable.
         assert "sse_ensmean__t2m" in scalar
+
+    def test_pairwise_variables_narrows_update_shape(self, tmp_path):
+        """Regression test: FairCRPS.update must handle pairwise_variables
+        narrowing the scored set to a strict subset.  ctx.valid is sized to
+        the *full* scored-variable set, not the (possibly smaller)
+        pairwise_variables subset — term 1 has to mask against ctx.valid
+        before narrowing to self._var_index, not after, or the shapes
+        disagree (and, at a subset size of exactly 1, silently broadcast
+        wrong instead of raising)."""
+        torch.manual_seed(11)
+        m, n_leads = 4, 2
+        members = [
+            torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+            for _ in range(n_leads)
+        ]
+        truths = [
+            torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+            for _ in range(n_leads)
+        ]
+        settings = _settings(
+            tmp_path, pairwise_variables=["z500"], pairwise_comm_dtype="float64"
+        )
+
+        got = _run_crps(settings, members, truths)
+        assert got.shape == (n_leads, 1)
+        assert not torch.isnan(got).any()
+
+        z_index = VARIABLES.index("z500")
+        for lead, (f, y) in enumerate(zip(members, truths)):
+            expected = _reference_fair_crps(
+                f[:, z_index : z_index + 1], y[z_index : z_index + 1]
+            )
+            assert torch.allclose(got[lead].float(), expected, atol=1e-5)
 
     def test_unknown_pairwise_variable_rejected(self, tmp_path):
         from src.online import FairCRPS

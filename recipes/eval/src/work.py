@@ -382,6 +382,8 @@ def _remove_progress_dir(directory: Path) -> None:
             shutil.rmtree(directory)
         except FileNotFoundError:
             continue  # a peer got there first; re-check and retry the rest
+    if not directory.exists():
+        return
     raise RuntimeError(
         f"Could not clear progress directory '{directory}' — it still exists "
         "after several attempts.  Remove it by hand before re-running."

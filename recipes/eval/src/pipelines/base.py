@@ -505,6 +505,16 @@ class Pipeline(ABC):
         Checked by ``main.py`` before work is distributed, so an
         unsupported ``members_per_rank`` fails at startup rather than after
         the models have loaded.
+
+        Defaults to checking whether the concrete class overrides
+        :meth:`run_item_batched` at all.  This is only a safe proxy when a
+        subclass either implements both :meth:`run_item` and
+        :meth:`run_item_batched` itself, or inherits both unmodified from
+        the same ancestor.  A pipeline that overrides :meth:`run_item` with
+        behavior its ancestor's inherited :meth:`run_item_batched` does not
+        replicate (e.g. extra masking or skipped yields) must override this
+        method to return ``False`` explicitly — otherwise the batched path
+        silently diverges from the unbatched one.
         """
         return type(self).run_item_batched is not Pipeline.run_item_batched
 

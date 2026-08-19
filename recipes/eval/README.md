@@ -834,6 +834,10 @@ turns that into a clean job failure that `resume=true` picks up from.
 
 - `verification.zarr` must be predownloaded; coverage of every
   `(IC + lead)` valid time is checked before model weights load.
+- Online scoring priortizes support for a fixed set of important metrics
+  amenable to the partial summation approach that produces `stats.zarr`.
+  Users with custom metrics will have to fall back to offline scoring,
+  or open an issue with a request to add new online metrics.
 - With `output.retain=none` the report's visualization sections have no
   raw fields to plot and degrade gracefully.
 

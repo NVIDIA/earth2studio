@@ -44,6 +44,8 @@ properties follow:
   are the durable artifact.
 * Derived metrics, regional breakdowns and bootstrap CIs over ICs remain
   possible after the fact without re-running inference.
+* Scope limited to a fixed set of metrics amenable to the above patterns.
+  Users with custom metrics must still run offline.
 
 Numerics
 --------
@@ -1518,8 +1520,14 @@ class FairCRPS:
             self._var_index, device=ctx.f_local.device, dtype=torch.long
         )
 
-        # Term 1: local per member, then a scalar reduce.
-        t1 = ctx.wsum(ctx.d_local.index_select(1, index).abs()).sum(dim=0)
+        # Term 1: local per member, then a scalar reduce.  ctx.valid is
+        # sized to the full scored-variable set, not the (possibly
+        # narrower) pairwise `self._variables` subset, so masking must
+        # happen before index_select — same order PairwiseExchange._submit
+        # uses for term 2 — rather than after, via ctx.wsum.
+        d_local = torch.where(ctx.valid, ctx.d_local, 0.0).index_select(1, index).abs()
+        axes = tuple(range(d_local.ndim - ctx.n_spatial, d_local.ndim))
+        t1 = (d_local.double() * ctx.weights).sum(dim=axes).sum(dim=0)
         ctx.comm.reduce(t1)
         if ctx.comm.is_root:
             self._t1[ctx.lead_index, :] = t1
