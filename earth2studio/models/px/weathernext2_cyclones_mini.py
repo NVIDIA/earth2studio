@@ -103,12 +103,9 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
 
     Note
     ----
-    WeatherNext 2 is distinct from the GraphCast and GenCast wrappers, which retain
-    their original Earth2Studio names while using the renamed WeatherNext 1 codebase.
-
     For more information see the following references:
 
-    - https://github.com/google-deepmind/weathernext#weathernext-2-1
+    - https://doi.org/10.1038/s41586-026-10953-2
     - https://github.com/google-deepmind/weathernext
 
     Warning
@@ -132,7 +129,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
     Badges
     ------
     region:global class:medium-range product:wind product:precip product:temp product:atmos
-    product:ocean year:2026 gpu:80gb provider:google backend:jax
+    product:ocean year:2026 gpu:40gb provider:google backend:jax
     """
 
     def __init__(
