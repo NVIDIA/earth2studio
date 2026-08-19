@@ -119,11 +119,15 @@ model.compile_model()
 # -------------------
 # ``MeteosatFCI`` is configured with ``pixel_bbox`` matching the model's
 # domain (``Model_FCI_BBox``) so that the returned ``y``/``x`` scan-angle
-# coordinates align #with what the model expects.
+# coordinates align with what the model expects.
 #
 # Meteosat FCI visible and NIR channels are provided by the EUMETSAT data store
-# at 1 km resolution while IR channels are 2 km, so we set up data sources for
-# both. The 1 km grid is exactly 2 times the pixels of the 2 km grid, so we get
+# at 1 km resolution while IR channels are 2 km. The StormScope MTG model uses
+# the 2 km grid for all channels, so we need to pull data from both 1 km and 2 km
+# sources and do a minimal regrid on the visible and NIR channels.
+#
+# Here we will set up data sources for both grid resolutions.
+# The 1 km grid is exactly 2 times the pixels of the 2 km grid, so we get
 # the 1 km bounding box by doubling the 2 km bounding box.
 
 # %%
