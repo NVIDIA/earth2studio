@@ -70,6 +70,11 @@ hide:
       </div>
       <div class="e2s-hero__separator" aria-hidden="true"></div>
       <div class="e2s-hero__quickstart">
+        <p class="e2s-github-stats">
+          <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/v/earth2studio?style=flat-square&color=76b900&label=release" alt="Latest release"></a>
+          <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/dm/earth2studio?style=flat-square&color=76b900&label=downloads" alt="PyPI downloads"></a>
+          <a href="https://github.com/NVIDIA/earth2studio/blob/main/LICENSE" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/l/earth2studio?style=flat-square&color=76b900" alt="License"></a>
+        </p>
         <div class="e2s-install-command e2s-quickstart-card" data-e2s-install aria-label="Install Earth2Studio with FCN support">
           <div class="e2s-install-tabs" role="tablist" aria-label="Package manager">
             <button type="button" class="e2s-home-button is-active" data-e2s-command='uv pip install "earth2studio[fcn]"'>UV</button>
@@ -107,8 +112,10 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
     </div>
     <div class="e2s-solution-grid">
       <article class="e2s-solution-card">
-        <span class="e2s-solution-card__icon"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
-        <h3>Scientists & researchers</h3>
+        <div class="e2s-solution-card__head">
+          <span class="e2s-solution-card__icon"><i class="fa-solid fa-flask" aria-hidden="true"></i></span>
+          <h3>Scientists & researchers</h3>
+        </div>
         <p>
           Benchmark models on identical data through one API, design ensemble
           experiments, and verify outputs with built-in deterministic and
@@ -116,8 +123,10 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
         </p>
       </article>
       <article class="e2s-solution-card">
-        <span class="e2s-solution-card__icon"><i class="fa-solid fa-landmark" aria-hidden="true"></i></span>
-        <h3>Met services & agencies</h3>
+        <div class="e2s-solution-card__head">
+          <span class="e2s-solution-card__icon"><i class="fa-solid fa-satellite-dish" aria-hidden="true"></i></span>
+          <h3>Met services & agencies</h3>
+        </div>
         <p>
           Run, fine-tune, and deploy forecasting capability on infrastructure
           you control, from medium-range global guidance to rapid regional
@@ -125,16 +134,20 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
         </p>
       </article>
       <article class="e2s-solution-card">
-        <span class="e2s-solution-card__icon"><i class="fa-solid fa-building" aria-hidden="true"></i></span>
-        <h3>Enterprise</h3>
+        <div class="e2s-solution-card__head">
+          <span class="e2s-solution-card__icon"><i class="fa-solid fa-briefcase" aria-hidden="true"></i></span>
+          <h3>Enterprise</h3>
+        </div>
         <p>
           Build ensemble risk workflows for energy, insurance, logistics,
           agriculture, and climate resilience with reproducible AI forecasts.
         </p>
       </article>
       <article class="e2s-solution-card">
-        <span class="e2s-solution-card__icon"><i class="fa-solid fa-code" aria-hidden="true"></i></span>
-        <h3>Developers</h3>
+        <div class="e2s-solution-card__head">
+          <span class="e2s-solution-card__icon"><i class="fa-solid fa-code" aria-hidden="true"></i></span>
+          <h3>Developers</h3>
+        </div>
         <p>
           Build weather-aware APIs, dashboards, agents, and decision products
           on a composable SDK that keeps models, data, IO, and workflows
@@ -142,8 +155,10 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
         </p>
       </article>
       <article class="e2s-solution-card">
-        <span class="e2s-solution-card__icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></span>
-        <h3>Educators & students</h3>
+        <div class="e2s-solution-card__head">
+          <span class="e2s-solution-card__icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></span>
+          <h3>Educators & students</h3>
+        </div>
         <p>
           Teach Earth system AI with an open on-ramp that can fetch data, load
           models, run forecasts, and store outputs using familiar scientific
