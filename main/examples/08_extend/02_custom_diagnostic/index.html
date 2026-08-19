@@ -315,17 +315,20 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../" class="md-tabs__link">
-        
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../" class="md-tabs__link">
+          
   
   
     
   
   Examples
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -348,25 +351,6 @@
         </a>
       </li>
     
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Recipes
-
-      </a>
-    </li>
   
 
       
@@ -2058,9 +2042,32 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../" class="md-nav__link">
+    
+    
+      
         
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2074,7 +2081,59 @@
   
   
 
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -2590,33 +2649,6 @@
   
   
     <li class="md-nav__item">
-      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Recipes
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-nav__link">
         
   
@@ -2938,41 +2970,39 @@ same as running a built in diagnostic.</p>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>42 lines</small></summary><pre><code>2026-08-18 23:28:08.950 | INFO     | earth2studio.run:diagnostic:238 - Running diagnostic workflow!
-2026-08-18 23:28:08.950 | INFO     | earth2studio.run:diagnostic:244 - Inference device: cuda
+<details class="e2sg-output" open><summary><span>Console output</span><small>40 lines</small></summary><pre><code>2026-08-19 21:53:50.301 | INFO     | earth2studio.run:diagnostic:238 - Running diagnostic workflow!
+2026-08-19 21:53:50.301 | INFO     | earth2studio.run:diagnostic:244 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:02,  2.73it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 18.82it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  3.09it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 21.02it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.27it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 29.51it/s]
-2026-08-18 23:28:09.743 | SUCCESS  | earth2studio.run:diagnostic:307 - Fetched data from GFS
-2026-08-18 23:28:09.744 | INFO     | earth2studio.run:diagnostic:312 - Inference starting!
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.66it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 31.58it/s]
+2026-08-19 21:53:51.002 | SUCCESS  | earth2studio.run:diagnostic:307 - Fetched data from GFS
+2026-08-19 21:53:51.003 | INFO     | earth2studio.run:diagnostic:312 - Inference starting!
 
 
 Running inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
-Running inference:  10%|▉         | 2/21 [00:00&lt;00:04,  4.15it/s]
+Running inference:  10%|▉         | 2/21 [00:00&lt;00:04,  4.69it/s]
 
-Running inference:  19%|█▉        | 4/21 [00:00&lt;00:02,  6.89it/s]
+Running inference:  19%|█▉        | 4/21 [00:00&lt;00:02,  7.53it/s]
 
-Running inference:  33%|███▎      | 7/21 [00:00&lt;00:01, 11.06it/s]
+Running inference:  29%|██▊       | 6/21 [00:00&lt;00:01,  9.98it/s]
 
-Running inference:  48%|████▊     | 10/21 [00:00&lt;00:00, 13.62it/s]
+Running inference:  43%|████▎     | 9/21 [00:00&lt;00:00, 14.22it/s]
 
-Running inference:  57%|█████▋    | 12/21 [00:01&lt;00:00, 14.81it/s]
+Running inference:  57%|█████▋    | 12/21 [00:01&lt;00:00, 15.09it/s]
 
-Running inference:  67%|██████▋   | 14/21 [00:01&lt;00:00, 15.81it/s]
+Running inference:  71%|███████▏  | 15/21 [00:01&lt;00:00, 17.44it/s]
 
-Running inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 16.32it/s]
+Running inference:  81%|████████  | 17/21 [00:01&lt;00:00, 17.21it/s]
 
-Running inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 15.81it/s]
-
-Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 17.36it/s]
-Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 13.59it/s]
-2026-08-18 23:28:11.290 | SUCCESS  | earth2studio.run:diagnostic:340 - 
+Running inference:  90%|█████████ | 19/21 [00:01&lt;00:00, 17.83it/s]
+Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 14.57it/s]
+2026-08-19 21:53:52.445 | SUCCESS  | earth2studio.run:diagnostic:340 - 
 Inference complete
 /
 ├── lat (721,) float64
@@ -3032,9 +3062,9 @@ Inference complete
 </code></pre></div>
 <p><img alt="Output from Extending Diagnostic Models" class="e2sg-output-image" loading="lazy" src="../../_assets/08_extend-02_custom_diagnostic/001-cell-11.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-02_custom_diagnostic/02_custom_diagnostic.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-02_custom_diagnostic/02_custom_diagnostic.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 64.8s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-02_custom_diagnostic/02_custom_diagnostic.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-02_custom_diagnostic/02_custom_diagnostic.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 56.6s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 5s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>56.6 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

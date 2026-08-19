@@ -315,17 +315,20 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../" class="md-tabs__link">
-        
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../" class="md-tabs__link">
+          
   
   
     
   
   Examples
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -348,25 +351,6 @@
         </a>
       </li>
     
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Recipes
-
-      </a>
-    </li>
   
 
       
@@ -2058,9 +2042,32 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../" class="md-nav__link">
+    
+    
+      
         
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2074,7 +2081,59 @@
   
   
 
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -2590,33 +2649,6 @@
   
   
     <li class="md-nav__item">
-      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Recipes
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-nav__link">
         
   
@@ -2933,12 +2965,13 @@ consistent with when GFS provides for relative humidity.</p>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">da_custom</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>25 lines</small></summary><pre><code>Fetching ARCO data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  50%|█████     | 1/2 [00:00&lt;00:00,  2.75it/s]
-Fetching ARCO data: 100%|██████████| 2/2 [00:00&lt;00:00,  5.44it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>26 lines</small></summary><pre><code>Fetching ARCO data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  50%|█████     | 1/2 [00:00&lt;00:00,  4.75it/s]
+Fetching ARCO data: 100%|██████████| 2/2 [00:00&lt;00:00,  5.48it/s]
+Fetching ARCO data: 100%|██████████| 2/2 [00:00&lt;00:00,  5.36it/s]
 
 Fetching GFS data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00, 24.44it/s]
+Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00, 13.26it/s]
 &lt;xarray.DataArray (time: 1, variable: 1, lat: 721, lon: 1440)&gt; Size: 8MB
 array([[[[ 28.01413468,  28.01413468,  28.01413468, ...,  28.01413468,
            28.01413468,  28.01413468],
@@ -3027,30 +3060,30 @@ we are using ARCO, we can run inference for a time quite far back in time.</p>
   Memory-efficient attention, SwiGLU, sparse and more won't be available.
   Set XFORMERS_MORE_DETAILS=1 for more details
 CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature
-2026-08-18 23:29:19.162 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
-2026-08-18 23:29:19.162 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
+2026-08-19 21:54:53.842 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+2026-08-19 21:54:53.843 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
 
 Fetching ARCO data:   0%|          | 0/13 [00:00&lt;?, ?it/s]
-Fetching ARCO data:   8%|▊         | 1/13 [00:00&lt;00:01,  9.91it/s]
-Fetching ARCO data:  69%|██████▉   | 9/13 [00:00&lt;00:00, 14.17it/s]
-Fetching ARCO data: 100%|██████████| 13/13 [00:00&lt;00:00, 19.53it/s]
-2026-08-18 23:29:21.137 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from CustomDataSource
-2026-08-18 23:29:21.138 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
+Fetching ARCO data:   8%|▊         | 1/13 [00:00&lt;00:01,  9.58it/s]
+Fetching ARCO data:  69%|██████▉   | 9/13 [00:00&lt;00:00, 23.32it/s]
+Fetching ARCO data: 100%|██████████| 13/13 [00:00&lt;00:00, 26.34it/s]
+2026-08-19 21:54:55.384 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from CustomDataSource
+2026-08-19 21:54:55.385 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
 
 
 Running inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:03,  1.00it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.38it/s]
 
-Running inference:  40%|████      | 2/5 [00:02&lt;00:03,  1.29s/it]
+Running inference:  40%|████      | 2/5 [00:02&lt;00:03,  1.06s/it]
 
-Running inference:  60%|██████    | 3/5 [00:03&lt;00:02,  1.30s/it]
+Running inference:  60%|██████    | 3/5 [00:03&lt;00:02,  1.14s/it]
 
-Running inference:  80%|████████  | 4/5 [00:05&lt;00:01,  1.44s/it]
+Running inference:  80%|████████  | 4/5 [00:04&lt;00:01,  1.20s/it]
 
-Running inference: 100%|██████████| 5/5 [00:07&lt;00:00,  1.48s/it]
-Running inference: 100%|██████████| 5/5 [00:07&lt;00:00,  1.40s/it]
-2026-08-18 23:29:28.153 | SUCCESS  | earth2studio.run:deterministic:189 - 
+Running inference: 100%|██████████| 5/5 [00:05&lt;00:00,  1.20s/it]
+Running inference: 100%|██████████| 5/5 [00:05&lt;00:00,  1.15s/it]
+2026-08-19 21:55:01.125 | SUCCESS  | earth2studio.run:deterministic:189 - 
 Inference complete
 /
 ├── lat (720,) float64
@@ -3115,9 +3148,9 @@ vapor field for a few time-steps.</p>
 </code></pre></div>
 <p><img alt="Output from Extending Data Sources" class="e2sg-output-image" loading="lazy" src="../../_assets/08_extend-03_custom_datasource/003-cell-11.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-03_custom_datasource/03_custom_datasource.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-03_custom_datasource/03_custom_datasource.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 53.1s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-03_custom_datasource/03_custom_datasource.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-03_custom_datasource/03_custom_datasource.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 46.4s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>53.1 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>46.4 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

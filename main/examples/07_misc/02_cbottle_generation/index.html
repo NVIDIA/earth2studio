@@ -315,17 +315,20 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../" class="md-tabs__link">
-        
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../" class="md-tabs__link">
+          
   
   
     
   
   Examples
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -348,25 +351,6 @@
         </a>
       </li>
     
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Recipes
-
-      </a>
-    </li>
   
 
       
@@ -2058,9 +2042,32 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../" class="md-nav__link">
+    
+    
+      
         
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2074,7 +2081,59 @@
   
   
 
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -2590,33 +2649,6 @@
   
   
     <li class="md-nav__item">
-      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Recipes
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-nav__link">
         
   
@@ -2817,12 +2849,12 @@ generate different fields that are reflective of the requested time and SST stat
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">cbottle_da</span><span class="p">)</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>87 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00, 48.57it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00, 48.90it/s]
 
 Generating cBottle Data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Generating cBottle Data:  50%|█████     | 1/2 [00:08&lt;00:08,  8.07s/it]
-Generating cBottle Data: 100%|██████████| 2/2 [00:12&lt;00:00,  5.77s/it]
-Generating cBottle Data: 100%|██████████| 2/2 [00:12&lt;00:00,  6.12s/it]
+Generating cBottle Data:  50%|█████     | 1/2 [00:08&lt;00:08,  8.27s/it]
+Generating cBottle Data: 100%|██████████| 2/2 [00:12&lt;00:00,  5.86s/it]
+Generating cBottle Data: 100%|██████████| 2/2 [00:12&lt;00:00,  6.23s/it]
 &lt;xarray.DataArray (time: 1, variable: 2, lat: 721, lon: 1440)&gt; Size: 17MB
 array([[[[1.01743422e+05, 1.01743422e+05, 1.01743422e+05, ...,
           1.01743422e+05, 1.01743422e+05, 1.01743422e+05],
@@ -2857,47 +2889,47 @@ Coordinates:
   * lat       (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
   * lon       (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
 &lt;xarray.DataArray (time: 5, variable: 2, lat: 721, lon: 1440)&gt; Size: 83MB
-array([[[[ 9.97309767e+04,  9.97309767e+04,  9.97309767e+04, ...,
-           9.97309767e+04,  9.97309767e+04,  9.97309767e+04],
-         [ 9.96918501e+04,  9.96914381e+04,  9.96910260e+04, ...,
-           9.96930862e+04,  9.96926742e+04,  9.96922622e+04],
-         [ 9.96527235e+04,  9.96518994e+04,  9.96510754e+04, ...,
-           9.96551958e+04,  9.96543717e+04,  9.96535476e+04],
+array([[[[ 1.00579015e+05,  1.00579015e+05,  1.00579015e+05, ...,
+           1.00579015e+05,  1.00579015e+05,  1.00579015e+05],
+         [ 1.00567175e+05,  1.00567048e+05,  1.00566921e+05, ...,
+           1.00567557e+05,  1.00567429e+05,  1.00567302e+05],
+         [ 1.00555335e+05,  1.00555081e+05,  1.00554826e+05, ...,
+           1.00556098e+05,  1.00555844e+05,  1.00555590e+05],
          ...,
-         [ 9.95161346e+04,  9.95154241e+04,  9.95147136e+04, ...,
-           9.95182660e+04,  9.95175555e+04,  9.95168451e+04],
-         [ 9.95210564e+04,  9.95207012e+04,  9.95203459e+04, ...,
-           9.95221221e+04,  9.95217669e+04,  9.95214116e+04],
-         [ 9.95259782e+04,  9.95259782e+04,  9.95259782e+04, ...,
-           9.95259782e+04,  9.95259782e+04,  9.95259782e+04]],
+         [ 9.94134702e+04,  9.94134578e+04,  9.94134453e+04, ...,
+           9.94135077e+04,  9.94134952e+04,  9.94134827e+04],
+         [ 9.93714624e+04,  9.93714562e+04,  9.93714499e+04, ...,
+           9.93714811e+04,  9.93714749e+04,  9.93714686e+04],
+         [ 9.93294546e+04,  9.93294546e+04,  9.93294546e+04, ...,
+           9.93294546e+04,  9.93294546e+04,  9.93294546e+04]],
 
-        [[ 9.40284960e+00,  9.40284960e+00,  9.40284960e+00, ...,
-           9.40284960e+00,  9.40284960e+00,  9.40284960e+00],
-         [ 9.23771489e+00,  9.23626592e+00,  9.23481694e+00, ...,
-           9.24206183e+00,  9.24061285e+00,  9.23916387e+00],
-         [ 9.07258019e+00,  9.06968223e+00,  9.06678428e+00, ...,
-           9.08127405e+00,  9.07837609e+00,  9.07547814e+00],
+        [[ 1.00518364e+01,  1.00518364e+01,  1.00518364e+01, ...,
+           1.00518364e+01,  1.00518364e+01,  1.00518364e+01],
+         [ 9.72932979e+00,  9.73005704e+00,  9.73078430e+00, ...,
+           9.72714802e+00,  9.72787528e+00,  9.72860253e+00],
+         [ 9.40682314e+00,  9.40827765e+00,  9.40973216e+00, ...,
+           9.40245962e+00,  9.40391413e+00,  9.40536864e+00],
 ...
-         [ 1.01051038e+05,  1.01051107e+05,  1.01051176e+05, ...,
-           1.01050830e+05,  1.01050899e+05,  1.01050968e+05],
-         [ 1.01078643e+05,  1.01078678e+05,  1.01078712e+05, ...,
-           1.01078539e+05,  1.01078574e+05,  1.01078608e+05],
-         [ 1.01106248e+05,  1.01106248e+05,  1.01106248e+05, ...,
-           1.01106248e+05,  1.01106248e+05,  1.01106248e+05]],
+         [ 9.90252797e+04,  9.90255691e+04,  9.90258584e+04, ...,
+           9.90244115e+04,  9.90247009e+04,  9.90249903e+04],
+         [ 9.90503409e+04,  9.90504856e+04,  9.90506303e+04, ...,
+           9.90499068e+04,  9.90500515e+04,  9.90501962e+04],
+         [ 9.90754021e+04,  9.90754021e+04,  9.90754021e+04, ...,
+           9.90754021e+04,  9.90754021e+04,  9.90754021e+04]],
 
-        [[ 7.35408940e+00,  7.35408940e+00,  7.35408940e+00, ...,
-           7.35408940e+00,  7.35408940e+00,  7.35408940e+00],
-         [ 7.35519899e+00,  7.35628738e+00,  7.35737576e+00, ...,
-           7.35193383e+00,  7.35302222e+00,  7.35411060e+00],
-         [ 7.35630858e+00,  7.35848535e+00,  7.36066212e+00, ...,
-           7.34977826e+00,  7.35195503e+00,  7.35413180e+00],
+        [[ 8.60659253e+00,  8.60659253e+00,  8.60659253e+00, ...,
+           8.60659253e+00,  8.60659253e+00,  8.60659253e+00],
+         [ 8.77743512e+00,  8.77945145e+00,  8.78146779e+00, ...,
+           8.77138611e+00,  8.77340245e+00,  8.77541878e+00],
+         [ 8.94827770e+00,  8.95231037e+00,  8.95634304e+00, ...,
+           8.93617969e+00,  8.94021236e+00,  8.94424503e+00],
          ...,
-         [ 3.95669800e-02,  3.85363140e-02,  3.75056480e-02, ...,
-           4.26589781e-02,  4.16283121e-02,  4.05976461e-02],
-         [ 9.02558241e-02,  8.97404911e-02,  8.92251580e-02, ...,
-           9.18018231e-02,  9.12864901e-02,  9.07711571e-02],
-         [ 1.40944668e-01,  1.40944668e-01,  1.40944668e-01, ...,
-           1.40944668e-01,  1.40944668e-01,  1.40944668e-01]]]])
+         [-6.30440280e-01, -6.30373932e-01, -6.30307584e-01, ...,
+          -6.30639325e-01, -6.30572976e-01, -6.30506628e-01],
+         [-5.59549842e-01, -5.59516668e-01, -5.59483494e-01, ...,
+          -5.59649365e-01, -5.59616191e-01, -5.59583017e-01],
+         [-4.88659405e-01, -4.88659405e-01, -4.88659405e-01, ...,
+          -4.88659405e-01, -4.88659405e-01, -4.88659405e-01]]]])
 Coordinates:
   * time      (time) datetime64[ns] 40B 2022-09-05 2022-09-05 ... 2022-09-05
   * variable  (variable) &lt;U4 32B 'msl' 'tcwv'
@@ -2983,7 +3015,7 @@ variables.</p>
 <a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">output_0</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
-Fetching WB2 data: 100%|██████████| 10/10 [00:00&lt;00:00, 161.17it/s]
+Fetching WB2 data: 100%|██████████| 10/10 [00:00&lt;00:00, 161.69it/s]
 torch.Size([5, 1, 45, 721, 1440])</code></pre></details>
 
 <p>Now repeat the process above but with an expanded set of variables.
@@ -3018,11 +3050,11 @@ information.</p>
 <a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="nb">print</span><span class="p">(</span><span class="n">output_1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>7 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
-Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:12,  4.93it/s]
-Fetching WB2 data:  14%|█▍        | 9/65 [00:00&lt;00:02, 25.10it/s]
-Fetching WB2 data:  29%|██▉       | 19/65 [00:00&lt;00:01, 37.10it/s]
-Fetching WB2 data:  38%|███▊      | 25/65 [00:00&lt;00:00, 40.93it/s]
-Fetching WB2 data: 100%|██████████| 65/65 [00:00&lt;00:00, 89.51it/s]
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:16,  3.87it/s]
+Fetching WB2 data:   8%|▊         | 5/65 [00:00&lt;00:04, 14.68it/s]
+Fetching WB2 data:  17%|█▋        | 11/65 [00:00&lt;00:02, 24.97it/s]
+Fetching WB2 data:  29%|██▉       | 19/65 [00:00&lt;00:01, 34.53it/s]
+Fetching WB2 data: 100%|██████████| 65/65 [00:00&lt;00:00, 87.45it/s]
 torch.Size([5, 1, 45, 721, 1440])</code></pre></details>
 
 <h2 id="post-processing-cbottleinfill">Post Processing CBottleInfill<a class="headerlink" href="#post-processing-cbottleinfill" title="Permanent link">&para;</a></h2>
@@ -3084,13 +3116,13 @@ truth due the additional information provided.</p>
 <a id="__codelineno-5-50" name="__codelineno-5-50" href="#__codelineno-5-50"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/15_tcwv_cbottle_infill.jpg&quot;</span><span class="p">)</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching WB2 data: 100%|██████████| 1/1 [00:00&lt;00:00, 244.68it/s]</code></pre></details>
+Fetching WB2 data: 100%|██████████| 1/1 [00:00&lt;00:00, 229.76it/s]</code></pre></details>
 
 <p><img alt="Output from CBottle Data Generation and Infilling" class="e2sg-output-image" loading="lazy" src="../../_assets/07_misc-02_cbottle_generation/003-cell-13.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-02_cbottle_generation/02_cbottle_generation.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-02_cbottle_generation/02_cbottle_generation.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 111.0s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-02_cbottle_generation/02_cbottle_generation.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-02_cbottle_generation/02_cbottle_generation.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 111.3s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 51s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 51s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

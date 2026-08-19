@@ -315,17 +315,20 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../" class="md-tabs__link">
-        
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../" class="md-tabs__link">
+          
   
   
     
   
   Examples
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -348,25 +351,6 @@
         </a>
       </li>
     
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Recipes
-
-      </a>
-    </li>
   
 
       
@@ -2058,9 +2042,32 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../" class="md-nav__link">
+    
+    
+      
         
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2074,7 +2081,59 @@
   
   
 
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -2590,33 +2649,6 @@
   
   
     <li class="md-nav__item">
-      <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Recipes
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-nav__link">
         
   
@@ -2814,178 +2846,132 @@ standard guided inference.</p>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="c1"># Run guided sampling</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">guided_sample</span><span class="p">,</span> <span class="n">guided_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">guidance</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>172 lines</small></summary><pre><code>Downloading training-state-002176000.checkpoint: 0%|          | 0.00/1.67G [00:00&lt;?, ?B/s]
-Downloading training-state-002176000.checkpoint: 1%|          | 10.0M/1.67G [00:01&lt;04:58, 5.94MB/s]
-Downloading training-state-002176000.checkpoint: 1%|          | 20.0M/1.67G [00:01&lt;02:15, 13.1MB/s]
-Downloading training-state-002176000.checkpoint: 2%|▏         | 30.0M/1.67G [00:02&lt;01:23, 20.9MB/s]
-Downloading training-state-002176000.checkpoint: 2%|▏         | 40.0M/1.67G [00:02&lt;00:59, 29.5MB/s]
-Downloading training-state-002176000.checkpoint: 3%|▎         | 50.0M/1.67G [00:02&lt;00:45, 38.4MB/s]
-Downloading training-state-002176000.checkpoint: 4%|▎         | 60.0M/1.67G [00:02&lt;00:37, 46.5MB/s]
-Downloading training-state-002176000.checkpoint: 4%|▍         | 70.0M/1.67G [00:02&lt;00:31, 54.0MB/s]
-Downloading training-state-002176000.checkpoint: 5%|▍         | 80.0M/1.67G [00:02&lt;00:28, 59.9MB/s]
-Downloading training-state-002176000.checkpoint: 5%|▌         | 90.0M/1.67G [00:02&lt;00:26, 64.1MB/s]
-Downloading training-state-002176000.checkpoint: 6%|▌         | 100M/1.67G [00:02&lt;00:24, 68.8MB/s] 
-Downloading training-state-002176000.checkpoint: 6%|▋         | 110M/1.67G [00:03&lt;00:24, 68.4MB/s]
-Downloading training-state-002176000.checkpoint: 7%|▋         | 120M/1.67G [00:03&lt;00:23, 72.0MB/s]
-Downloading training-state-002176000.checkpoint: 8%|▊         | 130M/1.67G [00:03&lt;00:22, 73.8MB/s]
-Downloading training-state-002176000.checkpoint: 8%|▊         | 140M/1.67G [00:03&lt;00:22, 73.6MB/s]
-Downloading training-state-002176000.checkpoint: 9%|▉         | 150M/1.67G [00:03&lt;00:22, 74.1MB/s]
-Downloading training-state-002176000.checkpoint: 9%|▉         | 160M/1.67G [00:03&lt;00:22, 73.2MB/s]
-Downloading training-state-002176000.checkpoint: 10%|▉         | 170M/1.67G [00:03&lt;00:21, 74.8MB/s]
-Downloading training-state-002176000.checkpoint: 11%|█         | 180M/1.67G [00:04&lt;00:21, 73.7MB/s]
-Downloading training-state-002176000.checkpoint: 11%|█         | 190M/1.67G [00:04&lt;00:21, 74.3MB/s]
-Downloading training-state-002176000.checkpoint: 12%|█▏        | 200M/1.67G [00:04&lt;00:21, 74.1MB/s]
-Downloading training-state-002176000.checkpoint: 12%|█▏        | 210M/1.67G [00:04&lt;00:20, 76.5MB/s]
-Downloading training-state-002176000.checkpoint: 13%|█▎        | 220M/1.67G [00:04&lt;00:22, 70.7MB/s]
-Downloading training-state-002176000.checkpoint: 13%|█▎        | 230M/1.67G [00:04&lt;00:27, 55.9MB/s]
-Downloading training-state-002176000.checkpoint: 14%|█▍        | 240M/1.67G [00:05&lt;00:26, 58.1MB/s]
-Downloading training-state-002176000.checkpoint: 15%|█▍        | 250M/1.67G [00:05&lt;00:33, 45.6MB/s]
-Downloading training-state-002176000.checkpoint: 15%|█▌        | 260M/1.67G [00:05&lt;00:34, 43.9MB/s]
-Downloading training-state-002176000.checkpoint: 16%|█▌        | 270M/1.67G [00:05&lt;00:29, 50.8MB/s]
-Downloading training-state-002176000.checkpoint: 16%|█▋        | 280M/1.67G [00:06&lt;00:31, 48.0MB/s]
-Downloading training-state-002176000.checkpoint: 17%|█▋        | 290M/1.67G [00:06&lt;00:26, 55.0MB/s]
-Downloading training-state-002176000.checkpoint: 18%|█▊        | 300M/1.67G [00:06&lt;00:24, 60.1MB/s]
-Downloading training-state-002176000.checkpoint: 18%|█▊        | 310M/1.67G [00:06&lt;00:22, 64.2MB/s]
-Downloading training-state-002176000.checkpoint: 19%|█▉        | 320M/1.67G [00:06&lt;00:29, 49.5MB/s]
-Downloading training-state-002176000.checkpoint: 19%|█▉        | 330M/1.67G [00:07&lt;00:30, 46.9MB/s]
-Downloading training-state-002176000.checkpoint: 20%|█▉        | 340M/1.67G [00:07&lt;00:29, 49.2MB/s]
-Downloading training-state-002176000.checkpoint: 21%|██        | 350M/1.67G [00:07&lt;00:26, 53.6MB/s]
-Downloading training-state-002176000.checkpoint: 21%|██        | 360M/1.67G [00:07&lt;00:24, 58.8MB/s]
-Downloading training-state-002176000.checkpoint: 22%|██▏       | 370M/1.67G [00:07&lt;00:21, 64.0MB/s]
-Downloading training-state-002176000.checkpoint: 22%|██▏       | 380M/1.67G [00:07&lt;00:20, 66.9MB/s]
-Downloading training-state-002176000.checkpoint: 23%|██▎       | 390M/1.67G [00:07&lt;00:19, 69.1MB/s]
-Downloading training-state-002176000.checkpoint: 23%|██▎       | 400M/1.67G [00:08&lt;00:18, 72.3MB/s]
-Downloading training-state-002176000.checkpoint: 24%|██▍       | 410M/1.67G [00:08&lt;00:18, 72.4MB/s]
-Downloading training-state-002176000.checkpoint: 25%|██▍       | 420M/1.67G [00:08&lt;00:17, 74.9MB/s]
-Downloading training-state-002176000.checkpoint: 25%|██▌       | 430M/1.67G [00:08&lt;00:17, 75.2MB/s]
-Downloading training-state-002176000.checkpoint: 26%|██▌       | 440M/1.67G [00:08&lt;00:17, 77.0MB/s]
-Downloading training-state-002176000.checkpoint: 26%|██▋       | 450M/1.67G [00:08&lt;00:17, 76.5MB/s]
-Downloading training-state-002176000.checkpoint: 27%|██▋       | 460M/1.67G [00:09&lt;00:25, 51.7MB/s]
-Downloading training-state-002176000.checkpoint: 28%|██▊       | 470M/1.67G [00:09&lt;00:44, 29.4MB/s]
-Downloading training-state-002176000.checkpoint: 28%|██▊       | 480M/1.67G [00:10&lt;00:39, 32.9MB/s]
-Downloading training-state-002176000.checkpoint: 29%|██▊       | 490M/1.67G [00:10&lt;00:38, 33.4MB/s]
-Downloading training-state-002176000.checkpoint: 29%|██▉       | 500M/1.67G [00:10&lt;00:31, 40.1MB/s]
-Downloading training-state-002176000.checkpoint: 30%|██▉       | 510M/1.67G [00:10&lt;00:35, 35.2MB/s]
-Downloading training-state-002176000.checkpoint: 30%|███       | 520M/1.67G [00:11&lt;00:29, 42.3MB/s]
-Downloading training-state-002176000.checkpoint: 31%|███       | 530M/1.67G [00:11&lt;00:33, 36.6MB/s]
-Downloading training-state-002176000.checkpoint: 32%|███▏      | 540M/1.67G [00:11&lt;00:30, 40.3MB/s]
-Downloading training-state-002176000.checkpoint: 32%|███▏      | 550M/1.67G [00:11&lt;00:26, 45.9MB/s]
-Downloading training-state-002176000.checkpoint: 33%|███▎      | 560M/1.67G [00:11&lt;00:22, 52.7MB/s]
-Downloading training-state-002176000.checkpoint: 33%|███▎      | 570M/1.67G [00:12&lt;00:20, 57.9MB/s]
-Downloading training-state-002176000.checkpoint: 34%|███▍      | 580M/1.67G [00:12&lt;00:18, 63.5MB/s]
-Downloading training-state-002176000.checkpoint: 35%|███▍      | 590M/1.67G [00:12&lt;00:17, 66.1MB/s]
-Downloading training-state-002176000.checkpoint: 35%|███▌      | 600M/1.67G [00:12&lt;00:16, 69.7MB/s]
-Downloading training-state-002176000.checkpoint: 36%|███▌      | 610M/1.67G [00:12&lt;00:16, 71.0MB/s]
-Downloading training-state-002176000.checkpoint: 36%|███▋      | 620M/1.67G [00:12&lt;00:15, 72.3MB/s]
-Downloading training-state-002176000.checkpoint: 37%|███▋      | 630M/1.67G [00:12&lt;00:15, 72.6MB/s]
-Downloading training-state-002176000.checkpoint: 38%|███▊      | 640M/1.67G [00:12&lt;00:15, 74.4MB/s]
-Downloading training-state-002176000.checkpoint: 38%|███▊      | 650M/1.67G [00:13&lt;00:14, 74.8MB/s]
-Downloading training-state-002176000.checkpoint: 39%|███▊      | 660M/1.67G [00:13&lt;00:14, 76.8MB/s]
-Downloading training-state-002176000.checkpoint: 39%|███▉      | 670M/1.67G [00:13&lt;00:14, 76.6MB/s]
-Downloading training-state-002176000.checkpoint: 40%|███▉      | 680M/1.67G [00:13&lt;00:13, 77.6MB/s]
-Downloading training-state-002176000.checkpoint: 40%|████      | 690M/1.67G [00:13&lt;00:23, 45.6MB/s]
-Downloading training-state-002176000.checkpoint: 41%|████      | 700M/1.67G [00:14&lt;00:20, 52.2MB/s]
-Downloading training-state-002176000.checkpoint: 42%|████▏     | 710M/1.67G [00:14&lt;00:18, 57.5MB/s]
-Downloading training-state-002176000.checkpoint: 42%|████▏     | 720M/1.67G [00:14&lt;00:16, 63.0MB/s]
-Downloading training-state-002176000.checkpoint: 43%|████▎     | 730M/1.67G [00:14&lt;00:15, 65.7MB/s]
-Downloading training-state-002176000.checkpoint: 43%|████▎     | 740M/1.67G [00:14&lt;00:14, 69.6MB/s]
-Downloading training-state-002176000.checkpoint: 44%|████▍     | 750M/1.67G [00:14&lt;00:13, 72.6MB/s]
-Downloading training-state-002176000.checkpoint: 45%|████▍     | 760M/1.67G [00:14&lt;00:13, 74.6MB/s]
-Downloading training-state-002176000.checkpoint: 45%|████▌     | 770M/1.67G [00:15&lt;00:12, 75.4MB/s]
-Downloading training-state-002176000.checkpoint: 46%|████▌     | 780M/1.67G [00:15&lt;00:13, 74.5MB/s]
-Downloading training-state-002176000.checkpoint: 46%|████▋     | 790M/1.67G [00:15&lt;00:12, 76.1MB/s]
-Downloading training-state-002176000.checkpoint: 47%|████▋     | 800M/1.67G [00:15&lt;00:12, 74.6MB/s]
-Downloading training-state-002176000.checkpoint: 48%|████▊     | 810M/1.67G [00:15&lt;00:12, 76.8MB/s]
-Downloading training-state-002176000.checkpoint: 48%|████▊     | 820M/1.67G [00:15&lt;00:12, 76.3MB/s]
-Downloading training-state-002176000.checkpoint: 49%|████▊     | 830M/1.67G [00:15&lt;00:11, 77.7MB/s]
-Downloading training-state-002176000.checkpoint: 49%|████▉     | 840M/1.67G [00:15&lt;00:11, 77.2MB/s]
-Downloading training-state-002176000.checkpoint: 50%|████▉     | 850M/1.67G [00:16&lt;00:11, 78.6MB/s]
-Downloading training-state-002176000.checkpoint: 50%|█████     | 860M/1.67G [00:16&lt;00:11, 77.9MB/s]
-Downloading training-state-002176000.checkpoint: 51%|█████     | 870M/1.67G [00:16&lt;00:11, 78.8MB/s]
-Downloading training-state-002176000.checkpoint: 52%|█████▏    | 880M/1.67G [00:16&lt;00:10, 79.6MB/s]
-Downloading training-state-002176000.checkpoint: 52%|█████▏    | 890M/1.67G [00:16&lt;00:10, 79.5MB/s]
-Downloading training-state-002176000.checkpoint: 53%|█████▎    | 900M/1.67G [00:16&lt;00:10, 80.2MB/s]
-Downloading training-state-002176000.checkpoint: 53%|█████▎    | 910M/1.67G [00:16&lt;00:10, 79.9MB/s]
-Downloading training-state-002176000.checkpoint: 54%|█████▍    | 920M/1.67G [00:17&lt;00:10, 80.1MB/s]
-Downloading training-state-002176000.checkpoint: 55%|█████▍    | 930M/1.67G [00:17&lt;00:10, 79.9MB/s]
-Downloading training-state-002176000.checkpoint: 55%|█████▌    | 940M/1.67G [00:17&lt;00:10, 79.3MB/s]
-Downloading training-state-002176000.checkpoint: 56%|█████▌    | 950M/1.67G [00:17&lt;00:10, 75.8MB/s]
-Downloading training-state-002176000.checkpoint: 56%|█████▋    | 960M/1.67G [00:17&lt;00:10, 76.8MB/s]
-Downloading training-state-002176000.checkpoint: 57%|█████▋    | 970M/1.67G [00:17&lt;00:09, 78.2MB/s]
-Downloading training-state-002176000.checkpoint: 57%|█████▋    | 980M/1.67G [00:17&lt;00:09, 77.9MB/s]
-Downloading training-state-002176000.checkpoint: 58%|█████▊    | 990M/1.67G [00:17&lt;00:09, 78.8MB/s]
-Downloading training-state-002176000.checkpoint: 59%|█████▊    | 0.98G/1.67G [00:18&lt;00:09, 78.5MB/s]
-Downloading training-state-002176000.checkpoint: 59%|█████▉    | 0.99G/1.67G [00:18&lt;00:09, 77.7MB/s]
-Downloading training-state-002176000.checkpoint: 60%|█████▉    | 1.00G/1.67G [00:18&lt;00:09, 78.6MB/s]
-Downloading training-state-002176000.checkpoint: 60%|██████    | 1.01G/1.67G [00:18&lt;00:08, 78.8MB/s]
-Downloading training-state-002176000.checkpoint: 61%|██████    | 1.02G/1.67G [00:18&lt;00:08, 78.2MB/s]
-Downloading training-state-002176000.checkpoint: 62%|██████▏   | 1.03G/1.67G [00:18&lt;00:08, 78.7MB/s]
-Downloading training-state-002176000.checkpoint: 62%|██████▏   | 1.04G/1.67G [00:18&lt;00:09, 71.0MB/s]
-Downloading training-state-002176000.checkpoint: 63%|██████▎   | 1.04G/1.67G [00:19&lt;00:12, 53.8MB/s]
-Downloading training-state-002176000.checkpoint: 63%|██████▎   | 1.05G/1.67G [00:19&lt;00:12, 50.5MB/s]
-Downloading training-state-002176000.checkpoint: 64%|██████▍   | 1.06G/1.67G [00:19&lt;00:17, 36.5MB/s]
-Downloading training-state-002176000.checkpoint: 65%|██████▍   | 1.07G/1.67G [00:20&lt;00:14, 43.0MB/s]
-Downloading training-state-002176000.checkpoint: 65%|██████▌   | 1.08G/1.67G [00:20&lt;00:12, 49.3MB/s]
-Downloading training-state-002176000.checkpoint: 66%|██████▌   | 1.09G/1.67G [00:20&lt;00:11, 55.1MB/s]
-Downloading training-state-002176000.checkpoint: 66%|██████▋   | 1.10G/1.67G [00:20&lt;00:16, 37.5MB/s]
-Downloading training-state-002176000.checkpoint: 67%|██████▋   | 1.11G/1.67G [00:21&lt;00:13, 44.1MB/s]
-Downloading training-state-002176000.checkpoint: 67%|██████▋   | 1.12G/1.67G [00:21&lt;00:11, 51.1MB/s]
-Downloading training-state-002176000.checkpoint: 68%|██████▊   | 1.13G/1.67G [00:21&lt;00:10, 55.8MB/s]
-Downloading training-state-002176000.checkpoint: 69%|██████▊   | 1.14G/1.67G [00:21&lt;00:09, 61.3MB/s]
-Downloading training-state-002176000.checkpoint: 69%|██████▉   | 1.15G/1.67G [00:21&lt;00:08, 65.1MB/s]
-Downloading training-state-002176000.checkpoint: 70%|██████▉   | 1.16G/1.67G [00:21&lt;00:07, 69.2MB/s]
-Downloading training-state-002176000.checkpoint: 70%|███████   | 1.17G/1.67G [00:21&lt;00:07, 70.8MB/s]
-Downloading training-state-002176000.checkpoint: 71%|███████   | 1.18G/1.67G [00:21&lt;00:07, 73.6MB/s]
-Downloading training-state-002176000.checkpoint: 72%|███████▏  | 1.19G/1.67G [00:22&lt;00:06, 73.9MB/s]
-Downloading training-state-002176000.checkpoint: 72%|███████▏  | 1.20G/1.67G [00:22&lt;00:06, 75.9MB/s]
-Downloading training-state-002176000.checkpoint: 73%|███████▎  | 1.21G/1.67G [00:22&lt;00:06, 75.7MB/s]
-Downloading training-state-002176000.checkpoint: 73%|███████▎  | 1.22G/1.67G [00:22&lt;00:06, 77.6MB/s]
-Downloading training-state-002176000.checkpoint: 74%|███████▍  | 1.23G/1.67G [00:22&lt;00:06, 76.6MB/s]
-Downloading training-state-002176000.checkpoint: 74%|███████▍  | 1.24G/1.67G [00:22&lt;00:05, 78.3MB/s]
-Downloading training-state-002176000.checkpoint: 75%|███████▌  | 1.25G/1.67G [00:23&lt;00:07, 61.8MB/s]
-Downloading training-state-002176000.checkpoint: 76%|███████▌  | 1.26G/1.67G [00:23&lt;00:06, 67.4MB/s]
-Downloading training-state-002176000.checkpoint: 76%|███████▌  | 1.27G/1.67G [00:23&lt;00:06, 69.4MB/s]
-Downloading training-state-002176000.checkpoint: 77%|███████▋  | 1.28G/1.67G [00:23&lt;00:05, 72.9MB/s]
-Downloading training-state-002176000.checkpoint: 77%|███████▋  | 1.29G/1.67G [00:23&lt;00:05, 73.5MB/s]
-Downloading training-state-002176000.checkpoint: 78%|███████▊  | 1.30G/1.67G [00:23&lt;00:05, 76.2MB/s]
-Downloading training-state-002176000.checkpoint: 79%|███████▊  | 1.31G/1.67G [00:23&lt;00:05, 76.0MB/s]
-Downloading training-state-002176000.checkpoint: 79%|███████▉  | 1.32G/1.67G [00:23&lt;00:04, 77.6MB/s]
-Downloading training-state-002176000.checkpoint: 80%|███████▉  | 1.33G/1.67G [00:24&lt;00:04, 76.5MB/s]
-Downloading training-state-002176000.checkpoint: 80%|████████  | 1.34G/1.67G [00:24&lt;00:04, 78.4MB/s]
-Downloading training-state-002176000.checkpoint: 81%|████████  | 1.35G/1.67G [00:24&lt;00:04, 77.9MB/s]
-Downloading training-state-002176000.checkpoint: 82%|████████▏ | 1.36G/1.67G [00:24&lt;00:04, 76.5MB/s]
-Downloading training-state-002176000.checkpoint: 82%|████████▏ | 1.37G/1.67G [00:24&lt;00:04, 78.3MB/s]
-Downloading training-state-002176000.checkpoint: 83%|████████▎ | 1.38G/1.67G [00:24&lt;00:03, 78.2MB/s]
-Downloading training-state-002176000.checkpoint: 83%|████████▎ | 1.39G/1.67G [00:24&lt;00:03, 78.9MB/s]
-Downloading training-state-002176000.checkpoint: 84%|████████▍ | 1.40G/1.67G [00:25&lt;00:03, 78.0MB/s]
-Downloading training-state-002176000.checkpoint: 84%|████████▍ | 1.41G/1.67G [00:25&lt;00:03, 78.9MB/s]
-Downloading training-state-002176000.checkpoint: 85%|████████▌ | 1.42G/1.67G [00:25&lt;00:03, 78.9MB/s]
-Downloading training-state-002176000.checkpoint: 86%|████████▌ | 1.43G/1.67G [00:25&lt;00:03, 75.7MB/s]
-Downloading training-state-002176000.checkpoint: 86%|████████▌ | 1.44G/1.67G [00:25&lt;00:03, 76.5MB/s]
-Downloading training-state-002176000.checkpoint: 87%|████████▋ | 1.45G/1.67G [00:25&lt;00:03, 78.1MB/s]
-Downloading training-state-002176000.checkpoint: 87%|████████▋ | 1.46G/1.67G [00:25&lt;00:02, 77.4MB/s]
-Downloading training-state-002176000.checkpoint: 88%|████████▊ | 1.46G/1.67G [00:25&lt;00:02, 78.3MB/s]
-Downloading training-state-002176000.checkpoint: 89%|████████▊ | 1.47G/1.67G [00:26&lt;00:02, 77.5MB/s]
-Downloading training-state-002176000.checkpoint: 89%|████████▉ | 1.48G/1.67G [00:26&lt;00:02, 76.5MB/s]
-Downloading training-state-002176000.checkpoint: 90%|████████▉ | 1.49G/1.67G [00:26&lt;00:02, 77.8MB/s]
-Downloading training-state-002176000.checkpoint: 90%|█████████ | 1.50G/1.67G [00:26&lt;00:02, 76.8MB/s]
-Downloading training-state-002176000.checkpoint: 91%|█████████ | 1.51G/1.67G [00:26&lt;00:02, 78.3MB/s]
-Downloading training-state-002176000.checkpoint: 91%|█████████▏| 1.52G/1.67G [00:26&lt;00:01, 78.0MB/s]
-Downloading training-state-002176000.checkpoint: 92%|█████████▏| 1.53G/1.67G [00:26&lt;00:01, 77.0MB/s]
-Downloading training-state-002176000.checkpoint: 93%|█████████▎| 1.54G/1.67G [00:27&lt;00:01, 77.1MB/s]
-Downloading training-state-002176000.checkpoint: 93%|█████████▎| 1.55G/1.67G [00:27&lt;00:01, 76.7MB/s]
-Downloading training-state-002176000.checkpoint: 94%|█████████▍| 1.56G/1.67G [00:27&lt;00:01, 78.1MB/s]
-Downloading training-state-002176000.checkpoint: 94%|█████████▍| 1.57G/1.67G [00:27&lt;00:01, 78.3MB/s]
-Downloading training-state-002176000.checkpoint: 95%|█████████▌| 1.58G/1.67G [00:27&lt;00:01, 79.0MB/s]
-Downloading training-state-002176000.checkpoint: 96%|█████████▌| 1.59G/1.67G [00:27&lt;00:00, 78.7MB/s]
-Downloading training-state-002176000.checkpoint: 96%|█████████▌| 1.60G/1.67G [00:27&lt;00:00, 79.8MB/s]
-Downloading training-state-002176000.checkpoint: 97%|█████████▋| 1.61G/1.67G [00:27&lt;00:00, 80.2MB/s]
-Downloading training-state-002176000.checkpoint: 97%|█████████▋| 1.62G/1.67G [00:28&lt;00:00, 80.4MB/s]
-Downloading training-state-002176000.checkpoint: 98%|█████████▊| 1.63G/1.67G [00:28&lt;00:00, 78.7MB/s]
-Downloading training-state-002176000.checkpoint: 99%|█████████▊| 1.64G/1.67G [00:28&lt;00:00, 79.7MB/s]
-Downloading training-state-002176000.checkpoint: 99%|█████████▉| 1.65G/1.67G [00:28&lt;00:00, 78.9MB/s]
-Downloading training-state-002176000.checkpoint: 100%|█████████▉| 1.66G/1.67G [00:28&lt;00:00, 79.3MB/s]
-Downloading training-state-002176000.checkpoint: 100%|██████████| 1.67G/1.67G [00:28&lt;00:00, 62.2MB/s]</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>126 lines</small></summary><pre><code>Downloading training-state-002176000.checkpoint: 0%|          | 0.00/1.67G [00:00&lt;?, ?B/s]
+Downloading training-state-002176000.checkpoint: 1%|          | 10.0M/1.67G [00:01&lt;03:15, 9.09MB/s]
+Downloading training-state-002176000.checkpoint: 1%|          | 20.0M/1.67G [00:01&lt;01:40, 17.6MB/s]
+Downloading training-state-002176000.checkpoint: 2%|▏         | 30.0M/1.67G [00:01&lt;01:07, 26.1MB/s]
+Downloading training-state-002176000.checkpoint: 2%|▏         | 40.0M/1.67G [00:01&lt;00:56, 31.0MB/s]
+Downloading training-state-002176000.checkpoint: 4%|▎         | 60.0M/1.67G [00:02&lt;00:43, 39.6MB/s]
+Downloading training-state-002176000.checkpoint: 4%|▍         | 70.0M/1.67G [00:02&lt;00:40, 42.6MB/s]
+Downloading training-state-002176000.checkpoint: 5%|▌         | 90.0M/1.67G [00:02&lt;00:33, 50.9MB/s]
+Downloading training-state-002176000.checkpoint: 6%|▋         | 110M/1.67G [00:02&lt;00:26, 62.0MB/s] 
+Downloading training-state-002176000.checkpoint: 7%|▋         | 120M/1.67G [00:03&lt;00:26, 61.7MB/s]
+Downloading training-state-002176000.checkpoint: 8%|▊         | 130M/1.67G [00:03&lt;00:27, 59.4MB/s]
+Downloading training-state-002176000.checkpoint: 9%|▉         | 150M/1.67G [00:03&lt;00:23, 69.1MB/s]
+Downloading training-state-002176000.checkpoint: 10%|▉         | 170M/1.67G [00:03&lt;00:23, 68.8MB/s]
+Downloading training-state-002176000.checkpoint: 11%|█         | 190M/1.67G [00:04&lt;00:20, 75.8MB/s]
+Downloading training-state-002176000.checkpoint: 12%|█▏        | 200M/1.67G [00:04&lt;00:23, 66.5MB/s]
+Downloading training-state-002176000.checkpoint: 12%|█▏        | 210M/1.67G [00:04&lt;00:21, 72.3MB/s]
+Downloading training-state-002176000.checkpoint: 13%|█▎        | 230M/1.67G [00:04&lt;00:20, 74.5MB/s]
+Downloading training-state-002176000.checkpoint: 15%|█▍        | 250M/1.67G [00:04&lt;00:17, 86.0MB/s]
+Downloading training-state-002176000.checkpoint: 15%|█▌        | 260M/1.67G [00:05&lt;00:21, 72.0MB/s]
+Downloading training-state-002176000.checkpoint: 16%|█▋        | 280M/1.67G [00:05&lt;00:17, 85.3MB/s]
+Downloading training-state-002176000.checkpoint: 18%|█▊        | 300M/1.67G [00:05&lt;00:16, 91.4MB/s]
+Downloading training-state-002176000.checkpoint: 19%|█▉        | 320M/1.67G [00:05&lt;00:18, 80.0MB/s]
+Downloading training-state-002176000.checkpoint: 19%|█▉        | 330M/1.67G [00:05&lt;00:19, 72.5MB/s]
+Downloading training-state-002176000.checkpoint: 20%|█▉        | 340M/1.67G [00:06&lt;00:22, 63.6MB/s]
+Downloading training-state-002176000.checkpoint: 21%|██        | 350M/1.67G [00:06&lt;00:25, 56.8MB/s]
+Downloading training-state-002176000.checkpoint: 21%|██        | 360M/1.67G [00:06&lt;00:24, 57.7MB/s]
+Downloading training-state-002176000.checkpoint: 22%|██▏       | 380M/1.67G [00:06&lt;00:21, 64.2MB/s]
+Downloading training-state-002176000.checkpoint: 23%|██▎       | 390M/1.67G [00:07&lt;00:26, 52.4MB/s]
+Downloading training-state-002176000.checkpoint: 23%|██▎       | 400M/1.67G [00:07&lt;00:25, 53.8MB/s]
+Downloading training-state-002176000.checkpoint: 24%|██▍       | 410M/1.67G [00:07&lt;00:25, 53.3MB/s]
+Downloading training-state-002176000.checkpoint: 25%|██▍       | 420M/1.67G [00:07&lt;00:24, 54.7MB/s]
+Downloading training-state-002176000.checkpoint: 25%|██▌       | 430M/1.67G [00:08&lt;00:26, 50.4MB/s]
+Downloading training-state-002176000.checkpoint: 26%|██▌       | 440M/1.67G [00:08&lt;00:23, 56.7MB/s]
+Downloading training-state-002176000.checkpoint: 26%|██▋       | 450M/1.67G [00:08&lt;00:27, 47.6MB/s]
+Downloading training-state-002176000.checkpoint: 27%|██▋       | 460M/1.67G [00:08&lt;00:24, 54.2MB/s]
+Downloading training-state-002176000.checkpoint: 28%|██▊       | 470M/1.67G [00:08&lt;00:22, 58.4MB/s]
+Downloading training-state-002176000.checkpoint: 28%|██▊       | 480M/1.67G [00:08&lt;00:19, 66.4MB/s]
+Downloading training-state-002176000.checkpoint: 29%|██▊       | 490M/1.67G [00:08&lt;00:18, 68.6MB/s]
+Downloading training-state-002176000.checkpoint: 30%|██▉       | 510M/1.67G [00:09&lt;00:17, 71.7MB/s]
+Downloading training-state-002176000.checkpoint: 30%|███       | 520M/1.67G [00:09&lt;00:20, 60.8MB/s]
+Downloading training-state-002176000.checkpoint: 31%|███       | 530M/1.67G [00:09&lt;00:18, 65.1MB/s]
+Downloading training-state-002176000.checkpoint: 32%|███▏      | 550M/1.67G [00:09&lt;00:19, 62.8MB/s]
+Downloading training-state-002176000.checkpoint: 33%|███▎      | 560M/1.67G [00:10&lt;00:17, 66.7MB/s]
+Downloading training-state-002176000.checkpoint: 33%|███▎      | 570M/1.67G [00:10&lt;00:17, 68.3MB/s]
+Downloading training-state-002176000.checkpoint: 34%|███▍      | 580M/1.67G [00:10&lt;00:17, 65.6MB/s]
+Downloading training-state-002176000.checkpoint: 35%|███▌      | 600M/1.67G [00:10&lt;00:18, 63.8MB/s]
+Downloading training-state-002176000.checkpoint: 36%|███▌      | 610M/1.67G [00:10&lt;00:16, 68.3MB/s]
+Downloading training-state-002176000.checkpoint: 36%|███▋      | 620M/1.67G [00:11&lt;00:17, 64.6MB/s]
+Downloading training-state-002176000.checkpoint: 38%|███▊      | 640M/1.67G [00:11&lt;00:16, 66.4MB/s]
+Downloading training-state-002176000.checkpoint: 38%|███▊      | 650M/1.67G [00:11&lt;00:15, 70.4MB/s]
+Downloading training-state-002176000.checkpoint: 39%|███▊      | 660M/1.67G [00:11&lt;00:16, 67.0MB/s]
+Downloading training-state-002176000.checkpoint: 39%|███▉      | 670M/1.67G [00:11&lt;00:14, 72.7MB/s]
+Downloading training-state-002176000.checkpoint: 40%|███▉      | 680M/1.67G [00:11&lt;00:15, 70.0MB/s]
+Downloading training-state-002176000.checkpoint: 40%|████      | 690M/1.67G [00:12&lt;00:14, 74.6MB/s]
+Downloading training-state-002176000.checkpoint: 41%|████      | 700M/1.67G [00:12&lt;00:16, 63.3MB/s]
+Downloading training-state-002176000.checkpoint: 42%|████▏     | 710M/1.67G [00:12&lt;00:22, 46.5MB/s]
+Downloading training-state-002176000.checkpoint: 43%|████▎     | 730M/1.67G [00:12&lt;00:18, 54.2MB/s]
+Downloading training-state-002176000.checkpoint: 44%|████▍     | 750M/1.67G [00:13&lt;00:18, 54.9MB/s]
+Downloading training-state-002176000.checkpoint: 45%|████▍     | 760M/1.67G [00:13&lt;00:20, 49.4MB/s]
+Downloading training-state-002176000.checkpoint: 46%|████▌     | 780M/1.67G [00:13&lt;00:14, 65.4MB/s]
+Downloading training-state-002176000.checkpoint: 47%|████▋     | 800M/1.67G [00:13&lt;00:12, 79.0MB/s]
+Downloading training-state-002176000.checkpoint: 48%|████▊     | 820M/1.67G [00:14&lt;00:10, 91.5MB/s]
+Downloading training-state-002176000.checkpoint: 49%|████▉     | 840M/1.67G [00:14&lt;00:10, 87.3MB/s]
+Downloading training-state-002176000.checkpoint: 50%|█████     | 860M/1.67G [00:14&lt;00:10, 83.8MB/s]
+Downloading training-state-002176000.checkpoint: 52%|█████▏    | 880M/1.67G [00:14&lt;00:10, 83.4MB/s]
+Downloading training-state-002176000.checkpoint: 52%|█████▏    | 890M/1.67G [00:15&lt;00:10, 82.5MB/s]
+Downloading training-state-002176000.checkpoint: 53%|█████▎    | 900M/1.67G [00:15&lt;00:11, 73.2MB/s]
+Downloading training-state-002176000.checkpoint: 54%|█████▍    | 920M/1.67G [00:15&lt;00:09, 84.2MB/s]
+Downloading training-state-002176000.checkpoint: 55%|█████▌    | 940M/1.67G [00:15&lt;00:08, 91.8MB/s]
+Downloading training-state-002176000.checkpoint: 56%|█████▋    | 960M/1.67G [00:15&lt;00:09, 78.9MB/s]
+Downloading training-state-002176000.checkpoint: 57%|█████▋    | 980M/1.67G [00:16&lt;00:08, 88.7MB/s]
+Downloading training-state-002176000.checkpoint: 59%|█████▊    | 0.98G/1.67G [00:16&lt;00:07, 94.5MB/s]
+Downloading training-state-002176000.checkpoint: 60%|█████▉    | 1.00G/1.67G [00:16&lt;00:06, 104MB/s] 
+Downloading training-state-002176000.checkpoint: 61%|██████    | 1.02G/1.67G [00:16&lt;00:07, 96.8MB/s]
+Downloading training-state-002176000.checkpoint: 62%|██████▏   | 1.04G/1.67G [00:16&lt;00:06, 103MB/s] 
+Downloading training-state-002176000.checkpoint: 63%|██████▎   | 1.05G/1.67G [00:17&lt;00:07, 92.4MB/s]
+Downloading training-state-002176000.checkpoint: 64%|██████▍   | 1.06G/1.67G [00:17&lt;00:07, 85.9MB/s]
+Downloading training-state-002176000.checkpoint: 65%|██████▌   | 1.08G/1.67G [00:17&lt;00:06, 90.4MB/s]
+Downloading training-state-002176000.checkpoint: 66%|██████▋   | 1.10G/1.67G [00:17&lt;00:06, 95.3MB/s]
+Downloading training-state-002176000.checkpoint: 67%|██████▋   | 1.12G/1.67G [00:17&lt;00:05, 105MB/s] 
+Downloading training-state-002176000.checkpoint: 69%|██████▊   | 1.14G/1.67G [00:18&lt;00:07, 73.7MB/s]
+Downloading training-state-002176000.checkpoint: 69%|██████▉   | 1.15G/1.67G [00:18&lt;00:08, 62.9MB/s]
+Downloading training-state-002176000.checkpoint: 70%|██████▉   | 1.16G/1.67G [00:18&lt;00:08, 60.7MB/s]
+Downloading training-state-002176000.checkpoint: 70%|███████   | 1.17G/1.67G [00:18&lt;00:08, 64.6MB/s]
+Downloading training-state-002176000.checkpoint: 71%|███████   | 1.18G/1.67G [00:19&lt;00:08, 64.1MB/s]
+Downloading training-state-002176000.checkpoint: 72%|███████▏  | 1.19G/1.67G [00:19&lt;00:13, 37.9MB/s]
+Downloading training-state-002176000.checkpoint: 72%|███████▏  | 1.20G/1.67G [00:19&lt;00:11, 44.6MB/s]
+Downloading training-state-002176000.checkpoint: 73%|███████▎  | 1.22G/1.67G [00:20&lt;00:08, 59.0MB/s]
+Downloading training-state-002176000.checkpoint: 74%|███████▍  | 1.23G/1.67G [00:20&lt;00:07, 64.9MB/s]
+Downloading training-state-002176000.checkpoint: 74%|███████▍  | 1.24G/1.67G [00:20&lt;00:06, 66.9MB/s]
+Downloading training-state-002176000.checkpoint: 75%|███████▌  | 1.25G/1.67G [00:20&lt;00:08, 54.5MB/s]
+Downloading training-state-002176000.checkpoint: 76%|███████▌  | 1.26G/1.67G [00:20&lt;00:07, 60.3MB/s]
+Downloading training-state-002176000.checkpoint: 76%|███████▌  | 1.27G/1.67G [00:20&lt;00:06, 65.7MB/s]
+Downloading training-state-002176000.checkpoint: 77%|███████▋  | 1.28G/1.67G [00:20&lt;00:05, 69.4MB/s]
+Downloading training-state-002176000.checkpoint: 77%|███████▋  | 1.29G/1.67G [00:21&lt;00:05, 75.8MB/s]
+Downloading training-state-002176000.checkpoint: 78%|███████▊  | 1.30G/1.67G [00:21&lt;00:05, 76.6MB/s]
+Downloading training-state-002176000.checkpoint: 79%|███████▊  | 1.31G/1.67G [00:21&lt;00:05, 72.5MB/s]
+Downloading training-state-002176000.checkpoint: 79%|███████▉  | 1.32G/1.67G [00:21&lt;00:05, 62.1MB/s]
+Downloading training-state-002176000.checkpoint: 80%|████████  | 1.34G/1.67G [00:21&lt;00:04, 73.0MB/s]
+Downloading training-state-002176000.checkpoint: 81%|████████  | 1.35G/1.67G [00:21&lt;00:04, 77.3MB/s]
+Downloading training-state-002176000.checkpoint: 82%|████████▏ | 1.37G/1.67G [00:22&lt;00:03, 86.5MB/s]
+Downloading training-state-002176000.checkpoint: 83%|████████▎ | 1.38G/1.67G [00:22&lt;00:04, 62.2MB/s]
+Downloading training-state-002176000.checkpoint: 84%|████████▍ | 1.40G/1.67G [00:22&lt;00:04, 69.9MB/s]
+Downloading training-state-002176000.checkpoint: 85%|████████▌ | 1.42G/1.67G [00:23&lt;00:03, 72.7MB/s]
+Downloading training-state-002176000.checkpoint: 86%|████████▌ | 1.43G/1.67G [00:23&lt;00:03, 77.0MB/s]
+Downloading training-state-002176000.checkpoint: 86%|████████▌ | 1.44G/1.67G [00:23&lt;00:03, 63.5MB/s]
+Downloading training-state-002176000.checkpoint: 87%|████████▋ | 1.45G/1.67G [00:23&lt;00:03, 59.6MB/s]
+Downloading training-state-002176000.checkpoint: 87%|████████▋ | 1.46G/1.67G [00:24&lt;00:08, 26.7MB/s]
+Downloading training-state-002176000.checkpoint: 88%|████████▊ | 1.46G/1.67G [00:24&lt;00:07, 30.0MB/s]
+Downloading training-state-002176000.checkpoint: 89%|████████▊ | 1.47G/1.67G [00:25&lt;00:10, 19.7MB/s]
+Downloading training-state-002176000.checkpoint: 89%|████████▉ | 1.48G/1.67G [00:26&lt;00:08, 23.1MB/s]
+Downloading training-state-002176000.checkpoint: 90%|█████████ | 1.50G/1.67G [00:26&lt;00:05, 30.1MB/s]
+Downloading training-state-002176000.checkpoint: 91%|█████████ | 1.51G/1.67G [00:26&lt;00:04, 35.4MB/s]
+Downloading training-state-002176000.checkpoint: 91%|█████████▏| 1.52G/1.67G [00:26&lt;00:03, 39.1MB/s]
+Downloading training-state-002176000.checkpoint: 93%|█████████▎| 1.54G/1.67G [00:27&lt;00:02, 51.2MB/s]
+Downloading training-state-002176000.checkpoint: 93%|█████████▎| 1.55G/1.67G [00:27&lt;00:02, 56.6MB/s]
+Downloading training-state-002176000.checkpoint: 94%|█████████▍| 1.56G/1.67G [00:27&lt;00:02, 51.1MB/s]
+Downloading training-state-002176000.checkpoint: 94%|█████████▍| 1.57G/1.67G [00:27&lt;00:01, 58.5MB/s]
+Downloading training-state-002176000.checkpoint: 95%|█████████▌| 1.58G/1.67G [00:27&lt;00:01, 56.3MB/s]
+Downloading training-state-002176000.checkpoint: 96%|█████████▌| 1.60G/1.67G [00:28&lt;00:01, 67.9MB/s]
+Downloading training-state-002176000.checkpoint: 97%|█████████▋| 1.61G/1.67G [00:28&lt;00:00, 72.1MB/s]
+Downloading training-state-002176000.checkpoint: 97%|█████████▋| 1.62G/1.67G [00:28&lt;00:00, 69.7MB/s]
+Downloading training-state-002176000.checkpoint: 98%|█████████▊| 1.63G/1.67G [00:28&lt;00:00, 58.2MB/s]
+Downloading training-state-002176000.checkpoint: 99%|█████████▉| 1.65G/1.67G [00:28&lt;00:00, 64.6MB/s]
+Downloading training-state-002176000.checkpoint: 100%|█████████▉| 1.66G/1.67G [00:28&lt;00:00, 64.5MB/s]
+Downloading training-state-002176000.checkpoint: 100%|██████████| 1.67G/1.67G [00:29&lt;00:00, 61.2MB/s]</code></pre></details>
 
 <h2 id="post-processing-guided-sample">Post Processing Guided Sample<a class="headerlink" href="#post-processing-guided-sample" title="Permanent link">&para;</a></h2>
 <p>Plot the 10-metre zonal wind (u10m) over a Caribbean domain to visualize the
@@ -3058,93 +3044,93 @@ the default sampler settings for improved quality and more stable odds-ratio val
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Forward latents shape: </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">forward_latents</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>89 lines</small></summary><pre><code>calculate_odds_ratio[forward]:   0%|          | 0/27 [00:00&lt;?, ?it/s]
-calculate_odds_ratio[forward]:   4%|▎         | 1/27 [00:00&lt;00:25,  1.01it/s]
-calculate_odds_ratio[forward]:   7%|▋         | 2/27 [00:01&lt;00:24,  1.01it/s]
-calculate_odds_ratio[forward]:  11%|█         | 3/27 [00:02&lt;00:23,  1.02it/s]
-calculate_odds_ratio[forward]:  15%|█▍        | 4/27 [00:03&lt;00:22,  1.02it/s]
-calculate_odds_ratio[forward]:  19%|█▊        | 5/27 [00:04&lt;00:21,  1.02it/s]
-calculate_odds_ratio[forward]:  22%|██▏       | 6/27 [00:05&lt;00:20,  1.01it/s]
-calculate_odds_ratio[forward]:  26%|██▌       | 7/27 [00:06&lt;00:19,  1.01it/s]
-calculate_odds_ratio[forward]:  30%|██▉       | 8/27 [00:07&lt;00:18,  1.01it/s]
-calculate_odds_ratio[forward]:  33%|███▎      | 9/27 [00:08&lt;00:17,  1.00it/s]
-calculate_odds_ratio[forward]:  37%|███▋      | 10/27 [00:09&lt;00:17,  1.00s/it]
-calculate_odds_ratio[forward]:  41%|████      | 11/27 [00:10&lt;00:16,  1.00s/it]
-calculate_odds_ratio[forward]:  44%|████▍     | 12/27 [00:11&lt;00:15,  1.00s/it]
-calculate_odds_ratio[forward]:  48%|████▊     | 13/27 [00:12&lt;00:14,  1.01s/it]
-calculate_odds_ratio[forward]:  52%|█████▏    | 14/27 [00:13&lt;00:13,  1.01s/it]
-calculate_odds_ratio[forward]:  56%|█████▌    | 15/27 [00:14&lt;00:12,  1.01s/it]
-calculate_odds_ratio[forward]:  59%|█████▉    | 16/27 [00:15&lt;00:11,  1.01s/it]
-calculate_odds_ratio[forward]:  63%|██████▎   | 17/27 [00:16&lt;00:10,  1.01s/it]
-calculate_odds_ratio[forward]:  67%|██████▋   | 18/27 [00:17&lt;00:09,  1.00s/it]
-calculate_odds_ratio[forward]:  70%|███████   | 19/27 [00:20&lt;00:11,  1.38s/it]
-calculate_odds_ratio[forward]:  74%|███████▍  | 20/27 [00:21&lt;00:08,  1.26s/it]
-calculate_odds_ratio[forward]:  78%|███████▊  | 21/27 [00:22&lt;00:07,  1.18s/it]
-calculate_odds_ratio[forward]:  81%|████████▏ | 22/27 [00:23&lt;00:05,  1.12s/it]
-calculate_odds_ratio[forward]:  85%|████████▌ | 23/27 [00:24&lt;00:04,  1.08s/it]
-calculate_odds_ratio[forward]:  89%|████████▉ | 24/27 [00:25&lt;00:03,  1.06s/it]
-calculate_odds_ratio[forward]:  93%|█████████▎| 25/27 [00:26&lt;00:02,  1.04s/it]
-calculate_odds_ratio[forward]:  96%|█████████▋| 26/27 [00:27&lt;00:01,  1.02s/it]
-calculate_odds_ratio[forward]: 100%|██████████| 27/27 [00:28&lt;00:00,  1.01s/it]
+calculate_odds_ratio[forward]:   4%|▎         | 1/27 [00:01&lt;00:26,  1.02s/it]
+calculate_odds_ratio[forward]:   7%|▋         | 2/27 [00:01&lt;00:24,  1.02it/s]
+calculate_odds_ratio[forward]:  11%|█         | 3/27 [00:02&lt;00:22,  1.06it/s]
+calculate_odds_ratio[forward]:  15%|█▍        | 4/27 [00:03&lt;00:21,  1.07it/s]
+calculate_odds_ratio[forward]:  19%|█▊        | 5/27 [00:04&lt;00:20,  1.09it/s]
+calculate_odds_ratio[forward]:  22%|██▏       | 6/27 [00:05&lt;00:18,  1.11it/s]
+calculate_odds_ratio[forward]:  26%|██▌       | 7/27 [00:06&lt;00:18,  1.10it/s]
+calculate_odds_ratio[forward]:  30%|██▉       | 8/27 [00:07&lt;00:17,  1.09it/s]
+calculate_odds_ratio[forward]:  33%|███▎      | 9/27 [00:08&lt;00:16,  1.07it/s]
+calculate_odds_ratio[forward]:  37%|███▋      | 10/27 [00:09&lt;00:15,  1.07it/s]
+calculate_odds_ratio[forward]:  41%|████      | 11/27 [00:10&lt;00:14,  1.07it/s]
+calculate_odds_ratio[forward]:  44%|████▍     | 12/27 [00:11&lt;00:13,  1.08it/s]
+calculate_odds_ratio[forward]:  48%|████▊     | 13/27 [00:12&lt;00:12,  1.09it/s]
+calculate_odds_ratio[forward]:  52%|█████▏    | 14/27 [00:12&lt;00:11,  1.09it/s]
+calculate_odds_ratio[forward]:  56%|█████▌    | 15/27 [00:13&lt;00:10,  1.10it/s]
+calculate_odds_ratio[forward]:  59%|█████▉    | 16/27 [00:14&lt;00:09,  1.11it/s]
+calculate_odds_ratio[forward]:  63%|██████▎   | 17/27 [00:15&lt;00:08,  1.11it/s]
+calculate_odds_ratio[forward]:  67%|██████▋   | 18/27 [00:16&lt;00:08,  1.10it/s]
+calculate_odds_ratio[forward]:  70%|███████   | 19/27 [00:18&lt;00:08,  1.08s/it]
+calculate_odds_ratio[forward]:  74%|███████▍  | 20/27 [00:18&lt;00:07,  1.03s/it]
+calculate_odds_ratio[forward]:  78%|███████▊  | 21/27 [00:19&lt;00:05,  1.01it/s]
+calculate_odds_ratio[forward]:  81%|████████▏ | 22/27 [00:20&lt;00:04,  1.04it/s]
+calculate_odds_ratio[forward]:  85%|████████▌ | 23/27 [00:21&lt;00:03,  1.05it/s]
+calculate_odds_ratio[forward]:  89%|████████▉ | 24/27 [00:22&lt;00:02,  1.07it/s]
+calculate_odds_ratio[forward]:  93%|█████████▎| 25/27 [00:23&lt;00:01,  1.08it/s]
+calculate_odds_ratio[forward]:  96%|█████████▋| 26/27 [00:24&lt;00:00,  1.10it/s]
+calculate_odds_ratio[forward]: 100%|██████████| 27/27 [00:25&lt;00:00,  1.11it/s]
 
 
 calculate_odds_ratio[backward]:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-calculate_odds_ratio[backward]:   4%|▍         | 1/26 [00:04&lt;02:02,  4.90s/it]
-calculate_odds_ratio[backward]:   8%|▊         | 2/26 [00:09&lt;01:52,  4.71s/it]
-calculate_odds_ratio[backward]:  12%|█▏        | 3/26 [00:16&lt;02:08,  5.57s/it]
-calculate_odds_ratio[backward]:  15%|█▌        | 4/26 [00:22&lt;02:10,  5.91s/it]
-calculate_odds_ratio[backward]:  19%|█▉        | 5/26 [00:28&lt;02:07,  6.08s/it]
-calculate_odds_ratio[backward]:  23%|██▎       | 6/26 [00:35&lt;02:03,  6.18s/it]
-calculate_odds_ratio[backward]:  27%|██▋       | 7/26 [00:41&lt;01:58,  6.25s/it]
-calculate_odds_ratio[backward]:  31%|███       | 8/26 [00:47&lt;01:52,  6.28s/it]
-calculate_odds_ratio[backward]:  35%|███▍      | 9/26 [00:54&lt;01:47,  6.30s/it]
-calculate_odds_ratio[backward]:  38%|███▊      | 10/26 [01:02&lt;01:50,  6.91s/it]
-calculate_odds_ratio[backward]:  42%|████▏     | 11/26 [01:08&lt;01:41,  6.75s/it]
-calculate_odds_ratio[backward]:  46%|████▌     | 12/26 [01:15&lt;01:33,  6.64s/it]
-calculate_odds_ratio[backward]:  50%|█████     | 13/26 [01:21&lt;01:25,  6.58s/it]
-calculate_odds_ratio[backward]:  54%|█████▍    | 14/26 [01:28&lt;01:18,  6.53s/it]
-calculate_odds_ratio[backward]:  58%|█████▊    | 15/26 [01:34&lt;01:11,  6.51s/it]
-calculate_odds_ratio[backward]:  62%|██████▏   | 16/26 [01:41&lt;01:04,  6.49s/it]
-calculate_odds_ratio[backward]:  65%|██████▌   | 17/26 [01:47&lt;00:58,  6.49s/it]
-calculate_odds_ratio[backward]:  69%|██████▉   | 18/26 [01:54&lt;00:51,  6.48s/it]
-calculate_odds_ratio[backward]:  73%|███████▎  | 19/26 [02:00&lt;00:45,  6.48s/it]
-calculate_odds_ratio[backward]:  77%|███████▋  | 20/26 [02:07&lt;00:38,  6.46s/it]
-calculate_odds_ratio[backward]:  81%|████████  | 21/26 [02:13&lt;00:32,  6.42s/it]
-calculate_odds_ratio[backward]:  85%|████████▍ | 22/26 [02:19&lt;00:25,  6.41s/it]
-calculate_odds_ratio[backward]:  88%|████████▊ | 23/26 [02:26&lt;00:19,  6.39s/it]
-calculate_odds_ratio[backward]:  92%|█████████▏| 24/26 [02:32&lt;00:12,  6.40s/it]
-calculate_odds_ratio[backward]:  96%|█████████▌| 25/26 [02:38&lt;00:06,  6.41s/it]
-calculate_odds_ratio[backward]: 100%|██████████| 26/26 [02:45&lt;00:00,  6.57s/it]
+calculate_odds_ratio[backward]:   4%|▍         | 1/26 [00:04&lt;01:54,  4.60s/it]
+calculate_odds_ratio[backward]:   8%|▊         | 2/26 [00:09&lt;01:48,  4.51s/it]
+calculate_odds_ratio[backward]:  12%|█▏        | 3/26 [00:15&lt;02:01,  5.30s/it]
+calculate_odds_ratio[backward]:  15%|█▌        | 4/26 [00:21&lt;02:03,  5.61s/it]
+calculate_odds_ratio[backward]:  19%|█▉        | 5/26 [00:27&lt;02:01,  5.79s/it]
+calculate_odds_ratio[backward]:  23%|██▎       | 6/26 [00:33&lt;01:57,  5.88s/it]
+calculate_odds_ratio[backward]:  27%|██▋       | 7/26 [00:39&lt;01:52,  5.94s/it]
+calculate_odds_ratio[backward]:  31%|███       | 8/26 [00:45&lt;01:47,  5.99s/it]
+calculate_odds_ratio[backward]:  35%|███▍      | 9/26 [00:51&lt;01:42,  6.03s/it]
+calculate_odds_ratio[backward]:  38%|███▊      | 10/26 [00:58&lt;01:39,  6.24s/it]
+calculate_odds_ratio[backward]:  42%|████▏     | 11/26 [01:04&lt;01:32,  6.20s/it]
+calculate_odds_ratio[backward]:  46%|████▌     | 12/26 [01:10&lt;01:26,  6.17s/it]
+calculate_odds_ratio[backward]:  50%|█████     | 13/26 [01:16&lt;01:20,  6.17s/it]
+calculate_odds_ratio[backward]:  54%|█████▍    | 14/26 [01:22&lt;01:13,  6.15s/it]
+calculate_odds_ratio[backward]:  58%|█████▊    | 15/26 [01:29&lt;01:07,  6.12s/it]
+calculate_odds_ratio[backward]:  62%|██████▏   | 16/26 [01:35&lt;01:01,  6.12s/it]
+calculate_odds_ratio[backward]:  65%|██████▌   | 17/26 [01:41&lt;00:55,  6.12s/it]
+calculate_odds_ratio[backward]:  69%|██████▉   | 18/26 [01:47&lt;00:48,  6.11s/it]
+calculate_odds_ratio[backward]:  73%|███████▎  | 19/26 [01:53&lt;00:42,  6.10s/it]
+calculate_odds_ratio[backward]:  77%|███████▋  | 20/26 [01:59&lt;00:36,  6.10s/it]
+calculate_odds_ratio[backward]:  81%|████████  | 21/26 [02:05&lt;00:30,  6.09s/it]
+calculate_odds_ratio[backward]:  85%|████████▍ | 22/26 [02:11&lt;00:24,  6.09s/it]
+calculate_odds_ratio[backward]:  88%|████████▊ | 23/26 [02:17&lt;00:18,  6.09s/it]
+calculate_odds_ratio[backward]:  92%|█████████▏| 24/26 [02:23&lt;00:12,  6.08s/it]
+calculate_odds_ratio[backward]:  96%|█████████▌| 25/26 [02:29&lt;00:06,  6.08s/it]
+calculate_odds_ratio[backward]: 100%|██████████| 26/26 [02:34&lt;00:00,  5.74s/it]
 
 
 calculate_odds_ratio[backward_no_guidance]:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-calculate_odds_ratio[backward_no_guidance]:   4%|▍         | 1/26 [00:04&lt;01:43,  4.12s/it]
-calculate_odds_ratio[backward_no_guidance]:   8%|▊         | 2/26 [00:08&lt;01:39,  4.14s/it]
-calculate_odds_ratio[backward_no_guidance]:  12%|█▏        | 3/26 [00:12&lt;01:35,  4.15s/it]
-calculate_odds_ratio[backward_no_guidance]:  15%|█▌        | 4/26 [00:16&lt;01:31,  4.15s/it]
-calculate_odds_ratio[backward_no_guidance]:  19%|█▉        | 5/26 [00:20&lt;01:27,  4.15s/it]
-calculate_odds_ratio[backward_no_guidance]:  23%|██▎       | 6/26 [00:24&lt;01:22,  4.14s/it]
-calculate_odds_ratio[backward_no_guidance]:  27%|██▋       | 7/26 [00:29&lt;01:19,  4.16s/it]
-calculate_odds_ratio[backward_no_guidance]:  31%|███       | 8/26 [00:33&lt;01:14,  4.16s/it]
-calculate_odds_ratio[backward_no_guidance]:  35%|███▍      | 9/26 [00:37&lt;01:10,  4.15s/it]
-calculate_odds_ratio[backward_no_guidance]:  38%|███▊      | 10/26 [00:41&lt;01:06,  4.14s/it]
-calculate_odds_ratio[backward_no_guidance]:  42%|████▏     | 11/26 [00:45&lt;01:02,  4.15s/it]
-calculate_odds_ratio[backward_no_guidance]:  46%|████▌     | 12/26 [00:49&lt;00:58,  4.15s/it]
-calculate_odds_ratio[backward_no_guidance]:  50%|█████     | 13/26 [00:53&lt;00:53,  4.15s/it]
-calculate_odds_ratio[backward_no_guidance]:  54%|█████▍    | 14/26 [00:58&lt;00:49,  4.15s/it]
-calculate_odds_ratio[backward_no_guidance]:  58%|█████▊    | 15/26 [01:02&lt;00:45,  4.15s/it]
-calculate_odds_ratio[backward_no_guidance]:  62%|██████▏   | 16/26 [01:06&lt;00:41,  4.15s/it]
-calculate_odds_ratio[backward_no_guidance]:  65%|██████▌   | 17/26 [01:11&lt;00:40,  4.49s/it]
-calculate_odds_ratio[backward_no_guidance]:  69%|██████▉   | 18/26 [01:15&lt;00:35,  4.39s/it]
-calculate_odds_ratio[backward_no_guidance]:  73%|███████▎  | 19/26 [01:19&lt;00:30,  4.31s/it]
-calculate_odds_ratio[backward_no_guidance]:  77%|███████▋  | 20/26 [01:24&lt;00:25,  4.25s/it]
-calculate_odds_ratio[backward_no_guidance]:  81%|████████  | 21/26 [01:28&lt;00:21,  4.22s/it]
-calculate_odds_ratio[backward_no_guidance]:  85%|████████▍ | 22/26 [01:32&lt;00:16,  4.20s/it]
-calculate_odds_ratio[backward_no_guidance]:  88%|████████▊ | 23/26 [01:36&lt;00:12,  4.18s/it]
-calculate_odds_ratio[backward_no_guidance]:  92%|█████████▏| 24/26 [01:40&lt;00:08,  4.19s/it]
-calculate_odds_ratio[backward_no_guidance]:  96%|█████████▌| 25/26 [01:44&lt;00:04,  4.19s/it]
-calculate_odds_ratio[backward_no_guidance]: 100%|██████████| 26/26 [01:49&lt;00:00,  4.17s/it]
+calculate_odds_ratio[backward_no_guidance]:   4%|▍         | 1/26 [00:03&lt;01:37,  3.89s/it]
+calculate_odds_ratio[backward_no_guidance]:   8%|▊         | 2/26 [00:07&lt;01:33,  3.89s/it]
+calculate_odds_ratio[backward_no_guidance]:  12%|█▏        | 3/26 [00:11&lt;01:29,  3.90s/it]
+calculate_odds_ratio[backward_no_guidance]:  15%|█▌        | 4/26 [00:15&lt;01:26,  3.91s/it]
+calculate_odds_ratio[backward_no_guidance]:  19%|█▉        | 5/26 [00:19&lt;01:22,  3.91s/it]
+calculate_odds_ratio[backward_no_guidance]:  23%|██▎       | 6/26 [00:23&lt;01:18,  3.93s/it]
+calculate_odds_ratio[backward_no_guidance]:  27%|██▋       | 7/26 [00:27&lt;01:14,  3.92s/it]
+calculate_odds_ratio[backward_no_guidance]:  31%|███       | 8/26 [00:31&lt;01:10,  3.92s/it]
+calculate_odds_ratio[backward_no_guidance]:  35%|███▍      | 9/26 [00:35&lt;01:06,  3.92s/it]
+calculate_odds_ratio[backward_no_guidance]:  38%|███▊      | 10/26 [00:39&lt;01:02,  3.92s/it]
+calculate_odds_ratio[backward_no_guidance]:  42%|████▏     | 11/26 [00:43&lt;00:58,  3.92s/it]
+calculate_odds_ratio[backward_no_guidance]:  46%|████▌     | 12/26 [00:47&lt;00:54,  3.93s/it]
+calculate_odds_ratio[backward_no_guidance]:  50%|█████     | 13/26 [00:50&lt;00:50,  3.92s/it]
+calculate_odds_ratio[backward_no_guidance]:  54%|█████▍    | 14/26 [00:54&lt;00:47,  3.92s/it]
+calculate_odds_ratio[backward_no_guidance]:  58%|█████▊    | 15/26 [00:58&lt;00:43,  3.93s/it]
+calculate_odds_ratio[backward_no_guidance]:  62%|██████▏   | 16/26 [01:02&lt;00:39,  3.93s/it]
+calculate_odds_ratio[backward_no_guidance]:  65%|██████▌   | 17/26 [01:07&lt;00:36,  4.10s/it]
+calculate_odds_ratio[backward_no_guidance]:  69%|██████▉   | 18/26 [01:11&lt;00:32,  4.05s/it]
+calculate_odds_ratio[backward_no_guidance]:  73%|███████▎  | 19/26 [01:15&lt;00:28,  4.02s/it]
+calculate_odds_ratio[backward_no_guidance]:  77%|███████▋  | 20/26 [01:19&lt;00:24,  4.00s/it]
+calculate_odds_ratio[backward_no_guidance]:  81%|████████  | 21/26 [01:22&lt;00:19,  3.98s/it]
+calculate_odds_ratio[backward_no_guidance]:  85%|████████▍ | 22/26 [01:26&lt;00:15,  3.97s/it]
+calculate_odds_ratio[backward_no_guidance]:  88%|████████▊ | 23/26 [01:30&lt;00:11,  3.96s/it]
+calculate_odds_ratio[backward_no_guidance]:  92%|█████████▏| 24/26 [01:34&lt;00:07,  3.95s/it]
+calculate_odds_ratio[backward_no_guidance]:  96%|█████████▌| 25/26 [01:38&lt;00:03,  3.95s/it]
+calculate_odds_ratio[backward_no_guidance]: 100%|██████████| 26/26 [01:42&lt;00:00,  3.94s/it]
 
-Log odds ratio: 3.5288
+Log odds ratio: -1.0169
 Forward latents shape: (1, 45, 721, 1440)</code></pre></details>
 
 <h2 id="post-processing-forward-latents">Post Processing Forward Latents<a class="headerlink" href="#post-processing-forward-latents" title="Permanent link">&para;</a></h2>
@@ -3180,9 +3166,9 @@ computation operates on.</p>
 </code></pre></div>
 <p><img alt="Output from CBottle Tropical Cyclone Guidance" class="e2sg-output-image" loading="lazy" src="../../_assets/07_misc-05_cbottle_tc_guidance/003-cell-10.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-05_cbottle_tc_guidance/05_cbottle_tc_guidance.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-05_cbottle_tc_guidance/05_cbottle_tc_guidance.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 395.7s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-05_cbottle_tc_guidance/05_cbottle_tc_guidance.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-05_cbottle_tc_guidance/05_cbottle_tc_guidance.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 364.9s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>6m 36s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-136-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>6m 5s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 
