@@ -2704,6 +2704,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#earth2studio.statistics.crps.crps.__call__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__call__
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -2734,12 +2751,73 @@
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
-<div class="doc doc-object doc-module">
+<div class="doc doc-object doc-class">
 
 
 
 
     <div class="doc doc-contents first">
+
+
+
+        <p>Compute the Continuous Ranked Probability Score (CRPS).</p>
+<p>Uses this formula
+    # int [F(x) - 1(x-y)]^2 dx</p>
+<p>where F is the emperical CDF and 1(x-y) = 1 if x &gt; y.</p>
+<p>This statistic reduces over a single dimension, where the presumed ensemble dimension
+does not appear in the truth/observation tensor.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>ensemble_dimension</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>A name corresponding to a dimension to perform the
+ensemble reduction over. Example: 'ensemble'</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>reduction_dimensions</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>] | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>A list of dimensions over which to average the crps over.
+optional, by default none. If none, no additional reduction is done.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>weights</code></b>
+              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>A tensor containing weights to assign to the reduction dimensions.
+Note that these weights must have the same number of dimensions
+as passed in reduction_dimensions.
+Example: if reduction_dimensions = ['lat', 'lon'] then
+assert weights.ndim == 2.
+By default None.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>fair</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>If true, the CRPS is calculated using the fair CRPS formula.
+By default False.</p>
+          </div>
+        </li>
+    </ul>
+
 
 
 
@@ -2752,6 +2830,89 @@
 
 <div class="doc doc-children">
 
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="earth2studio.statistics.crps.crps.__call__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">__call__</span>
+
+
+<a href="#earth2studio.statistics.crps.crps.__call__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__call__</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">x_coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">y</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">y_coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Apply metric to data <code>x</code> and <code>y</code>, checking that their coordinates
+are broadcastable. While reducing over <code>reduction_dims</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>x</code></b>
+              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Input tensor of ensemble forecast or prediction data. This is the tensor
+over which the CRPS/CDF is calculated with respect to.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>x_coords</code></b>
+              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Ordered dict representing coordinate system that describes the <code>x</code> tensor.
+<code>reduction_dimensions</code> must be in coords.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>y</code></b>
+              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Observation or validation tensor.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>y_coords</code></b>
+              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Ordered dict representing coordinate system that describes the <code>y</code> tensor.
+<code>reduction_dimensions</code> must be in coords.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a>, <span title="earth2studio.utils.type.CoordSystem">CoordSystem</span>]</code>
+          –
+          <div class="doc-md-description">
+            <p>Returns CRPS tensor with appropriate reduced coordinates.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
 
 
 

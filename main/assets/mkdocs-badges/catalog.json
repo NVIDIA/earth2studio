@@ -2885,12 +2885,12 @@
     },
     {
       "classifiers": [],
-      "signature": "statistics.brier",
-      "source": "modules/generated/statistics/1/statistics_brier.md",
-      "summary": "API reference page.",
-      "symbol": "earth2studio.statistics.brier",
-      "title": "statistics.brier",
-      "url": "modules/generated/statistics/1/statistics_brier/"
+      "signature": "statistics.brier_score(reduction_dimensions: list[str], thresholds: ArrayLike, ensemble_dimension: str | None = None, batch_update: bool = False)",
+      "source": "modules/generated/statistics/1/statistics_brier_score.md",
+      "summary": "Statistic for calculating the Brier score (BS) of one tensors with respect to another over a set of given dimensions.",
+      "symbol": "earth2studio.statistics.brier_score",
+      "title": "statistics.brier_score",
+      "url": "modules/generated/statistics/1/statistics_brier_score/"
     },
     {
       "classifiers": [],
@@ -2921,12 +2921,12 @@
     },
     {
       "classifiers": [],
-      "signature": "statistics.lsd",
-      "source": "modules/generated/statistics/1/statistics_lsd.md",
-      "summary": "API reference page.",
-      "symbol": "earth2studio.statistics.lsd",
-      "title": "statistics.lsd",
-      "url": "modules/generated/statistics/1/statistics_lsd/"
+      "signature": "statistics.log_spectral_distance(reduction_dimensions: list[str] = [], spatial_dimensions: tuple[str, str] | None = None, ensemble_dimension: str | None = None, wavenumber_cutoff: int | None = None, batch_update: bool = False)",
+      "source": "modules/generated/statistics/1/statistics_log_spectral_distance.md",
+      "summary": "Statistic for calculating the radially averaged 2D log spectral distance (LSD) of one tensor with respect to another over a set of given dimensions. This is given in decibel (dB) as 10 * sqrt( mean( log10( psd(x) / psd(y) )**2 ) ).",
+      "symbol": "earth2studio.statistics.log_spectral_distance",
+      "title": "statistics.log_spectral_distance",
+      "url": "modules/generated/statistics/1/statistics_log_spectral_distance/"
     },
     {
       "classifiers": [],

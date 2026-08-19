@@ -821,7 +821,7 @@
          <lastmod>2026-08-19</lastmod>
     </url>
     <url>
-         <loc>https://nvidia.github.io/earth2studio/main/modules/generated/statistics/1/statistics_brier/</loc>
+         <loc>https://nvidia.github.io/earth2studio/main/modules/generated/statistics/1/statistics_brier_score/</loc>
          <lastmod>2026-08-19</lastmod>
     </url>
     <url>
@@ -837,7 +837,7 @@
          <lastmod>2026-08-19</lastmod>
     </url>
     <url>
-         <loc>https://nvidia.github.io/earth2studio/main/modules/generated/statistics/1/statistics_lsd/</loc>
+         <loc>https://nvidia.github.io/earth2studio/main/modules/generated/statistics/1/statistics_log_spectral_distance/</loc>
          <lastmod>2026-08-19</lastmod>
     </url>
     <url>

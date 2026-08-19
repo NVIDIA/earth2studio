@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/modules/generated/statistics/1/statistics_lsd/">
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/modules/generated/statistics/1/statistics_brier_score/">
       
       
       
@@ -23,7 +23,7 @@
     
     
       
-        <title>statistics.lsd - Earth2Studio</title>
+        <title>statistics.brier_score - Earth2Studio</title>
       
     
     
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#statisticslsd" class="md-skip">
+        <a href="#statisticsbrier_score" class="md-skip">
           Skip to content
         </a>
       
@@ -146,7 +146,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              statistics.lsd
+              statistics.brier_score
             
           </span>
         </div>
@@ -2689,6 +2689,42 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#earth2studio.statistics.brier_score.__call__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__call__
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -2707,11 +2743,181 @@
   
 
 
-<h1 id="statisticslsd"><code>statistics.lsd</code><a class="headerlink" href="#statisticslsd" title="Permanent link">&para;</a></h1>
-<p><strong>Import path:</strong> <code>earth2studio.statistics.lsd</code></p>
-<p><span id="earth2studio.statistics.lsd"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/statistics/lsd.py" title="earth2studio/statistics/lsd.py">View source on GitHub</a></p>
-<!-- e2sg-backreferences: earth2studio.statistics.lsd -->
+<h1 id="statisticsbrier_score"><code>statistics.brier_score</code><a class="headerlink" href="#statisticsbrier_score" title="Permanent link">&para;</a></h1>
+<p><strong>Import path:</strong> <code>earth2studio.statistics.brier_score</code></p>
+<p><span id="earth2studio.statistics.brier_score"></span>
+<span id="earth2studio.statistics.brier_score.__call__"></span></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/statistics/brier.py#L27-L179" title="earth2studio/statistics/brier.py:27">View source on GitHub</a></p>
+<h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Statistic for calculating the Brier score (BS) of one tensors
+with respect to another over a set of given dimensions.</p>
+<p>Follows the definition here:
+<a href="https://www.ecmwf.int/sites/default/files/elibrary/2017/17626-ensemble-verification-metrics.pdf">www.ecmwf.int/sites/default/files/elibrary/2017/17626-ensemble-verification-metrics.pdf</a></p>
+<p>If <code>ensemble_dimension</code> is provided, the forecast probability is inferred
+by averaging over the ensemble members.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>reduction_dimensions</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>A list of names corresponding to dimensions to perform the
+statistical reduction over. Example: ['lat', 'lon']</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>thresholds</code></b>
+              (<code><a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>A list of the thresholds applied when calculating BS.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>ensemble_dimension</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Ensemble dimension for computation of probabilistic BS. If None (default),
+forecast is interpreted as deterministic.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>batch_update</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Whether to apply batch updates to the BS with each invocation of <strong>call</strong>.
+This is particularly useful when data is recieved in a stream of batches. Each
+invocation of <strong>call</strong> will return the running BS.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="earth2studio.statistics.brier_score.__call__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">__call__</span>
+
+
+<a href="#earth2studio.statistics.brier_score.__call__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__call__</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">x_coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">y</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">y_coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Apply metric to data <code>x</code> and <code>y</code>, checking that their coordinates
+are broadcastable. While reducing over <code>reduction_dims</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>x</code></b>
+              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Input tensor, typically the forecast or prediction tensor.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>x_coords</code></b>
+              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Ordered dict representing coordinate system that describes the <code>x</code> tensor.
+<code>reduction_dimensions</code> must be in x_coords, as do <code>ensemble_dimension</code> and
+<code>spatial_dimensions</code> if provided in constructor.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>y</code></b>
+              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Input tensor #2 intended to be used as validation data..</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>y_coords</code></b>
+              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Ordered dict representing coordinate system that describes the <code>y</code> tensor.
+<code>reduction_dimensions</code> must be in y_coords, do <code>spatial_dimensions</code> if
+provided in constructor.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a>, <span title="earth2studio.utils.type.CoordSystem">CoordSystem</span>]</code>
+          –
+          <div class="doc-md-description">
+            <p>Returns root mean squared error tensor with appropriate reduced coordinates.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div><!-- e2sg-backreferences: earth2studio.statistics.brier_score -->
+<!-- e2sg-backreferences: earth2studio.statistics.brier_score.__call__ -->
 
 
 

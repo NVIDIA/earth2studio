@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/modules/generated/statistics/1/statistics_brier/">
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/modules/generated/statistics/1/statistics_log_spectral_distance/">
       
       
       
@@ -23,7 +23,7 @@
     
     
       
-        <title>statistics.brier - Earth2Studio</title>
+        <title>statistics.log_spectral_distance - Earth2Studio</title>
       
     
     
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#statisticsbrier" class="md-skip">
+        <a href="#statisticslog_spectral_distance" class="md-skip">
           Skip to content
         </a>
       
@@ -146,7 +146,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              statistics.brier
+              statistics.log_spectral_distance
             
           </span>
         </div>
@@ -2689,6 +2689,42 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#earth2studio.statistics.log_spectral_distance.__call__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__call__
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -2707,11 +2743,197 @@
   
 
 
-<h1 id="statisticsbrier"><code>statistics.brier</code><a class="headerlink" href="#statisticsbrier" title="Permanent link">&para;</a></h1>
-<p><strong>Import path:</strong> <code>earth2studio.statistics.brier</code></p>
-<p><span id="earth2studio.statistics.brier"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/statistics/brier.py" title="earth2studio/statistics/brier.py">View source on GitHub</a></p>
-<!-- e2sg-backreferences: earth2studio.statistics.brier -->
+<h1 id="statisticslog_spectral_distance"><code>statistics.log_spectral_distance</code><a class="headerlink" href="#statisticslog_spectral_distance" title="Permanent link">&para;</a></h1>
+<p><strong>Import path:</strong> <code>earth2studio.statistics.log_spectral_distance</code></p>
+<p><span id="earth2studio.statistics.log_spectral_distance"></span>
+<span id="earth2studio.statistics.log_spectral_distance.__call__"></span></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/statistics/lsd.py#L39-L195" title="earth2studio/statistics/lsd.py:39">View source on GitHub</a></p>
+<h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Statistic for calculating the radially averaged 2D log spectral distance (LSD)
+of one tensor with respect to another over a set of given dimensions. This is given
+in decibel (dB) as 10 * sqrt( mean( log10( psd(x) / psd(y) )**2 ) ).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>reduction_dimensions</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>, default:
+                  <code>[]</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>A list of names corresponding to additional dimensions (besides the wavenumber)
+to perform the statistical reduction over.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>spatial_dimensions</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>] | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Indicates the spatial dimensions. If None, it is assumed that these are the last
+two dimensions.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>ensemble_dimension</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Indicates the ensemble dimension, if not None. The LSD is computed between each
+ensemble member in the prediction and the corresponding observation.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>wavenumber_cutoff</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>If a positive integer, use only the first <code>wavenumber_cutoff</code> modes to compute LSD.
+If a negative integer, use all except the last <code>-wavenumber_cutoff</code> modes.
+If None (default), use all modes.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>batch_update</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Whether to apply batch updates to the LSD with each invocation of <strong>call</strong>.
+This is particularly useful when data is recieved in a stream of batches. Each
+invocation of <strong>call</strong> will return the running LSD.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="earth2studio.statistics.log_spectral_distance.__call__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">__call__</span>
+
+
+<a href="#earth2studio.statistics.log_spectral_distance.__call__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__call__</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">x_coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">y</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">y_coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Apply metric to data <code>x</code> and <code>y</code>, checking that their coordinates
+are broadcastable. While reducing over <code>reduction_dims</code>.</p>
+<p>If batch_update was passed True upon metric initialization then this method
+returns the running sample RMSE over all seen batches.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>x</code></b>
+              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Input tensor, typically the forecast or prediction tensor.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>x_coords</code></b>
+              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Ordered dict representing coordinate system that describes the <code>x</code> tensor.
+<code>reduction_dimensions</code> must be in x_coords, as do <code>ensemble_dimension</code> and
+<code>spatial_dimensions</code> if provided in constructor.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>y</code></b>
+              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Input tensor #2 intended to be used as validation data.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>y_coords</code></b>
+              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Ordered dict representing coordinate system that describes the <code>y</code> tensor.
+<code>reduction_dimensions</code> must be in y_coords, do <code>spatial_dimensions</code> if
+provided in constructor.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a>, <span title="earth2studio.utils.type.CoordSystem">CoordSystem</span>]</code>
+          –
+          <div class="doc-md-description">
+            <p>Returns root mean squared error tensor with appropriate reduced coordinates.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div><!-- e2sg-backreferences: earth2studio.statistics.log_spectral_distance -->
+<!-- e2sg-backreferences: earth2studio.statistics.log_spectral_distance.__call__ -->
 
 
 
