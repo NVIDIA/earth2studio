@@ -8,7 +8,6 @@ docs_dir: docs
 exclude_docs: |
   _build/**
   overrides/**
-  scorecard/make_pages.py
   scorecard/config/**
   **/__pycache__/
 site_dir: site

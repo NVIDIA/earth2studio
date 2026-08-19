@@ -1,6 +1,6 @@
 # Scorecard
 
-Generates the source YAML files behind the documentation's
+Generates the source score JSON files behind the documentation's
 [Scorecards pages](../../../docs/scorecard). Each model is evaluated on the
 same campaign — 24 initial conditions (1st and 15th of each month of 2025,
 00 UTC), 14-day horizon, ERA5 verification via ARCO — using the eval recipe.
@@ -11,7 +11,7 @@ same campaign — 24 initial conditions (1st and 15th of each month of 2025,
 scorecard/
   cfg/campaign/<model>_2025_scorecard.yaml   self-contained evaluation campaigns
   run_scorecard.py        predownload -> infer -> score -> prune
-  export_yaml.py          scores.zarr -> exports/eval_scores_<model>.yaml
+  export_scores.py          scores.zarr -> exports/eval_scores_<model>.json
   utils/pipelines.py      history / off-grid pipeline variants (see below)
   models/<model>/outputs/ run data: forecast.zarr -> scores.zarr (not tracked)
   data/                   shared ERA5 stores (not tracked)
@@ -26,22 +26,21 @@ On a GPU node with the recipe environment:
 # 1. Run a campaign from cfg/campaign/
 python run_scorecard.py fcn3_2025_scorecard
 
-# 2. Export the score YAML and copy it into the docs
-python export_yaml.py fcn3 --docs
+# 2. Export the scores JSON and copy it into the docs
+python export_scores.py fcn3 --docs
 
 # 3. Regenerate the docs pages
-cd ../../../docs/
-python scorecard/make_pages.py
+python ../../../docs/generate_scorecard.py
 ```
 
-The YAML carries everything a docs page needs — metric curves per variable
+The JSON export carries everything a docs page needs — metric curves per variable
 and lead time (aggregated over initial conditions), units, and variable groups.
 
 Multiple campaigns per model are supported by construction: a campaign is just
 another self-contained config, and the docs plot selects its data file by URL
-key. Only the default file naming (`eval_scores_<model>.yaml`) assumes one
+key. Only the default file naming (`eval_scores_<model>.json`) assumes one
 campaign per model — exporting a second campaign under a distinct name (and
-listing it in `docs/scorecard/make_pages.py`) is the whole extension.
+listing it in `mkdocs.yml`) is the whole extension.
 
 ## Model-specific pipelines (`utils/pipelines.py`)
 

@@ -1,5 +1,5 @@
 ---
-# Site-wide scorecard defaults, read by make_pages.py.
+# Site-wide scorecard defaults, read by docs/generate_scorecard.py.
 #
 # labels: fallback display names for models that have no config/<model>.md
 #         (a per-model config's `label:` always wins).

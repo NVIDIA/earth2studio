@@ -4,7 +4,7 @@
 !.gitignore
 !README.md
 !run_scorecard.py
-!export_yaml.py
+!export_scores.py
 !cfg/
 !cfg/**
 !utils/

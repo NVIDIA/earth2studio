@@ -155,15 +155,14 @@ function draw(){
 }
 mSel.addEventListener("change",()=>{fillVars();draw();});
 vSel.addEventListener("change",draw);
-// The export writes JSON-formatted YAML exactly so this needs no YAML
-// library: strip the leading comment lines and JSON.parse the rest.
-fetch(`eval_scores_${MODEL}.yaml`)
+// The export is plain minified JSON.
+fetch(`eval_scores_${MODEL}.json`)
   .then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.text();})
   .then(t=>{
-    D=JSON.parse(t.replace(/^(?:#[^\n]*\n)+/,""));
+    D=JSON.parse(t);
     days=D.lead_hours.map(h=>h/24);
     Object.keys(D.metrics).forEach(k=>mSel.appendChild(new Option(D.metrics[k].label,k)));
     fillVars();draw();})
-  .catch(e=>{$("#t").textContent=`failed to load eval_scores_${MODEL}.yaml`;
+  .catch(e=>{$("#t").textContent=`failed to load eval_scores_${MODEL}.json`;
     $("#s").textContent=String(e);});
 </script></body></html>
