@@ -45,6 +45,7 @@ from earth2studio.data.utils import (
     managed_session,
     obstore_fetch_to_cache,
     obstore_list_prefix,
+    obstore_read_chunked,
     obstore_read_range,
     obstore_store_from_url,
     obstore_zarr_store,
@@ -869,6 +870,81 @@ async def test_obstore_fetch_to_cache(tmp_path):
         store, "some/key", str(tmp_path), byte_offset=0, cache_key="warmcache"
     )
     assert Path(path).read_bytes() == payload
+
+    # Chunked fetches only support whole-object reads
+    with pytest.raises(ValueError):
+        await obstore_fetch_to_cache(
+            store, "some/key", str(tmp_path), byte_offset=8, chunked=True
+        )
+
+
+class _FakeByteRangeStore:
+    """Fake obspec store serving head/range requests from an in-memory blob."""
+
+    def __init__(self, blob: bytes):
+        self.blob = blob
+        self.requested_ranges: list[tuple[int, int]] = []
+
+    async def head_async(self, key):
+        return {"size": len(self.blob)}
+
+    async def get_range_async(self, key, *, start, end=None, length=None):
+        if end is None:
+            end = start + length
+        self.requested_ranges.append((start, end))
+        return self.blob[start:end]
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_chunked_large():
+    """A large object is reassembled exactly from non-overlapping,
+    in-order byte ranges that cover [0, size)."""
+    chunk_size = 1024 * 1024
+    size = 20 * chunk_size + 12345  # not a multiple of chunk_size
+    blob = np.random.default_rng(0).integers(0, 256, size, dtype=np.uint8).tobytes()
+    store = _FakeByteRangeStore(blob)
+
+    data = await obstore_read_chunked(store, "some/key.h5", chunk_size=chunk_size)
+
+    assert data == blob
+    # More than one range GET was issued (chunked path taken)
+    assert len(store.requested_ranges) == 21
+    # Ranges tile [0, size) exactly: non-overlapping, in-order coverage
+    ranges = sorted(store.requested_ranges)
+    assert ranges[0][0] == 0
+    assert ranges[-1][1] == size
+    for (_, prev_end), (next_start, _) in zip(ranges[:-1], ranges[1:]):
+        assert next_start == prev_end
+    # All but the tail range are exactly chunk_size long
+    assert all(end - start == chunk_size for start, end in ranges[:-1])
+    assert ranges[-1][1] - ranges[-1][0] == size % chunk_size
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_chunked_small():
+    """An object at most chunk_size bytes long uses a single range GET."""
+    blob = np.random.default_rng(1).integers(0, 256, 4096, dtype=np.uint8).tobytes()
+    store = _FakeByteRangeStore(blob)
+
+    data = await obstore_read_chunked(store, "some/key.h5", chunk_size=1024 * 1024)
+
+    assert data == blob
+    assert store.requested_ranges == [(0, len(blob))]
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_chunked_not_found():
+    """Missing objects surface as FileNotFoundError so retry semantics hold."""
+
+    class _MissingStore:
+        async def head_async(self, key):
+            raise FileNotFoundError(key)
+
+        async def get_range_async(self, key, **kwargs):
+            raise AssertionError("should not be reached")
+
+    with pytest.raises(FileNotFoundError):
+        await obstore_read_chunked(_MissingStore(), "missing/key.h5")
 
 
 @pytest.fixture

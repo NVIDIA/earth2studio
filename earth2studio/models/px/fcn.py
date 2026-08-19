@@ -100,7 +100,8 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2022 gpu:40gb
+    region:global class:medium-range product:wind product:temp product:atmos year:2022 gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(
@@ -115,7 +116,6 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("scale", scale)
         self.checkpoint = bind_checkpoint_state(_FCNCheckpointState())
 
-    # sphinx - coords start
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
 
@@ -177,8 +177,6 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return output_coords
 
-    # sphinx - coords end
-
     def __str__(
         self,
     ) -> str:
@@ -215,6 +213,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.checkpoint.coord_keys = ()
             self.checkpoint.coord_values = ()
 
+    # --8<-- [start:fcn-default-package]
     @classmethod
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
@@ -226,6 +225,9 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             },
         )
 
+    # --8<-- [end:fcn-default-package]
+
+    # --8<-- [start:fcn-load-model]
     @classmethod
     @check_optional_dependencies()
     def load_model(
@@ -244,6 +246,8 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         local_center = torch.Tensor(np.load(package.resolve("global_means.npy")))
         local_std = torch.Tensor(np.load(package.resolve("global_stds.npy")))
         return cls(model, center=local_center, scale=local_std)
+
+    # --8<-- [end:fcn-load-model]
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
