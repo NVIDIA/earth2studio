@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Generate the scorecard documentation pages from per-model YAML exports.
+"""Generate the scorecard documentation pages from per-model score exports.
 
 A model page is built from two inputs and nothing else:
 
@@ -34,7 +34,7 @@ For every such pair this writes, under the git-ignored ``generated/`` folder:
 
 The Makefile ``docs`` target runs this script before the site build, so the
 pages always exist on the fly and are never committed. Adding a model is:
-export its YAML, add its ``config/<model>.md``, list it in ``mkdocs.yml``.
+export its JSON, add its ``config/<model>.md``, list it in ``mkdocs.yml``.
 
 The plot holds no data: it fetches eval_scores_<model>.json (selected by its
 ?model= query parameter) and parses it in the browser -- no CDN, and the
@@ -140,7 +140,7 @@ limitations under the License.
 </div>
 <div class="tip" id="tip"></div>
 <script>
-// No data here: the model is picked by ?model=, its YAML fetched below.
+// No data here: the model is picked by ?model=, its JSON fetched below.
 const $=s=>document.querySelector(s);
 const Q=new URLSearchParams(location.search);
 const MODEL=Q.get("model")||"";
@@ -307,10 +307,10 @@ INDEX_MD = """\
     The scorecards are in beta. We are actively working on adding more models
     and improved evaluation.
 
-Forecast skill of Earth2Studio models, one scorecard per model -- these show
-each model's own skill, not a comparison. Every model was evaluated on the
+Forecast skill of Earth2Studio models, one scorecard per model. These show
+each model's own skill, not a comparison between models. Every model was evaluated on the
 same campaign: {n_ic} initial conditions ({years}), 14-day horizon, ERA5
-verification via ARCO. Pages are generated from per-model YAML exports
+verification via ARCO. Pages are generated from per-model score (JSON) exports
 produced by the
 [scorecard recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval/scorecard),
 which documents how to generate a scorecard for any model; the
@@ -326,7 +326,7 @@ provides the backend support (inference, scoring and metrics).
 </div>
 """
 
-# Reproducibility fields, in display order: yaml key -> row label.
+# Reproducibility fields, in display order: export key -> row label.
 _PROV_ROWS = {
     "date_scored": "Date scored",
     "scores_written": "Scores written",
@@ -336,7 +336,7 @@ _PROV_ROWS = {
     "python": "Python",
     "repo_commit": "Repo commit",
     "provenance_source": "Provenance source",
-    "exported": "YAML exported",
+    "exported": "Exported",
 }
 
 
