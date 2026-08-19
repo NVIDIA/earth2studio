@@ -182,6 +182,53 @@ def test_weathernext2_rng_advances(chunked_prediction, mock_weathernext2_model):
     assert not np.array_equal(rngs[0], rngs[1])
 
 
+def test_weathernext2_cyclone_tracks_inactive(mock_weathernext2_model):
+    with mock.patch(
+        "earth2studio.models.px.weathernext2_cyclones_mini.logger.warning"
+    ) as warning:
+        tracks = mock_weathernext2_model.cyclone_tracks
+
+    assert tracks.empty
+    warning.assert_called_once_with(
+        "Cyclone tracking is currently not active on this model."
+    )
+
+
+@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
+def test_weathernext2_call_updates_cyclone_tracks(mock_weathernext2_model):
+    mock_weathernext2_model.track_cyclones = True
+    time = np.array([np.datetime64("2025-01-01T00:00")])
+    dc = mock_weathernext2_model.input_coords()
+    del dc["batch"]
+    del dc["time"]
+    del dc["lead_time"]
+    del dc["variable"]
+    r = Random(dc)
+    x, coords = fetch_data(
+        r,
+        time,
+        mock_weathernext2_model.input_coords()["variable"],
+        mock_weathernext2_model.input_coords()["lead_time"],
+        device="cpu",
+    )
+
+    with mock.patch.object(
+        mock_weathernext2_model, "_reset_cyclone_tracks"
+    ) as reset:
+        with mock.patch.object(
+            mock_weathernext2_model, "_update_cyclone_tracks"
+        ) as update:
+            out, out_coords = mock_weathernext2_model(x, coords)
+
+    assert out.shape == torch.Size([1, 1, len(OUTPUT_VARIABLES), 9, 12])
+    assert (
+        out_coords["variable"]
+        == mock_weathernext2_model.output_coords(coords)["variable"]
+    ).all()
+    reset.assert_called_once_with()
+    update.assert_called_once()
+
+
 @pytest.mark.parametrize(
     "dc",
     [

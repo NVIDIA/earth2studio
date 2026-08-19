@@ -23,6 +23,7 @@ from typing import Any
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
 
 from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -40,6 +41,9 @@ try:
     import chex
     import haiku as hk
     import jax
+    import pandas as pd
+    from weathernext.cyclones import constants as cyclone_constants
+    from weathernext.cyclones import direct_tracker_6h_v1_config
     from weathernext.utils import checkpoint, data_utils, fiddle_config_io, rollout
     from weathernext.weathernext2 import fgn
 except ImportError:
@@ -47,10 +51,13 @@ except ImportError:
     chex = None
     checkpoint = None
     data_utils = None
+    cyclone_constants = None
+    direct_tracker_6h_v1_config = None
     fgn = None
     fiddle_config_io = None
     hk = None
     jax = None
+    pd = None
     rollout = None
 
 
@@ -97,9 +104,27 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
     test hardware.
 
     The model requires two input states, valid at ``-6h`` and ``0h`` lead time,
-    and predicts 6 hours forward per model call. WeatherNext 2 also includes
-    cyclone-specific heads upstream; this wrapper returns the gridded weather
-    fields and does not expose cyclone diagnostic outputs.
+    and predicts 6 hours forward per model call. By default this wrapper returns
+    only the gridded weather fields expected by Earth2Studio prognostic models.
+    Cyclone tracking can be enabled with ``track_cyclones=True`` to accumulate
+    WeatherNext's tropical cyclone track diagnostics in the ``cyclone_tracks``
+    property without changing the model output type.
+
+    Examples
+    --------
+    Access tropical cyclone tracks after a model call:
+
+    >>> model = WeatherNext2CyclonesMini.load_model(
+    ...     WeatherNext2CyclonesMini.load_default_package(),
+    ...     track_cyclones=True,
+    ... )
+    >>> x, coords = model(x, coords)
+    >>> tracks = model.cyclone_tracks
+
+    The tracker filters short-lived cyclogenesis tracks, so short rollouts can
+    return an empty dataframe even when cyclone tracking is active. The active
+    duration threshold is set by
+    `model._cyclone_tracker.cyclogenesis_minimum_duration`.
 
     Note
     ----
@@ -125,6 +150,9 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         Initial random seed for the stochastic FGN noise generator, by default 0.
     jit_compile : bool, optional
         JIT-compile the model forward pass, by default True.
+    track_cyclones : bool, optional
+        Accumulate tropical cyclone tracks in the ``cyclone_tracks`` property,
+        by default False.
 
     Badges
     ------
@@ -139,6 +167,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         geopotential_at_surface: np.ndarray,
         seed: int = 0,
         jit_compile: bool = True,
+        track_cyclones: bool = False,
     ):
         super().__init__()
 
@@ -147,6 +176,15 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         self.geopotential_at_surface = geopotential_at_surface
         self.seed = seed
         self.prng_key = jax.random.PRNGKey(seed)
+        self.track_cyclones = track_cyclones
+        self._cyclone_tracks = pd.DataFrame()
+        self._cyclone_prediction_history: list[xr.Dataset] = []
+        self._cyclone_tracker = None
+        if self.track_cyclones:
+            tracker_config = direct_tracker_6h_v1_config.get_config()
+            self._cyclone_tracker = tracker_config.tracker_constructor(
+                **tracker_config.tracker_kwargs
+            )
         self.task_config = self._load_task_config()
         self.run_forward = self._load_run_forward_from_checkpoint(
             jit_compile=jit_compile
@@ -176,6 +214,91 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
                 "lon": np.linspace(0, 360, n_lon, endpoint=False),
             }
         )
+
+    @property
+    def cyclone_tracks(self) -> "pd.DataFrame":
+        """Tropical cyclone tracks accumulated during the latest model run."""
+        if not self.track_cyclones:
+            logger.warning("Cyclone tracking is currently not active on this model.")
+            return pd.DataFrame()
+        return self._cyclone_tracks.copy()
+
+    def _reset_cyclone_tracks(self) -> None:
+        """Reset accumulated cyclone track diagnostics."""
+        self._cyclone_tracks = pd.DataFrame()
+        self._cyclone_prediction_history = []
+
+    @staticmethod
+    def _empty_initial_storms() -> "pd.DataFrame":
+        """Create an empty initial storm table for pure cyclogenesis tracking."""
+        return pd.DataFrame(
+            columns=[
+                cyclone_constants.TRACK_ID,
+                cyclone_constants.LEAD_TIME,
+                cyclone_constants.VALID_TIME,
+                cyclone_constants.LAT,
+                cyclone_constants.LON,
+            ]
+        )
+
+    def _update_cyclone_tracks(
+        self,
+        predictions: xr.Dataset,
+        coords: CoordSystem,
+        accumulate_predictions: bool,
+    ) -> None:
+        """Update cyclone tracks from native WeatherNext prediction fields."""
+        if not self.track_cyclones:
+            return
+        if self._cyclone_tracker is None:
+            logger.warning("Cyclone tracking is active, but no tracker is available.")
+            return
+
+        init_times = np.asarray(coords["time"]).reshape(-1)
+        if len(init_times) != 1:
+            logger.warning(
+                "Cyclone tracking currently supports one init time per model run."
+            )
+            return
+
+        cyclone_vars = [
+            var for var in predictions.data_vars if var.startswith("cyclone")
+        ]
+        if not cyclone_vars:
+            logger.warning(
+                "Cyclone tracking is active, but this prediction did not include "
+                "cyclone fields."
+            )
+            return
+
+        cyclone_predictions = predictions[cyclone_vars].copy()
+        if "batch" in cyclone_predictions.dims:
+            if cyclone_predictions.sizes["batch"] != 1:
+                logger.warning("Cyclone tracking currently supports batch size one.")
+                return
+            cyclone_predictions = cyclone_predictions.isel(batch=0, drop=True)
+        cyclone_predictions = cyclone_predictions.assign_coords(
+            time=np.asarray(coords["lead_time"]), init_time=init_times[0]
+        )
+
+        if accumulate_predictions:
+            self._cyclone_prediction_history.append(cyclone_predictions)
+            tracker_input = xr.concat(self._cyclone_prediction_history, dim="time")
+            tracker_input = tracker_input.sortby("time")
+            self._cyclone_tracks = self._cyclone_tracker(
+                tracker_input, initial_storms_df=self._empty_initial_storms()
+            )
+            return
+
+        tracks = self._cyclone_tracker(
+            cyclone_predictions, initial_storms_df=self._empty_initial_storms()
+        )
+        if self._cyclone_tracks.empty:
+            self._cyclone_tracks = tracks
+        elif not tracks.empty:
+            self._cyclone_tracks = pd.concat(
+                [self._cyclone_tracks, tracks], ignore_index=True
+            )
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model.
@@ -233,6 +356,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         package: Package,
         seed: int = 0,
         jit_compile: bool = True,
+        track_cyclones: bool = False,
     ) -> PrognosticModel:
         """Load prognostic model from package.
 
@@ -244,6 +368,9 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
             Initial random seed for the stochastic FGN noise generator, by default 0.
         jit_compile : bool, optional
             JIT-compile the model forward pass, by default True.
+        track_cyclones : bool, optional
+            Accumulate tropical cyclone tracks in the ``cyclone_tracks`` property,
+            by default False.
 
         Returns
         -------
@@ -264,13 +391,19 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
             geopotential_at_surface,
             seed=seed,
             jit_compile=jit_compile,
+            track_cyclones=track_cyclones,
         )
 
     def _load_task_config(self) -> Any:
         config = fiddle_config_io.get_fiddle_config_by_name(
             f"weathernext2/configs/{MODEL_NAME}"
         )
-        return dataclasses.replace(config.task, target_variables=WN2_TARGET_VARIABLES)
+        target_variables = (
+            config.task.target_variables
+            if self.track_cyclones
+            else WN2_TARGET_VARIABLES
+        )
+        return dataclasses.replace(config.task, target_variables=target_variables)
 
     def _load_run_forward_from_checkpoint(self, jit_compile: bool = True) -> Callable:
         """Build WeatherNext 2 inference function from checkpoint."""
@@ -279,9 +412,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
                 f"weathernext2/configs/{MODEL_NAME}"
             )
         )
-        task_config = dataclasses.replace(
-            config.task, target_variables=WN2_TARGET_VARIABLES
-        )
+        task_config = self.task_config
         noisy_function_kwargs = config.predictor_kwargs["noisy_function_kwargs"]
         noisy_function_kwargs["per_var_activation_fns"] = {
             key: value
@@ -328,6 +459,9 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
 
     def iterator_result_to_tensor(self, dataset: xr.Dataset) -> torch.Tensor:
         """Convert an xarray Dataset prediction to an Earth2Studio tensor."""
+        dataset = dataset[
+            [var for var in dataset.data_vars if var in WN2_TARGET_VARIABLES]
+        ]
         for var in list(dataset.data_vars):
             if "level" in dataset[var].dims:
                 for level in dataset[var].level:
@@ -443,6 +577,9 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         out_data["total_precipitation_6hr"] = xr.full_like(
             out_data["2m_temperature"], np.nan
         )
+        for var in self.task_config.target_variables:
+            if var.startswith("cyclone") and var not in out_data:
+                out_data[var] = xr.full_like(out_data["2m_temperature"], np.nan)
         for var in out_data.data_vars:
             out_data[var] = out_data[var].astype(np.float32)
         return out_data, target_lead_times
@@ -465,6 +602,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future.
         """
+        self._reset_cyclone_tracks()
         device = x.device
         with jax.default_device(self.get_jax_device_from_tensor(x)):
             x, coords = map_coords(x, coords, self.input_coords())
@@ -490,6 +628,11 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
                     targets_template=targets * np.nan,
                     forcings=forcings,
                 )
+                self._update_cyclone_tracks(
+                    predictions,
+                    self.output_coords(coords_t),
+                    accumulate_predictions=False,
+                )
                 results.append(self.iterator_result_to_tensor(predictions))
 
             out = torch.cat(results, dim=1) if len(results) > 1 else results[0]
@@ -508,9 +651,16 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
 
         while True:
             coords = self.output_coords(coords)
-            results = [
-                self.iterator_result_to_tensor(next(it)) for it in self.iterators
-            ]
+            predictions = [next(it) for it in self.iterators]
+            if len(predictions) == 1:
+                self._update_cyclone_tracks(
+                    predictions[0], coords, accumulate_predictions=True
+                )
+            elif self.track_cyclones:
+                logger.warning(
+                    "Cyclone tracking currently supports one init time per iterator."
+                )
+            results = [self.iterator_result_to_tensor(pred) for pred in predictions]
             x = torch.cat(results, dim=1) if len(results) > 1 else results[0]
             x, coords = self.rear_hook(x, coords)
             yield x.to(device), coords.copy()
@@ -533,6 +683,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
             Iterator that generates model time steps.
         """
         self.output_coords(coords)
+        self._reset_cyclone_tracks()
         with jax.default_device(self.get_jax_device_from_tensor(x)):
             time_dim = list(coords.keys()).index("time")
             self.iterators = []
