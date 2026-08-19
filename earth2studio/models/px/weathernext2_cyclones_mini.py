@@ -18,6 +18,7 @@ import copy
 import dataclasses
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
+from typing import Any
 
 import numpy as np
 import torch
@@ -268,7 +269,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
             jit_compile=jit_compile,
         )
 
-    def _load_task_config(self):
+    def _load_task_config(self) -> Any:
         config = fiddle_config_io.get_fiddle_config_by_name(
             f"weathernext2/configs/{MODEL_NAME}"
         )
@@ -409,7 +410,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
             }
         )
 
-        pressure_level_vars = {}
+        pressure_level_vars: dict[str, list[xr.DataArray]] = {}
         for var in data.data_vars:
             wb2_variable, level = var.split("::")
             if level:
