@@ -787,15 +787,14 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
-        # package = Package(
-        #     "hf://nvidia/stormcast-conus@...",
-        #     cache_options={
-        #         "cache_storage": Package.default_cache("stormcast-conus"),
-        #         "same_names": True,
-        #     },
-        # )
-        # return package
-        raise NotImplementedError("No default package.")
+        package = Package(
+            "hf://nvidia/stormcast-conus@17148d712f7ef2c0b48355032dcad85173dd230e",
+            cache_options={
+                "cache_storage": Package.default_cache("stormcast-conus"),
+                "same_names": True,
+            },
+        )
+        return package
 
     @classmethod
     @check_optional_dependencies()
