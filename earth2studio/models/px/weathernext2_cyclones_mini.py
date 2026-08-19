@@ -83,6 +83,20 @@ WN2_TARGET_VARIABLES = tuple(
     dict.fromkeys(WB2Lexicon.VOCAB[var].split("::")[0] for var in OUTPUT_VARIABLES)
 )
 INV_VOCAB = {v: k for k, v in WB2Lexicon.VOCAB.items()}
+KNOTS_TO_METERS_PER_SECOND = 0.514444
+
+
+def _add_e2s_cyclone_columns(tracks: "pd.DataFrame") -> "pd.DataFrame":
+    """Add Earth2Studio TC observation aliases to WeatherNext track columns."""
+    if tracks.empty:
+        return tracks
+    tracks = tracks.copy()
+    tracks["tcmsl"] = tracks["minimum_sea_level_pressure_hpa"] * 100.0
+    tracks["tcw10m"] = (
+        tracks["maximum_sustained_wind_speed_knots"] * KNOTS_TO_METERS_PER_SECOND
+    )
+    return tracks
+
 
 MODEL_NAME = "WeatherNextCyclones_Mini"
 MODEL_SPLIT = "2024"
@@ -120,6 +134,10 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
     ... )
     >>> x, coords = model(x, coords)
     >>> tracks = model.cyclone_tracks
+    >>> tracks[["track_id", "lead_time", "lat", "lon", "tcmsl", "tcw10m"]]
+
+    The ``tcmsl`` and ``tcw10m`` columns provide Earth2Studio-compatible names
+    for the minimum sea-level pressure and surface wind speed diagnostics.
 
     The tracker filters short-lived cyclogenesis tracks, so short rollouts can
     return an empty dataframe even when cyclone tracking is active. The active
@@ -294,13 +312,17 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
             self._cyclone_prediction_history.append(cyclone_predictions)
             tracker_input = xr.concat(self._cyclone_prediction_history, dim="time")
             tracker_input = tracker_input.sortby("time")
-            self._cyclone_tracks = self._cyclone_tracker(
-                tracker_input, initial_storms_df=self._empty_initial_storms()
+            self._cyclone_tracks = _add_e2s_cyclone_columns(
+                self._cyclone_tracker(
+                    tracker_input, initial_storms_df=self._empty_initial_storms()
+                )
             )
             return
 
-        tracks = self._cyclone_tracker(
-            cyclone_predictions, initial_storms_df=self._empty_initial_storms()
+        tracks = _add_e2s_cyclone_columns(
+            self._cyclone_tracker(
+                cyclone_predictions, initial_storms_df=self._empty_initial_storms()
+            )
         )
         if self._cyclone_tracks.empty:
             self._cyclone_tracks = tracks
