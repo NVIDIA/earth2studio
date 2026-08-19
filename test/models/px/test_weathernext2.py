@@ -212,9 +212,7 @@ def test_weathernext2_call_updates_cyclone_tracks(mock_weathernext2_model):
         device="cpu",
     )
 
-    with mock.patch.object(
-        mock_weathernext2_model, "_reset_cyclone_tracks"
-    ) as reset:
+    with mock.patch.object(mock_weathernext2_model, "_reset_cyclone_tracks") as reset:
         with mock.patch.object(
             mock_weathernext2_model, "_update_cyclone_tracks"
         ) as update:
