@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added model scorecards to the documentation (beta): one page per model with
+  interactive skill plots (RMSE, MAE, CRPS, spread, log spectral distance),
+  variable tables and run provenance, generated at docs build time from JSON
+  score exports produced by the new `recipes/eval/scorecard` campaigns
+  (FCN3 and Aurora to start)
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added `CorrDiffCosmoEra5SDA`, score-based data assimilation (DPS) for the
   CorrDiff-COSMO downscaler
