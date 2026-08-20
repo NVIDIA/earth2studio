@@ -17,15 +17,12 @@
 """Eval-recipe pipeline variants used by the scorecard campaigns.
 
 The scorecard verifies every model against one shared ERA5 store on the
-0.25 degree grid (721 x 1440). Two kinds of models cannot use the recipe's
-stock :class:`src.pipelines.forecast.ForecastPipeline` unchanged:
+0.25 degree grid (721 x 1440). Models on a different native grid (Aurora runs
+on 720 x 1440) cannot use the recipe's stock
+:class:`src.pipelines.forecast.ForecastPipeline` unchanged: their output must
+be placed onto the shared grid before writing.
 
-* models on a different native grid (Aurora runs on 720 x 1440), whose output
-  must be placed onto the shared grid before writing, and
-* models that consume history (Aurora needs the t-6h and t0 frames), whose
-  iterator never emits lead time 0, leaving that slot unwritten.
-
-:class:`RegriddedForecastPipeline` handles both and is a no-op for models
+:class:`RegriddedForecastPipeline` handles that and is a no-op for models
 already on the target grid, so a campaign can always point at it::
 
     pipeline:
@@ -42,7 +39,6 @@ appended -90 row carries zero latitude weight in scoring.
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Any
 
 import numpy as np
 import torch
@@ -175,67 +171,7 @@ class SeparableNearestRegridder(Regridder):
         return torch.index_select(x, -1, self._lon_idx.to(x.device))
 
 
-class HistoryForecastPipeline(ForecastPipeline):
-    """Forecast pipeline for models that consume history (lead_time < 0).
-
-    ``ForecastPipeline`` writes exactly what the model's iterator yields. A
-    single-timestep model yields the initial condition at lead 0 first, so
-    every lead is written. A history model does not: Aurora, with input
-    ``lead_time = [-6h, 0h]``, yields the t-6h history frame and then jumps
-    to +6h, so lead 0 is never written and would score as NaN.
-
-    This pipeline restores the expected behaviour: the initial condition is
-    written at lead 0 (that is what ``forecast[lead=0]`` is by definition),
-    yields at negative lead times are dropped, and a model that emits its own
-    lead 0 is not written twice. Keeping lead 0 real is what makes the
-    scorecard's sanity check -- error exactly zero at lead 0 -- meaningful.
-    """
-
-    def run_item(
-        self,
-        item: Any,
-        data_source: Any,
-        device: torch.device,
-    ) -> Any:
-        """Yield (tensor, coords) steps for one work item.
-
-        Parameters
-        ----------
-        item : Any
-            Work item (one initial condition / ensemble member) to run.
-        data_source : Any
-            Source the initial state is fetched from.
-        device : torch.device
-            Device to run inference on.
-
-        Yields
-        ------
-        tuple[torch.Tensor, CoordSystem]
-            The initial condition at lead 0, then every forecast step at a
-            positive lead time. History frames are dropped.
-        """
-        x, coords = self._fetch_initial_state(item, data_source, device)
-
-        lead = np.asarray(coords["lead_time"])
-        zero = np.timedelta64(0, "h")
-        if (lead == zero).any():
-            # Emit the t=0 slice of the initial state as lead 0.
-            i = int(np.where(lead == zero)[0][0])
-            ic_coords = OrderedDict(coords)
-            ic_coords["lead_time"] = np.array([zero])
-            axis = list(coords.keys()).index("lead_time")
-            yield x.index_select(axis, torch.tensor([i], device=x.device)), ic_coords
-
-        for x_step, coords_step in super().run_item(item, data_source, device):
-            step_lead = np.asarray(coords_step["lead_time"])
-            # Skip the history frame, and the model's own lead-0 if it emits
-            # one (it would duplicate what we just wrote).
-            if (step_lead <= zero).all():
-                continue
-            yield x_step, coords_step
-
-
-class RegriddedForecastPipeline(HistoryForecastPipeline):
+class RegriddedForecastPipeline(ForecastPipeline):
     """Forecast pipeline that writes model output on a configurable grid.
 
     Use this for any model whose native grid differs from the shared
@@ -244,10 +180,6 @@ class RegriddedForecastPipeline(HistoryForecastPipeline):
     recipe's ``Pipeline._output_regridder`` extension point. When the model is
     already on the target grid the regridder is skipped entirely, so the same
     pipeline is safe to configure for every model.
-
-    It inherits :class:`HistoryForecastPipeline` because off-grid models in
-    the scorecard (Aurora) are also history models; for models that already
-    emit lead 0 the inherited behaviour is equivalent.
 
     Parameters
     ----------

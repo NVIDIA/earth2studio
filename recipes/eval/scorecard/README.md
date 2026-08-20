@@ -45,8 +45,5 @@ listing it in `mkdocs.yml`) is the whole extension.
 
 ## Model-specific pipelines (`utils/pipelines.py`)
 
-* `HistoryForecastPipeline` — models that consume history (e.g. Aurora with
-  `lead_time = [-6h, 0h]`) never emit lead 0 from their iterator; this writes
-  lead 0 from the initial condition and skips history frames.
 * `RegriddedForecastPipeline` — models off ERA5's 721x1440 grid are gathered
   onto it so the shared verification store is reused. A no-op on-grid.
