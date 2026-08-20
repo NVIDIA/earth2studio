@@ -77,6 +77,7 @@ import torch
 
 from earth2studio.data import ARCO
 from earth2studio.data.utils import fetch_data
+from earth2studio.models.auto import Package
 from earth2studio.models.px.dlesym import DLESyM, DLESyMLatLon
 
 device = "cuda"
@@ -86,11 +87,24 @@ if not torch.cuda.is_available():
 # Create the data source
 data = ARCO()
 
-# Load the default model package which downloads the check point from NGC
-# We will instantiate both versions of the model to demonstrate usage of each.
-package = DLESyMLatLon.load_default_package()
+# Set DLESYM_PACKAGE_PATH to a local staged package directory (see
+# build_dlesym_package.sh) to test against local checkpoints instead of the
+# published default.
+package_path = os.environ.get("DLESYM_PACKAGE_PATH")
+
+
+def _load_package(cls: type) -> Package:
+    if package_path:
+        return Package(package_path)
+    return cls.load_default_package()
+
+
+# Load the model package, either the default published package or a local
+# one (see above). We will instantiate both versions of the model to
+# demonstrate usage of each.
+package = _load_package(DLESyMLatLon)
 model_ll = DLESyMLatLon.load_model(package).to(device)
-package = DLESyM.load_default_package()
+package = _load_package(DLESyM)
 model_hpx = DLESyM.load_model(package).to(device)
 
 in_coords_ll = model_ll.input_coords()
@@ -131,14 +145,78 @@ print(
 # %%
 ic_date = np.datetime64("2021-06-15")
 
-# Fetch some example data
-x, coords = fetch_data(
-    source=data,
-    time=np.array([ic_date]),
-    variable=np.array(in_coords_ll["variable"]),
-    lead_time=in_coords_ll["lead_time"],
-    device=device,
-)
+full_variables = list(in_coords_ll["variable"])
+
+if "ttr-3h" in full_variables:
+    # `ttr-3h` (ERA5 top-of-atmosphere net thermal radiation, accumulated
+    # over the 3h window up to and including each atmos input time) isn't
+    # a raw field any data source provides directly, so it can't be pulled
+    # through the main fetch below. Rather than widening the main fetch's
+    # lead_time axis (which would pull every other variable at those extra
+    # times too), fetch it separately using the narrowly-scoped raw `ttr`
+    # query described by `ttr_3h_query_times`, and reduce it with
+    # `compute_ttr_3h`. This is only needed to bootstrap the initial
+    # condition -- `ttr-3h` is itself one of the model's prognostic
+    # variables, so on every step after the first it comes back around as
+    # part of the model's own autoregressive output.
+    ttr_3h_idx = full_variables.index("ttr-3h")
+    main_variables = [v for v in full_variables if v != "ttr-3h"]
+
+    # Fetch every input variable except ttr-3h
+    x_main, coords = fetch_data(
+        source=data,
+        time=np.array([ic_date]),
+        variable=np.array(main_variables),
+        lead_time=in_coords_ll["lead_time"],
+        device=device,
+    )
+
+    # Fetch the raw ttr samples ttr-3h is derived from, and reduce them
+    raw_ttr, raw_ttr_coords = fetch_data(
+        source=data,
+        time=np.array([ic_date]),
+        variable=np.array(["ttr"]),
+        lead_time=model_ll.ttr_3h_query_times(),
+        device=device,
+    )
+    ttr_3h, ttr_3h_coords = model_ll.compute_ttr_3h(raw_ttr, raw_ttr_coords)
+
+    # Splice ttr-3h back in at the position `in_coords_ll["variable"]`
+    # expects. It's only ever read by the model at the atmos input lead
+    # times, so the other lead-time slots are left as zero placeholders.
+    # Dimension positions are looked up dynamically (not assumed) since
+    # `fetch_data`'s returned tensor doesn't carry an explicit `batch` axis
+    # -- only `@batch_func()`-wrapped model calls add one.
+    var_dim = list(coords.keys()).index("variable")
+    lead_dim = list(coords.keys()).index("lead_time")
+
+    ttr_3h_full = torch.zeros_like(
+        x_main.index_select(var_dim, torch.tensor([0], device=x_main.device))
+    )
+    lead_time_idx = torch.tensor(
+        [list(coords["lead_time"]).index(t) for t in ttr_3h_coords["lead_time"]],
+        device=x_main.device,
+    )
+    ttr_3h_full.index_copy_(lead_dim, lead_time_idx, ttr_3h)
+
+    x = torch.cat(
+        [
+            x_main.narrow(var_dim, 0, ttr_3h_idx),
+            ttr_3h_full,
+            x_main.narrow(var_dim, ttr_3h_idx, x_main.shape[var_dim] - ttr_3h_idx),
+        ],
+        dim=var_dim,
+    )
+    coords["variable"] = np.array(full_variables)
+else:
+    # v1.0 checkpoints don't use ttr-3h -- fetch everything directly.
+    x, coords = fetch_data(
+        source=data,
+        time=np.array([ic_date]),
+        variable=np.array(full_variables),
+        lead_time=in_coords_ll["lead_time"],
+        device=device,
+    )
 
 # Can call the `DLESyMLatLon` model directly with the input lat/lon data
 y, y_coords = model_ll(x, coords)
@@ -177,26 +255,32 @@ n_steps = 16
 model_iter_ll = model_ll.create_iterator(x, coords)
 
 for i in range(n_steps):
-    x, x_coords = next(model_iter_ll)
+    x_step, x_step_coords = next(model_iter_ll)
     if i > 0:  # Don't retrieve the first step as it is the initial condition
-        x_atmos, x_atmos_coords = model_ll.retrieve_valid_atmos_outputs(x, x_coords)
-        x_ocean, x_ocean_coords = model_ll.retrieve_valid_ocean_outputs(x, x_coords)
+        x_atmos, x_atmos_coords = model_ll.retrieve_valid_atmos_outputs(
+            x_step, x_step_coords
+        )
+        x_ocean, x_ocean_coords = model_ll.retrieve_valid_ocean_outputs(
+            x_step, x_step_coords
+        )
 
 print(f"Completed forecast with {n_steps} steps")
 
 
 # %%
-# Using Built-in Deterministic Workflow
-# -------------------------------------
-# Because the `DLESyMLatLon` model permits usage of data coming directly from an
-# earth2studio data source, we can use the built-in deterministic workflow to generate
-# a forecast as well. The only caveat is we need to explitcitly specify the output
-# lead time coordinates that will be generated by the model, since it has different
-# input and output lead time dimensions.
+# Manual Forecast Loop
+# ---------------------
+# earth2studio's built-in `run.deterministic` workflow fetches its own initial
+# condition internally, using `fetch_data(variable=model.input_coords()["variable"],
+# ...)` against the raw data source -- it has no way to know that `ttr-3h` needs the
+# dedicated derivation step from above rather than a direct fetch. Since we've
+# already built a valid initial condition (`x`, `coords`) ourselves, we drive the
+# forecast with `create_iterator` directly and write each step to the IO backend by
+# hand instead, avoiding a second, incompatible fetch.
 
 # %%
-import earth2studio.run as run
 from earth2studio.io import KVBackend
+from earth2studio.utils.coords import map_coords, split_coords
 
 io = KVBackend()
 
@@ -207,9 +291,31 @@ out_lead_times = [
     for i in range(n_steps)
 ]
 output_coords["lead_time"] = np.concatenate([inp_lead_time, *out_lead_times])
-io = run.deterministic(
-    [ic_date], n_steps, model_ll, data, io, output_coords=output_coords
-)
+
+total_coords = output_coords.copy()
+for key, value in output_coords.items():  # Scrub batch dims
+    if value.shape == (0,):
+        del total_coords[key]
+var_names = total_coords.pop("variable")
+io.add_array(total_coords, var_names)
+
+model_iter = model_ll.create_iterator(x, coords)
+for step, (x_step, coords_step) in enumerate(model_iter):
+    # The very first yield is the initial condition itself, whose variable
+    # set is prognostic-only (e.g. no tp6/msl) -- every later yield is a
+    # true model output and includes the diagnostic variables too. Map
+    # against whichever of `output_coords`'s variables this step actually
+    # has; the array's diagnostic columns stay at their zero-initialized
+    # default for this one step.
+    step_output_coords = output_coords.copy()
+    step_variables = set(coords_step["variable"])
+    step_output_coords["variable"] = np.array(
+        [v for v in output_coords["variable"] if v in step_variables]
+    )
+    x_step, coords_step = map_coords(x_step, coords_step, step_output_coords)
+    io.write(*split_coords(x_step, coords_step))
+    if step == n_steps:
+        break
 
 ds = io.to_xarray()
 print(ds)
