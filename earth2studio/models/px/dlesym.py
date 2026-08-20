@@ -532,10 +532,10 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
 
         atmos_model_ckpt = package.resolve(
-            f"{version_path}/atmos/{atmos_ckpts[atmos_model_idx]}"
+            f"{version_path}/atmos/{atmos_ckpts[0 if len(atmos_ckpts) == 1 else atmos_model_idx]}"
         )
         ocean_model_ckpt = package.resolve(
-            f"{version_path}/ocean/{ocean_ckpts[ocean_model_idx]}"
+            f"{version_path}/ocean/{ocean_ckpts[0 if len(ocean_ckpts) == 1 else ocean_model_idx]}"
         )
 
         atmos_model = Module.from_checkpoint(atmos_model_ckpt)
