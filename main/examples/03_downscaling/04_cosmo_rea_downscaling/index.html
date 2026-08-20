@@ -2882,7 +2882,7 @@ sub-region downscaling.</p>
 <a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    <span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">(</span><span class="n">resolution</span><span class="o">=</span><span class="s2">&quot;50m&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;0.3&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    <span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;0.5&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]</code></pre></details>
 
 <h2 id="load-the-global-forecaster-and-the-regional-downscaler">Load the global forecaster and the regional downscaler<a class="headerlink" href="#load-the-global-forecaster-and-the-regional-downscaler" title="Permanent link">&para;</a></h2>
@@ -2914,7 +2914,7 @@ the same package; <code>mode</code> selects which one.</p>
 <a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="p">)</span>
 <a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="n">dx_mean</span><span class="o">.</span><span class="n">amp</span> <span class="o">=</span> <span class="n">amp</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>140 lines</small></summary><pre><code>WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
+<details class="e2sg-output" open><summary><span>Console output</span><small>140 lines</small></summary><pre class="no-copy"><code>WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
     Python  3.10.19 (you have 3.13.13)
   Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
@@ -3074,7 +3074,7 @@ requested lead time. SFNO is 6-hourly, so 24 h is four steps.</p>
 <a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">lead_hours</span> <span class="o">//</span> <span class="n">dt_hours</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
 <a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="n">x_fc</span><span class="p">,</span> <span class="n">coords_fc</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>  <span class="c1"># global forecast state at the current step</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre><code>Fetching ARCO data:   0%|          | 0/13 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/13 [00:00&lt;?, ?it/s]
 Fetching ARCO data:  69%|██████▉   | 9/13 [00:00&lt;00:00, 23.37it/s]
 Fetching ARCO data:  92%|█████████▏| 12/13 [00:00&lt;00:00, 22.12it/s]
 Fetching ARCO data: 100%|██████████| 13/13 [00:00&lt;00:00, 23.64it/s]</code></pre></details>
@@ -3407,7 +3407,7 @@ operation: compose the stock <code>DerivedWS</code> wind-speed diagnostic as
 <a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a>    <span class="s2">&quot;outputs/04_cosmo_rea_downscaling_hubwind.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span>
 <a id="__codelineno-9-29" name="__codelineno-9-29" href="#__codelineno-9-29"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre><code>2026-08-19 21:01:43.740 | INFO     | earth2studio.models.dx.corrdiff_cosmo_era5:load_model:1857 - Loaded CorrDiffCosmoEra5 resolution=rea6 mode=mean (45 output channels)</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>2026-08-19 21:01:43.740 | INFO     | earth2studio.models.dx.corrdiff_cosmo_era5:load_model:1857 - Loaded CorrDiffCosmoEra5 resolution=rea6 mode=mean (45 output channels)</code></pre></details>
 
 <p><img alt="Output from Regional Downscaling over Europe" class="e2sg-output-image" loading="lazy" src="../../_assets/03_downscaling-04_cosmo_rea_downscaling/011-cell-20.jpg" /></p>
 <h2 id="higher-resolution-cosmo-rea2-22-km">Higher resolution: COSMO-REA2 (2.2 km)<a class="headerlink" href="#higher-resolution-cosmo-rea2-22-km" title="Permanent link">&para;</a></h2>
@@ -3444,7 +3444,7 @@ sub-region and plot 2 m temperature at 2.2 km.</p>
 <a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a><span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.046</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;2MT (degC)&quot;</span><span class="p">)</span>
 <a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/04_cosmo_rea_downscaling_rea2.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>58 lines</small></summary><pre><code>Downloading metadata.json: 0%|          | 0.00/5.46k [00:00&lt;?, ?B/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>58 lines</small></summary><pre class="no-copy"><code>Downloading metadata.json: 0%|          | 0.00/5.46k [00:00&lt;?, ?B/s]
 Downloading metadata.json: 100%|██████████| 5.46k/5.46k [00:00&lt;00:00, 31.3kB/s]
 Downloading metadata.json: 100%|██████████| 5.46k/5.46k [00:00&lt;00:00, 30.7kB/s]
 

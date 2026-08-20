@@ -2872,7 +2872,7 @@ workflow won't predict a time-series, rather just an instantaneous prediction.</
 <a id="__codelineno-0-82" name="__codelineno-0-82" href="#__codelineno-0-82"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="s2">&quot;Inference complete&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-83" name="__codelineno-0-83" href="#__codelineno-0-83"></a>    <span class="k">return</span> <span class="n">io</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -2904,7 +2904,7 @@ Earth-2 studio</p>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="c1"># Create the IO handler, store in memory</span>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>32 lines</small></summary><pre><code>Downloading corrdiff_inference_package.zip: 0%|          | 0.00/684M [00:00&lt;?, ?B/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>32 lines</small></summary><pre class="no-copy"><code>Downloading corrdiff_inference_package.zip: 0%|          | 0.00/684M [00:00&lt;?, ?B/s]
 Downloading corrdiff_inference_package.zip: 0%|          | 2.84M/684M [00:00&lt;00:24, 29.7MB/s]
 Downloading corrdiff_inference_package.zip: 4%|▎         | 24.5M/684M [00:00&lt;00:04, 146MB/s] 
 Downloading corrdiff_inference_package.zip: 7%|▋         | 47.4M/684M [00:00&lt;00:03, 189MB/s]
@@ -2946,7 +2946,7 @@ saving to file. Check the API docs for more information.</p>
 Typhoon Koinu.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="p">([</span><span class="s2">&quot;2023-10-04T18:00:00&quot;</span><span class="p">],</span> <span class="n">corrdiff</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">number_of_samples</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>2026-08-19 20:53:19.025 | INFO     | __main__:run:49 - Running corrdiff inference!
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>2026-08-19 20:53:19.025 | INFO     | __main__:run:49 - Running corrdiff inference!
 2026-08-19 20:53:19.025 | INFO     | __main__:run:51 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
@@ -3010,7 +3010,7 @@ fields on projections of a sphere.</p>
 <a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a>
 <a id="__codelineno-3-49" name="__codelineno-3-49" href="#__codelineno-3-49"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/04_corr_diff_prediction.jpg&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/cartopy/io/__init__.py:242: DownloadWarning: Downloading: https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_coastline.zip
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/cartopy/io/__init__.py:242: DownloadWarning: Downloading: https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_coastline.zip
   warnings.warn(f'Downloading: {url}', DownloadWarning)</code></pre></details>
 
 <p><img alt="Output from Generative Downscaling" class="e2sg-output-image" loading="lazy" src="../../_assets/03_downscaling-01_corrdiff_inference/001-cell-8.webp" /></p>

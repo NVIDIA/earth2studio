@@ -2779,7 +2779,7 @@
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># Create the data source, cache is false</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">wb2</span> <span class="o">=</span> <span class="n">WB2ERA5</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>477 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>477 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -3307,7 +3307,7 @@ you just downloaded.</p>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">zg</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">LocalStore</span><span class="p">(</span><span class="n">zarr_path</span><span class="p">))</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">zg</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>74 lines</small></summary><pre><code>/
+<details class="e2sg-output" open><summary><span>Console output</span><small>74 lines</small></summary><pre class="no-copy"><code>/
 ├── lat (721,) float64
 ├── lead_time (1,) timedelta64[h]
 ├── lon (1440,) float64
@@ -3404,7 +3404,7 @@ that supports the output of inference pipelines.</p>
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">output_coords</span><span class="o">=</span><span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;msl&quot;</span><span class="p">])}),</span>
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>18 lines</small></summary><pre><code>2026-08-19 21:45:45.760 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+<details class="e2sg-output" open><summary><span>Console output</span><small>18 lines</small></summary><pre class="no-copy"><code>2026-08-19 21:45:45.760 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
 2026-08-19 21:45:45.760 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
 2026-08-19 21:45:47.156 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from InferenceOutputSource
 2026-08-19 21:45:47.157 | INFO     | earth2studio.run:deterministic:162 - Inference starting!

@@ -2820,7 +2820,7 @@ likely a particular sample is under guidance compared to the base model.</p>
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="c1"># Load the default model package which downloads the checkpoint from NGC</span>
 <a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">package</span> <span class="o">=</span> <span class="n">CBottleTCGuidance</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -2846,7 +2846,7 @@ standard guided inference.</p>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="c1"># Run guided sampling</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">guided_sample</span><span class="p">,</span> <span class="n">guided_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">guidance</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>126 lines</small></summary><pre><code>Downloading training-state-002176000.checkpoint: 0%|          | 0.00/1.67G [00:00&lt;?, ?B/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>126 lines</small></summary><pre class="no-copy"><code>Downloading training-state-002176000.checkpoint: 0%|          | 0.00/1.67G [00:00&lt;?, ?B/s]
 Downloading training-state-002176000.checkpoint: 1%|          | 10.0M/1.67G [00:01&lt;03:15, 9.09MB/s]
 Downloading training-state-002176000.checkpoint: 1%|          | 20.0M/1.67G [00:01&lt;01:40, 17.6MB/s]
 Downloading training-state-002176000.checkpoint: 2%|▏         | 30.0M/1.67G [00:01&lt;01:07, 26.1MB/s]
@@ -3043,7 +3043,7 @@ the default sampler settings for improved quality and more stable odds-ratio val
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Log odds ratio: </span><span class="si">{</span><span class="n">log_odds_ratio</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Forward latents shape: </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">forward_latents</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>89 lines</small></summary><pre><code>calculate_odds_ratio[forward]:   0%|          | 0/27 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>89 lines</small></summary><pre class="no-copy"><code>calculate_odds_ratio[forward]:   0%|          | 0/27 [00:00&lt;?, ?it/s]
 calculate_odds_ratio[forward]:   4%|▎         | 1/27 [00:01&lt;00:26,  1.02s/it]
 calculate_odds_ratio[forward]:   7%|▋         | 2/27 [00:01&lt;00:24,  1.02it/s]
 calculate_odds_ratio[forward]:  11%|█         | 3/27 [00:02&lt;00:22,  1.06it/s]

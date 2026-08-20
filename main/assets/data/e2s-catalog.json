@@ -2934,6 +2934,65 @@
     "badges": [
       "region:global",
       "class:data-assimilation",
+      "class:downscaling",
+      "product:wind",
+      "product:temp",
+      "product:precip",
+      "product:atmos",
+      "product:insitu",
+      "year:2026",
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
+    ],
+    "chips": [
+      "Data Assimilation",
+      "Downscaling",
+      "NVIDIA",
+      "PyTorch",
+      "Surface Winds",
+      "Surface Temperature"
+    ],
+    "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Data Assimilation",
+        "Downscaling"
+      ],
+      "gpu": [
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
+        "Surface Winds",
+        "Surface Temperature",
+        "Surface Precipitation",
+        "Atmosphere",
+        "In-Situ Observations"
+      ],
+      "provider": [
+        "NVIDIA"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": [
+        "2026"
+      ]
+    },
+    "group": "Data Assimilation",
+    "kind": "model",
+    "signature": "CorrDiffCosmoEra5SDA(model: CorrDiffCosmoEra5, assimilate_variables: tuple[str, ...], time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), number_of_samples: int | None = None, sampler_steps: int | None = None, sda_std_obs: float | Mapping[str, float] = 0.5, sda_gamma: float = 5e-05, amp: bool = False)",
+    "summary": "CorrDiff-COSMO with score-based data assimilation (SDA) via diffusion posterior sampling (DPS). Wraps a diffusion-mode [`CorrDiffCosmoEra5`][CorrDiffCosmoEra5] downscaler and, at inference, nudges each denoising step toward sparse point observations -- producing a high-resolution COSMO-REA analysis over Europe that is conditioned on the ERA5 driving state and guided toward the observations.",
+    "title": "CorrDiffCosmoEra5SDA",
+    "tone": "precip",
+    "url": "../../../modules/generated/models/da/CorrDiffCosmoEra5SDA"
+  },
+  {
+    "badges": [
+      "region:global",
+      "class:data-assimilation",
       "product:wind",
       "product:temp",
       "product:atmos",

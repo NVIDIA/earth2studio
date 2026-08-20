@@ -3353,7 +3353,7 @@ handed to them. In this example, we will use the built in ensemble workflow
 <a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>    <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;overwrite&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
 <a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -3374,7 +3374,7 @@ pipeline.</p>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">)</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cached GFS input shape: </span><span class="si">{</span><span class="n">sample</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre class="no-copy"><code>Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 Fetching GFS data:   4%|▍         | 1/26 [00:01&lt;00:26,  1.06s/it]
 Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 23.94it/s]
 Cached GFS input shape: (1, 26, 721, 1440)</code></pre></details>
@@ -3401,7 +3401,7 @@ members which will be ran in 2 batches with batch size 4.</p>
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">output_coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;tcwv&quot;</span><span class="p">])},</span>
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>131 lines</small></summary><pre><code>2026-08-19 20:23:02.110 | INFO     | earth2studio.run:ensemble:394 - Running ensemble inference!
+<details class="e2sg-output" open><summary><span>Console output</span><small>131 lines</small></summary><pre class="no-copy"><code>2026-08-19 20:23:02.110 | INFO     | earth2studio.run:ensemble:394 - Running ensemble inference!
 2026-08-19 20:23:02.111 | INFO     | earth2studio.run:ensemble:401 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]

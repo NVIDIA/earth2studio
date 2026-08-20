@@ -2878,7 +2878,7 @@ however, this will allow us to better understand the APIs.</p>
 <a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="c1"># Create perturbation method</span>
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="n">pt</span> <span class="o">=</span> <span class="n">Gaussian</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -3010,7 +3010,7 @@ Here we will chunk the output data based on time and lead_time</p>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">christmas_five_day_ensemble</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">ds</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">pt</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">zarr_local_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>52 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>52 lines</small></summary><pre class="no-copy"><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  3.51it/s]
 Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 24.20it/s]
 
@@ -3068,7 +3068,7 @@ Running batch inference: 100%|██████████| 21/21 [00:16&lt;00
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="sa">f</span><span class="s2">&quot;Uncompressed zarr store size: </span><span class="si">{</span><span class="n">get_folder_size</span><span class="p">(</span><span class="s1">&#39;outputs/17_io_sync.zarr&#39;</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Local zarr store inference time: 16.917466402053833s
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>Local zarr store inference time: 16.917466402053833s
 Uncompressed zarr store size: 1330.78 MB</code></pre></details>
 
 <h2 id="compressed-local-storage-zarr-io">Compressed Local Storage Zarr IO<a class="headerlink" href="#compressed-local-storage-zarr-io" title="Permanent link">&para;</a></h2>
@@ -3093,7 +3093,7 @@ that the output store will be 3x smaller!</p>
 <a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">christmas_five_day_ensemble</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">ds</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">pt</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 <a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="n">zarr_local_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>52 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>52 lines</small></summary><pre class="no-copy"><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.39it/s]
 Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 37.54it/s]
 
@@ -3151,7 +3151,7 @@ Running batch inference: 100%|██████████| 21/21 [00:22&lt;00
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="sa">f</span><span class="s2">&quot;Compressed zarr store size: </span><span class="si">{</span><span class="n">get_folder_size</span><span class="p">(</span><span class="s1">&#39;outputs/17_io_sync_compressed.zarr&#39;</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Local compressed zarr store inference time: 23.59328031539917s
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>Local compressed zarr store inference time: 23.59328031539917s
 Compressed zarr store size: 394.28 MB</code></pre></details>
 
 <h2 id="local-storage-netcdf-io">Local Storage NetCDF IO<a class="headerlink" href="#local-storage-netcdf-io" title="Permanent link">&para;</a></h2>
@@ -3164,7 +3164,7 @@ a single file.</p>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">christmas_five_day_ensemble</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">ds</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">pt</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">nc_local_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>22 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>22 lines</small></summary><pre class="no-copy"><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.08it/s]
 Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 32.31it/s]
 
@@ -3192,7 +3192,7 @@ Running batch inference:  86%|████████▌ | 18/21 [00:01&lt;00:0
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="sa">f</span><span class="s2">&quot;Uncompressed zarr store size: </span><span class="si">{</span><span class="n">get_folder_size</span><span class="p">(</span><span class="s1">&#39;outputs/17_io_sync.nc&#39;</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span>
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Local netcdf store inference time: 2.2246856689453125s
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>Local netcdf store inference time: 2.2246856689453125s
 Uncompressed zarr store size: 1330.79 MB</code></pre></details>
 
 <h2 id="in-memory-zarr-io">In Memory Zarr IO<a class="headerlink" href="#in-memory-zarr-io" title="Permanent link">&para;</a></h2>
@@ -3207,7 +3207,7 @@ the data is gone.</p>
 <a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">christmas_five_day_ensemble</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">ds</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">pt</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">zarr_memory_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>52 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>52 lines</small></summary><pre class="no-copy"><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  6.00it/s]
 Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 41.12it/s]
 
@@ -3262,7 +3262,7 @@ Running batch inference: 100%|██████████| 21/21 [00:11&lt;00
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">In memory zarr store inference time: </span><span class="si">{</span><span class="n">zarr_memory_clock</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre><code>In memory zarr store inference time: 12.203267335891724s</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>In memory zarr store inference time: 12.203267335891724s</code></pre></details>
 
 <h2 id="compressed-local-async-zarr-io">Compressed Local Async Zarr IO<a class="headerlink" href="#compressed-local-async-zarr-io" title="Permanent link">&para;</a></h2>
 <p>The async Zarr IO backend is an advanced IO backend designed to offer async
@@ -3292,7 +3292,7 @@ Typically this might be <code>time</code>, <code>lead_time</code> and <code>ense
 <a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="n">christmas_five_day_ensemble</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">ds</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">pt</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 <a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="n">zarr_async_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>52 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>52 lines</small></summary><pre class="no-copy"><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.97it/s]
 Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 34.62it/s]
 
@@ -3350,7 +3350,7 @@ Running batch inference: 100%|██████████| 21/21 [00:07&lt;00
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="sa">f</span><span class="s2">&quot;Compressed async zarr store size: </span><span class="si">{</span><span class="n">get_folder_size</span><span class="p">(</span><span class="s1">&#39;outputs/17_io_async.zarr&#39;</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span>
 <a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Async zarr store inference time: 8.495021104812622s
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>Async zarr store inference time: 8.495021104812622s
 Compressed async zarr store size: 394.26 MB</code></pre></details>
 
 <h2 id="compressed-local-non-blocking-async-zarr-io">Compressed Local Non-Blocking Async Zarr IO<a class="headerlink" href="#compressed-local-non-blocking-async-zarr-io" title="Permanent link">&para;</a></h2>
@@ -3377,7 +3377,7 @@ compression!</p>
 <a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="n">io</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 <a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="n">zarr_nonblocking_async_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>30 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>30 lines</small></summary><pre class="no-copy"><code>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.15it/s]
 Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 34.22it/s]
 
@@ -3415,7 +3415,7 @@ Running batch inference:  95%|█████████▌| 20/21 [00:03&lt;00
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="sa">f</span><span class="s2">&quot;Compressed non-blocking async zarr store size: </span><span class="si">{</span><span class="n">get_folder_size</span><span class="p">(</span><span class="s1">&#39;outputs/17_io_nonblocking_async.zarr&#39;</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span>
 <a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Non-blocking async zarr store inference time: 4.697338104248047s
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>Non-blocking async zarr store inference time: 4.697338104248047s
 Compressed non-blocking async zarr store size: 394.26 MB</code></pre></details>
 
 <h2 id="remote-non-blocking-async-zarr-io">Remote Non-Blocking Async Zarr IO<a class="headerlink" href="#remote-non-blocking-async-zarr-io" title="Permanent link">&para;</a></h2>

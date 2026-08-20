@@ -2791,7 +2791,7 @@ The difference being the underlying algorithm used to identify the center.</p>
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="n">nsteps</span> <span class="o">=</span> <span class="mi">16</span>  <span class="c1"># Number of steps to run the tracker for into future</span>
 <a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">2009</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>  <span class="c1"># Start date for inference</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -2823,7 +2823,7 @@ We can fetch a small time range from the data source and provide it to our model
 <a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">era5_tracks</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">era5_tracks</span><span class="p">,</span> <span class="s2">&quot;outputs/13_era5_paths.pt&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>84 lines</small></summary><pre><code>Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>84 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.72it/s]
 Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 12.08it/s]
 Step 0: ARCO tracks output shape torch.Size([1, 7, 1, 4])
@@ -2951,7 +2951,7 @@ inference loop.</p>
 <a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="n">sfno_tracks</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
 <a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a><span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">sfno_tracks</span><span class="p">,</span> <span class="s2">&quot;outputs/13_sfno_paths.pt&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>40 lines</small></summary><pre><code>Fetching ARCO data:   0%|          | 0/13 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>40 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/13 [00:00&lt;?, ?it/s]
 Fetching ARCO data:  69%|██████▉   | 9/13 [00:00&lt;00:00, 17.67it/s]
 Fetching ARCO data: 100%|██████████| 13/13 [00:00&lt;00:00, 22.99it/s]
 

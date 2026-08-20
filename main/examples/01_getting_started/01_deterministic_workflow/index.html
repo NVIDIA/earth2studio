@@ -3339,7 +3339,7 @@ handed to them. In this example, let's take a look at the most basic:
 <a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="c1"># Create the IO handler, store in memory</span>
 <a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>16 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>16 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -3367,7 +3367,7 @@ pipeline.</p>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">)</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>51 lines</small></summary><pre><code>Fetching GFS data:   0%|          | 0/14 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>51 lines</small></summary><pre class="no-copy"><code>Fetching GFS data:   0%|          | 0/14 [00:00&lt;?, ?it/s]
 Fetching GFS data:   7%|▋         | 1/14 [00:00&lt;00:06,  1.95it/s]
 Fetching GFS data: 100%|██████████| 14/14 [00:00&lt;00:00, 24.66it/s]
 &lt;xarray.DataArray (time: 2, variable: 7, lat: 721, lon: 1440)&gt; Size: 116MB
@@ -3433,7 +3433,7 @@ saving to file. Check the API docs for more information.</p>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
 <a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>72 lines</small></summary><pre><code>2026-08-19 20:21:10.502 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+<details class="e2sg-output" open><summary><span>Console output</span><small>72 lines</small></summary><pre class="no-copy"><code>2026-08-19 20:21:10.502 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
 2026-08-19 20:21:10.503 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]

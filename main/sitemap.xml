@@ -109,6 +109,10 @@
          <lastmod>2026-08-20</lastmod>
     </url>
     <url>
+         <loc>https://nvidia.github.io/earth2studio/main/examples/05_data_assimilation/03_corrdiff_cosmo_sda/</loc>
+         <lastmod>2026-08-20</lastmod>
+    </url>
+    <url>
          <loc>https://nvidia.github.io/earth2studio/main/examples/06_seasonal/01_seasonal_statistics/</loc>
          <lastmod>2026-08-20</lastmod>
     </url>
@@ -534,6 +538,10 @@
     </url>
     <url>
          <loc>https://nvidia.github.io/earth2studio/main/modules/generated/io/1/io_ZarrBackend/</loc>
+         <lastmod>2026-08-20</lastmod>
+    </url>
+    <url>
+         <loc>https://nvidia.github.io/earth2studio/main/modules/generated/models/da/CorrDiffCosmoEra5SDA/</loc>
          <lastmod>2026-08-20</lastmod>
     </url>
     <url>

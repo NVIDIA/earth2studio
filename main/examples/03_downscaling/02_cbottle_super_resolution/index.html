@@ -2832,7 +2832,7 @@ CBottleSR super resolution model. The workflow demonstrates two approaches:</p>
 <a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="c1"># Load the ERA5 data source</span>
 <a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="n">era5_ds</span> <span class="o">=</span> <span class="n">WB2ERA5</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>366 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>366 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -3226,7 +3226,7 @@ pipeline from data generation to super-resolution enhancement.</p>
 <a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="n">synth_x</span><span class="p">,</span> <span class="n">synth_coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">synth_x</span><span class="p">,</span> <span class="n">synth_coords</span><span class="p">,</span> <span class="n">cbottle_sr</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
 <a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="n">sr_synth_x</span><span class="p">,</span> <span class="n">sr_synth_coords</span> <span class="o">=</span> <span class="n">cbottle_sr</span><span class="p">(</span><span class="n">synth_x</span><span class="p">,</span> <span class="n">synth_coords</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre><code>Generating cBottle Data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre class="no-copy"><code>Generating cBottle Data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
 Generating cBottle Data: 100%|██████████| 1/1 [00:04&lt;00:00,  4.63s/it]
 Generating cBottle Data: 100%|██████████| 1/1 [00:04&lt;00:00,  4.63s/it]</code></pre></details>
 
@@ -3251,7 +3251,7 @@ model to predict the missing variables, then perform super resolution.</p>
 <a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">infill_x</span><span class="p">,</span> <span class="n">infill_coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">infill_x</span><span class="p">,</span> <span class="n">infill_coords</span><span class="p">,</span> <span class="n">cbottle_sr</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
 <a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">sr_infill_x</span><span class="p">,</span> <span class="n">sr_infill_coords</span> <span class="o">=</span> <span class="n">cbottle_sr</span><span class="p">(</span><span class="n">infill_x</span><span class="p">,</span> <span class="n">infill_coords</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00, 46.08it/s]</code></pre></details>
 
 <h2 id="post-processing-cbottle-super-resolution-data">Post Processing CBottle Super Resolution Data<a class="headerlink" href="#post-processing-cbottle-super-resolution-data" title="Permanent link">&para;</a></h2>

@@ -246,6 +246,15 @@
     {
       "classifiers": [],
       "signature": "",
+      "source": "examples/05_data_assimilation/03_corrdiff_cosmo_sda.md",
+      "summary": "This example covers a dense-station region spanning the Netherlands, NW Germany, and the adjacent North Sea.",
+      "symbol": "",
+      "title": "CorrDiff COSMO-REA2 Score-Based Data Assimilation",
+      "url": "examples/05_data_assimilation/03_corrdiff_cosmo_sda/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
       "source": "examples/06_seasonal/01_seasonal_statistics.md",
       "summary": "This example will demonstrate how to run a simple inference workflow to generate a forecast and then to save a statistic of that data.",
       "symbol": "",
@@ -1660,6 +1669,28 @@
       "symbol": "earth2studio.io.ZarrBackend",
       "title": "io.ZarrBackend",
       "url": "modules/generated/io/1/io_ZarrBackend/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "class:data-assimilation",
+        "class:downscaling",
+        "product:wind",
+        "product:temp",
+        "product:precip",
+        "product:atmos",
+        "product:insitu",
+        "year:2026",
+        "gpu:80gb",
+        "provider:nvidia",
+        "backend:pytorch"
+      ],
+      "signature": "CorrDiffCosmoEra5SDA(model: CorrDiffCosmoEra5, assimilate_variables: tuple[str, ...], time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), number_of_samples: int | None = None, sampler_steps: int | None = None, sda_std_obs: float | Mapping[str, float] = 0.5, sda_gamma: float = 5e-05, amp: bool = False)",
+      "source": "modules/generated/models/da/CorrDiffCosmoEra5SDA.md",
+      "summary": "CorrDiff-COSMO with score-based data assimilation (SDA) via diffusion posterior sampling (DPS). Wraps a diffusion-mode [`CorrDiffCosmoEra5`][CorrDiffCosmoEra5] downscaler and, at inference, nudges each denoising step toward sparse point observations -- producing a high-resolution COSMO-REA analysis over Europe that is conditioned on the ERA5 driving state and guided toward the observations.",
+      "symbol": "earth2studio.models.da.CorrDiffCosmoEra5SDA",
+      "title": "CorrDiffCosmoEra5SDA",
+      "url": "modules/generated/models/da/CorrDiffCosmoEra5SDA/"
     },
     {
       "classifiers": [

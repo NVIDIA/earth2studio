@@ -2848,7 +2848,7 @@ are worth highlighting:</p>
 <a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="c1"># diagnostic standalone from an ERA5 initial condition instead.)</span>
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="n">precip</span> <span class="o">=</span> <span class="n">DLESyMv0_ISCCP_ERA5Precip</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">use_ttr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>72 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>72 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -2932,7 +2932,7 @@ converts it to OLR internally), while the output variables report <code>rlut</co
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Prognostic output variables:&quot;</span><span class="p">,</span> <span class="n">out_coords_vars</span><span class="p">)</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Precip input variables:     &quot;</span><span class="p">,</span> <span class="n">precip</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>6 lines</small></summary><pre><code>Prognostic input variables:  ['z500' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ttr' 'sst' 'u10m' 'v10m'
+<details class="e2sg-output" open><summary><span>Console output</span><small>6 lines</small></summary><pre class="no-copy"><code>Prognostic input variables:  ['z500' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ttr' 'sst' 'u10m' 'v10m'
  'z300' 'z700']
 Prognostic output variables: ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'rlut'
  'sst']
@@ -2971,7 +2971,7 @@ directly. As with the base DLESyM model, the atmosphere is predicted every
 <a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>    <span class="n">y_ocean_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
 <a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>37 lines</small></summary><pre><code>Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>37 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
 Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 19.93it/s]
 Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 22.60it/s]
 
@@ -3030,7 +3030,7 @@ and re-select the valid atmosphere/ocean outputs from it.</p>
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">y_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
 <a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre><code>Final forecast lead time: 384 hours</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>Final forecast lead time: 384 hours</code></pre></details>
 
 <h2 id="diagnosing-precipitation">Diagnosing Precipitation<a class="headerlink" href="#diagnosing-precipitation" title="Permanent link">&para;</a></h2>
 <p>The precip diagnostic predicts 6-hourly accumulated precipitation from two
@@ -3068,7 +3068,7 @@ them onto the HEALPix grid using the prognostic's regridding helpers.</p>
 <a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>    <span class="n">tp_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
 <a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre><code>Precip output (variable, valid lead_time [hrs]): ['tp06'] [384]</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>Precip output (variable, valid lead_time [hrs]): ['tp06'] [384]</code></pre></details>
 
 <h2 id="plotting-the-outputs">Plotting the Outputs<a class="headerlink" href="#plotting-the-outputs" title="Permanent link">&para;</a></h2>
 <p>We plot a forecasted atmosphere field, the ocean SST, and the diagnosed

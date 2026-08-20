@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/modules/generated/models/dx/CorrDiffCosmoEra5/">
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/modules/generated/models/da/CorrDiffCosmoEra5SDA/">
       
       
       
@@ -23,7 +23,7 @@
     
     
       
-        <title>CorrDiffCosmoEra5 - Earth2Studio</title>
+        <title>CorrDiffCosmoEra5SDA - Earth2Studio</title>
       
     
     
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#corrdiffcosmoera5" class="md-skip">
+        <a href="#corrdiffcosmoera5sda" class="md-skip">
           Skip to content
         </a>
       
@@ -146,7 +146,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              CorrDiffCosmoEra5
+              CorrDiffCosmoEra5SDA
             
           </span>
         </div>
@@ -2708,7 +2708,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5.__call__" class="md-nav__link">
+  <a href="#da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.__call__" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__call__
@@ -2719,7 +2719,18 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5.load_default_package" class="md-nav__link">
+  <a href="#da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.create_generator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;create_generator
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.load_default_package" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;load_default_package
@@ -2730,7 +2741,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5.load_model" class="md-nav__link">
+  <a href="#da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.load_model" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;load_model
@@ -2765,14 +2776,15 @@
   
 
 
-<h1 id="corrdiffcosmoera5"><code>CorrDiffCosmoEra5</code><a class="headerlink" href="#corrdiffcosmoera5" title="Permanent link">&para;</a></h1>
-<p><span class="mkdocs-badge-list"><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:eu" data-badge-group="region" style="--badge-color:#1976d2;--badge-text-color:#fff" title="Europe"><span class="mkdocs-badge__icon"><i class="fa-solid fa-earth-europe"></i></span><span class="mkdocs-badge__label">EU</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="class:downscaling" data-badge-group="class" style="--badge-color:#20c997;--badge-text-color:#000" title="Downscaling"><span class="mkdocs-badge__label">DS</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:wind" data-badge-group="product" style="--badge-color:#4dabf7;--badge-text-color:#fff" title="Surface Winds"><span class="mkdocs-badge__icon"><i class="fa-solid fa-wind"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:precip" data-badge-group="product" style="--badge-color:#339af0;--badge-text-color:#fff" title="Surface Precipitation"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud-rain"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:temp" data-badge-group="product" style="--badge-color:#fd7e14;--badge-text-color:#fff" title="Surface Temperature"><span class="mkdocs-badge__icon"><i class="fa-solid fa-temperature-half"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:atmos" data-badge-group="product" style="--badge-color:#74c0fc;--badge-text-color:#fff" title="Atmosphere"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="year:2026" data-badge-group="year" style="--badge-color:#1A1A1A;--badge-text-color:#fff"><span class="mkdocs-badge__label">2026</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="gpu:80gb" data-badge-group="gpu" style="--badge-color:#5aac44;--badge-text-color:#fff" title="80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"><span class="mkdocs-badge__label">80 GB</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="provider:nvidia" data-badge-group="provider" style="--badge-color:#3d7a26;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-microchip"></i></span><span class="mkdocs-badge__label">NVIDIA</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="backend:pytorch" data-badge-group="backend" style="--badge-color:#ee4c2c;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-fire"></i></span><span class="mkdocs-badge__label">PyTorch</span></span></span></p>
-<p><strong>Import path:</strong> <code>earth2studio.models.dx.CorrDiffCosmoEra5</code></p>
-<p><span id="earth2studio.models.dx.CorrDiffCosmoEra5"></span>
-<span id="earth2studio.models.dx.CorrDiffCosmoEra5.__call__"></span>
-<span id="earth2studio.models.dx.CorrDiffCosmoEra5.load_default_package"></span>
-<span id="earth2studio.models.dx.CorrDiffCosmoEra5.load_model"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/dx/corrdiff_cosmo_era5.py#L224-L1963" title="earth2studio/models/dx/corrdiff_cosmo_era5.py:224">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=diagnostic&amp;item=cosmo#install-command" title="category=diagnostic item=cosmo">View install commands</a></p>
+<h1 id="corrdiffcosmoera5sda"><code>CorrDiffCosmoEra5SDA</code><a class="headerlink" href="#corrdiffcosmoera5sda" title="Permanent link">&para;</a></h1>
+<p><span class="mkdocs-badge-list"><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:global" data-badge-group="region" style="--badge-color:#0d47a1;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-globe"></i></span><span class="mkdocs-badge__label">Global</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="class:data-assimilation" data-badge-group="class" style="--badge-color:#d63384;--badge-text-color:#fff" title="Data Assimilation"><span class="mkdocs-badge__label">DA</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="class:downscaling" data-badge-group="class" style="--badge-color:#20c997;--badge-text-color:#000" title="Downscaling"><span class="mkdocs-badge__label">DS</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:wind" data-badge-group="product" style="--badge-color:#4dabf7;--badge-text-color:#fff" title="Surface Winds"><span class="mkdocs-badge__icon"><i class="fa-solid fa-wind"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:temp" data-badge-group="product" style="--badge-color:#fd7e14;--badge-text-color:#fff" title="Surface Temperature"><span class="mkdocs-badge__icon"><i class="fa-solid fa-temperature-half"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:precip" data-badge-group="product" style="--badge-color:#339af0;--badge-text-color:#fff" title="Surface Precipitation"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud-rain"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:atmos" data-badge-group="product" style="--badge-color:#74c0fc;--badge-text-color:#fff" title="Atmosphere"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:insitu" data-badge-group="product" style="--badge-color:#2f9e44;--badge-text-color:#fff" title="In-Situ Observations"><span class="mkdocs-badge__icon"><i class="fa-solid fa-tower-observation"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="year:2026" data-badge-group="year" style="--badge-color:#1A1A1A;--badge-text-color:#fff"><span class="mkdocs-badge__label">2026</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="gpu:80gb" data-badge-group="gpu" style="--badge-color:#5aac44;--badge-text-color:#fff" title="80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"><span class="mkdocs-badge__label">80 GB</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="provider:nvidia" data-badge-group="provider" style="--badge-color:#3d7a26;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-microchip"></i></span><span class="mkdocs-badge__label">NVIDIA</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="backend:pytorch" data-badge-group="backend" style="--badge-color:#ee4c2c;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-fire"></i></span><span class="mkdocs-badge__label">PyTorch</span></span></span></p>
+<p><strong>Import path:</strong> <code>earth2studio.models.da.CorrDiffCosmoEra5SDA</code></p>
+<p><span id="earth2studio.models.da.CorrDiffCosmoEra5SDA"></span>
+<span id="earth2studio.models.da.CorrDiffCosmoEra5SDA.__call__"></span>
+<span id="earth2studio.models.da.CorrDiffCosmoEra5SDA.create_generator"></span>
+<span id="earth2studio.models.da.CorrDiffCosmoEra5SDA.load_default_package"></span>
+<span id="earth2studio.models.da.CorrDiffCosmoEra5SDA.load_model"></span></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/da/sda_corrdiff_cosmo_era5.py#L70-L828" title="earth2studio/models/da/sda_corrdiff_cosmo_era5.py:70">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=data-assimilation&amp;item=da-cosmo#install-command" title="category=data-assimilation item=da-cosmo">View install commands</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -2787,289 +2799,122 @@
 
 
 
-        <p>COSMO-REA downscaling model: ERA5 -&gt; high-resolution COSMO-REA.</p>
-<p>Diagnostic model that downscales a global ERA5 state to high-resolution
-COSMO-REA regional reanalysis over Europe -- COSMO-REA6 (~6 km) or COSMO-REA2
-(~2.2 km), selected with <code>resolution</code>. The input is an ERA5 state, so it can
-downscale an ERA5 analysis directly or run behind a global forecast model
-(e.g. SFNO -&gt; CorrDiffCosmoEra5).</p>
-<p><code>mode</code> selects one of two networks trained per resolution:</p>
+        <p>CorrDiff-COSMO with score-based data assimilation (SDA) via diffusion
+posterior sampling (DPS). Wraps a diffusion-mode <code>CorrDiffCosmoEra5</code>
+downscaler and, at inference, nudges each denoising step toward sparse point
+observations -- producing a high-resolution COSMO-REA analysis over Europe that
+is conditioned on the ERA5 driving state and guided toward the observations.</p>
+<p>Takes as input:</p>
 <ul>
-<li><code>"mean"</code> -- a deterministic regression predicting the conditional mean
-  <code>E[y | x]</code>: a single smooth field in one forward pass. Fast; a good first
-  high-resolution look or a deterministic conditional-mean baseline.</li>
-<li><code>"diffusion"</code> -- a generative model sampling the conditional distribution
-  <code>p(y | x)</code>: an ensemble of <code>number_of_samples</code> realizations (seeded for
-  reproducibility) that also captures the spread the mean cannot represent.</li>
+<li>An ERA5 driving state (the same input the downscaler conditions on).</li>
+<li>Sparse point observations (a DataFrame of lat/lon/variable/observation).</li>
 </ul>
-<p>Both networks are PhysicsNeMo DiTs at a fixed grid resolution but crop-size
-agnostic, so <code>set_domain</code> returns an instance restricted to any lat/lon
-sub-region without retraining (bounded to the trained footprint). Each
-resolution ships an extended grid beyond its native footprint; for COSMO-REA2
--- whose native footprint is central-European -- the extended grid reaches a
-broad European domain, enabling 2.2 km downscaling across it. Outputs are
-surface and model-level (3D) fields -- winds,
-temperature, humidity, precipitation, cloud cover, fluxes, TKE, PBL height;
-variables with a canonical Earth2Studio name are relabelled via
-[<code>CosmoLexicon</code>][earth2studio.lexicon.CosmoLexicon] and COSMO-specific fields keep a
-descriptive name. Optionally emits derived hub-height wind components (see
-<code>hub_heights</code>).</p>
+<p>CorrDiff-COSMO directly models <code>p(y | ERA5)</code>, so observations are mapped into
+its normalized output space without residual mean subtraction or addition. It is
+a single-shot diagnostic downscaler with no propagated state:
+<code>__call__</code> and <code>create_generator</code> produce an independent analysis
+for each requested time, conditioned on the corresponding ERA5 state.</p>
+<p>Each observation is mapped to its nearest output-grid cell and normalized as
+<code>(obs - center) / scale</code>. This direct mapping supports only identity-transform,
+unit-scale channels, such as <code>u10m</code> / <code>v10m</code> and <code>u3d_l47</code> / <code>v3d_l47</code>.
+Other channels require a custom observation operator and are rejected.</p>
+<p>Note that the <code>u3d_l*</code> channels are terrain-following model levels: the
+above-ground height of <code>u3d_l47</code> is <code>a + b * elevation_norm</code> (in normalized
+elevation; nominally ~119.5 m at zero elevation anomaly). The exact height varies
+with terrain, so pick the level whose height suits the observations.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-            <b><code>era5_variables</code></b>
-              (<code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>)
+            <b><code>model</code></b>
+              (<code><span title="earth2studio.models.dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5">CorrDiffCosmoEra5</span></code>)
           –
           <div class="doc-md-description">
-            <p>ERA5 input variable names (canonical Earth2Studio lexicon), in network order.</p>
+            <p>A diffusion-mode downscaler (<code>mode="diffusion"</code>), already cropped to the
+target region with <code>CorrDiffCosmoEra5.set_domain</code> if desired.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-            <b><code>output_variables</code></b>
-              (<code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>)
+            <b><code>assimilate_variables</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, ...]</code>)
           –
           <div class="doc-md-description">
-            <p>Output (COSMO-REA) variable names, in network output-channel order.</p>
+            <p>Output variables to assimilate (required); must be identity-transform,
+unit-scale channels, e.g. <code>("u10m", "v10m")</code> (surface wind, available in
+either resolution) or <code>("u3d_l47", "v3d_l47")</code> (REA2 terrain-following
+model-level wind; above-ground height varies with elevation, see the note
+above). Choose the channel whose physical height matches your observations --
+there is no default, since the choice depends on the observations being
+assimilated.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-            <b><code>regression_model</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.nn.Module" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module">Module</a> | None</code>)
-          –
-          <div class="doc-md-description">
-            <p>Network for <code>mode="mean"</code> (an upstream physicsnemo RoPE-NATTEN <code>DiT</code>).</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>diffusion_model</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.nn.Module" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module">Module</a> | None</code>)
-          –
-          <div class="doc-md-description">
-            <p>Network for <code>mode="diffusion"</code> (an upstream physicsnemo
-<code>EDMPreconditioner(ConcatConditionWrapper(DiT))</code>).</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>resolution</code></b>
-              (<code>(<span title="rea6">rea6</span>, <span title="rea2">rea2</span>)</code>, default:
-                  <code>&#34;rea6&#34;</code>
+            <b><code>time_tolerance</code></b>
+              (<code><span title="earth2studio.utils.type.TimeTolerance">TimeTolerance</span></code>, default:
+                  <code><a class="autorefs autorefs-external" title="numpy.timedelta64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.timedelta64">timedelta64</a>(10, &#39;m&#39;)</code>
 )
           –
           <div class="doc-md-description">
-            <p>Which COSMO-REA resolution this package targets.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>mode</code></b>
-              (<code>(<span title="mean">mean</span>, <span title="diffusion">diffusion</span>)</code>, default:
-                  <code>&#34;mean&#34;</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Which model to run.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>lat_input_grid</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>1D increasing regular ERA5 input grid (the native default footprint).</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>lon_input_grid</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>1D increasing regular ERA5 input grid (the native default footprint).</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>lat_output_grid</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>2D curvilinear native (rotated-pole) target grid [out_lat, out_lon].</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>lon_output_grid</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>2D curvilinear native (rotated-pole) target grid [out_lat, out_lon].</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>era5_center</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>ERA5 input normalization (mean/std), size [n_era5].</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>era5_scale</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>ERA5 input normalization (mean/std), size [n_era5].</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>out_center</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>Output normalization (mean/std) in transformed space, size [n_out].</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>out_scale</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>Output normalization (mean/std) in transformed space, size [n_out].</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>static_invariants</code></b>
-              (<code><a class="autorefs autorefs-external" title="collections.OrderedDict" href="https://docs.python.org/3/library/collections.html#collections.OrderedDict">OrderedDict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a>]</code>)
-          –
-          <div class="doc-md-description">
-            <p>Native, already-normalized static invariant channels (non-position),
-each [out_lat, out_lon] — e.g. <code>elevation_norm</code>, <code>land_fraction</code>,
-<code>z0_lu</code>, <code>slope_east</code>, <code>slope_north</code>. Position channels (sin/cos
-lat/lon) and <code>cos_zenith</code> are computed, not stored here.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>pre_invariant_variables</code></b>
-              (<code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>)
-          –
-          <div class="doc-md-description">
-            <p>Names of the invariant channels before / after <code>cos_zenith</code> in the
-background channel order.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>post_invariant_variables</code></b>
-              (<code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>)
-          –
-          <div class="doc-md-description">
-            <p>Names of the invariant channels before / after <code>cos_zenith</code> in the
-background channel order.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>channel_transforms</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a> | None</code>, default:
-                  <code>None</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Per-output-channel nonlinear transform spec (from the package metadata),
-used to invert after de-normalizing.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>constraints</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a> | None</code>, default:
-                  <code>None</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Physical-constraint spec (<code>metadata["constraints"]</code>): per-channel
-<code>bounds</code> (min/max clamps) and a shortwave <code>sza_gate</code> (the dawn/dusk
-solar gate), applied in physical space in postprocess for both modes.</p>
+            <p>Observations within this window of the analysis time are used. A single
+value is symmetric; the default is ±10 minutes.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
             <b><code>number_of_samples</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>, default:
-                  <code>1</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Number of samples (diffusion); the <code>sample</code> dim is kept (size 1) for
-<code>mode="mean"</code> so both modes share an output contract. The constructor
-value is the default; it is settable at runtime between calls
-(<code>model.number_of_samples = N</code>).</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>physical_clamp</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>, default:
-                  <code>True</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Apply physical-bounds + the shortwave dawn/dusk solar gate to outputs.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>number_of_steps</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>, default:
-                  <code>18</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Diffusion sampler step count (EDM Heun). Defaults to 18.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>sigma_min</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>, default:
-                  <code>0.002</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Diffusion noise-schedule bounds. Default to 0.002 / 800.0.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>sigma_max</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>, default:
-                  <code>0.002</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Diffusion noise-schedule bounds. Default to 0.002 / 800.0.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>rho</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>, default:
-                  <code>7.0</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Karras noise-schedule exponent. Defaults to 7.0.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>solver</code></b>
-              (<code>(<span title="heun">heun</span>, <span title="euler">euler</span>)</code>, default:
-                  <code>&#34;heun&#34;</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Diffusion ODE solver: <code>"heun"</code> (2nd-order, default) or <code>"euler"</code>
-(1st-order).</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>seed</code></b>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>, default:
                   <code>None</code>
 )
           –
           <div class="doc-md-description">
-            <p>Base RNG seed for diffusion sampling (a per-sample offset is added).
-<code>None</code> (default) leaves sampling unseeded.</p>
+            <p>Posterior ensemble size (independent DPS draws, seeds <code>seed + i</code>);
+defaults to the wrapped model's <code>number_of_samples</code>.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>sampler_steps</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Diffusion sampler steps; defaults to the wrapped model's
+<code>number_of_steps</code>.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>sda_std_obs</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a> | <a class="autorefs autorefs-external" title="collections.abc.Mapping" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping">Mapping</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]</code>, default:
+                  <code>0.5</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Observation-noise standard deviation for DPS guidance, by default 0.5.
+A scalar is broadcast to every assimilated variable (in that variable's
+physical units); a mapping sets it per variable and must contain exactly the
+assimilated variables (unknown keys are rejected) -- e.g.
+<code>{"u10m": 0.5, "v10m": 0.5}</code> in m/s. When temperature is also
+assimilated, its entry could be <code>"t2m": 1.0</code> in K. Every value must be
+finite and &gt; 0. It is the effective uncertainty per occupied grid cell
+(multiple observations in one cell are averaged, not reduced by sqrt(n)).</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>sda_gamma</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>, default:
+                  <code>5e-05</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>SDA covariance scaling in the DPS likelihood, by default 5e-5. Positive
+values account for denoiser-estimate uncertainty across diffusion noise
+levels. Larger values weaken observation guidance, especially early in
+denoising, so the analysis stays closer to the unguided downscaler and may
+fit observations less closely. Set to 0 for classical DPS without this
+correction and the strongest guidance for a fixed <code>sda_std_obs</code>. Must be</p>
+<blockquote>
+<p>= 0.</p>
+</blockquote>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3079,74 +2924,14 @@ value is the default; it is settable at runtime between calls
 )
           –
           <div class="doc-md-description">
-            <p>Run the network forward passes (regression patches and the diffusion
-denoiser) under <code>torch.autocast</code> bf16. Roughly halves inference time
-on Ampere+ GPUs at a negligible accuracy cost; the sampler bookkeeping
-stays in fp64. Defaults to <code>False</code> (full precision).</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>hub_heights</code></b>
-              (<code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]</code>, default:
-                  <code>None</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Optional list of above-ground heights (m) at which to emit interpolated
-wind components <code>u{H}m</code>/<code>v{H}m</code> (e.g. <code>[100]</code> -&gt; <code>u100m</code>,
-<code>v100m</code>), vertically interpolated from the model's 3D wind levels. Wind
-speed is obtained by composing the stock <code>DerivedWS(levels=["{H}m"])</code>
-diagnostic on the output. <code>None</code> (default) -&gt; no derived outputs and
-behavior/<code>output_variables</code> are unchanged. Requires <code>wind_levels</code>.
-Names follow the lexicon <code>m</code>-suffix convention (m above surface, as
-<code>u100m</code>); arbitrary <code>H</code> need not be pre-registered in the lexicon
-(outputs are produced, not fetched). A height outside the levels' range
-is clamped (not extrapolated) and warns.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>hub_interp</code></b>
-              (<code>(<span title="linear">linear</span>, <span title="log">log</span>)</code>, default:
-                  <code>&#34;linear&#34;</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Interpolation method for the hub-height wind components: <code>"linear"</code> (in
-geometric height) or <code>"log"</code> (in <code>ln(height)</code>). Both are
-roughness-free between levels. Defaults to <code>"linear"</code>.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>wind_levels</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code>, default:
-                  <code>None</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Package metadata describing the 3D wind levels for hub-height derivation:
-each level's <code>{u, v}</code> output channels + its <code>a, b</code> height coefficients
-(<code>height = a + b*elevation_invariant</code>) and the elevation invariant name.
-Supplied by the package; required when <code>hub_heights</code> is set.</p>
+            <p>Run the guided diffusion sampler under <code>torch.autocast</code> bf16, by default
+False (full precision, matching the wrapped downscaler). Setting True can
+reduce runtime and peak GPU memory; it takes effect on CUDA only (CPU always
+runs full precision).</p>
           </div>
         </li>
     </ul>
 
-
-<details class="note" open>
-  <summary>Notes</summary>
-  <p>The diffusion sampler controls (<code>number_of_steps</code>, <code>sigma_min</code>,
-<code>sigma_max</code>, <code>rho</code>, <code>solver</code>) default to the package metadata but are
-exposed for inference tuning rather than fixed: as with any diffusion sampler,
-these settings can shape the sampled output distribution (e.g. ensemble spread
-and the representation of extremes).</p>
-<p>The models are trained on ERA5 (global input) paired with COSMO-REA regional
-reanalysis (high-resolution target) over Europe:</p>
-<ul>
-<li>COSMO-REA6 (~6 km), DWD: <a href="https://reanalysis.meteo.uni-bonn.de/?COSMO-REA6">reanalysis.meteo.uni-bonn.de/?COSMO-REA6</a></li>
-<li>COSMO-REA2 (~2.2 km), DWD: <a href="https://reanalysis.meteo.uni-bonn.de/?COSMO-REA2">reanalysis.meteo.uni-bonn.de/?COSMO-REA2</a></li>
-<li>ERA5, ECMWF: <a href="https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5">www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5</a></li>
-</ul>
-</details>
 
 
 
@@ -3168,20 +2953,78 @@ reanalysis (high-resolution target) over Europe:</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5.__call__" class="doc doc-heading">
+<h3 id="da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.__call__" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">__call__</span>
 
 
-<a href="#dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5.__call__" class="headerlink" title="Permanent link">&para;</a></h3>
+<a href="#da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.__call__" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__call__</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">]</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span><span class="p">,</span> <span class="n">obs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Run the model. <code>x</code> is [batch, time, variable, lat, lon]; <code>coords</code>
-carries a <code>time</code> axis (validity times) driving the solar-zenith channel.</p>
+        <p>Assimilate <code>obs</code> into the downscaled analysis for each time in <code>x</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>x</code></b>
+              (<code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>ERA5 driving state on the native input grid (dims include <code>time</code>,
+<code>variable</code>, <code>lat</code>, <code>lon</code>; a size-1 <code>lead_time</code> is squeezed).</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>obs</code></b>
+              (<code><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Sparse observations (columns <code>time</code>/<code>lat</code>/<code>lon</code>/<code>variable</code>/
+<code>observation</code>), or <code>None</code> for a free (unconstrained) downscaling.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>
+          –
+          <div class="doc-md-description">
+            <p>Posterior COSMO-REA analysis, dims <code>(time, sample, variable, y, x)</code>
+with 2D <code>lat</code>/<code>lon</code> coordinates.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#ValueError">ValueError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If <code>x</code> carries a <code>lead_time</code> dimension of size != 1, or if <code>obs</code>
+is missing a required column.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError">RuntimeError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the model is on CUDA but CuPy is not installed (the analysis cannot
+be returned on-device; install the <code>da-cosmo</code> extra or run on CPU).</p>
+          </div>
+        </li>
+    </ul>
 
 
     </div>
@@ -3196,7 +3039,100 @@ carries a <code>time</code> axis (validity times) driving the solar-zenith chann
 <div class="doc doc-object doc-function">
 
 
-<h3 id="dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5.load_default_package" class="doc doc-heading">
+<h3 id="da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.create_generator" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">create_generator</span>
+
+
+<a href="#da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.create_generator" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_generator</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Generator" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Generator">Generator</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Generator of independent COSMO-REA analyses (a diagnostic re-analysis, not
+a propagated forecast). Primed with a no-compute yield; each <code>send(obs)</code>
+produces the obs-constrained analysis for the next time in <code>x</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>x</code></b>
+              (<code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>ERA5 driving state (dims include <code>time</code>, <code>variable</code>, <code>lat</code>,
+<code>lon</code>; a size-1 <code>lead_time</code> is squeezed). One analysis is produced
+per <code>time</code>.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Yields:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a> | None</code>
+          –
+          <div class="doc-md-description">
+            <p><code>None</code> on the priming yield (before the first <code>send</code>); thereafter
+the obs-constrained analysis for the current time, dims
+<code>(time, sample, variable, y, x)</code> with a single <code>time</code>.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Receives:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a> | None</code>
+          –
+          <div class="doc-md-description">
+            <p>Sparse observations for the current time (columns <code>time</code>/<code>lat</code>/
+<code>lon</code>/<code>variable</code>/<code>observation</code>), or <code>None</code> for a free analysis.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError">RuntimeError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>On priming, if the model is on CUDA but CuPy is not installed (the
+analysis cannot be returned on-device; install the <code>da-cosmo</code> extra or
+run on CPU).</p>
+          </div>
+        </li>
+    </ul>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">gen</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">create_generator</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">next</span><span class="p">(</span><span class="n">gen</span><span class="p">)</span>                  <span class="c1"># prime</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">state</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">obs_df</span><span class="p">)</span>   <span class="c1"># analysis for x&#39;s first time</span>
+</code></pre></div>
+</details>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.load_default_package" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">load_default_package</span>
 
 
@@ -3204,16 +3140,25 @@ carries a <code>time</code> axis (validity times) driving the solar-zenith chann
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
   </span>
 
-<a href="#dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5.load_default_package" class="headerlink" title="Permanent link">&para;</a></h3>
+<a href="#da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.load_default_package" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_default_package</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.auto.Package">Package</span></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Default pre-trained COSMO-REA downscaling package (combined rea6/rea2).</p>
-<p>Returns the hosted package; pick the model within it via
-<code>load_model(..., mode=, resolution=)</code> (or rely on the <code>mean</code>/<code>rea6</code>
-defaults through <code>from_pretrained</code>).</p>
+        <p>Load the CorrDiff-COSMO model package (shared with the downscaler).</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="earth2studio.models.auto.Package">Package</span></code>
+          –
+          <div class="doc-md-description">
+            <p>The default CorrDiff-COSMO model package.</p>
+          </div>
+        </li>
+    </ul>
 
 
     </div>
@@ -3228,7 +3173,7 @@ defaults through <code>from_pretrained</code>).</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5.load_model" class="doc doc-heading">
+<h3 id="da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.load_model" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">load_model</span>
 
 
@@ -3236,28 +3181,162 @@ defaults through <code>from_pretrained</code>).</p>
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
   </span>
 
-<a href="#dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5.load_model" class="headerlink" title="Permanent link">&para;</a></h3>
+<a href="#da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.load_model" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_model</span><span class="p">(</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">package</span><span class="p">:</span> <span class="n"><span title="earth2studio.models.auto.Package">Package</span></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">device</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a></span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;diffusion&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">resolution</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a></span><span class="p">[</span><span class="s2">&quot;rea6&quot;</span><span class="p">,</span> <span class="s2">&quot;rea2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;rea6&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">hub_heights</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">hub_interp</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a></span><span class="p">[</span><span class="s2">&quot;linear&quot;</span><span class="p">,</span> <span class="s2">&quot;log&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;linear&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.dx.base.DiagnosticModel">DiagnosticModel</span></span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">assimilate_variables</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">resolution</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;rea2&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">domain</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">time_tolerance</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.TimeTolerance">TimeTolerance</span></span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.timedelta64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.timedelta64">timedelta64</a></span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;m&quot;</span><span class="p">),</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">number_of_samples</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">sampler_steps</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">sda_std_obs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Mapping" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping">Mapping</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">sda_gamma</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">5e-05</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">amp</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.da.base.AssimilationModel">AssimilationModel</span></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Load a COSMO-REA downscaling model from a package.</p>
-<p><code>mode</code> ({"mean", "diffusion"}) and <code>resolution</code> ({"rea6", "rea2"})
-select the checkpoint within one package. All other
-configuration (sampler, normalization, transforms) comes from the package
-metadata.</p>
-<p><code>hub_heights</code>/<code>hub_interp</code> opt into derived hub-height wind components
-(<code>u{H}m</code>/<code>v{H}m</code>; compose <code>DerivedWS</code> for speed); they require the
-package to carry a <code>wind_levels</code> metadata block (else requesting
-<code>hub_heights</code> raises). See the constructor.</p>
+        <p>Load the assimilation model from a CorrDiff-COSMO package.</p>
+<p>Loads a diffusion-mode <code>CorrDiffCosmoEra5</code> internally and wraps it.</p>
+<p><code>domain</code> (optional) crops the downscaler to a sub-region BEFORE wrapping,
+so the observation grid stays in sync; it is forwarded verbatim to
+<code>CorrDiffCosmoEra5.set_domain</code> (e.g.
+<code>domain=dict(lat_min=52.5, lat_max=55.5, lon_min=5.5, lon_max=9.5)</code>).
+Cropping the wrapped <code>.model</code> afterwards would leave a stale obs grid.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>package</code></b>
+              (<code><span title="earth2studio.models.auto.Package">Package</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>CorrDiff-COSMO model package (see <code>load_default_package</code>).</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>assimilate_variables</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, ...]</code>)
+          –
+          <div class="doc-md-description">
+            <p>Output channels to assimilate (required); must be identity-transform,
+unit-scale channels (e.g. <code>("u10m", "v10m")</code> surface wind, available in
+either resolution, or <code>("u3d_l47", "v3d_l47")</code> REA2 terrain-following
+model-level wind whose above-ground height varies with elevation). There
+is no default, since the choice depends on the observations being
+assimilated.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>resolution</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>, default:
+                  <code>&#39;rea2&#39;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>COSMO-REA resolution, <code>"rea2"</code> or <code>"rea6"</code>, by default <code>"rea2"</code>.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>domain</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Sub-region crop forwarded to <code>CorrDiffCosmoEra5.set_domain</code>
+(keys <code>lat_min</code>/<code>lat_max</code>/<code>lon_min</code>/<code>lon_max</code>), by default
+<code>None</code> (full native footprint).</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>time_tolerance</code></b>
+              (<code><span title="earth2studio.utils.type.TimeTolerance">TimeTolerance</span></code>, default:
+                  <code><a class="autorefs autorefs-external" title="numpy.timedelta64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.timedelta64">timedelta64</a>(10, &#39;m&#39;)</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Window for matching observation times to the analysis time, by default
+10 minutes.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>number_of_samples</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Posterior ensemble size; defaults to the wrapped model's value.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>sampler_steps</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Number of diffusion sampler steps; defaults to the wrapped model's
+<code>number_of_steps</code>.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>sda_std_obs</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a> | <a class="autorefs autorefs-external" title="collections.abc.Mapping" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping">Mapping</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]</code>, default:
+                  <code>0.5</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Assumed observation-noise std (lower trusts obs more), by default 0.5.
+A scalar broadcasts to every variable; a mapping sets it per variable and
+must contain exactly the assimilated variables (e.g.
+<code>{"u10m": 0.5, "v10m": 0.5}</code>).</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>sda_gamma</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>, default:
+                  <code>5e-05</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>SDA covariance scaling in the DPS likelihood, by default 5e-5. Positive
+values account for denoiser-estimate uncertainty across diffusion noise
+levels. Larger values weaken observation guidance, especially early in
+denoising, so the analysis stays closer to the unguided downscaler and may
+fit observations less closely. Set to 0 for classical DPS without this
+correction and the strongest guidance for a fixed <code>sda_std_obs</code>. Must
+be &gt;= 0.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>amp</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Run the guided sampler under <code>torch.autocast</code> bf16 (CUDA only), by
+default False. Setting True can reduce runtime and GPU memory.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="earth2studio.models.da.base.AssimilationModel">AssimilationModel</span></code>
+          –
+          <div class="doc-md-description">
+            <p>The wrapped <code>CorrDiffCosmoEra5SDA</code> assimilation model.</p>
+          </div>
+        </li>
+    </ul>
 
 
     </div>
@@ -3271,10 +3350,11 @@ package to carry a <code>wind_levels</code> metadata block (else requesting
 
     </div>
 
-</div><!-- e2sg-backreferences: earth2studio.models.dx.CorrDiffCosmoEra5 -->
-<!-- e2sg-backreferences: earth2studio.models.dx.CorrDiffCosmoEra5.__call__ -->
-<!-- e2sg-backreferences: earth2studio.models.dx.CorrDiffCosmoEra5.load_default_package -->
-<!-- e2sg-backreferences: earth2studio.models.dx.CorrDiffCosmoEra5.load_model -->
+</div><!-- e2sg-backreferences: earth2studio.models.da.CorrDiffCosmoEra5SDA -->
+<!-- e2sg-backreferences: earth2studio.models.da.CorrDiffCosmoEra5SDA.__call__ -->
+<!-- e2sg-backreferences: earth2studio.models.da.CorrDiffCosmoEra5SDA.create_generator -->
+<!-- e2sg-backreferences: earth2studio.models.da.CorrDiffCosmoEra5SDA.load_default_package -->
+<!-- e2sg-backreferences: earth2studio.models.da.CorrDiffCosmoEra5SDA.load_model -->
 
 
 

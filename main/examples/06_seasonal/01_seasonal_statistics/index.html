@@ -2894,7 +2894,7 @@ inference. See ensemble examples for details on how to extend this example for t
 <a id="__codelineno-0-102" name="__codelineno-0-102" href="#__codelineno-0-102"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="s2">&quot;Inference complete&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-103" name="__codelineno-0-103" href="#__codelineno-0-103"></a>    <span class="k">return</span> <span class="n">io</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -3069,7 +3069,7 @@ CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft 
 <a id="__codelineno-1-154" name="__codelineno-1-154" href="#__codelineno-1-154"></a>
 <a id="__codelineno-1-155" name="__codelineno-1-155" href="#__codelineno-1-155"></a><span class="n">soi</span> <span class="o">=</span> <span class="n">SOI</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>60 lines</small></summary><pre><code>Downloading pangu_weather_24.onnx: 0%|          | 0.00/1.10G [00:00&lt;?, ?B/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>60 lines</small></summary><pre class="no-copy"><code>Downloading pangu_weather_24.onnx: 0%|          | 0.00/1.10G [00:00&lt;?, ?B/s]
 Downloading pangu_weather_24.onnx: 1%|          | 10.0M/1.10G [00:01&lt;02:02, 9.55MB/s]
 Downloading pangu_weather_24.onnx: 3%|▎         | 30.0M/1.10G [00:01&lt;00:39, 29.3MB/s]
 Downloading pangu_weather_24.onnx: 4%|▍         | 50.0M/1.10G [00:01&lt;00:23, 47.6MB/s]
@@ -3140,7 +3140,7 @@ We simulate a trajectory of 60 time steps, or 2 months using Pangu24</p>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">nensemble</span> <span class="o">=</span> <span class="mi">1</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">io</span> <span class="o">=</span> <span class="n">run_stats</span><span class="p">([</span><span class="s2">&quot;2022-01-01&quot;</span><span class="p">],</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">nensemble</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">soi</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>73 lines</small></summary><pre><code>2026-08-19 21:33:15.948 | INFO     | __main__:run_stats:59 - Running simple statistics workflow!
+<details class="e2sg-output" open><summary><span>Console output</span><small>73 lines</small></summary><pre class="no-copy"><code>2026-08-19 21:33:15.948 | INFO     | __main__:run_stats:59 - Running simple statistics workflow!
 2026-08-19 21:33:15.948 | INFO     | __main__:run_stats:62 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]

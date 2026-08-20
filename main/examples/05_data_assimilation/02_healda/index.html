@@ -2823,7 +2823,7 @@ grid.</p>
 <a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">model</span> <span class="o">=</span> <span class="n">HealDA</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">lat_lon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>161 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>161 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 
 Downloading config.json: 0%|          | 0.00/25.0 [00:00&lt;?, ?B/s]
@@ -3013,7 +3013,7 @@ window around the analysis time so that observations will be retrieved for.</p>
 <a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="p">)</span>
 <a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">sat_df</span><span class="p">)</span><span class="si">}</span><span class="s2"> satellite observations&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>208 lines</small></summary><pre><code>Fetching GSI files:   0%|          | 0/25 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>208 lines</small></summary><pre class="no-copy"><code>Fetching GSI files:   0%|          | 0/25 [00:00&lt;?, ?it/s]
 Fetching GSI files: 100%|██████████| 25/25 [00:00&lt;00:00, 5297.98it/s]
 2026-08-19 21:30:55.832 | INFO     | __main__:&lt;module&gt;:11 - Fetched 8515112 conventional observations
 
@@ -3286,19 +3286,19 @@ proper combined - to illustrate the impact each observation type has on the anal
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">result_both</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">conv_obs</span><span class="o">=</span><span class="n">conv_df</span><span class="p">,</span> <span class="n">sat_obs</span><span class="o">=</span><span class="n">sat_df</span><span class="p">)</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Combined analysis shape: </span><span class="si">{</span><span class="n">result_both</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre><code>2026-08-19 21:31:18.213 | INFO     | __main__:&lt;module&gt;:3 - Combined analysis shape: (1, 74, 181, 360)</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>2026-08-19 21:31:18.213 | INFO     | __main__:&lt;module&gt;:3 - Combined analysis shape: (1, 74, 181, 360)</code></pre></details>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">result_sat</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">sat_obs</span><span class="o">=</span><span class="n">sat_df</span><span class="p">)</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sat-only analysis shape: </span><span class="si">{</span><span class="n">result_sat</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre><code>2026-08-19 21:31:21.482 | INFO     | __main__:&lt;module&gt;:3 - Sat-only analysis shape: (1, 74, 181, 360)</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>2026-08-19 21:31:21.482 | INFO     | __main__:&lt;module&gt;:3 - Sat-only analysis shape: (1, 74, 181, 360)</code></pre></details>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">result_conv</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">conv_obs</span><span class="o">=</span><span class="n">conv_df</span><span class="p">)</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Conv-only analysis shape: </span><span class="si">{</span><span class="n">result_conv</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre><code>2026-08-19 21:31:25.799 | INFO     | __main__:&lt;module&gt;:3 - Conv-only analysis shape: (1, 74, 181, 360)</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>2026-08-19 21:31:25.799 | INFO     | __main__:&lt;module&gt;:3 - Conv-only analysis shape: (1, 74, 181, 360)</code></pre></details>
 
 <h2 id="post-processing">Post Processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
 <p>Because we loaded the model with <code>lat_lon=True</code> the output is already on a
@@ -3373,7 +3373,7 @@ yields the most accurate global prediction.</p>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">era5_da</span> <span class="o">=</span> <span class="n">era5_ds</span><span class="p">(</span><span class="n">analysis_time</span><span class="p">,</span> <span class="n">plot_vars</span><span class="p">)</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">era5_interp</span> <span class="o">=</span> <span class="n">era5_da</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">lat</span><span class="o">=</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="o">=</span><span class="n">lon</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre><code>Fetching NCAR ERA5 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre class="no-copy"><code>Fetching NCAR ERA5 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 Fetching NCAR ERA5 data:  50%|█████     | 1/2 [00:00&lt;00:00,  4.58it/s]
 Fetching NCAR ERA5 data: 100%|██████████| 2/2 [00:00&lt;00:00,  8.46it/s]</code></pre></details>
 
@@ -3386,7 +3386,7 @@ Fetching NCAR ERA5 data: 100%|██████████| 2/2 [00:00&lt;00:0
 <a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="n">mae</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">field_pred</span> <span class="o">-</span> <span class="n">field_era5</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
 <a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2"> MAE: </span><span class="si">{</span><span class="n">mae</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>6 lines</small></summary><pre><code>2026-08-19 21:31:54.133 | INFO     | __main__:&lt;module&gt;:8 - Conv+Sat - ERA5 | t2m MAE: 0.7994
+<details class="e2sg-output" open><summary><span>Console output</span><small>6 lines</small></summary><pre class="no-copy"><code>2026-08-19 21:31:54.133 | INFO     | __main__:&lt;module&gt;:8 - Conv+Sat - ERA5 | t2m MAE: 0.7994
 2026-08-19 21:31:54.134 | INFO     | __main__:&lt;module&gt;:8 - Conv+Sat - ERA5 | z500 MAE: 51.1967
 2026-08-19 21:31:54.135 | INFO     | __main__:&lt;module&gt;:8 - Sat - ERA5 | t2m MAE: 0.8496
 2026-08-19 21:31:54.135 | INFO     | __main__:&lt;module&gt;:8 - Sat - ERA5 | z500 MAE: 164.9191

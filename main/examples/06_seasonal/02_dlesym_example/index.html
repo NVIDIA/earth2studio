@@ -2850,7 +2850,7 @@ Also note the input and output variable set for each model.</p>
 <a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>    <span class="n">model_hpx</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">in_coords_hpx</span><span class="p">)[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
 <a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>47 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>47 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -2945,7 +2945,7 @@ for each of the atmosphere and ocean components.</p>
 <a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>    <span class="n">y_ocean_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
 <a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>37 lines</small></summary><pre><code>Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>37 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 16.77it/s]
 Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.55it/s]
 
@@ -2999,7 +2999,7 @@ a total of 60 days.</p>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Completed forecast with </span><span class="si">{</span><span class="n">n_steps</span><span class="si">}</span><span class="s2"> steps&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre><code>Completed forecast with 16 steps</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>Completed forecast with 16 steps</code></pre></details>
 
 <h2 id="using-built-in-deterministic-workflow">Using Built-in Deterministic Workflow<a class="headerlink" href="#using-built-in-deterministic-workflow" title="Permanent link">&para;</a></h2>
 <p>Because the <code>DLESyMLatLon</code> model permits usage of data coming directly from an
@@ -3026,7 +3026,7 @@ input and output lead time dimensions.</p>
 <a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">to_xarray</span><span class="p">()</span>
 <a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="nb">print</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>97 lines</small></summary><pre><code>2026-08-19 21:34:47.662 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+<details class="e2sg-output" open><summary><span>Console output</span><small>97 lines</small></summary><pre class="no-copy"><code>2026-08-19 21:34:47.662 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
 2026-08-19 21:34:47.662 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
 
 Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]

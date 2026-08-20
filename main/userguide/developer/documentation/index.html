@@ -2985,6 +2985,8 @@ use:</p>
 <p>To execute and refresh a single example before serving the site, pass a gallery selector:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make<span class="w"> </span>docs-dev<span class="w"> </span><span class="nv">FILENAME</span><span class="o">=</span>01_getting_started/01_deterministic_workflow.py
 </code></pre></div>
+<p>Only the selected example is executed. The complete gallery is then rendered from
+source and any retained execution artifacts.</p>
 <p>Build files are written to <code>site/</code>.</p>
 <p>The empty <code>docs/.nojekyll</code> file is intentionally kept in the MkDocs <code>docs_dir</code>.
 MkDocs copies it to the root of the built site, which tells GitHub Pages to serve

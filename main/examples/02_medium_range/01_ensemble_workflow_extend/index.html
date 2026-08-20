@@ -3332,7 +3332,7 @@ handed to them. In this example, we will use the built in ensemble workflow
 <a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="c1"># Create the data source</span>
 <a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="n">data</span> <span class="o">=</span> <span class="n">GFS</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -3402,7 +3402,7 @@ members which will be ran in 2 batches with batch size 4.</p>
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">output_coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;tcwv&quot;</span><span class="p">])},</span>
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>77 lines</small></summary><pre><code>2026-08-19 20:25:03.009 | INFO     | earth2studio.run:ensemble:394 - Running ensemble inference!
+<details class="e2sg-output" open><summary><span>Console output</span><small>77 lines</small></summary><pre class="no-copy"><code>2026-08-19 20:25:03.009 | INFO     | earth2studio.run:ensemble:394 - Running ensemble inference!
 2026-08-19 20:25:03.009 | INFO     | earth2studio.run:ensemble:401 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]

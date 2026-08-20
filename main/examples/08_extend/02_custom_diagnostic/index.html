@@ -2897,7 +2897,7 @@ to get the required <code>to(device)</code> method for free.</p>
 <a id="__codelineno-0-89" name="__codelineno-0-89" href="#__codelineno-0-89"></a>        <span class="n">out</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="mf">273.15</span>  <span class="c1"># To celcius</span>
 <a id="__codelineno-0-90" name="__codelineno-0-90" href="#__codelineno-0-90"></a>        <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]</code></pre></details>
 
 <h3 id="inputoutput-coordinates">Input/Output Coordinates<a class="headerlink" href="#inputoutput-coordinates" title="Permanent link">&para;</a></h3>
@@ -2952,7 +2952,7 @@ workflow. We will use the built in workflow <a href="../../../modules/generated/
 <a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="c1"># Create the IO handler, store in memory</span>
 <a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>7 lines</small></summary><pre><code>WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
+<details class="e2sg-output" open><summary><span>Console output</span><small>7 lines</small></summary><pre class="no-copy"><code>WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
     Python  3.10.19 (you have 3.13.13)
   Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
@@ -2970,7 +2970,7 @@ same as running a built in diagnostic.</p>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>40 lines</small></summary><pre><code>2026-08-19 21:53:50.301 | INFO     | earth2studio.run:diagnostic:238 - Running diagnostic workflow!
+<details class="e2sg-output" open><summary><span>Console output</span><small>40 lines</small></summary><pre class="no-copy"><code>2026-08-19 21:53:50.301 | INFO     | earth2studio.run:diagnostic:238 - Running diagnostic workflow!
 2026-08-19 21:53:50.301 | INFO     | earth2studio.run:diagnostic:244 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]

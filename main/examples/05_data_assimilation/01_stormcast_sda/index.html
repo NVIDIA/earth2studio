@@ -2866,7 +2866,7 @@ toward the observed values.</p>
 <a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>
 <a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="n">hrrr</span> <span class="o">=</span> <span class="n">HRRR</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -2891,7 +2891,7 @@ coordinate system.</p>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">)</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>5 lines</small></summary><pre><code>Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>5 lines</small></summary><pre class="no-copy"><code>Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
 Fetching HRRR data:   1%|          | 1/99 [00:03&lt;06:22,  3.90s/it]
 Fetching HRRR data:   3%|▎         | 3/99 [00:05&lt;02:37,  1.64s/it]
 Fetching HRRR data:  67%|██████▋   | 66/99 [00:06&lt;00:01, 18.13it/s]
@@ -2924,7 +2924,7 @@ used for comparison.</p>
 <a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="n">gen</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 <a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="n">no_obs_fields</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">no_obs_fields</span><span class="p">)</span>  <span class="c1"># (nsteps, H, W)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>68 lines</small></summary><pre><code>No-obs forecast:   0%|          | 0/6 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>68 lines</small></summary><pre class="no-copy"><code>No-obs forecast:   0%|          | 0/6 [00:00&lt;?, ?it/s]
 
 2026-08-19 21:20:26.077 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 1/6
 
@@ -3078,7 +3078,7 @@ observation DataFrame is sent to the generator. Zero-value wind reports
 <a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a><span class="n">gen</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 <a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a><span class="n">obs_fields</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">obs_fields</span><span class="p">)</span>  <span class="c1"># (nsteps, H, W)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>68 lines</small></summary><pre><code>Obs forecast:   0%|          | 0/6 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>68 lines</small></summary><pre class="no-copy"><code>Obs forecast:   0%|          | 0/6 [00:00&lt;?, ?it/s]
 
 2026-08-19 21:21:41.232 | INFO     | __main__:&lt;module&gt;:24 - Step 1/6 — 3281 obs
 
@@ -3284,7 +3284,7 @@ improves accuracy relative to the actual analysis.</p>
 <a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="n">no_obs_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">no_obs_fields</span> <span class="o">-</span> <span class="n">truth_fields</span><span class="p">)</span>
 <a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="n">obs_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">obs_fields</span> <span class="o">-</span> <span class="n">truth_fields</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>17 lines</small></summary><pre><code>Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>17 lines</small></summary><pre class="no-copy"><code>Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
 Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00, 47.55it/s]
 
 Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]

@@ -1,0 +1,3347 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source deep-learning framework for exploring, building and deploying AI weather and climate workflows.">
+      
+      
+      
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/examples/05_data_assimilation/03_corrdiff_cosmo_sda/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../_static/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>CorrDiff COSMO-REA2 Score-Based Data Assimilation - Earth2Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=NVIDIA+Sans:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"NVIDIA Sans";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/nvidia-material.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/earth2studio-gallery.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/mkdocs-badges.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#corrdiff-cosmo-rea2-score-based-data-assimilation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+        <aside class="md-banner">
+          <div class="md-banner__inner md-grid md-typeset">
+            
+              <button class="md-banner__button md-icon" aria-label="Don't show this again">
+                
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            
+            
+  <div class="e2s-announcement" role="status">
+  <span class="e2s-announcement__icon" aria-hidden="true">🚧</span>
+  <span>
+    <strong>Pardon the dust.</strong>
+    We are working to actively improve the Earth2Studio docs page. Apologies for any inconvenience.
+  </span>
+</div>
+
+          </div>
+          
+            <script>var el=document.querySelector("[data-md-component=announce]");if(el){var content=el.querySelector(".md-typeset");__md_hash(content.innerHTML)===__md_get("__announce")&&(el.hidden=!0)}</script>
+          
+        </aside>
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Earth2Studio" class="md-header__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Earth2Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              CorrDiff COSMO-REA2 Score-Based Data Assimilation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../userguide/about/install/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../modules/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../blog/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Blog
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Earth2Studio" class="md-nav__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    Earth2Studio
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/catalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Catalog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/components/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Components
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core Components
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/prognostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/data_assimilation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/datasources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/advanced/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Usage
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/checkpointing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/batch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Dimension
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/auto/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AutoModels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/lexicon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lexicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/notes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Knowledge Base
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/notes/surface_pressure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Surface Pressure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/developer/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/dependency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Style
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/support/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Support
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/support/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/support/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../modules/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_px/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_dx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_da/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_forecast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Forecast Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_dataframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DataFrame Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/utils_all/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../blog/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Blog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Posts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Posts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/2026/08/06/mkdocs-material-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MkDocs Material Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/archive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/categories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/categories/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Archive
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/archive/2026/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/category/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#set-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set Up
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#load-assimilation-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Load Assimilation Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fetch-coarse-resolution-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fetch Coarse-Resolution State
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fetch-observations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fetch Observations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prior-vs-observation-guided-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prior vs. Observation-Guided Analysis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#single-posterior-sample" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single Posterior Sample
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compare-to-held-out-stations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compare to Held-Out Stations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plot-the-analyses-and-their-difference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plot the Analyses and Their Difference
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="corrdiff-cosmo-rea2-score-based-data-assimilation">CorrDiff COSMO-REA2 Score-Based Data Assimilation<a class="headerlink" href="#corrdiff-cosmo-rea2-score-based-data-assimilation" title="Permanent link">&para;</a></h1>
+<p>Assimilate weather-station observations into COSMO-REA2 with CorrDiff.</p>
+<p>This example covers a dense-station region spanning the Netherlands, NW Germany,
+and the adjacent North Sea. Given an ERA5 driving state for a historical time and
+sparse GHCNHourly 10 m wind reports, diffusion posterior sampling (DPS) steers the
+diffusion downscaler's denoising trajectory toward the observations, producing a
+high-resolution COSMO-REA analysis guided toward what the stations actually
+measured.</p>
+<p>CorrDiff-COSMO is a single-shot <em>diagnostic</em> downscaler. It does not propagate
+state between times; each call produces an independent analysis conditioned on
+the ERA5 input for one time.</p>
+<p>A random subset of stations is assimilated and the analysis is compared to the
+<em>held-out</em> stations. This single case illustrates observation behavior at the
+held-out sites -- it is not a statistical skill assessment, and one time / split /
+ensemble does not guarantee improvement.</p>
+<p>In this example you will learn:</p>
+<ul>
+<li>Load <code>CorrDiffCosmoEra5SDA</code> on a COSMO-REA2 sub-domain</li>
+<li>Fetch an ERA5 driving state (ARCO) and regrid it onto the downscaler's input grid</li>
+<li>Fetch GHCNHourly 10 m wind observations over the model domain</li>
+<li>Produce a prior (free, no-obs) downscaling and an observation-guided analysis</li>
+<li>Compare both fields to held-out stations (prior vs analysis RMSE)</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The default ~206 x 206-cell sub-domain completed in a few minutes and used about
+5 GB of GPU memory in one test run (bf16). Set <code>DOMAIN = None</code> for the full domain;
+its time and memory requirements were not validated.</p>
+</div>
+<h2 id="set-up">Set Up<a class="headerlink" href="#set-up" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">RegularGridInterpolator</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">cKDTree</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">INIT_TIME</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">ASSIMILATE</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;u10m&quot;</span><span class="p">,</span> <span class="s2">&quot;v10m&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="c1"># Set to None for the full COSMO-REA2 domain.</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">DOMAIN</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">lat_min</span><span class="o">=</span><span class="mf">50.2</span><span class="p">,</span> <span class="n">lat_max</span><span class="o">=</span><span class="mf">53.8</span><span class="p">,</span> <span class="n">lon_min</span><span class="o">=</span><span class="mf">4.6</span><span class="p">,</span> <span class="n">lon_max</span><span class="o">=</span><span class="mf">10.4</span><span class="p">)</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">ENSEMBLE_SIZE</span> <span class="o">=</span> <span class="mi">1</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">SAMPLER_STEPS</span> <span class="o">=</span> <span class="mi">12</span>  <span class="c1"># Reduced from 18 for this example.</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">SDA_STD_OBS</span> <span class="o">=</span> <span class="mf">0.5</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">SDA_GAMMA</span> <span class="o">=</span> <span class="mf">5e-5</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">VAL_FRAC</span> <span class="o">=</span> <span class="mf">0.3</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">OBS_TIME_TOLERANCE</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="n">DEVICE</span> <span class="o">=</span> <span class="s2">&quot;cuda:0&quot;</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="n">DATA</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">()</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">PROJ</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">RotatedPole</span><span class="p">(</span><span class="n">pole_longitude</span><span class="o">=-</span><span class="mf">170.0</span><span class="p">,</span> <span class="n">pole_latitude</span><span class="o">=</span><span class="mf">40.0</span><span class="p">)</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="load-assimilation-model">Load Assimilation Model<a class="headerlink" href="#load-assimilation-model" title="Permanent link">&para;</a></h2>
+<p><code>CorrDiffCosmoEra5SDA</code> wraps a diffusion-mode <code>CorrDiffCosmoEra5</code> downscaler.
+<code>assimilate_variables</code> is required and must be identity-transform, unit-scale
+output channels -- here the 10 m wind, which matches the station reports' height.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCO</span><span class="p">,</span> <span class="n">GHCNHourly</span><span class="p">,</span> <span class="n">fetch_data</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.da</span><span class="w"> </span><span class="kn">import</span> <span class="n">CorrDiffCosmoEra5SDA</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">package</span> <span class="o">=</span> <span class="n">CorrDiffCosmoEra5SDA</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">sda</span> <span class="o">=</span> <span class="n">CorrDiffCosmoEra5SDA</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">package</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">assimilate_variables</span><span class="o">=</span><span class="n">ASSIMILATE</span><span class="p">,</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">resolution</span><span class="o">=</span><span class="s2">&quot;rea2&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">domain</span><span class="o">=</span><span class="n">DOMAIN</span><span class="p">,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">time_tolerance</span><span class="o">=</span><span class="n">OBS_TIME_TOLERANCE</span><span class="p">,</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">number_of_samples</span><span class="o">=</span><span class="n">ENSEMBLE_SIZE</span><span class="p">,</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">sampler_steps</span><span class="o">=</span><span class="n">SAMPLER_STEPS</span><span class="p">,</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">sda_std_obs</span><span class="o">=</span><span class="n">SDA_STD_OBS</span><span class="p">,</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">sda_gamma</span><span class="o">=</span><span class="n">SDA_GAMMA</span><span class="p">,</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">amp</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">DEVICE</span><span class="p">)</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="n">sda</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="mi">0</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>113 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
+    PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
+    Python  3.10.19 (you have 3.13.13)
+  Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
+  Memory-efficient attention, SwiGLU, sparse and more won't be available.
+  Set XFORMERS_MORE_DETAILS=1 for more details
+CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature
+
+Downloading config.json: 0%|          | 0.00/74.0 [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 74.0/74.0 [00:00&lt;00:00, 385B/s]
+Downloading config.json: 100%|██████████| 74.0/74.0 [00:00&lt;00:00, 380B/s]
+
+Downloading metadata.json: 0%|          | 0.00/5.46k [00:00&lt;?, ?B/s]
+Downloading metadata.json: 100%|██████████| 5.46k/5.46k [00:00&lt;00:00, 32.2kB/s]
+Downloading metadata.json: 100%|██████████| 5.46k/5.46k [00:00&lt;00:00, 31.7kB/s]
+
+Downloading diffusion.mdlus: 0%|          | 0.00/663M [00:00&lt;?, ?B/s]
+Downloading diffusion.mdlus: 2%|▏         | 10.0M/663M [00:01&lt;01:43, 6.60MB/s]
+Downloading diffusion.mdlus: 3%|▎         | 20.0M/663M [00:01&lt;00:46, 14.4MB/s]
+Downloading diffusion.mdlus: 5%|▍         | 30.0M/663M [00:01&lt;00:29, 22.7MB/s]
+Downloading diffusion.mdlus: 6%|▌         | 40.0M/663M [00:01&lt;00:20, 31.8MB/s]
+Downloading diffusion.mdlus: 8%|▊         | 50.0M/663M [00:02&lt;00:16, 40.1MB/s]
+Downloading diffusion.mdlus: 9%|▉         | 60.0M/663M [00:02&lt;00:13, 45.3MB/s]
+Downloading diffusion.mdlus: 11%|█         | 70.0M/663M [00:02&lt;00:15, 39.8MB/s]
+Downloading diffusion.mdlus: 12%|█▏        | 80.0M/663M [00:02&lt;00:12, 47.1MB/s]
+Downloading diffusion.mdlus: 14%|█▎        | 90.0M/663M [00:03&lt;00:13, 45.2MB/s]
+Downloading diffusion.mdlus: 15%|█▌        | 100M/663M [00:03&lt;00:20, 29.0MB/s] 
+Downloading diffusion.mdlus: 17%|█▋        | 110M/663M [00:03&lt;00:18, 31.9MB/s]
+Downloading diffusion.mdlus: 18%|█▊        | 120M/663M [00:04&lt;00:16, 34.2MB/s]
+Downloading diffusion.mdlus: 20%|█▉        | 130M/663M [00:04&lt;00:18, 30.0MB/s]
+Downloading diffusion.mdlus: 21%|██        | 140M/663M [00:04&lt;00:15, 34.4MB/s]
+Downloading diffusion.mdlus: 23%|██▎       | 150M/663M [00:04&lt;00:13, 39.7MB/s]
+Downloading diffusion.mdlus: 24%|██▍       | 160M/663M [00:05&lt;00:12, 43.7MB/s]
+Downloading diffusion.mdlus: 26%|██▌       | 170M/663M [00:05&lt;00:10, 48.0MB/s]
+Downloading diffusion.mdlus: 27%|██▋       | 180M/663M [00:05&lt;00:10, 48.9MB/s]
+Downloading diffusion.mdlus: 29%|██▊       | 190M/663M [00:05&lt;00:09, 50.4MB/s]
+Downloading diffusion.mdlus: 30%|███       | 200M/663M [00:06&lt;00:11, 43.0MB/s]
+Downloading diffusion.mdlus: 32%|███▏      | 210M/663M [00:06&lt;00:11, 42.6MB/s]
+Downloading diffusion.mdlus: 33%|███▎      | 220M/663M [00:06&lt;00:09, 48.8MB/s]
+Downloading diffusion.mdlus: 35%|███▍      | 230M/663M [00:06&lt;00:09, 46.0MB/s]
+Downloading diffusion.mdlus: 36%|███▌      | 240M/663M [00:06&lt;00:09, 49.2MB/s]
+Downloading diffusion.mdlus: 38%|███▊      | 250M/663M [00:07&lt;00:08, 48.6MB/s]
+Downloading diffusion.mdlus: 39%|███▉      | 260M/663M [00:07&lt;00:09, 43.3MB/s]
+Downloading diffusion.mdlus: 41%|████      | 270M/663M [00:07&lt;00:08, 49.0MB/s]
+Downloading diffusion.mdlus: 42%|████▏     | 280M/663M [00:07&lt;00:09, 40.6MB/s]
+Downloading diffusion.mdlus: 44%|████▎     | 290M/663M [00:08&lt;00:08, 45.5MB/s]
+Downloading diffusion.mdlus: 45%|████▌     | 300M/663M [00:08&lt;00:08, 45.5MB/s]
+Downloading diffusion.mdlus: 47%|████▋     | 310M/663M [00:08&lt;00:07, 50.3MB/s]
+Downloading diffusion.mdlus: 48%|████▊     | 320M/663M [00:08&lt;00:07, 45.4MB/s]
+Downloading diffusion.mdlus: 50%|████▉     | 330M/663M [00:08&lt;00:06, 50.8MB/s]
+Downloading diffusion.mdlus: 51%|█████     | 340M/663M [00:09&lt;00:06, 55.2MB/s]
+Downloading diffusion.mdlus: 53%|█████▎    | 350M/663M [00:09&lt;00:05, 60.7MB/s]
+Downloading diffusion.mdlus: 54%|█████▍    | 360M/663M [00:09&lt;00:05, 63.4MB/s]
+Downloading diffusion.mdlus: 56%|█████▌    | 370M/663M [00:09&lt;00:04, 66.0MB/s]
+Downloading diffusion.mdlus: 57%|█████▋    | 380M/663M [00:09&lt;00:04, 68.9MB/s]
+Downloading diffusion.mdlus: 59%|█████▉    | 390M/663M [00:09&lt;00:04, 58.6MB/s]
+Downloading diffusion.mdlus: 60%|██████    | 400M/663M [00:10&lt;00:04, 59.0MB/s]
+Downloading diffusion.mdlus: 62%|██████▏   | 410M/663M [00:10&lt;00:04, 56.6MB/s]
+Downloading diffusion.mdlus: 63%|██████▎   | 420M/663M [00:10&lt;00:04, 55.9MB/s]
+Downloading diffusion.mdlus: 65%|██████▍   | 430M/663M [00:10&lt;00:04, 60.7MB/s]
+Downloading diffusion.mdlus: 66%|██████▋   | 440M/663M [00:10&lt;00:03, 63.1MB/s]
+Downloading diffusion.mdlus: 68%|██████▊   | 450M/663M [00:11&lt;00:04, 49.9MB/s]
+Downloading diffusion.mdlus: 69%|██████▉   | 460M/663M [00:11&lt;00:03, 54.0MB/s]
+Downloading diffusion.mdlus: 71%|███████   | 470M/663M [00:11&lt;00:03, 53.6MB/s]
+Downloading diffusion.mdlus: 72%|███████▏  | 480M/663M [00:11&lt;00:03, 55.1MB/s]
+Downloading diffusion.mdlus: 74%|███████▍  | 490M/663M [00:11&lt;00:03, 49.4MB/s]
+Downloading diffusion.mdlus: 75%|███████▌  | 500M/663M [00:12&lt;00:03, 48.7MB/s]
+Downloading diffusion.mdlus: 77%|███████▋  | 510M/663M [00:12&lt;00:03, 47.7MB/s]
+Downloading diffusion.mdlus: 78%|███████▊  | 520M/663M [00:12&lt;00:03, 41.2MB/s]
+Downloading diffusion.mdlus: 80%|███████▉  | 530M/663M [00:12&lt;00:03, 42.7MB/s]
+Downloading diffusion.mdlus: 81%|████████▏ | 540M/663M [00:13&lt;00:02, 45.3MB/s]
+Downloading diffusion.mdlus: 83%|████████▎ | 550M/663M [00:13&lt;00:02, 50.4MB/s]
+Downloading diffusion.mdlus: 84%|████████▍ | 560M/663M [00:13&lt;00:02, 52.9MB/s]
+Downloading diffusion.mdlus: 86%|████████▌ | 570M/663M [00:13&lt;00:01, 56.2MB/s]
+Downloading diffusion.mdlus: 87%|████████▋ | 580M/663M [00:13&lt;00:01, 48.0MB/s]
+Downloading diffusion.mdlus: 89%|████████▉ | 590M/663M [00:13&lt;00:01, 53.8MB/s]
+Downloading diffusion.mdlus: 90%|█████████ | 600M/663M [00:14&lt;00:01, 59.1MB/s]
+Downloading diffusion.mdlus: 92%|█████████▏| 610M/663M [00:14&lt;00:00, 63.7MB/s]
+Downloading diffusion.mdlus: 93%|█████████▎| 620M/663M [00:14&lt;00:00, 68.6MB/s]
+Downloading diffusion.mdlus: 95%|█████████▍| 630M/663M [00:14&lt;00:00, 70.0MB/s]
+Downloading diffusion.mdlus: 96%|█████████▋| 640M/663M [00:14&lt;00:00, 73.5MB/s]
+Downloading diffusion.mdlus: 98%|█████████▊| 650M/663M [00:14&lt;00:00, 74.0MB/s]
+Downloading diffusion.mdlus: 99%|█████████▉| 660M/663M [00:14&lt;00:00, 76.6MB/s]
+Downloading diffusion.mdlus: 100%|██████████| 663M/663M [00:14&lt;00:00, 46.5MB/s]
+
+Downloading stats.json: 0%|          | 0.00/7.07k [00:00&lt;?, ?B/s]
+Downloading stats.json: 100%|██████████| 7.07k/7.07k [00:00&lt;00:00, 26.3kB/s]
+Downloading stats.json: 100%|██████████| 7.07k/7.07k [00:00&lt;00:00, 26.1kB/s]
+
+Downloading grids.nc: 0%|          | 0.00/4.32M [00:00&lt;?, ?B/s]
+Downloading grids.nc: 100%|██████████| 4.32M/4.32M [00:00&lt;00:00, 6.48MB/s]
+Downloading grids.nc: 100%|██████████| 4.32M/4.32M [00:00&lt;00:00, 6.42MB/s]
+
+Downloading invariants_norm_stats.json: 0%|          | 0.00/992 [00:00&lt;?, ?B/s]
+Downloading invariants_norm_stats.json: 100%|██████████| 992/992 [00:00&lt;00:00, 5.51kB/s]
+Downloading invariants_norm_stats.json: 100%|██████████| 992/992 [00:00&lt;00:00, 5.41kB/s]
+
+Downloading invariants_rea2_ext.nc: 0%|          | 0.00/114M [00:00&lt;?, ?B/s]
+Downloading invariants_rea2_ext.nc: 9%|▉         | 10.0M/114M [00:00&lt;00:09, 11.6MB/s]
+Downloading invariants_rea2_ext.nc: 18%|█▊        | 20.0M/114M [00:01&lt;00:04, 20.0MB/s]
+Downloading invariants_rea2_ext.nc: 26%|██▋       | 30.0M/114M [00:01&lt;00:02, 30.8MB/s]
+Downloading invariants_rea2_ext.nc: 35%|███▌      | 40.0M/114M [00:01&lt;00:01, 40.1MB/s]
+Downloading invariants_rea2_ext.nc: 44%|████▍     | 50.0M/114M [00:01&lt;00:01, 49.3MB/s]
+Downloading invariants_rea2_ext.nc: 53%|█████▎    | 60.0M/114M [00:01&lt;00:00, 56.6MB/s]
+Downloading invariants_rea2_ext.nc: 62%|██████▏   | 70.0M/114M [00:01&lt;00:00, 63.9MB/s]
+Downloading invariants_rea2_ext.nc: 70%|███████   | 80.0M/114M [00:02&lt;00:00, 42.9MB/s]
+Downloading invariants_rea2_ext.nc: 79%|███████▉  | 90.0M/114M [00:02&lt;00:00, 49.9MB/s]
+Downloading invariants_rea2_ext.nc: 88%|████████▊ | 100M/114M [00:02&lt;00:00, 56.8MB/s] 
+Downloading invariants_rea2_ext.nc: 97%|█████████▋| 110M/114M [00:02&lt;00:00, 61.9MB/s]
+Downloading invariants_rea2_ext.nc: 100%|██████████| 114M/114M [00:02&lt;00:00, 44.8MB/s]
+2026-08-20 11:14:54.790 | INFO     | earth2studio.models.dx.corrdiff_cosmo_era5:load_model:1916 - Loaded CorrDiffCosmoEra5 resolution=rea2 mode=diffusion (22 output channels)</code></pre></details>
+
+<h2 id="fetch-coarse-resolution-state">Fetch Coarse-Resolution State<a class="headerlink" href="#fetch-coarse-resolution-state" title="Permanent link">&para;</a></h2>
+<p>Fetch an ERA5 analysis (ARCO) for the historical time and regrid it onto the
+downscaler's regional input grid. The result is an <code>xr.DataArray</code> with dims
+<code>(time, variable, lat, lon)</code> -- the same driving state the downscaler
+conditions on; the <code>time</code> coord also drives its day/night (solar) input.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">regrid_to_input</span><span class="p">(</span><span class="n">x_src</span><span class="p">,</span> <span class="n">src_coords</span><span class="p">,</span> <span class="n">dvars</span><span class="p">,</span> <span class="n">dlat</span><span class="p">,</span> <span class="n">dlon</span><span class="p">):</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Subset to the downscaler&#39;s ERA5 variables and bilinearly regrid a global</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="sd">    regular lat/lon field onto its regional grid. Returns [n_var, n_lat, n_lon].&quot;&quot;&quot;</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">svars</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">src_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">slat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">src_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">slon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">src_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">field</span> <span class="o">=</span> <span class="n">x_src</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">svars</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">slat</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">slon</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">field</span> <span class="o">=</span> <span class="n">field</span><span class="p">[[</span><span class="n">svars</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">dvars</span><span class="p">]]</span>  <span class="c1"># select the ERA5 channels</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="k">if</span> <span class="n">slat</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">slat</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>  <span class="c1"># ensure ascending latitude</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="n">slat</span><span class="p">,</span> <span class="n">field</span> <span class="o">=</span> <span class="n">slat</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">field</span><span class="p">[:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">field_w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">field</span><span class="p">,</span> <span class="n">field</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># lon wrap column</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">slon_w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">slon</span><span class="p">,</span> <span class="p">[</span><span class="n">slon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mf">360.0</span><span class="p">]])</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">lon2d</span><span class="p">,</span> <span class="n">lat2d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">dlon</span> <span class="o">%</span> <span class="mf">360.0</span><span class="p">,</span> <span class="n">dlat</span><span class="p">)</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="n">pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">lat2d</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">lon2d</span><span class="o">.</span><span class="n">ravel</span><span class="p">()],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">dvars</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">dlat</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">dlon</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dvars</span><span class="p">)):</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>        <span class="n">out</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">RegularGridInterpolator</span><span class="p">(</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>            <span class="p">(</span><span class="n">slat</span><span class="p">,</span> <span class="n">slon_w</span><span class="p">),</span> <span class="n">field_w</span><span class="p">[</span><span class="n">c</span><span class="p">],</span> <span class="n">bounds_error</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="kc">None</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        <span class="p">)(</span><span class="n">pts</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dlat</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">dlon</span><span class="p">))</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>    <span class="k">return</span> <span class="n">out</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="n">ic</span> <span class="o">=</span> <span class="n">sda</span><span class="o">.</span><span class="n">init_coords</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="n">dvars</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ic</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="n">dlat</span><span class="p">,</span> <span class="n">dlon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ic</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ic</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">])</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="n">INIT_TIME</span><span class="p">)])</span>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="n">x_src</span><span class="p">,</span> <span class="n">c_src</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>    <span class="n">ARCO</span><span class="p">(),</span>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>    <span class="n">time</span><span class="o">=</span><span class="n">t</span><span class="p">,</span>
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>    <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dvars</span><span class="p">),</span>
+<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>    <span class="n">lead_time</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
+<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>    <span class="n">device</span><span class="o">=</span><span class="n">DEVICE</span><span class="p">,</span>
+<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a><span class="p">)</span>
+<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a><span class="n">era5</span> <span class="o">=</span> <span class="n">regrid_to_input</span><span class="p">(</span><span class="n">x_src</span><span class="p">,</span> <span class="n">c_src</span><span class="p">,</span> <span class="n">dvars</span><span class="p">,</span> <span class="n">dlat</span><span class="p">,</span> <span class="n">dlon</span><span class="p">)</span>
+<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a><span class="n">x_da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>    <span class="n">data</span><span class="o">=</span><span class="n">era5</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span>
+<a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>    <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a>    <span class="n">coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">t</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dvars</span><span class="p">),</span> <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">dlat</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">dlon</span><span class="p">},</span>
+<a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  67%|██████▋   | 8/12 [00:00&lt;00:00, 24.65it/s]
+Fetching ARCO data:  92%|█████████▏| 11/12 [00:00&lt;00:00, 22.87it/s]
+Fetching ARCO data: 100%|██████████| 12/12 [00:00&lt;00:00, 25.33it/s]</code></pre></details>
+
+<h2 id="fetch-observations">Fetch Observations<a class="headerlink" href="#fetch-observations" title="Permanent link">&para;</a></h2>
+<p>Fetch paired wind reports and split stations into assimilated and held-out sets.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">glat</span> <span class="o">=</span> <span class="n">sda</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">lat_output_numpy</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">glon</span> <span class="o">=</span> <span class="n">sda</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">lon_output_numpy</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">bbox</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">glat</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span> <span class="nb">float</span><span class="p">(</span><span class="n">glon</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span> <span class="nb">float</span><span class="p">(</span><span class="n">glat</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span> <span class="nb">float</span><span class="p">(</span><span class="n">glon</span><span class="o">.</span><span class="n">max</span><span class="p">()))</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">stations</span> <span class="o">=</span> <span class="n">GHCNHourly</span><span class="o">.</span><span class="n">get_stations_bbox</span><span class="p">(</span><span class="n">bbox</span><span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">ghcn</span> <span class="o">=</span> <span class="n">GHCNHourly</span><span class="p">(</span><span class="n">stations</span><span class="o">=</span><span class="n">stations</span><span class="p">,</span> <span class="n">time_tolerance</span><span class="o">=</span><span class="n">OBS_TIME_TOLERANCE</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">raw</span> <span class="o">=</span> <span class="n">ghcn</span><span class="p">(</span><span class="n">INIT_TIME</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">ASSIMILATE</span><span class="p">))</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">raw</span> <span class="o">=</span> <span class="n">raw</span><span class="p">[</span><span class="n">raw</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">ASSIMILATE</span><span class="p">)]</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;observation&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">raw</span><span class="p">[</span><span class="s2">&quot;dt&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">raw</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">])</span> <span class="o">-</span> <span class="n">INIT_TIME</span><span class="p">)</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">raw</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;dt&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">([</span><span class="s2">&quot;station&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">],</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;first&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">complete_stations</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;station&quot;</span><span class="p">)[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span><span class="o">.</span><span class="n">eq</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ASSIMILATE</span><span class="p">))</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">raw</span> <span class="o">=</span> <span class="n">raw</span><span class="p">[</span><span class="n">raw</span><span class="p">[</span><span class="s2">&quot;station&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">complete_stations</span><span class="p">[</span><span class="n">complete_stations</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">)]</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">station_ids</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">raw</span><span class="p">[</span><span class="s2">&quot;station&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Stations with </span><span class="si">{</span><span class="s1">&#39;+&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ASSIMILATE</span><span class="p">)</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">INIT_TIME</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">station_ids</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">station_ids</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>        <span class="sa">f</span><span class="s2">&quot;Need at least 2 usable stations (got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">station_ids</span><span class="p">)</span><span class="si">}</span><span class="s2">); widen DOMAIN, &quot;</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>        <span class="s2">&quot;loosen OBS_TIME_TOLERANCE, or choose another time.&quot;</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>    <span class="p">)</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="n">n_val</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">station_ids</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">station_ids</span><span class="p">)</span> <span class="o">*</span> <span class="n">VAL_FRAC</span><span class="p">))))</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="n">val_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">station_ids</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">n_val</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="n">obs_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;observation&quot;</span><span class="p">]</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="n">is_held_out</span> <span class="o">=</span> <span class="n">raw</span><span class="p">[</span><span class="s2">&quot;station&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">val_ids</span><span class="p">)</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="n">assimilated_reports</span> <span class="o">=</span> <span class="n">raw</span><span class="p">[</span><span class="o">~</span><span class="n">is_held_out</span><span class="p">]</span>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="n">held_out_reports</span> <span class="o">=</span> <span class="n">raw</span><span class="p">[</span><span class="n">is_held_out</span><span class="p">]</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="n">assimilation_obs</span> <span class="o">=</span> <span class="n">assimilated_reports</span><span class="p">[</span><span class="n">obs_cols</span><span class="p">]</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="n">n_assim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">station_ids</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">val_ids</span><span class="p">)</span>
+<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Assimilated: </span><span class="si">{</span><span class="n">n_assim</span><span class="si">}</span><span class="s2"> stations | Held-out: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">val_ids</span><span class="p">)</span><span class="si">}</span><span class="s2"> stations&quot;</span><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>Stations with u10m+v10m at 2024-01-01 00:00:00: 77
+Assimilated: 54 stations | Held-out: 23 stations</code></pre></details>
+
+<h2 id="prior-vs-observation-guided-analysis">Prior vs. Observation-Guided Analysis<a class="headerlink" href="#prior-vs-observation-guided-analysis" title="Permanent link">&para;</a></h2>
+<p>Run the downscaler twice on the same ERA5 state: once with no observations (the
+prior, <code>obs=None</code>) and once with the observations selected for assimilation.
+Both return an ensemble with dims <code>(time, sample, variable, y, x)</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_numpy</span><span class="p">(</span><span class="n">da</span><span class="p">):</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the DataArray data as a NumPy array.&quot;&quot;&quot;</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">arr</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">data</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="k">return</span> <span class="n">arr</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="s2">&quot;get&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">post</span> <span class="o">=</span> <span class="n">sda</span><span class="p">(</span><span class="n">x_da</span><span class="p">,</span> <span class="n">assimilation_obs</span><span class="p">)</span>  <span class="c1"># analysis (observation-guided)</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">free</span> <span class="o">=</span> <span class="n">sda</span><span class="p">(</span><span class="n">x_da</span><span class="p">)</span>  <span class="c1"># prior (free, no-obs downscaling)</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="c1"># Locate the wind-component channels and output grid used for evaluation and plotting.</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="n">output_variables</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">post</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">u_index</span> <span class="o">=</span> <span class="n">output_variables</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;u10m&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">v_index</span> <span class="o">=</span> <span class="n">output_variables</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;v10m&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="n">output_lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">post</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">])</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="n">output_lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">post</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">])</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="n">post_np</span><span class="p">,</span> <span class="n">free_np</span> <span class="o">=</span> <span class="n">to_numpy</span><span class="p">(</span><span class="n">post</span><span class="p">),</span> <span class="n">to_numpy</span><span class="p">(</span><span class="n">free</span><span class="p">)</span>  <span class="c1"># [time, sample, variable, y, x]</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>2026-08-20 11:15:36.180 | WARNING  | earth2studio.models.da.utils:dfseries_to_torch:99 - Converting pandas Series to GPU tensor. Consider installing cudf for zero-copy transfer and better performance.</code></pre></details>
+
+<h2 id="single-posterior-sample">Single Posterior Sample<a class="headerlink" href="#single-posterior-sample" title="Permanent link">&para;</a></h2>
+<p>Compare the observation-guided analysis with the prior using 10 m wind speed and
+vector-wind RMSE.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">ws_post</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hypot</span><span class="p">(</span><span class="n">post_np</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="n">u_index</span><span class="p">],</span> <span class="n">post_np</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="n">v_index</span><span class="p">])</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">ws_free</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hypot</span><span class="p">(</span><span class="n">free_np</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="n">u_index</span><span class="p">],</span> <span class="n">free_np</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="n">v_index</span><span class="p">])</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">analysis_u</span> <span class="o">=</span> <span class="n">post_np</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="n">u_index</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">analysis_v</span> <span class="o">=</span> <span class="n">post_np</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="n">v_index</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">prior_u</span> <span class="o">=</span> <span class="n">free_np</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="n">u_index</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">prior_v</span> <span class="o">=</span> <span class="n">free_np</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="n">v_index</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="nb">print</span><span class="p">(</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="sa">f</span><span class="s2">&quot;Finite values: Posterior=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">post_np</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="si">}</span><span class="s2">, &quot;</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="sa">f</span><span class="s2">&quot;Prior=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">free_np</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>Finite values: Posterior=True, Prior=True</code></pre></details>
+
+<h2 id="compare-to-held-out-stations">Compare to Held-Out Stations<a class="headerlink" href="#compare-to-held-out-stations" title="Permanent link">&para;</a></h2>
+<p>Compute the vector-wind RMSE of each analysis against the observations, at the
+stations' nearest output cells. The <em>held-out</em> stations were never assimilated,
+so their prior-vs-posterior RMSE illustrates how the analysis behaves at
+unassimilated sites for this single case -- it is a diagnostic, not a statistical
+skill claim, and a single time/split/ensemble does not guarantee improvement.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">vector_rmse_at</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">u_field</span><span class="p">,</span> <span class="n">v_field</span><span class="p">):</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute vector wind RMSE at station locations.&quot;&quot;&quot;</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">u_reports</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;u10m&quot;</span><span class="p">][[</span><span class="s2">&quot;station&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="s2">&quot;observation&quot;</span><span class="p">]]</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">v_reports</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;v10m&quot;</span><span class="p">][[</span><span class="s2">&quot;station&quot;</span><span class="p">,</span> <span class="s2">&quot;observation&quot;</span><span class="p">]]</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">merged</span> <span class="o">=</span> <span class="n">u_reports</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">v_reports</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;station&quot;</span><span class="p">,</span> <span class="n">suffixes</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;_u&quot;</span><span class="p">,</span> <span class="s2">&quot;_v&quot;</span><span class="p">))</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">merged</span><span class="p">):</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;nan&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">tree</span> <span class="o">=</span> <span class="n">cKDTree</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">output_lat</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="p">(</span><span class="n">output_lon</span> <span class="o">%</span> <span class="mi">360</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()]))</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">_</span><span class="p">,</span> <span class="n">flat</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">merged</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span> <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">%</span> <span class="mi">360</span><span class="p">]))</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">bi</span><span class="p">,</span> <span class="n">bj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">flat</span><span class="p">,</span> <span class="n">output_lat</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    <span class="n">u_error</span> <span class="o">=</span> <span class="n">u_field</span><span class="p">[</span><span class="n">bi</span><span class="p">,</span> <span class="n">bj</span><span class="p">]</span> <span class="o">-</span> <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;observation_u&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="n">v_error</span> <span class="o">=</span> <span class="n">v_field</span><span class="p">[</span><span class="n">bi</span><span class="p">,</span> <span class="n">bj</span><span class="p">]</span> <span class="o">-</span> <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;observation_v&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">u_error</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">v_error</span><span class="o">**</span><span class="mi">2</span><span class="p">)))</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="n">held_out_prior</span> <span class="o">=</span> <span class="n">vector_rmse_at</span><span class="p">(</span><span class="n">held_out_reports</span><span class="p">,</span> <span class="n">prior_u</span><span class="p">,</span> <span class="n">prior_v</span><span class="p">)</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="n">held_out_analysis</span> <span class="o">=</span> <span class="n">vector_rmse_at</span><span class="p">(</span><span class="n">held_out_reports</span><span class="p">,</span> <span class="n">analysis_u</span><span class="p">,</span> <span class="n">analysis_v</span><span class="p">)</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="n">assimilated_prior</span> <span class="o">=</span> <span class="n">vector_rmse_at</span><span class="p">(</span><span class="n">assimilated_reports</span><span class="p">,</span> <span class="n">prior_u</span><span class="p">,</span> <span class="n">prior_v</span><span class="p">)</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="n">assimilated_analysis</span> <span class="o">=</span> <span class="n">vector_rmse_at</span><span class="p">(</span><span class="n">assimilated_reports</span><span class="p">,</span> <span class="n">analysis_u</span><span class="p">,</span> <span class="n">analysis_v</span><span class="p">)</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Vector 10 m wind RMSE vs. GHCNHourly (m/s)&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Held-out: Prior=</span><span class="si">{</span><span class="n">held_out_prior</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, Analysis=</span><span class="si">{</span><span class="n">held_out_analysis</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="nb">print</span><span class="p">(</span>
+<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a>    <span class="sa">f</span><span class="s2">&quot;Assimilated: Prior=</span><span class="si">{</span><span class="n">assimilated_prior</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, Analysis=</span><span class="si">{</span><span class="n">assimilated_analysis</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre class="no-copy"><code>Vector 10 m wind RMSE vs. GHCNHourly (m/s)
+Held-out: Prior=6.285, Analysis=5.741
+Assimilated: Prior=6.244, Analysis=85.137</code></pre></details>
+
+<h2 id="plot-the-analyses-and-their-difference">Plot the Analyses and Their Difference<a class="headerlink" href="#plot-the-analyses-and-their-difference" title="Permanent link">&para;</a></h2>
+<p>Finally, we can plot the results:</p>
+<ul>
+<li>Left: prior 10 m wind speed.</li>
+<li>Center: observation-guided analysis with assimilated and held-out stations.</li>
+<li>Right: signed analysis increment.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">title_box</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;facecolor&quot;</span><span class="p">:</span> <span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="s2">&quot;alpha&quot;</span><span class="p">:</span> <span class="mf">0.75</span><span class="p">,</span> <span class="s2">&quot;edgecolor&quot;</span><span class="p">:</span> <span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="s2">&quot;pad&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">format_map</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">left_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Style a map axis.&quot;&quot;&quot;</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="n">title_box</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">ax</span><span class="o">.</span><span class="n">set_extent</span><span class="p">(</span><span class="n">extent</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">PROJ</span><span class="p">)</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">(</span><span class="n">resolution</span><span class="o">=</span><span class="s2">&quot;50m&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;0.3&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="n">gridlines</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>        <span class="n">crs</span><span class="o">=</span><span class="n">DATA</span><span class="p">,</span> <span class="n">draw_labels</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;0.5&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="p">)</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="n">gridlines</span><span class="o">.</span><span class="n">x_inline</span> <span class="o">=</span> <span class="n">gridlines</span><span class="o">.</span><span class="n">y_inline</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    <span class="n">gridlines</span><span class="o">.</span><span class="n">top_labels</span> <span class="o">=</span> <span class="n">gridlines</span><span class="o">.</span><span class="n">right_labels</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    <span class="n">gridlines</span><span class="o">.</span><span class="n">left_labels</span> <span class="o">=</span> <span class="n">left_labels</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    <span class="n">gridlines</span><span class="o">.</span><span class="n">rotate_labels</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="n">assimilated_stations</span> <span class="o">=</span> <span class="n">assimilated_reports</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="s2">&quot;station&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="n">held_out_stations</span> <span class="o">=</span> <span class="n">held_out_reports</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="s2">&quot;station&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="n">rp</span> <span class="o">=</span> <span class="n">PROJ</span><span class="o">.</span><span class="n">transform_points</span><span class="p">(</span><span class="n">DATA</span><span class="p">,</span> <span class="n">output_lon</span><span class="p">,</span> <span class="n">output_lat</span><span class="p">)</span>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="n">x_rotated</span><span class="p">,</span> <span class="n">y_rotated</span> <span class="o">=</span> <span class="n">rp</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">rp</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="n">extent</span> <span class="o">=</span> <span class="p">[</span><span class="n">x_rotated</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">x_rotated</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">y_rotated</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">y_rotated</span><span class="o">.</span><span class="n">max</span><span class="p">()]</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="n">speed_max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanpercentile</span><span class="p">(</span><span class="n">ws_free</span><span class="p">,</span> <span class="mi">99</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nanpercentile</span><span class="p">(</span><span class="n">ws_post</span><span class="p">,</span> <span class="mi">99</span><span class="p">)))</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="n">speed_style</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>    <span class="s2">&quot;transform&quot;</span><span class="p">:</span> <span class="n">DATA</span><span class="p">,</span>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>    <span class="s2">&quot;shading&quot;</span><span class="p">:</span> <span class="s2">&quot;nearest&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>    <span class="s2">&quot;cmap&quot;</span><span class="p">:</span> <span class="s2">&quot;viridis&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a>    <span class="s2">&quot;vmin&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a>    <span class="s2">&quot;vmax&quot;</span><span class="p">:</span> <span class="n">speed_max</span><span class="p">,</span>
+<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a><span class="p">}</span>
+<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a><span class="n">increment</span> <span class="o">=</span> <span class="n">ws_post</span> <span class="o">-</span> <span class="n">ws_free</span>
+<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a><span class="n">increment_limit</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanpercentile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">increment</span><span class="p">),</span> <span class="mi">99</span><span class="p">))</span>
+<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>
+<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a><span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a>    <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mf">4.8</span><span class="p">),</span> <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">PROJ</span><span class="p">},</span> <span class="n">layout</span><span class="o">=</span><span class="s2">&quot;constrained&quot;</span>
+<a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a><span class="p">)</span>
+<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a><span class="n">prior_mesh</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">output_lon</span><span class="p">,</span> <span class="n">output_lat</span><span class="p">,</span> <span class="n">ws_free</span><span class="p">,</span> <span class="o">**</span><span class="n">speed_style</span><span class="p">)</span>
+<a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">output_lon</span><span class="p">,</span> <span class="n">output_lat</span><span class="p">,</span> <span class="n">ws_post</span><span class="p">,</span> <span class="o">**</span><span class="n">speed_style</span><span class="p">)</span>
+<a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a><span class="n">increment_mesh</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+<a id="__codelineno-7-41" name="__codelineno-7-41" href="#__codelineno-7-41"></a>    <span class="n">output_lon</span><span class="p">,</span>
+<a id="__codelineno-7-42" name="__codelineno-7-42" href="#__codelineno-7-42"></a>    <span class="n">output_lat</span><span class="p">,</span>
+<a id="__codelineno-7-43" name="__codelineno-7-43" href="#__codelineno-7-43"></a>    <span class="n">increment</span><span class="p">,</span>
+<a id="__codelineno-7-44" name="__codelineno-7-44" href="#__codelineno-7-44"></a>    <span class="n">transform</span><span class="o">=</span><span class="n">DATA</span><span class="p">,</span>
+<a id="__codelineno-7-45" name="__codelineno-7-45" href="#__codelineno-7-45"></a>    <span class="n">shading</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-46" name="__codelineno-7-46" href="#__codelineno-7-46"></a>    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-47" name="__codelineno-7-47" href="#__codelineno-7-47"></a>    <span class="n">vmin</span><span class="o">=-</span><span class="n">increment_limit</span><span class="p">,</span>
+<a id="__codelineno-7-48" name="__codelineno-7-48" href="#__codelineno-7-48"></a>    <span class="n">vmax</span><span class="o">=</span><span class="n">increment_limit</span><span class="p">,</span>
+<a id="__codelineno-7-49" name="__codelineno-7-49" href="#__codelineno-7-49"></a><span class="p">)</span>
+<a id="__codelineno-7-50" name="__codelineno-7-50" href="#__codelineno-7-50"></a>
+<a id="__codelineno-7-51" name="__codelineno-7-51" href="#__codelineno-7-51"></a><span class="n">format_map</span><span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="sa">f</span><span class="s2">&quot;Prior (</span><span class="si">{</span><span class="n">INIT_TIME</span><span class="si">:</span><span class="s2">%Y-%m-%d %HZ</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">left_labels</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-7-52" name="__codelineno-7-52" href="#__codelineno-7-52"></a><span class="n">format_map</span><span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;Observation-guided analysis&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-53" name="__codelineno-7-53" href="#__codelineno-7-53"></a><span class="n">format_map</span><span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;Analysis - prior&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-54" name="__codelineno-7-54" href="#__codelineno-7-54"></a><span class="n">station_styles</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-7-55" name="__codelineno-7-55" href="#__codelineno-7-55"></a>    <span class="p">(</span><span class="n">assimilated_stations</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;c&quot;</span><span class="p">:</span> <span class="s2">&quot;#D55E00&quot;</span><span class="p">,</span> <span class="s2">&quot;linewidths&quot;</span><span class="p">:</span> <span class="mf">0.4</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;Assimilated&quot;</span><span class="p">}),</span>
+<a id="__codelineno-7-56" name="__codelineno-7-56" href="#__codelineno-7-56"></a>    <span class="p">(</span><span class="n">held_out_stations</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;facecolors&quot;</span><span class="p">:</span> <span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="s2">&quot;linewidths&quot;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;Held-out&quot;</span><span class="p">}),</span>
+<a id="__codelineno-7-57" name="__codelineno-7-57" href="#__codelineno-7-57"></a><span class="p">]</span>
+<a id="__codelineno-7-58" name="__codelineno-7-58" href="#__codelineno-7-58"></a><span class="k">for</span> <span class="n">stations</span><span class="p">,</span> <span class="n">style</span> <span class="ow">in</span> <span class="n">station_styles</span><span class="p">:</span>
+<a id="__codelineno-7-59" name="__codelineno-7-59" href="#__codelineno-7-59"></a>    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+<a id="__codelineno-7-60" name="__codelineno-7-60" href="#__codelineno-7-60"></a>        <span class="n">stations</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+<a id="__codelineno-7-61" name="__codelineno-7-61" href="#__codelineno-7-61"></a>        <span class="n">stations</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
+<a id="__codelineno-7-62" name="__codelineno-7-62" href="#__codelineno-7-62"></a>        <span class="n">s</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>
+<a id="__codelineno-7-63" name="__codelineno-7-63" href="#__codelineno-7-63"></a>        <span class="n">edgecolors</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-64" name="__codelineno-7-64" href="#__codelineno-7-64"></a>        <span class="n">transform</span><span class="o">=</span><span class="n">DATA</span><span class="p">,</span>
+<a id="__codelineno-7-65" name="__codelineno-7-65" href="#__codelineno-7-65"></a>        <span class="n">zorder</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-7-66" name="__codelineno-7-66" href="#__codelineno-7-66"></a>        <span class="o">**</span><span class="n">style</span><span class="p">,</span>
+<a id="__codelineno-7-67" name="__codelineno-7-67" href="#__codelineno-7-67"></a>    <span class="p">)</span>
+<a id="__codelineno-7-68" name="__codelineno-7-68" href="#__codelineno-7-68"></a><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s2">&quot;lower right&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span>
+<a id="__codelineno-7-69" name="__codelineno-7-69" href="#__codelineno-7-69"></a><span class="n">colorbar_style</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;shrink&quot;</span><span class="p">:</span> <span class="mf">0.82</span><span class="p">,</span> <span class="s2">&quot;pad&quot;</span><span class="p">:</span> <span class="mf">0.02</span><span class="p">}</span>
+<a id="__codelineno-7-70" name="__codelineno-7-70" href="#__codelineno-7-70"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">prior_mesh</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;10 m wind speed (m/s)&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">colorbar_style</span><span class="p">)</span>
+<a id="__codelineno-7-71" name="__codelineno-7-71" href="#__codelineno-7-71"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span>
+<a id="__codelineno-7-72" name="__codelineno-7-72" href="#__codelineno-7-72"></a>    <span class="n">increment_mesh</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;10 m wind increment (m/s)&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">colorbar_style</span>
+<a id="__codelineno-7-73" name="__codelineno-7-73" href="#__codelineno-7-73"></a><span class="p">)</span>
+<a id="__codelineno-7-74" name="__codelineno-7-74" href="#__codelineno-7-74"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/03_corrdiff_cosmo_sda.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/cartopy/io/__init__.py:242: DownloadWarning: Downloading: https://naturalearth.s3.amazonaws.com/50m_physical/ne_50m_coastline.zip
+  warnings.warn(f'Downloading: {url}', DownloadWarning)</code></pre></details>
+
+<p><img alt="Output from CorrDiff COSMO-REA2 Score-Based Data Assimilation" class="e2sg-output-image" loading="lazy" src="../../_assets/05_data_assimilation-03_corrdiff_cosmo_sda/001-cell-16.webp" /></p>
+<hr />
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/05_data_assimilation-03_corrdiff_cosmo_sda/03_corrdiff_cosmo_sda.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/05_data_assimilation-03_corrdiff_cosmo_sda/03_corrdiff_cosmo_sda.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 107.5s</span></div>
+
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-regions"><div class="e2sg-regions-heading"><h3 class="e2sg-telemetry-subtitle">Profiled phases</h3><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 48s</strong></div></div><details class="e2sg-telemetry-region"><summary><span class="e2sg-region-name">Setup</span><span class="e2sg-region-meta">1m 36s · 92 samples</span></summary><div class="e2sg-metric-grid"><div class="e2sg-metric"><span class="e2sg-metric-label">Duration</span><strong>1m 36s</strong><span class="e2sg-metric-context">Tagged cells</span><div class="e2sg-spark-empty"></div></div><div class="e2sg-metric"><span class="e2sg-metric-label">CPU load</span><strong>11%</strong><span class="e2sg-metric-context">Average · Peak 26%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="CPU load over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,24.17 1.32,24.21 2.64,24.16 3.96,24.10 5.27,23.88 6.59,24.12 7.91,23.94 9.23,23.85 10.55,24.13 11.87,24.08 13.19,24.39 14.51,24.11 15.82,24.37 17.14,24.14 18.46,24.12 19.78,24.39 21.10,24.40 22.42,24.15 23.74,24.36 25.05,24.32 26.37,23.81 27.69,24.11 29.01,24.37 30.33,24.15 31.65,24.13 32.97,24.15 34.29,24.10 35.60,24.11 36.92,24.30 38.24,23.75 39.56,25.41 40.88,25.70 42.20,25.16 43.52,24.33 44.84,25.72 46.15,25.16 47.47,24.34 48.79,24.61 50.11,24.31 51.43,24.57 52.75,24.36 54.07,23.90 55.38,25.71 56.70,24.87 58.02,25.19 59.34,24.04 60.66,23.80 61.98,24.02 63.30,25.16 64.62,25.20 65.93,25.19 67.25,24.33 68.57,23.47 69.89,25.45 71.21,23.52 72.53,20.27 73.85,20.86 75.16,22.95 76.48,22.00 77.80,21.47 79.12,21.89 80.44,22.25 81.76,22.66 83.08,22.14 84.40,21.01 85.71,21.80 87.03,23.04 88.35,22.99 89.67,22.20 90.99,22.17 92.31,22.65 93.63,22.77 94.95,22.43 96.26,22.34 97.58,21.93 98.90,21.11 100.22,21.62 101.54,22.59 102.86,22.45 104.18,22.58 105.49,22.66 106.81,21.45 108.13,22.00 109.45,21.85 110.77,22.20 112.09,22.68 113.41,22.45 114.73,21.96 116.04,22.31 117.36,22.46 118.68,21.91 120.00,21.96"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Process memory</span><strong>4.3 GiB</strong><span class="e2sg-metric-context">Peak resident set</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="rss bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,25.04 1.32,24.92 2.64,24.65 3.96,22.52 5.27,22.29 6.59,21.36 7.91,21.02 9.23,20.93 10.55,20.75 11.87,20.65 13.19,20.18 14.51,20.02 15.82,19.30 17.14,19.11 18.46,19.04 19.78,18.89 21.10,18.80 22.42,18.64 23.74,18.51 25.05,18.39 26.37,18.28 27.69,18.13 29.01,17.96 30.33,17.95 31.65,17.94 32.97,17.87 34.29,17.81 35.60,17.81 36.92,17.71 38.24,17.21 39.56,17.21 40.88,17.21 42.20,17.20 43.52,17.04 44.84,17.04 46.15,17.04 47.47,17.04 48.79,17.04 50.11,17.09 51.43,17.04 52.75,17.04 54.07,16.99 55.38,16.94 56.70,16.99 58.02,16.94 59.34,17.04 60.66,14.16 61.98,11.27 63.30,13.85 64.62,13.80 65.93,13.65 67.25,13.61 68.57,11.87 69.89,14.39 71.21,8.60 72.53,13.86 73.85,13.06 75.16,12.69 76.48,12.46 77.80,12.23 79.12,11.93 80.44,11.57 81.76,11.19 83.08,10.87 84.40,10.61 85.71,10.38 87.03,10.09 88.35,9.82 89.67,9.63 90.99,9.33 92.31,9.11 93.63,8.92 94.95,8.75 96.26,8.69 97.58,8.42 98.90,8.14 100.22,7.66 101.54,7.35 102.86,6.98 104.18,6.67 105.49,6.44 106.81,6.24 108.13,6.10 109.45,5.75 110.77,5.38 112.09,5.08 113.41,4.89 114.73,4.75 116.04,4.56 117.36,4.34 118.68,4.18 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network received</span><strong>1001.3 MiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network received bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,26.00 1.32,26.00 2.64,26.00 3.96,26.00 5.27,26.00 6.59,26.00 7.91,26.00 9.23,26.00 10.55,26.00 11.87,26.00 13.19,26.00 14.51,26.00 15.82,26.00 17.14,26.00 18.46,26.00 19.78,26.00 21.10,26.00 22.42,26.00 23.74,26.00 25.05,26.00 26.37,26.00 27.69,26.00 29.01,26.00 30.33,26.00 31.65,26.00 32.97,26.00 34.29,26.00 35.60,26.00 36.92,26.00 38.24,26.00 39.56,26.00 40.88,26.00 42.20,25.99 43.52,24.60 44.84,23.81 46.15,23.16 47.47,22.08 48.79,21.04 50.11,20.03 51.43,18.97 52.75,17.56 54.07,16.34 55.38,15.27 56.70,14.32 58.02,13.21 59.34,11.52 60.66,11.27 61.98,11.27 63.30,11.27 64.62,11.18 65.93,10.80 67.25,9.49 68.57,8.66 69.89,8.66 71.21,8.65 72.53,8.54 73.85,8.42 75.16,8.36 76.48,8.26 77.80,8.20 79.12,8.09 80.44,7.93 81.76,7.75 83.08,7.63 84.40,7.54 85.71,7.45 87.03,7.34 88.35,7.26 89.67,7.17 90.99,7.07 92.31,7.01 93.63,6.93 94.95,6.86 96.26,6.78 97.58,6.67 98.90,6.31 100.22,6.11 101.54,5.96 102.86,5.68 104.18,5.51 105.49,5.33 106.81,5.22 108.13,5.04 109.45,4.81 110.77,4.57 112.09,4.46 113.41,4.35 114.73,4.27 116.04,4.17 117.36,4.11 118.68,4.04 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network sent</span><strong>2.9 MiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network sent bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,26.00 1.32,26.00 2.64,26.00 3.96,26.00 5.27,26.00 6.59,26.00 7.91,26.00 9.23,26.00 10.55,26.00 11.87,26.00 13.19,26.00 14.51,26.00 15.82,26.00 17.14,26.00 18.46,26.00 19.78,26.00 21.10,26.00 22.42,26.00 23.74,26.00 25.05,26.00 26.37,26.00 27.69,26.00 29.01,26.00 30.33,26.00 31.65,26.00 32.97,26.00 34.29,26.00 35.60,26.00 36.92,26.00 38.24,26.00 39.56,25.97 40.88,25.92 42.20,25.86 43.52,25.02 44.84,24.42 46.15,23.81 47.47,22.82 48.79,22.00 50.11,21.17 51.43,20.36 52.75,19.59 54.07,18.54 55.38,17.57 56.70,16.78 58.02,15.97 59.34,15.23 60.66,15.12 61.98,15.12 63.30,15.08 64.62,15.01 65.93,14.79 67.25,14.15 68.57,13.74 69.89,13.59 71.21,13.49 72.53,12.56 73.85,12.12 75.16,11.86 76.48,11.56 77.80,11.37 79.12,11.20 80.44,10.93 81.76,10.50 83.08,10.31 84.40,10.13 85.71,9.87 87.03,9.72 88.35,9.41 89.67,9.18 90.99,8.97 92.31,8.73 93.63,8.56 94.95,8.40 96.26,8.32 97.58,7.97 98.90,7.49 100.22,7.31 101.54,7.05 102.86,6.59 104.18,6.35 105.49,6.14 106.81,5.97 108.13,5.76 109.45,5.61 110.77,5.39 112.09,5.21 113.41,5.01 114.73,4.85 116.04,4.59 117.36,4.35 118.68,4.11 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU utilization</span><strong>0%</strong><span class="e2sg-metric-context">Peak 0%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu percent over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 1.32,15.00 2.64,15.00 3.96,15.00 5.27,15.00 6.59,15.00 7.91,15.00 9.23,15.00 10.55,15.00 11.87,15.00 13.19,15.00 14.51,15.00 15.82,15.00 17.14,15.00 18.46,15.00 19.78,15.00 21.10,15.00 22.42,15.00 23.74,15.00 25.05,15.00 26.37,15.00 27.69,15.00 29.01,15.00 30.33,15.00 31.65,15.00 32.97,15.00 34.29,15.00 35.60,15.00 36.92,15.00 38.24,15.00 39.56,15.00 40.88,15.00 42.20,15.00 43.52,15.00 44.84,15.00 46.15,15.00 47.47,15.00 48.79,15.00 50.11,15.00 51.43,15.00 52.75,15.00 54.07,15.00 55.38,15.00 56.70,15.00 58.02,15.00 59.34,15.00 60.66,15.00 61.98,15.00 63.30,15.00 64.62,15.00 65.93,15.00 67.25,15.00 68.57,15.00 69.89,15.00 71.21,15.00 72.53,15.00 73.85,15.00 75.16,15.00 76.48,15.00 77.80,15.00 79.12,15.00 80.44,15.00 81.76,15.00 83.08,15.00 84.40,15.00 85.71,15.00 87.03,15.00 88.35,15.00 89.67,15.00 90.99,15.00 92.31,15.00 93.63,15.00 94.95,15.00 96.26,15.00 97.58,15.00 98.90,15.00 100.22,15.00 101.54,15.00 102.86,15.00 104.18,15.00 105.49,15.00 106.81,15.00 108.13,15.00 109.45,15.00 110.77,15.00 112.09,15.00 113.41,15.00 114.73,15.00 116.04,15.00 117.36,15.00 118.68,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU memory</span><strong>1.4 GiB</strong><span class="e2sg-metric-context">of 93.6 GiB</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu memory mb over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,26.00 1.32,26.00 2.64,26.00 3.96,26.00 5.27,26.00 6.59,26.00 7.91,26.00 9.23,26.00 10.55,26.00 11.87,26.00 13.19,26.00 14.51,26.00 15.82,26.00 17.14,26.00 18.46,26.00 19.78,26.00 21.10,26.00 22.42,26.00 23.74,26.00 25.05,26.00 26.37,26.00 27.69,26.00 29.01,26.00 30.33,26.00 31.65,26.00 32.97,26.00 34.29,26.00 35.60,26.00 36.92,26.00 38.24,25.88 39.56,25.88 40.88,25.88 42.20,25.88 43.52,25.88 44.84,25.88 46.15,25.88 47.47,25.88 48.79,25.88 50.11,25.88 51.43,25.88 52.75,25.88 54.07,25.88 55.38,25.88 56.70,25.88 58.02,25.88 59.34,25.88 60.66,25.88 61.98,25.88 63.30,25.88 64.62,25.88 65.93,25.88 67.25,25.88 68.57,25.88 69.89,25.71 71.21,25.71 72.53,25.66 73.85,25.66 75.16,25.66 76.48,25.66 77.80,25.66 79.12,25.66 80.44,25.66 81.76,25.66 83.08,25.66 84.40,25.66 85.71,25.66 87.03,25.66 88.35,25.66 89.67,25.66 90.99,25.66 92.31,25.66 93.63,25.66 94.95,25.66 96.26,25.66 97.58,25.66 98.90,25.66 100.22,25.66 101.54,25.66 102.86,25.66 104.18,25.66 105.49,25.66 106.81,25.66 108.13,25.66 109.45,25.66 110.77,25.66 112.09,25.66 113.41,25.66 114.73,25.66 116.04,25.66 117.36,25.66 118.68,25.66 120.00,25.66"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU power</span><strong>89 W</strong><span class="e2sg-metric-context">Peak draw</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu power watts over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,11.29 1.32,11.29 2.64,11.30 3.96,11.29 5.27,11.29 6.59,11.07 7.91,10.63 9.23,11.05 10.55,11.30 11.87,11.29 13.19,11.29 14.51,11.29 15.82,11.29 17.14,11.30 18.46,11.29 19.78,11.29 21.10,11.29 22.42,11.29 23.74,11.30 25.05,11.30 26.37,11.29 27.69,11.30 29.01,11.29 30.33,11.30 31.65,11.29 32.97,11.30 34.29,11.30 35.60,11.29 36.92,6.79 38.24,4.00 39.56,4.25 40.88,4.24 42.20,4.25 43.52,4.24 44.84,4.26 46.15,4.24 47.47,4.25 48.79,4.27 50.11,4.24 51.43,4.24 52.75,4.20 54.07,4.23 55.38,4.23 56.70,4.20 58.02,4.18 59.34,4.19 60.66,4.21 61.98,4.18 63.30,4.19 64.62,4.16 65.93,4.18 67.25,4.15 68.57,4.12 69.89,4.12 71.21,4.14 72.53,4.11 73.85,4.14 75.16,4.15 76.48,4.13 77.80,4.14 79.12,4.12 80.44,4.13 81.76,4.11 83.08,4.13 84.40,4.11 85.71,4.12 87.03,4.12 88.35,4.11 89.67,4.13 90.99,4.11 92.31,4.10 93.63,4.11 94.95,4.13 96.26,4.12 97.58,4.12 98.90,4.11 100.22,4.12 101.54,4.13 102.86,4.12 104.18,4.13 105.49,4.12 106.81,4.13 108.13,4.13 109.45,4.13 110.77,4.10 112.09,4.12 113.41,4.09 114.73,4.11 116.04,4.11 117.36,4.12 118.68,4.14 120.00,4.11"/></svg></div></div></details><details class="e2sg-telemetry-region" open><summary><span class="e2sg-region-name">Inference</span><span class="e2sg-region-meta">4.0 s · 4 samples</span></summary><div class="e2sg-metric-grid"><div class="e2sg-metric"><span class="e2sg-metric-label">Duration</span><strong>4.0 s</strong><span class="e2sg-metric-context">Tagged cells</span><div class="e2sg-spark-empty"></div></div><div class="e2sg-metric"><span class="e2sg-metric-label">CPU load</span><strong>10%</strong><span class="e2sg-metric-context">Average · Peak 11%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="CPU load over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,24.10 40.00,23.58 80.00,23.61 120.00,23.83"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Process memory</span><strong>4.5 GiB</strong><span class="e2sg-metric-context">Peak resident set</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="rss bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,4.96 40.00,4.05 80.00,4.00 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network received</span><strong>2.7 KiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network received bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,4.00 40.00,4.00 80.00,4.00 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network sent</span><strong>2.4 KiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network sent bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,4.01 40.00,4.01 80.00,4.00 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU utilization</span><strong>74%</strong><span class="e2sg-metric-context">Peak 98%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu percent over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,25.78 40.00,4.44 80.00,4.44 120.00,4.44"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU memory</span><strong>5.7 GiB</strong><span class="e2sg-metric-context">of 93.6 GiB</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu memory mb over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,25.62 40.00,24.65 80.00,24.65 120.00,24.65"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU power</span><strong>385 W</strong><span class="e2sg-metric-context">Peak draw</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu power watts over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,20.94 40.00,8.02 80.00,4.00 120.00,4.66"/></svg></div></div></details><details class="e2sg-telemetry-region"><summary><span class="e2sg-region-name">Plotting</span><span class="e2sg-region-meta">2.3 s · 2 samples</span></summary><div class="e2sg-metric-grid"><div class="e2sg-metric"><span class="e2sg-metric-label">Duration</span><strong>2.3 s</strong><span class="e2sg-metric-context">Tagged cells</span><div class="e2sg-spark-empty"></div></div><div class="e2sg-metric"><span class="e2sg-metric-label">CPU load</span><strong>8%</strong><span class="e2sg-metric-context">Average · Peak 9%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="CPU load over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Process memory</span><strong>4.5 GiB</strong><span class="e2sg-metric-context">Peak resident set</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="rss bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network received</span><strong>464.1 KiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network received bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network sent</span><strong>7.4 KiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network sent bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU utilization</span><strong>0%</strong><span class="e2sg-metric-context">Peak 0%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu percent over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU memory</span><strong>5.7 GiB</strong><span class="e2sg-metric-context">of 93.6 GiB</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu memory mb over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU power</span><strong>229 W</strong><span class="e2sg-metric-context">Peak draw</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu power watts over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div></div></details></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/NVIDIA/earth2studio" target="_blank" rel="noopener" title="Earth2Studio on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["announce.dismiss", "navigation.tabs", "navigation.tabs.sticky", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-landing.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-install-selector.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-catalog.js"></script>
+      
+        <script src="../../../assets/javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../../../assets/javascripts/mkdocs-badges-data.js"></script>
+      
+        <script src="../../../assets/javascripts/mkdocs-badges.js"></script>
+      
+    
+  </body>
+</html>

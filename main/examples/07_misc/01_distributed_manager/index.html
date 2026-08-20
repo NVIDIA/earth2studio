@@ -2790,7 +2790,7 @@ folder is <em>not</em> present. The .env file is intended for the documentation 
 <a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="sa">f</span><span class="s2">&quot;Inference runner </span><span class="si">{</span><span class="n">dist</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">dist</span><span class="o">.</span><span class="n">world_size</span><span class="si">}</span><span class="s2"> with device </span><span class="si">{</span><span class="n">dist</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span>
 <a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 2026-08-19 21:37:32.914 | INFO     | __main__:&lt;module&gt;:19 - Inference runner 0 of 1 with device cuda:0</code></pre></details>
 
@@ -2811,7 +2811,7 @@ taken to ensure safe parallel inference.</p>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">rank</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">model</span> <span class="o">=</span> <span class="n">DLWP</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>7 lines</small></summary><pre><code>WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
+<details class="e2sg-output" open><summary><span>Console output</span><small>7 lines</small></summary><pre class="no-copy"><code>WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
     Python  3.10.19 (you have 3.13.13)
   Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
@@ -2863,7 +2863,7 @@ process.</p>
 <a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 <a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="n">torch</span><span class="o">.</span><span class="n">distributed</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>70 lines</small></summary><pre><code>2026-08-19 21:37:57.268 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+<details class="e2sg-output" open><summary><span>Console output</span><small>70 lines</small></summary><pre class="no-copy"><code>2026-08-19 21:37:57.268 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
 2026-08-19 21:37:57.268 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda:0
 
 Fetching WB2 data:   0%|          | 0/42 [00:00&lt;?, ?it/s]
@@ -2972,7 +2972,7 @@ Inference complete
 <a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a>    <span class="p">)</span>
 <a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a>    <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/08_tcwv_distributed_manager.jpg&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>&lt;xarray.Dataset&gt; Size: 523MB
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>&lt;xarray.Dataset&gt; Size: 523MB
 Dimensions:    (time: 6, lead_time: 21, lat: 721, lon: 1440)
 Coordinates:
   * time       (time) datetime64[ns] 48B 2000-06-01 2001-06-01 ... 2005-06-01

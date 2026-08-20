@@ -2818,7 +2818,7 @@ prognostic or diagnostic model.</p>
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="c1"># Create the ground truth data source</span>
 <a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">era5_ds</span> <span class="o">=</span> <span class="n">WB2ERA5</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -2848,7 +2848,7 @@ generate different fields that are reflective of the requested time and SST stat
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="nb">print</span><span class="p">(</span><span class="n">era5_da</span><span class="p">)</span>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">cbottle_da</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>87 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>87 lines</small></summary><pre class="no-copy"><code>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00, 48.90it/s]
 
 Generating cBottle Data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
@@ -3014,7 +3014,7 @@ variables.</p>
 <a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">output_0</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 <a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">output_0</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre class="no-copy"><code>Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
 Fetching WB2 data: 100%|██████████| 10/10 [00:00&lt;00:00, 161.69it/s]
 torch.Size([5, 1, 45, 721, 1440])</code></pre></details>
 
@@ -3049,7 +3049,7 @@ information.</p>
 <a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="n">output_1</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 <a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="nb">print</span><span class="p">(</span><span class="n">output_1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>7 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>7 lines</small></summary><pre class="no-copy"><code>Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:16,  3.87it/s]
 Fetching WB2 data:   8%|▊         | 5/65 [00:00&lt;00:04, 14.68it/s]
 Fetching WB2 data:  17%|█▋        | 11/65 [00:00&lt;00:02, 24.97it/s]
@@ -3115,7 +3115,7 @@ truth due the additional information provided.</p>
 <a id="__codelineno-5-49" name="__codelineno-5-49" href="#__codelineno-5-49"></a><span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 <a id="__codelineno-5-50" name="__codelineno-5-50" href="#__codelineno-5-50"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/15_tcwv_cbottle_infill.jpg&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre><code>Fetching WB2 data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>Fetching WB2 data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
 Fetching WB2 data: 100%|██████████| 1/1 [00:00&lt;00:00, 229.76it/s]</code></pre></details>
 
 <p><img alt="Output from CBottle Data Generation and Infilling" class="e2sg-output-image" loading="lazy" src="../../_assets/07_misc-02_cbottle_generation/003-cell-13.jpg" /></p>

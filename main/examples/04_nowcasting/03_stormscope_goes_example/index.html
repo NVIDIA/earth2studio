@@ -2828,7 +2828,7 @@ initial condition and which then evolves autoregressively over the rollout.</p>
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">StormScopeMRMS</span><span class="p">,</span>
 <a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -2885,7 +2885,7 @@ product; the model bilinearly regrids it onto the model grid internally.</p>
 <a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="n">model_mrms</span> <span class="o">=</span> <span class="n">model_mrms</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 <a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="n">model_mrms</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>555 lines</small></summary><pre><code>Downloading config.json: 0%|          | 0.00/38.0 [00:00&lt;?, ?B/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>555 lines</small></summary><pre class="no-copy"><code>Downloading config.json: 0%|          | 0.00/38.0 [00:00&lt;?, ?B/s]
 Downloading config.json: 100%|██████████| 38.0/38.0 [00:00&lt;00:00, 291B/s]
 Downloading config.json: 100%|██████████| 38.0/38.0 [00:00&lt;00:00, 289B/s]
 
@@ -3473,7 +3473,7 @@ the regridding functionality.</p>
 <a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
 <a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>25 lines</small></summary><pre><code>2026-08-19 21:14:10.726 | WARNING  | earth2studio.models.px.stormscope:build_input_interpolator:643 - Some input gridpoints are invalid after interpolation. This may be expected if the input data source is not available at all gridpoints, but consider double-checking coordinates and/or the max_dist_km parameter. Invalid points will be filled with the model's _INPUT_INVALID_FILL_CONSTANT (0.0).
+<details class="e2sg-output" open><summary><span>Console output</span><small>25 lines</small></summary><pre class="no-copy"><code>2026-08-19 21:14:10.726 | WARNING  | earth2studio.models.px.stormscope:build_input_interpolator:643 - Some input gridpoints are invalid after interpolation. This may be expected if the input data source is not available at all gridpoints, but consider double-checking coordinates and/or the max_dist_km parameter. Invalid points will be filled with the model's _INPUT_INVALID_FILL_CONSTANT (0.0).
 
 Fetching GOES data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
 Fetching GOES data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.86it/s]
@@ -3552,7 +3552,7 @@ would inject GLM automatically and only radar would need to be assembled here.)<
 <a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a><span class="n">x_coords_mrms</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_mrms</span><span class="o">.</span><span class="n">y</span>
 <a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a><span class="n">x_coords_mrms</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_mrms</span><span class="o">.</span><span class="n">x</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>118 lines</small></summary><pre><code>Fetching MRMS data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>118 lines</small></summary><pre class="no-copy"><code>Fetching MRMS data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
 2026-08-19 21:14:16.084 | INFO     | earth2studio.data.mrms:_fetch_task:343 - Fetching MRMS file: s3://noaa-mrms-pds/CONUS/MergedBaseReflectivityQC_00.50/20240108/MRMS_MergedBaseReflectivityQC_00.50_20240108-170959.grib2.gz
 
@@ -3715,7 +3715,7 @@ forecasted GOES imagery) via <code>call_with_conditioning</code>.</p>
 <a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>        <span class="n">y_mrms_pred</span><span class="p">,</span> <span class="n">y_coords_mrms_pred</span><span class="p">,</span> <span class="n">y_mrms</span><span class="p">,</span> <span class="n">y_coords_mrms</span>
 <a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>    <span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre><code>Forecast steps:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre class="no-copy"><code>Forecast steps:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 Forecast steps:  50%|█████     | 1/2 [02:01&lt;02:01, 121.07s/it]
 Forecast steps: 100%|██████████| 2/2 [04:33&lt;00:00, 139.67s/it]
 Forecast steps: 100%|██████████| 2/2 [04:33&lt;00:00, 136.88s/it]</code></pre></details>

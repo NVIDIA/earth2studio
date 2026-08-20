@@ -2801,7 +2801,7 @@ checkpoint.</p>
 <a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
 <a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -2900,7 +2900,7 @@ after each successful IO write because <code>flush_interval=1</code> and
 <a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Checkpoint after the stopped run:&quot;</span><span class="p">)</span>
 <a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a><span class="nb">print</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>18 lines</small></summary><pre><code>2026-08-19 20:24:26.136 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+<details class="e2sg-output" open><summary><span>Console output</span><small>18 lines</small></summary><pre class="no-copy"><code>2026-08-19 20:24:26.136 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
 2026-08-19 20:24:26.136 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda:0
 2026-08-19 20:24:26.189 | WARNING  | earth2studio.io.zarr:add_array:206 - t2m is already in Zarr Store. Skipping add_array.
 2026-08-19 20:24:26.191 | WARNING  | earth2studio.io.zarr:add_array:206 - u10m is already in Zarr Store. Skipping add_array.
@@ -2958,7 +2958,7 @@ condition and feeds it to the iterator.</p>
 <a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="nb">print</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
 <a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>27 lines</small></summary><pre><code>2026-08-19 20:24:29.496 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+<details class="e2sg-output" open><summary><span>Console output</span><small>27 lines</small></summary><pre class="no-copy"><code>2026-08-19 20:24:29.496 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
 2026-08-19 20:24:29.496 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda:0
 2026-08-19 20:24:29.540 | WARNING  | earth2studio.io.zarr:add_array:206 - t2m is already in Zarr Store. Skipping add_array.
 2026-08-19 20:24:29.542 | WARNING  | earth2studio.io.zarr:add_array:206 - u10m is already in Zarr Store. Skipping add_array.
