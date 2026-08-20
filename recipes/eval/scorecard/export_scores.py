@@ -186,6 +186,33 @@ def provenance(run: Path) -> dict:
     return {k: str(v) for k, v in prov.items()}
 
 
+def data_sources(run: Path) -> dict:
+    """Initial-condition and verification source class names, read from the
+    campaign config that matches the run directory name (best effort)."""
+    import contextlib
+
+    out: dict = {}
+    with contextlib.suppress(Exception):
+        import yaml
+
+        cfg = yaml.safe_load(
+            (HERE / "cfg" / "campaign" / f"{run.name}.yaml").read_text()
+        )
+        ic = cfg.get("data_source", {}).get("_target_", "")
+        verif = (
+            cfg.get("predownload", {})
+            .get("verification", {})
+            .get("source", {})
+            .get("_target_", "")
+            or ic
+        )
+        if ic:
+            out["ic_source"] = ic.rsplit(".", 1)[-1]
+        if verif:
+            out["verification_source"] = verif.rsplit(".", 1)[-1]
+    return out
+
+
 def export(model: str, run: Path) -> dict:
     """Assemble the full export document for one scored run."""
     ds = xr.open_zarr(run / "scores.zarr")
@@ -235,6 +262,7 @@ def export(model: str, run: Path) -> dict:
         "initial_conditions": times,
         "lead_hours": out_leads,
         "variables": variables,
+        **data_sources(run),
         "units": {v: unit_for(v) for v in variables},
         "variable_groups": {v: group_of(v) for v in variables},
         "aggregation": (

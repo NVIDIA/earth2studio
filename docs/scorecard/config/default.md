@@ -17,6 +17,12 @@ labels:
   pangu3: Pangu (3 h)
   pangu6: Pangu (6 h)
   pangu24: Pangu (24 h)
+# data_sources: display names for earth2studio data source classes shown in
+#         the Evaluation table (falls back to the raw class name).
+data_sources:
+  ARCO: ERA5 (ARCO)
+  GFS: GFS
+  HRRR: HRRR
 metrics:
   lower_is_better: [rmse, mae, lsd, ensemble_mean_mse, crps, ensemble_variance]
 ---

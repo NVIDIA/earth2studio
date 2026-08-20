@@ -71,6 +71,7 @@ def _load_defaults() -> dict:
 DEFAULTS = _load_defaults()
 LABELS = DEFAULTS.get("labels", {})
 LOWER_IS_BETTER = DEFAULTS.get("metrics", {}).get("lower_is_better", [])
+DATA_SOURCES = DEFAULTS.get("data_sources", {})
 STATIC = DOCS / "_static" / "scorecard"  # data + shared plot live here
 
 # Self-contained single-model skill plot. Same palette and idioms as the
@@ -272,6 +273,8 @@ conditions. Evaluation is done against ERA5 fetched from ARCO.
 |---|---|
 | Type | {kind} |
 | Initial conditions | {n_ic} ({years}) |
+| Initial condition source | {ic_source} |
+| Verification (ground truth) | {verification_source} |
 | Lead times | {lead_first} h to {lead_last_d} days |
 | Variables scored | {n_var} |
 | Metrics | {metric_list} |
@@ -525,6 +528,10 @@ def build_page(model: str, doc: dict, conf: dict) -> str:
         lead_first=doc["lead_hours"][0],
         lead_last_d=doc["lead_hours"][-1] // 24,
         n_var=len(doc["variables"]),
+        ic_source=DATA_SOURCES.get(doc.get("ic_source"), doc.get("ic_source", "—")),
+        verification_source=DATA_SOURCES.get(
+            doc.get("verification_source"), doc.get("verification_source", "—")
+        ),
         metric_list=", ".join(m["label"] for m in doc["metrics"].values()),
         provenance_table=provenance_table(doc),
         variables_table=variables_table(doc),
