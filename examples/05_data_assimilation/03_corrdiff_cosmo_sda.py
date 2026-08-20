@@ -19,13 +19,14 @@
 CorrDiff COSMO-REA2 Score-Based Data Assimilation
 =================================================
 
-Assimilate real in-situ station observations into the COSMO-REA2 (2.2 km)
-downscaler with ``CorrDiffCosmoEra5SDA``, over a dense-station region spanning the
-Netherlands, NW Germany and the adjacent North Sea. Given an ERA5 driving state for a
-historical time and sparse GHCNHourly 10 m wind reports, diffusion posterior sampling (DPS) steers the
+Assimilate weather-station observations into COSMO-REA2 with CorrDiff.
+
+This example covers a dense-station region spanning the Netherlands, NW Germany,
+and the adjacent North Sea. Given an ERA5 driving state for a historical time and
+sparse GHCNHourly 10 m wind reports, diffusion posterior sampling (DPS) steers the
 diffusion downscaler's denoising trajectory toward the observations, producing a
-high-resolution COSMO-REA analysis that is guided toward what the stations
-actually measured.
+high-resolution COSMO-REA analysis guided toward what the stations actually
+measured.
 
 CorrDiff-COSMO is a single-shot *diagnostic* downscaler. It does not propagate
 state between times; each call produces an independent analysis conditioned on
@@ -49,8 +50,6 @@ In this example you will learn:
     5 GB of GPU memory in one test run (bf16). Set ``DOMAIN = None`` for the full domain;
     its time and memory requirements were not validated.
 
-!!! note
-    The assimilated in-situ observations are NOAA NCEI GHCN-Hourly station data.
 """
 
 # /// script
@@ -66,10 +65,10 @@ In this example you will learn:
 # ///
 
 # %%
-# Configuration
-# -------------
+# Set Up
+# ------
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 import os
 from datetime import datetime, timedelta
 
@@ -78,42 +77,34 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
-from matplotlib.lines import Line2D
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import RegularGridInterpolator
 from scipy.spatial import cKDTree
 
-INIT_TIME = datetime(2024, 1, 26, 0)  # historical time (ARCO + GHCNHourly cover it)
-ASSIMILATE = ("u10m", "v10m")  # 10 m wind, an identity/unit-scale REA2 channel
-# Square sub-domain (the Netherlands + NW Germany, ~206 x 206 native cells, many hourly
-# stations); shifted N/NW so the North Sea occupies the northwestern edge of the frame.
-# Set DOMAIN = None for the full COSMO-REA2 domain (untested, high VRAM).
+INIT_TIME = datetime(2024, 1, 1, 0)
+ASSIMILATE = ("u10m", "v10m")
+# Set to None for the full COSMO-REA2 domain.
 DOMAIN = dict(lat_min=50.2, lat_max=53.8, lon_min=4.6, lon_max=10.4)
-ENSEMBLE_SIZE = 1  # single posterior analysis (one DPS draw; sufficient here)
-SAMPLER_STEPS = 12  # 12 steps used to reduce example runtime; model default is 18
-SDA_STD_OBS = 0.5  # assumed obs-noise std (physical units; lower trusts obs more)
-SDA_GAMMA = 5e-5  # DPS guidance scaling (lower = stronger assimilation)
-VAL_FRAC = 0.3  # fraction of stations held out for comparison
-# One window for both the obs fetch and the model's assimilation filter, so the
-# stations shown/counted are exactly the set handed to the assimilation.
+ENSEMBLE_SIZE = 1
+SAMPLER_STEPS = 12  # Reduced from 18 for this example.
+SDA_STD_OBS = 0.5
+SDA_GAMMA = 5e-5
+VAL_FRAC = 0.3
 OBS_TIME_TOLERANCE = timedelta(minutes=30)
 DEVICE = "cuda:0"
-# COSMO-REA is on a rotated-pole grid; plot in that native projection so the crop is
-# axis-aligned (square panels) rather than a slanted PlateCarree parallelogram.
-DATA = ccrs.PlateCarree()  # station lat/lon and the model's geographic coordinates
-PROJ = ccrs.RotatedPole(pole_longitude=-170.0, pole_latitude=40.0)  # from rea2 metadata
+DATA = ccrs.PlateCarree()
+PROJ = ccrs.RotatedPole(pole_longitude=-170.0, pole_latitude=40.0)
 
 os.makedirs("outputs", exist_ok=True)
 
 
 # %%
-# Load the assimilation model
-# ---------------------------
+# Load Assimilation Model
+# ------------------------
 # ``CorrDiffCosmoEra5SDA`` wraps a diffusion-mode ``CorrDiffCosmoEra5`` downscaler.
 # ``assimilate_variables`` is required and must be identity-transform, unit-scale
 # output channels -- here the 10 m wind, which matches the station reports' height.
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 from earth2studio.data import ARCO, GHCNHourly, fetch_data
 from earth2studio.models.da import CorrDiffCosmoEra5SDA
 
@@ -123,26 +114,26 @@ sda = CorrDiffCosmoEra5SDA.load_model(
     package,
     assimilate_variables=ASSIMILATE,
     resolution="rea2",
-    domain=DOMAIN,  # sub-domain by default; DOMAIN = None runs the full REA2 domain
-    time_tolerance=OBS_TIME_TOLERANCE,  # match the obs fetch window below
+    domain=DOMAIN,
+    time_tolerance=OBS_TIME_TOLERANCE,
     number_of_samples=ENSEMBLE_SIZE,
     sampler_steps=SAMPLER_STEPS,
     sda_std_obs=SDA_STD_OBS,
     sda_gamma=SDA_GAMMA,
-    amp=True,  # bf16 autocast on the guided sampler (CUDA); set False for fp32
+    amp=True,
 ).to(DEVICE)
-sda.seed = 0  # reproducible ensemble
+sda.seed = 0
 
 # %%
-# ERA5 driving state
-# ------------------
+# Fetch Coarse-Resolution State
+# ------------------------------
 # Fetch an ERA5 analysis (ARCO) for the historical time and regrid it onto the
 # downscaler's regional input grid. The result is an ``xr.DataArray`` with dims
 # ``(time, variable, lat, lon)`` -- the same driving state the downscaler
 # conditions on; the ``time`` coord also drives its day/night (solar) input.
 
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 def regrid_to_input(x_src, src_coords, dvars, dlat, dlon):
     """Subset to the downscaler's ERA5 variables and bilinearly regrid a global
     regular lat/lon field onto its regional grid. Returns [n_var, n_lat, n_lon]."""
@@ -185,15 +176,11 @@ x_da = xr.DataArray(
 )
 
 # %%
-# GHCNHourly 10 m wind observations
-# ---------------------------------
-# Fetch GHCNHourly reports over the model's output domain, keep one report per
-# (station, variable) closest to the analysis time, and keep only stations that
-# report both wind components. Then split the stations into an assimilated set and
-# a held-out set so the observation-guided analysis can be compared at sites that
-# were never assimilated.
+# Fetch Observations
+# ------------------
+# Fetch paired wind reports and split stations into assimilated and held-out sets.
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 glat = sda.model.lat_output_numpy
 glon = sda.model.lon_output_numpy
 bbox = (float(glat.min()), float(glon.min()), float(glat.max()), float(glon.max()))
@@ -202,20 +189,16 @@ stations = GHCNHourly.get_stations_bbox(bbox)
 ghcn = GHCNHourly(stations=stations, time_tolerance=OBS_TIME_TOLERANCE, verbose=False)
 raw = ghcn(INIT_TIME, list(ASSIMILATE))
 raw = raw[raw["variable"].isin(ASSIMILATE)].dropna(subset=["observation"]).copy()
-# one report per (station, variable): the one closest to INIT_TIME
 raw["dt"] = (pd.to_datetime(raw["time"]) - INIT_TIME).abs()
 raw = raw.sort_values("dt").drop_duplicates(["station", "variable"], keep="first")
-# keep only stations reporting BOTH u10m and v10m
-both = raw.groupby("station")["variable"].nunique().eq(len(ASSIMILATE))
-raw = raw[raw["station"].isin(both[both].index)]
+complete_stations = raw.groupby("station")["variable"].nunique().eq(len(ASSIMILATE))
+raw = raw[raw["station"].isin(complete_stations[complete_stations].index)]
 station_ids = sorted(raw["station"].unique())
-print(
-    f"stations with {'+'.join(ASSIMILATE)} in domain @ {INIT_TIME}: {len(station_ids)}"
-)
+print(f"Stations with {'+'.join(ASSIMILATE)} at {INIT_TIME}: {len(station_ids)}")
 if len(station_ids) < 2:
     raise RuntimeError(
-        f"need >= 2 usable stations to split (got {len(station_ids)}); widen DOMAIN, "
-        "loosen time_tolerance, or pick a time/region with more reports."
+        f"Need at least 2 usable stations (got {len(station_ids)}); widen DOMAIN, "
+        "loosen OBS_TIME_TOLERANCE, or choose another time."
     )
 
 rng = np.random.default_rng(0)
@@ -225,27 +208,21 @@ obs_cols = ["time", "lat", "lon", "variable", "observation"]
 is_held_out = raw["station"].isin(val_ids)
 assimilated_reports = raw[~is_held_out]
 held_out_reports = raw[is_held_out]
-# The model does not need the station ID, so pass only its observation columns.
 assimilation_obs = assimilated_reports[obs_cols]
 n_assim = len(station_ids) - len(val_ids)
-print(
-    f"provided for assimilation: {n_assim} stations "
-    f"| held-out: {len(val_ids)} stations"
-)
+print(f"Assimilated: {n_assim} stations | Held-out: {len(val_ids)} stations")
 
 # %%
-# Prior vs observation-guided analysis
+# Prior vs. Observation-Guided Analysis
 # -------------------------------------
 # Run the downscaler twice on the same ERA5 state: once with no observations (the
 # prior, ``obs=None``) and once with the observations selected for assimilation.
 # Both return an ensemble with dims ``(time, sample, variable, y, x)``.
 
 
-# %%
+# %% tags=["e2sg-profile:inference"]
 def to_numpy(da):
-    """Analysis data as NumPy. On CUDA the analysis is CuPy-backed (same-device
-    contract), so use ``.data`` + ``.get()`` rather than ``.values`` (which would
-    force an implicit -- disallowed -- CuPy->NumPy conversion)."""
+    """Return the DataArray data as a NumPy array."""
     arr = da.data
     return arr.get() if hasattr(arr, "get") else np.asarray(arr)
 
@@ -263,14 +240,12 @@ output_lon = np.asarray(post["lon"])
 post_np, free_np = to_numpy(post), to_numpy(free)  # [time, sample, variable, y, x]
 
 # %%
-# One posterior draw
-# ------------------
-# One posterior draw (ENSEMBLE_SIZE = 1): the map shows that analysis' wind speed and
-# the RMSE below uses its u/v components. The ``.mean(0)`` over ``sample`` is a no-op
-# here; with ENSEMBLE_SIZE > 1 it yields the mean per-member speed (map) and the mean
-# components (RMSE) -- averaging speeds, not components, avoids direction cancellation.
+# Single Posterior Sample
+# -----------------------
+# Compare the observation-guided analysis with the prior using 10 m wind speed and
+# vector-wind RMSE.
 
-# %%
+# %% tags=["e2sg-profile:plotting"]
 ws_post = np.hypot(post_np[0, :, u_index], post_np[0, :, v_index]).mean(0)
 ws_free = np.hypot(free_np[0, :, u_index], free_np[0, :, v_index]).mean(0)
 analysis_u = post_np[0, :, u_index].mean(0)
@@ -278,11 +253,12 @@ analysis_v = post_np[0, :, v_index].mean(0)
 prior_u = free_np[0, :, u_index].mean(0)
 prior_v = free_np[0, :, v_index].mean(0)
 print(
-    f"finite: posterior {np.isfinite(post_np).all()} free {np.isfinite(free_np).all()}"
+    f"Finite values: Posterior={np.isfinite(post_np).all()}, "
+    f"Prior={np.isfinite(free_np).all()}"
 )
 
 # %%
-# Compare to held-out stations
+# Compare to Held-Out Stations
 # ----------------------------
 # Compute the vector-wind RMSE of each analysis against the observations, at the
 # stations' nearest output cells. The *held-out* stations were never assimilated,
@@ -291,10 +267,9 @@ print(
 # skill claim, and a single time/split/ensemble does not guarantee improvement.
 
 
-# %%
+# %% tags=["e2sg-profile:plotting"]
 def vector_rmse_at(df, u_field, v_field):
-    """Vector 10 m wind RMSE (m/s) vs obs at each station's nearest output cell.
-    Components are paired by ``station`` (not lat/lon) to avoid cross-pairing."""
+    """Compute vector wind RMSE at station locations."""
     u_reports = df[df["variable"] == "u10m"][["station", "lat", "lon", "observation"]]
     v_reports = df[df["variable"] == "v10m"][["station", "observation"]]
     merged = u_reports.merge(v_reports, on="station", suffixes=("_u", "_v"))
@@ -308,226 +283,93 @@ def vector_rmse_at(df, u_field, v_field):
     return float(np.sqrt(np.mean(u_error**2 + v_error**2)))
 
 
-print("=== vector 10 m wind RMSE vs GHCNHourly (m/s) ===")
-print(
-    f"  held-out:    prior {vector_rmse_at(held_out_reports, prior_u, prior_v):.3f}"
-    f"  ->  analysis {vector_rmse_at(held_out_reports, analysis_u, analysis_v):.3f}"
-)
-print(
-    f"  assimilated: prior "
-    f"{vector_rmse_at(assimilated_reports, prior_u, prior_v):.3f}"
-    f"  ->  analysis "
-    f"{vector_rmse_at(assimilated_reports, analysis_u, analysis_v):.3f}"
-)
+held_out_prior = vector_rmse_at(held_out_reports, prior_u, prior_v)
+held_out_analysis = vector_rmse_at(held_out_reports, analysis_u, analysis_v)
+assimilated_prior = vector_rmse_at(assimilated_reports, prior_u, prior_v)
+assimilated_analysis = vector_rmse_at(assimilated_reports, analysis_u, analysis_v)
+print("Vector 10 m wind RMSE vs. GHCNHourly (m/s)")
+print(f"Held-out: Prior={held_out_prior:.3f}, Analysis={held_out_analysis:.3f}")
+print(f"Assimilated: Prior={assimilated_prior:.3f}, Analysis={assimilated_analysis:.3f}")
 
 # %%
-# Plot the analyses and their difference
+# Plot the Analyses and Their Difference
 # --------------------------------------
-# Left: prior (free, no-obs) 10 m wind speed. Middle: observation-guided analysis,
-# with assimilated (filled) and held-out (open) stations overlaid. Right: the signed
-# increment the observations add (analysis - prior), with per-held-out-station error-
-# change markers (up = error reduced, down = error increased, marker area proportional
-# to |error change|).
+# Finally, we can plot the results:
+#
+# - Left: prior 10 m wind speed.
+# - Center: observation-guided analysis with assimilated and held-out stations.
+# - Right: signed analysis increment.
 
 
-# %%
-def geo_axes(ax, labels=True, left=True):
-    """Add coastlines + (optionally labeled) gridlines to a cartopy GeoAxes.
+# %% tags=["e2sg-profile:plotting"]
+title_box = {"facecolor": "white", "alpha": 0.75, "edgecolor": "none", "pad": 2}
 
-    ``left=False`` drops the latitude (left) labels -- used on the inner panels of a
-    shared-latitude row so only the leftmost panel is labelled.
-    """
+
+def format_map(ax, title, left_labels=False):
+    """Style a map axis."""
+    ax.set_title(title, fontsize=9, y=0.95, color="black", bbox=title_box, zorder=5)
+    ax.set_extent(extent, crs=PROJ)
     ax.coastlines(resolution="50m", linewidth=0.6, color="0.3")
-    # x_inline/y_inline=False keeps lon/lat labels on the axis edges (below / left)
-    # rather than inline inside the rotated-pole map; don't rotate them to the grid.
-    gl = ax.gridlines(
-        crs=DATA,
-        draw_labels=labels,
-        x_inline=False,
-        y_inline=False,
-        linewidth=0.3,
-        color="0.5",
-        alpha=0.5,
+    gridlines = ax.gridlines(
+        crs=DATA, draw_labels=True, linewidth=0.3, color="0.5", alpha=0.5
     )
-    if labels:
-        gl.top_labels = gl.right_labels = False
-        gl.left_labels = left
-        gl.rotate_labels = False
+    gridlines.x_inline = gridlines.y_inline = False
+    gridlines.top_labels = gridlines.right_labels = False
+    gridlines.left_labels = left_labels
+    gridlines.rotate_labels = False
 
 
-def station_locations(df):
-    """Unique (lat, lon) of the stations in ``df``."""
-    loc = df.drop_duplicates("station")
-    return loc["lat"].values, loc["lon"].values
-
-
-def held_out_error_change(df):
-    """Per-station change in vector-wind error at each station's nearest output cell:
-    ``delta = prior_error - posterior_error`` (positive = the analysis is closer to
-    the station than the prior). One split is a single case, not a skill assessment.
-    Returns (lat, lon, delta) paired by ``station``."""
-    # Pair the observed u/v components by station.
-    u_reports = df[df["variable"] == "u10m"][["station", "lat", "lon", "observation"]]
-    v_reports = df[df["variable"] == "v10m"][["station", "observation"]]
-    merged = u_reports.merge(v_reports, on="station", suffixes=("_u", "_v"))
-
-    # Sample each model field at the station's nearest output-grid cell.
-    tree = cKDTree(np.column_stack([output_lat.ravel(), (output_lon % 360).ravel()]))
-    _, flat_indices = tree.query(np.column_stack([merged["lat"], merged["lon"] % 360]))
-    row_indices, col_indices = np.unravel_index(flat_indices, output_lat.shape)
-    observed_u = merged["observation_u"].values
-    observed_v = merged["observation_v"].values
-    prior_error = np.hypot(
-        prior_u[row_indices, col_indices] - observed_u,
-        prior_v[row_indices, col_indices] - observed_v,
-    )
-    analysis_error = np.hypot(
-        analysis_u[row_indices, col_indices] - observed_u,
-        analysis_v[row_indices, col_indices] - observed_v,
-    )
-    return (
-        merged["lat"].values,
-        merged["lon"].values,
-        prior_error - analysis_error,
-    )
-
-
-tr_lat, tr_lon = station_locations(assimilated_reports)
-va_lat, va_lon = station_locations(held_out_reports)
+assimilated_stations = assimilated_reports.drop_duplicates("station")
+held_out_stations = held_out_reports.drop_duplicates("station")
+rp = PROJ.transform_points(DATA, output_lon, output_lat)
+x_rotated, y_rotated = rp[..., 0], rp[..., 1]
+extent = [x_rotated.min(), x_rotated.max(), y_rotated.min(), y_rotated.max()]
+speed_max = float(max(np.nanpercentile(ws_free, 99), np.nanpercentile(ws_post, 99)))
+speed_style = {
+    "transform": DATA,
+    "shading": "nearest",
+    "cmap": "viridis",
+    "vmin": 0,
+    "vmax": speed_max,
+}
+increment = ws_post - ws_free
+increment_limit = float(np.nanpercentile(np.abs(increment), 99))
 
 plt.close("all")
-fig, axs = plt.subplots(1, 3, figsize=(21, 6.2), subplot_kw={"projection": PROJ})
-
-
-def add_colorbar(mesh, ax, label):
-    """Colorbar the exact height of its (square) map, via an axes divider."""
-    cax = make_axes_locatable(ax).append_axes(
-        "right", size="4%", pad=0.08, axes_class=plt.Axes
-    )
-    return fig.colorbar(mesh, cax=cax, label=label)
-
-
-# frame each map to the data footprint in the rotated-pole frame, where the crop is an
-# axis-aligned (near-square) rectangle; colorbars are matched to the map height below.
-rp = PROJ.transform_points(
-    DATA, output_lon, output_lat
-)  # true lat/lon -> rotated-pole coords
-extent = [
-    float(rp[..., 0].min()),
-    float(rp[..., 0].max()),
-    float(rp[..., 1].min()),
-    float(rp[..., 1].max()),
-]
-# shared color limit across prior and analysis so neither panel saturates
-vmax = float(max(np.nanpercentile(ws_free, 99), np.nanpercentile(ws_post, 99)))
-speed_kw = dict(transform=DATA, shading="nearest", cmap="viridis", vmin=0, vmax=vmax)
-
-m0 = axs[0].pcolormesh(output_lon, output_lat, ws_free, **speed_kw)
-axs[0].set_title(f"Prior 10 m wind speed, no obs  ({INIT_TIME:%Y-%m-%d %HZ})")
-geo_axes(axs[0])
-axs[0].set_extent(extent, crs=PROJ)
-add_colorbar(m0, axs[0], "10 m wind speed (m/s)")
-
-m1 = axs[1].pcolormesh(output_lon, output_lat, ws_post, **speed_kw)
-axs[1].scatter(
-    tr_lon,
-    tr_lat,
-    s=30,
-    c="red",
-    edgecolors="k",
-    linewidths=0.5,
-    transform=DATA,
-    zorder=3,
-    label="assimilated",
+fig, axes = plt.subplots(
+    1, 3, figsize=(15, 4.8), subplot_kw={"projection": PROJ}, layout="constrained"
 )
-axs[1].scatter(
-    va_lon,
-    va_lat,
-    s=30,
-    facecolors="none",
-    edgecolors="k",
-    linewidths=1.0,
-    transform=DATA,
-    zorder=3,
-    label="held-out",
-)
-axs[1].legend(loc="lower right", fontsize=8)
-axs[1].set_title("Observation-guided analysis 10 m wind speed")
-geo_axes(axs[1], left=False)
-axs[1].set_extent(extent, crs=PROJ)
-add_colorbar(m1, axs[1], "10 m wind speed (m/s)")
-
-diff = ws_post - ws_free
-dlim = float(np.nanpercentile(np.abs(diff), 99))
-m2 = axs[2].pcolormesh(
+prior_mesh = axes[0].pcolormesh(output_lon, output_lat, ws_free, **speed_style)
+axes[1].pcolormesh(output_lon, output_lat, ws_post, **speed_style)
+increment_mesh = axes[2].pcolormesh(
     output_lon,
     output_lat,
-    diff,
+    increment,
     transform=DATA,
     shading="nearest",
     cmap="RdBu_r",
-    vmin=-dlim,
-    vmax=dlim,
+    vmin=-increment_limit,
+    vmax=increment_limit,
 )
-axs[2].set_title("Increment (analysis - prior)")
-geo_axes(axs[2], left=False)
-axs[2].set_extent(extent, crs=PROJ)
-# Overlay the per-held-out-station error change (delta = prior_error - posterior_error):
-# up-triangle where the analysis sits closer to the withheld obs than the prior,
-# down-triangle where it is worse. Marker area is on an absolute scale (points^2 per
-# m/s) so sizes are comparable across figures/dates. Held-out stations only --
-# assimilated sites are fit by construction, so their change is not a fair comparison.
-hv_lat, hv_lon, hv_d = held_out_error_change(held_out_reports)
-AREA_PER_MS = 70.0  # marker area (points^2) per m/s of |delta error|; |delta|=1 -> 70
-sizes = AREA_PER_MS * np.clip(np.abs(hv_d), 0.2, 3.0)
-better = hv_d >= 0
-# colorblind-safe (Okabe-Ito) fills with a white edge to read on the red/blue field
-skill_kw = dict(transform=DATA, edgecolors="w", linewidths=1.1, zorder=4)
-axs[2].scatter(
-    hv_lon[better], hv_lat[better], marker="^", c="#009E73", s=sizes[better], **skill_kw
-)
-axs[2].scatter(
-    hv_lon[~better],
-    hv_lat[~better],
-    marker="v",
-    c="#D55E00",
-    s=sizes[~better],
-    **skill_kw,
-)
-# equal-size, colorblind-safe legend proxies drawn at the |delta error| = 1 m/s size,
-# so the two entries differ only in shape/color (sign), and the size sets the scale
-ref_ms = float(np.sqrt(AREA_PER_MS))
-skill_legend = [
-    Line2D(
-        [0],
-        [0],
-        marker="^",
-        linestyle="none",
-        markerfacecolor="#009E73",
-        markeredgecolor="0.3",
-        markersize=ref_ms,
-        label="held-out: error reduced",
-    ),
-    Line2D(
-        [0],
-        [0],
-        marker="v",
-        linestyle="none",
-        markerfacecolor="#D55E00",
-        markeredgecolor="0.3",
-        markersize=ref_ms,
-        label="held-out: error increased",
-    ),
-]
-axs[2].legend(
-    handles=skill_legend,
-    loc="lower right",
-    fontsize=7,
-    framealpha=0.9,
-    title="marker area ∝ |Δ error|",
-    title_fontsize=6,
-)
-add_colorbar(m2, axs[2], "10 m wind increment (m/s)")
 
-fig.subplots_adjust(wspace=0.18)
-plt.savefig("outputs/03_corrdiff_cosmo_sda.jpg", dpi=150, bbox_inches="tight")
+format_map(axes[0], f"Prior ({INIT_TIME:%Y-%m-%d %HZ})", left_labels=True)
+format_map(axes[1], "Observation-guided analysis")
+format_map(axes[2], "Analysis - prior")
+station_styles = [
+    (assimilated_stations, {"c": "#D55E00", "linewidths": 0.4, "label": "Assimilated"}),
+    (held_out_stations, {"facecolors": "none", "linewidths": 0.8, "label": "Held-out"}),
+]
+for stations, style in station_styles:
+    axes[1].scatter(
+        stations["lon"], stations["lat"], s=24, edgecolors="k", transform=DATA,
+        zorder=3, **style
+    )
+axes[1].legend(loc="lower right", fontsize=7)
+colorbar_style = {"shrink": 0.82, "pad": 0.02}
+fig.colorbar(
+    prior_mesh, ax=axes[:2], label="10 m wind speed (m/s)", **colorbar_style
+)
+fig.colorbar(
+    increment_mesh, ax=axes[2], label="10 m wind increment (m/s)", **colorbar_style
+)
+plt.savefig("outputs/03_corrdiff_cosmo_sda.jpg", dpi=120)
