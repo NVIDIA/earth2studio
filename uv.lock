@@ -2088,11 +2088,22 @@ cosmo = [
     { name = "natten", marker = "python_full_version < '3.14' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
+    { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
 ]
 cyclone = [
     { name = "cucim-cu13" },
     { name = "cupy-cuda13x" },
     { name = "scikit-image" },
+]
+da-cosmo = [
+    { name = "cupy-cuda13x" },
+    { name = "einops" },
+    { name = "natten", marker = "python_full_version < '3.14' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
+    { name = "nvidia-physicsnemo" },
+    { name = "nvtx" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
+    { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens')" },
 ]
 da-healda = [
     { name = "cudf-cu13" },
@@ -2351,6 +2362,7 @@ requires-dist = [
     { name = "cudf-cu13", marker = "extra == 'da-stormcast'", specifier = ">=26.2.0" },
     { name = "cupy-cuda13x", marker = "extra == 'all'" },
     { name = "cupy-cuda13x", marker = "extra == 'cyclone'" },
+    { name = "cupy-cuda13x", marker = "extra == 'da-cosmo'" },
     { name = "cupy-cuda13x", marker = "extra == 'da-healda'" },
     { name = "cupy-cuda13x", marker = "extra == 'da-interp'" },
     { name = "cupy-cuda13x", marker = "extra == 'da-stormcast'" },
@@ -2385,6 +2397,7 @@ requires-dist = [
     { name = "einops", marker = "extra == 'atlas'" },
     { name = "einops", marker = "extra == 'corrdiff'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'cosmo'", specifier = ">=0.8.1" },
+    { name = "einops", marker = "extra == 'da-cosmo'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'da-stormcast'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'stormcast'", specifier = ">=0.8.1" },
     { name = "eumdac", marker = "extra == 'all'", specifier = ">=3.1.0" },
@@ -2439,6 +2452,7 @@ requires-dist = [
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'all'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'atlas'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'cosmo'" },
+    { name = "natten", marker = "python_full_version < '3.14' and extra == 'da-cosmo'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'stormcast-conus'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'stormscope'" },
     { name = "netcdf4", specifier = ">=1.6.4,<1.7.3" },
@@ -2452,6 +2466,7 @@ requires-dist = [
     { name = "nvidia-physicsnemo", marker = "extra == 'atlas'", specifier = ">=1.3.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'cosmo'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=bf0ad4f43275b84a7beab35127d57a99cd359260" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'da-cosmo'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=bf0ad4f43275b84a7beab35127d57a99cd359260" },
     { name = "nvidia-physicsnemo", marker = "extra == 'da-stormcast'", specifier = ">=2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", specifier = ">=1.0.1" },
@@ -2468,6 +2483,7 @@ requires-dist = [
     { name = "nvtx", marker = "extra == 'all'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'cosmo'", specifier = ">=0.2.11" },
+    { name = "nvtx", marker = "extra == 'da-cosmo'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'da-stormcast'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormcast'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormcast-conus'", specifier = ">=0.2.11" },
@@ -2540,6 +2556,8 @@ requires-dist = [
     { name = "scipy", marker = "extra == 'all'", specifier = ">=1.10.0" },
     { name = "scipy", marker = "extra == 'all'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'corrdiff'", specifier = ">=1.15.2" },
+    { name = "scipy", marker = "extra == 'cosmo'", specifier = ">=1.15.2" },
+    { name = "scipy", marker = "extra == 'da-cosmo'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'da-stormcast'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'data'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'fcn3'", specifier = ">=1.10.0" },
@@ -2574,7 +2592,7 @@ requires-dist = [
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=3.1.3" },
 ]
-provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cosmo", "cyclone", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormcast-conus", "stormscope", "ucast", "utils", "windgust-afno"]
+provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cosmo", "cyclone", "da-cosmo", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormcast-conus", "stormscope", "ucast", "utils", "windgust-afno"]
 
 [package.metadata.requires-dev]
 build = [
@@ -2604,7 +2622,7 @@ dev = [
 ]
 docs = [
     { name = "cartopy" },
-    { name = "earth2studio-gallery", git = "https://github.com/NickGeneva/earth2studio-gallery.git?rev=124064d9cbe134cf7998fe93d4731225a6a922b4" },
+    { name = "earth2studio-gallery", git = "https://github.com/NickGeneva/earth2studio-gallery.git?rev=bfde8a7eff84eb00ecd92ba1b1dc22be1d23331a" },
     { name = "griffe-inherited-docstrings", specifier = ">=1.1.3" },
     { name = "matplotlib" },
     { name = "mike", specifier = ">=2.1.0" },
@@ -2620,7 +2638,7 @@ docs = [
 [[package]]
 name = "earth2studio-gallery"
 version = "0.1.0"
-source = { git = "https://github.com/NickGeneva/earth2studio-gallery.git?rev=124064d9cbe134cf7998fe93d4731225a6a922b4#124064d9cbe134cf7998fe93d4731225a6a922b4" }
+source = { git = "https://github.com/NickGeneva/earth2studio-gallery.git?rev=bfde8a7eff84eb00ecd92ba1b1dc22be1d23331a#bfde8a7eff84eb00ecd92ba1b1dc22be1d23331a" }
 dependencies = [
     { name = "mkdocs" },
     { name = "mkdocs-autorefs" },

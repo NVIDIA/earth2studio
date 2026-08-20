@@ -385,6 +385,21 @@ categories:
       - Data assimilation APIs are currently in beta and may change in future releases.
       - Data assimilation extras install CUDA-dependent CuPy and cuDF packages.
     items:
+      - id: da-cosmo
+        label: CorrDiff COSMO SDA
+        extra: da-cosmo
+        summary: CorrDiff COSMO-ERA5 data assimilation dependencies.
+        api_refs:
+          - earth2studio.models.da.CorrDiffCosmoEra5SDA
+        # TODO: Removed with psn release 2.2.0
+        preinstall:
+          pip:
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+          uv:
+            pypi:
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+        warnings:
+          - Depends on natten for Python versions before 3.14.
       - id: da-healda
         label: HealDA
         extra: da-healda
