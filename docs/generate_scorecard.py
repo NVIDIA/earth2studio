@@ -371,18 +371,19 @@ _DESC_PREFIX = {
 # which a docs-only environment need not have, and the vocab is a pure dict
 # literal. The pattern tables above remain the fallback.
 def _load_vocab() -> dict:
+    """Variable vocabulary parsed from earth2studio's lexicon source file."""
     import ast
+    import contextlib
 
     src = DOCS.parent / "earth2studio" / "lexicon" / "base.py"
-    try:
+    # Any parsing hiccup just falls back to the pattern tables below.
+    with contextlib.suppress(Exception):
         for node in ast.parse(src.read_text()).body:
             if (
                 isinstance(node, ast.Assign)
                 and getattr(node.targets[0], "id", "") == "E2STUDIO_VOCAB"
             ):
                 return ast.literal_eval(node.value)
-    except Exception:  # noqa: BLE001 -- fall back to the pattern tables
-        pass
     return {}
 
 
@@ -408,14 +409,14 @@ def describe(var: str) -> str:
 
 
 def variables_table(doc: dict) -> str:
+    """Markdown table of scored variables with descriptions and units."""
     rows = [
         f"| `{v}` | {describe(v)} | {doc['units'].get(v, '')} "
         f"| {doc['variable_groups'].get(v, '')} |"
         for v in doc["variables"]
     ]
-    table = (
-        "| Name | Description | Unit | Group |\n|---|---|---|---|\n"
-        + "\n".join(rows)
+    table = "| Name | Description | Unit | Group |\n|---|---|---|---|\n" + "\n".join(
+        rows
     )
     return "\n".join("    " + ln for ln in table.splitlines())
 
@@ -475,6 +476,7 @@ def read_config(model: str) -> dict:
 
 
 def provenance_table(doc: dict) -> str:
+    """Markdown table for the collapsible reproducibility section."""
     prov = doc.get("provenance") or {}
     if not prov:
         return (
@@ -504,7 +506,9 @@ def build_page(model: str, doc: dict, conf: dict) -> str:
     label = conf["label"]
     years = sorted({t[:4] for t in doc["initial_conditions"]})
     kind = (
-        f"{doc['members']}-member ensemble" if doc["kind"] == "prob" else "deterministic"
+        f"{doc['members']}-member ensemble"
+        if doc["kind"] == "prob"
+        else "deterministic"
     )
     summary = (
         f"{kind.capitalize()} · {len(doc['initial_conditions'])} initial conditions · "
@@ -525,11 +529,7 @@ def build_page(model: str, doc: dict, conf: dict) -> str:
         provenance_table=provenance_table(doc),
         variables_table=variables_table(doc),
         label_q=quote(label),
-        badges=(
-            "\n{% badges " + conf["badges"] + " %}\n"
-            if conf["badges"]
-            else ""
-        ),
+        badges=("\n{% badges " + conf["badges"] + " %}\n" if conf["badges"] else ""),
         description=("\n" + conf["description"] + "\n") if conf["description"] else "",
         reference=("\n" + conf["extras"] + "\n") if conf["extras"] else "",
     )
@@ -553,13 +553,11 @@ def _card(model: str, doc: dict, conf: dict) -> str:
     # The whole card is the link; the description appears only on hover.
     # <br> keeps the facts on their own line while the link text stays a
     # single paragraph (markdown links cannot span blank lines).
-    return (
-        f'- [**{label}**<br>*{facts}*]({model}.md)'
-        f'{{ title="{tooltip}" }}'
-    )
+    return f"- [**{label}**<br>*{facts}*]({model}.md)" f'{{ title="{tooltip}" }}'
 
 
 def main() -> int:
+    """Generate all scorecard pages and the shared plot."""
     models = sorted(
         f.name[len("eval_scores_") : -len(".json")]
         for f in STATIC.glob("eval_scores_*.json")
@@ -577,8 +575,6 @@ def main() -> int:
     GENERATED.mkdir(parents=True)
 
     # One shared plot for every model; it holds no data.
-    import json
-
     (STATIC / "plot.html").write_text(
         PLOT_HTML.replace("__LOWER__", json.dumps(LOWER_IS_BETTER))
     )
@@ -602,7 +598,9 @@ def main() -> int:
             entries="\n\n".join(_card(m, docs[m], confs[m]) for m in models),
         )
     )
-    print(f"wrote scorecard/generated/index.md ({len(models)} model(s): {', '.join(models)})")
+    print(
+        f"wrote scorecard/generated/index.md ({len(models)} model(s): {', '.join(models)})"
+    )
     return 0
 
 

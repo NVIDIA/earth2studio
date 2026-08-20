@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import os
 import shutil
 import socket
@@ -52,13 +53,32 @@ STAGES = ("predownload", "infer", "score", "prune")
 
 
 def launch(entry: str, campaign: str, overrides: list[str], ngpu: int) -> None:
+    """Run one recipe entry point under torchrun with the campaign config."""
     cmd = [
-        sys.executable, "-m", "torch.distributed.run",
-        f"--nproc_per_node={ngpu}", "--standalone",
-        entry, "--config-dir", str(HERE / "cfg"), f"campaign={campaign}",
+        sys.executable,
+        "-m",
+        "torch.distributed.run",
+        f"--nproc_per_node={ngpu}",
+        "--standalone",
+        entry,
+        "--config-dir",
+        str(HERE / "cfg"),
+        f"campaign={campaign}",
         *overrides,
     ]
-    subprocess.run(cmd, check=True, cwd=RECIPE)
+    # cmd is built from sys.executable and our own arguments.
+    subprocess.run(cmd, check=True, cwd=RECIPE)  # noqa: S603
+
+
+def scores_complete(store: Path) -> bool:
+    """True when the store exists and carries the provenance stamp that
+    stamp_provenance() writes only after scoring finished cleanly."""
+    try:
+        return "provenance" in json.loads((store / "zarr.json").read_text()).get(
+            "attributes", {}
+        )
+    except OSError:
+        return False
 
 
 def stamp_provenance(store: Path) -> None:
@@ -72,9 +92,11 @@ def stamp_provenance(store: Path) -> None:
         "python": sys.version.split()[0],
         "torch": str(torch.__version__),
         "cuda": str(torch.version.cuda or "n/a"),
-        "repo_commit": subprocess.run(
-            ["git", "-C", str(HERE), "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=10,
+        "repo_commit": subprocess.run(  # noqa: S603
+            [shutil.which("git") or "git", "-C", str(HERE), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=10,
         ).stdout.strip(),
     }
     if torch.cuda.is_available():
@@ -87,10 +109,13 @@ def stamp_provenance(store: Path) -> None:
 
 
 def main() -> int:
+    """Run the requested stages of one scorecard campaign."""
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("campaign", help="config under cfg/campaign/, e.g. fcn3_2025_scorecard")
+    ap.add_argument(
+        "campaign", help="config under cfg/campaign/, e.g. fcn3_2025_scorecard"
+    )
     ap.add_argument("stages", nargs="*", help=f"subset of {'/'.join(STAGES)}")
     ap.add_argument("--ngpu", type=int, default=None, help="GPUs (default: all)")
     args, overrides = ap.parse_known_args()
@@ -116,11 +141,14 @@ def main() -> int:
     ov = dict(o.split("=", 1) for o in overrides if "=" in o)
     project = ov.get("project", cfg["project"])
     run_id = ov.get("run_id", cfg["run_id"])
-    out = Path(
-        os.environ.setdefault(
-            "SCORECARD_OUT", str(HERE / "models" / project / "outputs")
+    out = (
+        Path(
+            os.environ.setdefault(
+                "SCORECARD_OUT", str(HERE / "models" / project / "outputs")
+            )
         )
-    ) / f"{project}_{run_id}"
+        / f"{project}_{run_id}"
+    )
     os.environ.setdefault("EARTH2STUDIO_CACHE", "/opt/venv/.e2s_cache")
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     # scorecard.pipelines.* in the campaign configs resolves from the recipe root.
@@ -154,14 +182,19 @@ def main() -> int:
             launch("score.py", args.campaign, chunks + overrides, args.ngpu)
             stamp_provenance(out / "scores.zarr")
         elif stage == "prune":
-            # Check the artifact, not an exit code: an inference stage that
-            # died mid-way can still exit 0, and deleting the forecast then
-            # makes the run unrecoverable.
-            if (out / "scores.zarr").is_dir():
-                print(f"    scores present -- deleting {out / 'forecast.zarr'}")
+            # Gate on the provenance stamp, not on the store existing: a
+            # scoring run killed mid-way leaves a partial scores.zarr on
+            # disk, and deleting the forecast then makes the run
+            # unrecoverable. The stamp is written only after score.py
+            # exits cleanly, so it doubles as the completion marker.
+            if scores_complete(out / "scores.zarr"):
+                print(f"    scores complete -- deleting {out / 'forecast.zarr'}")
                 shutil.rmtree(out / "forecast.zarr", ignore_errors=True)
             else:
-                raise SystemExit("!! no scores.zarr -- keeping forecast")
+                raise SystemExit(
+                    "!! scores.zarr missing or unstamped (scoring "
+                    "incomplete?) -- keeping forecast"
+                )
 
     print(f"\n=== done — {out}")
     return 0

@@ -47,9 +47,9 @@ from typing import Any
 import numpy as np
 import torch
 from omegaconf import DictConfig
-
 from src.pipelines.forecast import ForecastPipeline
 from src.regrid import Regridder
+
 from earth2studio.utils.type import CoordSystem
 
 
@@ -122,7 +122,7 @@ class SeparableNearestRegridder(Regridder):
         self._lat_idx = torch.as_tensor(lat_idx, dtype=torch.long)
         self._lon_idx = torch.as_tensor(lon_idx, dtype=torch.long)
 
-    def to(self, device: str | torch.device) -> "SeparableNearestRegridder":
+    def to(self, device: str | torch.device) -> SeparableNearestRegridder:
         """Move the gather indices to a device.
 
         Parameters

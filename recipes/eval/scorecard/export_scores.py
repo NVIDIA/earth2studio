@@ -65,12 +65,18 @@ METRICS: dict[str, tuple[str, str | None]] = {
 # issued). The ensemble-as-a-whole is what ensemble_mean_mse / crps measure.
 SINGLE_MEMBER = {"rmse", "mae", "acc", "lsd"}
 
-_GROUPS = {"z": "Geopotential", "t": "Temperature", "u": "U wind",
-           "v": "V wind", "q": "Specific humidity"}
+_GROUPS = {
+    "z": "Geopotential",
+    "t": "Temperature",
+    "u": "U wind",
+    "v": "V wind",
+    "q": "Specific humidity",
+}
 _UNITS_EXACT = {"msl": "Pa", "sp": "Pa", "tcwv": "kg m⁻²"}
 
 
 def group_of(var: str) -> str:
+    """Display group for a variable (Geopotential, Temperature, Surface...)."""
     m = re.fullmatch(r"([a-z]+)(\d+)", var)
     if m and m.group(1) in _GROUPS and var not in ("u10m", "v10m"):
         return _GROUPS[m.group(1)]
@@ -78,10 +84,16 @@ def group_of(var: str) -> str:
 
 
 def unit_for(var: str) -> str:
+    """Display unit for a variable, from its naming convention."""
     if var in _UNITS_EXACT:
         return _UNITS_EXACT[var]
-    for prefix, unit in (("z", "m² s⁻²"), ("u", "m s⁻¹"), ("v", "m s⁻¹"),
-                         ("q", "kg kg⁻¹"), ("t", "K")):
+    for prefix, unit in (
+        ("z", "m² s⁻²"),
+        ("u", "m s⁻¹"),
+        ("v", "m s⁻¹"),
+        ("q", "kg kg⁻¹"),
+        ("t", "K"),
+    ):
         if var.startswith(prefix):
             return unit
     return ""
@@ -114,6 +126,7 @@ def curve(ds: xr.Dataset, source: str, var: str, single: bool) -> np.ndarray | N
 
 
 def r5(a: np.ndarray) -> list:
+    """Round to 5 significant digits; non-finite values become None."""
     return [None if not np.isfinite(x) else float(f"{x:.5g}") for x in a.ravel()]
 
 
@@ -126,7 +139,9 @@ def provenance(run: Path) -> dict:
     that predate stamping fall back to capturing the EXPORT environment,
     marked provenance_source: export-time so the difference is visible.
     """
+    import contextlib
     import datetime as dt
+    import shutil
     import subprocess
 
     prov: dict = {
@@ -135,24 +150,21 @@ def provenance(run: Path) -> dict:
         ).strftime("%Y-%m-%d"),
         "exported": dt.date.today().isoformat(),
     }
+    # Env probing is best effort throughout: the export must never die on it.
     stamped: dict = {}
-    try:
+    with contextlib.suppress(Exception):
         import zarr
 
         stamped = dict(
-            zarr.open_group(str(run / "scores.zarr"), mode="r").attrs.get(
-                "provenance"
-            )
+            zarr.open_group(str(run / "scores.zarr"), mode="r").attrs.get("provenance")
             or {}
         )
-    except Exception:  # noqa: BLE001 -- export must not die on env probing
-        pass
     if stamped:
         prov.update(stamped)
         prov["provenance_source"] = "run"
     else:
         prov["python"] = sys.version.split()[0]
-        try:
+        with contextlib.suppress(Exception):
             import torch
 
             prov["torch"] = torch.__version__
@@ -162,21 +174,20 @@ def provenance(run: Path) -> dict:
                     f"{torch.cuda.device_count()} x "
                     f"{torch.cuda.get_device_name(0)} (single node)"
                 )
-        except Exception:  # noqa: BLE001
-            pass
-        try:
-            prov["repo_commit"] = subprocess.run(
-                ["git", "-C", str(HERE), "rev-parse", "HEAD"],
-                capture_output=True, text=True, timeout=10,
+        with contextlib.suppress(Exception):
+            prov["repo_commit"] = subprocess.run(  # noqa: S603
+                [shutil.which("git") or "git", "-C", str(HERE), "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=10,
             ).stdout.strip()
-        except Exception:  # noqa: BLE001
-            pass
         prov["provenance_source"] = "export-time"
     # torch.__version__ is a str subclass; normalise everything to plain str.
     return {k: str(v) for k, v in prov.items()}
 
 
 def export(model: str, run: Path) -> dict:
+    """Assemble the full export document for one scored run."""
     ds = xr.open_zarr(run / "scores.zarr")
     stored = {k.split("__")[0] for k in ds.data_vars if "__" in k}
     variables = sorted(
@@ -191,7 +202,7 @@ def export(model: str, run: Path) -> dict:
         if key == "spread_skill":
             if not {"ensemble_mean_mse", "ensemble_variance"} <= stored:
                 continue
-        elif source not in stored:
+        elif source is None or source not in stored:
             continue
         values = {}
         for var in variables:
@@ -202,6 +213,8 @@ def export(model: str, run: Path) -> dict:
                     continue
                 c = np.divide(sp, sk, out=np.full_like(sp, np.nan), where=sk > 0)
             else:
+                if source is None:  # unreachable; narrows the type for mypy
+                    continue
                 c = curve(ds, source, var, single=key in SINGLE_MEMBER)
                 if c is None:
                     continue
@@ -235,6 +248,7 @@ def export(model: str, run: Path) -> dict:
 
 
 def main() -> int:
+    """Export eval_scores_<model>.json for each requested model."""
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("models", nargs="+", help="model names, e.g. fcn3 aurora")
     ap.add_argument(
@@ -252,8 +266,10 @@ def main() -> int:
 
     EXPORTS.mkdir(exist_ok=True)
     for model in args.models:
-        run = Path(args.run) if args.run else (
-            HERE / "models" / model / "outputs" / f"{model}_2025_scorecard"
+        run = (
+            Path(args.run)
+            if args.run
+            else (HERE / "models" / model / "outputs" / f"{model}_2025_scorecard")
         )
         if not (run / "scores.zarr").exists():
             raise SystemExit(f"{model}: no scores.zarr under {run}")

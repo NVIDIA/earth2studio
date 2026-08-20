@@ -7,15 +7,16 @@ same campaign — 24 initial conditions (1st and 15th of each month of 2025,
 
 ## Layout
 
-```
+```text
 scorecard/
   cfg/campaign/<model>_2025_scorecard.yaml   self-contained evaluation campaigns
   run_scorecard.py        predownload -> infer -> score -> prune
-  export_scores.py          scores.zarr -> exports/eval_scores_<model>.json
+  export_scores.py        scores.zarr -> exports/eval_scores_<model>.json
   utils/pipelines.py      history / off-grid pipeline variants (see below)
   models/<model>/outputs/ run data: forecast.zarr -> scores.zarr (not tracked)
   data/                   shared ERA5 stores (not tracked)
 ```
+
 Note: Some of the following folders will be generated after running the scorecard recipe.
 
 ## Usage
