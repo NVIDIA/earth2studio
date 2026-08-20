@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
+- Added `CorrDiffCosmoEra5SDA`, score-based data assimilation (DPS) for the
+  CorrDiff-COSMO downscaler
 - Added Zarr v3 sharding support to `AsyncZarrBackend`
 - Added obstore support to `AsyncZarrBackend` via a new `store` parameter
   (store URL, obstore store, or zarr store)
