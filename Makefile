@@ -108,6 +108,10 @@ docs-dev:
 	uv run python docs/generate_install_options.py
 	uv run python docs/generate_scorecard.py
 	@if [ -n "$(FILENAME)" ]; then 		uv run e2s-gallery build "$(FILENAME)" --execute stale --jobs $(DOCS_JOBS); 	else 		uv run e2s-gallery render; 	fi
+	@if [ -n "$(FILENAME)" ]; then \
+		uv run e2s-gallery build "$(FILENAME)" --execute stale --jobs $(DOCS_JOBS); \
+	fi
+	uv run e2s-gallery render
 	E2S_GALLERY_EXECUTE=never uv run zensical serve -a 0.0.0.0:$(PORT)
 
 DOC_VERSION ?= main
