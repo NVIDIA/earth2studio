@@ -461,9 +461,9 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
-        version: str | None = None,
         atmos_model_idx: int = 0,
         ocean_model_idx: int = 0,
+        version: str | None = None,
     ) -> PrognosticModel:
         """Load prognostic from package
 
