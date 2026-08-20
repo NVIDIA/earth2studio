@@ -289,7 +289,9 @@ assimilated_prior = vector_rmse_at(assimilated_reports, prior_u, prior_v)
 assimilated_analysis = vector_rmse_at(assimilated_reports, analysis_u, analysis_v)
 print("Vector 10 m wind RMSE vs. GHCNHourly (m/s)")
 print(f"Held-out: Prior={held_out_prior:.3f}, Analysis={held_out_analysis:.3f}")
-print(f"Assimilated: Prior={assimilated_prior:.3f}, Analysis={assimilated_analysis:.3f}")
+print(
+    f"Assimilated: Prior={assimilated_prior:.3f}, Analysis={assimilated_analysis:.3f}"
+)
 
 # %%
 # Plot the Analyses and Their Difference
@@ -361,14 +363,17 @@ station_styles = [
 ]
 for stations, style in station_styles:
     axes[1].scatter(
-        stations["lon"], stations["lat"], s=24, edgecolors="k", transform=DATA,
-        zorder=3, **style
+        stations["lon"],
+        stations["lat"],
+        s=24,
+        edgecolors="k",
+        transform=DATA,
+        zorder=3,
+        **style,
     )
 axes[1].legend(loc="lower right", fontsize=7)
 colorbar_style = {"shrink": 0.82, "pad": 0.02}
-fig.colorbar(
-    prior_mesh, ax=axes[:2], label="10 m wind speed (m/s)", **colorbar_style
-)
+fig.colorbar(prior_mesh, ax=axes[:2], label="10 m wind speed (m/s)", **colorbar_style)
 fig.colorbar(
     increment_mesh, ax=axes[2], label="10 m wind increment (m/s)", **colorbar_style
 )
