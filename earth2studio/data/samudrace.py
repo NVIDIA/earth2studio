@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import shutil
+import uuid
 from datetime import datetime
 
 import numpy as np
@@ -23,7 +23,7 @@ import xarray as xr
 from huggingface_hub import hf_hub_download
 from loguru import logger
 
-from earth2studio.data.utils import datasource_cache_root
+from earth2studio.data.utils import datasource_cache_dir
 from earth2studio.lexicon.samudrace import SamudrACELexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -138,14 +138,16 @@ class _SamudrACEBase:
     def __init__(self, cache: bool = True, verbose: bool = True):
         self._cache = cache
         self._verbose = verbose
+        self._tmp_cache_hash: str | None = None
 
     @property
     def cache(self) -> str:
         """Return the local cache path for downloaded files."""
-        cache_location = os.path.join(datasource_cache_root(), "samudrace")
-        if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_samudrace")
-        return cache_location
+        if not self._cache and self._tmp_cache_hash is None:
+            # First access of the temp cache: give it a per-instance suffix, so
+            # one source's clean-up cannot delete another's downloads
+            self._tmp_cache_hash = uuid.uuid4().hex[:8]
+        return datasource_cache_dir("samudrace", self._cache, self._tmp_cache_hash)
 
     def _fetch_file(self, filename: str) -> str:
         """Download a file from the SamudrACE HuggingFace repository.
@@ -243,6 +245,40 @@ class SamudrACEData(_SamudrACEBase):
             Data array with dimensions ``[time, variable, lat, lon]`` and
             latitude ordered north to south.
         """
+        try:
+            result = self._fetch_array(time, variable)
+            # Materialize before the temporary downloads are removed below
+            if not self._cache:
+                result = result.load()
+        finally:
+            # Clean up on the error path too, so an interrupted download does
+            # not leave a partial file behind
+            if not self._cache:
+                self._close_datasets()
+                self._clean_up()
+
+        return result
+
+    def _fetch_array(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Assemble the requested initial-condition fields into one array.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for.
+        variable : str | list[str] | VariableArray
+            Earth2Studio variable names.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, lat, lon]``, lazy
+            unless the caller loads it.
+        """
         time_list = _prep_time_inputs(time)
         var_list = _prep_variable_inputs(variable)
         fme_list = _to_fme_names(var_list)
@@ -276,14 +312,7 @@ class SamudrACEData(_SamudrACEBase):
             variable=np.array(var_list, dtype=object),
         )
         result = result.transpose("time", "variable", "lat", "lon")
-        result = _orient_north_to_south(result)
-
-        if not self._cache:
-            result = result.load()
-            self._datasets = {}
-            self._clean_up()
-
-        return result
+        return _orient_north_to_south(result)
 
     async def fetch(
         self,
@@ -355,6 +384,12 @@ class SamudrACEData(_SamudrACEBase):
             )
             self._datasets[key] = xr.open_dataset(path, engine="netcdf4")
         return self._datasets[key]
+
+    def _close_datasets(self) -> None:
+        """Close the open initial-condition files and drop them."""
+        for ds in self._datasets.values():
+            ds.close()
+        self._datasets = {}
 
 
 class SamudrACEForcingData(_SamudrACEBase):
@@ -436,6 +471,40 @@ class SamudrACEForcingData(_SamudrACEBase):
             Data array with dimensions ``[time, variable, lat, lon]`` and
             latitude ordered north to south.
         """
+        try:
+            result = self._fetch_array(time, variable)
+            # Materialize before the temporary downloads are removed below
+            if not self._cache:
+                result = result.load()
+        finally:
+            # Clean up on the error path too, so an interrupted download does
+            # not leave a partial file behind
+            if not self._cache:
+                self._close_dataset()
+                self._clean_up()
+
+        return result
+
+    def _fetch_array(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Assemble the requested forcing fields into one array.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for.
+        variable : str | list[str] | VariableArray
+            Earth2Studio variable names.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, lat, lon]``, lazy
+            unless the caller loads it.
+        """
         time_list = _prep_time_inputs(time)
         var_list = _prep_variable_inputs(variable)
         fme_list = _to_fme_names(var_list)
@@ -464,15 +533,7 @@ class SamudrACEForcingData(_SamudrACEBase):
             variable=np.array(var_list, dtype=object),
         )
         result = result.transpose("time", "variable", "lat", "lon")
-        result = _orient_north_to_south(result)
-
-        if not self._cache:
-            result = result.load()
-            self._ds = None
-            self._time_index = {}
-            self._clean_up()
-
-        return result
+        return _orient_north_to_south(result)
 
     async def fetch(
         self,
@@ -516,6 +577,13 @@ class SamudrACEForcingData(_SamudrACEBase):
                 for i, t in enumerate(self._ds["time"].values)
             }
         return self._ds
+
+    def _close_dataset(self) -> None:
+        """Close the open forcing file and drop it."""
+        if self._ds is not None:
+            self._ds.close()
+        self._ds = None
+        self._time_index = {}
 
     def _match_time(self, time: datetime) -> int:
         """Match a requested time to the forcing time axis, ignoring year.

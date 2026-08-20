@@ -15,6 +15,8 @@
 # limitations under the License.
 
 import asyncio
+import os
+from pathlib import Path
 from unittest.mock import patch
 
 import cftime
@@ -271,3 +273,45 @@ def test_samudrace_forcing_fetch_async(forcing_source):
     time = np.array([np.datetime64("0311-01-01T00:00:00")])
     da = asyncio.run(forcing_source.fetch(time, ["land_abs"]))
     assert da.shape == (1, 1, N_LAT, N_LON)
+
+
+# ---------------------------------------------------------------------------
+# Caching
+# ---------------------------------------------------------------------------
+def test_samudrace_temp_cache_is_per_instance(monkeypatch, tmp_path):
+    """Cache-disabled sources get distinct, stable temporary directories."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+
+    shared = SamudrACEData(verbose=False).cache
+    assert shared == os.path.join(str(tmp_path), "samudrace")
+
+    first = SamudrACEData(cache=False, verbose=False)
+    second = SamudrACEForcingData(cache=False, verbose=False)
+    # Distinct, so neither source's clean-up removes the other's downloads
+    assert first.cache != second.cache
+    # Stable per instance, so a download and its clean-up target one directory
+    assert first.cache == first.cache
+    for source in (first, second):
+        assert os.path.dirname(source.cache) == shared
+
+
+@pytest.mark.parametrize("source_class", [SamudrACEData, SamudrACEForcingData])
+def test_samudrace_cleans_up_after_failed_download(source_class, monkeypatch, tmp_path):
+    """An interrupted cache-disabled download leaves no temporary files."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+
+    source = source_class(cache=False, verbose=False)
+    temp_dir = source.cache
+
+    def fake_fetch(self, filename):
+        """Write a partial download, then fail as an interrupted one would."""
+        Path(self.cache, "partial.nc").write_bytes(b"partial")
+        raise ConnectionError("download interrupted")
+
+    with patch.object(source_class, "_fetch_file", fake_fetch):
+        with pytest.raises(ConnectionError):
+            source(np.array([np.datetime64(IC_TIMESTAMPS[1])]), ["t2m"])
+
+    assert not os.path.exists(temp_dir)
