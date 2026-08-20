@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the FuXi-S2S global daily prognostic model (`FuXiS2S`).
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added Zarr v3 sharding support to `AsyncZarrBackend`
 - Added obstore support to `AsyncZarrBackend` via a new `store` parameter
@@ -105,6 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
+- Added a `fuxi-s2s` optional dependency group for ONNX Runtime inference.
 - Added `obspec>=0.1` core dependency; the shared obstore helpers are typed
   against its vendor-neutral store protocols
 - Updated GraphCast and GenCast optional dependencies to use WeatherNext.

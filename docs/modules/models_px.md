@@ -40,6 +40,7 @@ earth2studio.models.px.FCN
 earth2studio.models.px.FCN3
 earth2studio.models.px.FengWu
 earth2studio.models.px.FuXi
+earth2studio.models.px.FuXiS2S
 earth2studio.models.px.GenCastMini
 earth2studio.models.px.GraphCastOperational
 earth2studio.models.px.GraphCastSmall
