@@ -87,6 +87,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `Aurora.create_iterator` first yield pairing a lead-sliced tensor with
+  unsliced coords: `lead_time` kept `[-6h, 0h]` while the tensor held one
+  step. Coords are now sliced the same way as FuXi, DLWP and FengWu, so the
+  initial condition is yielded at `lead_time=[0h]`
+
 - Fixed `CFS_Reforecast_FX` and `CFS_Reforecast_FX_Flux` pointing at the retired
   NCEI archive path; the reforecast archive moved to
   `https://www.ncei.noaa.gov/oa/prod-cfs-reforecast` with renamed product subdirs
