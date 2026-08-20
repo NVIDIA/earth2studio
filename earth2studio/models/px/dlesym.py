@@ -444,7 +444,22 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default DLESyM model package on NGC"""
+        """Default DLESyM model package on NGC
+
+        The package's top-level ``config.yaml`` lists all available
+        checkpoint versions and marks one as ``default_version``. As of this
+        writing, that default is ``v1.1_08-31-2026``, the checkpoint
+        submitted to the ECMWF `AI Weather Quest
+        <https://aiweatherquest.ecmwf.int/>`_ competition -- it uses
+        conditional layer norm (a single set of weights, sampled per
+        forecast, instead of separate checkpoints per ensemble member) and
+        adds diagnostic output variables (``tp6``, ``msl``). The previous
+        checkpoint, ``v1.0_05-12-2025`` (multiple checkpoint pairs for
+        ensembling, prognostic-only output), is retained for
+        reproducibility but marked ``deprecated: true`` in its version
+        entry and is not loaded unless ``version="v1.0_05-12-2025"`` is
+        passed explicitly to :func:`load_model`.
+        """
         # TODO: bump commit hash once the restructured (multi-version)
         # package layout is pushed to the HF repo.
         package = Package(
@@ -473,8 +488,15 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Package to load model from
         version : str, optional
             Checkpoint version to load, e.g. "v1.1_08-31-2026". Versions
-            are listed in the package's top-level `config.yaml`. If None,
-            uses the package's configured default version, by default None
+            are listed in the package's top-level `config.yaml`, each with
+            a `path` and optional `deprecated`/`deprecation_message`
+            fields. If None, uses the package's configured
+            `default_version` -- currently `v1.1_08-31-2026`, the
+            checkpoint submitted to the ECMWF AI Weather Quest competition
+            (https://aiweatherquest.ecmwf.int/). Passing
+            `version="v1.0_05-12-2025"` explicitly loads the previous,
+            deprecated checkpoint (kept for reproducibility; a
+            `DeprecationWarning` is raised), by default None
         atmos_model_idx : int, optional
             Index of atmos model weights to load. Only meaningful for
             checkpoint versions that ship multiple atmos checkpoints
