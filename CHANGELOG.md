@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added `IceChunkBackend` IO backend for writing versioned, transactional
   output to an Icechunk repository
+- `ZarrBackend` (and `IceChunkBackend`) write/read now use basic slice
+  indexing for contiguous coordinate subsets, ~7x faster than the previous
+  fancy-indexing path on step-by-step forecast writes
 - Added `CorrDiffCosmoEra5SDA`, score-based data assimilation (DPS) for the
   CorrDiff-COSMO downscaler
 - Added Zarr v3 sharding support to `AsyncZarrBackend`
