@@ -119,3 +119,30 @@ def test_icechunk_local_filesystem_and_branch() -> None:
         assert array_name in io2
         xx, _ = io2.read(total_coords, array_name)
         assert torch.allclose(x, xx)
+
+
+def test_icechunk_empty_commit() -> None:
+
+    io = IceChunkBackend()
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray([np.datetime64("2021-01-01")]),
+            "lat": np.linspace(-90, 90, 8),
+        }
+    )
+    io.add_array(total_coords, "fields")
+    io.write(torch.randn(1, 8), total_coords, "fields")
+    io.commit("write fields")
+
+    # Committing with no new writes raises unless allow_empty is passed
+    with pytest.raises(icechunk.IcechunkError):
+        io.commit("nothing changed")
+    snapshot_id = io.commit("nothing changed", allow_empty=True)
+    assert isinstance(snapshot_id, str)
+
+    # Backend still usable after commits
+    x = torch.randn(1, 8)
+    io.write(x, total_coords, "fields")
+    io.commit("write again")
+    xx, _ = io.read(total_coords, "fields")
+    assert torch.allclose(x, xx)

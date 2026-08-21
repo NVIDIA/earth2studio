@@ -146,8 +146,7 @@ Icechunk adds transactional, versioned writes on top of Zarr: every array is
 backed by a Zarr store as usual, but writes are only made durable when
 explicitly committed, producing an immutable, named snapshot that can be
 read back (or rolled back to) later. This is useful for inference campaigns
-where you want a persistent, auditable history of a store's contents, or
-safe concurrent writes to the same store from multiple processes.
+where you want a persistent, auditable history of a store's contents.
 
 `IceChunkBackend` subclasses `ZarrBackend`, so `add_array`, `write`, `read`,
 and the `__contains__`/`__getitem__`/`__len__`/`__iter__` helpers all behave
@@ -173,6 +172,16 @@ Pass `branch` to write to a named branch other than `"main"`; it is created
 automatically (from the tip of `"main"`) if it does not already exist. This
 requires the `icechunk` optional dependency, install with `pip install
 earth2studio[data]`.
+
+!!! note
+    Committing with no new writes raises an `IcechunkError`; pass
+    `commit(message, allow_empty=True)` to create an empty snapshot instead.
+    Likewise, if another writer commits to the same branch first, `commit`
+    raises a conflict error — see the
+    [Icechunk documentation](https://icechunk.io/en/latest/) on rebasing and
+    the `rebase_with` argument for resolving concurrent commits. Icechunk's
+    local filesystem storage is not safe for concurrent commits; use an
+    object store when multiple processes write to one repository.
 
 ## Sharding with the Async Zarr Backend
 

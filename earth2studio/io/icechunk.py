@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from typing import Any
 
 import zarr
@@ -26,7 +25,6 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     import icechunk
@@ -40,8 +38,8 @@ class IceChunkBackend(ZarrBackend):
     """A backend that writes to an `Icechunk <https://icechunk.io/>`_ repository.
 
     Icechunk is a transactional storage engine for Zarr that adds version control
-    (commits, branches, tags) and safe concurrent writes on top of a regular object
-    store. This backend behaves identically to :class:`earth2studio.io.ZarrBackend`
+    (commits, branches, tags) on top of a regular object store. This backend
+    behaves identically to :class:`earth2studio.io.ZarrBackend`
     for ``add_array`` / ``write`` / ``read``, using an Icechunk writable session's
     store in place of a plain Zarr store. Since Icechunk snapshots are immutable,
     call :func:`commit` to persist accumulated writes; uncommitted writes are still
@@ -103,25 +101,7 @@ class IceChunkBackend(ZarrBackend):
         self.store = self.session.store
         self.root = zarr.group(self.store, **backend_kwargs)
         self.zarr_codecs = zarr_codecs
-
-        # Read data from file, if available
-        self.coords: CoordSystem = OrderedDict({})
-        self.chunks = chunks.copy()
-        for array in self.root:
-            # https://github.com/pydata/xarray/pull/9669
-            dims = self.root[array].metadata.dimension_names
-            for dim in dims:
-                if dim not in self.coords:
-                    self.coords[dim] = self.root[dim][:]
-
-        for array in self.root:
-            # https://github.com/pydata/xarray/pull/9669
-            dims = self.root[array].metadata.dimension_names
-            if array in self.coords:
-                continue
-
-            for c, d in zip(self.root[array].chunks, dims):
-                self.chunks[d] = c
+        self._read_store_state(chunks)
 
     def commit(self, message: str, **kwargs: Any) -> str:
         """Commit all writes since the last commit to the Icechunk repository,
@@ -133,18 +113,28 @@ class IceChunkBackend(ZarrBackend):
         message : str
             Commit message describing the changes being persisted.
         kwargs : Any
-            Additional key word arguments passed to `icechunk.Session.commit`.
+            Additional key word arguments passed to `icechunk.Session.commit`,
+            such as `allow_empty` or `rebase_with`.
 
         Returns
         -------
         str
             The ID of the newly created snapshot.
+
+        Raises
+        ------
+        icechunk.IcechunkError
+            If no writes were made since the last commit (pass
+            ``allow_empty=True`` to commit anyway), or if another writer
+            committed to the branch first (pass ``rebase_with`` to resolve).
         """
         snapshot_id = self.session.commit(message, **kwargs)
         logger.debug(
             "Committed snapshot {} to Icechunk branch '{}'", snapshot_id, self.branch
         )
 
+        # overwrite must stay False here regardless of the backend_kwargs used at
+        # construction, otherwise every commit would wipe the arrays just written
         self.session = self.repo.writable_session(self.branch)
         self.store = self.session.store
         self.root = zarr.group(self.store, overwrite=False)

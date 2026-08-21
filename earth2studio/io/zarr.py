@@ -73,8 +73,10 @@ class ZarrBackend:
 
         self.root = zarr.group(self.store, **backend_kwargs)
         self.zarr_codecs = zarr_codecs
+        self._read_store_state(chunks)
 
-        # Read data from file, if available
+    def _read_store_state(self, chunks: dict[str, int]) -> None:
+        """Populate coords and chunks from any arrays already in the store."""
         self.coords: CoordSystem = OrderedDict({})
         self.chunks = chunks.copy()
         for array in self.root:
