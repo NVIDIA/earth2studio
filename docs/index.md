@@ -13,7 +13,7 @@ hide:
       <div class="e2s-hero__top">
         <div class="e2s-hero__copy">
           <p class="e2s-eyebrow">Earth2Studio</p>
-          <h1>Experience the next generation of weather and climate modeling</h1>
+          <h1>Next-generation AI<br>weather modeling</h1>
           <p class="e2s-hero__lede">
             Access a leading collection of weather and climate AI models,
             production-ready data sources,
@@ -70,9 +70,9 @@ hide:
       </div>
       <div class="e2s-hero__separator" aria-hidden="true"></div>
       <div class="e2s-hero__quickstart">
+        <p class="e2s-quickstart-lede">Run an AI forecast with just a few lines of code</p>
         <p class="e2s-github-stats">
           <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/v/earth2studio?style=flat-square&color=76b900&label=release" alt="Latest release"></a>
-          <a href="https://pypi.org/project/earth2studio/" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/dm/earth2studio?style=flat-square&color=76b900&label=downloads" alt="PyPI downloads"></a>
           <a href="https://github.com/NVIDIA/earth2studio/blob/main/LICENSE" target="_blank" rel="noopener"><img src="https://img.shields.io/pypi/l/earth2studio?style=flat-square&color=76b900" alt="License"></a>
         </p>
         <div class="e2s-install-command e2s-quickstart-card" data-e2s-install aria-label="Install Earth2Studio with FCN support">
@@ -86,24 +86,28 @@ hide:
           </div>
         </div>
         <div class="e2s-hero__panel" aria-label="Forecast quickstart code example">
-          <div class="e2s-terminal e2s-quickstart-card">
+          <div class="e2s-terminal e2s-quickstart-card" markdown="1">
             <span class="e2s-terminal__dot"></span>
             <span class="e2s-terminal__dot"></span>
             <span class="e2s-terminal__dot"></span>
-            <pre><code>from earth2studio import run; from earth2studio.data import GFS
+
+```python
+from earth2studio import run; from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend; from earth2studio.models.px import FCN
 model = FCN.load_model(FCN.load_default_package())
-run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;fcn.zarr&quot;))</code></pre>
+run.deterministic(["2024-01-01"], 10, model, GFS(), ZarrBackend("fcn.zarr"))
+```
+
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="solutions" class="e2s-band e2s-solutions" aria-label="Earth2Studio open platform">
+  <section id="solutions" class="e2s-band e2s-solutions" aria-label="Earth2Studio tools">
     <div class="e2s-section-copy e2s-section-copy--center">
       <p class="e2s-section-kicker">Open platform</p>
-      <h2>AI weather and climate solutions for every sector</h2>
+      <h2>AI weather and climate tooling for every sector</h2>
       <p>
         Earth2Studio gives research groups, agencies, enterprises, developers,
         and classrooms a shared Python surface for models, data, verification,
@@ -210,18 +214,18 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
       <h2>Forecast with the largest collection of AI models in the community</h2>
     </div>
     <div class="e2s-showcase-grid">
-      <div class="e2s-showcase-card e2s-accent--green e2s-reveal"><strong>FourCastNet 3</strong><span>AFNO-based medium-range forecasting.</span></div>
-      <div class="e2s-showcase-card e2s-accent--blue e2s-reveal"><strong>AIFS 2.0</strong><span>ECMWF AI forecast model workflows.</span></div>
-      <div class="e2s-showcase-card e2s-accent--blue e2s-reveal"><strong>StormScope</strong><span>Satellite and radar-conditioned forecast workflows.</span></div>
-      <div class="e2s-showcase-card e2s-accent--purple e2s-reveal"><strong>HEAL-DA</strong><span>Data assimilation and analysis correction.</span></div>
-      <div class="e2s-showcase-card e2s-accent--gold e2s-reveal"><strong>Pangu-Weather</strong><span>Operational-style global forecast rollouts.</span></div>
-      <div class="e2s-showcase-card e2s-accent--purple e2s-reveal"><strong>Aurora</strong><span>Foundation-model forecasting and analysis.</span></div>
-      <div class="e2s-showcase-card e2s-accent--cyan e2s-reveal"><strong>StormCast-CONUS</strong><span>Regional CONUS forecasting workflows.</span></div>
-      <div class="e2s-showcase-card e2s-accent--green e2s-reveal"><strong>CorrDiff</strong><span>Diffusion downscaling workflows.</span></div>
-      <div class="e2s-showcase-card e2s-accent--gold e2s-reveal"><strong>DLESyM</strong><span>Coupled Earth-system model inference.</span></div>
-      <div class="e2s-showcase-card e2s-accent--cyan e2s-reveal"><strong>GraphCast</strong><span>Global graph neural weather forecasts.</span></div>
-      <div class="e2s-showcase-card e2s-accent--cyan e2s-reveal"><strong>ACE-2</strong><span>AI2 climate and weather model interface.</span></div>
-      <div class="e2s-showcase-card e2s-accent--blue e2s-reveal"><strong>Atlas</strong><span>Generative medium-range forecast workflows.</span></div>
+      <div class="e2s-showcase-card e2s-accent--green e2s-reveal"><strong>FourCastNet 3</strong><span>AFNO-based medium-range forecasting</span></div>
+      <div class="e2s-showcase-card e2s-accent--blue e2s-reveal"><strong>AIFS 2.0</strong><span>ECMWF AI forecast model workflows</span></div>
+      <div class="e2s-showcase-card e2s-accent--blue e2s-reveal"><strong>StormScope</strong><span>Satellite and radar-conditioned forecast workflows</span></div>
+      <div class="e2s-showcase-card e2s-accent--purple e2s-reveal"><strong>HEAL-DA</strong><span>Data assimilation and analysis correction</span></div>
+      <div class="e2s-showcase-card e2s-accent--gold e2s-reveal"><strong>Pangu-Weather</strong><span>Operational-style global forecast rollouts</span></div>
+      <div class="e2s-showcase-card e2s-accent--purple e2s-reveal"><strong>Aurora</strong><span>Foundation-model forecasting and analysis</span></div>
+      <div class="e2s-showcase-card e2s-accent--cyan e2s-reveal"><strong>StormCast-CONUS</strong><span>Regional CONUS forecasting workflows</span></div>
+      <div class="e2s-showcase-card e2s-accent--green e2s-reveal"><strong>CorrDiff</strong><span>Diffusion downscaling workflows</span></div>
+      <div class="e2s-showcase-card e2s-accent--gold e2s-reveal"><strong>DLESyM</strong><span>Coupled Earth-system model inference</span></div>
+      <div class="e2s-showcase-card e2s-accent--cyan e2s-reveal"><strong>GraphCast</strong><span>Global graph neural weather forecasts</span></div>
+      <div class="e2s-showcase-card e2s-accent--cyan e2s-reveal"><strong>ACE-2</strong><span>AI2 climate and weather model interface</span></div>
+      <div class="e2s-showcase-card e2s-accent--blue e2s-reveal"><strong>Atlas</strong><span>Generative medium-range forecast workflows</span></div>
     </div>
     <a class="e2s-more-note e2s-more-note--button e2s-home-button e2s-reveal" href="userguide/about/catalog/?tab=models">and more</a>
   </section>
@@ -248,41 +252,43 @@ run.deterministic([&quot;2024-01-01&quot;], 10, model, GFS(), ZarrBackend(&quot;
     <a class="e2s-more-note e2s-more-note--button e2s-home-button e2s-reveal" href="userguide/about/catalog/?tab=data">and more</a>
   </section>
 
-  <section id="api" class="e2s-band" aria-label="API entry points">
-    <p class="e2s-section-kicker">Explore the API</p>
-    <h2>Choose the workflow surface you need</h2>
+  <section id="api" class="e2s-band" aria-label="Workflow tools">
+    <div class="e2s-section-copy e2s-section-copy--center">
+      <p class="e2s-section-kicker">Explore the API</p>
+      <h2>Modular components for your use case</h2>
+    </div>
     <div class="e2s-capability-grid">
       <a class="e2s-capability e2s-home-button" href="modules/models_px/?badge=task%3Amedium-range">
         <span>Prognostic</span><strong>Medium range models</strong>
-        <small>Global forecast rollouts and ensemble workflows.</small>
+        <small>Global forecast rollouts and ensemble workflows</small>
       </a>
       <a class="e2s-capability e2s-home-button" href="modules/models_dx/?badge=task%3Anowcasting">
         <span>Prognostic</span><strong>Nowcasting models</strong>
-        <small>Rapid-update precipitation, satellite, and radar workflows.</small>
+        <small>Rapid-update precipitation, satellite, and radar workflows</small>
       </a>
       <a class="e2s-capability e2s-home-button" href="modules/models_da/?badge=task%3Adata-assimilation">
         <span>Assimilation</span><strong>Data assimilation models</strong>
-        <small>Observation-informed analysis and correction workflows.</small>
+        <small>Observation-informed analysis and correction workflows</small>
       </a>
       <a class="e2s-capability e2s-home-button" href="modules/models_px/?badge=task%3Aclimate&badge=task%3Asubseasonal-seasonal">
         <span>Prognostic</span><strong>Climate models</strong>
-        <small>Seasonal, climate, and coupled Earth-system models.</small>
+        <small>Seasonal, climate, and coupled Earth-system models</small>
       </a>
       <a class="e2s-capability e2s-home-button" href="modules/datasources_analysis/?badge=dataclass%3Aanalysis&badge=dataclass%3Areanalysis">
         <span>Reanalysis</span><strong>Analysis data</strong>
-        <small>ERA5, ARCO, HRRR, IFS, and analysis-ready sources.</small>
+        <small>ERA5, ARCO, HRRR, IFS, and analysis-ready sources</small>
       </a>
       <a class="e2s-capability e2s-home-button" href="modules/datasources_forecast/?badge=dataclass%3Asimulation">
         <span>Numerical</span><strong>Forecast data</strong>
-        <small>Operational forecasts for initialization and conditioning.</small>
+        <small>Operational forecasts for initialization and conditioning</small>
       </a>
       <a class="e2s-capability e2s-home-button" href="modules/datasources_dataframe/?badge=dataclass%3Aobservation">
         <span>DataFrames</span><strong>Observation data</strong>
-        <small>Conventional, satellite, radar, and station datasets.</small>
+        <small>Conventional, satellite, radar, and station datasets</small>
       </a>
       <a class="e2s-capability e2s-home-button" href="modules/models_dx/?badge=task%3Adownscaling">
         <span>Diagnostic</span><strong>Downscaling models</strong>
-        <small>Super-resolution, correction, and diagnostic downscaling tools.</small>
+        <small>Super-resolution, correction, and diagnostic downscaling tools</small>
       </a>
     </div>
   </section>
