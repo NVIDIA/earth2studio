@@ -111,34 +111,6 @@ def _datetime64_to_cftime(dt64_array: np.ndarray) -> np.ndarray:
     return result.reshape(dt64_array.shape)
 
 
-@contextlib.contextmanager
-def _cudnn_benchmark(enabled: bool) -> Generator[None, None, None]:
-    """Temporarily set cuDNN autotuning, restoring the previous setting on exit.
-
-    fme's inference entrypoints enable ``cudnn.benchmark`` on GPU.
-
-    Parameters
-    ----------
-    enabled : bool
-        Value to set ``torch.backends.cudnn.benchmark`` to for the duration of
-        the context.
-
-    Yields
-    ------
-    None
-    """
-    if not enabled:
-        # Leave the global setting untouched where cuDNN is not used
-        yield
-        return
-    previous = torch.backends.cudnn.benchmark
-    torch.backends.cudnn.benchmark = True
-    try:
-        yield
-    finally:
-        torch.backends.cudnn.benchmark = previous
-
-
 def _ensure_fme_distributed() -> None:
     """Enter fme's distributed context if it is not already entered.
 
@@ -184,9 +156,13 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     when the forcing is looked up, since that date has no counterpart on the
     no-leap forcing calendar.
 
-    On GPU, cuDNN autotuning (``torch.backends.cudnn.benchmark``) is enabled for
-    the duration of each coupled step and restored afterwards, matching FME's
-    inference entrypoints.
+    cuDNN autotuning (``torch.backends.cudnn.benchmark``) is left at its
+    default (disabled). Toggling it on and off around each coupled cycle was
+    found to make inference non-reproducible run-to-run: with a run-specific,
+    GPU-timing-based algorithm search re-triggered every cycle, cuDNN can
+    select a different (numerically non-identical) algorithm on different
+    runs, which the coupled system's chaotic dynamics then amplify over the
+    forecast.
 
     Note
     ----
@@ -638,8 +614,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 coords, self._atmos_forcing_vars, atmos_offsets, n_batch, device, dtype
             ),
         )
-        # cuDNN autotuning is enabled on GPU to match fme's inference
-        with _cudnn_benchmark(device.type == "cuda"), torch.inference_mode():
+        with torch.inference_mode():
             predicted, next_state = self.stepper.predict(state, forcing)
         return (
             dict(predicted.atmosphere_data.data),
