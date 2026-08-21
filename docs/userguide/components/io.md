@@ -205,6 +205,46 @@ The ordering matters: `io.close()` (or `flush()`) must complete before
 snapshot. Committing is your responsibility here — the session is managed
 outside the backend.
 
+This composes directly with the built-in workflows. Note that
+`earth2studio.run` workflows do **not** close the backend for you:
+
+```python
+import icechunk
+import numpy as np
+from collections import OrderedDict
+
+from earth2studio import run
+from earth2studio.data import GFS
+from earth2studio.io import AsyncZarrBackend
+from earth2studio.models.px import SFNO
+
+model = SFNO.load_model(SFNO.load_default_package())
+nsteps = 20
+times = np.array([np.datetime64("2024-01-01")])
+lead_times = np.array([np.timedelta64(6 * i, "h") for i in range(nsteps + 1)])
+
+repo = icechunk.Repository.open_or_create(
+    icechunk.local_filesystem_storage("forecast_repo")
+)
+session = repo.writable_session("main")
+
+io = AsyncZarrBackend(
+    "unused",
+    parallel_coords=OrderedDict({"time": times, "lead_time": lead_times}),
+    blocking=False,
+    store=session.store,
+)
+run.deterministic(times, nsteps, model, GFS(), io)
+io.close()  # required: run.deterministic does not close the backend
+session.commit("SFNO forecast 2024-01-01T00Z")
+```
+
+Everything Icechunk provides then applies to the forecast output: reopen any
+earlier snapshot with `repo.readonly_session(snapshot_id=...)`, branch with
+`repo.create_branch(...)`, or point the repository at S3/GCS storage instead of
+the local filesystem with `icechunk.s3_storage(...)` — the workflow code is
+unchanged.
+
 !!! note
     Committing with no new writes raises an `IcechunkError`; pass
     `commit(message, allow_empty=True)` to create an empty snapshot instead.
