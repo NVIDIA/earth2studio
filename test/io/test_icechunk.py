@@ -187,6 +187,92 @@ def test_icechunk_with_async_zarr_backend() -> None:
         assert np.allclose(root["t2m"][:], x.numpy())
 
 
+def test_icechunk_snapshot_time_travel() -> None:
+    """Old snapshots remain readable after the branch moves on."""
+
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray([np.datetime64("2021-01-01")]),
+            "lat": np.linspace(-90, 90, 8),
+        }
+    )
+
+    io = IceChunkBackend()
+    io.add_array(total_coords, "fields")
+    x1 = torch.randn(1, 8, dtype=torch.float32)
+    io.write(x1, total_coords, "fields")
+    snap1 = io.commit("first")
+
+    x2 = torch.randn(1, 8, dtype=torch.float32)
+    io.write(x2, total_coords, "fields")
+    io.commit("second")
+
+    # Branch tip has the new data
+    xx, _ = io.read(total_coords, "fields")
+    assert torch.allclose(x2, xx)
+
+    # The first snapshot still has the original
+    old = io.repo.readonly_session(snapshot_id=snap1)
+    root = zarr.open_group(old.store, mode="r")
+    assert np.allclose(root["fields"][:], x1.numpy())
+
+
+def test_icechunk_commit_conflict() -> None:
+    """Concurrent commits to one branch: the second writer raises."""
+
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray([np.datetime64("2021-01-01")]),
+            "lat": np.linspace(-90, 90, 8),
+        }
+    )
+
+    with tempfile.TemporaryDirectory() as td:
+        repo_path = os.path.join(td, "repo")
+        io1 = IceChunkBackend(repo_path)
+        io1.add_array(total_coords, "fields")
+        io1.write(torch.randn(1, 8), total_coords, "fields")
+        io1.commit("init")
+
+        io2 = IceChunkBackend(repo_path)
+        io1.write(torch.randn(1, 8), total_coords, "fields")
+        io2.write(torch.randn(1, 8), total_coords, "fields")
+        io1.commit("winner")
+        # Note: ConflictError is a sibling of IcechunkError, not a subclass
+        with pytest.raises(icechunk.ConflictError):
+            io2.session.commit("loser")
+
+
+def test_icechunk_codecs_and_chunks() -> None:
+    """zarr_codecs compression and the chunks layout apply through icechunk."""
+
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray(
+                [np.datetime64("2021-01-01"), np.datetime64("2021-01-02")]
+            ),
+            "lat": np.linspace(-90, 90, 16),
+            "lon": np.linspace(0, 360, 32, endpoint=False),
+        }
+    )
+
+    io = IceChunkBackend(
+        chunks={"time": 1, "lat": 8, "lon": 32},
+        zarr_codecs=zarr.codecs.BloscCodec(cname="zstd"),
+    )
+    io.add_array(total_coords, "fields")
+    assert io["fields"].chunks == (1, 8, 32)
+    assert any("blosc" in str(c).lower() for c in io["fields"].compressors)
+
+    x = torch.randn(2, 16, 32, dtype=torch.float32)
+    io.write(x, total_coords, "fields")
+    io.commit("compressed")
+
+    readonly = io.repo.readonly_session(io.branch)
+    root = zarr.open_group(readonly.store, mode="r")
+    assert np.allclose(root["fields"][:], x.numpy())
+
+
 def test_icechunk_uncommitted_warning() -> None:
     from loguru import logger
 

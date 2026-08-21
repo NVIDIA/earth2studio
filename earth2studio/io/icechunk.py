@@ -141,8 +141,10 @@ class IceChunkBackend(ZarrBackend):
         ------
         icechunk.IcechunkError
             If no writes were made since the last commit (pass
-            ``allow_empty=True`` to commit anyway), or if another writer
-            committed to the branch first (pass ``rebase_with`` to resolve).
+            ``allow_empty=True`` to commit anyway).
+        icechunk.ConflictError
+            If another writer committed to the branch first (pass
+            ``rebase_with`` to resolve).
         """
         snapshot_id = self.session.commit(message, **kwargs)
         logger.debug(
