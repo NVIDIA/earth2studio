@@ -40,7 +40,6 @@ import datetime as dt
 import json
 import os
 import shutil
-import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -53,13 +52,22 @@ STAGES = ("predownload", "infer", "score", "prune")
 
 
 def launch(entry: str, campaign: str, overrides: list[str], ngpu: int) -> None:
-    """Run one recipe entry point under torchrun with the campaign config."""
+    """Run one recipe entry point under torchrun with the campaign config.
+
+    Defaults to a single-node --standalone launch. For other topologies set
+    TORCHRUN_ARGS (replaces the default topology flags entirely), e.g.
+    TORCHRUN_ARGS="--nnodes=4 --rdzv_backend=c10d --rdzv_endpoint=host:29500".
+    Stages are resumable, so large campaigns can also be advanced
+    incrementally across separate queue allocations.
+    """
+    topology = os.environ.get(
+        "TORCHRUN_ARGS", f"--nproc_per_node={ngpu} --standalone"
+    ).split()
     cmd = [
         sys.executable,
         "-m",
         "torch.distributed.run",
-        f"--nproc_per_node={ngpu}",
-        "--standalone",
+        *topology,
         entry,
         "--config-dir",
         str(HERE / "cfg"),
@@ -118,14 +126,15 @@ def main() -> int:
     )
     ap.add_argument("stages", nargs="*", help=f"subset of {'/'.join(STAGES)}")
     ap.add_argument("--ngpu", type=int, default=None, help="GPUs (default: all)")
-    args, overrides = ap.parse_known_args()
-    overrides = [o for o in overrides if o != "--"]
-    stages = args.stages or list(STAGES)
+    args, extra = ap.parse_known_args()
+    # Anything with '=' is a Hydra override, wherever argparse routed it
+    # (after a bare `--` they arrive as positionals in `stages`).
+    tokens = args.stages + [t for t in extra if t != "--"]
+    overrides = [t for t in tokens if "=" in t]
+    stages = [t for t in tokens if "=" not in t] or list(STAGES)
     if bad := [s for s in stages if s not in STAGES]:
         ap.error(f"unknown stage(s) {bad}; choose from {STAGES}")
 
-    if socket.gethostname().startswith("login"):
-        raise SystemExit("!! REFUSING: login node, not a compute node")
     cfg_path = HERE / "cfg" / "campaign" / f"{args.campaign}.yaml"
     if not cfg_path.exists():
         raise SystemExit(f"!! no campaign config {cfg_path}")
@@ -149,7 +158,6 @@ def main() -> int:
         )
         / f"{project}_{run_id}"
     )
-    os.environ.setdefault("EARTH2STUDIO_CACHE", "/opt/venv/.e2s_cache")
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     # scorecard.pipelines.* in the campaign configs resolves from the recipe root.
     os.environ["PYTHONPATH"] = (
@@ -168,13 +176,11 @@ def main() -> int:
         elif stage == "infer":
             launch("main.py", args.campaign, overrides, args.ngpu)
         elif stage == "score":
-            # scores.zarr is ~30 MB read whole, so chunk each array as one
-            # blob (per-slice chunks once cost ~1.9 M inodes). Whole-array
-            # chunks are what AsyncZarrBackend forbids on iteration axes,
-            # hence io_backend=zarr for this store.
+            # time=1 chunks: ranks score disjoint ICs, so no shared-chunk
+            # writes (races); whole-array elsewhere keeps file counts small.
             chunks = [
                 "output.io_backend=zarr",
-                f"output.chunks.time={len(cfg['start_times'])}",
+                "output.chunks.time=1",
                 f"output.chunks.lead_time={int(cfg['nsteps']) + 1}",
             ]
             if int(cfg.get("ensemble_size", 1)) > 1:

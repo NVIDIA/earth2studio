@@ -34,6 +34,11 @@ python export_scores.py fcn3 --docs
 python ../../../docs/generate_scorecard.py
 ```
 
+## Scaling and portability
+
+Launches default to a single node (`torchrun --standalone`, all local GPUs); for multi-node runs set `TORCHRUN_ARGS` with your rendezvous flags, or invoke the recipe entry points (`predownload.py`, `main.py`, `score.py`) with your own launcher — the driver adds nothing they don't already support. All stages are resumable (`resume: true` in the campaigns), so large campaigns can be advanced
+incrementally across short queue allocations rather than needing one long job.
+
 The JSON export carries everything a docs page needs — metric curves per variable
 and lead time (aggregated over initial conditions), units, and variable groups.
 

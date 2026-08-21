@@ -89,6 +89,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `lat_weight` returning a small negative weight at the poles in
+  float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
+
 - Fixed `Aurora.create_iterator` first yield pairing a lead-sliced tensor with
   unsliced coords: `lead_time` kept `[-6h, 0h]` while the tensor held one
   step. Coords are now sliced the same way as FuXi, DLWP and FengWu, so the
