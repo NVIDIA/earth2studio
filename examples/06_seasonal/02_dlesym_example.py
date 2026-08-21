@@ -77,7 +77,6 @@ import torch
 
 from earth2studio.data import ARCO
 from earth2studio.data.utils import fetch_data
-from earth2studio.models.auto import Package
 from earth2studio.models.px.dlesym import DLESyM, DLESyMLatLon
 
 device = "cuda"
@@ -87,24 +86,11 @@ if not torch.cuda.is_available():
 # Create the data source
 data = ARCO()
 
-# Set DLESYM_PACKAGE_PATH to a local staged package directory (see
-# build_dlesym_package.sh) to test against local checkpoints instead of the
-# published default.
-package_path = os.environ.get("DLESYM_PACKAGE_PATH")
 
-
-def _load_package(cls: type) -> Package:
-    if package_path:
-        return Package(package_path)
-    return cls.load_default_package()
-
-
-# Load the model package, either the default published package or a local
-# one (see above). We will instantiate both versions of the model to
-# demonstrate usage of each.
-package = _load_package(DLESyMLatLon)
+# Load the default model package
+package = DLESyMLatLon.load_default_package()
 model_ll = DLESyMLatLon.load_model(package).to(device)
-package = _load_package(DLESyM)
+package = DLESyM.load_default_package()
 model_hpx = DLESyM.load_model(package).to(device)
 
 in_coords_ll = model_ll.input_coords()

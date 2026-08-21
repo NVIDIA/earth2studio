@@ -482,13 +482,10 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         checkpoint versions; see :func:`load_model` for how to select
         between them.
         """
-        # TODO: bump commit hash once the restructured (multi-version)
-        # package layout is pushed to the HF repo.
         package = Package(
-            "hf://nvidia/dlesym-v1-era5@9dbcdb83706702ac3b7d93f5dad5e535abc2fb72",
+            "hf://nvidia/dlesym-v1-era5@b88155cfc2c988a2a9058d5e35a41220e2b01941",
             cache_options={
                 "cache_storage": Package.default_cache("dlesym"),
-                "same_names": True,
             },
         )
         return package
