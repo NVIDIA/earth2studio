@@ -48,6 +48,7 @@ earth2studio.models.px.Pangu24
 earth2studio.models.px.Pangu6
 earth2studio.models.px.Pangu3
 earth2studio.models.px.Persistence
+earth2studio.models.px.SamudrACE
 earth2studio.models.px.SFNO
 earth2studio.models.px.StormCast
 earth2studio.models.px.StormCastCONUS

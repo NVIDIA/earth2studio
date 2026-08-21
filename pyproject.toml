@@ -207,6 +207,12 @@ pangu = [
     "onnxscript",
     "onnxruntime-gpu>=1.21.0",
 ]
+samudrace = [
+    "fme==2026.4.0",
+    "pandas>=2.3.2",
+    "scipy>=1.15.2",
+    "xarray>=2025.1.0",
+]
 sfno = [
     "makani",
     "pynvml>=12.0.0",
@@ -299,6 +305,10 @@ da-stormcast = [
     "cudf-cu13>=26.2.0",
 ]
 # All, must not have conflicts
+# NOTE: `ace2` and `samudrace` are intentionally excluded here. Their fme
+# dependency hard-pins torch-harmonics, which conflicts with the git-pinned
+# torch-harmonics used by `atlas`, `fcn3`, `perturbation`, and `sfno` (see
+# [tool.uv.sources] and the conflicts declared in [tool.uv]).
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
     "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",
@@ -323,6 +333,26 @@ conflicts = [
   ],
   [
     { extra = "ace2" },
+    { extra = "sfno" },
+  ],
+  [
+    { extra = "ace2" },
+    { extra = "samudrace" },
+  ],
+  [
+    { extra = "samudrace" },
+    { extra = "atlas" },
+  ],
+  [
+    { extra = "samudrace" },
+    { extra = "fcn3" },
+  ],
+  [
+    { extra = "samudrace" },
+    { extra = "perturbation" },
+  ],
+  [
+    { extra = "samudrace" },
     { extra = "sfno" },
   ],
   [
@@ -357,7 +387,10 @@ earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "b38fcb2799d7dbc146fa60459f3f9823394a8bf1"}
 weathernext = { git = "https://github.com/google-deepmind/weathernext.git", rev = "9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
-fme = { git = "https://github.com/ai2cm/ace.git", rev = "e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" }
+# `ace2` needs an fme git pin; `samudrace` uses the fme 2026.4.0 PyPI release
+# (the SamudrACE release, ace tag v2026.4.0). The two extras are declared
+# conflicting in [tool.uv] conflicts since they require different fme sources.
+fme = { git = "https://github.com/ai2cm/ace.git", rev = "e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d", extra = "ace2" }
 # Specific source for each of the current torch-harmonics models, avoiding ace2 conflicts until they update torch-harmonics
 torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "perturbation"},
