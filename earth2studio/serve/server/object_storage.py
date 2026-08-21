@@ -775,9 +775,7 @@ class MSCObjectStorage(ObjectStorage):
     }}
   ]
 }}
-""".strip().encode(
-            "utf-8"
-        )
+""".strip().encode("utf-8")
 
         signature = self._rsa_signer(policy)
 

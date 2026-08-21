@@ -14,17 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Standard forecast and diagnostic pipelines."""
+"""Standard prognostic forecast pipeline."""
 
 from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Iterator
+from typing import Any
 
 import hydra
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
 from omegaconf import DictConfig
 from tqdm import tqdm
 
@@ -36,9 +38,9 @@ from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
 
 from ..distributed import get_rank
 from ..models import load_diagnostics, load_prognostic
-from ..output import build_diagnostic_coords, build_forecast_coords
+from ..output import build_forecast_coords
 from ..work import WorkItem
-from .base import Pipeline, PredownloadStore
+from .base import Pipeline, PredownloadStore, is_explicit_rng_component
 
 
 def _align_to_grid(
@@ -91,6 +93,7 @@ class ForecastPipeline(Pipeline):
     ``(tensor, coords)`` pair per lead-time step (including step 0).
     """
 
+    supports_online_scoring = True
     prognostic: PrognosticModel
     diagnostics: list[DiagnosticModel]
     perturbation: Perturbation | None
@@ -211,6 +214,13 @@ class ForecastPipeline(Pipeline):
         x, coords = map_coords(x, coords, self._prognostic_ic)
         return x, coords
 
+    def explicit_rng_components(self) -> list[Any]:
+        return [
+            m
+            for m in (self.prognostic, *self.diagnostics)
+            if is_explicit_rng_component(m)
+        ]
+
     def run_item(
         self,
         item: WorkItem,
@@ -223,13 +233,86 @@ class ForecastPipeline(Pipeline):
             torch.manual_seed(item.seed)
             x, coords = self.perturbation(x, coords)
 
-        if hasattr(self.prognostic, "set_rng"):
-            self.prognostic.set_rng(seed=item.seed, reset=True)
-        else:
-            # Fallback for stochastic models that don't expose set_rng:
-            # seed torch's global RNG so per-ensemble-member draws are
-            # reproducible.  No-op for deterministic models.
-            torch.manual_seed(item.seed)
+        yield from self._rollout(x, coords, item, f"IC {item.time}")
+
+    def run_item_batched(
+        self,
+        items: list[WorkItem],
+        data_source: DataSource,
+        device: torch.device,
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        """Roll several ensemble members of one IC forward together.
+
+        Members ride on a leading ``ensemble`` axis, which prognostic
+        models absorb into their ``batch`` dimension — the same layout
+        ``earth2studio.run.ensemble`` uses.
+
+        Perturbations are drawn **per member** rather than once for the
+        stacked state.  Seeding the global RNG and letting a single
+        ``perturbation`` call fill a ``K``-member tensor would consume
+        draws in a different order than the unbatched path, so members
+        would silently stop matching a ``members_per_rank=1`` run.  Drawing
+        each member under its own seed keeps them identical.
+
+        Model-internal stochasticity is a different matter: ``set_rng``
+        seeds the model once for the whole batch, so a stochastic model's
+        member *m* will not reproduce its unbatched trajectory.  The
+        ensemble remains a valid sample (each batch element still gets
+        independent noise) — it is just a different draw, which is why this
+        is logged rather than silently accepted.
+        """
+        if not items:
+            return
+        times = {item.time for item in items}
+        if len(times) != 1:
+            raise ValueError(
+                f"run_item_batched expects one initial condition per batch, "
+                f"got {sorted(str(t) for t in times)}."
+            )
+
+        x0, coords0 = self._fetch_initial_state(items[0], data_source, device)
+        member_ids = np.array([item.ensemble_id for item in items])
+
+        x = x0.unsqueeze(0).repeat(len(items), *([1] * x0.ndim))
+        coords = CoordSystem({"ensemble": member_ids} | dict(coords0))
+
+        if self.perturbation is not None:
+            for m, item in enumerate(items):
+                member_coords = CoordSystem(
+                    {"ensemble": member_ids[m : m + 1]} | dict(coords0)
+                )
+                torch.manual_seed(item.seed)
+                x_m, _ = self.perturbation(x[m : m + 1], member_coords)
+                x[m] = x_m[0]
+
+        if len(items) > 1 and is_explicit_rng_component(self.prognostic):
+            logger.warning(
+                f"{type(self.prognostic).__name__} is stochastic but is being "
+                f"driven with {len(items)} members per rollout; the batch is "
+                "seeded once, so individual members will not reproduce a "
+                "members_per_rank=1 run (the ensemble is still a valid draw)."
+            )
+
+        yield from self._rollout(
+            x, coords, items[0], f"IC {items[0].time} x{len(items)}"
+        )
+
+    def _rollout(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+        item: WorkItem,
+        label: str,
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        """Drive the prognostic iterator, applying diagnostics at each step.
+
+        Shared by :meth:`run_item` and :meth:`run_item_batched`; the only
+        difference between them is how the initial state was assembled.
+        ``item`` stands in for the whole batch in :meth:`run_item_batched`
+        (its ``seed`` seeds the shared rollout), matching the previous
+        per-batch seeding behavior.
+        """
+        self.seed_member(item)
 
         model_iter = self.prognostic.create_iterator(x, coords)
 
@@ -240,7 +323,7 @@ class ForecastPipeline(Pipeline):
             tqdm(
                 model_iter,
                 total=self.nsteps + 1,
-                desc=f"IC {item.time}",
+                desc=label,
                 position=1,
                 leave=False,
                 disable=rank != 0,
@@ -258,120 +341,3 @@ class ForecastPipeline(Pipeline):
 
             if step >= self.nsteps:
                 break
-
-
-class DiagnosticPipeline(Pipeline):
-    """Diagnostic-only pipeline (no prognostic rollout).
-
-    Fetches input data at analysis time (lead_time=0) for each work item,
-    runs all diagnostic models, and yields a single ``(tensor, coords)``
-    pair containing the accumulated diagnostic output.
-    """
-
-    diagnostics: list[DiagnosticModel]
-    _dx_input_coords: dict[int, CoordSystem]
-    _all_input_vars: list[str]
-    _zero_lead: np.ndarray
-
-    def setup(self, cfg: DictConfig, device: torch.device) -> None:
-        self.diagnostics = [dx.to(device) for dx in load_diagnostics(cfg)]
-        if not self.diagnostics:
-            raise ValueError(
-                "Diagnostic pipeline requires at least one entry in 'diagnostics'."
-            )
-
-        self._dx_input_coords = {id(dx): dx.input_coords() for dx in self.diagnostics}
-
-        # Build the union of all input variables needed from the data source.
-        all_input_vars: list[str] = []
-        seen: set[str] = set()
-        for dx in self.diagnostics:
-            for v in self._dx_input_coords[id(dx)]["variable"]:
-                if v not in seen:
-                    all_input_vars.append(str(v))
-                    seen.add(str(v))
-        self._all_input_vars = all_input_vars
-
-        dx0 = self.diagnostics[0]
-        self._spatial_ref = dx0.output_coords(self._dx_input_coords[id(dx0)])
-        self._zero_lead = np.array([np.timedelta64(0, "ns")])
-
-    def build_total_coords(
-        self,
-        times: np.ndarray,
-        ensemble_size: int,
-    ) -> CoordSystem:
-        return build_diagnostic_coords(
-            self.diagnostics,
-            times,
-            ensemble_size,
-            spatial_ref=self.effective_spatial_ref(),
-        )
-
-    def predownload_stores(self, cfg: DictConfig) -> list[PredownloadStore]:
-        """Declare IC + optional verification stores for a diagnostic run.
-
-        Verification always lives in a separate store because diagnostic
-        inputs and verification variables rarely overlap.
-        """
-        from ..predownload_utils import (
-            declare_single_source_stores,
-            single_source_stores_disabled,
-            union_variables,
-        )
-        from ..work import build_work_items
-
-        if single_source_stores_disabled(cfg):
-            return []
-
-        diagnostics = load_diagnostics(cfg)
-        if not diagnostics:
-            raise ValueError(
-                "Diagnostic pipeline requires at least one entry in 'diagnostics'."
-            )
-
-        input_variables = union_variables(
-            *([str(v) for v in dx.input_coords()["variable"]] for dx in diagnostics)
-        )
-
-        all_items = build_work_items(cfg)
-        unique_times: list[np.datetime64] = sorted({i.time for i in all_items})
-
-        dx0 = diagnostics[0]
-        spatial_ref = dx0.output_coords(dx0.input_coords())
-
-        return declare_single_source_stores(
-            cfg,
-            ic_variables=input_variables,
-            ic_times=unique_times,
-            verif_variables=list(cfg.output.variables),
-            verif_times=unique_times,
-            spatial_ref=spatial_ref,
-            always_separate_verification=True,
-        )
-
-    def run_item(
-        self,
-        item: WorkItem,
-        data_source: DataSource,
-        device: torch.device,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        x, coords = fetch_data(
-            source=data_source,
-            time=[item.time],
-            variable=self._all_input_vars,
-            lead_time=self._zero_lead,
-            device=device,
-        )
-
-        # Run each diagnostic, accumulating outputs into the state.
-        x_combined, coords_combined = x, coords
-        for dx in self.diagnostics:
-            dx_ic = self._dx_input_coords[id(dx)]
-            x_in, coords_in = map_coords(x, coords, dx_ic)
-            y, y_coords = dx(x_in, coords_in)
-            x_combined, coords_combined = cat_coords(
-                (x_combined, y), (coords_combined, y_coords), "variable"
-            )
-
-        yield x_combined, coords_combined

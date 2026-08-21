@@ -24,6 +24,7 @@ import xarray as xr
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 
+# --8<-- [start:data-source-interface]
 @runtime_checkable
 class DataSource(Protocol):
     """Data source interface."""
@@ -77,6 +78,9 @@ class DataSource(Protocol):
             ids.
         """
         pass
+
+
+# --8<-- [end:data-source-interface]
 
 
 @runtime_checkable

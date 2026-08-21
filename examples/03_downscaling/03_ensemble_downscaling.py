@@ -34,9 +34,10 @@ In this example you will learn:
 - Saving output ensemble data to a Zarr store
 - Post-process results
 """
+
 # /// script
 # dependencies = [
-#   "torch==2.11.0", # Match lock file to avoid torch-harmonics issue
+#   "torch==2.13.0", # Match torch-harmonics examples
 #   "earth2studio[sfno] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "earth2studio[corrdiff] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
@@ -48,7 +49,7 @@ In this example you will learn:
 # -----------------------------------------
 #
 # To create our own ensemble forecasting with downscaling workflow, we will use the
-# built-in ensemble workflow :py:meth:`earth2studio.run.ensemble` as the reference to
+# built-in ensemble workflow [`earth2studio.run.ensemble`][earth2studio.run.ensemble] as the reference to
 # start with. For this to work we need to update how the output coordinates are
 # calculated for the IO object, as well as add the CorrDiff model's forward call
 # into the forecast loop.
@@ -206,13 +207,13 @@ def corrdiff_on_hens_ensemble(
 # With the inference pipeline function defined, next let's create the required
 # components as usual. We need the following:
 #
-# - Prognostic Model: Use the built in SFNO model :py:class:`earth2studio.models.px.SFNO`.
-# - CorrDiff Model: Use the built in CorrDiff Taiwan model :py:class:`earth2studio.models.dx.CorrDiffTaiwan`.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - Prognostic Model: Use the built in SFNO model [`earth2studio.models.px.SFNO`][earth2studio.models.px.SFNO].
+# - CorrDiff Model: Use the built in CorrDiff Taiwan model [`earth2studio.models.dx.CorrDiffTaiwan`][earth2studio.models.dx.CorrDiffTaiwan].
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - IO Backend: Let's save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 #
 # For the prognostic checkpoint, we will use a HENS checkpoint conveniently stored
-# on `HuggingFace <https://huggingface.co/datasets/maheshankur10/hens/tree/main/earth2mip_prod_registry>`_.
+# on [HuggingFace](https://huggingface.co/datasets/maheshankur10/hens/tree/main/earth2mip_prod_registry).
 # Refer to the previous examples for more information about loading these models.
 
 # %%

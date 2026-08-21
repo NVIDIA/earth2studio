@@ -21,6 +21,7 @@ import numpy as np
 from .base import LexiconType
 
 
+# --8<-- [start:gfs-lexicon-class]
 class GFSLexicon(metaclass=LexiconType):
     """Global Forecast System Lexicon
     GFS specified <Parameter ID>::<Level/ Layer>
@@ -58,6 +59,7 @@ class GFSLexicon(metaclass=LexiconType):
         "u5": "UGRD::5 mb",
         "u7": "UGRD::7 mb",
         "u10": "UGRD::10 mb",
+        # --8<-- [end:gfs-lexicon-class]
         "u15": "UGRD::15 mb",
         "u20": "UGRD::20 mb",
         "u30": "UGRD::30 mb",
@@ -285,7 +287,7 @@ class GFSLexicon(metaclass=LexiconType):
         "q1000": "SPFH::1000 mb",
     }
 
-    # sphinx - modifier start
+    # --8<-- [start:gfs-lexicon-modifier]
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
         """Get item from GFS vocabulary."""
@@ -312,4 +314,4 @@ class GFSLexicon(metaclass=LexiconType):
 
         return gfs_key, mod
 
-    # sphinx - modifier end
+    # --8<-- [end:gfs-lexicon-modifier]

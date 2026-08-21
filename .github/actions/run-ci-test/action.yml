@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Run CI test job
+description: Restore shared testmon state and run one tox-backed test job.
+
+inputs:
+  tox-env:
+    description: Tox environment to run.
+    required: true
+  save-testmon-cache:
+    description: Whether to save the testmon cache after the test run.
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Configure git safe directory
+      shell: bash
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+    - name: Prepare runner temp model cache
+      shell: bash
+      run: mkdir -p "${RUNNER_TEMP}/earth2studio-models"
+
+    - name: Restore testmon cache
+      id: testmon-cache
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+      continue-on-error: true
+      with:
+        path: ${{ env.TESTMON_CACHE }}
+        key: e2s-testmon-${{ inputs.tox-env }}-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          e2s-testmon-${{ inputs.tox-env }}-${{ runner.os }}-main-
+
+    - name: Prepare CI directories
+      shell: bash
+      env:
+        EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
+      run: python3 test/_ci/prepare_ci_paths.py
+
+    - name: Show GPU information
+      shell: bash
+      run: nvidia-smi
+
+    - name: Set up environment
+      shell: bash
+      run: uv sync --python 3.13.13
+
+    - name: Run tests
+      shell: bash
+      env:
+        TOX_ENV: ${{ inputs.tox-env }}
+        EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
+      run: make pytest-ci
+
+    - name: Upload coverage data
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: coverage-${{ inputs.tox-env }}
+        path: .coverage.*
+        include-hidden-files: true
+        if-no-files-found: ignore
+
+    - name: Save testmon cache
+      if: >
+        always() &&
+        inputs.save-testmon-cache == 'true'
+      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+      continue-on-error: true
+      with:
+        path: ${{ env.TESTMON_CACHE }}
+        key: e2s-testmon-${{ inputs.tox-env }}-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}

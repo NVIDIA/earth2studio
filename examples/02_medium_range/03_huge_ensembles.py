@@ -31,8 +31,7 @@ For more details about HENS, see:
 - https://github.com/ankurmahesh/earth2mip-fork
 
 
-.. warning::
-
+!!! warning
     We encourage users to familiarize themselves with the license restrictions of this
     model's checkpoints.
 
@@ -50,9 +49,10 @@ In this example you will learn:
 - How to visualize results
 
 """
+
 # /// script
 # dependencies = [
-#   "torch==2.11.0", # Match lock file to avoid torch-harmonics issue
+#   "torch==2.13.0", # Match torch-harmonics examples
 #   "earth2studio[sfno] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
 # ]
@@ -63,17 +63,17 @@ In this example you will learn:
 # ------
 # First, import the necessary modules and set up our environment and load the required
 # modules.
-# HENS has checkpoints conveniently stored on `HuggingFace <https://huggingface.co/datasets/maheshankur10/hens/tree/main/earth2mip_prod_registry>`_
+# HENS has checkpoints conveniently stored on [HuggingFace](https://huggingface.co/datasets/maheshankur10/hens/tree/main/earth2mip_prod_registry)
 # that we will use.
 # Rather than loading the default checkpoint from the original SFNO paper, create a
 # model package that points to the specific HENS checkpoint we want to use instead.
 #
 # This example also needs the following:
 #
-# - Prognostic Base Model: Use SFNO model architecture :py:class:`earth2studio.models.px.SFNO`.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - Perturbation Method: HENS uses a novel perturbation method :py:class:`earth2studio.perturbation.HemisphericCentredBredVector`.
-# - Seeding Perturbation Method: Perturbation method to seed the Bred Vector :py:class:`earth2studio.perturbation.CorrelatedSphericalGaussian`.
+# - Prognostic Base Model: Use SFNO model architecture [`earth2studio.models.px.SFNO`][earth2studio.models.px.SFNO].
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - Perturbation Method: HENS uses a novel perturbation method [`earth2studio.perturbation.HemisphericCentredBredVector`][earth2studio.perturbation.HemisphericCentredBredVector].
+# - Seeding Perturbation Method: Perturbation method to seed the Bred Vector [`earth2studio.perturbation.CorrelatedSphericalGaussian`][earth2studio.perturbation.CorrelatedSphericalGaussian].
 
 # %%
 import os

@@ -16,56 +16,43 @@
 
 # %%
 """
-Regional Downscaling to COSMO-REA (6 km and 2.2 km)
-===================================================
+Regional Downscaling over Europe
+================================
 
-Downscale a global forecast to high-resolution regional reanalysis over Europe
-with ``CorrDiffCosmoEra5``: run SFNO forward to a lead time, then reconstruct the
-COSMO-REA fields (COSMO-REA6 at 6 km, COSMO-REA2 at 2.2 km) from the forecast
-state. SFNO is just the input provider here; the downscaler is a standard
-``DiagnosticModel``, so this is the usual prognostic-feeds-diagnostic composition.
+Diffusion downscaling from a global forecast to km-scale European reanalysis grids.
 
-SFNO's 73-variable output is a superset of the downscaler's 47-channel ERA5
-input, so the hand-off is a variable subset plus a regrid onto the downscaler's
-regional input grid.
+This example demonstrates composing a global prognostic model (SFNO) with a
+regional diffusion downscaler (``CorrDiffCosmoEra5``). SFNO's 73-variable output
+is a superset of the downscaler's 47-channel ERA5 input, so the hand-off is a
+variable subset plus a bilinear regrid onto the regional input grid. The package
+bundles both a generative *diffusion* downscaler and a deterministic *regression*
+(mean) model, selected via ``mode`` on ``load_model``.
 
-In this example you will learn to:
+In this example you will learn:
 
-- Run a global prognostic model (SFNO) forward with ``create_iterator``
-- Map a global forecast state onto a regional downscaler's input
-- Run the COSMO-REA6 diffusion downscaler over Europe, and on a sub-domain
-- Draw a diffusion ensemble and contrast it with the deterministic regression mean
-- Roll out a downscaled forecast with ``DiagnosticWrapper``
-- Derive hub-height wind (100 m) for wind-energy use
-- Switch to the 2.2 km COSMO-REA2 resolution
-
-.. note::
-   The model package is hosted on Hugging Face
-   (``hf://nvidia/corrdiff-cosmo-era5``) and fetched by ``load_default_package()``.
-   Set ``$COSMO_REA_PACKAGE`` to a locally built package to use that instead.
-
-.. note::
-   With the SFNO weights and ERA5 inputs already cached, this runs in a few
-   minutes on an RTX 6000 Ada; the first run is longer, as it also downloads
-   those (network-dependent). Either way most of the wall time is setup --
-   imports, loading the model checkpoints, and fetching the SFNO/ERA5 data --
-   rather than downscaling compute. GPU memory peaks around 18 GB, from the
-   full-domain COSMO-REA6 diffusion pass; the sub-domain passes need far less.
-
-The package bundles, per resolution, a generative *diffusion* downscaler and a
-deterministic *regression* (mean) model, selected via ``mode`` on ``load_model``.
+- How to run the COSMO-REA6 diffusion downscaler over Europe, and on a sub-domain
+- How to draw a diffusion ensemble and contrast it with the deterministic regression mean
+- How to roll out a downscaled forecast with ``DiagnosticWrapper``
+- How to derive hub-height wind (100 m) for wind-energy use
+- How to switch to the 2.2 km COSMO-REA2 resolution
 """
+
 # /// script
 # dependencies = [
+#   "torch==2.13.0", # Match torch-harmonics examples
 #   "earth2studio[sfno,cosmo] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
-#   "scipy",
 # ]
 # ///
 
 # %%
 # Configuration
 # -------------
+# Set up all tuneable parameters for the example: forecast init time, lead time,
+# diffusion sampler settings, ensemble size, device, and the geographic domain for
+# sub-region downscaling.
+
+# %%
 import os
 from collections import OrderedDict
 from datetime import datetime, timedelta
@@ -82,31 +69,36 @@ load_dotenv()  # pick up $COSMO_REA_PACKAGE from a .env file if present
 # The downscaling package (rea6/ + rea2/ subfolders) is hosted on Hugging Face and
 # fetched by load_default_package(). Set $COSMO_REA_PACKAGE to a locally built
 # package to use that instead. (Resolved after the imports below.)
-LOCAL_PACKAGE = os.environ.get("COSMO_REA_PACKAGE")
+local_package = os.environ.get("COSMO_REA_PACKAGE")
 
-INIT_TIME = datetime(2021, 7, 13, 0)  # forecast initialization
-LEAD_HOURS = 24  # forecast lead time to downscale
-SAMPLER_STEPS = 12  # diffusion denoising steps (more = sharper, slower; diffusion only)
-AMP = True  # reduced-precision (bf16) autocast: faster, lower memory on recent GPUs
-ENSEMBLE_SIZE = 9  # diffusion ensemble members for the Germany sub-domain
-DEVICE = "cuda:0"
-GERMANY = dict(lat_min=47.0, lat_max=55.5, lon_min=5.0, lon_max=16.0)
-PROJ = ccrs.PlateCarree()  # COSMO-REA lat/lon are geographic; plot with coastlines
+init_time = datetime(2021, 7, 13, 0)  # forecast initialization
+lead_hours = 24  # forecast lead time to downscale
+sampler_steps = 12  # diffusion denoising steps (more = sharper, slower; diffusion only)
+amp = True  # reduced-precision (bf16) autocast: faster, lower memory on recent GPUs
+ensemble_size = 9  # diffusion ensemble members for the Germany sub-domain
+device = "cuda:0"
+germany = dict(lat_min=47.0, lat_max=55.5, lon_min=5.0, lon_max=16.0)
+projection = (
+    ccrs.PlateCarree()
+)  # COSMO-REA lat/lon are geographic; plot with coastlines
 
 os.makedirs("outputs", exist_ok=True)
 
 
-def geo_axes(ax, labels=True):
-    """Add coastlines + (optionally labeled) gridlines to a cartopy GeoAxes."""
+def geo_axes(ax):
+    """Add coastlines and gridlines to a cartopy GeoAxes."""
     ax.coastlines(resolution="50m", linewidth=0.6, color="0.3")
-    gl = ax.gridlines(draw_labels=labels, linewidth=0.3, color="0.5", alpha=0.5)
-    if labels:
-        gl.top_labels = gl.right_labels = False
+    ax.gridlines(linewidth=0.3, color="0.5", alpha=0.5)
 
 
 # %%
 # Load the global forecaster and the regional downscaler
 # ------------------------------------------------------
+# Instantiate SFNO (the global prognostic model) and CorrDiffCosmoEra5 (the
+# regional downscaler). Both diffusion and regression checkpoints are loaded from
+# the same package; ``mode`` selects which one.
+
+# %%
 from earth2studio.data import ARCO, fetch_data
 from earth2studio.models.auto import Package
 from earth2studio.models.dx import CorrDiffCosmoEra5
@@ -114,43 +106,44 @@ from earth2studio.models.px import SFNO
 
 # Resolve the downscaling package: the hosted default, or a local build if
 # $COSMO_REA_PACKAGE was set above.
-if LOCAL_PACKAGE:
-    package = Package(LOCAL_PACKAGE)
+if local_package:
+    package = Package(local_package)
 else:
     package = CorrDiffCosmoEra5.load_default_package()
 
-sfno = SFNO.load_model(SFNO.load_default_package()).to(DEVICE)
+sfno = SFNO.load_model(SFNO.load_default_package()).to(device)
 # Both models live in the same package; `mode` selects which checkpoint to load:
 # the diffusion model is generative, the mean model is the deterministic regression.
 dx = CorrDiffCosmoEra5.load_model(
-    package, device=DEVICE, mode="diffusion", resolution="rea6"
+    package, device=device, mode="diffusion", resolution="rea6"
 )
-dx.amp = AMP
-dx.number_of_steps = SAMPLER_STEPS
+dx.amp = amp
+dx.number_of_steps = sampler_steps
 dx_mean = CorrDiffCosmoEra5.load_model(
-    package, device=DEVICE, mode="mean", resolution="rea6"
+    package, device=device, mode="mean", resolution="rea6"
 )
-dx_mean.amp = AMP
+dx_mean.amp = amp
 
 # %%
 # Initial condition and global forecast
-# -------------------------------------
 # Fetch an ERA5 analysis (ARCO) initial condition and step SFNO forward to the
 # requested lead time. SFNO is 6-hourly, so 24 h is four steps.
+
+# %%
 sic = sfno.input_coords()
 x, coords = fetch_data(
     ARCO(),
-    time=np.array([np.datetime64(INIT_TIME)]),
+    time=np.array([np.datetime64(init_time)]),
     variable=sic["variable"],
     lead_time=sic["lead_time"],
-    device=DEVICE,
+    device=device,
 )
 dt_hours = int(sfno.output_coords(sic)["lead_time"][0] / np.timedelta64(1, "h"))
 model = sfno.create_iterator(x, coords)
 # The iterator yields the t=0 analysis first (before any forward step), so the four
-# 6-hourly steps to 24 h take LEAD_HOURS // dt_hours + 1 = 5 calls (the first call
+# 6-hourly steps to 24 h take lead_hours // dt_hours + 1 = 5 calls (the first call
 # consumes the initial condition).
-for _ in range(LEAD_HOURS // dt_hours + 1):
+for _ in range(lead_hours // dt_hours + 1):
     x_fc, coords_fc = next(model)  # global forecast state at the current step
 
 # %%
@@ -162,6 +155,8 @@ for _ in range(LEAD_HOURS // dt_hours + 1):
 # ``time`` coord; it drives the model's day/night (solar-zenith) input channel. One
 # shared regrid helper backs both the manual calls and the ``DiagnosticWrapper``
 # hook below.
+
+# %%
 
 
 def regrid_to_input(x_src, src_coords, dvars, dlat, dlon):
@@ -202,13 +197,17 @@ def sfno_to_downscaler(x_fc, coords_fc, dx, valid_time):
     return torch.from_numpy(out)[None, None].to(x_fc.device), coords_dx
 
 
-valid_time = INIT_TIME + timedelta(hours=LEAD_HOURS)
+valid_time = init_time + timedelta(hours=lead_hours)
 x_dx, coords_dx = sfno_to_downscaler(x_fc, coords_fc, dx, valid_time)
 out, out_coords = dx(x_dx, coords_dx)
 
 # %%
 # Plot the downscaled fields
 # --------------------------
+# Visualise four representative channels from the full-domain COSMO-REA6 output:
+# 2 m temperature, total precipitation, 10 m zonal wind, and total cloud cover.
+
+# %%
 o = out[0, 0, 0].cpu().numpy()  # [variable, lat, lon] (batch 0, sample 0, time 0)
 # ``output_variables`` are the interior COSMO names used for indexing here; the
 # canonical (relabeled) names are in ``out_coords["variable"]``.
@@ -222,18 +221,18 @@ panels = [
     ("CLCT", lambda f: f, "total cloud cover tcc (0-1)", "Blues_r"),
 ]
 plt.close("all")
-fig, axs = plt.subplots(2, 2, figsize=(14, 11), subplot_kw={"projection": PROJ})
+fig, axs = plt.subplots(2, 2, figsize=(14, 11), subplot_kw={"projection": projection})
 for ax, (ch, fn, label, cmap) in zip(axs.ravel(), panels):
     c = ax.pcolormesh(
         lon2d,
         lat2d,
         fn(o[ov.index(ch)]),
-        transform=PROJ,
+        transform=projection,
         shading="nearest",
         cmap=cmap,
         antialiased=False,
     )
-    ax.set_title(f"{label}  (SFNO +{LEAD_HOURS}h, {valid_time:%Y-%m-%d %HZ})")
+    ax.set_title(f"{label}  (SFNO +{lead_hours}h, {valid_time:%Y-%m-%d %HZ})")
     geo_axes(ax)
     plt.colorbar(c, ax=ax, fraction=0.04)
 plt.tight_layout()
@@ -248,25 +247,27 @@ plt.savefig("outputs/04_cosmo_rea_downscaling.jpg", dpi=150)
 # (not interpolated), so it is valid for sub-regions inside the trained domain and
 # much faster -- the diffusion model processes far fewer grid patches per step. The
 # same SFNO forecast is reused; we just hand it to the sub-domain model.
-dx_de = dx.set_domain(**GERMANY)
+
+# %%
+dx_de = dx.set_domain(**germany)
 x_de, coords_de = sfno_to_downscaler(x_fc, coords_fc, dx_de, valid_time)
 out_de, out_de_coords = dx_de(x_de, coords_de)
 
 o_de = out_de[0, 0, 0].cpu().numpy()
 lat_de, lon_de = np.asarray(out_de_coords["lat"]), np.asarray(out_de_coords["lon"])
 plt.close("all")
-fig, axs = plt.subplots(1, 2, figsize=(15, 7), subplot_kw={"projection": PROJ})
+fig, axs = plt.subplots(1, 2, figsize=(15, 7), subplot_kw={"projection": projection})
 for ax, (ch, fn, label, cmap) in zip(axs, panels[:2]):
     c = ax.pcolormesh(
         lon_de,
         lat_de,
         fn(o_de[ov.index(ch)]),
-        transform=PROJ,
+        transform=projection,
         shading="nearest",
         cmap=cmap,
         antialiased=False,
     )
-    ax.set_title(f"Germany {label}  (SFNO +{LEAD_HOURS}h, {valid_time:%Y-%m-%d %HZ})")
+    ax.set_title(f"Germany {label}  (SFNO +{lead_hours}h, {valid_time:%Y-%m-%d %HZ})")
     geo_axes(ax)
     plt.colorbar(c, ax=ax, fraction=0.046)
 plt.tight_layout()
@@ -281,6 +282,8 @@ plt.savefig("outputs/04_cosmo_rea_downscaling_germany.jpg", dpi=150)
 # day/night channel) and a regrid onto its regional grid, so we supply a small
 # callable for the wrapper's input-prep hook. We roll out over the Germany
 # sub-domain so each step stays fast.
+
+# %%
 from earth2studio.models.px import DiagnosticWrapper
 
 
@@ -311,10 +314,10 @@ wrapped = DiagnosticWrapper(sfno, dx_de, prepare_dx_input_tensor=PrepareCosmoREA
 
 # Roll out a downscaled Germany forecast and keep T_2M at every lead time. A real
 # workflow would stream the rolled-out fields into an IO backend (e.g.
-# ``earth2studio.io.ZarrBackend``); here we keep the T_2M frames in memory to plot.
+# [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend]); here we keep the T_2M frames in memory to plot.
 frames = {}
 it = wrapped.create_iterator(x, coords)  # reuse the initial condition above
-for step in range(LEAD_HOURS // dt_hours + 1):
+for step in range(lead_hours // dt_hours + 1):
     out_step, oc_step = next(it)
     frames[step * dt_hours] = out_step[0, 0, 0, ov.index("T_2M")].cpu().numpy() - 273.15
 
@@ -324,14 +327,17 @@ vmin = min(f.min() for f in frames.values())
 vmax = max(f.max() for f in frames.values())
 plt.close("all")
 fig, axs = plt.subplots(
-    1, len(leads), figsize=(4.5 * len(leads), 5.5), subplot_kw={"projection": PROJ}
+    1,
+    len(leads),
+    figsize=(4.5 * len(leads), 5.5),
+    subplot_kw={"projection": projection},
 )
 for ax, lead in zip(np.atleast_1d(axs), leads):
     mesh = ax.pcolormesh(
         lon_de,
         lat_de,
         frames[lead],
-        transform=PROJ,
+        transform=projection,
         shading="nearest",
         cmap="turbo",
         vmin=vmin,
@@ -339,9 +345,9 @@ for ax, lead in zip(np.atleast_1d(axs), leads):
         antialiased=False,
     )
     ax.set_title(f"+{lead}h")
-    geo_axes(ax, labels=False)
+    geo_axes(ax)
 fig.colorbar(mesh, ax=axs, fraction=0.015, pad=0.02, label="Germany T_2M (degC)")
-fig.suptitle(f"COSMO-REA6 downscaled T_2M rollout, init {INIT_TIME:%Y-%m-%d %HZ}")
+fig.suptitle(f"COSMO-REA6 downscaled T_2M rollout, init {init_time:%Y-%m-%d %HZ}")
 plt.savefig(
     "outputs/04_cosmo_rea_downscaling_rollout.jpg", dpi=150, bbox_inches="tight"
 )
@@ -357,26 +363,28 @@ plt.savefig(
 # Germany sub-domain model and the same SFNO state, and look at total cloud cover
 # (CLCT), a field with strong spread. The members share one conditioning pass, so
 # the cost is ~N x a single sample.
-dx_de.number_of_samples = ENSEMBLE_SIZE
+
+# %%
+dx_de.number_of_samples = ensemble_size
 dx_de.seed = 0  # reproducible, distinct members (seeds 0..N-1)
 ens, ens_coords = dx_de(x_de, coords_de)
 
 clct = ens[0, :, 0, ov.index("CLCT")].cpu().numpy()  # [sample, lat, lon]
-ncol = int(np.ceil(np.sqrt(ENSEMBLE_SIZE)))
-nrow = int(np.ceil(ENSEMBLE_SIZE / ncol))
+ncol = int(np.ceil(np.sqrt(ensemble_size)))
+nrow = int(np.ceil(ensemble_size / ncol))
 plt.close("all")
 fig, axs = plt.subplots(
-    nrow, ncol, figsize=(3.6 * ncol, 3.6 * nrow), subplot_kw={"projection": PROJ}
+    nrow, ncol, figsize=(3.6 * ncol, 3.6 * nrow), subplot_kw={"projection": projection}
 )
 for m, ax in enumerate(np.atleast_1d(axs).ravel()):
-    if m >= ENSEMBLE_SIZE:
+    if m >= ensemble_size:
         ax.axis("off")
         continue
     mesh = ax.pcolormesh(
         lon_de,
         lat_de,
         clct[m],
-        transform=PROJ,
+        transform=projection,
         shading="nearest",
         cmap="Blues_r",
         vmin=0,
@@ -384,13 +392,13 @@ for m, ax in enumerate(np.atleast_1d(axs).ravel()):
         antialiased=False,
     )
     ax.set_title(f"member {m}")
-    geo_axes(ax, labels=False)
+    geo_axes(ax)
 fig.colorbar(
     mesh, ax=axs, fraction=0.02, pad=0.02, label="Germany total cloud cover tcc (0-1)"
 )
 fig.suptitle(
-    f"COSMO-REA6 diffusion ensemble ({ENSEMBLE_SIZE} members), CLCT  "
-    f"(SFNO +{LEAD_HOURS}h, {valid_time:%Y-%m-%d %HZ})"
+    f"COSMO-REA6 diffusion ensemble ({ensemble_size} members), CLCT  "
+    f"(SFNO +{lead_hours}h, {valid_time:%Y-%m-%d %HZ})"
 )
 plt.savefig(
     "outputs/04_cosmo_rea_downscaling_ensemble.jpg", dpi=150, bbox_inches="tight"
@@ -410,9 +418,9 @@ plt.savefig(
 # The regression is also a DiT (diffusion transformer) and crop-size agnostic at the
 # fixed resolution, so it runs directly on the sub-domain Germany region in a single
 # forward (no tiling).
-# We restrict the mean model
-# to the same bbox and reuse the SFNO state, so its grid matches lat_de/lon_de.
-dx_mean_de = dx_mean.set_domain(**GERMANY)
+
+# %%
+dx_mean_de = dx_mean.set_domain(**germany)
 x_mde, coords_mde = sfno_to_downscaler(x_fc, coords_fc, dx_mean_de, valid_time)
 reg_de, _ = dx_mean_de(x_mde, coords_mde)
 reg_clct = reg_de[0, 0, 0, ov.index("CLCT")].cpu().numpy()
@@ -422,17 +430,17 @@ ens_std = clct.std(0)  # diffusion ensemble spread
 
 comp = [
     (reg_clct, "regression mean", "Blues_r", 0.0, 1.0),
-    (ens_mean, f"diffusion ensemble mean ({ENSEMBLE_SIZE})", "Blues_r", 0.0, 1.0),
+    (ens_mean, f"diffusion ensemble mean ({ensemble_size})", "Blues_r", 0.0, 1.0),
     (ens_std, "diffusion ensemble spread (std)", "magma", None, None),
 ]
 plt.close("all")
-fig, axs = plt.subplots(1, 3, figsize=(18, 6), subplot_kw={"projection": PROJ})
+fig, axs = plt.subplots(1, 3, figsize=(18, 6), subplot_kw={"projection": projection})
 for ax, (f, title, cmap, vmn, vmx) in zip(axs, comp):
     mesh = ax.pcolormesh(
         lon_de,
         lat_de,
         f,
-        transform=PROJ,
+        transform=projection,
         shading="nearest",
         cmap=cmap,
         vmin=vmn,
@@ -443,7 +451,7 @@ for ax, (f, title, cmap, vmn, vmx) in zip(axs, comp):
     geo_axes(ax)
     plt.colorbar(mesh, ax=ax, fraction=0.046)
 fig.suptitle(
-    f"Regression vs diffusion ensemble, CLCT  (SFNO +{LEAD_HOURS}h, {valid_time:%Y-%m-%d %HZ})"
+    f"Regression vs diffusion ensemble, CLCT  (SFNO +{lead_hours}h, {valid_time:%Y-%m-%d %HZ})"
 )
 plt.tight_layout()
 plt.savefig(
@@ -460,9 +468,11 @@ plt.savefig(
 # operation: compose the stock ``DerivedWS`` wind-speed diagnostic as
 # ``DerivedWS(levels=["100m"])``, or take the magnitude directly as below -- here,
 # 100 m wind over Germany from the deterministic mean model.
+
+# %%
 dx_hub = CorrDiffCosmoEra5.load_model(
-    package, device=DEVICE, mode="mean", resolution="rea6", hub_heights=[100]
-).set_domain(**GERMANY)
+    package, device=device, mode="mean", resolution="rea6", hub_heights=[100]
+).set_domain(**germany)
 x_hub, coords_hub = sfno_to_downscaler(x_fc, coords_fc, dx_hub, valid_time)
 out_hub, hub_coords = dx_hub(x_hub, coords_hub)
 hv = list(hub_coords["variable"])
@@ -471,18 +481,18 @@ v100 = out_hub[0, 0, 0, hv.index("v100m")].cpu().numpy()
 ws100 = np.hypot(u100, v100)  # or compose DerivedWS(levels=["100m"]) for ws100m
 
 plt.close("all")
-fig, ax = plt.subplots(figsize=(8, 7), subplot_kw={"projection": PROJ})
+fig, ax = plt.subplots(figsize=(8, 7), subplot_kw={"projection": projection})
 mesh = ax.pcolormesh(
     lon_de,
     lat_de,
     ws100,
-    transform=PROJ,
+    transform=projection,
     shading="nearest",
     cmap="viridis",
     antialiased=False,
 )
 ax.set_title(
-    f"Germany 100 m wind speed  (SFNO +{LEAD_HOURS}h, {valid_time:%Y-%m-%d %HZ})"
+    f"Germany 100 m wind speed  (SFNO +{lead_hours}h, {valid_time:%Y-%m-%d %HZ})"
 )
 geo_axes(ax)
 plt.colorbar(mesh, ax=ax, fraction=0.046, label="ws100m (m/s)")
@@ -497,8 +507,10 @@ plt.savefig(
 # (vs COSMO-REA6's 6 km broader-European grid). Same API, ``resolution="rea2"``.
 # REA2 covers a smaller domain; here we use the deterministic mean model over a
 # sub-region and plot 2 m temperature at 2.2 km.
+
+# %%
 dx2 = CorrDiffCosmoEra5.load_model(
-    package, device=DEVICE, mode="mean", resolution="rea2"
+    package, device=device, mode="mean", resolution="rea2"
 ).set_domain(lat_min=47.5, lat_max=51.0, lon_min=7.0, lon_max=13.0)
 x2, coords2 = sfno_to_downscaler(x_fc, coords_fc, dx2, valid_time)
 out2, oc2 = dx2(x2, coords2)
@@ -509,18 +521,18 @@ ov2 = dx2.output_variables
 lat2, lon2 = np.asarray(oc2["lat"]), np.asarray(oc2["lon"])
 
 plt.close("all")
-fig, ax = plt.subplots(figsize=(8, 7), subplot_kw={"projection": PROJ})
+fig, ax = plt.subplots(figsize=(8, 7), subplot_kw={"projection": projection})
 mesh = ax.pcolormesh(
     lon2,
     lat2,
     o2[ov2.index("2MT")] - 273.15,
-    transform=PROJ,
+    transform=projection,
     shading="nearest",
     cmap="turbo",
     antialiased=False,
 )
 ax.set_title(
-    f"COSMO-REA2 2.2 km T_2M  (SFNO +{LEAD_HOURS}h, {valid_time:%Y-%m-%d %HZ})"
+    f"COSMO-REA2 2.2 km T_2M  (SFNO +{lead_hours}h, {valid_time:%Y-%m-%d %HZ})"
 )
 geo_axes(ax)
 plt.colorbar(mesh, ax=ax, fraction=0.046, label="2MT (degC)")

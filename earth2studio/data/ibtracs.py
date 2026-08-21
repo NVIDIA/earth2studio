@@ -23,17 +23,20 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import numpy as np
+import obstore as obs
 import pandas as pd
 import pyarrow as pa
-from fsspec.implementations.http import HTTPFileSystem
 from loguru import logger
 from netCDF4 import Dataset
+from obstore.store import ObjectStore
 
 from earth2studio.data.utils import (
     _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
+    obstore_read_range,
+    obstore_store_from_url,
     prep_data_inputs,
 )
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
@@ -131,20 +134,19 @@ class IBTrACS:
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    from datetime import datetime, timedelta
+    from earth2studio.data import IBTrACS
 
-        from datetime import datetime, timedelta
-        from earth2studio.data import IBTrACS
+    # Fetch North Atlantic and Eastern Pacific storms
+    ds = IBTrACS(region=["NA", "EP"], time_tolerance=timedelta(days=1))
+    df = ds(datetime(2024, 9, 1), ["tcwnd", "mslp"])
 
-        # Fetch North Atlantic and Eastern Pacific storms
-        ds = IBTrACS(region=["NA", "EP"], time_tolerance=timedelta(days=1))
-        df = ds(datetime(2024, 9, 1), ["tcwnd", "mslp"])
+    # Get active storms
+    ds_active = IBTrACS(region="ACTIVE")
+    df_active = ds_active(datetime.utcnow(), ["tcwnd", "mslp"])
 
-        # Get active storms
-        ds_active = IBTrACS(region="ACTIVE")
-        df_active = ds_active(datetime.utcnow(), ["tcwnd", "mslp"])
-
+    ```
     Badges
     ------
     region:global dataclass:observation product:wind product:atmos
@@ -200,11 +202,11 @@ class IBTrACS:
         self._tmp_cache_hash: str | None = None
 
         # Async HTTP filesystem (initialized lazily)
-        self.fs: HTTPFileSystem | None = None
+        self.store: ObjectStore | None = None
 
     async def _async_init(self) -> None:
-        """Async initialization of HTTP filesystem."""
-        self.fs = HTTPFileSystem(asynchronous=True)
+        """Async initialization of the obstore HTTP store"""
+        self.store = obstore_store_from_url(IBTRACS_BASE_URL)
 
     def __call__(
         self,
@@ -259,7 +261,7 @@ class IBTrACS:
         pd.DataFrame
             IBTrACS track observations.
         """
-        if self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         time_list, variable_list = prep_data_inputs(time, variable)
@@ -279,7 +281,6 @@ class IBTrACS:
         tasks = self._create_tasks()
 
         # Fetch region files with cache invalidation
-        # HTTPFileSystem manages its own session lazily (no set_session needed)
         coros = [
             async_retry(
                 self._fetch_region_file,
@@ -328,8 +329,8 @@ class IBTrACS:
         task : IBTrACSAsyncTask
             Task containing region and URL info.
         """
-        if self.fs is None:
-            raise ValueError("Filesystem not initialized")
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
 
         meta_path = task.local_path + ".meta"
 
@@ -338,8 +339,10 @@ class IBTrACS:
         if self._cache and os.path.isfile(task.local_path):
             # Check Last-Modified header
             try:
-                info = await self.fs._info(task.remote_url)
-                server_mtime = info.get("Last-Modified") or info.get("last-modified")
+                key = task.remote_url.removeprefix(IBTRACS_BASE_URL + "/")
+                meta = await obs.head_async(self.store, key)
+                mtime = meta.get("last_modified")
+                server_mtime = str(mtime) if mtime else None
 
                 if server_mtime and os.path.isfile(meta_path):
                     with open(meta_path) as f:
@@ -348,7 +351,7 @@ class IBTrACS:
                         need_download = False
                         if self._verbose:
                             logger.debug(f"Using cached {task.region} (up to date)")
-            except (OSError, KeyError):
+            except (OSError, KeyError, obs.exceptions.BaseError):
                 # If HEAD request fails, just download
                 pass
 
@@ -357,21 +360,20 @@ class IBTrACS:
                 logger.info(f"Downloading IBTrACS {task.region} region data...")
 
             # Download the file
-            data = await self.fs._cat_file(task.remote_url)
+            key = task.remote_url.removeprefix(IBTRACS_BASE_URL + "/")
+            data = await obstore_read_range(self.store, key)
             with open(task.local_path, "wb") as f:
                 f.write(data)
 
             # Save metadata for cache invalidation
             if self._cache:
                 try:
-                    info = await self.fs._info(task.remote_url)
-                    server_mtime = info.get("Last-Modified") or info.get(
-                        "last-modified"
-                    )
-                    if server_mtime:
+                    meta = await obs.head_async(self.store, key)
+                    mtime = meta.get("last_modified")
+                    if mtime:
                         with open(meta_path, "w") as f:
-                            json.dump({"last_modified": server_mtime}, f)
-                except OSError:
+                            json.dump({"last_modified": str(mtime)}, f)
+                except (OSError, obs.exceptions.BaseError):
                     pass
 
     def _compile_dataframe(

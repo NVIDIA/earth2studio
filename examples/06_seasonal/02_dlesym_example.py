@@ -37,6 +37,7 @@ In this example you will learn:
 - How to use the output selection and regridding methods to select appropriate data
 - How to use the DLESyMLatLon model with earth2studio workflows
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[dlesym] @ git+https://github.com/NVIDIA/earth2studio.git",
@@ -50,13 +51,13 @@ In this example you will learn:
 # The first step is fetching appropriate input data for the model. The ERA5 data sources
 # in earth2studio provide data on the lat/lon grid, so have two options:
 #
-# - Use the :py:class:`earth2studio.models.px.DLESyMLatLon` model. This version of DLESyM
+# - Use the [`earth2studio.models.px.DLESyMLatLon`][earth2studio.models.px.DLESyMLatLon] model. This version of DLESyM
 #   accepts inputs on the lat/lon grid and regrids them to the HEALPix grid internally,
 #   before returning the output regridded back to the lat/lon grid. This is the
 #   recommended approach for most users as it can be used directly with earth2studio
 #   data sources and workflows, since it performs regridding and pre-processing
 #   internally.
-# - Use the :py:class:`earth2studio.models.px.DLESyM` model, and handle the regridding of
+# - Use the [`earth2studio.models.px.DLESyM`][earth2studio.models.px.DLESyM] model, and handle the regridding of
 #   input lat/lon data ourselves. Since the model uses some derived variables which
 #   are not provided by the data source, we would also need to prepare these derived
 #   variables ourselves.
@@ -114,10 +115,10 @@ print(
 # Making Predictions, Regridding, and Selecting Outputs
 # -----------------------------------------------------
 # Let's now pull some example data and make predictions with the model. As the
-# data source provides lat/lon data, we can use the :py:class:`earth2studio.models.px.DLESyMLatLon` model.
+# data source provides lat/lon data, we can use the [`earth2studio.models.px.DLESyMLatLon`][earth2studio.models.px.DLESyMLatLon] model.
 #
 # In addition, we demonstrate how to use the regridding utilities provided by
-# `DLESyMLatLon` to regrid onto the HEALPix grid. The :py:class:`earth2studio.models.px.DLESyM`
+# `DLESyMLatLon` to regrid onto the HEALPix grid. The [`earth2studio.models.px.DLESyM`][earth2studio.models.px.DLESyM]
 # model can then be used directly with the HEALPix data.
 #
 # Finally, a key aspect of the DLESyM model is that it makes predictions for the atmosphere

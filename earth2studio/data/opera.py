@@ -31,13 +31,15 @@ from typing import Any
 import numpy as np
 import xarray as xr
 from loguru import logger
+from obstore.store import ObjectStore
 
 from earth2studio.data.utils import (
     _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
-    managed_session,
+    obstore_read_range,
+    obstore_store_from_url,
     prep_data_inputs,
 )
 from earth2studio.lexicon.opera import OPERALexicon
@@ -158,9 +160,12 @@ class OPERA:
     pixel resolutions, a :exc:`ValueError` is raised — request each resolution
     group separately.
 
-    OPERA undetect values (active radar echo but no detectable precipitation) are
-    set to -99.0 dbZ, and nodata values are set to NaN (no active radar echo).
-    All other values are scaled by the gain and offset parameters in the ODIM HDF5 file.
+    ODIM pixels with no radar coverage (``nodata``) are set to NaN.  Pixels
+    where the radar was active but detected nothing (``undetect``) are filled
+    with a quantity-specific value: ``0.0`` for precipitation quantities (RATE,
+    ACRR) and ``-99.0 dBZ`` for reflectivity (DBZH) to match the MRMS refc
+    convention.  All other values are scaled by the gain and offset parameters
+    in the ODIM HDF5 file.
 
     Parameters
     ----------
@@ -194,8 +199,10 @@ class OPERA:
     region:eu dataclass:observation product:precip product:radar
     """
 
-    # MRMS refc stores no-echo as -99 dBZ; fill OPERA no-detection as -99.0 to match.
-    _NO_DETECTION_FILL: float = -99.0
+    # Undetect fill values per ODIM quantity.  Precipitation quantities use 0.0
+    # because "radar detected nothing" means zero rain, not a sentinel dBZ value.
+    # DBZH (and any unrecognised quantity) falls back to -99.0 to match MRMS refc.
+    _UNDETECT_FILL: dict[str, float] = {"RATE": 0.0, "ACRR": 0.0}
 
     # Class-level lat/lon grid cache keyed by (ysize, xsize).
     _grid_cache: dict[tuple[int, int], tuple[np.ndarray, np.ndarray]] = {}
@@ -238,8 +245,10 @@ class OPERA:
         )
 
     @classmethod
-    def _apply_linear_scaling(cls, raw: np.ndarray, what: dict[str, Any]) -> np.ndarray:
-        """Apply ODIM gain/offset scaling; replace nodata with NaN and undetect with NO_DETECTION_FILL."""
+    def _apply_linear_scaling(
+        cls, raw: np.ndarray, what: dict[str, Any], odim_quantity: str = "DBZH"
+    ) -> np.ndarray:
+        """Apply ODIM gain/offset scaling; replace nodata with NaN and undetect with quantity-specific fill."""
         gain = float(what.get("gain", 1.0))
         offset = float(what.get("offset", 0.0))
         nodata = what.get("nodata")
@@ -248,7 +257,9 @@ class OPERA:
         if nodata is not None:
             result[raw == nodata] = np.nan
         if undetect is not None:
-            result[raw == undetect] = cls._NO_DETECTION_FILL
+            result[raw == undetect] = cls._UNDETECT_FILL.get(
+                odim_quantity.upper(), -99.0
+            )
         return result
 
     @staticmethod
@@ -291,7 +302,9 @@ class OPERA:
                     what = OPERA._odim_attrs(da["what"])
                     if str(what.get("quantity", "")).upper() != odim_quantity.upper():
                         continue
-                    return OPERA._apply_linear_scaling(da["data"][:], what)
+                    return OPERA._apply_linear_scaling(
+                        da["data"][:], what, odim_quantity
+                    )
 
                 # ODYSSEY era: quantity in dataset*/what, data array in dataset*/data1
                 if "what" in ds:
@@ -300,7 +313,7 @@ class OPERA:
                         da_names = OPERA._sort_odim_groups(ds, "data")
                         if da_names and "data" in ds[da_names[0]]:
                             return OPERA._apply_linear_scaling(
-                                ds[da_names[0]]["data"][:], what
+                                ds[da_names[0]]["data"][:], what, odim_quantity
                             )
 
         raise ValueError(f"ODIM quantity '{odim_quantity}' not found in HDF5 file")
@@ -319,18 +332,11 @@ class OPERA:
         self._retries = retries
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
-        self.fs: Any = None
+        self.store: ObjectStore | None = None
 
     async def _async_init(self) -> None:
-        """Async initialization of zarr group
-
-        Note
-        ----
-        Async fsspec expects initialization inside of the execution loop
-        """
-        from fsspec.implementations.http import HTTPFileSystem
-
-        self.fs = HTTPFileSystem(asynchronous=True)
+        """Async initialization of the obstore HTTP store"""
+        self.store = obstore_store_from_url(_ARCHIVE_BASE)
 
     def __call__(
         self,
@@ -381,7 +387,7 @@ class OPERA:
         xr.DataArray
             OPERA weather data array
         """
-        if self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         time_list, variable_list = prep_data_inputs(time, variable)
@@ -397,15 +403,14 @@ class OPERA:
         async def _accumulate(task: _OPERAAsyncTask) -> None:
             results[(task.time_idx, task.var_idx)] = await self.fetch_wrapper(task)
 
-        async with managed_session(self.fs):
-            coros = [_accumulate(task) for task in tasks]
-            await gather_with_concurrency(
-                coros,
-                max_workers=self._async_workers,
-                task_timeout=120.0,
-                desc="Fetching OPERA data",
-                verbose=(not self._verbose),
-            )
+        coros = [_accumulate(task) for task in tasks]
+        await gather_with_concurrency(
+            coros,
+            max_workers=self._async_workers,
+            task_timeout=120.0,
+            desc="Fetching OPERA data",
+            verbose=(not self._verbose),
+        )
 
         # Validate that all variables have the same grid shape.
         shapes = {arr.shape for arr in results.values()}
@@ -517,9 +522,11 @@ class OPERA:
         ValueError
             If the filesystem is not initialised or the quantity is absent.
         """
-        if self.fs is None:
-            raise ValueError("Filesystem not initialized; call _async_init first")
+        if self.store is None:
+            raise ValueError("Object store is not initialized; call _async_init first")
 
+        # Hash the full URL (unchanged scheme) so warm caches populated
+        # before the obstore migration remain valid
         sha = hashlib.sha256(task.url.encode())
         cache_path = os.path.join(self.cache, sha.hexdigest())
 
@@ -528,7 +535,8 @@ class OPERA:
             data_bytes = pathlib.Path(cache_path).read_bytes()
         else:
             logger.debug(f"Fetching {task.url}")
-            data_bytes = await self.fs._cat_file(task.url)
+            key = task.url.removeprefix(_ARCHIVE_BASE + "/")
+            data_bytes = await obstore_read_range(self.store, key)
             with open(cache_path, "wb") as fh:
                 await asyncio.to_thread(fh.write, data_bytes)
 

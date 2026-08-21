@@ -569,7 +569,7 @@ class CMIP6:
 
     @staticmethod
     def _convert_times_to_datetime(
-        raw_times: list[Union[datetime, np.datetime64, "CFDatetime"]]
+        raw_times: list[Union[datetime, np.datetime64, "CFDatetime"]],
     ) -> list[datetime]:
         """Convert a list of mixed time objects (cftime, numpy.datetime64, datetime)
         to Python ``datetime`` objects for xarray coordinate storage.

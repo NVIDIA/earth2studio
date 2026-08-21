@@ -33,9 +33,10 @@ In this example you will learn:
 - Running a simple built in workflow for ensembling
 - Post-processing results
 """
+
 # /// script
 # dependencies = [
-#   "torch==2.11.0", # Match lock file to avoid torch-harmonics issue
+#   "torch==2.13.0", # Match torch-harmonics examples
 #   "earth2studio[fcn,perturbation] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "scipy>=1.15.2",
 #   "cartopy",
@@ -50,7 +51,7 @@ In this example you will learn:
 # ------
 # All workflows inside Earth2Studio require constructed components to be
 # handed to them. In this example, we will use the built in ensemble workflow
-# :py:meth:`earth2studio.run.ensemble`.
+# [`earth2studio.run.ensemble`][earth2studio.run.ensemble].
 
 # %%
 # .. literalinclude:: ../../earth2studio/run.py
@@ -61,12 +62,12 @@ In this example you will learn:
 # %%
 # We need the following:
 #
-# - Prognostic Model: Use the built in FourCastNet model :py:class:`earth2studio.models.px.FCN`.
-# - Perturbation Method: Use the Spherical Gaussian Method :py:class:`earth2studio.perturbation.SphericalGaussian`.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - Prognostic Model: Use the built in FourCastNet model [`earth2studio.models.px.FCN`][earth2studio.models.px.FCN].
+# - Perturbation Method: Use the Spherical Gaussian Method [`earth2studio.perturbation.SphericalGaussian`][earth2studio.perturbation.SphericalGaussian].
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - IO Backend: Save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 import os
 
 os.makedirs("outputs", exist_ok=True)
@@ -81,6 +82,7 @@ from earth2studio.io import ZarrBackend
 from earth2studio.models.px import FCN
 from earth2studio.perturbation import SphericalGaussian
 from earth2studio.run import ensemble
+from earth2studio.utils.time import to_time_array
 
 # Load the default model package which downloads the check point from NGC
 package = FCN.load_default_package()
@@ -101,6 +103,21 @@ io = ZarrBackend(
 )
 
 # %%
+# Fetch Data
+# ----------
+# You can easily fetch raw Xarray data from an initial condition data source with
+# a simple call. By default, this caches the data locally on your machine, so you
+# won't have to re-download it if you access it again or use it in an inference
+# pipeline.
+
+# %% tags=["e2sg-profile:setup"]
+sample = data(
+    to_time_array(["2024-01-01"]),
+    model.input_coords()["variable"],
+)
+print(f"Cached GFS input shape: {sample.shape}")
+
+# %%
 # Execute the Workflow
 # --------------------
 # With all components initialized, running the workflow is a single line of Python code.
@@ -111,7 +128,7 @@ io = ZarrBackend(
 # For the forecast we will predict for 10 steps (for FCN, this is 60 hours) with 8 ensemble
 # members which will be ran in 2 batches with batch size 4.
 
-# %%
+# %% tags=["e2sg-profile:inference"]
 
 nsteps = 10
 nensemble = 8
@@ -136,7 +153,7 @@ io = ensemble(
 #
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-# %%
+# %% tags=["e2sg-profile:plotting"]
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
