@@ -43,7 +43,8 @@ class IceChunkBackend(ZarrBackend):
     for ``add_array`` / ``write`` / ``read``, using an Icechunk writable session's
     store in place of a plain Zarr store. Since Icechunk snapshots are immutable,
     call :func:`commit` to persist accumulated writes; uncommitted writes are still
-    visible to this backend but are lost if the process exits before committing.
+    visible to this backend but are lost if the process exits before committing
+    (a warning is logged if the backend is destroyed with pending writes).
 
     Parameters
     ----------
@@ -102,6 +103,21 @@ class IceChunkBackend(ZarrBackend):
         self.root = zarr.group(self.store, **backend_kwargs)
         self.zarr_codecs = zarr_codecs
         self._read_store_state(chunks)
+
+    def __del__(self) -> None:
+        # Icechunk only persists writes on commit; warn instead of silently
+        # dropping data when a backend with pending writes is garbage collected.
+        # The len(root) check skips the fresh-repo case where the only pending
+        # change is the root group metadata written during construction.
+        try:
+            if self.session.has_uncommitted_changes and len(self.root) > 0:
+                logger.warning(
+                    "IceChunkBackend deleted with uncommitted changes; these writes "
+                    "were not persisted to branch '{}'. Call commit() to persist.",
+                    self.branch,
+                )
+        except Exception:  # noqa: S110 interpreter may be shutting down
+            pass
 
     def commit(self, message: str, **kwargs: Any) -> str:
         """Commit all writes since the last commit to the Icechunk repository,

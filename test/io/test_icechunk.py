@@ -146,3 +146,40 @@ def test_icechunk_empty_commit() -> None:
     io.commit("write again")
     xx, _ = io.read(total_coords, "fields")
     assert torch.allclose(x, xx)
+
+
+def test_icechunk_uncommitted_warning() -> None:
+    from loguru import logger
+
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray([np.datetime64("2021-01-01")]),
+            "lat": np.linspace(-90, 90, 8),
+        }
+    )
+
+    messages: list[str] = []
+    sink_id = logger.add(messages.append, level="WARNING")
+    try:
+        # Dropping a backend with uncommitted writes warns
+        io = IceChunkBackend()
+        io.add_array(total_coords, "fields")
+        io.write(torch.randn(1, 8), total_coords, "fields")
+        io.__del__()
+        assert any("uncommitted" in m for m in messages)
+
+        # Dropping a committed backend does not
+        messages.clear()
+        io2 = IceChunkBackend()
+        io2.add_array(total_coords, "fields")
+        io2.write(torch.randn(1, 8), total_coords, "fields")
+        io2.commit("write fields")
+        io2.__del__()
+        assert not messages
+
+        # Dropping a fresh, never-written backend does not
+        io3 = IceChunkBackend()
+        io3.__del__()
+        assert not messages
+    finally:
+        logger.remove(sink_id)
