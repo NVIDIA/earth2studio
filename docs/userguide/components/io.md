@@ -138,6 +138,123 @@ io.write(*split_coords(x, coords, dim="variable"))
 For a complete workflow that uses IO backends, refer to `earth2studio.run.deterministic`
 or the deterministic workflow example in the gallery.
 
+## Versioned Output with the Icechunk Backend
+
+`earth2studio.io.IceChunkBackend` writes to an
+[Icechunk](https://icechunk.io/) repository instead of a plain Zarr store.
+Icechunk adds transactional, versioned writes on top of Zarr: every array is
+backed by a Zarr store as usual, but writes are only made durable when
+explicitly committed, producing an immutable, named snapshot that can be
+read back (or rolled back to) later. This is useful for inference campaigns
+where you want a persistent, auditable history of a store's contents.
+
+`IceChunkBackend` subclasses `ZarrBackend`, so `add_array`, `write`, `read`,
+and the `__contains__`/`__getitem__`/`__len__`/`__iter__` helpers all behave
+identically. The one addition is `commit`, which must be called to persist
+writes:
+
+```python
+from earth2studio.io import IceChunkBackend
+
+# `storage` may be omitted (in-memory repository), a local filesystem path,
+# or an `icechunk.Storage` instance (e.g. `icechunk.s3_storage(...)`)
+io = IceChunkBackend("/path/to/repo")
+
+io.add_array(total_coords, array_name)
+io.write(x, coords, array_name)
+
+# Writes are visible to `io` immediately, but are only persisted to the
+# Icechunk repository once committed
+io.commit("forecast run 2024-01-01T00Z")
+```
+
+Pass `branch` to write to a named branch other than `"main"`; it is created
+automatically (from the tip of `"main"`) if it does not already exist. This
+requires the `icechunk` optional dependency, install with `pip install
+earth2studio[data]`.
+
+### Non-blocking Icechunk writes with the Async Zarr Backend
+
+For workloads where write latency matters, `IceChunkBackend` is not the only
+option: `earth2studio.io.AsyncZarrBackend` accepts any constructed Zarr store
+through its `store` parameter, and an Icechunk session store is a Zarr store.
+This combines Icechunk's transactional snapshots with the async backend's
+non-blocking writes (and sharding):
+
+```python
+import icechunk
+from earth2studio.io import AsyncZarrBackend
+
+repo = icechunk.Repository.open_or_create(
+    icechunk.local_filesystem_storage("/path/to/repo")
+)
+session = repo.writable_session("main")
+
+io = AsyncZarrBackend(
+    "unused",  # location comes from the store
+    parallel_coords=OrderedDict({"time": times, "lead_time": lead_times}),
+    store=session.store,
+)
+# ... write forecast steps ...
+io.close()  # flush all in-flight writes BEFORE committing
+session.commit("forecast run")
+```
+
+The ordering matters: `io.close()` (or `flush()`) must complete before
+`session.commit()`, otherwise in-flight writes are silently excluded from the
+snapshot. Committing is your responsibility here — the session is managed
+outside the backend.
+
+This composes directly with the built-in workflows. Note that
+`earth2studio.run` workflows do **not** close the backend for you:
+
+```python
+import icechunk
+import numpy as np
+from collections import OrderedDict
+
+from earth2studio import run
+from earth2studio.data import GFS
+from earth2studio.io import AsyncZarrBackend
+from earth2studio.models.px import SFNO
+
+model = SFNO.load_model(SFNO.load_default_package())
+nsteps = 20
+times = np.array([np.datetime64("2024-01-01")])
+lead_times = np.array([np.timedelta64(6 * i, "h") for i in range(nsteps + 1)])
+
+repo = icechunk.Repository.open_or_create(
+    icechunk.local_filesystem_storage("forecast_repo")
+)
+session = repo.writable_session("main")
+
+io = AsyncZarrBackend(
+    "unused",
+    parallel_coords=OrderedDict({"time": times, "lead_time": lead_times}),
+    blocking=False,
+    store=session.store,
+)
+run.deterministic(times, nsteps, model, GFS(), io)
+io.close()  # required: run.deterministic does not close the backend
+session.commit("SFNO forecast 2024-01-01T00Z")
+```
+
+Everything Icechunk provides then applies to the forecast output: reopen any
+earlier snapshot with `repo.readonly_session(snapshot_id=...)`, branch with
+`repo.create_branch(...)`, or point the repository at S3/GCS storage instead of
+the local filesystem with `icechunk.s3_storage(...)` — the workflow code is
+unchanged.
+
+!!! note
+    Committing with no new writes raises an `IcechunkError`; pass
+    `commit(message, allow_empty=True)` to create an empty snapshot instead.
+    Likewise, if another writer commits to the same branch first, `commit`
+    raises a conflict error — see the
+    [Icechunk documentation](https://icechunk.io/en/latest/) on rebasing and
+    the `rebase_with` argument for resolving concurrent commits. Icechunk's
+    local filesystem storage is not safe for concurrent commits; use an
+    object store when multiple processes write to one repository.
+
 ## Sharding with the Async Zarr Backend
 
 `earth2studio.io.AsyncZarrBackend` writes each forecast step as soon as it is
