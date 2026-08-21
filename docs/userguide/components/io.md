@@ -138,6 +138,42 @@ io.write(*split_coords(x, coords, dim="variable"))
 For a complete workflow that uses IO backends, refer to `earth2studio.run.deterministic`
 or the deterministic workflow example in the gallery.
 
+## Versioned Output with the Icechunk Backend
+
+`earth2studio.io.IceChunkBackend` writes to an
+[Icechunk](https://icechunk.io/) repository instead of a plain Zarr store.
+Icechunk adds transactional, versioned writes on top of Zarr: every array is
+backed by a Zarr store as usual, but writes are only made durable when
+explicitly committed, producing an immutable, named snapshot that can be
+read back (or rolled back to) later. This is useful for inference campaigns
+where you want a persistent, auditable history of a store's contents, or
+safe concurrent writes to the same store from multiple processes.
+
+`IceChunkBackend` subclasses `ZarrBackend`, so `add_array`, `write`, `read`,
+and the `__contains__`/`__getitem__`/`__len__`/`__iter__` helpers all behave
+identically. The one addition is `commit`, which must be called to persist
+writes:
+
+```python
+from earth2studio.io import IceChunkBackend
+
+# `storage` may be omitted (in-memory repository), a local filesystem path,
+# or an `icechunk.Storage` instance (e.g. `icechunk.s3_storage(...)`)
+io = IceChunkBackend("/path/to/repo")
+
+io.add_array(total_coords, array_name)
+io.write(x, coords, array_name)
+
+# Writes are visible to `io` immediately, but are only persisted to the
+# Icechunk repository once committed
+io.commit("forecast run 2024-01-01T00Z")
+```
+
+Pass `branch` to write to a named branch other than `"main"`; it is created
+automatically (from the tip of `"main"`) if it does not already exist. This
+requires the `icechunk` optional dependency, install with `pip install
+earth2studio[data]`.
+
 ## Sharding with the Async Zarr Backend
 
 `earth2studio.io.AsyncZarrBackend` writes each forecast step as soon as it is

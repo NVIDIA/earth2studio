@@ -1,0 +1,121 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import os
+import tempfile
+from collections import OrderedDict
+
+import numpy as np
+import pytest
+import torch
+import zarr
+
+icechunk = pytest.importorskip("icechunk", reason="icechunk not installed")
+
+from earth2studio.io import IceChunkBackend  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "time",
+    [
+        [np.datetime64("1958-01-31")],
+        [np.datetime64("1971-06-01T06:00:00"), np.datetime64("2021-11-23T12:00:00")],
+    ],
+)
+@pytest.mark.parametrize(
+    "variable",
+    [["t2m"], ["t2m", "tcwv"]],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_icechunk_field(
+    time: list[np.datetime64], variable: list[str], device: str
+) -> None:
+
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray(time),
+            "variable": np.asarray(variable),
+            "lat": np.linspace(-90, 90, 180),
+            "lon": np.linspace(0, 360, 360, endpoint=False),
+        }
+    )
+
+    chunks = OrderedDict({"time": 1, "variable": 1, "lat": 180, "lon": 180})
+
+    # Test in-memory repository
+    io = IceChunkBackend(chunks=chunks)
+    assert isinstance(io.repo, icechunk.Repository)
+    assert isinstance(io.root, zarr.Group)
+
+    array_name = "fields"
+    io.add_array(total_coords, array_name)
+
+    for dim in total_coords:
+        assert dim in io
+        assert dim in io.coords
+        assert io[dim].shape == total_coords[dim].shape
+
+    assert array_name in io
+
+    shape = tuple(len(dim) for dim in total_coords.values())
+    assert io[array_name].shape == shape
+
+    x = torch.randn(shape, device=device, dtype=torch.float32)
+    io.write(x, total_coords, array_name)
+    assert np.allclose(io[array_name][:], x.to("cpu").numpy())
+
+    xx, _ = io.read(total_coords, array_name, device=device)
+    assert torch.allclose(x, xx)
+
+    # Commit and confirm the write survives a fresh readonly session
+    snapshot_id = io.commit("write fields")
+    assert isinstance(snapshot_id, str)
+
+    readonly = io.repo.readonly_session(io.branch)
+    root = zarr.open_group(readonly.store, mode="r")
+    assert np.allclose(root[array_name][:], x.to("cpu").numpy())
+
+
+def test_icechunk_local_filesystem_and_branch() -> None:
+
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray([np.datetime64("2021-01-01")]),
+            "variable": np.asarray(["t2m"]),
+            "lat": np.linspace(-90, 90, 8),
+            "lon": np.linspace(0, 360, 16, endpoint=False),
+        }
+    )
+    array_name = "fields"
+    shape = tuple(len(dim) for dim in total_coords.values())
+
+    with tempfile.TemporaryDirectory() as td:
+        repo_path = os.path.join(td, "repo")
+
+        io = IceChunkBackend(repo_path, branch="experiment")
+        assert io.branch == "experiment"
+        assert "experiment" in io.repo.list_branches()
+
+        io.add_array(total_coords, array_name)
+        x = torch.randn(shape, dtype=torch.float32)
+        io.write(x, total_coords, array_name)
+        io.commit("write fields")
+
+        # Reopen the repository on the same branch and confirm data persisted
+        io2 = IceChunkBackend(repo_path, branch="experiment")
+        assert array_name in io2
+        xx, _ = io2.read(total_coords, array_name)
+        assert torch.allclose(x, xx)
